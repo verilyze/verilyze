@@ -1,4 +1,5 @@
 //! Trait responsible for rendering the final report.
+#![deny(unsafe_code)]
 
 use async_trait::async_trait;
 use serde::Serialize;

@@ -1,14 +1,15 @@
 //! spd – the core binary for the Super‑Duper SCA tool.
-//! (Only the semaphore handling and a few imports were fixed.)
+#![deny(unsafe_code)]
 
 mod cli;
+mod config;
 mod registry;
 
-use anyhow::{anyhow, Context, Result}; // ← added `anyhow!`
+use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use log::{error, info, LevelFilter};
-use std::sync::Arc; // ← needed for Semaphore sharing
-use tokio::sync::Semaphore; // ← Tokio semaphore
+use std::sync::Arc;
+use tokio::sync::Semaphore;
 
 use crate::cli::{Cli, Commands};
 
@@ -37,15 +38,50 @@ async fn main() -> Result<()> {
     // -----------------------------------------------------------------
     let args = Cli::parse();
 
+    // Load config from files + env (no CLI overrides yet) for DB paths.
+    let early_cfg = config::load(
+        args.config.as_deref(),
+        config::env_parallel(),
+        config::env_cache_db(),
+        config::env_ignore_db(),
+        None,
+        None,
+        None,
+        false,
+        false,
+    )
+    .map_err(|e| {
+        error!("{}", e);
+        std::process::exit(2);
+    })?;
+
+    let cache_path = early_cfg
+        .cache_db
+        .clone()
+        .unwrap_or_else(config::default_cache_path);
+
     // -----------------------------------------------------------------
     // 3️⃣ Initialise plug‑ins (they register themselves via the macro)
     // -----------------------------------------------------------------
     #[cfg(feature = "redb")]
-    registry::ensure_default_db_backend();
+    {
+        if let Some(parent) = cache_path.parent() {
+            if !parent.exists() {
+                std::fs::create_dir_all(parent).context("Creating cache directory")?;
+            }
+        }
+        registry::ensure_default_db_backend_with_path(cache_path, early_cfg.cache_ttl_secs)
+            .map_err(|e| {
+                error!("Failed to open cache database: {}", e);
+                std::process::exit(2);
+            })?;
+    }
     registry::ensure_default_manifest_finder();
     registry::ensure_default_parser();
+    registry::ensure_default_resolver();
     registry::ensure_default_cve_provider();
     registry::ensure_default_reporter();
+    registry::ensure_default_integrity_checker();
 
     let db_backend = {
         let mut backends = registry::DB_BACKENDS
@@ -75,22 +111,44 @@ async fn main() -> Result<()> {
             format_type,
             summary_file,
             provider,
-            parallel,
+            parallel: cli_parallel,
+            cache_db: cli_cache_db,
+            ignore_db: cli_ignore_db,
             offline,
             benchmark,
         } => {
+            let effective = config::load(
+                args.config.as_deref(),
+                config::env_parallel(),
+                config::env_cache_db(),
+                config::env_ignore_db(),
+                cli_parallel,
+                cli_cache_db.as_deref(),
+                cli_ignore_db.as_deref(),
+                offline,
+                benchmark,
+            )
+            .map_err(|e| {
+                error!("{}", e);
+                std::process::exit(2);
+            })?;
             run_scan(
                 root,
                 format_type,
                 summary_file,
                 provider,
-                parallel,
-                offline,
-                benchmark,
+                effective,
                 args.verbose,
                 db_backend,
             )
             .await?;
+        }
+
+        Commands::List => {
+            let finders = registry::FINDERS.lock().expect("FINDERS lock poisoned");
+            if !finders.is_empty() {
+                println!("python");
+            }
         }
 
         Commands::Config { list } => {
@@ -100,6 +158,12 @@ async fn main() -> Result<()> {
         }
 
         Commands::Db { sub } => match sub {
+            cli::DbCommands::ListProviders => {
+                let providers = registry::PROVIDERS.lock().expect("PROVIDERS lock poisoned");
+                for p in providers.iter() {
+                    println!("{}", p.name());
+                }
+            }
             cli::DbCommands::Stats => {
                 let stats = db_backend.stats().await?;
                 println!(
@@ -108,7 +172,28 @@ async fn main() -> Result<()> {
                 );
             }
             cli::DbCommands::Verify => {
-                db_backend.verify_integrity().await?;
+                let checker = {
+                    let mut c = registry::INTEGRITY_CHECKERS
+                        .lock()
+                        .expect("INTEGRITY_CHECKERS lock poisoned");
+                    if c.is_empty() {
+                        None
+                    } else {
+                        Some(c.remove(0))
+                    }
+                };
+                if let Some(c) = checker {
+                    c.verify(db_backend.as_ref().as_ref()).await.map_err(|e| {
+                        error!("{}", e);
+                        std::process::exit(1);
+                    })?;
+                    registry::INTEGRITY_CHECKERS
+                        .lock()
+                        .expect("INTEGRITY_CHECKERS lock poisoned")
+                        .insert(0, c);
+                } else {
+                    db_backend.verify_integrity().await?;
+                }
                 println!("Database integrity verified (SHA‑256)");
             }
             cli::DbCommands::Migrate => {
@@ -132,11 +217,8 @@ async fn run_scan(
     format_type: String,
     summary_file: Vec<String>,
     provider: Option<String>,
-    parallel: usize,
-    offline: bool,
-    benchmark: bool,
-    verbosity: u8,
-    //db_backend: Box<dyn spd_db::DatabaseBackend>,
+    effective: config::EffectiveConfig,
+    _verbosity: u8,
     db_backend: Arc<Box<dyn spd_db::DatabaseBackend + Send + Sync + 'static>>,
 ) -> Result<()> {
     // -----------------------------------------------------------------
@@ -169,17 +251,38 @@ async fn run_scan(
         p.remove(0)
     };
 
-    let provider_impl = {
+    let resolver = {
+        let mut r = registry::RESOLVERS.lock().expect("RESOLVERS lock poisoned");
+        if r.is_empty() {
+            error!("No Resolver plug‑in registered");
+            std::process::exit(2);
+        }
+        r.remove(0)
+    };
+
+    let provider_impl: Arc<Box<dyn spd_cve_client::CveProvider + Send + Sync + 'static>> = {
         let mut prov = registry::PROVIDERS.lock().expect("PROVIDERS lock poisoned");
         if prov.is_empty() {
             error!("No CveProvider plug‑in registered");
             std::process::exit(2);
         }
-        //    prov.remove(0)
-        let p: Box<dyn spd_cve_client::CveProvider + Send + Sync + 'static> = prov.remove(0);
+        let p = if let Some(ref name) = provider {
+            let pos = prov.iter().position(|p| p.name() == name.as_str());
+            match pos {
+                Some(i) => prov.remove(i),
+                None => {
+                    error!(
+                        "Unknown provider: {} (use `spd db list-providers` to list)",
+                        name
+                    );
+                    std::process::exit(2);
+                }
+            }
+        } else {
+            prov.remove(0)
+        };
         Arc::new(p)
     };
-    let provider_impl = Arc::new(provider_impl);
 
     let reporter: Box<dyn spd_report::Reporter> = if format_type.eq_ignore_ascii_case("json") {
         Box::new(spd_report::JsonReporter::new())
@@ -195,8 +298,12 @@ async fn run_scan(
     // -----------------------------------------------------------------
     // c) Adjust mode flags (offline / benchmark)
     // -----------------------------------------------------------------
-    let effective_parallel = if benchmark { 1 } else { parallel };
-    let use_network = !(offline || benchmark);
+    let effective_parallel = if effective.benchmark {
+        1
+    } else {
+        effective.parallel_queries
+    };
+    let use_network = !(effective.offline || effective.benchmark);
 
     // -----------------------------------------------------------------
     // d) Scan phase – find manifest files
@@ -208,7 +315,7 @@ async fn run_scan(
     info!("Found {} manifest(s)", manifests.len());
 
     // -----------------------------------------------------------------
-    // e) Parse each manifest → dependency graph
+    // e) Parse each manifest → dependency graph, then resolve to packages
     // -----------------------------------------------------------------
     let mut all_packages = Vec::new();
     for mf in manifests {
@@ -216,7 +323,11 @@ async fn run_scan(
             .parse(&mf)
             .await
             .with_context(|| format!("Parsing manifest {:?}", mf))?;
-        all_packages.extend(graph.packages);
+        let resolved = resolver
+            .resolve(&graph)
+            .await
+            .with_context(|| format!("Resolving dependencies for {:?}", mf))?;
+        all_packages.extend(resolved);
     }
     info!("Discovered {} package entries", all_packages.len());
 
@@ -247,32 +358,18 @@ async fn run_scan(
 
             // 1️⃣ Check cache
             if let Some(cached) = db.as_ref().get(&pkg).await? {
-                // #region agent log
-                if let Ok(mut f) = std::fs::OpenOptions::new().append(true).create(true).open("/home/uno/projects/super-duper/.cursor/debug.log") {
-                    use std::io::Write;
-                    let pk = format!("{}::{}", pkg.name, pkg.version).replace('"', "\\\"");
-                    let ts = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
-                    let _ = writeln!(f, "{{\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"H1\",\"location\":\"spd/main.rs:cache\",\"message\":\"cache_hit\",\"data\":{{\"pkg\":\"{}\",\"cached_count\":{}}},\"timestamp\":{}}}", pk, cached.len(), ts);
-                }
-                // #endregion
                 return Ok((pkg.clone(), cached));
             }
 
-            // 2️⃣ Offline mode – we cannot query the network
+            // 2️⃣ Offline mode – we cannot query the network (FR-031)
             if !use_network {
-                return Err(anyhow!("CVE not in cache and offline mode is active"));
+                return Err(anyhow!(
+                    "CVE not found in cache, and unable to lookup CVE due to `--offline` argument."
+                ));
             }
 
             // 3️⃣ Query the provider (concurrent up to `effective_parallel`)
             let fetched = prov.as_ref().fetch(&pkg).await?;
-            // #region agent log
-            if let Ok(mut f) = std::fs::OpenOptions::new().append(true).create(true).open("/home/uno/projects/super-duper/.cursor/debug.log") {
-                use std::io::Write;
-                let pk = format!("{}::{}", pkg.name, pkg.version).replace('"', "\\\"");
-                let ts = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
-                let _ = writeln!(f, "{{\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"H1\",\"location\":\"spd/main.rs:fetch\",\"message\":\"fetch_used\",\"data\":{{\"pkg\":\"{}\",\"fetched_count\":{}}},\"timestamp\":{}}}", pk, fetched.records.len(), ts);
-            }
-            // #endregion
             db.as_ref().put(&pkg, &fetched.raw_vulns).await?;
             Ok((pkg.clone(), fetched.records))
         };
@@ -283,27 +380,25 @@ async fn run_scan(
     // -----------------------------------------------------------------
     // g) Gather results, apply false‑positive filtering & severity map
     // -----------------------------------------------------------------
+    let mut offline_cache_miss = false;
     for h in handles {
         match h.await? {
             Ok((pkg, recs)) => {
-                // ----- false‑positive filtering (stub) -----
-                // Real implementation would consult the FP DB.
-                // ------------------------------------------------
-
-                // ----- severity mapping (stub) -----
-                // Real implementation would map CVSS v3 scores to the enum.
-                // ------------------------------------------------
-
                 findings.push((pkg, recs));
             }
             Err(e) => {
-                if offline {
-                    info!("Offline – skipping network lookup: {}", e);
+                let msg = e.to_string();
+                if effective.offline && msg.contains("--offline") {
+                    offline_cache_miss = true;
                 } else {
                     error!("Error while processing a package: {}", e);
                 }
             }
         }
+    }
+    if offline_cache_miss {
+        eprintln!("CVE not found in cache, and unable to lookup CVE due to `--offline` argument.");
+        std::process::exit(4);
     }
 
     // -----------------------------------------------------------------
@@ -317,23 +412,24 @@ async fn run_scan(
     // i) Resolve severity (FR‑013) and render the report (FR‑007, FR‑008, FR‑009)
     // -----------------------------------------------------------------
     let severity_config = spd_report::SeverityConfig::default();
-    let report_findings: Vec<(spd_db::Package, Vec<(spd_db::CveRecord, spd_db::Severity)>)> = findings
-        .into_iter()
-        .map(|(pkg, recs)| {
-            let with_severity: Vec<_> = recs
-                .into_iter()
-                .map(|cve| {
-                    let severity = spd_report::resolve_severity(
-                        cve.cvss_score,
-                        cve.cvss_version,
-                        &severity_config,
-                    );
-                    (cve, severity)
-                })
-                .collect();
-            (pkg, with_severity)
-        })
-        .collect();
+    let report_findings: Vec<(spd_db::Package, Vec<(spd_db::CveRecord, spd_db::Severity)>)> =
+        findings
+            .into_iter()
+            .map(|(pkg, recs)| {
+                let with_severity: Vec<_> = recs
+                    .into_iter()
+                    .map(|cve| {
+                        let severity = spd_report::resolve_severity(
+                            cve.cvss_score,
+                            cve.cvss_version,
+                            &severity_config,
+                        );
+                        (cve, severity)
+                    })
+                    .collect();
+                (pkg, with_severity)
+            })
+            .collect();
     let report_data = spd_report::ReportData {
         findings: report_findings,
     };
@@ -358,7 +454,7 @@ async fn run_scan(
     // -----------------------------------------------------------------
     // k) Benchmark mode handling (FR‑029)
     // -----------------------------------------------------------------
-    if benchmark {
+    if effective.benchmark {
         println!("{{\"benchmark\":{{\"duration_ms\":0,\"cpu_percent\":0,\"mem_mb\":0}}}}");
     }
 

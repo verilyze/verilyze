@@ -1,4 +1,5 @@
 //! DatabaseBackend trait – the abstraction used by the core binary.
+#![deny(unsafe_code)]
 
 use async_trait::async_trait;
 //use std::path::PathBuf;
