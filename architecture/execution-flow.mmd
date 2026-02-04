@@ -1,0 +1,72 @@
+flowchart TD
+    %% Entry point
+    Start["Start spd scan"]
+
+    %% Configuration & environment
+    Config["Load configuration (CLI > env > files)"]
+    ModeCheck{"Mode flags?"}
+    Offline["--offline: skip network"]
+    Benchmark["--benchmark: disable cache & network, parallel=1"]
+    BenchmarkCheck{"Benchmark?"}
+    ParallelCfg["Parallelism (≤ max‑queries)"]
+    BackoffCfg["Back‑off & retry settings"]
+
+    %% Scanning phases
+    Find["ManifestFinder::find(root)"]
+    Parse["Parser::parse(manifest)"]
+    Resolve["Resolver::resolve(dep‑graph)"]
+    Reachability["AST / data‑flow reachability analysis"]
+    
+    %% Cache handling
+    CacheCheck{Cache hit?}
+    
+    %% Offline handling
+    OfflineCheck{Offline?}
+
+    %% Post‑lookup processing
+    FPFilter["Apply false‑positive DB"]
+    Severity["Map CVSS → severity"]
+    Threshold["Count & compare to min‑score / min‑count"]
+    
+    %% Exit‑code logic
+    ExitDecision{"Determine exit code"}
+    ExitNormal["0 – success (no CVE)"]
+    ExitCVE["86 – CVE(s) meet thresholds"]
+    ExitOverride["Override (user‑defined)"]
+    
+    %% Reporting
+    Report["Reporter::render(report)"]
+    BenchReport["Emit benchmark JSON (duration, mem, cpu)"]
+    
+    %% Finish
+    End([Finish])
+
+    %% Flow connections
+    Start --> Config --> ModeCheck
+    ModeCheck -- normal --> ParallelCfg
+    ModeCheck -- offline --> Offline
+    ModeCheck -- benchmark --> Benchmark
+
+    ParallelCfg --> BackoffCfg --> Find
+    Offline --> Find
+    Benchmark --> Find
+
+    Find --> Parse --> Resolve --> CacheCheck
+
+    CacheCheck -- hit --> FPFilter
+    CacheCheck -- miss --> OfflineCheck
+    OfflineCheck -- no --> Query["CveProvider::fetch(pkg)"] --> CacheWrite["Write result to RedB (TTL, atomic)"] --> FPFilter
+    OfflineCheck -- yes --> OfflineError --> End
+
+    FPFilter --> Reachability --> Severity --> Threshold --> ExitDecision
+    ExitDecision -- exit 0 --> ExitNormal
+    ExitDecision -- exit 86 --> ExitCVE
+    ExitDecision -- user‑override --> ExitOverride
+
+    ExitNormal --> Report
+    ExitCVE --> Report
+    ExitOverride --> Report
+
+    Report --> BenchmarkCheck
+    BenchmarkCheck -- no --> End
+    BenchmarkCheck -- yes --> BenchReport --> End

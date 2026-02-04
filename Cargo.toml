@@ -1,0 +1,31 @@
+# ------------------------------------------------------------
+# super‑duper – workspace root
+# ------------------------------------------------------------
+[workspace]
+members = [
+    "spd",                     # core binary
+    "spd-db",                  # trait definitions
+    "spd-db-redb",             # default RedB backend (this crate)
+    "spd-manifest-finder",
+    "spd-manifest-parser",
+    "spd-cve-client",
+    "spd-report",
+    "spd-integrity",
+]
+
+# Enforce a single Rust edition for all members
+resolver = "2"
+
+# ----------------------------------------------------------------
+# Shared workspace-wide metadata (optional but useful)
+# ----------------------------------------------------------------
+[workspace.package]
+edition = "2024"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/your-org/super-duper"
+homepage = "https://github.com/your-org/super-duper"
+authors = ["Your Name <you@example.com>"]
+description = "Super‑Duper – fast, modular Software Composition Analysis tool"
+keywords = ["sca", "supply‑chain", "rust", "cve", "sbom"]
+categories = ["command-line-utilities", "development-tools"]
+readme = "README.md"
