@@ -1,0 +1,34 @@
+graph TD
+    %% Core binary
+    A["spd (binary crate)"]
+    %% Library crates
+    B["spd-manifest-finder"]
+    C["spd-manifest-parser"]
+    D["spd-cve-client"]
+    E["spd-db (trait definitions)"]
+    F["spd-report"]
+    G["spd-integrity"]
+    %% Concrete implementations (plug‑ins)
+    H["spd-db-redb (default DatabaseBackend)"]
+    I["spd-db-sqlite (optional)"]
+    J["spd-db-mem (test/mock)"]
+    %% Edges from binary to libraries
+    A --> B
+    A --> C
+    A --> D
+    A --> E
+    A --> F
+    A --> G
+    %% Edges from libraries to the traits they expose (collapsed for brevity)
+    B -.->|defines| ManifestFinder
+    C -.->|defines| Parser
+    D -.->|defines| CveProvider
+    E -.->|defines| DatabaseBackend
+    F -.->|defines| Reporter
+    G -.->|defines| IntegrityChecker
+    %% Registration edges (plug‑in discovery)
+    H -->|"spd_register! (feature = redb)"| A
+    I -->|"spd_register! (feature = sqlite)"| A
+    J -->|"spd_register! (feature = mem)"| A
+    %% Visual styling
+    style A fill:#f9f,stroke:#333,stroke-width:2px

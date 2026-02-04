@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant Core as spd "(core binary)"
+    participant Registry as "lazy_static!<br/> Vec<Box<dyn PluginTrait>>"
+    participant Plugin as "language / provider crate"
+
+    %% Plug‑in registration (compile-time, one-way)
+    Plugin -) Registry: spd_register!()  // pushes Box::new(ConcreteImpl)
+
+    %% Runtime start‑up (core reads the compiled registry)
+    Core ->> Registry: initialize (enumerate compiled plug‑ins)
+    Registry -->> Core: collection of ManifestFinder instances
+    Registry -->> Core: collection of Parser instances
+    Registry -->> Core: collection of CveProvider instances
+    Registry -->> Core: collection of DatabaseBackend instances
+    Registry -->> Core: collection of IntegrityChecker instances
+    Registry -->> Core: collection of Reporter instances

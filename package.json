@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@mermaid-js/mermaid-cli": "github:mermaid-js/mermaid-cli"
+  }
+}

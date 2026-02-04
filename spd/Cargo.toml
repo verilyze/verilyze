@@ -1,0 +1,38 @@
+[package]
+name = "spd"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+description = "Super Duper - fast, modular SCA command-line tool"
+publish = false               # internal binary, not published to crates.io
+
+[[bin]]
+name = "spd"
+path = "src/main.rs"
+
+[dependencies]
+# Core utilities
+clap = { version = "4.5", features = ["derive"] }
+tokio = { version = "1.38", features = ["full"] }
+log = "0.4"
+env_logger = "0.11"
+anyhow = "1.0"
+lazy_static = "1.5"
+
+# Workspace‑internal trait crates
+spd-db = { path = "../spd-db" }
+spd-manifest-finder = { path = "../spd-manifest-finder" }
+spd-manifest-parser = { path = "../spd-manifest-parser" }
+spd-cve-client = { path = "../spd-cve-client" }
+spd-report = { path = "../spd-report" }
+spd-integrity = { path = "../spd-integrity" }
+
+# Default database implementation (feature‑gated)
+spd-db-redb = { path = "../spd-db-redb", optional = true }
+
+# Feature gating – matches MOD‑003
+[features]
+default = ["redb"]
+redb = ["spd-db-redb"]
+sqlite = []      # placeholder for a future SQLite backend
+mem = []         # placeholder for an in‑memory/mock backend
