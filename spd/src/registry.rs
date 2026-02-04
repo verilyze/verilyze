@@ -1,5 +1,7 @@
 //! Global registries for each plug‑in type.
 //! The core binary pulls the concrete implementations out of these vectors.
+//! Registration is binary-driven: ensure_default_* use spd_register! for types
+//! with ::new(), or manual register() for types using ::default().
 
 use lazy_static::lazy_static;
 use std::sync::Mutex;
@@ -9,6 +11,7 @@ use spd_db::DatabaseBackend;
 use spd_integrity::IntegrityChecker;
 use spd_manifest_finder::{DefaultManifestFinder, ManifestFinder};
 use spd_manifest_parser::{Parser, RequirementsTxtParser};
+use spd_plugin_macro::spd_register;
 use spd_report::{DefaultReporter, Reporter};
 
 /// All possible plug‑in kinds.  The enum makes it easy to route a boxed
@@ -66,18 +69,16 @@ pub fn ensure_default_db_backend() {
 /// Ensures at least one manifest finder is registered (default Python finder).
 /// Call this at startup so the default finder is used when no plugin has registered one.
 pub fn ensure_default_manifest_finder() {
-    let mut finders = FINDERS.lock().unwrap();
-    if finders.is_empty() {
-        finders.push(Box::new(DefaultManifestFinder::new()));
+    if FINDERS.lock().unwrap().is_empty() {
+        spd_register!(ManifestFinder, DefaultManifestFinder);
     }
 }
 
 /// Ensures at least one parser is registered (default requirements.txt parser).
 /// Call this at startup so the default parser is used when no plugin has registered one.
 pub fn ensure_default_parser() {
-    let mut parsers = PARSERS.lock().unwrap();
-    if parsers.is_empty() {
-        parsers.push(Box::new(RequirementsTxtParser::new()));
+    if PARSERS.lock().unwrap().is_empty() {
+        spd_register!(Parser, RequirementsTxtParser);
     }
 }
 
@@ -93,9 +94,8 @@ pub fn ensure_default_cve_provider() {
 /// Ensures at least one reporter is registered (default plain-text table reporter).
 /// Call this at startup so the default reporter is used when no plugin has registered one.
 pub fn ensure_default_reporter() {
-    let mut reporters = REPORTERS.lock().unwrap();
-    if reporters.is_empty() {
-        reporters.push(Box::new(DefaultReporter::new()));
+    if REPORTERS.lock().unwrap().is_empty() {
+        spd_register!(Reporter, DefaultReporter);
     }
 }
 

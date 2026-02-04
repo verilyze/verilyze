@@ -1156,6 +1156,7 @@ dependencies = [
  "spd-integrity",
  "spd-manifest-finder",
  "spd-manifest-parser",
+ "spd-plugin-macro",
  "spd-report",
  "tokio",
 ]
@@ -1224,6 +1225,15 @@ dependencies = [
  "spd-db",
  "thiserror",
  "tokio",
+]
+
+[[package]]
+name = "spd-plugin-macro"
+version = "1.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
