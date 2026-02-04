@@ -1,0 +1,15 @@
+[package]
+name = "spd-manifest-parser"
+version = "1.0.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+description = "Trait for parsing manifests into a dependency graph"
+publish = false
+
+[dependencies]
+async-trait = "0.1"
+thiserror = "2.0"
+spd-db = { path = "../spd-db" }   # re‑uses the Package struct
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }
