@@ -11,6 +11,7 @@ members = [
     "spd-cve-client",
     "spd-report",
     "spd-integrity",
+    "spd-plugin-macro",        # procedural macro for plugin registration
 ]
 
 # Enforce a single Rust edition for all members

@@ -30,6 +30,9 @@ spd-integrity = { path = "../spd-integrity" }
 # Default database implementation (feature‑gated)
 spd-db-redb = { path = "../spd-db-redb", optional = true }
 
+# Macro for plugin registration (used in registry.rs)
+spd-plugin-macro = { path = "../spd-plugin-macro" }
+
 # Feature gating – matches MOD‑003
 [features]
 default = ["redb"]
