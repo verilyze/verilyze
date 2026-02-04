@@ -41,9 +41,17 @@ pub enum Commands {
         #[arg(long)]
         provider: Option<String>,
 
-        /// Parallel query limit (default 10)
-        #[arg(long, default_value_t = 10)]
-        parallel: usize,
+        /// Parallel query limit (default 10, max 50)
+        #[arg(long)]
+        parallel: Option<usize>,
+
+        /// Override cache database path
+        #[arg(long, value_name = "PATH")]
+        cache_db: Option<String>,
+
+        /// Override ignore (false-positive) database path
+        #[arg(long, value_name = "PATH")]
+        ignore_db: Option<String>,
 
         /// Disable network access
         #[arg(long)]
@@ -54,19 +62,22 @@ pub enum Commands {
         benchmark: bool,
     },
 
+    /// List registered language/plugin names (FR-005)
+    List,
+
     /// Show configuration values
     Config {
         #[arg(long)]
         list: bool,
     },
 
-    /// Database sub‑commands (stats, verify, migrate, …)
+    /// Database sub‑commands (stats, verify, migrate, list-providers, …)
     Db {
         #[command(subcommand)]
         sub: DbCommands,
     },
 
-    /// Show version / licence information
+    /// Show version / license information
     Version,
 }
 
@@ -75,4 +86,6 @@ pub enum DbCommands {
     Stats,
     Verify,
     Migrate,
+    /// List supported CVE providers (FR-018)
+    ListProviders,
 }

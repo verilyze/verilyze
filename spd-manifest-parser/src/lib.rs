@@ -1,4 +1,5 @@
 //! Trait that parses a manifest file into a dependency graph.
+#![deny(unsafe_code)]
 
 use async_trait::async_trait;
 use std::path::PathBuf;
@@ -7,6 +8,15 @@ use std::path::PathBuf;
 pub enum ParserError {
     #[error("Parse error: {0}")]
     Parse(String),
+
+    #[error("{0}")]
+    Other(String),
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum ResolverError {
+    #[error("Resolve error: {0}")]
+    Resolve(String),
 
     #[error("{0}")]
     Other(String),
@@ -26,6 +36,15 @@ pub trait Parser: Send + Sync {
     async fn parse(&self, manifest: &PathBuf) -> Result<DependencyGraph, ParserError>;
 }
 
+/// Resolves a dependency graph to a full list of packages (e.g. transitive deps).
+/// Default implementation returns direct dependencies only; language plugins may
+/// use lock files or package managers to resolve transitive deps (FR-022).
+#[async_trait]
+pub trait Resolver: Send + Sync {
+    /// Resolve the dependency graph to a flat list of packages.
+    async fn resolve(&self, graph: &DependencyGraph) -> Result<Vec<spd_db::Package>, ResolverError>;
+}
+
 /// Default parser for `requirements.txt` files.
 /// For other manifest paths (e.g. `pyproject.toml`) returns an empty graph so the scan can continue.
 #[derive(Debug, Default)]
@@ -35,6 +54,24 @@ impl RequirementsTxtParser {
     /// Create a new requirements.txt parser.
     pub fn new() -> Self {
         Self
+    }
+}
+
+/// Default resolver: returns direct dependencies only (no lock file / package manager).
+#[derive(Debug, Default)]
+pub struct DirectOnlyResolver;
+
+impl DirectOnlyResolver {
+    /// Create a new direct-only resolver.
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[async_trait]
+impl Resolver for DirectOnlyResolver {
+    async fn resolve(&self, graph: &DependencyGraph) -> Result<Vec<spd_db::Package>, ResolverError> {
+        Ok(graph.packages.clone())
     }
 }
 

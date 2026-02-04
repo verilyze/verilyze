@@ -3,6 +3,7 @@
 //! Persists CVE cache entries in a single RedB file with one table.
 //! Respects TTL (OP‑009 / FR‑011), atomic writes (FR‑030), and
 //! SHA‑256 integrity verification (SEC‑004).
+#![deny(unsafe_code)]
 
 use async_trait::async_trait;
 use redb::{Database, ReadableTable, TableDefinition};
