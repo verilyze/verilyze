@@ -1,8 +1,27 @@
+// SPDX-FileCopyrightText: 2026 Travis Post <post.travis+git@gmail.com>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// This file is part of super-duper. Copyright © 2026 Travis Post
+//
+// super-duper is free software: you can redistribute it and/or modify it under
+// the terms of the GNU General Public License as published by the Free
+// Software Foundation, either version 3 of the License, or (at your option)
+// any later version.
+//
+// super-duper is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+// more details.
+
+// You should have received a copy of the GNU General Public License along with
+// super-duper. If not, see <https://www.gnu.org/licenses/>.
+
 //! RedB‑backed implementation of `DatabaseBackend`.
 //!
 //! Persists CVE cache entries in a single RedB file with one table.
 //! Respects TTL (OP‑009 / FR‑011), atomic writes (FR‑030), and
 //! SHA‑256 integrity verification (SEC‑004).
+
 #![deny(unsafe_code)]
 
 use async_trait::async_trait;
@@ -99,7 +118,9 @@ impl RedbBackend {
             let _ = table.remove(k.as_str());
         }
         drop(table);
-        write_txn.commit().map_err(|e| DatabaseError::Other(e.to_string()))?;
+        write_txn
+            .commit()
+            .map_err(|e| DatabaseError::Other(e.to_string()))?;
         Ok(())
     }
 }
@@ -120,7 +141,10 @@ impl DatabaseBackend for RedbBackend {
         let table = read_txn
             .open_table(CACHE_TABLE)
             .map_err(|e| DatabaseError::Other(e.to_string()))?;
-        let guard = match table.get(key.as_str()).map_err(|e| DatabaseError::Other(e.to_string()))? {
+        let guard = match table
+            .get(key.as_str())
+            .map_err(|e| DatabaseError::Other(e.to_string()))?
+        {
             Some(g) => g,
             None => return Ok(None),
         };
@@ -144,7 +168,11 @@ impl DatabaseBackend for RedbBackend {
         Ok(Some(records))
     }
 
-    async fn put(&self, pkg: &Package, raw_vulns: &[serde_json::Value]) -> Result<(), DatabaseError> {
+    async fn put(
+        &self,
+        pkg: &Package,
+        raw_vulns: &[serde_json::Value],
+    ) -> Result<(), DatabaseError> {
         let key = pkg_key(pkg);
         let entry = StoredEntry {
             raw_vulns: raw_vulns.to_vec(),
@@ -162,7 +190,9 @@ impl DatabaseBackend for RedbBackend {
             .insert(key.as_str(), value.as_str())
             .map_err(|e| DatabaseError::Other(e.to_string()))?;
         drop(table);
-        write_txn.commit().map_err(|e| DatabaseError::Other(e.to_string()))?;
+        write_txn
+            .commit()
+            .map_err(|e| DatabaseError::Other(e.to_string()))?;
         Ok(())
     }
 
@@ -174,7 +204,9 @@ impl DatabaseBackend for RedbBackend {
         let table = read_txn
             .open_table(CACHE_TABLE)
             .map_err(|e| DatabaseError::Other(e.to_string()))?;
-        let total = table.len().map_err(|e| DatabaseError::Other(e.to_string()))? as usize;
+        let total = table
+            .len()
+            .map_err(|e| DatabaseError::Other(e.to_string()))? as usize;
         Ok(DatabaseStats {
             cached_entries: total,
             hits: 0,
@@ -193,7 +225,10 @@ impl DatabaseBackend for RedbBackend {
             .open_table(CACHE_TABLE)
             .map_err(|e| DatabaseError::Other(e.to_string()))?;
         let mut hasher = Sha256::new();
-        for entry in table.iter().map_err(|e| DatabaseError::Other(e.to_string()))? {
+        for entry in table
+            .iter()
+            .map_err(|e| DatabaseError::Other(e.to_string()))?
+        {
             let (k, v) = entry.map_err(|e| DatabaseError::Other(e.to_string()))?;
             let line = format!("{}|{}", k.value(), v.value());
             hasher.update(line.as_bytes());
@@ -206,5 +241,133 @@ impl DatabaseBackend for RedbBackend {
 impl Default for RedbBackend {
     fn default() -> Self {
         Self::new(5 * 24 * 60 * 60) // 5 days
+    }
+}
+
+// ---------------------------------------------------------------------------
+// False-positive (ignore) DB – separate RedB file per FR-015
+// ---------------------------------------------------------------------------
+
+/// RedB table for false-positive markings: key = CVE ID, value = JSON FpEntry.
+const FALSE_POSITIVE_TABLE: TableDefinition<&str, &str> = TableDefinition::new("false_positive");
+
+/// Stored row for a CVE marked as false positive (FR-015: comment, timestamp, user/host, optional project_id).
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct FpEntry {
+    pub comment: String,
+    pub timestamp_secs: u64,
+    pub user: Option<String>,
+    pub host: Option<String>,
+    pub project_id: Option<String>,
+}
+
+/// Separate RedB database for false-positive markings (spd-ignore.redb).
+#[derive(Clone)]
+pub struct RedbIgnoreDb {
+    db: Arc<Database>,
+}
+
+impl RedbIgnoreDb {
+    /// Open or create the ignore DB at `path`.
+    pub fn with_path(path: PathBuf) -> Result<Self, DatabaseError> {
+        if let Some(parent) = path.parent() {
+            if !parent.exists() {
+                std::fs::create_dir_all(parent).map_err(|e| DatabaseError::Io(e))?;
+            }
+        }
+        let db = Database::create(path).map_err(|e| DatabaseError::Other(e.to_string()))?;
+        Ok(Self { db: Arc::new(db) })
+    }
+
+    /// Mark a CVE as false positive (FR-015).
+    pub fn mark(
+        &self,
+        cve_id: &str,
+        comment: &str,
+        project_id: Option<&str>,
+    ) -> Result<(), DatabaseError> {
+        let now_secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or(Duration::ZERO)
+            .as_secs();
+        let user = std::env::var("USER").ok();
+        let host = std::env::var("HOSTNAME").ok();
+        let entry = FpEntry {
+            comment: comment.to_string(),
+            timestamp_secs: now_secs,
+            user,
+            host,
+            project_id: project_id.map(String::from),
+        };
+        let value = serde_json::to_string(&entry).map_err(DatabaseError::Serde)?;
+        let write_txn = self
+            .db
+            .begin_write()
+            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+        let mut table = write_txn
+            .open_table(FALSE_POSITIVE_TABLE)
+            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+        table
+            .insert(cve_id, value.as_str())
+            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+        drop(table);
+        write_txn
+            .commit()
+            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Remove a false-positive marking.
+    pub fn unmark(&self, cve_id: &str) -> Result<(), DatabaseError> {
+        let write_txn = self
+            .db
+            .begin_write()
+            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+        let mut table = write_txn
+            .open_table(FALSE_POSITIVE_TABLE)
+            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+        table
+            .remove(cve_id)
+            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+        drop(table);
+        write_txn
+            .commit()
+            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Return true if the CVE is marked as false positive.
+    pub fn is_marked(&self, cve_id: &str) -> Result<bool, DatabaseError> {
+        let read_txn = self
+            .db
+            .begin_read()
+            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+        let table = read_txn
+            .open_table(FALSE_POSITIVE_TABLE)
+            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+        Ok(table
+            .get(cve_id)
+            .map_err(|e| DatabaseError::Other(e.to_string()))?
+            .is_some())
+    }
+
+    /// Return the set of all CVE IDs marked as false positive (for filtering in scan).
+    pub fn marked_ids(&self) -> Result<std::collections::HashSet<String>, DatabaseError> {
+        let read_txn = self
+            .db
+            .begin_read()
+            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+        let table = read_txn
+            .open_table(FALSE_POSITIVE_TABLE)
+            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+        let set: std::collections::HashSet<String> = table
+            .iter()
+            .map_err(|e| DatabaseError::Other(e.to_string()))?
+            .filter_map(|e| {
+                let (k, _) = e.ok()?;
+                Some(k.value().to_string())
+            })
+            .collect();
+        Ok(set)
     }
 }

@@ -1,10 +1,29 @@
+// SPDX-FileCopyrightText: 2026 Travis Post <post.travis+git@gmail.com>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// This file is part of super-duper. Copyright © 2026 Travis Post
+//
+// super-duper is free software: you can redistribute it and/or modify it under
+// the terms of the GNU General Public License as published by the Free
+// Software Foundation, either version 3 of the License, or (at your option)
+// any later version.
+//
+// super-duper is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+// more details.
+
+// You should have received a copy of the GNU General Public License along with
+// super-duper. If not, see <https://www.gnu.org/licenses/>.
+
 //! Trait responsible for rendering the final report.
+
 #![deny(unsafe_code)]
 
 use async_trait::async_trait;
 use serde::Serialize;
-use std::io::Write;
 use spd_db::{CveRecord, CvssVersion, Package, Severity};
+use std::io::Write;
 
 const DESCRIPTION_MAX_LEN: usize = 60;
 
@@ -53,7 +72,9 @@ pub fn resolve_severity(
     version: Option<CvssVersion>,
     config: &SeverityConfig,
 ) -> Severity {
-    let Some(s) = score else { return Severity::Unknown };
+    let Some(s) = score else {
+        return Severity::Unknown;
+    };
     let thresholds = match version {
         Some(CvssVersion::V2) => &config.v2,
         Some(CvssVersion::V3) => &config.v3,
@@ -89,8 +110,30 @@ pub struct ReportData {
 
 #[async_trait]
 pub trait Reporter: Send + Sync {
-    /// Render the report to stdout (or a file, depending on CLI flags).
-    async fn render(&self, data: &ReportData) -> Result<(), ReportError>;
+    /// Render the report to the given writer (used for stdout and --summary-file).
+    async fn render_to_writer(
+        &self,
+        data: &ReportData,
+        w: &mut (dyn std::io::Write + Send),
+    ) -> Result<(), ReportError>;
+
+    /// Render the report to stdout.
+    async fn render(&self, data: &ReportData) -> Result<(), ReportError> {
+        let mut buf = Vec::new();
+        self.render_to_writer(data, &mut buf).await?;
+        std::io::stdout().lock().write_all(&buf)?;
+        Ok(())
+    }
+
+    /// Render the report to a file (FR-008 --summary-file).
+    async fn render_to_path(
+        &self,
+        data: &ReportData,
+        path: &std::path::Path,
+    ) -> Result<(), ReportError> {
+        let mut f = std::fs::File::create(path)?;
+        self.render_to_writer(data, &mut f).await
+    }
 }
 
 /// Default reporter that prints a plain-text table to stdout (FR-007).
@@ -106,14 +149,17 @@ impl DefaultReporter {
 
 #[async_trait]
 impl Reporter for DefaultReporter {
-    async fn render(&self, data: &ReportData) -> Result<(), ReportError> {
-        let mut out = std::io::stdout().lock();
+    async fn render_to_writer(
+        &self,
+        data: &ReportData,
+        w: &mut (dyn std::io::Write + Send),
+    ) -> Result<(), ReportError> {
         if data.findings.is_empty() {
-            writeln!(out, "No vulnerabilities found.")?;
+            writeln!(w, "No vulnerabilities found.")?;
             return Ok(());
         }
-        writeln!(out, "Package | Version | CVE ID | Severity | Description")?;
-        writeln!(out, "{}", "-".repeat(80))?;
+        writeln!(w, "Package | Version | CVE ID | Severity | Description")?;
+        writeln!(w, "{}", "-".repeat(80))?;
         for (pkg, recs) in &data.findings {
             for (cve, severity) in recs {
                 let severity_display = severity.as_str();
@@ -127,13 +173,13 @@ impl Reporter for DefaultReporter {
                     desc
                 };
                 writeln!(
-                    out,
+                    w,
                     "{} | {} | {} | {} | {}",
                     pkg.name, pkg.version, cve.id, severity_display, desc_display
                 )?;
             }
         }
-        out.flush()?;
+        w.flush()?;
         Ok(())
     }
 }
@@ -170,7 +216,11 @@ impl JsonReporter {
 
 #[async_trait]
 impl Reporter for JsonReporter {
-    async fn render(&self, data: &ReportData) -> Result<(), ReportError> {
+    async fn render_to_writer(
+        &self,
+        data: &ReportData,
+        w: &mut (dyn std::io::Write + Send),
+    ) -> Result<(), ReportError> {
         let report = JsonReport {
             findings: data
                 .findings
@@ -187,11 +237,123 @@ impl Reporter for JsonReporter {
                 })
                 .collect(),
         };
-        let mut out = std::io::stdout().lock();
-        serde_json::to_writer_pretty(&mut out, &report)
-            .map_err(|e| ReportError::Other(e.to_string()))?;
-        writeln!(out).map_err(ReportError::Io)?;
-        out.flush()?;
+        let s =
+            serde_json::to_string_pretty(&report).map_err(|e| ReportError::Other(e.to_string()))?;
+        writeln!(w, "{}", s).map_err(ReportError::Io)?;
+        w.flush()?;
         Ok(())
+    }
+}
+
+/// Reporter that outputs a minimal HTML table (FR-008 --summary-file html:path).
+#[derive(Debug, Default)]
+pub struct HtmlReporter;
+
+impl HtmlReporter {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[async_trait]
+impl Reporter for HtmlReporter {
+    async fn render_to_writer(
+        &self,
+        data: &ReportData,
+        w: &mut (dyn std::io::Write + Send),
+    ) -> Result<(), ReportError> {
+        writeln!(w, "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>spd report</title></head><body>")?;
+        writeln!(w, "<h1>Vulnerability report</h1>")?;
+        if data.findings.is_empty() {
+            writeln!(w, "<p>No vulnerabilities found.</p>")?;
+        } else {
+            writeln!(w, "<table border=\"1\"><thead><tr><th>Package</th><th>Version</th><th>CVE ID</th><th>Severity</th><th>Description</th></tr></thead><tbody>")?;
+            for (pkg, recs) in &data.findings {
+                for (cve, severity) in recs {
+                    let desc_escaped = html_escape(&cve.description);
+                    writeln!(
+                        w,
+                        "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                        html_escape(&pkg.name),
+                        html_escape(&pkg.version),
+                        html_escape(&cve.id),
+                        severity.as_str(),
+                        desc_escaped
+                    )?;
+                }
+            }
+            writeln!(w, "</tbody></table>")?;
+        }
+        writeln!(w, "</body></html>")?;
+        w.flush()?;
+        Ok(())
+    }
+}
+
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
+
+/// Reporter that outputs SARIF 2.1.0 JSON (FR-008 --summary-file sarif:path).
+#[derive(Debug, Default)]
+pub struct SarifReporter;
+
+impl SarifReporter {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[async_trait]
+impl Reporter for SarifReporter {
+    async fn render_to_writer(
+        &self,
+        data: &ReportData,
+        w: &mut (dyn std::io::Write + Send),
+    ) -> Result<(), ReportError> {
+        let results: Vec<serde_json::Value> = data
+            .findings
+            .iter()
+            .flat_map(|(pkg, recs)| {
+                recs.iter().map(|(cve, severity)| {
+                    serde_json::json!({
+                        "ruleId": cve.id,
+                        "level": severity_level_sarif(severity),
+                        "message": { "text": cve.description },
+                        "properties": {
+                            "package": pkg.name,
+                            "version": pkg.version,
+                            "severity": severity.as_str()
+                        }
+                    })
+                })
+            })
+            .collect();
+        let sarif = serde_json::json!({
+            "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [{
+                "tool": { "driver": { "name": "spd", "informationUri": "https://github.com/your-org/super-duper" } },
+                "results": results
+            }]
+        });
+        let s =
+            serde_json::to_string_pretty(&sarif).map_err(|e| ReportError::Other(e.to_string()))?;
+        writeln!(w, "{}", s).map_err(ReportError::Io)?;
+        w.flush()?;
+        Ok(())
+    }
+}
+
+fn severity_level_sarif(s: &Severity) -> &'static str {
+    match s {
+        Severity::Critical => "error",
+        Severity::High => "error",
+        Severity::Medium => "warning",
+        Severity::Low => "warning",
+        Severity::Unknown => "note",
     }
 }

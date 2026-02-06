@@ -12,6 +12,7 @@ members = [
     "spd-report",
     "spd-integrity",
     "spd-plugin-macro",        # procedural macro for plugin registration
+    "tools/xtask"
 ]
 
 # Enforce a single Rust edition for all members
