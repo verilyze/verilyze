@@ -1,6 +1,8 @@
 graph TD
     %% Core binary
     A["spd (binary crate)"]
+    %% Macro crate (used by binary for plugin registration)
+    M["spd-plugin-macro"]
     %% Library crates
     B["spd-manifest-finder"]
     C["spd-manifest-parser"]
@@ -10,8 +12,8 @@ graph TD
     G["spd-integrity"]
     %% Concrete implementations (plug‑ins)
     H["spd-db-redb (default DatabaseBackend)"]
-    I["spd-db-sqlite (optional)"]
-    J["spd-db-mem (test/mock)"]
+    I["spd-db-sqlite (optional, future)"]
+    J["spd-db-mem (test/mock, future)"]
     %% Edges from binary to libraries
     A --> B
     A --> C
@@ -19,6 +21,7 @@ graph TD
     A --> E
     A --> F
     A --> G
+    A --> M
     %% Edges from libraries to the traits they expose (collapsed for brevity)
     B -.->|defines| ManifestFinder
     C -.->|defines| Parser

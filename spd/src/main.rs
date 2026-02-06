@@ -1,4 +1,23 @@
-//! spd – the core binary for the Super‑Duper SCA tool.
+// SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// This file is part of super-duper. Copyright © 2026 Travis Post
+//
+// super-duper is free software: you can redistribute it and/or modify it under
+// the terms of the GNU General Public License as published by the Free
+// Software Foundation, either version 3 of the License, or (at your option)
+// any later version.
+//
+// super-duper is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+// more details.
+
+// You should have received a copy of the GNU General Public License along with
+// super-duper. If not, see <https://www.gnu.org/licenses/>.
+
+//! spd – the core binary for the super‑duper SCA tool.
+
 #![deny(unsafe_code)]
 
 mod cli;
@@ -11,7 +30,7 @@ use log::{error, info, LevelFilter};
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 
-use crate::cli::{Cli, Commands};
+use crate::cli::{Cli, Commands, FpCommands};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -44,10 +63,19 @@ async fn main() -> Result<()> {
         config::env_parallel(),
         config::env_cache_db(),
         config::env_ignore_db(),
+        config::env_min_score(),
+        config::env_min_count(),
+        config::env_exit_code_on_cve(),
+        config::env_fp_exit_code(),
         None,
         None,
         None,
         false,
+        false,
+        None,
+        None,
+        None,
+        None,
         false,
     )
     .map_err(|e| {
@@ -116,17 +144,31 @@ async fn main() -> Result<()> {
             ignore_db: cli_ignore_db,
             offline,
             benchmark,
+            min_score: cli_min_score,
+            min_count: cli_min_count,
+            exit_code_on_cve: cli_exit_code_on_cve,
+            fp_exit_code: cli_fp_exit_code,
+            package_manager_required,
         } => {
             let effective = config::load(
                 args.config.as_deref(),
                 config::env_parallel(),
                 config::env_cache_db(),
                 config::env_ignore_db(),
+                config::env_min_score(),
+                config::env_min_count(),
+                config::env_exit_code_on_cve(),
+                config::env_fp_exit_code(),
                 cli_parallel,
                 cli_cache_db.as_deref(),
                 cli_ignore_db.as_deref(),
                 offline,
                 benchmark,
+                cli_min_score,
+                cli_min_count,
+                cli_exit_code_on_cve,
+                cli_fp_exit_code,
+                package_manager_required,
             )
             .map_err(|e| {
                 error!("{}", e);
@@ -151,9 +193,51 @@ async fn main() -> Result<()> {
             }
         }
 
-        Commands::Config { list } => {
+        Commands::Config { list, set } => {
+            if let Some(pair) = set {
+                let (key, value) = match pair.splitn(2, '=').map(str::trim).collect::<Vec<_>>()[..]
+                {
+                    [k, v] if !k.is_empty() => (k, v),
+                    _ => {
+                        error!("Invalid --set argument; use KEY=VALUE (e.g. python.regex=\"^requirements\\.txt$\")");
+                        std::process::exit(2);
+                    }
+                };
+                if let Err(e) = config::set_config_key(key, value) {
+                    error!("{}", e);
+                    std::process::exit(2);
+                }
+                println!("Set {} = {}", key, value);
+            }
             if list {
-                println!("Effective configuration (placeholder)");
+                let cfg = config::load(
+                    args.config.as_deref(),
+                    config::env_parallel(),
+                    config::env_cache_db(),
+                    config::env_ignore_db(),
+                    config::env_min_score(),
+                    config::env_min_count(),
+                    config::env_exit_code_on_cve(),
+                    config::env_fp_exit_code(),
+                    None,
+                    None,
+                    None,
+                    false,
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                )
+                .unwrap_or_default();
+                println!("parallel_queries = {}", cfg.parallel_queries);
+                println!("cache_ttl_secs = {}", cfg.cache_ttl_secs);
+                println!("min_score = {}", cfg.min_score);
+                println!("min_count = {}", cfg.min_count);
+                for (lang, re) in &cfg.language_regexes {
+                    println!("{}.regex = {}", lang, re);
+                }
             }
         }
 
@@ -185,21 +269,70 @@ async fn main() -> Result<()> {
                 if let Some(c) = checker {
                     c.verify(db_backend.as_ref().as_ref()).await.map_err(|e| {
                         error!("{}", e);
-                        std::process::exit(1);
+                        std::process::exit(1); // FR-033: exit 1 on verify failure
                     })?;
                     registry::INTEGRITY_CHECKERS
                         .lock()
                         .expect("INTEGRITY_CHECKERS lock poisoned")
                         .insert(0, c);
                 } else {
-                    db_backend.verify_integrity().await?;
+                    db_backend.verify_integrity().await.map_err(|e| {
+                        error!("{}", e);
+                        std::process::exit(1); // FR-033: exit 1 on verify failure
+                    })?;
                 }
-                println!("Database integrity verified (SHA‑256)");
+                println!("Database integrity verified (SHA‑256)"); // FR-033: exit 0 on success
             }
             cli::DbCommands::Migrate => {
                 println!("Database migration completed (nothing to do)");
             }
         },
+
+        Commands::Fp { sub } => {
+            let ignore_path = early_cfg
+                .ignore_db
+                .clone()
+                .unwrap_or_else(config::default_ignore_path);
+            #[cfg(feature = "redb")]
+            {
+                let fp_db = spd_db_redb::RedbIgnoreDb::with_path(ignore_path).map_err(|e| {
+                    error!("Failed to open ignore database: {}", e);
+                    std::process::exit(2);
+                })?;
+                match sub {
+                    FpCommands::Mark {
+                        cve_id,
+                        comment,
+                        project_id,
+                    } => {
+                        fp_db
+                            .mark(&cve_id, &comment, project_id.as_deref())
+                            .map_err(|e| {
+                                error!("Failed to mark false positive: {}", e);
+                                std::process::exit(2);
+                            })?;
+                        println!("Marked {} as false positive", cve_id);
+                    }
+                    FpCommands::Unmark { cve_id } => {
+                        fp_db.unmark(&cve_id).map_err(|e| {
+                            error!("Failed to unmark: {}", e);
+                            std::process::exit(2);
+                        })?;
+                        println!("Unmarked {}", cve_id);
+                    }
+                }
+            }
+            #[cfg(not(feature = "redb"))]
+            {
+                error!("spd fp requires the redb feature");
+                std::process::exit(2);
+            }
+        }
+
+        Commands::Preload => {
+            // FR-021: placeholder; future: connect to remote CVE DB and populate cache
+            println!("spd preload is a placeholder; cache is populated on demand during scan.");
+        }
 
         Commands::Version => {
             println!("super‑duper {}", env!("CARGO_PKG_VERSION"));
@@ -231,16 +364,43 @@ async fn run_scan(
     info!("Scanning root: {}", root_path.display());
 
     // -----------------------------------------------------------------
+    // a2) FR-024: if package manager required, check for pip/pip3 and exit 3 with hint if missing
+    // -----------------------------------------------------------------
+    if effective.package_manager_required {
+        if !python_package_manager_available() {
+            eprintln!(
+                "Required package manager (pip) not found on PATH. {}",
+                package_manager_hint()
+            );
+            std::process::exit(3);
+        }
+    }
+
+    // -----------------------------------------------------------------
     // b) Choose the plug‑ins we will use (first entry of each registry)
     // -----------------------------------------------------------------
-    let finder = {
-        let mut f = registry::FINDERS.lock().expect("FINDERS lock poisoned");
-        if f.is_empty() {
-            error!("No ManifestFinder plug‑in registered");
-            std::process::exit(2);
-        }
-        f.remove(0)
-    };
+    let finder: Box<dyn spd_manifest_finder::ManifestFinder> =
+        if effective.language_regexes.is_empty() {
+            let mut f = registry::FINDERS.lock().expect("FINDERS lock poisoned");
+            if f.is_empty() {
+                error!("No ManifestFinder plug‑in registered");
+                std::process::exit(2);
+            }
+            f.remove(0)
+        } else {
+            let patterns: Vec<String> = effective
+                .language_regexes
+                .iter()
+                .map(|(_, r)| r.clone())
+                .collect();
+            match spd_manifest_finder::DefaultManifestFinder::with_patterns(patterns) {
+                Ok(f) => Box::new(f),
+                Err(e) => {
+                    error!("Invalid language regex in config: {}", e);
+                    std::process::exit(2);
+                }
+            }
+        };
 
     let parser = {
         let mut p = registry::PARSERS.lock().expect("PARSERS lock poisoned");
@@ -402,11 +562,70 @@ async fn run_scan(
     }
 
     // -----------------------------------------------------------------
-    // h) Apply threshold logic (FR‑014, FR‑016) and decide exit code
+    // g2) Apply false‑positive filter (FR‑015, FR‑016)
     // -----------------------------------------------------------------
+    let marked_fp: std::collections::HashSet<String> = {
+        #[cfg(feature = "redb")]
+        {
+            let ignore_path = effective
+                .ignore_db
+                .clone()
+                .unwrap_or_else(config::default_ignore_path);
+            spd_db_redb::RedbIgnoreDb::with_path(ignore_path)
+                .ok()
+                .and_then(|db| db.marked_ids().ok())
+                .unwrap_or_default()
+        }
+        #[cfg(not(feature = "redb"))]
+        std::collections::HashSet::new()
+    };
+    let had_any_cves_before_fp_filter = findings.iter().map(|(_, r)| r.len()).sum::<usize>() > 0;
+    let findings: Vec<(spd_db::Package, Vec<spd_db::CveRecord>)> = findings
+        .into_iter()
+        .map(|(pkg, recs)| {
+            let kept: Vec<_> = recs
+                .into_iter()
+                .filter(|cve| !marked_fp.contains(&cve.id))
+                .collect();
+            (pkg, kept)
+        })
+        .filter(|(_, recs)| !recs.is_empty())
+        .collect();
+    let real_cve_count: usize = findings.iter().map(|(_, r)| r.len()).sum();
+    if had_any_cves_before_fp_filter && real_cve_count == 0 {
+        // All reported CVEs were marked as false positive – exit per FR-016.
+        std::process::exit(effective.fp_exit_code.unwrap_or(0).into());
+    }
+
+    // -----------------------------------------------------------------
+    // h) Apply threshold logic (FR‑014, FR‑010) and decide exit code
+    // -----------------------------------------------------------------
+    // Filter CVEs by primary CVSS score >= min_score; then count.
+    let meeting_threshold: usize = findings
+        .iter()
+        .flat_map(|(_, recs)| recs.iter())
+        .filter(|cve| {
+            cve.cvss_score
+                .map(|s| s >= effective.min_score)
+                .unwrap_or(effective.min_score <= 0.0)
+        })
+        .count();
+    // If min_count is 0, treat as "disable count check" per FR-014: still exit CVE code if any CVE meets min_score.
+    let trigger_cve_exit = if effective.min_count == 0 {
+        meeting_threshold >= 1
+    } else {
+        meeting_threshold >= effective.min_count
+    };
+    let exit_code = if !trigger_cve_exit {
+        0
+    } else {
+        effective.exit_code_on_cve.unwrap_or(86)
+    };
     let total_cves: usize = findings.iter().map(|(_, r)| r.len()).sum();
-    let exit_code = if total_cves == 0 { 0 } else { 86 };
-    info!("Total CVEs discovered: {}", total_cves);
+    info!(
+        "Total CVEs discovered: {}, meeting threshold (score>={}): {}",
+        total_cves, effective.min_score, meeting_threshold
+    );
 
     // -----------------------------------------------------------------
     // i) Resolve severity (FR‑013) and render the report (FR‑007, FR‑008, FR‑009)
@@ -439,7 +658,7 @@ async fn run_scan(
         .context("Failed while rendering the report")?;
 
     // -----------------------------------------------------------------
-    // j) Emit optional secondary files (summary_file flag)
+    // j) Emit optional secondary files (FR-008 --summary-file)
     // -----------------------------------------------------------------
     for spec in summary_file {
         let parts: Vec<_> = spec.splitn(2, ':').collect();
@@ -447,8 +666,31 @@ async fn run_scan(
             error!("Malformed --summary-file argument: {}", spec);
             continue;
         }
-        let (fmt, path) = (parts[0], parts[1]);
-        info!("Would generate {} report at {}", fmt, path);
+        let (fmt, path) = (parts[0].trim().to_lowercase(), parts[1].trim());
+        let path = std::path::Path::new(path);
+        let reporter: Box<dyn spd_report::Reporter> = match fmt.as_str() {
+            "html" => Box::new(spd_report::HtmlReporter::new()),
+            "json" => Box::new(spd_report::JsonReporter::new()),
+            "sarif" => Box::new(spd_report::SarifReporter::new()),
+            "plain" | "text" => Box::new(spd_report::DefaultReporter::new()),
+            _ => {
+                error!(
+                    "Unknown summary format '{}'; use html, json, sarif, or plain",
+                    fmt
+                );
+                continue;
+            }
+        };
+        if let Err(e) = reporter.render_to_path(&report_data, path).await {
+            error!(
+                "Failed to write {} report to {}: {}",
+                fmt,
+                path.display(),
+                e
+            );
+        } else {
+            info!("Wrote {} report to {}", fmt, path.display());
+        }
     }
 
     // -----------------------------------------------------------------
@@ -461,5 +703,32 @@ async fn run_scan(
     // -----------------------------------------------------------------
     // l) Final exit
     // -----------------------------------------------------------------
-    std::process::exit(exit_code);
+    std::process::exit(exit_code.into());
+}
+
+/// Returns true if pip or pip3 appears to be on PATH (FR-024).
+fn python_package_manager_available() -> bool {
+    for cmd in ["pip3", "pip"] {
+        if std::process::Command::new(cmd)
+            .arg("--version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+        {
+            return true;
+        }
+    }
+    false
+}
+
+/// OS-specific hint when pip is missing (FR-024).
+fn package_manager_hint() -> &'static str {
+    #[cfg(target_os = "linux")]
+    return "Install via: apt-get install python3-pip (Debian/Ubuntu) or dnf install python3-pip (Fedora/RHEL).";
+    #[cfg(target_os = "macos")]
+    return "Install via: brew install python3.";
+    #[cfg(target_os = "windows")]
+    return "Install Python from https://www.python.org/ and ensure pip is enabled.";
+    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+    return "Install Python and pip for your platform.";
 }

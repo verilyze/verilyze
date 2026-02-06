@@ -1,4 +1,23 @@
+// SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// This file is part of super-duper. Copyright © 2026 Travis Post
+//
+// super-duper is free software: you can redistribute it and/or modify it under
+// the terms of the GNU General Public License as published by the Free
+// Software Foundation, either version 3 of the License, or (at your option)
+// any later version.
+//
+// super-duper is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+// more details.
+
+// You should have received a copy of the GNU General Public License along with
+// super-duper. If not, see <https://www.gnu.org/licenses/>.
+
 //! Trait that parses a manifest file into a dependency graph.
+
 #![deny(unsafe_code)]
 
 use async_trait::async_trait;
@@ -42,7 +61,8 @@ pub trait Parser: Send + Sync {
 #[async_trait]
 pub trait Resolver: Send + Sync {
     /// Resolve the dependency graph to a flat list of packages.
-    async fn resolve(&self, graph: &DependencyGraph) -> Result<Vec<spd_db::Package>, ResolverError>;
+    async fn resolve(&self, graph: &DependencyGraph)
+        -> Result<Vec<spd_db::Package>, ResolverError>;
 }
 
 /// Default parser for `requirements.txt` files.
@@ -70,7 +90,10 @@ impl DirectOnlyResolver {
 
 #[async_trait]
 impl Resolver for DirectOnlyResolver {
-    async fn resolve(&self, graph: &DependencyGraph) -> Result<Vec<spd_db::Package>, ResolverError> {
+    async fn resolve(
+        &self,
+        graph: &DependencyGraph,
+    ) -> Result<Vec<spd_db::Package>, ResolverError> {
         Ok(graph.packages.clone())
     }
 }
@@ -78,15 +101,12 @@ impl Resolver for DirectOnlyResolver {
 #[async_trait]
 impl Parser for RequirementsTxtParser {
     async fn parse(&self, manifest: &PathBuf) -> Result<DependencyGraph, ParserError> {
-        let name = manifest
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("");
+        let name = manifest.file_name().and_then(|n| n.to_str()).unwrap_or("");
         if name != "requirements.txt" {
             return Ok(DependencyGraph::default());
         }
-        let content = std::fs::read_to_string(manifest)
-            .map_err(|e| ParserError::Other(e.to_string()))?;
+        let content =
+            std::fs::read_to_string(manifest).map_err(|e| ParserError::Other(e.to_string()))?;
         let packages = parse_requirements_txt(&content)?;
         Ok(DependencyGraph { packages })
     }
@@ -130,7 +150,10 @@ fn parse_requirement_line(line: &str) -> Option<spd_db::Package> {
     }
     // PEP 508: name may have [extras]; strip extras so we get "name" and version spec
     let spec = if let Some(open) = line.find('[') {
-        let after_close = line[open..].find(']').map(|c| open + c + 1).unwrap_or(line.len());
+        let after_close = line[open..]
+            .find(']')
+            .map(|c| open + c + 1)
+            .unwrap_or(line.len());
         format!("{}{}", line[..open].trim(), line[after_close..].trim())
     } else {
         line.to_string()

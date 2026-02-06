@@ -1,3 +1,21 @@
+// SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// This file is part of super-duper. Copyright © 2026 Travis Post
+//
+// super-duper is free software: you can redistribute it and/or modify it under
+// the terms of the GNU General Public License as published by the Free
+// Software Foundation, either version 3 of the License, or (at your option)
+// any later version.
+//
+// super-duper is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+// more details.
+
+// You should have received a copy of the GNU General Public License along with
+// super-duper. If not, see <https://www.gnu.org/licenses/>.
+
 //! Global registries for each plug‑in type.
 //! The core binary pulls the concrete implementations out of these vectors.
 //! Registration is binary-driven: ensure_default_* use spd_register! for types
@@ -10,9 +28,7 @@ use spd_cve_client::{CveProvider, OsvProvider};
 use spd_db::DatabaseBackend;
 use spd_integrity::{BackendDelegatingChecker, IntegrityChecker};
 use spd_manifest_finder::{DefaultManifestFinder, ManifestFinder};
-use spd_manifest_parser::{
-    DirectOnlyResolver, Parser, RequirementsTxtParser, Resolver,
-};
+use spd_manifest_parser::{DirectOnlyResolver, Parser, RequirementsTxtParser, Resolver};
 use spd_plugin_macro::spd_register;
 use spd_report::{DefaultReporter, Reporter};
 

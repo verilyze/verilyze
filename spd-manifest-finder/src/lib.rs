@@ -1,10 +1,29 @@
+// SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// This file is part of super-duper. Copyright © 2026 Travis Post
+//
+// super-duper is free software: you can redistribute it and/or modify it under
+// the terms of the GNU General Public License as published by the Free
+// Software Foundation, either version 3 of the License, or (at your option)
+// any later version.
+//
+// super-duper is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+// more details.
+
+// You should have received a copy of the GNU General Public License along with
+// super-duper. If not, see <https://www.gnu.org/licenses/>.
+
 //! Trait used to discover manifest files inside a project tree.
+
 #![deny(unsafe_code)]
 
 use async_trait::async_trait;
 use std::path::{Path, PathBuf};
 
-/// Python manifest file names (initial set; FR-005). Configurable regexes (FR-006) can be added later.
+/// Python manifest file names (initial set; FR-005). Overridden by regexes when set (FR-006).
 const PYTHON_MANIFEST_NAMES: &[&str] = &[
     "requirements.txt",
     "pyproject.toml",
@@ -18,6 +37,9 @@ pub enum FinderError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
+    #[error("Invalid regex: {0}")]
+    Regex(String),
+
     #[error("{0}")]
     Other(String),
 }
@@ -29,13 +51,35 @@ pub trait ManifestFinder: Send + Sync {
 }
 
 /// Default implementation that discovers Python manifest files under a directory tree.
-#[derive(Debug, Default)]
-pub struct DefaultManifestFinder;
+/// When patterns are set (FR-006), file names are matched by regex in order; first match wins.
+#[derive(Debug)]
+pub struct DefaultManifestFinder {
+    /// When Some, use these regexes to match manifest file names; when None, use PYTHON_MANIFEST_NAMES.
+    patterns: Option<Vec<regex::Regex>>,
+}
+
+impl Default for DefaultManifestFinder {
+    fn default() -> Self {
+        Self { patterns: None }
+    }
+}
 
 impl DefaultManifestFinder {
-    /// Create a new default manifest finder.
+    /// Create a new default manifest finder (uses built-in list).
     pub fn new() -> Self {
-        Self
+        Self::default()
+    }
+
+    /// Create a finder that matches file names with the given regex patterns (FR-006).
+    /// Patterns are evaluated in order; first match wins.
+    pub fn with_patterns(patterns: Vec<String>) -> Result<Self, FinderError> {
+        let re: Result<Vec<_>, _> = patterns
+            .into_iter()
+            .map(|s| regex::Regex::new(&s).map_err(|e| FinderError::Regex(e.to_string())))
+            .collect();
+        Ok(Self {
+            patterns: Some(re?),
+        })
     }
 }
 
@@ -43,15 +87,19 @@ impl DefaultManifestFinder {
 impl ManifestFinder for DefaultManifestFinder {
     async fn find(&self, root: &Path) -> Result<Vec<PathBuf>, FinderError> {
         let mut manifests = Vec::new();
-        walk_dir(root, &mut manifests)?;
+        walk_dir(root, self.patterns.as_deref(), &mut manifests)?;
         manifests.sort();
         Ok(manifests)
     }
 }
 
-/// Recursively walk from `dir`, appending paths that match known manifest names.
+/// Recursively walk from `dir`, appending paths that match known manifest names or regex patterns.
 /// Only recurses into real directories (not symlinks) to avoid cycles.
-fn walk_dir(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), FinderError> {
+fn walk_dir(
+    dir: &Path,
+    patterns: Option<&[regex::Regex]>,
+    out: &mut Vec<PathBuf>,
+) -> Result<(), FinderError> {
     let entries = std::fs::read_dir(dir)?;
     for entry in entries {
         let entry = entry?;
@@ -62,11 +110,15 @@ fn walk_dir(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), FinderError> {
         };
         let meta = entry.metadata()?;
         if meta.is_file() {
-            if PYTHON_MANIFEST_NAMES.contains(&name) {
+            let matches = match patterns {
+                Some(regexes) => regexes.iter().any(|r| r.is_match(name)),
+                None => PYTHON_MANIFEST_NAMES.contains(&name),
+            };
+            if matches {
                 out.push(path);
             }
         } else if meta.is_dir() && !meta.is_symlink() {
-            walk_dir(&path, out)?;
+            walk_dir(&path, patterns, out)?;
         }
     }
     Ok(())
