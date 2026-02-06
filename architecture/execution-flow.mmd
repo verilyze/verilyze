@@ -15,7 +15,7 @@ flowchart TD
     Find["ManifestFinder::find(root)"]
     Parse["Parser::parse(manifest)"]
     Resolve["Resolver::resolve(dep‑graph)"]
-    Reachability["AST / data‑flow reachability analysis"]
+    Reachability["Reachability analysis (optional / phased, FR-032)"]
     
     %% Cache handling
     CacheCheck{Cache hit?}
@@ -56,7 +56,8 @@ flowchart TD
     CacheCheck -- hit --> FPFilter
     CacheCheck -- miss --> OfflineCheck
     OfflineCheck -- no --> Query["CveProvider::fetch(pkg)"] --> CacheWrite["Write result to RedB (TTL, atomic)"] --> FPFilter
-    OfflineCheck -- yes --> OfflineError --> End
+    OfflineCheck -- yes --> OfflineError["Exit 4 – offline cache miss (FR-031)"]
+    OfflineError --> End
 
     FPFilter --> Reachability --> Severity --> Threshold --> ExitDecision
     ExitDecision -- exit 0 --> ExitNormal
