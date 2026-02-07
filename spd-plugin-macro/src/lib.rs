@@ -1,7 +1,7 @@
-// SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
-
-// This file is part of super-duper. Copyright © 2026 Travis Post
+// SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+//
+// This file is part of super-duper.
 //
 // super-duper is free software: you can redistribute it and/or modify it under
 // the terms of the GNU General Public License as published by the Free
@@ -12,16 +12,10 @@
 // ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 // FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
 // more details.
-
+//
 // You should have received a copy of the GNU General Public License along with
-// super-duper. If not, see <https://www.gnu.org/licenses/>.
-
-//! Helper macro used by the binary to register default plugins.
-//!
-//! Expands `spd_register!(PluginKind, ConcreteType)` to a call to
-//! `crate::registry::register(Plugin::PluginKind(Box::new(ConcreteType::new())))`.
-//! Used in the spd binary so plugin registration is driven by the binary
-//! (avoids circular dependency with a separate spd-registry crate).
+// super-duper (see the COPYING file in the project root for the full text). If
+// not, see <https://www.gnu.org/licenses/>.
 
 use proc_macro::TokenStream;
 use quote::quote;
