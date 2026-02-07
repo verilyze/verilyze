@@ -1,4 +1,4 @@
-.PHONY: headers check-headers check clean
+.PHONY: headers check-headers check clean unit-tests cargo-check
 DEFAULT: all
 
 # installs the xtask binary locally
@@ -16,7 +16,13 @@ headers: setup
 check-headers: setup
 	cargo run -p xtask -- check
 
-check: check-headers
+cargo-check:
+	cargo check
+
+unit-tests:
+	cargo test
+
+check: check-headers cargo-check unit-tests
 
 debug: check-headers
 	cargo build
