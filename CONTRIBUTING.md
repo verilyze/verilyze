@@ -52,6 +52,14 @@ formal trait contracts.
 - Add unit tests in the crate that owns the logic; integration tests where
   appropriate.
 
+### CLI output (stdout)
+
+In `spd/src/main.rs`, use the `write_stdout()` helper for all user-facing
+stdout (e.g. anything that would otherwise be `println!`). Do not use
+`println!` for that. This ensures every command exits with code 0 when stdout
+is a broken pipe (e.g. `spd db show | less` then `q`), instead of panicking.
+Stderr can stay as `eprintln!` or `log::error!`.
+
 ## Requirements
 
 Full requirements (functional, non-functional, security, configuration) are in
