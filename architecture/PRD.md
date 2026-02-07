@@ -1,4 +1,4 @@
-# Super‑Duper (spd) – Requirements Specification
+# super‑duper (spd) – Requirements Specification
 *Version 1.0 – 29 Jan 2026*
 
 ---  
@@ -123,7 +123,7 @@ concrete implementations (Dependency Inversion).
 | **FR‑017** | Reporting crate | Reads caches and renders reports; supports future formats via CLI flags. | `spd report -t json` prints JSON report. |
 | **FR‑018** | Database‑listing CLI | `spd db list-providers` enumerates supported CVE providers; **`spd db show`** displays cache entries with TTL, added timestamp, and cache data (see FR-035). | Output of `spd db list-providers` includes `osv`. `spd db show` lists cache entries with key, TTL, added-at timestamp, and minimum cache data. |
 | **FR‑019** | Provider selection CLI | `--provider <name>` forces a specific provider; invalid name ⇒ exit 2. | `spd scan --provider foo`
-| **FR‑020** | Extensibility – language plugins | Adding a new language must not require changes to the core binary. Language support is provided through **trait implementations** (`ManifestFinder`, `DependencyResolver`, `Parser`). | A new crate spd-java implements the traits and registers itself via a macro; spd discovers it at compile‑time using Cargo features. |
+| **FR‑020** | Extensibility – language plugins | Adding a new language must not require changes to the core binary. Language support is provided through **trait implementations** (`ManifestFinder`, `Parser`, `Resolver`). | A new crate spd-java implements the traits and registers itself via a macro; spd discovers it at compile‑time using Cargo features. |
 | **FR-021** | Pre-populate cache command | A future sub‑command (spd preload) shall connect to a remote CVE database and copy the CVE data to the local database cache without performing a full scan. (Placeholder for now.) | spd preload stores the CVEs in the cache database. |
 | **FR-022** | Resolving dependencies  | Find and use package lock files by default (if present) to determine package versions. Supported manifest and lock file formats per language are defined in [Appendix A](#appendix-a-manifest-and-lock-files). Fallback to using a package manager (if available) in a clean virtual environment to generate a lock file that includes all dependencies and transitive dependencies (e.g. `pip freeze`). Finally, as a last option, if no package manager is found for the language, use a library (e.g., the `pep440` crate) to resolve the dependencies and their versions. Return error code 2 with the message "Unable to detect transitive dependencies. Try installing the package manager or generate a lock file before running spd." | Running `spd` in a repository with a requirements.txt file successfully finds all transitive dependencies. |
 | **FR-023** | Temporary virtual-env | When a lock file isn't found, and a package manager such as pip is available, the program creates an ephemeral virtual environment, installs the dependency tree if necessary and captures the full dependencies. The virtual environment is destroyed after the scan. The virtual env lives under std::env::temp_dir() with a UUID prefix, and a Drop guard cleans it up (unless configured for debugging)| No permanent files left in $HOME/.cache after the run. |
@@ -232,7 +232,7 @@ concrete implementations (Dependency Inversion).
 
 | ID | Title | Description | Acceptance Criteria |
 |----|-------|-------------|---------------------|
-| **MOD-001** | Separate crates for distinct responsibilities | The project shall be split into six top-level crates (all published under the same workspace): 1. `spd-manifest-finder` -- discovers manifest files on disk. 2. `spd-manifest-parser` -- parses each manifest and resolved direct & transitive dependencies. 3. `spd-cve-client` -- queries online CVE providers (currently OSV.dev) and handles parallelism, back-off, and TLS verification. 4. `spd-db` -- defines the public trait DatabaseBackend that abstracts all persistent storage operations. 5. `spd-db-redb` -- default implementation of DatabaseBackend backed by RedB (`spd-cache.redb` and `spd-ignore.redb`). 6. `spd-report` -- reads data from the chosen DatabaseBackend implementation and emits reports (JSON by default, extensible to other formats). 7. `spd-integrity` -- ensures the integrity of the databases using SHA256 by default, extensible to FIPS-204, FIPS-205, etc. | Building the workspace produces distinct library crates (`cargo build -p spd-manifest-finder`, etc.) and a binary crate `spd` that depends on them. |
+| **MOD-001** | Separate crates for distinct responsibilities | The project shall be split into seven top-level crates (all published under the same workspace): 1. `spd-manifest-finder` -- discovers manifest files on disk. 2. `spd-manifest-parser` -- parses each manifest and resolved direct & transitive dependencies. 3. `spd-cve-client` -- queries online CVE providers (currently OSV.dev) and handles parallelism, back-off, and TLS verification. 4. `spd-db` -- defines the public trait DatabaseBackend that abstracts all persistent storage operations. 5. `spd-db-redb` -- default implementation of DatabaseBackend backed by RedB (`spd-cache.redb` and `spd-ignore.redb`). 6. `spd-report` -- reads data from the chosen DatabaseBackend implementation and emits reports (JSON by default, extensible to other formats). 7. `spd-integrity` -- ensures the integrity of the databases using SHA256 by default, extensible to FIPS-204, FIPS-205, etc. | Building the workspace produces distinct library crates (`cargo build -p spd-manifest-finder`, etc.) and a binary crate `spd` that depends on them. |
 | **MOD-002** | Public trait contracts | Each crate shall expose a small set of **public traits** that define the contract for plug-ins. Traits may use `async fn` where appropriate. - ManifestFinder (async fn find(&self, root: &Path) -> Result<Vec<PathBuf>, FinderError>). - Parser (async fn parse(&self, manifest: &Path) -> Result<DependencyGraph, ParserError>). - Resolver (async fn resolve(&self, graph: &DependencyGraph) -> Result<Vec<Package>, ResolverError>). - CveProvider (async fn fetch(&self, pkg: &Package) -> Result<FetchedCves, ProviderError>); returns a cacheable raw form plus derived Vec<CveRecord>. - DatabaseBackend (async_trait): init; get(&self, pkg) -> Result<Option<Vec<CveRecord>>, DatabaseError> (per-package; one package may have many CVEs); put(&self, pkg, raw_vulns: &[Value], ttl_override: Option<u64>) -> Result<(), DatabaseError> (store raw JSON for TTL/cache; if ttl_override is None, backend uses default TTL from config); set_ttl(selector, new_ttl_secs) for updating TTL of existing entries (one, multiple, or all; backends that do not support updates may return an error or no-op); list_entries() -> Result<Vec<CacheEntryInfo>, DatabaseError> (optional; each entry has key, TTL or expires_at, added_at, and cache data summary or full; backends that do not support listing may return an empty list or unsupported); stats; verify_integrity. Backends store at least expiry (or TTL), added-at timestamp, and raw/derived CVE data per entry. - Reporter (async fn render / render_to_writer / render_to_path). - IntegrityChecker (async fn verify(&self, db: &dyn DatabaseBackend) -> Result<(), IntegrityError>). | Adding a new language, database backend, CVE provider, integrity checker algorithm, or report format only requires implementing the relevant traits in a separate crate; the core binary can load it without recompilation. |
 | **MOD-003** | Feature-gate extensibility | Optional language support, integrity checker algorithms, reporting output formats, and additional CVE providers shall be gated behind Cargo **features** (e.g., feature = "java" enables the Java manifest finder/parser). The default feature set includes only **Python** support, **SHA256** integrity checks, **JSON** reports, and **OSV** CVE provider. Feature flags shall allow independent toggles where applicable (e.g., `network`, `docs`). The `default` feature set is documented (e.g., in CONTRIBUTING or crate docs). Building with `--no-default-features` produces a minimal binary; which capabilities are omitted shall be documented. | `cargo build --no-default-features --features java` compiles the Java modules; omitting the feature leaves the binary smaller. |
 | **MOD-004** | Zero-dependency core | The `spd` binary shall depend only on the internal crates and on minimal external crates (`clap`, `serde`, `tokio`). No heavy runtime frameworks are allowed. | `cargo tree` shows a shallow dependency graph (<30 direct crates). |
@@ -250,7 +250,7 @@ concrete implementations (Dependency Inversion).
 | ID | Title | Description | Acceptance Criteria |
 |----|-------|-------------|---------------------|
 | **DOC-001** | User guide (README.md) | A top-level README.md that explains installation (e.g., `cargo install`), basic usage, configuration precedence, CLI reference, and the exit code table. Includes quick-start examples for Python manifests. Includes links to other documents. | New users can follow the guide and run a successful scan without consulting any other material. |
-| **DOC-002** | Developer guide | A CONTRIBUTING.md describing the crate architecture, public traits (`ManifestFinder`, `DependencyResolver`, `Parser`, `Resolver`, `Reporter`, `DatabaseBackend`), extension points, and how to add a new language plug-in. | Contributors can implement a new language crate by following the step-by-step instructions. |
+| **DOC-002** | Developer guide | A CONTRIBUTING.md describing the crate architecture, public traits (`ManifestFinder`, `Parser`, `Resolver`, `Reporter`, `DatabaseBackend`), extension points, and how to add a new language plug-in. | Contributors can implement a new language crate by following the step-by-step instructions. |
 | **DOC-003** | Configuration reference | Detailed documentation of every configuration key, its default value, accepted types, corresponding environment variable (`SPD_<NAME>`), and CLI flag that overrides it. Presented in a table for quick lookup. The CLI reference shall also document `spd db show` (including e.g. `--format` for output format) and `spd db set-ttl` (including options such as `--entry`, `--all`, `--pattern`, `--entries`). | Running `spd config --list` prints the same table as the docs. `spd db show` and `spd db set-ttl` are documented with their options. |
 | **DOC-004** | Exit-code | A dedicated section enumerating all exit codes (0, 1, 2, 3, 86, plus any user-defined overrides) with the exact circumstances that trigger each. | Automated test verifies that each exit code is reachable via a scripted scenario. |
 | **DOC-005** | Report formats specification | JSON schema definition for the default report, plus a roadmap for future formats (ASCII table, HTML, SDPX, CycloneDX, SARIF). The schema is versioned and published under `schemas/v1/report.json`. Bump the path with the schema changes (e.g., v2). Include a $schema reference. | Consumers can validate a generated report against the schema using `ajv` or similar tools. |
@@ -262,6 +262,62 @@ concrete implementations (Dependency Inversion).
 | **DOC-011** | API reference (Rustdoc) | All public crates are documented with `///` comments; `cargo doc --open` generates a browsable HTML reference. | The generated docs contain no undocumented public items. |
 | **DOC-012** | License & attribution | The repository includes a LICENSE file (GPL-3.0-or-later) and a NOTICE file listing third-party licenses. | Both files exist and `cargo deny check-licenses` passes. |
 | **DOC-013** | Man pages | Install  `man` pages to the standard locations on Unix systems when using the program's package manager. Also make the man pages available via `spd help` and `spd help <subcommand>`. | `man spd` shows the manual for super-duper. `spd help` shows the same man page for super-duper. |
+
+---
+
+## <a name="risk-threat-model"></a>11. Risk & Threat Model
+
+This section satisfies SEC-001. The project uses the **PASTA** (Process for
+Attack Simulation and Threat Analysis) method and provides a high-level
+threat model. A full threat model should be reviewed by human and/or LLM
+security reviewers with no outstanding issues.
+
+### 11.1 Security objectives
+
+- **Confidentiality:** Cached CVE data and false-positive markings are
+  stored locally; the tool does not transmit user code or dependency
+  graphs to third parties beyond public CVE API requests (package name +
+  version).
+- **Integrity:** Cached data and configuration are protected from
+  tampering (SEC-004, SEC-005); strict config validation (SEC-006).
+- **Availability:** Deterministic exit codes and clear errors so that CI
+  and operators can rely on the tool.
+
+### 11.2 Non-objectives
+
+- The tool does not authenticate to CVE providers (SEC-008); it is
+  credential-free.
+- No guarantee of real-time CVE feed; cache TTL and offline use are
+  by design.
+
+### 11.3 Assets
+
+- Local cache and ignore (false-positive) databases.
+- Configuration files (system and user).
+- Output reports (JSON, SARIF, HTML) that may contain CVE details.
+
+### 11.4 Threats and mitigations
+
+| Threat | Mitigation |
+|--------|------------|
+| Tampering with cache/ignore DB | Integrity check (`spd db verify`), file permission checks (SEC-014). |
+| MITM or spoofed CVE provider | TLS verification, hostname validation (SEC-002, NFR-004). |
+| Malformed or malicious config | Strict validation, unknown keys cause exit 2 (SEC-006). |
+| Information disclosure via reports | Reports are written to user-specified or default paths; no unsanitized secrets. |
+| Supply-chain compromise of dependencies | License checks (SEC-012), `cargo audit` (SEC-016), dogfooding (SEC-015). |
+
+### 11.5 Attack tree (ASCII)
+
+```
+                    [Compromise spd user outcome]
+                                    |
+        +-------------------+------+------+-------------------+
+        |                   |             |                   |
+ [Tamper cache]    [Spoof CVE API]  [Malicious config]  [Compromise deps]
+        |                   |             |                   |
+   (verify_integrity,   (TLS verify,  (strict parsing,    (cargo deny,
+    file perms)          cert chain)   exit 2)             audit, SBOM)
+```
 
 ---
 

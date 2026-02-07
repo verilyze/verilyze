@@ -4,8 +4,11 @@
 
 If you believe you have found a security vulnerability, please report it responsibly.
 
-- **Preferred:** Contact the maintainers via a private channel (e.g. GPG-encrypted email) if you have their contact details. Do not open a public issue for unfixed security bugs.
-- **Otherwise:** Open a private security advisory in the repository (e.g. GitHub Security Advisories) so maintainers can triage and respond.
+- **Preferred:** Contact the maintainers via a private channel (e.g.
+  GPG-encrypted email) if you have their contact details. Do not open a public
+  issue for unfixed security bugs.
+- **Otherwise:** Open a private security advisory in the repository (e.g.
+  GitHub Security Advisories) so maintainers can triage and respond.
 
 Please include:
 
@@ -17,12 +20,30 @@ We will acknowledge receipt and work with you on a fix and disclosure timeline.
 
 ## Threat model and compliance
 
-- The project maintains a **threat model** (see [architecture/PRD.md](architecture/PRD.md) SEC-001 and Risk & Threat Model).
+- **Threat model:** The project maintains a threat model using the PASTA
+  method, including security objectives, assets, threats, mitigations, and an
+  ASCII attack tree. See
+  [architecture/PRD.md -- Risk & Threat Model (section 11)](architecture/PRD.md#risk-threat-model)
+  and SEC-001 in the PRD.
 - Security requirements (SEC-*), TLS, integrity checks, and least-privilege are described in the PRD.
-- A **compliance checklist** (e.g. COMPLIANCE.md) may be present for SOC 2 / ISO 27001 / CMMC mapping; refer to the PRD (SEC-010, DOC-008) and repository root for the latest location.
+- **Compliance checklist:** [COMPLIANCE.md](COMPLIANCE.md) in the repository
+  root maps controls to implementation (SOC 2 / ISO 27001 / CMMC); refer to the
+  PRD (SEC-010, DOC-008) for requirements.
+
+## Test results and dogfooding (SEC-018)
+
+- **Fuzz testing:** When available, fuzz testing results and coverage will be
+  linked here or from the CI artifacts. The PRD (SEC-017) requires allow-list
+  input validation and user-friendly errors on invalid input.
+- **Latest `spd scan` (dogfooding):** SEC-015 requires the project to be
+  scannable by the latest stable super-duper with exit 0. When CI or release
+  artifacts include a latest-scan report, it will be linked here (e.g. from the
+  repository Releases or a dedicated docs path).
 
 ## For users
 
-- Run `spd` with the minimum privileges needed (no set-UID; it runs as the invoking user).
+- Run `spd` with the minimum privileges needed (no set-UID; it runs as the
+  invoking user).
 - Use `spd db verify` to check integrity of cached data (SHA-256 by default).
-- Keep the tool and dependencies updated; run `spd scan` on this repository (dogfooding, SEC-015) as part of your workflow.
+- Keep the tool and dependencies updated; run `spd scan` on this repository
+  (dogfooding, SEC-015) as part of your workflow.

@@ -66,6 +66,8 @@ Run `spd config --list` to print effective values.
 | `spd config --set KEY=VALUE` | Set a config key (e.g. `python.regex="^requirements\\.txt$"`) |
 | `spd db list-providers` | List CVE providers (e.g. osv) |
 | `spd db stats` | Cache statistics |
+| `spd db show [--format FORMAT] [--full]` | Display cache entries (key, TTL, added-at, CVE summary or full payload) |
+| `spd db set-ttl SECS [--entry KEY] [--all] [--pattern PATTERN] [--entries KEYS]` | Update TTL for existing cache entries |
 | `spd db verify` | Verify database integrity (SHA-256) |
 | `spd db migrate` | Run migrations |
 | `spd fp mark CVE-ID [--comment ...]` | Mark CVE as false positive |
