@@ -56,12 +56,13 @@ async fn main() -> Result<()> {
     // -----------------------------------------------------------------
     let args = Cli::parse();
 
-    // Load config from files + env (no CLI overrides yet) for DB paths.
+    // Load config from files + env + global CLI for DB paths and TTL.
     let early_cfg = config::load(
         args.config.as_deref(),
         config::env_parallel(),
         config::env_cache_db(),
         config::env_ignore_db(),
+        config::env_cache_ttl_secs(),
         config::env_min_score(),
         config::env_min_count(),
         config::env_exit_code_on_cve(),
@@ -69,6 +70,7 @@ async fn main() -> Result<()> {
         None,
         None,
         None,
+        args.cache_ttl_secs,
         false,
         false,
         None,
@@ -141,6 +143,7 @@ async fn main() -> Result<()> {
             parallel: cli_parallel,
             cache_db: cli_cache_db,
             ignore_db: cli_ignore_db,
+            cache_ttl_secs: cli_cache_ttl_secs,
             offline,
             benchmark,
             min_score: cli_min_score,
@@ -154,6 +157,7 @@ async fn main() -> Result<()> {
                 config::env_parallel(),
                 config::env_cache_db(),
                 config::env_ignore_db(),
+                config::env_cache_ttl_secs(),
                 config::env_min_score(),
                 config::env_min_count(),
                 config::env_exit_code_on_cve(),
@@ -161,6 +165,7 @@ async fn main() -> Result<()> {
                 cli_parallel,
                 cli_cache_db.as_deref(),
                 cli_ignore_db.as_deref(),
+                cli_cache_ttl_secs.or(args.cache_ttl_secs),
                 offline,
                 benchmark,
                 cli_min_score,
@@ -214,6 +219,7 @@ async fn main() -> Result<()> {
                     config::env_parallel(),
                     config::env_cache_db(),
                     config::env_ignore_db(),
+                    config::env_cache_ttl_secs(),
                     config::env_min_score(),
                     config::env_min_count(),
                     config::env_exit_code_on_cve(),
@@ -221,6 +227,7 @@ async fn main() -> Result<()> {
                     None,
                     None,
                     None,
+                    args.cache_ttl_secs,
                     false,
                     false,
                     None,
