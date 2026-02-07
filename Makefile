@@ -1,4 +1,4 @@
-.PHONY: headers check-headers check
+.PHONY: headers check-headers check clean
 DEFAULT: all
 
 # installs the xtask binary locally
@@ -23,5 +23,8 @@ debug: check-headers
 
 release:
 	cargo build --release
+
+clean:
+	cargo clean
 
 all: debug
