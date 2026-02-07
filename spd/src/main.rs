@@ -32,8 +32,9 @@ use tokio::sync::Semaphore;
 
 use crate::cli::{Cli, Commands, FpCommands};
 
-/// Write to stdout for `spd db show`; exit 0 on broken pipe (e.g. `| less` then `q`).
-fn write_show_stdout(s: &str) {
+/// Write to stdout; exit 0 on broken pipe (e.g. `| less` then `q`).
+/// Use for all user-facing stdout so every command handles piped output safely.
+fn write_stdout(s: &str) {
     let mut out = std::io::stdout().lock();
     if let Err(e) = out.write_all(s.as_bytes()) {
         if e.kind() == std::io::ErrorKind::BrokenPipe {
@@ -216,7 +217,7 @@ async fn main() -> Result<()> {
         Commands::List => {
             let finders = registry::FINDERS.lock().expect("FINDERS lock poisoned");
             if !finders.is_empty() {
-                println!("python");
+                write_stdout("python\n");
             }
         }
 
@@ -234,7 +235,7 @@ async fn main() -> Result<()> {
                     error!("{}", e);
                     std::process::exit(2);
                 }
-                println!("Set {} = {}", key, value);
+                write_stdout(&format!("Set {} = {}\n", key, value));
             }
             if list {
                 let cfg = config::load(
@@ -260,12 +261,12 @@ async fn main() -> Result<()> {
                     false,
                 )
                 .unwrap_or_default();
-                println!("parallel_queries = {}", cfg.parallel_queries);
-                println!("cache_ttl_secs = {}", cfg.cache_ttl_secs);
-                println!("min_score = {}", cfg.min_score);
-                println!("min_count = {}", cfg.min_count);
+                write_stdout(&format!("parallel_queries = {}\n", cfg.parallel_queries));
+                write_stdout(&format!("cache_ttl_secs = {}\n", cfg.cache_ttl_secs));
+                write_stdout(&format!("min_score = {}\n", cfg.min_score));
+                write_stdout(&format!("min_count = {}\n", cfg.min_count));
                 for (lang, re) in &cfg.language_regexes {
-                    println!("{}.regex = {}", lang, re);
+                    write_stdout(&format!("{}.regex = {}\n", lang, re));
                 }
             }
         }
@@ -274,15 +275,15 @@ async fn main() -> Result<()> {
             cli::DbCommands::ListProviders => {
                 let providers = registry::PROVIDERS.lock().expect("PROVIDERS lock poisoned");
                 for p in providers.iter() {
-                    println!("{}", p.name());
+                    write_stdout(&format!("{}\n", p.name()));
                 }
             }
             cli::DbCommands::Stats => {
                 let stats = db_backend.stats().await?;
-                println!(
-                    "Cache entries: {}, hits: {}, misses: {}",
+                write_stdout(&format!(
+                    "Cache entries: {}, hits: {}, misses: {}\n",
                     stats.cached_entries, stats.hits, stats.misses
-                );
+                ));
             }
             cli::DbCommands::Verify => {
                 let checker = {
@@ -310,21 +311,21 @@ async fn main() -> Result<()> {
                         std::process::exit(1); // FR-033: exit 1 on verify failure
                     })?;
                 }
-                println!("Database integrity verified (SHA‑256)"); // FR-033: exit 0 on success
+                write_stdout("Database integrity verified (SHA‑256)\n"); // FR-033
             }
             cli::DbCommands::Migrate => {
-                println!("Database migration completed (nothing to do)");
+                write_stdout("Database migration completed (nothing to do)\n");
             }
             cli::DbCommands::Show { format, full } => {
                 let entries = db_backend.list_entries(full).await?;
                 if format.as_deref() == Some("json") {
-                    write_show_stdout(
+                    write_stdout(
                         &serde_json::to_string_pretty(&entries).unwrap(),
                     );
-                    write_show_stdout("\n");
+                    write_stdout("\n");
                 } else {
                     for e in &entries {
-                        write_show_stdout(&format!(
+                        write_stdout(&format!(
                             "{}  ttl={}s  added_at={}  cve_count={}  \
                              cve_ids={:?}\n",
                             e.key,
@@ -334,14 +335,14 @@ async fn main() -> Result<()> {
                             e.cve_ids
                         ));
                         if let Some(ref raw) = e.raw_vulns {
-                            write_show_stdout(
+                            write_stdout(
                                 &serde_json::to_string_pretty(raw).unwrap(),
                             );
-                            write_show_stdout("\n");
+                            write_stdout("\n");
                         }
                     }
                     if entries.is_empty() {
-                        write_show_stdout("(no cache entries)\n");
+                        write_stdout("(no cache entries)\n");
                     }
                 }
             }
@@ -384,7 +385,7 @@ async fn main() -> Result<()> {
                     error!("set_ttl failed: {}", e);
                     std::process::exit(2);
                 })?;
-                println!("TTL updated.");
+                write_stdout("TTL updated.\n");
             }
         },
 
@@ -411,14 +412,14 @@ async fn main() -> Result<()> {
                                 error!("Failed to mark false positive: {}", e);
                                 std::process::exit(2);
                             })?;
-                        println!("Marked {} as false positive", cve_id);
+                        write_stdout(&format!("Marked {} as false positive\n", cve_id));
                     }
                     FpCommands::Unmark { cve_id } => {
                         fp_db.unmark(&cve_id).map_err(|e| {
                             error!("Failed to unmark: {}", e);
                             std::process::exit(2);
                         })?;
-                        println!("Unmarked {}", cve_id);
+                        write_stdout(&format!("Unmarked {}\n", cve_id));
                     }
                 }
             }
@@ -431,11 +432,13 @@ async fn main() -> Result<()> {
 
         Commands::Preload => {
             // FR-021: placeholder; future: connect to remote CVE DB and populate cache
-            println!("spd preload is a placeholder; cache is populated on demand during scan.");
+            write_stdout(
+                "spd preload is a placeholder; cache is populated on demand during scan.\n",
+            );
         }
 
         Commands::Version => {
-            println!("super‑duper {}", env!("CARGO_PKG_VERSION"));
+            write_stdout(&format!("super‑duper {}\n", env!("CARGO_PKG_VERSION")));
         }
     }
 
@@ -800,7 +803,10 @@ async fn run_scan(
     // k) Benchmark mode handling (FR‑029)
     // -----------------------------------------------------------------
     if effective.benchmark {
-        println!("{{\"benchmark\":{{\"duration_ms\":0,\"cpu_percent\":0,\"mem_mb\":0}}}}");
+        write_stdout(
+            "{{\"benchmark\":{{\"duration_ms\":0,\"cpu_percent\":0,\"mem_mb\":0}}}}",
+        );
+        write_stdout("\n");
     }
 
     // -----------------------------------------------------------------
@@ -840,7 +846,7 @@ fn package_manager_hint() -> &'static str {
 #[cfg(test)]
 mod tests {
     use std::path::Path;
-    use std::process::Command;
+    use std::process::{Command, Stdio};
 
     /// Path to the spd binary (set by Cargo when running tests). Skip if missing.
     fn spd_exe() -> Option<String> {
@@ -850,6 +856,165 @@ mod tests {
         } else {
             None
         }
+    }
+
+    /// Run spd with args and broken stdout pipe; assert exit 0 (no panic).
+    /// Skips if CARGO_BIN_EXE_spd is unset or binary missing.
+    fn assert_broken_pipe_exits_cleanly(args: &[&str]) {
+        let exe = match spd_exe() {
+            Some(p) => p,
+            None => {
+                eprintln!("skip: CARGO_BIN_EXE_spd unset or binary missing");
+                return;
+            }
+        };
+        let mut child = Command::new(&exe)
+            .args(args)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn spd");
+        drop(child.stdout.take());
+        let status = child.wait().expect("wait");
+        assert!(
+            status.code() == Some(0),
+            "args {:?} should exit 0 on broken pipe, got {:?}",
+            args,
+            status.code()
+        );
+    }
+
+    #[test]
+    fn broken_pipe_version() {
+        assert_broken_pipe_exits_cleanly(&["version"]);
+    }
+
+    #[test]
+    fn broken_pipe_preload() {
+        assert_broken_pipe_exits_cleanly(&["preload"]);
+    }
+
+    #[test]
+    fn broken_pipe_db_migrate() {
+        assert_broken_pipe_exits_cleanly(&["db", "migrate"]);
+    }
+
+    #[test]
+    fn broken_pipe_db_show() {
+        assert_broken_pipe_exits_cleanly(&["db", "show"]);
+    }
+
+    #[test]
+    fn broken_pipe_db_show_full() {
+        assert_broken_pipe_exits_cleanly(&["db", "show", "--full"]);
+    }
+
+    #[test]
+    fn broken_pipe_db_show_format_json() {
+        assert_broken_pipe_exits_cleanly(&["db", "show", "--format", "json"]);
+    }
+
+    #[test]
+    fn broken_pipe_list() {
+        assert_broken_pipe_exits_cleanly(&["list"]);
+    }
+
+    #[test]
+    fn broken_pipe_config_list() {
+        assert_broken_pipe_exits_cleanly(&["config", "--list"]);
+    }
+
+    #[test]
+    fn broken_pipe_db_list_providers() {
+        assert_broken_pipe_exits_cleanly(&["db", "list-providers"]);
+    }
+
+    #[test]
+    fn broken_pipe_db_stats() {
+        assert_broken_pipe_exits_cleanly(&["db", "stats"]);
+    }
+
+    #[test]
+    fn broken_pipe_db_verify() {
+        assert_broken_pipe_exits_cleanly(&["db", "verify"]);
+    }
+
+    #[test]
+    fn broken_pipe_db_set_ttl_all() {
+        assert_broken_pipe_exits_cleanly(&["db", "set-ttl", "3600", "--all"]);
+    }
+
+    #[test]
+    fn broken_pipe_scan_benchmark() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        assert_broken_pipe_exits_cleanly(&[
+            "scan",
+            dir.path().to_str().unwrap(),
+            "--benchmark",
+            "--offline",
+        ]);
+    }
+
+    #[cfg(feature = "redb")]
+    #[test]
+    fn broken_pipe_fp_mark() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let ignore_db = dir.path().join("ignore.redb");
+        let exe = match spd_exe() {
+            Some(p) => p,
+            None => {
+                eprintln!("skip: CARGO_BIN_EXE_spd unset or binary missing");
+                return;
+            }
+        };
+        let mut child = Command::new(&exe)
+            .args(["fp", "mark", "CVE-2020-1234", "test"])
+            .env("SPD_IGNORE_DB", ignore_db.as_os_str())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn spd");
+        drop(child.stdout.take());
+        let status = child.wait().expect("wait");
+        assert_eq!(
+            status.code(),
+            Some(0),
+            "fp mark should exit 0 on broken pipe"
+        );
+    }
+
+    #[cfg(feature = "redb")]
+    #[test]
+    fn broken_pipe_fp_unmark() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let ignore_db = dir.path().join("ignore.redb");
+        let exe = match spd_exe() {
+            Some(p) => p,
+            None => {
+                eprintln!("skip: CARGO_BIN_EXE_spd unset or binary missing");
+                return;
+            }
+        };
+        let mark = Command::new(&exe)
+            .args(["fp", "mark", "CVE-2020-1234", "test"])
+            .env("SPD_IGNORE_DB", ignore_db.as_os_str())
+            .output()
+            .expect("spawn spd fp mark");
+        assert!(mark.status.success(), "fp mark must succeed first");
+        let mut child = Command::new(&exe)
+            .args(["fp", "unmark", "CVE-2020-1234"])
+            .env("SPD_IGNORE_DB", ignore_db.as_os_str())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn spd");
+        drop(child.stdout.take());
+        let status = child.wait().expect("wait");
+        assert_eq!(
+            status.code(),
+            Some(0),
+            "fp unmark should exit 0 on broken pipe"
+        );
     }
 
     #[test]
