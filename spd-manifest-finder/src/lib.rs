@@ -161,4 +161,99 @@ mod tests {
 
         let _ = fs::remove_dir_all(&tmp);
     }
+
+    #[tokio::test]
+    async fn find_all_five_python_manifest_names_fr005() {
+        let tmp = std::env::temp_dir().join("spd_finder_five_test");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&tmp).unwrap();
+        let names = [
+            "requirements.txt",
+            "pyproject.toml",
+            "Pipfile",
+            "setup.py",
+            "setup.cfg",
+        ];
+        for n in names {
+            fs::File::create(tmp.join(n)).unwrap().write_all(b"\n").unwrap();
+        }
+        fs::File::create(tmp.join("other.txt")).unwrap();
+        let finder = DefaultManifestFinder::new();
+        let mut got = finder.find(&tmp).await.unwrap();
+        got.sort();
+        let mut want: Vec<_> = names.iter().map(|n| tmp.join(n)).collect();
+        want.sort();
+        assert_eq!(got, want);
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[tokio::test]
+    async fn with_patterns_only_requirements_fr006() {
+        let tmp = std::env::temp_dir().join("spd_finder_regex_test");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(tmp.join("sub")).unwrap();
+        fs::File::create(tmp.join("requirements.txt")).unwrap();
+        fs::File::create(tmp.join("sub").join("pyproject.toml")).unwrap();
+        let finder = DefaultManifestFinder::with_patterns(vec![
+            r"^requirements\.txt$".to_string(),
+        ])
+        .unwrap();
+        let mut got = finder.find(&tmp).await.unwrap();
+        got.sort();
+        assert_eq!(got, vec![tmp.join("requirements.txt")]);
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn with_patterns_invalid_regex_returns_err() {
+        let r = DefaultManifestFinder::with_patterns(vec!["[invalid".to_string()]);
+        assert!(matches!(r, Err(FinderError::Regex(_))));
+    }
+
+    #[tokio::test]
+    async fn empty_directory_returns_empty_list() {
+        let tmp = std::env::temp_dir().join("spd_finder_empty_test");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&tmp).unwrap();
+        let finder = DefaultManifestFinder::new();
+        let got = finder.find(&tmp).await.unwrap();
+        assert!(got.is_empty());
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[tokio::test]
+    async fn symlink_directory_not_traversed() {
+        let tmp = std::env::temp_dir().join("spd_finder_symlink_test");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(tmp.join("realdir")).unwrap();
+        fs::File::create(tmp.join("realdir").join("requirements.txt"))
+            .unwrap();
+        #[cfg(not(windows))]
+        {
+            use std::os::unix::fs::symlink;
+            symlink(tmp.join("realdir"), tmp.join("link")).unwrap();
+        }
+        let finder = DefaultManifestFinder::new();
+        let mut got = finder.find(&tmp).await.unwrap();
+        got.sort();
+        #[cfg(not(windows))]
+        assert_eq!(got.len(), 1);
+        #[cfg(not(windows))]
+        assert_eq!(got[0], tmp.join("realdir").join("requirements.txt"));
+        #[cfg(windows)]
+        {
+            // Windows: no symlink in test; just ensure one manifest found
+            assert_eq!(got.len(), 1);
+        }
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[tokio::test]
+    async fn find_nonexistent_path_returns_io_error() {
+        let finder = DefaultManifestFinder::new();
+        let bad = std::env::temp_dir().join("spd_nonexistent_xyz_12345");
+        let r = finder.find(&bad).await;
+        assert!(r.is_err());
+        assert!(matches!(r.unwrap_err(), FinderError::Io(_)));
+    }
 }

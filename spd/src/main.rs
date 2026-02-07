@@ -26,10 +26,23 @@ mod registry;
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use log::{error, info, LevelFilter};
+use std::io::Write;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 
 use crate::cli::{Cli, Commands, FpCommands};
+
+/// Write to stdout for `spd db show`; exit 0 on broken pipe (e.g. `| less` then `q`).
+fn write_show_stdout(s: &str) {
+    let mut out = std::io::stdout().lock();
+    if let Err(e) = out.write_all(s.as_bytes()) {
+        if e.kind() == std::io::ErrorKind::BrokenPipe {
+            std::process::exit(0);
+        }
+        panic!("failed printing to stdout: {}", e);
+    }
+    let _ = out.flush();
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -56,7 +69,14 @@ async fn main() -> Result<()> {
     // -----------------------------------------------------------------
     let args = Cli::parse();
 
-    // Load config from files + env + global CLI for DB paths and TTL.
+    // Resolve CLI cache TTL from subcommand (only `spd db` and `spd scan` have it).
+    let cli_cache_ttl_secs = match &args.cmd {
+        Commands::Db { cache_ttl_secs, .. } => *cache_ttl_secs,
+        Commands::Scan { cache_ttl_secs, .. } => *cache_ttl_secs,
+        _ => None,
+    };
+
+    // Load config from files + env + CLI for DB paths and TTL.
     let early_cfg = config::load(
         args.config.as_deref(),
         config::env_parallel(),
@@ -70,7 +90,7 @@ async fn main() -> Result<()> {
         None,
         None,
         None,
-        args.cache_ttl_secs,
+        cli_cache_ttl_secs,
         false,
         false,
         None,
@@ -104,6 +124,9 @@ async fn main() -> Result<()> {
                 error!("Failed to open cache database: {}", e);
                 std::process::exit(2);
             })?;
+        if args.verbose > 0 {
+            info!("Cache TTL: {} s", early_cfg.cache_ttl_secs);
+        }
     }
     registry::ensure_default_manifest_finder();
     registry::ensure_default_parser();
@@ -165,7 +188,7 @@ async fn main() -> Result<()> {
                 cli_parallel,
                 cli_cache_db.as_deref(),
                 cli_ignore_db.as_deref(),
-                cli_cache_ttl_secs.or(args.cache_ttl_secs),
+                cli_cache_ttl_secs,
                 offline,
                 benchmark,
                 cli_min_score,
@@ -227,7 +250,7 @@ async fn main() -> Result<()> {
                     None,
                     None,
                     None,
-                    args.cache_ttl_secs,
+                    None,
                     false,
                     false,
                     None,
@@ -247,7 +270,7 @@ async fn main() -> Result<()> {
             }
         }
 
-        Commands::Db { sub } => match sub {
+        Commands::Db { sub, .. } => match sub {
             cli::DbCommands::ListProviders => {
                 let providers = registry::PROVIDERS.lock().expect("PROVIDERS lock poisoned");
                 for p in providers.iter() {
@@ -291,6 +314,77 @@ async fn main() -> Result<()> {
             }
             cli::DbCommands::Migrate => {
                 println!("Database migration completed (nothing to do)");
+            }
+            cli::DbCommands::Show { format, full } => {
+                let entries = db_backend.list_entries(full).await?;
+                if format.as_deref() == Some("json") {
+                    write_show_stdout(
+                        &serde_json::to_string_pretty(&entries).unwrap(),
+                    );
+                    write_show_stdout("\n");
+                } else {
+                    for e in &entries {
+                        write_show_stdout(&format!(
+                            "{}  ttl={}s  added_at={}  cve_count={}  \
+                             cve_ids={:?}\n",
+                            e.key,
+                            e.ttl_secs,
+                            e.added_at_secs,
+                            e.cve_count,
+                            e.cve_ids
+                        ));
+                        if let Some(ref raw) = e.raw_vulns {
+                            write_show_stdout(
+                                &serde_json::to_string_pretty(raw).unwrap(),
+                            );
+                            write_show_stdout("\n");
+                        }
+                    }
+                    if entries.is_empty() {
+                        write_show_stdout("(no cache entries)\n");
+                    }
+                }
+            }
+            cli::DbCommands::SetTtl {
+                secs,
+                entry,
+                all,
+                pattern,
+                entries: entries_arg,
+            } => {
+                use spd_db::TtlSelector;
+                let selector = if let Some(k) = entry {
+                    TtlSelector::One(k)
+                } else if all {
+                    TtlSelector::All
+                } else if let Some(p) = pattern {
+                    TtlSelector::Multiple(
+                        db_backend
+                            .list_entries(false)
+                            .await?
+                            .into_iter()
+                            .filter(|e| {
+                                e.key.contains(p.as_str())
+                                    || p.strip_suffix('*')
+                                        .map(|prefix| e.key.starts_with(prefix))
+                                        .unwrap_or(false)
+                            })
+                            .map(|e| e.key)
+                            .collect(),
+                    )
+                } else if let Some(keys) = entries_arg {
+                    TtlSelector::Multiple(
+                        keys.split(',').map(|s| s.trim().to_string()).collect(),
+                    )
+                } else {
+                    error!("set-ttl requires one of: --entry KEY, --all, --pattern PATTERN, --entries KEY1,KEY2");
+                    std::process::exit(2);
+                };
+                db_backend.set_ttl(selector, secs).await.map_err(|e| {
+                    error!("set_ttl failed: {}", e);
+                    std::process::exit(2);
+                })?;
+                println!("TTL updated.");
             }
         },
 
@@ -536,7 +630,9 @@ async fn run_scan(
 
             // 3️⃣ Query the provider (concurrent up to `effective_parallel`)
             let fetched = prov.as_ref().fetch(&pkg).await?;
-            db.as_ref().put(&pkg, &fetched.raw_vulns).await?;
+            db.as_ref()
+                .put(&pkg, &fetched.raw_vulns, None)
+                .await?;
             Ok((pkg.clone(), fetched.records))
         };
 
@@ -563,6 +659,7 @@ async fn run_scan(
         }
     }
     if offline_cache_miss {
+        let _ = db_backend.stats().await;
         eprintln!("CVE not found in cache, and unable to lookup CVE due to `--offline` argument.");
         std::process::exit(4);
     }
@@ -599,7 +696,7 @@ async fn run_scan(
         .collect();
     let real_cve_count: usize = findings.iter().map(|(_, r)| r.len()).sum();
     if had_any_cves_before_fp_filter && real_cve_count == 0 {
-        // All reported CVEs were marked as false positive – exit per FR-016.
+        let _ = db_backend.stats().await;
         std::process::exit(effective.fp_exit_code.unwrap_or(0).into());
     }
 
@@ -707,8 +804,9 @@ async fn run_scan(
     }
 
     // -----------------------------------------------------------------
-    // l) Final exit
+    // l) Persist cache stats then exit (exit() skips Drop)
     // -----------------------------------------------------------------
+    let _ = db_backend.stats().await;
     std::process::exit(exit_code.into());
 }
 
@@ -737,4 +835,62 @@ fn package_manager_hint() -> &'static str {
     return "Install Python from https://www.python.org/ and ensure pip is enabled.";
     #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
     return "Install Python and pip for your platform.";
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+    use std::process::Command;
+
+    /// Path to the spd binary (set by Cargo when running tests). Skip if missing.
+    fn spd_exe() -> Option<String> {
+        let exe = std::env::var("CARGO_BIN_EXE_spd").ok()?;
+        if Path::new(&exe).exists() {
+            Some(exe)
+        } else {
+            None
+        }
+    }
+
+    #[test]
+    fn cli_db_show_help_succeeds() {
+        let exe = match spd_exe() {
+            Some(p) => p,
+            None => {
+                eprintln!("skip: CARGO_BIN_EXE_spd unset or binary missing");
+                return;
+            }
+        };
+        let out = Command::new(&exe)
+            .args(["db", "show", "--help"])
+            .output()
+            .expect("run spd db show --help");
+        assert!(
+            out.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        assert!(stdout.contains("show") || stdout.contains("cache"));
+    }
+
+    #[test]
+    fn cli_db_set_ttl_help_succeeds() {
+        let exe = match spd_exe() {
+            Some(p) => p,
+            None => {
+                eprintln!("skip: CARGO_BIN_EXE_spd unset or binary missing");
+                return;
+            }
+        };
+        let out = Command::new(&exe)
+            .args(["db", "set-ttl", "--help"])
+            .output()
+            .expect("run spd db set-ttl --help");
+        assert!(
+            out.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
 }

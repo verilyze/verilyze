@@ -51,3 +51,78 @@ impl IntegrityChecker for BackendDelegatingChecker {
             .map_err(|e| IntegrityError::Other(e.to_string()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use async_trait::async_trait;
+    use spd_db::{CveRecord, DatabaseError, DatabaseStats, Package};
+
+    struct MockBackendOk;
+
+    #[async_trait]
+    impl DatabaseBackend for MockBackendOk {
+        async fn init(&self) -> Result<(), DatabaseError> {
+            Ok(())
+        }
+        async fn get(&self, _: &Package) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
+            Ok(None)
+        }
+        async fn put(
+            &self,
+            _: &Package,
+            _: &[serde_json::Value],
+            _: Option<u64>,
+        ) -> Result<(), DatabaseError> {
+            Ok(())
+        }
+        async fn stats(&self) -> Result<DatabaseStats, DatabaseError> {
+            Ok(DatabaseStats::default())
+        }
+        async fn verify_integrity(&self) -> Result<(), DatabaseError> {
+            Ok(())
+        }
+    }
+
+    struct MockBackendErr;
+
+    #[async_trait]
+    impl DatabaseBackend for MockBackendErr {
+        async fn init(&self) -> Result<(), DatabaseError> {
+            Ok(())
+        }
+        async fn get(&self, _: &Package) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
+            Ok(None)
+        }
+        async fn put(
+            &self,
+            _: &Package,
+            _: &[serde_json::Value],
+            _: Option<u64>,
+        ) -> Result<(), DatabaseError> {
+            Ok(())
+        }
+        async fn stats(&self) -> Result<DatabaseStats, DatabaseError> {
+            Ok(DatabaseStats::default())
+        }
+        async fn verify_integrity(&self) -> Result<(), DatabaseError> {
+            Err(DatabaseError::Other("mock integrity failure".to_string()))
+        }
+    }
+
+    #[tokio::test]
+    async fn backend_delegating_checker_ok() {
+        let checker = BackendDelegatingChecker::new();
+        let db = MockBackendOk;
+        assert!(checker.verify(&db).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn backend_delegating_checker_propagates_error() {
+        let checker = BackendDelegatingChecker::new();
+        let db = MockBackendErr;
+        let r = checker.verify(&db).await;
+        assert!(r.is_err());
+        assert!(r.unwrap_err().to_string().contains("mock integrity failure"));
+    }
+}
