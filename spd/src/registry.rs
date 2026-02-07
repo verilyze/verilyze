@@ -30,6 +30,7 @@ use spd_report::{DefaultReporter, Reporter};
 
 /// All possible plug‑in kinds.  The enum makes it easy to route a boxed
 /// implementation to the correct registry without needing `Any` tricks.
+#[allow(dead_code)]
 pub enum Plugin {
     ManifestFinder(Box<dyn ManifestFinder>),
     Parser(Box<dyn Parser>),
@@ -77,6 +78,7 @@ pub fn register(plugin: Plugin) {
 /// Ensures at least one database backend is registered (e.g. RedB when built with `redb` feature).
 /// Call this at startup so the default backend is used when no plugin has registered one.
 #[cfg(feature = "redb")]
+#[allow(dead_code)]
 pub fn ensure_default_db_backend() {
     let mut backends = DB_BACKENDS.lock().unwrap();
     if backends.is_empty() {

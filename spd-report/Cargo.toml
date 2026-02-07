@@ -12,3 +12,6 @@ thiserror = "2.0"
 spd-db = { path = "../spd-db" }   # re‑uses Package & CveRecord structs
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }

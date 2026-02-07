@@ -51,6 +51,9 @@ See [architecture/PRD.md](architecture/PRD.md) (CFG-001–CFG-008) for full deta
 | min_score | 0 | SPD_MIN_SCORE | --min-score |
 | min_count | 0 | SPD_MIN_COUNT | --min-count |
 
+Changing **cache_ttl_secs** only affects new cache entries; existing entries
+keep their stored expiry until they expire or are purged.
+
 Run `spd config --list` to print effective values.
 
 ## CLI reference (summary)

@@ -11,3 +11,7 @@ async-trait = "0.1"
 thiserror = "2.0"
 spd-db = { path = "../spd-db" }   # uses DatabaseBackend trait
 sha2 = "0.10"                    # SHA‑256 implementation (default)
+
+[dev-dependencies]
+serde_json = "1.0"
+tokio = { version = "1", features = ["rt", "macros"] }

@@ -20,6 +20,7 @@ anyhow = "1.0"
 lazy_static = "1.5"
 toml = "0.9"
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 thiserror = "2.0"
 
 # Workspace‑internal trait crates
@@ -35,6 +36,9 @@ spd-db-redb = { path = "../spd-db-redb", optional = true }
 
 # Macro for plugin registration (used in registry.rs)
 spd-plugin-macro = { path = "../spd-plugin-macro" }
+
+[dev-dependencies]
+tempfile = "3"
 
 # Feature gating – matches MOD‑003
 [features]
