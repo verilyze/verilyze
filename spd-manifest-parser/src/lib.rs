@@ -229,4 +229,127 @@ mod tests {
         let graph = parser.parse(&path).await.unwrap();
         assert!(graph.packages.is_empty());
     }
+
+    #[tokio::test]
+    async fn comments_and_empty_lines_skipped() {
+        let tmp = std::env::temp_dir().join("spd_parser_comments_test");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap();
+        let path = tmp.join("requirements.txt");
+        std::fs::write(
+            &path,
+            b"# only comment\n\n   \nfoo==1.0\n# mid\nbar>=2.0\n",
+        )
+        .unwrap();
+        let parser = RequirementsTxtParser::new();
+        let graph = parser.parse(&path).await.unwrap();
+        assert_eq!(graph.packages.len(), 2);
+        assert_eq!(graph.packages[0].name, "foo");
+        assert_eq!(graph.packages[1].name, "bar");
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[tokio::test]
+    async fn directive_lines_skipped() {
+        let tmp = std::env::temp_dir().join("spd_parser_directives_test");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap();
+        let path = tmp.join("requirements.txt");
+        std::fs::write(
+            &path,
+            b"-r other.txt\n-e .\n--extra-index-url x\n-f http://x\n-i http://y\n\
+              pkg==1.0\n",
+        )
+        .unwrap();
+        let parser = RequirementsTxtParser::new();
+        let graph = parser.parse(&path).await.unwrap();
+        assert_eq!(graph.packages.len(), 1);
+        assert_eq!(graph.packages[0].name, "pkg");
+        assert_eq!(graph.packages[0].version, "1.0");
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[tokio::test]
+    async fn inline_comment_stripped() {
+        let tmp = std::env::temp_dir().join("spd_parser_inline_test");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap();
+        let path = tmp.join("requirements.txt");
+        std::fs::write(&path, b"foo==1.0 # inline comment\n").unwrap();
+        let parser = RequirementsTxtParser::new();
+        let graph = parser.parse(&path).await.unwrap();
+        assert_eq!(graph.packages.len(), 1);
+        assert_eq!(graph.packages[0].name, "foo");
+        assert_eq!(graph.packages[0].version, "1.0");
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[tokio::test]
+    async fn version_operators_and_name_only() {
+        let tmp = std::env::temp_dir().join("spd_parser_versions_test");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap();
+        let path = tmp.join("requirements.txt");
+        std::fs::write(
+            &path,
+            b"exact==1.0.0\n\
+              gte>=2.0\n\
+              lte<=3.0\n\
+              tilde~=4.1\n\
+              ne!=5.0\n\
+              gt>6\n\
+              lt<7\n\
+              name_only\n",
+        )
+        .unwrap();
+        let parser = RequirementsTxtParser::new();
+        let graph = parser.parse(&path).await.unwrap();
+        assert_eq!(graph.packages.len(), 8);
+        assert_eq!(graph.packages[0].version, "1.0.0");
+        assert_eq!(graph.packages[1].version, "2.0");
+        assert_eq!(graph.packages[2].version, "3.0");
+        assert_eq!(graph.packages[3].version, "4.1");
+        assert_eq!(graph.packages[4].version, "5.0");
+        assert_eq!(graph.packages[5].version, "6");
+        assert_eq!(graph.packages[6].version, "7");
+        assert_eq!(graph.packages[7].name, "name_only");
+        assert_eq!(graph.packages[7].version, "any");
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[tokio::test]
+    async fn extras_stripped_pep508() {
+        let tmp = std::env::temp_dir().join("spd_parser_extras_test");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap();
+        let path = tmp.join("requirements.txt");
+        std::fs::write(&path, b"name[extras]==1.0\n").unwrap();
+        let parser = RequirementsTxtParser::new();
+        let graph = parser.parse(&path).await.unwrap();
+        assert_eq!(graph.packages.len(), 1);
+        assert_eq!(graph.packages[0].name, "name");
+        assert_eq!(graph.packages[0].version, "1.0");
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[tokio::test]
+    async fn direct_only_resolver_returns_graph_packages() {
+        let graph = DependencyGraph {
+            packages: vec![
+                spd_db::Package {
+                    name: "a".to_string(),
+                    version: "1".to_string(),
+                },
+                spd_db::Package {
+                    name: "b".to_string(),
+                    version: "2".to_string(),
+                },
+            ],
+        };
+        let resolver = DirectOnlyResolver::new();
+        let resolved = resolver.resolve(&graph).await.unwrap();
+        assert_eq!(resolved.len(), 2);
+        assert_eq!(resolved[0].name, "a");
+        assert_eq!(resolved[1].name, "b");
+    }
 }

@@ -434,3 +434,256 @@ pub fn set_config_key(key: &str, value: &str) -> Result<(), ConfigError> {
     std::fs::write(&path, out)?;
     Ok(())
 }
+
+#[cfg(test)]
+#[allow(unsafe_code)]
+mod tests {
+    use super::*;
+
+    fn temp_config(content: &str) -> (tempfile::TempDir, PathBuf) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("super-duper.conf");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, content).unwrap();
+        (dir, path)
+    }
+
+    #[test]
+    fn load_defaults_when_no_files() {
+        let cfg = load(
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            false,
+        )
+        .unwrap();
+        assert_eq!(cfg.parallel_queries, DEFAULT_PARALLEL_QUERIES);
+        assert_eq!(cfg.cache_ttl_secs, DEFAULT_CACHE_TTL_SECS);
+    }
+
+    #[test]
+    fn load_cli_overrides_file_cfg007() {
+        let (_dir, path) = temp_config("parallel_queries = 5\n");
+        let path_str = path.to_string_lossy().into_owned();
+        let cfg = load(
+            Some(&path_str),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(20),
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            false,
+        )
+        .unwrap();
+        assert_eq!(cfg.parallel_queries, 20);
+    }
+
+    #[test]
+    fn load_env_overrides_file() {
+        let (_dir, path) = temp_config("parallel_queries = 5\n");
+        let path_str = path.to_string_lossy().into_owned();
+        let cfg = load(
+            Some(&path_str),
+            Some(15),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            false,
+        )
+        .unwrap();
+        assert_eq!(cfg.parallel_queries, 15);
+    }
+
+    #[test]
+    fn load_parallel_too_high_fr012() {
+        let r = load(
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(51),
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            false,
+        );
+        assert!(matches!(
+            r,
+            Err(ConfigError::ParallelTooHigh { value: 51, max: 50 })
+        ));
+    }
+
+    #[test]
+    fn load_invalid_toml_cfg001() {
+        let (_dir, path) = temp_config("not valid toml {{{");
+        let path_str = path.to_string_lossy().into_owned();
+        let r = load(
+            Some(&path_str),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            false,
+        );
+        assert!(r.is_err());
+        assert!(matches!(r.unwrap_err(), ConfigError::InvalidToml { .. }));
+    }
+
+    #[test]
+    fn load_unknown_key_returns_error_sec006() {
+        let (_dir, path) = temp_config("unknown_key = 1\n");
+        let path_str = path.to_string_lossy().into_owned();
+        let r = load(
+            Some(&path_str),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            false,
+        );
+        assert!(r.is_err());
+        let e = r.unwrap_err();
+        assert!(e.to_string().contains("unknown") || e.to_string().contains("InvalidToml"));
+    }
+
+    #[test]
+    fn set_config_key_invalid_key_returns_unknown_key() {
+        let r = set_config_key("nodot", "value");
+        assert!(r.is_err());
+        assert!(matches!(r.unwrap_err(), ConfigError::UnknownKey { .. }));
+    }
+
+    #[test]
+    fn set_config_key_then_load_fr006() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("super-duper")).unwrap();
+        unsafe { std::env::set_var("XDG_CONFIG_HOME", dir.path()) };
+        let restore = std::env::var_os("XDG_CONFIG_HOME");
+        let res = set_config_key("python.regex", "^requirements\\.txt$");
+        assert!(res.is_ok());
+        let path = user_config_path();
+        let raw = std::fs::read_to_string(&path).unwrap();
+        let value: toml::Value = toml::from_str(&raw).unwrap();
+        if let Some(r) = restore {
+            unsafe { std::env::set_var("XDG_CONFIG_HOME", r) };
+        } else {
+            unsafe { std::env::remove_var("XDG_CONFIG_HOME") };
+        }
+        assert_eq!(
+            value.get("python").and_then(|t| t.get("regex")).and_then(|v| v.as_str()),
+            Some("^requirements\\.txt$")
+        );
+    }
+
+    #[test]
+    fn default_cache_path_under_xdg_cache_home() {
+        let dir = tempfile::tempdir().unwrap();
+        unsafe { std::env::set_var("XDG_CACHE_HOME", dir.path()) };
+        let restore = std::env::var_os("XDG_CACHE_HOME");
+        let p = default_cache_path();
+        if let Some(r) = restore {
+            unsafe { std::env::set_var("XDG_CACHE_HOME", r) };
+        } else {
+            unsafe { std::env::remove_var("XDG_CACHE_HOME") };
+        }
+        assert!(p.to_string_lossy().contains(dir.path().to_string_lossy().as_ref()));
+        assert!(p.ends_with("spd-cache.redb"));
+    }
+
+    #[test]
+    fn default_ignore_path_under_xdg_data_home() {
+        let dir = tempfile::tempdir().unwrap();
+        unsafe { std::env::set_var("XDG_DATA_HOME", dir.path()) };
+        let restore = std::env::var_os("XDG_DATA_HOME");
+        let p = default_ignore_path();
+        if let Some(r) = restore {
+            unsafe { std::env::set_var("XDG_DATA_HOME", r) };
+        } else {
+            unsafe { std::env::remove_var("XDG_DATA_HOME") };
+        }
+        assert!(p.to_string_lossy().contains(dir.path().to_string_lossy().as_ref()));
+        assert!(p.ends_with("spd-ignore.redb"));
+    }
+}

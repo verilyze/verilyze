@@ -30,12 +30,8 @@ pub struct Cli {
     pub verbose: u8,
 
     /// Override configuration file location
-    #[arg(short, long, value_name = "PATH")]
+    #[arg(short, long, value_name = "PATH", global = true)]
     pub config: Option<String>,
-
-    /// Cache TTL in seconds (default: 432000 = 5 days); used for DB init
-    #[arg(long, value_name = "SECS")]
-    pub cache_ttl_secs: Option<u64>,
 
     /// Set environment variable overrides (SPD_*)
     #[arg(long, hide = true)]
@@ -74,7 +70,8 @@ pub enum Commands {
         #[arg(long, value_name = "PATH")]
         ignore_db: Option<String>,
 
-        /// Cache TTL in seconds (default: 432000 = 5 days)
+        /// Default TTL in seconds for new cache entries (default: 432000 = 5 days).
+        /// Does not change existing entries; use `spd db set-ttl` to update those.
         #[arg(long, value_name = "SECS")]
         cache_ttl_secs: Option<u64>,
 
@@ -124,6 +121,11 @@ pub enum Commands {
     Db {
         #[command(subcommand)]
         sub: DbCommands,
+
+        /// Default TTL in seconds when opening the cache (default: 432000 = 5 days).
+        /// Does not change existing entries; use `spd db set-ttl` to update those.
+        #[arg(long, value_name = "SECS")]
+        cache_ttl_secs: Option<u64>,
     },
 
     /// False-positive markings (FR-015)
@@ -170,4 +172,31 @@ pub enum DbCommands {
     Migrate,
     /// List supported CVE providers (FR-018)
     ListProviders,
+    /// Display cache entries with TTL and added timestamp (FR-035)
+    Show {
+        /// Output format (e.g. json for full payload)
+        #[arg(long, value_name = "FORMAT")]
+        format: Option<String>,
+        /// Include full CVE payload for each entry
+        #[arg(long)]
+        full: bool,
+    },
+    /// Update TTL for existing cache entries (OP-015)
+    SetTtl {
+        /// New TTL in seconds
+        #[arg(value_name = "SECS")]
+        secs: u64,
+        /// Update a single entry by key (e.g. "name::version")
+        #[arg(long, value_name = "KEY")]
+        entry: Option<String>,
+        /// Update all entries
+        #[arg(long)]
+        all: bool,
+        /// Update entries matching pattern
+        #[arg(long, value_name = "PATTERN")]
+        pattern: Option<String>,
+        /// Update multiple entries (comma-separated keys)
+        #[arg(long, value_name = "KEYS")]
+        entries: Option<String>,
+    },
 }

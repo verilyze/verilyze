@@ -356,3 +356,185 @@ fn severity_level_sarif(s: &Severity) -> &'static str {
         Severity::Unknown => "note",
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolve_severity_none_returns_unknown() {
+        let config = SeverityConfig::default();
+        assert_eq!(
+            resolve_severity(None, Some(CvssVersion::V3), &config),
+            Severity::Unknown
+        );
+        assert_eq!(
+            resolve_severity(Some(7.0), None, &config),
+            Severity::Unknown
+        );
+    }
+
+    #[test]
+    fn resolve_severity_default_thresholds_fr013() {
+        let config = SeverityConfig::default();
+        assert_eq!(
+            resolve_severity(Some(9.5), Some(CvssVersion::V3), &config),
+            Severity::Critical
+        );
+        assert_eq!(
+            resolve_severity(Some(7.5), Some(CvssVersion::V3), &config),
+            Severity::High
+        );
+        assert_eq!(
+            resolve_severity(Some(5.0), Some(CvssVersion::V3), &config),
+            Severity::Medium
+        );
+        assert_eq!(
+            resolve_severity(Some(0.5), Some(CvssVersion::V3), &config),
+            Severity::Low
+        );
+        assert_eq!(
+            resolve_severity(Some(0.0), Some(CvssVersion::V3), &config),
+            Severity::Unknown
+        );
+    }
+
+    #[test]
+    fn resolve_severity_per_version_uses_correct_thresholds() {
+        let config = SeverityConfig::default();
+        assert_eq!(
+            resolve_severity(Some(8.0), Some(CvssVersion::V2), &config),
+            Severity::High
+        );
+        assert_eq!(
+            resolve_severity(Some(8.0), Some(CvssVersion::V4), &config),
+            Severity::High
+        );
+    }
+
+    fn sample_report_data_empty() -> ReportData {
+        ReportData {
+            findings: vec![],
+        }
+    }
+
+    fn sample_report_data_one_finding() -> ReportData {
+        let pkg = Package {
+            name: "foo".to_string(),
+            version: "1.0".to_string(),
+        };
+        let cve = CveRecord {
+            id: "CVE-2023-1234".to_string(),
+            cvss_score: Some(7.0),
+            cvss_version: Some(CvssVersion::V3),
+            description: "A bug".to_string(),
+            reachable: None,
+        };
+        ReportData {
+            findings: vec![(pkg, vec![(cve, Severity::High)])],
+        }
+    }
+
+    #[tokio::test]
+    async fn default_reporter_empty_findings() {
+        let data = sample_report_data_empty();
+        let mut buf = Vec::new();
+        DefaultReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let out = String::from_utf8(buf).unwrap();
+        assert!(out.contains("No vulnerabilities found."));
+    }
+
+    #[tokio::test]
+    async fn default_reporter_one_finding() {
+        let data = sample_report_data_one_finding();
+        let mut buf = Vec::new();
+        DefaultReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let out = String::from_utf8(buf).unwrap();
+        assert!(out.contains("foo"));
+        assert!(out.contains("CVE-2023-1234"));
+        assert!(out.contains("HIGH"));
+    }
+
+    #[tokio::test]
+    async fn json_reporter_empty_findings() {
+        let data = sample_report_data_empty();
+        let mut buf = Vec::new();
+        JsonReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let out = String::from_utf8(buf).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(out.trim()).unwrap();
+        assert!(parsed.get("findings").unwrap().as_array().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn json_reporter_one_finding() {
+        let data = sample_report_data_one_finding();
+        let mut buf = Vec::new();
+        JsonReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let out = String::from_utf8(buf).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(out.trim()).unwrap();
+        let findings = parsed.get("findings").unwrap().as_array().unwrap();
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].get("package").unwrap().get("name").unwrap(), "foo");
+        let cves = findings[0].get("cves").unwrap().as_array().unwrap();
+        assert_eq!(cves[0].get("severity").unwrap(), "HIGH");
+    }
+
+    #[tokio::test]
+    async fn html_reporter_contains_table_and_escapes() {
+        let pkg = Package {
+            name: "pkg".to_string(),
+            version: "1.0".to_string(),
+        };
+        let cve = CveRecord {
+            id: "CVE-X".to_string(),
+            cvss_score: None,
+            cvss_version: None,
+            description: "a <b> & \"quoted\"".to_string(),
+            reachable: None,
+        };
+        let data = ReportData {
+            findings: vec![(pkg, vec![(cve, Severity::Medium)])],
+        };
+        let mut buf = Vec::new();
+        HtmlReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let out = String::from_utf8(buf).unwrap();
+        assert!(out.contains("<table"));
+        assert!(out.contains("&lt;"));
+        assert!(out.contains("&amp;"));
+        assert!(out.contains("&quot;"));
+    }
+
+    #[tokio::test]
+    async fn sarif_reporter_contains_schema_version_and_results() {
+        let data = sample_report_data_one_finding();
+        let mut buf = Vec::new();
+        SarifReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let out = String::from_utf8(buf).unwrap();
+        assert!(out.contains("$schema"));
+        assert!(out.contains("2.1.0"));
+        let parsed: serde_json::Value = serde_json::from_str(out.trim()).unwrap();
+        let runs = parsed.get("runs").unwrap().as_array().unwrap();
+        let results = runs[0].get("results").unwrap().as_array().unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].get("ruleId").unwrap(), "CVE-2023-1234");
+        assert!(results[0].get("message").is_some());
+    }
+}
