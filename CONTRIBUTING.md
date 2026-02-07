@@ -51,6 +51,11 @@ formal trait contracts.
 - Run `cargo fmt` and `cargo clippy` before submitting.
 - Add unit tests in the crate that owns the logic; integration tests where
   appropriate.
+- Give a best effort at keeping line lengths below 80 characters (i.e., 79
+  characters or less) so that users with 80-character terminals can view the
+  entire line, even when viewing patch files/diffs. Some lines can extend past
+  this guideline when it improves readability (e.g., long URLs that can't be
+  reasonably broken apart).
 
 ### CLI output (stdout)
 
