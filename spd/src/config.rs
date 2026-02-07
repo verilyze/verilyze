@@ -235,6 +235,7 @@ pub fn load(
     env_parallel: Option<usize>,
     env_cache_db: Option<PathBuf>,
     env_ignore_db: Option<PathBuf>,
+    env_cache_ttl_secs: Option<u64>,
     env_min_score: Option<f32>,
     env_min_count: Option<usize>,
     env_exit_code_on_cve: Option<u8>,
@@ -242,6 +243,7 @@ pub fn load(
     cli_parallel: Option<usize>,
     cli_cache_db: Option<&str>,
     cli_ignore_db: Option<&str>,
+    cli_cache_ttl_secs: Option<u64>,
     cli_offline: bool,
     cli_benchmark: bool,
     cli_min_score: Option<f32>,
@@ -282,6 +284,9 @@ pub fn load(
     if let Some(p) = env_ignore_db {
         cfg.ignore_db = Some(p);
     }
+    if let Some(n) = env_cache_ttl_secs {
+        cfg.cache_ttl_secs = n;
+    }
     if let Some(s) = env_min_score {
         cfg.min_score = s;
     }
@@ -304,6 +309,9 @@ pub fn load(
     }
     if let Some(p) = cli_ignore_db {
         cfg.ignore_db = Some(PathBuf::from(p));
+    }
+    if let Some(n) = cli_cache_ttl_secs {
+        cfg.cache_ttl_secs = n;
     }
     cfg.offline = cli_offline;
     cfg.benchmark = cli_benchmark;
@@ -344,6 +352,13 @@ pub fn env_cache_db() -> Option<PathBuf> {
 
 pub fn env_ignore_db() -> Option<PathBuf> {
     std::env::var("SPD_IGNORE_DB").ok().map(PathBuf::from)
+}
+
+/// Read SPD_CACHE_TTL_SECS (OP-011, CFG-005).
+pub fn env_cache_ttl_secs() -> Option<u64> {
+    std::env::var("SPD_CACHE_TTL_SECS")
+        .ok()
+        .and_then(|s| s.parse().ok())
 }
 
 pub fn env_min_score() -> Option<f32> {

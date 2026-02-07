@@ -35,13 +35,23 @@ spd list
 
 Options are resolved in order (highest wins):
 
-1. **CLI flags** (e.g. `--parallel 20`, `--min-score 7.0`)
-2. **Environment variables** `SPD_*` (e.g. `SPD_PARALLEL_QUERIES=20`)
+1. **CLI flags** (e.g. `--parallel 20`, `--cache-ttl-secs 86400`, `--min-score 7.0`)
+2. **Environment variables** `SPD_*` (e.g. `SPD_PARALLEL_QUERIES=20`,
+   `SPD_CACHE_TTL_SECS=86400`)
 3. **User config file** (`-c/--config <path>` or default
    `$XDG_CONFIG_HOME/super-duper/super-duper.conf`)
 4. **System config** (`/etc/super-duper.conf`)
 
 See [architecture/PRD.md](architecture/PRD.md) (CFG-001–CFG-008) for full details.
+
+| Key | Default | Env var | CLI flag |
+|-----|---------|---------|----------|
+| cache_ttl_secs | 432000 (5 days) | SPD_CACHE_TTL_SECS | --cache-ttl-secs |
+| parallel_queries | 10 | SPD_PARALLEL_QUERIES | --parallel |
+| min_score | 0 | SPD_MIN_SCORE | --min-score |
+| min_count | 0 | SPD_MIN_COUNT | --min-count |
+
+Run `spd config --list` to print effective values.
 
 ## CLI reference (summary)
 
@@ -61,8 +71,9 @@ See [architecture/PRD.md](architecture/PRD.md) (CFG-001–CFG-008) for full deta
 
 **Scan options (examples):** `--format-type plain|json|sarif`,
 `--summary-file html:path,json:path`, `--provider osv`, `--parallel N`,
-`--offline`, `--benchmark`, `--min-score`, `--min-count`, `--exit-code-on-cve`,
-`--fp-exit-code`, `--cache-db`, `--ignore-db`.
+`--cache-ttl-secs SECS`, `--offline`, `--benchmark`, `--min-score`,
+`--min-count`, `--exit-code-on-cve`, `--fp-exit-code`, `--cache-db`,
+`--ignore-db`.
 
 ## Exit codes
 

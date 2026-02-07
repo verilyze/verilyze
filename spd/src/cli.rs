@@ -33,6 +33,10 @@ pub struct Cli {
     #[arg(short, long, value_name = "PATH")]
     pub config: Option<String>,
 
+    /// Cache TTL in seconds (default: 432000 = 5 days); used for DB init
+    #[arg(long, value_name = "SECS")]
+    pub cache_ttl_secs: Option<u64>,
+
     /// Set environment variable overrides (SPD_*)
     #[arg(long, hide = true)]
     pub env_overrides: Vec<String>,
@@ -69,6 +73,10 @@ pub enum Commands {
         /// Override ignore (false-positive) database path
         #[arg(long, value_name = "PATH")]
         ignore_db: Option<String>,
+
+        /// Cache TTL in seconds (default: 432000 = 5 days)
+        #[arg(long, value_name = "SECS")]
+        cache_ttl_secs: Option<u64>,
 
         /// Disable network access
         #[arg(long)]
