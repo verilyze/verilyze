@@ -1,7 +1,7 @@
-// SPDX-FileCopyrightText: 2026 Travis Post <post.travis+git@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
-
-// This file is part of super-duper. Copyright © 2026 Travis Post
+// SPDX-FileCopyrightText: 2026 Travis Post <post.travis+git@gmail.com>
+//
+// This file is part of super-duper.
 //
 // super-duper is free software: you can redistribute it and/or modify it under
 // the terms of the GNU General Public License as published by the Free
@@ -12,11 +12,10 @@
 // ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 // FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
 // more details.
-
+//
 // You should have received a copy of the GNU General Public License along with
-// super-duper. If not, see <https://www.gnu.org/licenses/>.
-
-//! Trait that parses a manifest file into a dependency graph.
+// super-duper (see the COPYING file in the project root for the full text). If
+// not, see <https://www.gnu.org/licenses/>.
 
 #![deny(unsafe_code)]
 
