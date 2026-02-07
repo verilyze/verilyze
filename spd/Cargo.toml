@@ -39,6 +39,7 @@ spd-plugin-macro = { path = "../spd-plugin-macro" }
 
 [dev-dependencies]
 tempfile = "3"
+temp-env = "0.3"
 
 # Feature gating – matches MOD‑003
 [features]

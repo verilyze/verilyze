@@ -436,7 +436,6 @@ pub fn set_config_key(key: &str, value: &str) -> Result<(), ConfigError> {
 }
 
 #[cfg(test)]
-#[allow(unsafe_code)]
 mod tests {
     use super::*;
 
@@ -639,51 +638,39 @@ mod tests {
     fn set_config_key_then_load_fr006() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(dir.path().join("super-duper")).unwrap();
-        unsafe { std::env::set_var("XDG_CONFIG_HOME", dir.path()) };
-        let restore = std::env::var_os("XDG_CONFIG_HOME");
-        let res = set_config_key("python.regex", "^requirements\\.txt$");
-        assert!(res.is_ok());
-        let path = user_config_path();
-        let raw = std::fs::read_to_string(&path).unwrap();
-        let value: toml::Value = toml::from_str(&raw).unwrap();
-        if let Some(r) = restore {
-            unsafe { std::env::set_var("XDG_CONFIG_HOME", r) };
-        } else {
-            unsafe { std::env::remove_var("XDG_CONFIG_HOME") };
-        }
-        assert_eq!(
-            value.get("python").and_then(|t| t.get("regex")).and_then(|v| v.as_str()),
-            Some("^requirements\\.txt$")
-        );
+        let path_str = dir.path().to_string_lossy().into_owned();
+        temp_env::with_var("XDG_CONFIG_HOME", Some(path_str.as_str()), || {
+            let res = set_config_key("python.regex", "^requirements\\.txt$");
+            assert!(res.is_ok());
+            let path = user_config_path();
+            let raw = std::fs::read_to_string(&path).unwrap();
+            let value: toml::Value = toml::from_str(&raw).unwrap();
+            assert_eq!(
+                value.get("python").and_then(|t| t.get("regex")).and_then(|v| v.as_str()),
+                Some("^requirements\\.txt$")
+            );
+        });
     }
 
     #[test]
     fn default_cache_path_under_xdg_cache_home() {
         let dir = tempfile::tempdir().unwrap();
-        unsafe { std::env::set_var("XDG_CACHE_HOME", dir.path()) };
-        let restore = std::env::var_os("XDG_CACHE_HOME");
-        let p = default_cache_path();
-        if let Some(r) = restore {
-            unsafe { std::env::set_var("XDG_CACHE_HOME", r) };
-        } else {
-            unsafe { std::env::remove_var("XDG_CACHE_HOME") };
-        }
-        assert!(p.to_string_lossy().contains(dir.path().to_string_lossy().as_ref()));
-        assert!(p.ends_with("spd-cache.redb"));
+        let path_str = dir.path().to_string_lossy().into_owned();
+        temp_env::with_var("XDG_CACHE_HOME", Some(path_str.as_str()), || {
+            let p = default_cache_path();
+            assert!(p.to_string_lossy().contains(path_str.as_str()));
+            assert!(p.ends_with("spd-cache.redb"));
+        });
     }
 
     #[test]
     fn default_ignore_path_under_xdg_data_home() {
         let dir = tempfile::tempdir().unwrap();
-        unsafe { std::env::set_var("XDG_DATA_HOME", dir.path()) };
-        let restore = std::env::var_os("XDG_DATA_HOME");
-        let p = default_ignore_path();
-        if let Some(r) = restore {
-            unsafe { std::env::set_var("XDG_DATA_HOME", r) };
-        } else {
-            unsafe { std::env::remove_var("XDG_DATA_HOME") };
-        }
-        assert!(p.to_string_lossy().contains(dir.path().to_string_lossy().as_ref()));
-        assert!(p.ends_with("spd-ignore.redb"));
+        let path_str = dir.path().to_string_lossy().into_owned();
+        temp_env::with_var("XDG_DATA_HOME", Some(path_str.as_str()), || {
+            let p = default_ignore_path();
+            assert!(p.to_string_lossy().contains(path_str.as_str()));
+            assert!(p.ends_with("spd-ignore.redb"));
+        });
     }
 }
