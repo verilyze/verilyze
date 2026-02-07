@@ -22,7 +22,7 @@
 /****************************************************************************/
 
 use std::{fs, io::Write, path::Path};
-use walkdir::WalkDir;
+use ignore::Walk;
 
 const HEADER_FILE: &str = "tools/header.txt";
 
@@ -159,7 +159,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut problems: Vec<String> = Vec::new();
     let mut updated = 0usize;
 
-    for entry in WalkDir::new(".").into_iter().filter_map(Result::ok) {
+    for entry in Walk::new(".").into_iter().filter_map(Result::ok) {
         let p = entry.path();
         if !p.is_file() {
             continue;
