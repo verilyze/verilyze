@@ -73,11 +73,32 @@ pub fn run(
     do_replace: bool,
     do_check: bool,
 ) -> Result<i32, Box<dyn std::error::Error>> {
+    run_with_walk(
+        root,
+        header_path,
+        do_replace,
+        do_check,
+        Walk::new(root).into_iter(),
+    )
+}
+
+/// Run with a custom walk (e.g. WalkBuilder for tests that need to skip gitignore).
+#[doc(hidden)]
+pub fn run_with_walk<I>(
+    _root: &Path,
+    header_path: &Path,
+    do_replace: bool,
+    do_check: bool,
+    walk: I,
+) -> Result<i32, Box<dyn std::error::Error>>
+where
+    I: Iterator<Item = Result<ignore::DirEntry, ignore::Error>>,
+{
     let header = fs::read(header_path)?;
     let mut problems: Vec<String> = Vec::new();
     let mut updated = 0usize;
 
-    for entry in Walk::new(root).into_iter().filter_map(Result::ok) {
+    for entry in walk.filter_map(Result::ok) {
         let p = entry.path();
         if !p.is_file() {
             continue;
@@ -86,7 +107,7 @@ pub fn run(
             continue;
         }
 
-        match process_file(p, &header, do_replace)? {
+        match process_file(&p, &header, do_replace)? {
             Some(msg) => {
                 if do_replace {
                     updated += 1;
@@ -325,6 +346,39 @@ mod tests {
     }
 
     #[test]
+    fn run_inspect_with_problems() {
+        let dir = tempfile::tempdir().unwrap();
+        let header_path = dir.path().join("header.txt");
+        std::fs::write(&header_path, b"// header\n").unwrap();
+        let rs = dir.path().join("foo.rs");
+        std::fs::write(&rs, b"fn main() {}").unwrap();
+        let walk = ignore::WalkBuilder::new(dir.path())
+            .git_ignore(false)
+            .build()
+            .into_iter();
+        let code = run_with_walk(dir.path(), &header_path, false, false, walk).unwrap();
+        assert_eq!(code, 0);
+        let bytes = std::fs::read(&rs).unwrap();
+        assert_eq!(bytes, b"fn main() {}", "inspect mode must not mutate");
+    }
+
+    #[test]
+    fn run_inspect_no_problems() {
+        let dir = tempfile::tempdir().unwrap();
+        let header_path = dir.path().join("header.txt");
+        std::fs::write(&header_path, b"// header\n").unwrap();
+        let rs = dir.path().join("foo.rs");
+        let content = build_new_bytes(b"fn main() {}", b"// header\n");
+        std::fs::write(&rs, &content).unwrap();
+        let walk = ignore::WalkBuilder::new(dir.path())
+            .git_ignore(false)
+            .build()
+            .into_iter();
+        let code = run_with_walk(dir.path(), &header_path, false, false, walk).unwrap();
+        assert_eq!(code, 0);
+    }
+
+    #[test]
     fn find_insert_pos_no_bom_no_shebang() {
         let b = b"fn main() {}";
         let (pos, rem) = find_insert_pos_and_remainder(b);
@@ -349,6 +403,14 @@ mod tests {
     }
 
     #[test]
+    fn find_insert_pos_shebang_no_newline() {
+        let b = b"#!/usr/bin/env bash";
+        let (pos, rem) = find_insert_pos_and_remainder(b);
+        assert_eq!(pos, 0);
+        assert_eq!(rem, b"#!/usr/bin/env bash");
+    }
+
+    #[test]
     fn strip_leading_blank_lines() {
         let b = b"\n\n  \n\t\n";
         assert_eq!(strip_leading_line_comments_only_len(b), b.len());
@@ -367,6 +429,18 @@ mod tests {
     }
 
     #[test]
+    fn strip_leading_line_comment_no_newline() {
+        let b = b"// comment";
+        assert_eq!(strip_leading_line_comments_only_len(b), 10);
+    }
+
+    #[test]
+    fn strip_leading_bang_doc_not_stripped() {
+        let b = b"/!/ something\nfn main() {}";
+        assert_eq!(strip_leading_line_comments_only_len(b), 0);
+    }
+
+    #[test]
     fn build_new_bytes_no_prefix() {
         let bytes = b"fn main() {}";
         let header = b"// header\n";
@@ -380,5 +454,34 @@ mod tests {
         let header = b"// header\n";
         let new = build_new_bytes(bytes, header);
         assert_eq!(new, b"// header\nfn main() {}");
+    }
+
+    #[test]
+    fn build_new_bytes_with_bom() {
+        let bytes = b"\xef\xbb\xbffn main() {}";
+        let header = b"// header\n";
+        let new = build_new_bytes(bytes, header);
+        assert_eq!(new, b"\xef\xbb\xbf// header\nfn main() {}");
+    }
+
+    #[test]
+    fn build_new_bytes_with_shebang() {
+        let bytes = b"#!/usr/bin/env rustx\nfn main() {}";
+        let header = b"// header\n";
+        let new = build_new_bytes(bytes, header);
+        assert_eq!(new, b"#!/usr/bin/env rustx\n// header\nfn main() {}");
+    }
+
+    #[test]
+    fn process_file_nonexistent_path() {
+        let p = std::path::Path::new("/nonexistent/path/12345.rs");
+        let header = b"// header\n";
+        assert!(process_file(p, header, false).is_err());
+    }
+
+    #[test]
+    fn write_if_changed_nonexistent_path() {
+        let p = std::path::Path::new("/nonexistent/path/12345");
+        assert!(write_if_changed(p, b"content").is_err());
     }
 }
