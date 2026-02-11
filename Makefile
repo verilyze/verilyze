@@ -29,9 +29,12 @@ coverage:
 	@command -v cargo-llvm-cov >/dev/null 2>&1 || cargo install cargo-llvm-cov --locked; \
 	rustup toolchain install nightly; \
 	rustup component add llvm-tools --toolchain nightly; \
+	rm -rf reports && \
+	find . -name spd-cache.redb -delete
 	mkdir -p reports && \
 	cargo +nightly llvm-cov clean --workspace 2>/dev/null || true; \
-	cargo +nightly llvm-cov --workspace --no-report && \
+	cargo +nightly llvm-cov --no-report run --bin xtask -- check && \
+	cargo +nightly llvm-cov --no-report --workspace && \
 	cargo +nightly llvm-cov report --html --output-dir reports && \
 	cargo +nightly llvm-cov report --cobertura --output-path reports/cobertura.xml
 
@@ -47,6 +50,7 @@ clean:
 	cargo clean
 	cargo llvm-cov clean --workspace 2>/dev/null || true
 	find . -name "*.profraw" -delete
-	rm -rf coverage/ reports/
+	find . -name spd-cache.redb -delete
+	rm -rf reports/
 
 all: debug
