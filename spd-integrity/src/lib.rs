@@ -125,4 +125,15 @@ mod tests {
         assert!(r.is_err());
         assert!(r.unwrap_err().to_string().contains("mock integrity failure"));
     }
+
+    #[test]
+    fn integrity_error_other_display() {
+        let e = IntegrityError::Other("custom message".to_string());
+        assert_eq!(e.to_string(), "custom message");
+    }
+
+    #[test]
+    fn backend_delegating_checker_default() {
+        let _ = BackendDelegatingChecker::default();
+    }
 }

@@ -921,6 +921,49 @@ mod tests {
         assert_eq!(b.ttl_secs, 3600);
     }
 
+    #[tokio::test]
+    async fn get_expired_entry_returns_none() {
+        let path = temp_cache_path("expired");
+        let _ = std::fs::remove_file(&path);
+        let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        backend.init().await.unwrap();
+        let pkg = Package {
+            name: "expired_pkg".to_string(),
+            version: "1".to_string(),
+        };
+        backend
+            .put(&pkg, &[sample_raw_vuln()], Some(1))
+            .await
+            .unwrap();
+        assert!(backend.get(&pkg).await.unwrap().is_some());
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        let got = backend.get(&pkg).await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert!(got.is_none());
+    }
+
+    #[tokio::test]
+    async fn list_entries_full_includes_raw_vulns() {
+        let path = temp_cache_path("list_full");
+        let _ = std::fs::remove_file(&path);
+        let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        backend.init().await.unwrap();
+        let pkg = Package {
+            name: "full_pkg".to_string(),
+            version: "1.0".to_string(),
+        };
+        backend
+            .put(&pkg, &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
+        let entries = backend.list_entries(true).await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(entries.len(), 1);
+        let raw = entries[0].raw_vulns.as_ref().unwrap();
+        assert_eq!(raw.len(), 1);
+        assert_eq!(raw[0].get("id").and_then(|v| v.as_str()), Some("CVE-2023-test"));
+    }
+
     #[test]
     fn fp_entry_serde_roundtrip() {
         let e = FpEntry {

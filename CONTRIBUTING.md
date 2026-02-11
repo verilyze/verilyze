@@ -70,22 +70,18 @@ Stderr can stay as `eprintln!` or `log::error!`.
 ## Running tests and coverage
 
 - **Run tests:** `cargo test` runs the full suite. To test a single crate (see MOD-005): `cargo test -p <crate>` (e.g. `cargo test -p spd-cve-client`).
-- **Generate coverage (grcov, XML for CI):** Branch coverage (NFR-012) requires the **nightly** toolchain and the `-Z coverage-options=branch` unstable flag; the rest of the project uses stable.
-  1. Install grcov: `cargo install grcov`
+- **Generate coverage (cargo-llvm-cov, XML for CI):** Use **cargo-llvm-cov** with the **nightly** toolchain so all workspace crates appear in the report.
+  1. Install cargo-llvm-cov: `cargo install cargo-llvm-cov --locked`
   2. Install the nightly toolchain and LLVM tools: `rustup toolchain install nightly` and `rustup component add llvm-tools --toolchain nightly`
-  3. Build and run tests with coverage instrumentation (nightly, with branch coverage):
+  3. Run tests and generate HTML + Cobertura reports (from the repo root): `make coverage`, or:
      ```bash
-     export RUSTFLAGS="-C instrument-coverage -Z coverage-options=branch"
-     export LLVM_PROFILE_FILE="%p.profraw"
-     export CARGO_INCREMENTAL=0
-     cargo +nightly test
+     cargo +nightly llvm-cov --workspace --no-report
+     cargo +nightly llvm-cov report --html --output-dir reports/html
+     cargo +nightly llvm-cov report --cobertura --output-path reports/cobertura.xml
      ```
-  4. Produce a Cobertura XML report for CI/CD (e.g. GitHub Actions), including branch coverage:
-     ```bash
-     grcov . -s . --binary-path ./target/debug -t cobertura --ignore-not-existing --branch -o coverage.xml
-     ```
-     Dependency code is excluded; the report covers workspace crates only. Thresholds (NFR-012): >= 70% branch coverage, >= 90% functional coverage.
-- **CI:** The XML output (Cobertura) is consumed by common CI systems; see [mozilla/grcov](https://github.com/mozilla/grcov) or the [rust-grcov GitHub Action](https://github.com/marketplace/actions/rust-grcov) for integration examples.
+     Thresholds (NFR-012): >= 70% branch coverage, >= 90% functional coverage.
+  **Note:** Branch coverage is currently **disabled** in the default coverage run (line and function coverage only). Enabling `--branch` can trigger an LLVM llvm-cov crash (SIGSEGV) when the report includes the proc-macro crate. Until that toolchain bug is resolved, coverage reports show line and function metrics; branch thresholds in NFR-012 remain the target when branch coverage is re-enabled.
+- **CI:** The Cobertura XML (e.g. `reports/cobertura.xml`) is consumed by common CI systems; see [taiki-e/cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov) or [taiki-e/install-action](https://github.com/taiki-e/install-action) for GitHub Actions.
 
 ## Test-driven development (TDD)
 

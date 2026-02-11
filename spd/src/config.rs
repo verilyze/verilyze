@@ -49,8 +49,9 @@ pub struct EffectiveConfig {
     pub config_file: Option<PathBuf>,
 }
 
+/// Parsed config file. Unknown top-level keys (e.g. [python] for language regexes) are
+/// ignored here and extracted separately when extract_language_regexes is true.
 #[derive(Debug, Default, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
 struct FileConfig {
     #[serde(rename = "cache_db")]
     cache_db: Option<String>,
@@ -85,6 +86,18 @@ pub enum ConfigError {
     Io(#[from] std::io::Error),
 }
 
+/// Top-level keys that are known scalar/config entries (SEC-006: reject unknown keys).
+const KNOWN_FILE_CONFIG_KEYS: &[&str] = &[
+    "cache_db",
+    "ignore_db",
+    "parallel_queries",
+    "cache_ttl_secs",
+    "min_score",
+    "min_count",
+    "exit_code_on_cve",
+    "fp_exit_code",
+];
+
 /// When true, also extract [lang].regex into language_regexes (only from user config).
 fn apply_file_config(
     cfg: &mut EffectiveConfig,
@@ -97,6 +110,24 @@ fn apply_file_config(
         path: path.to_path_buf(),
         message: e.to_string(),
     })?;
+    // SEC-006: reject unknown keys. Allow only known scalars and [lang] tables.
+    // Use toml::from_str (same as FileConfig) so we get the same parse behavior.
+    if let Ok(value) = toml::from_str::<toml::Value>(raw) {
+        if let Some(t) = value.as_table() {
+            for (key, val) in t.iter() {
+                if KNOWN_FILE_CONFIG_KEYS.contains(&key.as_str()) {
+                    continue;
+                }
+                if val.is_table() {
+                    continue; // [lang] sections allowed
+                }
+                return Err(ConfigError::UnknownKey {
+                    key: key.clone(),
+                    origin: source.to_string(),
+                });
+            }
+        }
+    }
     if let Some(p) = parsed.cache_db {
         cfg.cache_db = Some(PathBuf::from(p));
     }
@@ -123,7 +154,7 @@ fn apply_file_config(
     }
     if extract_language_regexes {
         cfg.language_regexes.clear();
-        if let Ok(value) = raw.parse::<toml::Value>() {
+        if let Ok(value) = toml::from_str::<toml::Value>(raw) {
             if let Some(t) = value.as_table() {
                 for (lang, table) in t {
                     if let Some(tbl) = table.as_table() {
@@ -672,5 +703,115 @@ mod tests {
             assert!(p.to_string_lossy().contains(path_str.as_str()));
             assert!(p.ends_with("spd-ignore.redb"));
         });
+    }
+
+    #[test]
+    fn load_user_config_populates_language_regexes() {
+        // [python] section with regex; use value without backslash (\. invalid in TOML double-quoted)
+        let (_dir, path) = temp_config("[python]\nregex = \"requirements.txt\"\n");
+        let path_str = path.to_string_lossy().into_owned();
+        let cfg = load(
+            Some(&path_str),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            false,
+        )
+        .unwrap();
+        assert_eq!(cfg.language_regexes.len(), 1);
+        assert_eq!(cfg.language_regexes[0].0, "python");
+        assert_eq!(cfg.language_regexes[0].1, "requirements.txt");
+    }
+
+    #[test]
+    fn load_config_file_not_found_uses_defaults() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("nonexistent.conf");
+        let path_str = missing.to_string_lossy().into_owned();
+        let cfg = load(
+            Some(&path_str),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            false,
+        )
+        .unwrap();
+        assert_eq!(cfg.parallel_queries, DEFAULT_PARALLEL_QUERIES);
+    }
+
+    #[test]
+    fn env_vars_read_correctly() {
+        temp_env::with_vars(
+            [
+                ("SPD_PARALLEL_QUERIES", Some("7")),
+                ("SPD_CACHE_DB", Some("/tmp/cache.redb")),
+                ("SPD_IGNORE_DB", Some("/tmp/ignore.redb")),
+                ("SPD_CACHE_TTL_SECS", Some("100")),
+                ("SPD_MIN_SCORE", Some("5.5")),
+                ("SPD_MIN_COUNT", Some("3")),
+                ("SPD_EXIT_CODE_ON_CVE", Some("86")),
+                ("SPD_FP_EXIT_CODE", Some("0")),
+            ],
+            || {
+                assert_eq!(env_parallel(), Some(7));
+                assert_eq!(
+                    env_cache_db().as_ref().and_then(|p| p.to_str()),
+                    Some("/tmp/cache.redb")
+                );
+                assert_eq!(
+                    env_ignore_db().as_ref().and_then(|p| p.to_str()),
+                    Some("/tmp/ignore.redb")
+                );
+                assert_eq!(env_cache_ttl_secs(), Some(100));
+                assert_eq!(env_min_score(), Some(5.5));
+                assert_eq!(env_min_count(), Some(3));
+                assert_eq!(env_exit_code_on_cve(), Some(86));
+                assert_eq!(env_fp_exit_code(), Some(0));
+            },
+        );
+    }
+
+    #[test]
+    fn env_vars_unset_return_none() {
+        temp_env::with_vars(
+            [
+                ("SPD_PARALLEL_QUERIES", None::<&str>),
+                ("SPD_CACHE_TTL_SECS", None::<&str>),
+            ],
+            || {
+                assert_eq!(env_parallel(), None);
+                assert_eq!(env_cache_ttl_secs(), None);
+            },
+        );
     }
 }
