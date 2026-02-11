@@ -161,6 +161,8 @@ lazy_static! {
     pub(crate) static ref REPORTERS: Mutex<Vec<Box<dyn Reporter>>> = Mutex::new(Vec::new());
     pub(crate) static ref INTEGRITY_CHECKERS: Mutex<Vec<Box<dyn IntegrityChecker>>> =
         Mutex::new(Vec::new());
+    /// Serializes tests that mutate or consume global registries (avoids races with main's run() tests).
+    pub(crate) static ref REGISTRY_TEST_MUTEX: Mutex<()> = Mutex::new(());
 }
 
 // ---------------------------------------------------------------------
@@ -198,6 +200,7 @@ mod tests {
     /// global-state races when tests run in parallel.
     #[test]
     fn test_registry_register_and_ensure_defaults() {
+        let _guard = REGISTRY_TEST_MUTEX.lock().unwrap();
         // 1) register(Plugin) pushes to the correct registry
         clear_finders();
         register(Plugin::ManifestFinder(Box::new(DefaultManifestFinder::new())));
