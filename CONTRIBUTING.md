@@ -47,16 +47,17 @@ formal trait contracts.
 
 ## Code style and checks
 
+- Follow the [Rust Style Guide](https://doc.rust-lang.org/beta/style-guide/index.html).
 - The codebase uses `#![deny(unsafe_code)]`.
 - Run `cargo fmt` and `cargo clippy` before submitting.
 - We **encourage** a **test-driven development (TDD)** approach (see below).
   Add unit tests in the crate that owns the logic; integration tests where
   appropriate. We may ask for tests to be added or updated before merging.
-- Give a best effort at keeping line lengths below 80 characters (i.e., 79
-  characters or less) so that users with 80-character terminals can view the
-  entire line, even when viewing patch files/diffs. Some lines can extend past
-  this guideline when it improves readability (e.g., long URLs that can't be
-  reasonably broken apart).
+- Keep line lenghts to less than 100 characters. Give a best effort at keeping
+  line lengths below 80 characters (i.e., 79 characters or less) so that users
+  with 80-character terminals can view the entire line, even when viewing
+  patch files/diffs. Some lines can extend past this guideline when it improves
+  readability (e.g., long URLs that can't be reasonably broken apart).
 
 ### CLI output (stdout)
 
@@ -65,6 +66,26 @@ stdout (e.g. anything that would otherwise be `println!`). Do not use
 `println!` for that. This ensures every command exits with code 0 when stdout
 is a broken pipe (e.g. `spd db show | less` then `q`), instead of panicking.
 Stderr can stay as `eprintln!` or `log::error!`.
+
+## Running tests and coverage
+
+- **Run tests:** `cargo test` runs the full suite. To test a single crate (see MOD-005): `cargo test -p <crate>` (e.g. `cargo test -p spd-cve-client`).
+- **Generate coverage (grcov, XML for CI):** Branch coverage (NFR-012) requires the **nightly** toolchain and the `-Z coverage-options=branch` unstable flag; the rest of the project uses stable.
+  1. Install grcov: `cargo install grcov`
+  2. Install the nightly toolchain and LLVM tools: `rustup toolchain install nightly` and `rustup component add llvm-tools --toolchain nightly`
+  3. Build and run tests with coverage instrumentation (nightly, with branch coverage):
+     ```bash
+     export RUSTFLAGS="-C instrument-coverage -Z coverage-options=branch"
+     export LLVM_PROFILE_FILE="%p.profraw"
+     export CARGO_INCREMENTAL=0
+     cargo +nightly test
+     ```
+  4. Produce a Cobertura XML report for CI/CD (e.g. GitHub Actions), including branch coverage:
+     ```bash
+     grcov . -s . --binary-path ./target/debug -t cobertura --ignore-not-existing --branch -o coverage.xml
+     ```
+     Dependency code is excluded; the report covers workspace crates only. Thresholds (NFR-012): >= 70% branch coverage, >= 90% functional coverage.
+- **CI:** The XML output (Cobertura) is consumed by common CI systems; see [mozilla/grcov](https://github.com/mozilla/grcov) or the [rust-grcov GitHub Action](https://github.com/marketplace/actions/rust-grcov) for integration examples.
 
 ## Test-driven development (TDD)
 
