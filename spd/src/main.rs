@@ -1058,4 +1058,46 @@ mod tests {
             String::from_utf8_lossy(&out.stderr)
         );
     }
+
+    #[test]
+    fn list_command_succeeds_and_prints_plugins() {
+        let exe = match spd_exe() {
+            Some(p) => p,
+            None => {
+                eprintln!("skip: CARGO_BIN_EXE_spd unset or binary missing");
+                return;
+            }
+        };
+        let out = Command::new(&exe).args(["list"]).output().expect("run spd list");
+        assert!(
+            out.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        assert!(
+            stdout.contains("python") || !stdout.is_empty(),
+            "list should print at least plugin names or empty"
+        );
+    }
+
+    #[test]
+    fn config_list_succeeds() {
+        let exe = match spd_exe() {
+            Some(p) => p,
+            None => {
+                eprintln!("skip: CARGO_BIN_EXE_spd unset or binary missing");
+                return;
+            }
+        };
+        let out = Command::new(&exe)
+            .args(["config", "--list"])
+            .output()
+            .expect("run spd config --list");
+        assert!(
+            out.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
 }

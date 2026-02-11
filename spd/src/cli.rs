@@ -150,7 +150,7 @@ pub enum FpCommands {
         cve_id: String,
 
         /// Optional comment
-        #[arg(short, long, default_value = "")]
+        #[arg(long, default_value = "")]
         comment: String,
 
         /// Optional project scope
@@ -199,4 +199,83 @@ pub enum DbCommands {
         #[arg(long, value_name = "KEYS")]
         entries: Option<String>,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(args: &[&str]) -> Cli {
+        let mut v = vec!["spd"];
+        v.extend(args.iter().copied());
+        Cli::parse_from(v)
+    }
+
+    #[test]
+    fn parse_list() {
+        let cli = parse(&["list"]);
+        assert!(matches!(cli.cmd, Commands::List));
+    }
+
+    #[test]
+    fn parse_version() {
+        let cli = parse(&["version"]);
+        assert!(matches!(cli.cmd, Commands::Version));
+    }
+
+    #[test]
+    fn parse_scan_defaults() {
+        let cli = parse(&["scan"]);
+        let Commands::Scan { format_type, root, .. } = &cli.cmd else { panic!("expected scan") };
+        assert_eq!(format_type, "plain");
+        assert!(root.is_none());
+    }
+
+    #[test]
+    fn parse_scan_with_options() {
+        let cli = parse(&["scan", "/tmp", "--format-type", "json", "--parallel", "5"]);
+        let Commands::Scan { root, format_type, parallel, .. } = &cli.cmd else { panic!("expected scan") };
+        assert_eq!(root.as_deref(), Some("/tmp"));
+        assert_eq!(format_type, "json");
+        assert_eq!(*parallel, Some(5));
+    }
+
+    #[test]
+    fn parse_config_list() {
+        let cli = parse(&["config", "--list"]);
+        let Commands::Config { list, set } = &cli.cmd else { panic!("expected config") };
+        assert!(*list);
+        assert!(set.is_none());
+    }
+
+    #[test]
+    fn parse_db_stats() {
+        let cli = parse(&["db", "stats"]);
+        let Commands::Db { sub, .. } = &cli.cmd else { panic!("expected db") };
+        assert!(matches!(sub, DbCommands::Stats));
+    }
+
+    #[test]
+    fn parse_db_show_full() {
+        let cli = parse(&["db", "show", "--full"]);
+        let Commands::Db { sub, .. } = &cli.cmd else { panic!("expected db") };
+        let DbCommands::Show { full, .. } = sub else { panic!("expected show") };
+        assert!(*full);
+    }
+
+    #[test]
+    fn parse_fp_mark() {
+        let cli = parse(&["fp", "mark", "CVE-2023-1234", "--comment", "fp"]);
+        let Commands::Fp { sub } = &cli.cmd else { panic!("expected fp") };
+        let FpCommands::Mark { cve_id, comment, .. } = sub else { panic!("expected mark") };
+        assert_eq!(cve_id, "CVE-2023-1234");
+        assert_eq!(comment, "fp");
+    }
+
+    #[test]
+    fn parse_global_config() {
+        let cli = parse(&["-c", "/etc/spd.toml", "list"]);
+        assert_eq!(cli.config.as_deref(), Some("/etc/spd.toml"));
+        assert!(matches!(cli.cmd, Commands::List));
+    }
 }
