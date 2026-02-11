@@ -126,6 +126,36 @@ mod tests {
         assert!(r.unwrap_err().to_string().contains("mock integrity failure"));
     }
 
+    #[tokio::test]
+    async fn mock_backend_ok_all_methods() {
+        let db = MockBackendOk;
+        let pkg = Package {
+            name: "test".to_string(),
+            version: "1.0.0".to_string(),
+        };
+        db.init().await.unwrap();
+        assert!(db.get(&pkg).await.unwrap().is_none());
+        db.put(&pkg, &[], None).await.unwrap();
+        let _ = db.stats().await.unwrap();
+        db.verify_integrity().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn mock_backend_err_all_methods() {
+        let db = MockBackendErr;
+        let pkg = Package {
+            name: "test".to_string(),
+            version: "1.0.0".to_string(),
+        };
+        db.init().await.unwrap();
+        assert!(db.get(&pkg).await.unwrap().is_none());
+        db.put(&pkg, &[], None).await.unwrap();
+        let _ = db.stats().await.unwrap();
+        let r = db.verify_integrity().await;
+        assert!(r.is_err());
+        assert!(r.unwrap_err().to_string().contains("mock integrity failure"));
+    }
+
     #[test]
     fn integrity_error_other_display() {
         let e = IntegrityError::Other("custom message".to_string());

@@ -255,6 +255,25 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn mock_backend_init_get_put_stats() {
+        let backend = MockBackend;
+        let pkg = Package {
+            name: "test-pkg".to_string(),
+            version: "1.0.0".to_string(),
+        };
+
+        backend.init().await.unwrap();
+        let got = backend.get(&pkg).await.unwrap();
+        assert!(got.is_none());
+        backend
+            .put(&pkg, &[serde_json::json!({"id": "CVE-2024-0001"})], None)
+            .await
+            .unwrap();
+        let stats = backend.stats().await.unwrap();
+        assert_eq!(stats.cached_entries, 0);
+    }
+
+    #[tokio::test]
     async fn database_backend_default_verify_integrity() {
         let backend = MockBackend;
         assert!(backend.verify_integrity().await.is_ok());
@@ -270,11 +289,18 @@ mod tests {
     #[tokio::test]
     async fn default_set_ttl_returns_error() {
         let backend = MockBackend;
-        let res = backend
-            .set_ttl(TtlSelector::All, 3600)
-            .await;
+        let res = backend.set_ttl(TtlSelector::All, 3600).await;
         assert!(res.is_err());
         let err = res.unwrap_err();
         assert!(err.to_string().contains("not supported"));
+
+        backend
+            .set_ttl(TtlSelector::One("pkg::1.0".into()), 3600)
+            .await
+            .unwrap_err();
+        backend
+            .set_ttl(TtlSelector::Multiple(vec!["a".into(), "b".into()]), 3600)
+            .await
+            .unwrap_err();
     }
 }
