@@ -162,3 +162,132 @@ lazy_static! {
     pub(crate) static ref INTEGRITY_CHECKERS: Mutex<Vec<Box<dyn IntegrityChecker>>> =
         Mutex::new(Vec::new());
 }
+
+// ---------------------------------------------------------------------
+// Unit tests – mutate global registries. Single test runs all steps
+// sequentially to avoid races when tests run in parallel.
+// ---------------------------------------------------------------------
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn clear_finders() {
+        FINDERS.lock().unwrap().clear();
+    }
+    fn clear_parsers() {
+        PARSERS.lock().unwrap().clear();
+    }
+    fn clear_resolvers() {
+        RESOLVERS.lock().unwrap().clear();
+    }
+    fn clear_providers() {
+        PROVIDERS.lock().unwrap().clear();
+    }
+    fn clear_db_backends() {
+        DB_BACKENDS.lock().unwrap().clear();
+    }
+    fn clear_reporters() {
+        REPORTERS.lock().unwrap().clear();
+    }
+    fn clear_integrity_checkers() {
+        INTEGRITY_CHECKERS.lock().unwrap().clear();
+    }
+
+    /// Registry behavior: register() pushes to correct registry; ensure_default_*
+    /// add one impl when empty and are idempotent. All steps in one test to avoid
+    /// global-state races when tests run in parallel.
+    #[test]
+    fn test_registry_register_and_ensure_defaults() {
+        // 1) register(Plugin) pushes to the correct registry
+        clear_finders();
+        register(Plugin::ManifestFinder(Box::new(DefaultManifestFinder::new())));
+        assert_eq!(FINDERS.lock().unwrap().len(), 1);
+
+        clear_parsers();
+        register(Plugin::Parser(Box::new(RequirementsTxtParser::new())));
+        assert_eq!(PARSERS.lock().unwrap().len(), 1);
+
+        clear_resolvers();
+        register(Plugin::Resolver(Box::new(DirectOnlyResolver::new())));
+        assert_eq!(RESOLVERS.lock().unwrap().len(), 1);
+
+        clear_providers();
+        register(Plugin::CveProvider(Box::new(OsvProvider::default())));
+        assert_eq!(PROVIDERS.lock().unwrap().len(), 1);
+
+        clear_reporters();
+        register(Plugin::Reporter(Box::new(DefaultReporter::new())));
+        assert_eq!(REPORTERS.lock().unwrap().len(), 1);
+
+        clear_integrity_checkers();
+        register(Plugin::IntegrityChecker(Box::new(BackendDelegatingChecker::new())));
+        assert_eq!(INTEGRITY_CHECKERS.lock().unwrap().len(), 1);
+
+        #[cfg(feature = "redb")]
+        {
+            clear_db_backends();
+            register(Plugin::DatabaseBackend(Box::new(spd_db_redb::RedbBackend::default())));
+            assert_eq!(DB_BACKENDS.lock().unwrap().len(), 1);
+        }
+
+        // 2) ensure_default_* when empty add one; second call is idempotent
+        clear_finders();
+        ensure_default_manifest_finder();
+        assert_eq!(FINDERS.lock().unwrap().len(), 1);
+        ensure_default_manifest_finder();
+        assert_eq!(FINDERS.lock().unwrap().len(), 1);
+
+        clear_parsers();
+        ensure_default_parser();
+        assert_eq!(PARSERS.lock().unwrap().len(), 1);
+        ensure_default_parser();
+        assert_eq!(PARSERS.lock().unwrap().len(), 1);
+
+        clear_resolvers();
+        ensure_default_resolver();
+        assert_eq!(RESOLVERS.lock().unwrap().len(), 1);
+        ensure_default_resolver();
+        assert_eq!(RESOLVERS.lock().unwrap().len(), 1);
+
+        clear_providers();
+        ensure_default_cve_provider();
+        assert_eq!(PROVIDERS.lock().unwrap().len(), 1);
+        ensure_default_cve_provider();
+        assert_eq!(PROVIDERS.lock().unwrap().len(), 1);
+
+        clear_reporters();
+        ensure_default_reporter();
+        assert_eq!(REPORTERS.lock().unwrap().len(), 1);
+        ensure_default_reporter();
+        assert_eq!(REPORTERS.lock().unwrap().len(), 1);
+
+        clear_integrity_checkers();
+        ensure_default_integrity_checker();
+        assert_eq!(INTEGRITY_CHECKERS.lock().unwrap().len(), 1);
+        ensure_default_integrity_checker();
+        assert_eq!(INTEGRITY_CHECKERS.lock().unwrap().len(), 1);
+
+        // 3) ensure_default_db_backend (redb)
+        #[cfg(feature = "redb")]
+        {
+            clear_db_backends();
+            ensure_default_db_backend();
+            assert!(!DB_BACKENDS.lock().unwrap().is_empty());
+        }
+
+        // 4) ensure_default_db_backend_with_path (redb)
+        #[cfg(feature = "redb")]
+        {
+            clear_db_backends();
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.redb");
+            let result = ensure_default_db_backend_with_path(path, 3600);
+            assert!(result.is_ok());
+            assert_eq!(DB_BACKENDS.lock().unwrap().len(), 1);
+            let path2 = dir.path().join("test2.redb");
+            let result2 = ensure_default_db_backend_with_path(path2, 3600);
+            assert!(result2.is_ok());
+            assert_eq!(DB_BACKENDS.lock().unwrap().len(), 1);
+        }
+    }
+}
