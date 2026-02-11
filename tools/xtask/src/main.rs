@@ -28,9 +28,14 @@ fn main() {
     let do_replace = args.iter().any(|a| a == "replace");
     let do_check = args.iter().any(|a| a == "check");
 
+    let root = std::env::var("XTASK_ROOT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| Path::new(".").to_path_buf());
+    let header_path = root.join(HEADER_FILE);
+
     let code = xtask::run(
-        Path::new("."),
-        Path::new(HEADER_FILE),
+        &root,
+        &header_path,
         do_replace,
         do_check,
     )
