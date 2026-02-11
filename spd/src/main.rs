@@ -1035,6 +1035,7 @@ mod tests {
 
     /// Repopulate plugin registries so run() can proceed (it consumes one backend per call).
     fn ensure_registries_for_run() {
+        let _guard = crate::registry::REGISTRY_TEST_MUTEX.lock().unwrap();
         crate::registry::ensure_default_manifest_finder();
         crate::registry::ensure_default_parser();
         crate::registry::ensure_default_resolver();
