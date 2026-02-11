@@ -125,14 +125,18 @@ struct RedbBackendInner {
     misses: Arc<AtomicUsize>,
 }
 
+fn persist_stats_on_drop(inner: &RedbBackendInner) {
+    persist_stats(
+        inner.db.as_ref(),
+        inner.hits.load(Ordering::Relaxed),
+        inner.misses.load(Ordering::Relaxed),
+        inner.ttl_secs,
+    );
+}
+
 impl Drop for RedbBackendInner {
     fn drop(&mut self) {
-        persist_stats(
-            &self.db,
-            self.hits.load(Ordering::Relaxed),
-            self.misses.load(Ordering::Relaxed),
-            self.ttl_secs,
-        );
+        persist_stats_on_drop(self);
     }
 }
 
@@ -149,6 +153,30 @@ impl RedbBackend {
     /// * `ttl_secs` – time‑to‑live for cached CVE entries.
     pub fn with_path(path: PathBuf, ttl_secs: u64) -> Result<Self, DatabaseError> {
         let db = Database::create(path).map_err(|e| DatabaseError::Other(e.to_string()))?;
+        let db = Arc::new(db);
+        let (hits, misses, _) = load_metadata(db.as_ref());
+        let ttl = ttl_secs.max(1);
+        persist_stats(db.as_ref(), hits, misses, ttl);
+        let inner = RedbBackendInner {
+            db,
+            ttl_secs: ttl,
+            hits: Arc::new(AtomicUsize::new(hits)),
+            misses: Arc::new(AtomicUsize::new(misses)),
+        };
+        Ok(RedbBackend {
+            inner: Arc::new(inner),
+        })
+    }
+
+    /// Trigger the same persist logic as Drop. Test-only, for coverage.
+    #[cfg(test)]
+    pub fn __test_persist_stats_on_drop(&self) {
+        persist_stats_on_drop(self.inner.as_ref());
+    }
+
+    /// Create a backend from an existing Database (test-only, to inject broken DBs).
+    #[cfg(test)]
+    pub fn with_database(db: Database, ttl_secs: u64) -> Result<Self, DatabaseError> {
         let db = Arc::new(db);
         let (hits, misses, _) = load_metadata(db.as_ref());
         let ttl = ttl_secs.max(1);
@@ -632,6 +660,14 @@ impl RedbIgnoreDb {
 mod tests {
     use super::*;
 
+    /// Create a RedbBackend using in-memory storage (faster, no disk).
+    fn in_memory_backend(ttl_secs: u64) -> RedbBackend {
+        let db = redb::Builder::new()
+            .create_with_backend(redb::backends::InMemoryBackend::new())
+            .unwrap();
+        RedbBackend::with_database(db, ttl_secs).unwrap()
+    }
+
     fn temp_cache_path(name: &str) -> PathBuf {
         std::env::temp_dir().join(format!("spd_redb_test_{}.redb", name))
     }
@@ -656,6 +692,26 @@ mod tests {
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         let _ = std::fs::remove_file(&path);
+    }
+
+    /// In-memory backend helper works; put/get and stats succeed (no disk).
+    #[tokio::test]
+    async fn in_memory_backend_put_get_works() {
+        let backend = in_memory_backend(3600);
+        backend.init().await.unwrap();
+        let pkg = Package {
+            name: "mem_pkg".to_string(),
+            version: "1.0".to_string(),
+        };
+        backend
+            .put(&pkg, &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
+        let got = backend.get(&pkg).await.unwrap();
+        assert!(got.is_some());
+        let stats = backend.stats().await.unwrap();
+        assert!(stats.cached_entries >= 1);
+        assert!(stats.hits >= 1);
     }
 
     #[tokio::test]
@@ -980,5 +1036,856 @@ mod tests {
         assert_eq!(f.user, e.user);
         assert_eq!(f.host, e.host);
         assert_eq!(f.project_id, e.project_id);
+    }
+
+    // -----------------------------------------------------------------------
+    // Additional coverage: verify_integrity, set_ttl variants, default, etc.
+    // -----------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn verify_integrity_succeeds() {
+        let path = temp_cache_path("verify");
+        let _ = std::fs::remove_file(&path);
+        let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        backend.init().await.unwrap();
+        backend
+            .put(
+                &Package {
+                    name: "x".to_string(),
+                    version: "1".to_string(),
+                },
+                &[sample_raw_vuln()],
+                None,
+            )
+            .await
+            .unwrap();
+        backend.verify_integrity().await.unwrap();
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// verify_integrity on empty db (iter yields nothing).
+    #[tokio::test]
+    async fn verify_integrity_empty_db_succeeds() {
+        let backend = in_memory_backend(3600);
+        backend.init().await.unwrap();
+        backend.verify_integrity().await.unwrap();
+    }
+
+    /// list_entries on empty cache returns empty vec.
+    #[tokio::test]
+    async fn list_entries_empty_returns_empty() {
+        let backend = in_memory_backend(3600);
+        backend.init().await.unwrap();
+        let entries = backend.list_entries(false).await.unwrap();
+        assert!(entries.is_empty());
+        let entries_full = backend.list_entries(true).await.unwrap();
+        assert!(entries_full.is_empty());
+    }
+
+    /// get with mixed vulns: one converts, one doesn't; filter_map yields subset.
+    #[tokio::test]
+    async fn get_mixed_vulns_filters_non_convertible() {
+        let path = temp_cache_path("mixed_vulns");
+        let _ = std::fs::remove_file(&path);
+        let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        backend.init().await.unwrap();
+        let vuln_ok = sample_raw_vuln();
+        let vuln_no_id = serde_json::json!({ "summary": "no id" });
+        let pkg = Package {
+            name: "mixed".to_string(),
+            version: "1".to_string(),
+        };
+        backend
+            .put(&pkg, &[vuln_ok, vuln_no_id], None)
+            .await
+            .unwrap();
+        let got = backend.get(&pkg).await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert!(got.is_some());
+        let recs = got.unwrap();
+        assert_eq!(recs.len(), 1);
+        assert_eq!(recs[0].id, "CVE-2023-test");
+    }
+
+    /// set_ttl TtlSelector::One for nonexistent key is no-op (continue branch).
+    #[tokio::test]
+    async fn set_ttl_one_nonexistent_skipped() {
+        let path = temp_cache_path("set_ttl_one_nonexist");
+        let _ = std::fs::remove_file(&path);
+        let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        backend.init().await.unwrap();
+        backend
+            .put(
+                &Package {
+                    name: "real".to_string(),
+                    version: "1".to_string(),
+                },
+                &[sample_raw_vuln()],
+                None,
+            )
+            .await
+            .unwrap();
+        backend
+            .set_ttl(TtlSelector::One("fake::999".into()), 99)
+            .await
+            .unwrap();
+        let entries = backend.list_entries(false).await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].ttl_secs, 3600);
+    }
+
+    /// RedbIgnoreDb clone shares underlying DB.
+    #[tokio::test]
+    async fn ignore_db_clone_shares_db() {
+        let path = temp_ignore_path("clone");
+        let _ = std::fs::remove_file(&path);
+        let db = RedbIgnoreDb::with_path(path.clone()).unwrap();
+        db.mark("CVE-X", "test", None).unwrap();
+        let clone = db.clone();
+        assert!(clone.is_marked("CVE-X").unwrap());
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn set_ttl_multiple_keys() {
+        let path = temp_cache_path("set_ttl_multi");
+        let _ = std::fs::remove_file(&path);
+        let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        backend.init().await.unwrap();
+        let pkg1 = Package {
+            name: "p1".to_string(),
+            version: "1".to_string(),
+        };
+        let pkg2 = Package {
+            name: "p2".to_string(),
+            version: "2".to_string(),
+        };
+        backend
+            .put(&pkg1, &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
+        backend
+            .put(&pkg2, &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
+        backend
+            .set_ttl(
+                TtlSelector::Multiple(vec!["p1::1".into(), "p2::2".into()]),
+                99,
+            )
+            .await
+            .unwrap();
+        let entries = backend.list_entries(false).await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(entries.len(), 2);
+        assert!(entries.iter().all(|e| e.ttl_secs == 99));
+    }
+
+    #[tokio::test]
+    async fn set_ttl_empty_multiple_is_no_op() {
+        let path = temp_cache_path("set_ttl_empty");
+        let _ = std::fs::remove_file(&path);
+        let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        backend.init().await.unwrap();
+        backend
+            .put(
+                &Package {
+                    name: "foo".to_string(),
+                    version: "1".to_string(),
+                },
+                &[sample_raw_vuln()],
+                None,
+            )
+            .await
+            .unwrap();
+        backend
+            .set_ttl(TtlSelector::Multiple(vec![]), 999)
+            .await
+            .unwrap();
+        let entries = backend.list_entries(false).await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].ttl_secs, 3600);
+    }
+
+    #[tokio::test]
+    async fn set_ttl_nonexistent_key_skipped() {
+        let path = temp_cache_path("set_ttl_nonexist");
+        let _ = std::fs::remove_file(&path);
+        let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        backend.init().await.unwrap();
+        backend
+            .put(
+                &Package {
+                    name: "real".to_string(),
+                    version: "1".to_string(),
+                },
+                &[sample_raw_vuln()],
+                None,
+            )
+            .await
+            .unwrap();
+        backend
+            .set_ttl(
+                TtlSelector::Multiple(vec!["real::1".into(), "fake::999".into()]),
+                50,
+            )
+            .await
+            .unwrap();
+        let entries = backend.list_entries(false).await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        let real = entries.iter().find(|e| e.key == "real::1").unwrap();
+        assert_eq!(real.ttl_secs, 50);
+    }
+
+    #[tokio::test]
+    async fn redb_backend_default_works() {
+        let tmp = std::env::temp_dir().join("spd_redb_test_default");
+        let _ = std::fs::create_dir_all(&tmp);
+        let orig_cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let _ = std::env::set_current_dir(&tmp);
+        let cache_file = tmp.join("spd-cache.redb");
+        let _ = std::fs::remove_file(&cache_file);
+        let backend = RedbBackend::default();
+        backend.init().await.unwrap();
+        let stats = backend.stats().await.unwrap();
+        assert!(stats.cache_ttl_secs.is_some());
+        assert_eq!(stats.cache_ttl_secs.unwrap(), 5 * 24 * 60 * 60);
+        let _ = std::env::set_current_dir(&orig_cwd);
+        let _ = std::fs::remove_file(&cache_file);
+    }
+
+    /// RedbBackend::new uses default path from cwd; explicit coverage.
+    #[tokio::test]
+    async fn redb_backend_new_explicit() {
+        let tmp = std::env::temp_dir().join("spd_redb_test_new");
+        let _ = std::fs::create_dir_all(&tmp);
+        let orig_cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let _ = std::env::set_current_dir(&tmp);
+        let cache_file = tmp.join("spd-cache.redb");
+        let _ = std::fs::remove_file(&cache_file);
+        let backend = RedbBackend::new(3600);
+        backend.init().await.unwrap();
+        let stats = backend.stats().await.unwrap();
+        assert!(stats.cache_ttl_secs.is_some());
+        assert_eq!(stats.cache_ttl_secs.unwrap(), 3600);
+        let _ = std::env::set_current_dir(&orig_cwd);
+        let _ = std::fs::remove_file(&cache_file);
+    }
+
+    #[tokio::test]
+    async fn ttl_zero_clamped_to_one() {
+        let path = temp_cache_path("ttl_zero");
+        let _ = std::fs::remove_file(&path);
+        let backend = RedbBackend::with_path(path.clone(), 0).unwrap();
+        backend.init().await.unwrap();
+        let pkg = Package {
+            name: "z".to_string(),
+            version: "1".to_string(),
+        };
+        backend
+            .put(&pkg, &[sample_raw_vuln()], Some(0))
+            .await
+            .unwrap();
+        let entries = backend.list_entries(false).await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(entries.len(), 1);
+        assert!(entries[0].ttl_secs >= 1);
+    }
+
+    #[tokio::test]
+    async fn ignore_db_with_path_creates_parent_dir() {
+        let parent = std::env::temp_dir().join("spd_redb_test_nested_subdir");
+        let _ = std::fs::remove_dir_all(&parent);
+        let path = parent.join("ignore.redb");
+        let db = RedbIgnoreDb::with_path(path.clone()).unwrap();
+        db.mark("CVE-2024-X", "test", None).unwrap();
+        assert!(db.is_marked("CVE-2024-X").unwrap());
+        let _ = std::fs::remove_dir_all(&parent);
+    }
+
+    #[tokio::test]
+    async fn get_corrupt_json_treats_as_miss() {
+        let path = temp_cache_path("corrupt_json");
+        let _ = std::fs::remove_file(&path);
+        {
+            let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+            backend.init().await.unwrap();
+            let pkg = Package {
+                name: "corrupt".to_string(),
+                version: "1".to_string(),
+            };
+            backend
+                .put(&pkg, &[sample_raw_vuln()], None)
+                .await
+                .unwrap();
+        }
+        {
+            let db = redb::Database::create(&path).unwrap();
+            let write_txn = db.begin_write().unwrap();
+            {
+                let mut table = write_txn.open_table(CACHE_TABLE).unwrap();
+                table.insert("corrupt::1", "not valid json").unwrap();
+            }
+            write_txn.commit().unwrap();
+        }
+        let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        backend.init().await.unwrap();
+        let pkg = Package {
+            name: "corrupt".to_string(),
+            version: "1".to_string(),
+        };
+        let got = backend.get(&pkg).await.unwrap();
+        let stats = backend.stats().await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert!(got.is_none());
+        assert_eq!(stats.misses, 1);
+    }
+
+    /// Old-format entry without added_at_secs/ttl_secs; normalize_stored_entry fills them.
+    #[tokio::test]
+    async fn get_old_format_entry_normalizes() {
+        let path = temp_cache_path("old_format");
+        let _ = std::fs::remove_file(&path);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let expires = now + 3600;
+        let old_entry = serde_json::json!({
+            "raw_vulns": [sample_raw_vuln()],
+            "expires_at_secs": expires
+        });
+        let val = old_entry.to_string();
+        {
+            let db = redb::Database::create(&path).unwrap();
+            let write_txn = db.begin_write().unwrap();
+            {
+                let mut cache = write_txn.open_table(CACHE_TABLE).unwrap();
+                let mut meta = write_txn.open_table(METADATA_TABLE).unwrap();
+                cache.insert("old::1", val.as_str()).unwrap();
+                meta.insert("hits", "0").unwrap();
+                meta.insert("misses", "0").unwrap();
+                meta.insert("cache_ttl_secs", "3600").unwrap();
+            }
+            write_txn.commit().unwrap();
+        }
+        let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        backend.init().await.unwrap();
+        let pkg = Package {
+            name: "old".to_string(),
+            version: "1".to_string(),
+        };
+        let got = backend.get(&pkg).await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert!(got.is_some());
+        assert_eq!(got.unwrap()[0].id, "CVE-2023-test");
+    }
+
+    #[tokio::test]
+    async fn list_entries_skips_corrupt_entry() {
+        let path = temp_cache_path("list_corrupt");
+        let _ = std::fs::remove_file(&path);
+        {
+            let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+            backend.init().await.unwrap();
+            backend
+                .put(
+                    &Package {
+                        name: "good".to_string(),
+                        version: "1".to_string(),
+                    },
+                    &[sample_raw_vuln()],
+                    None,
+                )
+                .await
+                .unwrap();
+        }
+        {
+            let db = redb::Database::create(&path).unwrap();
+            let write_txn = db.begin_write().unwrap();
+            {
+                let mut table = write_txn.open_table(CACHE_TABLE).unwrap();
+                table.insert("bad::1", "{{{ invalid }").unwrap();
+            }
+            write_txn.commit().unwrap();
+        }
+        let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        backend.init().await.unwrap();
+        let entries = backend.list_entries(false).await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].key, "good::1");
+    }
+
+    /// list_entries(full: true) with mixed valid+corrupt: returns valid with raw_vulns,
+    /// skips corrupt via continue.
+    #[tokio::test]
+    async fn list_entries_full_skips_corrupt_includes_raw_for_valid() {
+        let path = temp_cache_path("list_full_corrupt");
+        let _ = std::fs::remove_file(&path);
+        {
+            let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+            backend.init().await.unwrap();
+            backend
+                .put(
+                    &Package {
+                        name: "valid".to_string(),
+                        version: "1".to_string(),
+                    },
+                    &[sample_raw_vuln()],
+                    None,
+                )
+                .await
+                .unwrap();
+        }
+        {
+            let db = redb::Database::create(&path).unwrap();
+            let write_txn = db.begin_write().unwrap();
+            {
+                let mut table = write_txn.open_table(CACHE_TABLE).unwrap();
+                table.insert("corrupt::x", "not json {{{").unwrap();
+            }
+            write_txn.commit().unwrap();
+        }
+        let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        backend.init().await.unwrap();
+        let entries = backend.list_entries(true).await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].key, "valid::1");
+        let raw = entries[0].raw_vulns.as_ref().unwrap();
+        assert_eq!(raw.len(), 1);
+        assert_eq!(raw[0].get("id").and_then(|v| v.as_str()), Some("CVE-2023-test"));
+    }
+
+    #[tokio::test]
+    async fn set_ttl_skips_corrupt_entry() {
+        let path = temp_cache_path("set_ttl_corrupt");
+        let _ = std::fs::remove_file(&path);
+        {
+            let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+            backend.init().await.unwrap();
+            backend
+                .put(
+                    &Package {
+                        name: "valid".to_string(),
+                        version: "1".to_string(),
+                    },
+                    &[sample_raw_vuln()],
+                    None,
+                )
+                .await
+                .unwrap();
+        }
+        {
+            let db = redb::Database::create(&path).unwrap();
+            let write_txn = db.begin_write().unwrap();
+            {
+                let mut table = write_txn.open_table(CACHE_TABLE).unwrap();
+                table.insert("corrupt::x", "not json").unwrap();
+            }
+            write_txn.commit().unwrap();
+        }
+        let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        backend.init().await.unwrap();
+        backend.set_ttl(TtlSelector::All, 100).await.unwrap();
+        let entries = backend.list_entries(false).await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        let valid = entries.iter().find(|e| e.key == "valid::1").unwrap();
+        assert_eq!(valid.ttl_secs, 100);
+    }
+
+    #[tokio::test]
+    async fn purge_expired_skips_corrupt_entry() {
+        let path = temp_cache_path("purge_corrupt");
+        let _ = std::fs::remove_file(&path);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let expired = now.saturating_sub(10);
+        let expired_entry = serde_json::json!({
+            "raw_vulns": [sample_raw_vuln()],
+            "expires_at_secs": expired,
+            "added_at_secs": expired - 3600,
+            "ttl_secs": 3600
+        });
+        {
+            let db = redb::Database::create(&path).unwrap();
+            let write_txn = db.begin_write().unwrap();
+            {
+                let mut cache = write_txn.open_table(CACHE_TABLE).unwrap();
+                let mut meta = write_txn.open_table(METADATA_TABLE).unwrap();
+                cache
+                    .insert("expired::1", expired_entry.to_string().as_str())
+                    .unwrap();
+                cache.insert("corrupt::1", "garbage").unwrap();
+                meta.insert("hits", "0").unwrap();
+                meta.insert("misses", "0").unwrap();
+                meta.insert("cache_ttl_secs", "3600").unwrap();
+            }
+            write_txn.commit().unwrap();
+        }
+        let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        backend.init().await.unwrap();
+        let entries = backend.list_entries(false).await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert!(
+            entries.is_empty(),
+            "expired and corrupt entries should be gone or skipped"
+        );
+    }
+
+    #[tokio::test]
+    async fn ignore_db_marked_ids_empty() {
+        let path = temp_ignore_path("marked_ids_empty");
+        let _ = std::fs::remove_file(&path);
+        let db = RedbIgnoreDb::with_path(path.clone()).unwrap();
+        db.mark("dummy", "create table", None).unwrap();
+        db.unmark("dummy").unwrap();
+        let ids = db.marked_ids().unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert!(ids.is_empty());
+    }
+
+    #[tokio::test]
+    async fn with_path_fails_on_directory() {
+        let path = std::env::temp_dir();
+        let result = RedbBackend::with_path(path, 3600);
+        assert!(result.is_err());
+    }
+
+    /// RedbIgnoreDb::with_path fails when parent exists as a file.
+    #[tokio::test]
+    async fn ignore_db_with_path_fails_when_parent_is_file() {
+        let parent = std::env::temp_dir().join("spd_redb_test_parent_file");
+        let _ = std::fs::remove_file(&parent);
+        let _ = std::fs::remove_dir_all(&parent);
+        std::fs::write(&parent, "not a directory").unwrap();
+        let path = parent.join("ignore.redb");
+        let result = RedbIgnoreDb::with_path(path);
+        let _ = std::fs::remove_file(&parent);
+        assert!(result.is_err());
+    }
+
+    /// RedbBackendInner Drop calls persist_stats on teardown.
+    #[tokio::test]
+    async fn backend_drop_persists_stats() {
+        let path = temp_cache_path("drop_persist");
+        let _ = std::fs::remove_file(&path);
+        let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        backend.init().await.unwrap();
+        let pkg = Package {
+            name: "d".to_string(),
+            version: "1".to_string(),
+        };
+        backend.put(&pkg, &[sample_raw_vuln()], None).await.unwrap();
+        let _ = backend.get(&pkg).await.unwrap();
+        let stats_before = backend.stats().await.unwrap();
+        assert!(stats_before.hits >= 1);
+        std::mem::drop(backend);
+        let backend2 = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        let stats_after = backend2.stats().await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert!(
+            stats_after.hits >= 1,
+            "Drop should have persisted stats for next instance"
+        );
+    }
+
+    /// persist_stats_on_drop logic (same as RedbBackendInner::drop) exercised explicitly.
+    #[tokio::test]
+    async fn persist_stats_on_drop_explicit_call() {
+        let path = temp_cache_path("persist_on_drop");
+        let _ = std::fs::remove_file(&path);
+        {
+            let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+            backend.init().await.unwrap();
+            let pkg = Package {
+                name: "p".to_string(),
+                version: "1".to_string(),
+            };
+            backend.put(&pkg, &[sample_raw_vuln()], None).await.unwrap();
+            let _ = backend.get(&pkg).await.unwrap();
+            backend.__test_persist_stats_on_drop();
+        }
+        let backend2 = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        let stats = backend2.stats().await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert!(stats.hits >= 1);
+    }
+
+    /// load_metadata with valid metadata: hits, misses, cache_ttl_secs all parse.
+    #[tokio::test]
+    async fn load_metadata_valid_parse_uses_persisted_values() {
+        let path = temp_cache_path("valid_meta");
+        let _ = std::fs::remove_file(&path);
+        let db = redb::Database::create(&path).unwrap();
+        {
+            let write_txn = db.begin_write().unwrap();
+            {
+                let mut cache = write_txn.open_table(CACHE_TABLE).unwrap();
+                let mut meta = write_txn.open_table(METADATA_TABLE).unwrap();
+                cache
+                    .insert(
+                        "dummy::1",
+                        r#"{"raw_vulns":[],"expires_at_secs":9999999999}"#,
+                    )
+                    .unwrap();
+                meta.insert("hits", "5").unwrap();
+                meta.insert("misses", "3").unwrap();
+                meta.insert("cache_ttl_secs", "7200").unwrap();
+            }
+            write_txn.commit().unwrap();
+        }
+        let backend = RedbBackend::with_database(db, 3600).unwrap();
+        let stats = backend.stats().await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(stats.hits, 5);
+        assert_eq!(stats.misses, 3);
+    }
+
+    /// load_metadata parse-failure: invalid hits/misses/cache_ttl_secs values
+    /// default to 0/None; backend initializes correctly.
+    #[tokio::test]
+    async fn load_metadata_invalid_parse_returns_defaults() {
+        let path = temp_cache_path("invalid_parse");
+        let _ = std::fs::remove_file(&path);
+        let db = redb::Database::create(&path).unwrap();
+        {
+            let write_txn = db.begin_write().unwrap();
+            {
+                let mut cache = write_txn.open_table(CACHE_TABLE).unwrap();
+                let mut meta = write_txn.open_table(METADATA_TABLE).unwrap();
+                cache
+                    .insert(
+                        "dummy::1",
+                        r#"{"raw_vulns":[],"expires_at_secs":9999999999}"#,
+                    )
+                    .unwrap();
+                meta.insert("hits", "not_a_number").unwrap();
+                meta.insert("misses", "bad").unwrap();
+                meta.insert("cache_ttl_secs", "invalid").unwrap();
+            }
+            write_txn.commit().unwrap();
+        }
+        let backend = RedbBackend::with_database(db, 3600).unwrap();
+        let stats = backend.stats().await.unwrap();
+        assert_eq!(stats.hits, 0, "parse failure should default hits to 0");
+        assert_eq!(stats.misses, 0, "parse failure should default misses to 0");
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// list_entries: raw_vulns where some lack "id" produce fewer cve_ids.
+    #[tokio::test]
+    async fn list_entries_vuln_without_id_omitted_from_cve_ids() {
+        let path = temp_cache_path("list_no_id");
+        let _ = std::fs::remove_file(&path);
+        let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        backend.init().await.unwrap();
+        let vuln_with_id = sample_raw_vuln();
+        let vuln_without_id = serde_json::json!({"summary": "no id field"});
+        let pkg = Package {
+            name: "mixed".to_string(),
+            version: "1".to_string(),
+        };
+        backend
+            .put(&pkg, &[vuln_with_id, vuln_without_id], None)
+            .await
+            .unwrap();
+        let entries = backend.list_entries(false).await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].cve_count, 2);
+        assert_eq!(entries[0].cve_ids, vec!["CVE-2023-test"]);
+    }
+
+    /// list_entries: vuln with "id" as non-string (e.g. number) omitted from cve_ids.
+    #[tokio::test]
+    async fn list_entries_vuln_id_non_string_omitted() {
+        let path = temp_cache_path("list_id_non_str");
+        let _ = std::fs::remove_file(&path);
+        let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        backend.init().await.unwrap();
+        let vuln_ok = sample_raw_vuln();
+        let vuln_id_number = serde_json::json!({"id": 12345, "summary": "id is number"});
+        let pkg = Package {
+            name: "mixed_id".to_string(),
+            version: "1".to_string(),
+        };
+        backend
+            .put(&pkg, &[vuln_ok, vuln_id_number], None)
+            .await
+            .unwrap();
+        let entries = backend.list_entries(false).await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].cve_ids, vec!["CVE-2023-test"]);
+    }
+
+    /// get with raw_vulns that all fail raw_vuln_to_cve_record returns Some(vec![]).
+    #[tokio::test]
+    async fn get_all_vulns_non_convertible_returns_empty_records() {
+        let path = temp_cache_path("all_non_conv");
+        let _ = std::fs::remove_file(&path);
+        let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        backend.init().await.unwrap();
+        let vulns_no_id: Vec<serde_json::Value> = vec![
+            serde_json::json!({"summary": "a"}),
+            serde_json::json!({"summary": "b"}),
+        ];
+        let pkg = Package {
+            name: "no_conv".to_string(),
+            version: "1".to_string(),
+        };
+        backend.put(&pkg, &vulns_no_id, None).await.unwrap();
+        let got = backend.get(&pkg).await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert!(got.is_some());
+        assert!(got.unwrap().is_empty());
+    }
+
+    /// normalize_stored_entry: entry with ttl_secs but no added_at_secs fills added.
+    #[tokio::test]
+    async fn list_entries_entry_missing_added_uses_ttl() {
+        let path = temp_cache_path("list_no_added");
+        let _ = std::fs::remove_file(&path);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let expires = now + 3600;
+        let ttl = 120u64;
+        let partial = serde_json::json!({
+            "raw_vulns": [sample_raw_vuln()],
+            "expires_at_secs": expires,
+            "ttl_secs": ttl
+        });
+        {
+            let db = redb::Database::create(&path).unwrap();
+            let write_txn = db.begin_write().unwrap();
+            {
+                let mut cache = write_txn.open_table(CACHE_TABLE).unwrap();
+                let mut meta = write_txn.open_table(METADATA_TABLE).unwrap();
+                cache.insert("partial::1", partial.to_string().as_str()).unwrap();
+                meta.insert("hits", "0").unwrap();
+                meta.insert("misses", "0").unwrap();
+                meta.insert("cache_ttl_secs", "3600").unwrap();
+            }
+            write_txn.commit().unwrap();
+        }
+        let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        backend.init().await.unwrap();
+        let entries = backend.list_entries(false).await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].ttl_secs, 120);
+        assert_eq!(entries[0].added_at_secs, expires.saturating_sub(120));
+    }
+
+    /// normalize_stored_entry: entry with added_at_secs but no ttl_secs fills from default.
+    #[tokio::test]
+    async fn list_entries_entry_missing_ttl_uses_default() {
+        let path = temp_cache_path("list_no_ttl");
+        let _ = std::fs::remove_file(&path);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let added = now.saturating_sub(60);
+        let expires = now + 3600;
+        let partial = serde_json::json!({
+            "raw_vulns": [sample_raw_vuln()],
+            "expires_at_secs": expires,
+            "added_at_secs": added
+        });
+        {
+            let db = redb::Database::create(&path).unwrap();
+            let write_txn = db.begin_write().unwrap();
+            {
+                let mut cache = write_txn.open_table(CACHE_TABLE).unwrap();
+                let mut meta = write_txn.open_table(METADATA_TABLE).unwrap();
+                cache.insert("partial::1", partial.to_string().as_str()).unwrap();
+                meta.insert("hits", "0").unwrap();
+                meta.insert("misses", "0").unwrap();
+                meta.insert("cache_ttl_secs", "3600").unwrap();
+            }
+            write_txn.commit().unwrap();
+        }
+        let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        backend.init().await.unwrap();
+        let entries = backend.list_entries(false).await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].ttl_secs, 3600);
+    }
+
+    /// RedbBackend clone shares underlying DB; both see same data.
+    #[tokio::test]
+    async fn redb_backend_clone_shares_db() {
+        let backend = in_memory_backend(3600);
+        backend.init().await.unwrap();
+        let pkg = Package {
+            name: "shared".to_string(),
+            version: "1".to_string(),
+        };
+        backend.put(&pkg, &[sample_raw_vuln()], None).await.unwrap();
+        let clone = backend.clone();
+        let got = clone.get(&pkg).await.unwrap();
+        assert!(got.is_some());
+        assert_eq!(got.unwrap()[0].id, "CVE-2023-test");
+    }
+
+    /// get with empty raw_vulns returns Some(vec![]).
+    #[tokio::test]
+    async fn get_empty_raw_vulns_returns_empty_vec() {
+        let path = temp_cache_path("empty_vulns");
+        let _ = std::fs::remove_file(&path);
+        let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        backend.init().await.unwrap();
+        let pkg = Package {
+            name: "empty".to_string(),
+            version: "1".to_string(),
+        };
+        backend.put(&pkg, &[], None).await.unwrap();
+        let got = backend.get(&pkg).await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert!(got.is_some());
+        assert!(got.unwrap().is_empty());
+    }
+
+    /// load_metadata and persist_stats error paths: DB with no METADATA_TABLE.
+    #[tokio::test]
+    async fn load_metadata_and_persist_stats_fail_gracefully_without_metadata_table() {
+        let path = temp_cache_path("no_meta_table");
+        let _ = std::fs::remove_file(&path);
+        let db = redb::Database::create(&path).unwrap();
+        {
+            let write_txn = db.begin_write().unwrap();
+            {
+                let mut cache = write_txn.open_table(CACHE_TABLE).unwrap();
+                cache
+                    .insert(
+                        "x::1",
+                        r#"{"raw_vulns":[{"id":"CVE-X","summary":"x"}],"expires_at_secs":9999999999}"#,
+                    )
+                    .unwrap();
+            }
+            write_txn.commit().unwrap();
+        }
+        let backend = RedbBackend::with_database(db, 3600).unwrap();
+        let stats = backend.stats().await.unwrap();
+        assert_eq!(stats.hits, 0);
+        assert_eq!(stats.misses, 0);
+        let pkg = Package {
+            name: "nonexist".to_string(),
+            version: "0".to_string(),
+        };
+        let got = backend.get(&pkg).await.unwrap();
+        assert!(got.is_none());
+        drop(backend);
+        let _ = std::fs::remove_file(&path);
     }
 }
