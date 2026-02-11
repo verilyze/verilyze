@@ -91,6 +91,14 @@ requirements explicit, avoids over-implementation, and gives a clear target for
 each change. Tests belong in the crate that owns the logic (unit tests) or in
 the appropriate integration test layout.
 
+**Placement (Rust convention):** Unit tests live in the same file as the code
+under test (or same crate) in a `#[cfg(test)] mod tests` block; integration
+tests live in a top-level `tests/` directory or, for the binary, in tests that
+run the built executable. **Documenting expected behavior:** Each test should
+make the behavior it verifies clear—e.g. descriptive test names, a short `///`
+doc comment tying the test to a requirement (e.g. FR-006, SEC-006), or
+assertions that make the expected outcome obvious.
+
 ### TDD workflow
 
 1. **Write tests** -- Define tests from expected inputs and outputs (or
