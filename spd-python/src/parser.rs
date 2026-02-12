@@ -41,8 +41,7 @@ impl Parser for RequirementsTxtParser {
         if name != "requirements.txt" {
             return Ok(DependencyGraph::default());
         }
-        let content =
-            std::fs::read_to_string(manifest).map_err(|e| ParserError::Other(e.to_string()))?;
+        let content = std::fs::read_to_string(manifest)?;
         let packages = parse_requirements_txt(&content)?;
         Ok(DependencyGraph { packages })
     }
@@ -130,6 +129,7 @@ fn parse_name_version(spec: &str) -> Option<(String, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::error::Error;
 
     #[tokio::test]
     async fn parse_requirements_txt_file() {
@@ -178,14 +178,19 @@ mod tests {
         let parser = RequirementsTxtParser::new();
         let path = PathBuf::from("/nonexistent/path/requirements.txt");
         let err = parser.parse(&path).await.unwrap_err();
-        match &err {
-            ParserError::Other(msg) => assert!(
-                msg.contains("No such file") || msg.contains("not found"),
-                "expected file-not-found message, got: {}",
-                msg
-            ),
-            _ => panic!("expected ParserError::Other for nonexistent file, got {:?}", err),
-        }
+        let msg = err.to_string();
+        let source_msg = err
+            .source()
+            .map(|s| s.to_string())
+            .unwrap_or_default();
+        assert!(
+            msg.contains("IO") || msg.contains("manifest")
+                || source_msg.contains("No such file")
+                || source_msg.contains("not found"),
+            "expected file-not-found error, got: {} (source: {})",
+            msg,
+            source_msg
+        );
     }
 
     #[test]

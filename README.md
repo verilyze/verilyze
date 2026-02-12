@@ -25,7 +25,7 @@ spd scan
 spd scan /path/to/project
 
 # JSON output
-spd scan --format-type json
+spd scan --format json
 
 # List registered language plugins
 spd list
@@ -74,7 +74,7 @@ Run `spd config --list` to print effective values.
 | `spd fp unmark CVE-ID` | Remove false-positive marking |
 | `spd --version` | Print version |
 
-**Scan options (examples):** `--format-type plain|json|sarif`,
+**Scan options (examples):** `--format plain|json|sarif`,
 `--summary-file html:path,json:path`, `--provider osv`, `--parallel N`,
 `--cache-ttl-secs SECS`, `--offline`, `--benchmark`, `--min-score`,
 `--min-count`, `--exit-code-on-cve`, `--fp-exit-code`, `--cache-db`,
@@ -95,5 +95,6 @@ Run `spd config --list` to print effective values.
 
 - **Requirements and architecture:** [architecture/PRD.md](architecture/PRD.md)
 - **Execution flow:** [architecture/execution-flow.mmd](architecture/execution-flow.mmd)
+- **FAQ and troubleshooting:** [docs/FAQ.md](docs/FAQ.md)
 - **Contributing:** [CONTRIBUTING.md](CONTRIBUTING.md)
 - **Security:** [SECURITY.md](SECURITY.md)

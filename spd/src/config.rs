@@ -20,6 +20,23 @@
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
+/// Format path for error output using ~ for home when applicable (NFR-018, SEC-020).
+fn user_relative_path(path: &Path) -> String {
+    let s = path.display().to_string();
+    if let Some(home) = std::env::var_os("HOME") {
+        let home_str = home.to_string_lossy();
+        if !home_str.is_empty() && s.starts_with(&*home_str) {
+            let rest = s[home_str.len()..].trim_start_matches('/');
+            return if rest.is_empty() {
+                "~".to_string()
+            } else {
+                format!("~/{}", rest)
+            };
+        }
+    }
+    s
+}
+
 /// Maximum allowed parallel queries (FR-012).
 pub const MAX_PARALLEL_QUERIES: usize = 50;
 
@@ -73,8 +90,12 @@ struct FileConfig {
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
-    #[error("Invalid TOML in configuration file {path}: {message}")]
-    InvalidToml { path: PathBuf, message: String },
+    #[error("Invalid TOML in configuration file {path_display}: {message}")]
+    InvalidToml {
+        path: PathBuf,
+        path_display: String,
+        message: String,
+    },
 
     #[error("Unknown configuration key '{key}' (from {origin})")]
     UnknownKey { key: String, origin: String },
@@ -108,6 +129,7 @@ fn apply_file_config(
 ) -> Result<(), ConfigError> {
     let parsed: FileConfig = toml::from_str(raw).map_err(|e| ConfigError::InvalidToml {
         path: path.to_path_buf(),
+        path_display: user_relative_path(path),
         message: e.to_string(),
     })?;
     // SEC-006: reject unknown keys. Allow only known scalars and [lang] tables.
@@ -431,6 +453,7 @@ pub fn set_config_key(key: &str, value: &str) -> Result<(), ConfigError> {
         raw.parse()
             .map_err(|e: toml::de::Error| ConfigError::InvalidToml {
                 path: path.clone(),
+                path_display: user_relative_path(&path),
                 message: e.to_string(),
             })?
     };
@@ -446,6 +469,7 @@ pub fn set_config_key(key: &str, value: &str) -> Result<(), ConfigError> {
         .as_table_mut()
         .ok_or_else(|| ConfigError::InvalidToml {
             path: path.clone(),
+            path_display: user_relative_path(&path),
             message: "root is not a table".to_string(),
         })?;
     let entry = table
@@ -460,6 +484,7 @@ pub fn set_config_key(key: &str, value: &str) -> Result<(), ConfigError> {
     inner.insert(sub_key.to_string(), toml::Value::String(value.to_string()));
     let out = toml::ser::to_string_pretty(&root).map_err(|e| ConfigError::InvalidToml {
         path: path.clone(),
+        path_display: user_relative_path(&path),
         message: e.to_string(),
     })?;
     std::fs::write(&path, out)?;

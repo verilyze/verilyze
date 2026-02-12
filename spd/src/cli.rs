@@ -48,7 +48,7 @@ pub enum Commands {
 
         /// Output format (plain, json, sarif)
         #[arg(long, default_value = "plain")]
-        format_type: String,
+        format: String,
 
         /// Generate additional files: e.g. html:/tmp/out.html,json:/tmp/out.json
         #[arg(long, value_name = "TYPE:PATH")]
@@ -226,22 +226,19 @@ mod tests {
     #[test]
     fn parse_scan_defaults() {
         let cli = parse(&["scan"]);
-        let Commands::Scan {
-            format_type, root, ..
-        } = &cli.cmd
-        else {
+        let Commands::Scan { format, root, .. } = &cli.cmd else {
             panic!("expected scan")
         };
-        assert_eq!(format_type, "plain");
+        assert_eq!(format, "plain");
         assert!(root.is_none());
     }
 
     #[test]
     fn parse_scan_with_options() {
-        let cli = parse(&["scan", "/tmp", "--format-type", "json", "--parallel", "5"]);
+        let cli = parse(&["scan", "/tmp", "--format", "json", "--parallel", "5"]);
         let Commands::Scan {
             root,
-            format_type,
+            format,
             parallel,
             ..
         } = &cli.cmd
@@ -249,7 +246,7 @@ mod tests {
             panic!("expected scan")
         };
         assert_eq!(root.as_deref(), Some("/tmp"));
-        assert_eq!(format_type, "json");
+        assert_eq!(format, "json");
         assert_eq!(*parallel, Some(5));
     }
 

@@ -24,6 +24,10 @@ use spd_db::DatabaseBackend;
 
 #[derive(thiserror::Error, Debug)]
 pub enum IntegrityError {
+    /// Backend verify_integrity failed; source chain preserved for verbose mode (NFR-018).
+    #[error("Database integrity check failed")]
+    Backend(#[from] spd_db::DatabaseError),
+
     #[error("{0}")]
     Other(String),
 }
@@ -48,7 +52,7 @@ impl IntegrityChecker for BackendDelegatingChecker {
     async fn verify(&self, db: &dyn DatabaseBackend) -> Result<(), IntegrityError> {
         db.verify_integrity()
             .await
-            .map_err(|e| IntegrityError::Other(e.to_string()))
+            .map_err(IntegrityError::Backend)
     }
 }
 
@@ -56,6 +60,7 @@ impl IntegrityChecker for BackendDelegatingChecker {
 mod tests {
     use super::*;
     use async_trait::async_trait;
+    use std::error::Error;
     use spd_db::{CveRecord, DatabaseError, DatabaseStats, Package};
 
     struct MockBackendOk;
@@ -123,7 +128,9 @@ mod tests {
         let db = MockBackendErr;
         let r = checker.verify(&db).await;
         assert!(r.is_err());
-        assert!(r.unwrap_err().to_string().contains("mock integrity failure"));
+        let err = r.unwrap_err();
+        assert!(err.to_string().contains("integrity"));
+        assert!(err.source().unwrap().to_string().contains("mock integrity failure"));
     }
 
     #[tokio::test]
@@ -160,6 +167,15 @@ mod tests {
     fn integrity_error_other_display() {
         let e = IntegrityError::Other("custom message".to_string());
         assert_eq!(e.to_string(), "custom message");
+    }
+
+    #[test]
+    fn integrity_error_backend_has_source() {
+        use spd_db::DatabaseError;
+        let db_err = DatabaseError::Other("mock integrity failure".to_string());
+        let e = IntegrityError::Backend(db_err);
+        assert!(e.source().is_some());
+        assert!(e.source().unwrap().to_string().contains("mock integrity failure"));
     }
 
     #[test]

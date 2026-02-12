@@ -98,6 +98,10 @@ pub enum ReportError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
+    /// Serialization error; source preserved for verbose mode (NFR-018).
+    #[error("Serialization error")]
+    Serde(#[from] serde_json::Error),
+
     #[error("{0}")]
     Other(String),
 }
@@ -202,7 +206,7 @@ struct JsonCveWithSeverity<'a> {
     severity: String,
 }
 
-/// Reporter that outputs findings as JSON to stdout (FR-007 --format-type json).
+/// Reporter that outputs findings as JSON to stdout (FR-007 --format json).
 #[derive(Debug, Default)]
 pub struct JsonReporter;
 
@@ -236,8 +240,7 @@ impl Reporter for JsonReporter {
                 })
                 .collect(),
         };
-        let s =
-            serde_json::to_string_pretty(&report).map_err(|e| ReportError::Other(e.to_string()))?;
+        let s = serde_json::to_string_pretty(&report)?;
         writeln!(w, "{}", s).map_err(ReportError::Io)?;
         w.flush()?;
         Ok(())
@@ -339,8 +342,7 @@ impl Reporter for SarifReporter {
                 "results": results
             }]
         });
-        let s =
-            serde_json::to_string_pretty(&sarif).map_err(|e| ReportError::Other(e.to_string()))?;
+        let s = serde_json::to_string_pretty(&sarif)?;
         writeln!(w, "{}", s).map_err(ReportError::Io)?;
         w.flush()?;
         Ok(())
@@ -413,9 +415,7 @@ mod tests {
     }
 
     fn sample_report_data_empty() -> ReportData {
-        ReportData {
-            findings: vec![],
-        }
+        ReportData { findings: vec![] }
     }
 
     fn sample_report_data_one_finding() -> ReportData {
@@ -471,7 +471,12 @@ mod tests {
             .unwrap();
         let out = String::from_utf8(buf).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(out.trim()).unwrap();
-        assert!(parsed.get("findings").unwrap().as_array().unwrap().is_empty());
+        assert!(parsed
+            .get("findings")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .is_empty());
     }
 
     #[tokio::test]
@@ -486,7 +491,10 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(out.trim()).unwrap();
         let findings = parsed.get("findings").unwrap().as_array().unwrap();
         assert_eq!(findings.len(), 1);
-        assert_eq!(findings[0].get("package").unwrap().get("name").unwrap(), "foo");
+        assert_eq!(
+            findings[0].get("package").unwrap().get("name").unwrap(),
+            "foo"
+        );
         let cves = findings[0].get("cves").unwrap().as_array().unwrap();
         assert_eq!(cves[0].get("severity").unwrap(), "HIGH");
     }
