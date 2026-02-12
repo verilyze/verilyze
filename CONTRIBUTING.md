@@ -73,13 +73,11 @@ Stderr can stay as `eprintln!` or `log::error!`.
 - **Generate coverage (cargo-llvm-cov, XML for CI):** Use **cargo-llvm-cov** with the **nightly** toolchain so all workspace crates appear in the report.
   1. Install cargo-llvm-cov: `cargo install cargo-llvm-cov --locked`
   2. Install the nightly toolchain and LLVM tools: `rustup toolchain install nightly` and `rustup component add llvm-tools --toolchain nightly`
-  3. Run tests and generate HTML + Cobertura reports (from the repo root): `make coverage`, or:
-     ```bash
-     cargo +nightly llvm-cov --workspace --no-report
-     cargo +nightly llvm-cov report --html --output-dir reports/html
-     cargo +nightly llvm-cov report --cobertura --output-path reports/cobertura.xml
-     ```
-     Thresholds (NFR-012): >= 70% branch coverage, >= 90% functional coverage.
+  3. Run coverage from the repo root:
+     - **Recommended:** `./scripts/coverage.sh` (or `make coverage`)
+     - The script uses the [external tests](https://docs.rs/crate/cargo-llvm-cov/latest#get-coverage-of-external-tests) workflow: `cargo llvm-cov show-env`, then `cargo build` and direct binary invocation, so the xtask binary is covered without depending on `cargo llvm-cov run`.
+     - Reports: `reports/index.html` (HTML), `reports/cobertura.xml` (CI)
+     - Thresholds (NFR-012): >= 70% branch coverage, >= 90% functional coverage.
   **Note:** Branch coverage is currently **disabled** in the default coverage run (line and function coverage only). Enabling `--branch` can trigger an LLVM llvm-cov crash (SIGSEGV) when the report includes the proc-macro crate. Until that toolchain bug is resolved, coverage reports show line and function metrics; branch thresholds in NFR-012 remain the target when branch coverage is re-enabled.
 - **CI:** The Cobertura XML (e.g. `reports/cobertura.xml`) is consumed by common CI systems; see [taiki-e/cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov) or [taiki-e/install-action](https://github.com/taiki-e/install-action) for GitHub Actions.
 
