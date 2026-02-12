@@ -83,7 +83,9 @@ registered". See [architecture/PRD.md](architecture/PRD.md) MOD-003.
   line lengths below 80 characters (i.e., 79 characters or less) so that users
   with 80-character terminals can view the entire line, even when viewing
   patch files/diffs. Some lines can extend past this guideline when it improves
-  readability (e.g., long URLs that can't be reasonably broken apart).
+  readability (e.g., long URLs that can't be reasonably broken apart). This
+  applies to source code and other text such as Markdown files, but does not
+  apply to auto-generated files.
 
 ### CLI output (stdout)
 
