@@ -71,6 +71,16 @@ A minimal build omits language plugins and the RedB backend; `spd list` will
 output nothing, and `spd scan` will fail with "No ManifestFinder plug‑in
 registered". See [architecture/PRD.md](architecture/PRD.md) MOD-003.
 
+## Adding dependencies
+
+Before adding a dependency, consider whether the functionality can be
+implemented in-house. If the logic is simple (e.g., string splitting, basic
+parsing, small helpers), implement it in the relevant crate. If a dependency
+is necessary, document in the PR: (a) why in-house is not practical, (b)
+GPL-3.0 compatibility, (c) impact on `cargo tree` / build time. See
+[architecture/PRD.md](architecture/PRD.md) NFR-019, MOD-004, and the Minimal
+Dependencies design principle.
+
 ## Code style and checks
 
 - Follow the [Rust Style Guide](https://doc.rust-lang.org/beta/style-guide/index.html).
