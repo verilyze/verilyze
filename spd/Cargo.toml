@@ -27,6 +27,7 @@ thiserror = "2.0"
 spd-db = { path = "../spd-db" }
 spd-manifest-finder = { path = "../spd-manifest-finder" }
 spd-manifest-parser = { path = "../spd-manifest-parser" }
+spd-python = { path = "../spd-python", optional = true }
 spd-cve-client = { path = "../spd-cve-client" }
 spd-report = { path = "../spd-report" }
 spd-integrity = { path = "../spd-integrity" }
@@ -43,7 +44,8 @@ temp-env = "0.3"
 
 # Feature gating – matches MOD‑003
 [features]
-default = ["redb"]
+default = ["redb", "python"]
 redb = ["spd-db-redb"]
+python = ["spd-python"]
 sqlite = []      # placeholder for a future SQLite backend
 mem = []         # placeholder for an in‑memory/mock backend

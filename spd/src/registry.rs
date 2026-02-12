@@ -23,8 +23,8 @@ use std::sync::Mutex;
 use spd_cve_client::{CveProvider, OsvProvider};
 use spd_db::DatabaseBackend;
 use spd_integrity::{BackendDelegatingChecker, IntegrityChecker};
-use spd_manifest_finder::{DefaultManifestFinder, ManifestFinder};
-use spd_manifest_parser::{DirectOnlyResolver, Parser, RequirementsTxtParser, Resolver};
+use spd_manifest_finder::ManifestFinder;
+use spd_manifest_parser::{Parser, Resolver};
 use spd_plugin_macro::spd_register;
 use spd_report::{DefaultReporter, Reporter};
 
@@ -100,27 +100,48 @@ pub fn ensure_default_db_backend_with_path(
     Ok(())
 }
 
-/// Ensures at least one manifest finder is registered (default Python finder).
+/// Ensures at least one manifest finder is registered (Python finder when `python` feature).
 /// Call this at startup so the default finder is used when no plugin has registered one.
+#[cfg(feature = "python")]
 pub fn ensure_default_manifest_finder() {
     if FINDERS.lock().unwrap().is_empty() {
-        spd_register!(ManifestFinder, DefaultManifestFinder);
+        use spd_python::PythonManifestFinder;
+        spd_register!(ManifestFinder, PythonManifestFinder);
     }
 }
 
-/// Ensures at least one parser is registered (default requirements.txt parser).
+#[cfg(not(feature = "python"))]
+pub fn ensure_default_manifest_finder() {
+    // No-op when python feature is disabled; registries stay empty.
+}
+
+/// Ensures at least one parser is registered (Python requirements.txt parser when `python` feature).
 /// Call this at startup so the default parser is used when no plugin has registered one.
+#[cfg(feature = "python")]
 pub fn ensure_default_parser() {
     if PARSERS.lock().unwrap().is_empty() {
+        use spd_python::RequirementsTxtParser;
         spd_register!(Parser, RequirementsTxtParser);
     }
 }
 
-/// Ensures at least one resolver is registered (default direct-only resolver).
+#[cfg(not(feature = "python"))]
+pub fn ensure_default_parser() {
+    // No-op when python feature is disabled.
+}
+
+/// Ensures at least one resolver is registered (Python direct-only resolver when `python` feature).
+#[cfg(feature = "python")]
 pub fn ensure_default_resolver() {
     if RESOLVERS.lock().unwrap().is_empty() {
+        use spd_python::DirectOnlyResolver;
         spd_register!(Resolver, DirectOnlyResolver);
     }
+}
+
+#[cfg(not(feature = "python"))]
+pub fn ensure_default_resolver() {
+    // No-op when python feature is disabled.
 }
 
 /// Ensures at least one CVE provider is registered (default OSV.dev provider).
@@ -203,15 +224,25 @@ mod tests {
         let _guard = REGISTRY_TEST_MUTEX.lock().unwrap();
         // 1) register(Plugin) pushes to the correct registry
         clear_finders();
-        register(Plugin::ManifestFinder(Box::new(DefaultManifestFinder::new())));
+        #[cfg(feature = "python")]
+        register(Plugin::ManifestFinder(Box::new(spd_python::PythonManifestFinder::new())));
+        #[cfg(not(feature = "python"))]
+        {
+            // When python is disabled, no finder to register; skip this assertion
+        }
+        #[cfg(feature = "python")]
         assert_eq!(FINDERS.lock().unwrap().len(), 1);
 
         clear_parsers();
-        register(Plugin::Parser(Box::new(RequirementsTxtParser::new())));
+        #[cfg(feature = "python")]
+        register(Plugin::Parser(Box::new(spd_python::RequirementsTxtParser::new())));
+        #[cfg(feature = "python")]
         assert_eq!(PARSERS.lock().unwrap().len(), 1);
 
         clear_resolvers();
-        register(Plugin::Resolver(Box::new(DirectOnlyResolver::new())));
+        #[cfg(feature = "python")]
+        register(Plugin::Resolver(Box::new(spd_python::DirectOnlyResolver::new())));
+        #[cfg(feature = "python")]
         assert_eq!(RESOLVERS.lock().unwrap().len(), 1);
 
         clear_providers();
@@ -234,23 +265,26 @@ mod tests {
         }
 
         // 2) ensure_default_* when empty add one; second call is idempotent
-        clear_finders();
-        ensure_default_manifest_finder();
-        assert_eq!(FINDERS.lock().unwrap().len(), 1);
-        ensure_default_manifest_finder();
-        assert_eq!(FINDERS.lock().unwrap().len(), 1);
+        #[cfg(feature = "python")]
+        {
+            clear_finders();
+            ensure_default_manifest_finder();
+            assert_eq!(FINDERS.lock().unwrap().len(), 1);
+            ensure_default_manifest_finder();
+            assert_eq!(FINDERS.lock().unwrap().len(), 1);
 
-        clear_parsers();
-        ensure_default_parser();
-        assert_eq!(PARSERS.lock().unwrap().len(), 1);
-        ensure_default_parser();
-        assert_eq!(PARSERS.lock().unwrap().len(), 1);
+            clear_parsers();
+            ensure_default_parser();
+            assert_eq!(PARSERS.lock().unwrap().len(), 1);
+            ensure_default_parser();
+            assert_eq!(PARSERS.lock().unwrap().len(), 1);
 
-        clear_resolvers();
-        ensure_default_resolver();
-        assert_eq!(RESOLVERS.lock().unwrap().len(), 1);
-        ensure_default_resolver();
-        assert_eq!(RESOLVERS.lock().unwrap().len(), 1);
+            clear_resolvers();
+            ensure_default_resolver();
+            assert_eq!(RESOLVERS.lock().unwrap().len(), 1);
+            ensure_default_resolver();
+            assert_eq!(RESOLVERS.lock().unwrap().len(), 1);
+        }
 
         clear_providers();
         ensure_default_cve_provider();
