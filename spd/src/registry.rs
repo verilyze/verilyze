@@ -17,8 +17,7 @@
 // super-duper (see the COPYING file in the project root for the full text). If
 // not, see <https://www.gnu.org/licenses/>.
 
-use lazy_static::lazy_static;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 
 use spd_cve_client::{CveProvider, OsvProvider};
 use spd_db::DatabaseBackend;
@@ -52,25 +51,25 @@ pub enum Plugin {
 pub fn register(plugin: Plugin) {
     match plugin {
         Plugin::ManifestFinder(f) => {
-            FINDERS.lock().unwrap().push(f);
+            finders().lock().unwrap().push(f);
         }
         Plugin::Parser(p) => {
-            PARSERS.lock().unwrap().push(p);
+            parsers().lock().unwrap().push(p);
         }
         Plugin::Resolver(r) => {
-            RESOLVERS.lock().unwrap().push(r);
+            resolvers().lock().unwrap().push(r);
         }
         Plugin::CveProvider(cp) => {
-            PROVIDERS.lock().unwrap().push(cp);
+            providers().lock().unwrap().push(cp);
         }
         Plugin::DatabaseBackend(db) => {
-            DB_BACKENDS.lock().unwrap().push(db);
+            db_backends().lock().unwrap().push(db);
         }
         Plugin::Reporter(r) => {
-            REPORTERS.lock().unwrap().push(r);
+            reporters().lock().unwrap().push(r);
         }
         Plugin::IntegrityChecker(ic) => {
-            INTEGRITY_CHECKERS.lock().unwrap().push(ic);
+            integrity_checkers().lock().unwrap().push(ic);
         }
     }
 }
@@ -80,7 +79,7 @@ pub fn register(plugin: Plugin) {
 #[cfg(feature = "redb")]
 #[allow(dead_code)]
 pub fn ensure_default_db_backend() {
-    let mut backends = DB_BACKENDS.lock().unwrap();
+    let mut backends = db_backends().lock().unwrap();
     if backends.is_empty() {
         backends.push(Box::new(spd_db_redb::RedbBackend::default()));
     }
@@ -92,7 +91,7 @@ pub fn ensure_default_db_backend_with_path(
     path: std::path::PathBuf,
     ttl_secs: u64,
 ) -> Result<(), spd_db::DatabaseError> {
-    let mut backends = DB_BACKENDS.lock().unwrap();
+    let mut backends = db_backends().lock().unwrap();
     if backends.is_empty() {
         let backend = spd_db_redb::RedbBackend::with_path(path, ttl_secs)?;
         backends.push(Box::new(backend));
@@ -104,7 +103,7 @@ pub fn ensure_default_db_backend_with_path(
 /// Call this at startup so the default finder is used when no plugin has registered one.
 #[cfg(feature = "python")]
 pub fn ensure_default_manifest_finder() {
-    if FINDERS.lock().unwrap().is_empty() {
+    if finders().lock().unwrap().is_empty() {
         use spd_python::PythonManifestFinder;
         spd_register!(ManifestFinder, PythonManifestFinder);
     }
@@ -119,7 +118,7 @@ pub fn ensure_default_manifest_finder() {
 /// Call this at startup so the default parser is used when no plugin has registered one.
 #[cfg(feature = "python")]
 pub fn ensure_default_parser() {
-    if PARSERS.lock().unwrap().is_empty() {
+    if parsers().lock().unwrap().is_empty() {
         use spd_python::RequirementsTxtParser;
         spd_register!(Parser, RequirementsTxtParser);
     }
@@ -133,7 +132,7 @@ pub fn ensure_default_parser() {
 /// Ensures at least one resolver is registered (Python direct-only resolver when `python` feature).
 #[cfg(feature = "python")]
 pub fn ensure_default_resolver() {
-    if RESOLVERS.lock().unwrap().is_empty() {
+    if resolvers().lock().unwrap().is_empty() {
         use spd_python::DirectOnlyResolver;
         spd_register!(Resolver, DirectOnlyResolver);
     }
@@ -147,7 +146,7 @@ pub fn ensure_default_resolver() {
 /// Ensures at least one CVE provider is registered (default OSV.dev provider).
 /// Call this at startup so the default provider is used when no plugin has registered one.
 pub fn ensure_default_cve_provider() {
-    let mut providers = PROVIDERS.lock().unwrap();
+    let mut providers = providers().lock().unwrap();
     if providers.is_empty() {
         providers.push(Box::new(OsvProvider::default()));
     }
@@ -156,34 +155,63 @@ pub fn ensure_default_cve_provider() {
 /// Ensures at least one reporter is registered (default plain-text table reporter).
 /// Call this at startup so the default reporter is used when no plugin has registered one.
 pub fn ensure_default_reporter() {
-    if REPORTERS.lock().unwrap().is_empty() {
+    if reporters().lock().unwrap().is_empty() {
         spd_register!(Reporter, DefaultReporter);
     }
 }
 
 /// Ensures at least one integrity checker is registered (delegates to backend's verify_integrity).
 pub fn ensure_default_integrity_checker() {
-    let mut checkers = INTEGRITY_CHECKERS.lock().unwrap();
+    let mut checkers = integrity_checkers().lock().unwrap();
     if checkers.is_empty() {
         checkers.push(Box::new(BackendDelegatingChecker::new()));
     }
 }
 
 // ---------------------------------------------------------------------
-// Global registries – made `pub(crate)` so `main.rs` can read them.
+// Global registries – OnceLock + helpers so `main.rs` can read them.
 // ---------------------------------------------------------------------
-lazy_static! {
-    pub(crate) static ref FINDERS: Mutex<Vec<Box<dyn ManifestFinder>>> = Mutex::new(Vec::new());
-    pub(crate) static ref PARSERS: Mutex<Vec<Box<dyn Parser>>> = Mutex::new(Vec::new());
-    pub(crate) static ref RESOLVERS: Mutex<Vec<Box<dyn Resolver>>> = Mutex::new(Vec::new());
-    pub(crate) static ref PROVIDERS: Mutex<Vec<Box<dyn CveProvider>>> = Mutex::new(Vec::new());
-    pub(crate) static ref DB_BACKENDS: Mutex<Vec<Box<dyn DatabaseBackend>>> =
-        Mutex::new(Vec::new());
-    pub(crate) static ref REPORTERS: Mutex<Vec<Box<dyn Reporter>>> = Mutex::new(Vec::new());
-    pub(crate) static ref INTEGRITY_CHECKERS: Mutex<Vec<Box<dyn IntegrityChecker>>> =
-        Mutex::new(Vec::new());
-    /// Serializes tests that mutate or consume global registries (avoids races with main's run() tests).
-    pub(crate) static ref REGISTRY_TEST_MUTEX: Mutex<()> = Mutex::new(());
+
+pub(crate) fn finders() -> &'static Mutex<Vec<Box<dyn ManifestFinder>>> {
+    static FINDERS: OnceLock<Mutex<Vec<Box<dyn ManifestFinder>>>> = OnceLock::new();
+    FINDERS.get_or_init(|| Mutex::new(Vec::new()))
+}
+
+pub(crate) fn parsers() -> &'static Mutex<Vec<Box<dyn Parser>>> {
+    static PARSERS: OnceLock<Mutex<Vec<Box<dyn Parser>>>> = OnceLock::new();
+    PARSERS.get_or_init(|| Mutex::new(Vec::new()))
+}
+
+pub(crate) fn resolvers() -> &'static Mutex<Vec<Box<dyn Resolver>>> {
+    static RESOLVERS: OnceLock<Mutex<Vec<Box<dyn Resolver>>>> = OnceLock::new();
+    RESOLVERS.get_or_init(|| Mutex::new(Vec::new()))
+}
+
+pub(crate) fn providers() -> &'static Mutex<Vec<Box<dyn CveProvider>>> {
+    static PROVIDERS: OnceLock<Mutex<Vec<Box<dyn CveProvider>>>> = OnceLock::new();
+    PROVIDERS.get_or_init(|| Mutex::new(Vec::new()))
+}
+
+pub(crate) fn db_backends() -> &'static Mutex<Vec<Box<dyn DatabaseBackend>>> {
+    static DB_BACKENDS: OnceLock<Mutex<Vec<Box<dyn DatabaseBackend>>>> = OnceLock::new();
+    DB_BACKENDS.get_or_init(|| Mutex::new(Vec::new()))
+}
+
+pub(crate) fn reporters() -> &'static Mutex<Vec<Box<dyn Reporter>>> {
+    static REPORTERS: OnceLock<Mutex<Vec<Box<dyn Reporter>>>> = OnceLock::new();
+    REPORTERS.get_or_init(|| Mutex::new(Vec::new()))
+}
+
+pub(crate) fn integrity_checkers() -> &'static Mutex<Vec<Box<dyn IntegrityChecker>>> {
+    static INTEGRITY_CHECKERS: OnceLock<Mutex<Vec<Box<dyn IntegrityChecker>>>> = OnceLock::new();
+    INTEGRITY_CHECKERS.get_or_init(|| Mutex::new(Vec::new()))
+}
+
+/// Serializes tests that mutate or consume global registries (avoids races with main's run() tests).
+#[allow(dead_code)]
+pub(crate) fn registry_test_mutex() -> &'static Mutex<()> {
+    static REGISTRY_TEST_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
+    REGISTRY_TEST_MUTEX.get_or_init(|| Mutex::new(()))
 }
 
 // ---------------------------------------------------------------------
@@ -195,25 +223,25 @@ mod tests {
     use super::*;
 
     fn clear_finders() {
-        FINDERS.lock().unwrap().clear();
+        finders().lock().unwrap().clear();
     }
     fn clear_parsers() {
-        PARSERS.lock().unwrap().clear();
+        parsers().lock().unwrap().clear();
     }
     fn clear_resolvers() {
-        RESOLVERS.lock().unwrap().clear();
+        resolvers().lock().unwrap().clear();
     }
     fn clear_providers() {
-        PROVIDERS.lock().unwrap().clear();
+        providers().lock().unwrap().clear();
     }
     fn clear_db_backends() {
-        DB_BACKENDS.lock().unwrap().clear();
+        db_backends().lock().unwrap().clear();
     }
     fn clear_reporters() {
-        REPORTERS.lock().unwrap().clear();
+        reporters().lock().unwrap().clear();
     }
     fn clear_integrity_checkers() {
-        INTEGRITY_CHECKERS.lock().unwrap().clear();
+        integrity_checkers().lock().unwrap().clear();
     }
 
     /// Registry behavior: register() pushes to correct registry; ensure_default_*
@@ -221,7 +249,7 @@ mod tests {
     /// global-state races when tests run in parallel.
     #[test]
     fn test_registry_register_and_ensure_defaults() {
-        let _guard = REGISTRY_TEST_MUTEX.lock().unwrap();
+        let _guard = registry_test_mutex().lock().unwrap();
         // 1) register(Plugin) pushes to the correct registry
         clear_finders();
         #[cfg(feature = "python")]
@@ -231,37 +259,37 @@ mod tests {
             // When python is disabled, no finder to register; skip this assertion
         }
         #[cfg(feature = "python")]
-        assert_eq!(FINDERS.lock().unwrap().len(), 1);
+        assert_eq!(finders().lock().unwrap().len(), 1);
 
         clear_parsers();
         #[cfg(feature = "python")]
         register(Plugin::Parser(Box::new(spd_python::RequirementsTxtParser::new())));
         #[cfg(feature = "python")]
-        assert_eq!(PARSERS.lock().unwrap().len(), 1);
+        assert_eq!(parsers().lock().unwrap().len(), 1);
 
         clear_resolvers();
         #[cfg(feature = "python")]
         register(Plugin::Resolver(Box::new(spd_python::DirectOnlyResolver::new())));
         #[cfg(feature = "python")]
-        assert_eq!(RESOLVERS.lock().unwrap().len(), 1);
+        assert_eq!(resolvers().lock().unwrap().len(), 1);
 
         clear_providers();
         register(Plugin::CveProvider(Box::new(OsvProvider::default())));
-        assert_eq!(PROVIDERS.lock().unwrap().len(), 1);
+        assert_eq!(providers().lock().unwrap().len(), 1);
 
         clear_reporters();
         register(Plugin::Reporter(Box::new(DefaultReporter::new())));
-        assert_eq!(REPORTERS.lock().unwrap().len(), 1);
+        assert_eq!(reporters().lock().unwrap().len(), 1);
 
         clear_integrity_checkers();
         register(Plugin::IntegrityChecker(Box::new(BackendDelegatingChecker::new())));
-        assert_eq!(INTEGRITY_CHECKERS.lock().unwrap().len(), 1);
+        assert_eq!(integrity_checkers().lock().unwrap().len(), 1);
 
         #[cfg(feature = "redb")]
         {
             clear_db_backends();
             register(Plugin::DatabaseBackend(Box::new(spd_db_redb::RedbBackend::default())));
-            assert_eq!(DB_BACKENDS.lock().unwrap().len(), 1);
+            assert_eq!(db_backends().lock().unwrap().len(), 1);
         }
 
         // 2) ensure_default_* when empty add one; second call is idempotent
@@ -269,47 +297,47 @@ mod tests {
         {
             clear_finders();
             ensure_default_manifest_finder();
-            assert_eq!(FINDERS.lock().unwrap().len(), 1);
+            assert_eq!(finders().lock().unwrap().len(), 1);
             ensure_default_manifest_finder();
-            assert_eq!(FINDERS.lock().unwrap().len(), 1);
+            assert_eq!(finders().lock().unwrap().len(), 1);
 
             clear_parsers();
             ensure_default_parser();
-            assert_eq!(PARSERS.lock().unwrap().len(), 1);
+            assert_eq!(parsers().lock().unwrap().len(), 1);
             ensure_default_parser();
-            assert_eq!(PARSERS.lock().unwrap().len(), 1);
+            assert_eq!(parsers().lock().unwrap().len(), 1);
 
             clear_resolvers();
             ensure_default_resolver();
-            assert_eq!(RESOLVERS.lock().unwrap().len(), 1);
+            assert_eq!(resolvers().lock().unwrap().len(), 1);
             ensure_default_resolver();
-            assert_eq!(RESOLVERS.lock().unwrap().len(), 1);
+            assert_eq!(resolvers().lock().unwrap().len(), 1);
         }
 
         clear_providers();
         ensure_default_cve_provider();
-        assert_eq!(PROVIDERS.lock().unwrap().len(), 1);
+        assert_eq!(providers().lock().unwrap().len(), 1);
         ensure_default_cve_provider();
-        assert_eq!(PROVIDERS.lock().unwrap().len(), 1);
+        assert_eq!(providers().lock().unwrap().len(), 1);
 
         clear_reporters();
         ensure_default_reporter();
-        assert_eq!(REPORTERS.lock().unwrap().len(), 1);
+        assert_eq!(reporters().lock().unwrap().len(), 1);
         ensure_default_reporter();
-        assert_eq!(REPORTERS.lock().unwrap().len(), 1);
+        assert_eq!(reporters().lock().unwrap().len(), 1);
 
         clear_integrity_checkers();
         ensure_default_integrity_checker();
-        assert_eq!(INTEGRITY_CHECKERS.lock().unwrap().len(), 1);
+        assert_eq!(integrity_checkers().lock().unwrap().len(), 1);
         ensure_default_integrity_checker();
-        assert_eq!(INTEGRITY_CHECKERS.lock().unwrap().len(), 1);
+        assert_eq!(integrity_checkers().lock().unwrap().len(), 1);
 
         // 3) ensure_default_db_backend (redb)
         #[cfg(feature = "redb")]
         {
             clear_db_backends();
             ensure_default_db_backend();
-            assert!(!DB_BACKENDS.lock().unwrap().is_empty());
+            assert!(!db_backends().lock().unwrap().is_empty());
         }
 
         // 4) ensure_default_db_backend_with_path (redb)
@@ -320,11 +348,11 @@ mod tests {
             let path = dir.path().join("test.redb");
             let result = ensure_default_db_backend_with_path(path, 3600);
             assert!(result.is_ok());
-            assert_eq!(DB_BACKENDS.lock().unwrap().len(), 1);
+            assert_eq!(db_backends().lock().unwrap().len(), 1);
             let path2 = dir.path().join("test2.redb");
             let result2 = ensure_default_db_backend_with_path(path2, 3600);
             assert!(result2.is_ok());
-            assert_eq!(DB_BACKENDS.lock().unwrap().len(), 1);
+            assert_eq!(db_backends().lock().unwrap().len(), 1);
         }
     }
 }
