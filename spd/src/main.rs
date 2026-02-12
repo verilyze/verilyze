@@ -176,7 +176,7 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
     match args.cmd {
         Commands::Scan {
             root,
-            format_type,
+            format,
             summary_file,
             provider,
             parallel: cli_parallel,
@@ -219,7 +219,7 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
             })?;
             let code = run_scan(
                 root,
-                format_type,
+                format,
                 summary_file,
                 provider,
                 effective,
@@ -250,9 +250,7 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
                     Some((k, v)) => (k, v),
                     None => {
                         error!("Invalid --set argument; use KEY=VALUE (e.g. python.regex=\"^requirements\\.txt$\")");
-                        return Err(anyhow!(
-                            "Invalid --set argument; use KEY=VALUE"
-                        ));
+                        return Err(anyhow!("Invalid --set argument; use KEY=VALUE"));
                     }
                 };
                 if let Err(e) = config::set_config_key(key, value) {
@@ -346,25 +344,17 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
             cli::DbCommands::Show { format, full } => {
                 let entries = db_backend.list_entries(full).await?;
                 if format.as_deref() == Some("json") {
-                    write_stdout(
-                        &serde_json::to_string_pretty(&entries).unwrap(),
-                    );
+                    write_stdout(&serde_json::to_string_pretty(&entries).unwrap());
                     write_stdout("\n");
                 } else {
                     for e in &entries {
                         write_stdout(&format!(
                             "{}  ttl={}s  added_at={}  cve_count={}  \
                              cve_ids={:?}\n",
-                            e.key,
-                            e.ttl_secs,
-                            e.added_at_secs,
-                            e.cve_count,
-                            e.cve_ids
+                            e.key, e.ttl_secs, e.added_at_secs, e.cve_count, e.cve_ids
                         ));
                         if let Some(ref raw) = e.raw_vulns {
-                            write_stdout(
-                                &serde_json::to_string_pretty(raw).unwrap(),
-                            );
+                            write_stdout(&serde_json::to_string_pretty(raw).unwrap());
                             write_stdout("\n");
                         }
                     }
@@ -402,9 +392,7 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
                             .collect(),
                     )
                 } else if let Some(keys) = entries_arg {
-                    TtlSelector::Multiple(
-                        keys.split(',').map(|s| s.trim().to_string()).collect(),
-                    )
+                    TtlSelector::Multiple(keys.split(',').map(|s| s.trim().to_string()).collect())
                 } else {
                     error!("set-ttl requires one of: --entry KEY, --all, --pattern PATTERN, --entries KEY1,KEY2");
                     return Err(anyhow!(
@@ -482,18 +470,23 @@ async fn main() -> Result<()> {
     let env = env_logger::Env::default()
         .filter_or("RUST_LOG", "info")
         .write_style_or("RUST_LOG_STYLE", "always");
-    let log_filter =
-        log_level_from_verbosity_count(std::env::args().filter(|a| a == "-v").count());
+    let log_filter = log_level_from_verbosity_count(std::env::args().filter(|a| a == "-v").count());
     env_logger::Builder::from_env(env)
         .filter_level(log_filter)
         .init();
 
     let args = Cli::parse();
+    let verbose = args.verbose;
     let code = run(args).await.unwrap_or_else(|e| {
         if is_broken_pipe(&e) {
             0
         } else {
             error!("{}", e);
+            if verbose > 0 {
+                for cause in e.chain().skip(1) {
+                    error!("  Caused by: {}", cause);
+                }
+            }
             2
         }
     });
@@ -506,7 +499,7 @@ async fn main() -> Result<()> {
 /// Runs the scan pipeline; returns the exit code to use (0, 1, 3, 4, 86, etc.).
 async fn run_scan(
     root: Option<String>,
-    format_type: String,
+    format: String,
     summary_file: Vec<String>,
     provider: Option<String>,
     effective: config::EffectiveConfig,
@@ -550,9 +543,7 @@ async fn run_scan(
             #[cfg(not(feature = "python"))]
             {
                 error!("Custom language regexes require a language plugin (e.g. python feature)");
-                return Err(anyhow!(
-                    "Custom language regexes require a language plugin"
-                ));
+                return Err(anyhow!("Custom language regexes require a language plugin"));
             }
         };
 
@@ -614,7 +605,7 @@ async fn run_scan(
         Arc::new(p)
     };
 
-    let reporter: Box<dyn spd_report::Reporter> = if format_type.eq_ignore_ascii_case("json") {
+    let reporter: Box<dyn spd_report::Reporter> = if format.eq_ignore_ascii_case("json") {
         Box::new(spd_report::JsonReporter::new())
     } else {
         let mut r = registry::REPORTERS.lock().expect("REPORTERS lock poisoned");
@@ -699,10 +690,15 @@ async fn run_scan(
             }
 
             // 3️⃣ Query the provider (concurrent up to `effective_parallel`)
-            let fetched = prov.as_ref().fetch(&pkg).await?;
+            let fetched = prov
+                .as_ref()
+                .fetch(&pkg)
+                .await
+                .with_context(|| format!("Fetching CVEs for {}@{}", pkg.name, pkg.version))?;
             db.as_ref()
                 .put(&pkg, &fetched.raw_vulns, None)
-                .await?;
+                .await
+                .with_context(|| format!("Storing cache for {}@{}", pkg.name, pkg.version))?;
             Ok((pkg.clone(), fetched.records))
         };
 
@@ -723,7 +719,12 @@ async fn run_scan(
                 if effective.offline && msg.contains("--offline") {
                     offline_cache_miss = true;
                 } else {
-                    error!("Error while processing a package: {}", e);
+                    error!("{}", e);
+                    if _verbosity > 0 {
+                        for cause in e.chain().skip(1) {
+                            error!("  Caused by: {}", cause);
+                        }
+                    }
                 }
             }
         }
@@ -870,9 +871,7 @@ async fn run_scan(
     // k) Benchmark mode handling (FR‑029)
     // -----------------------------------------------------------------
     if effective.benchmark {
-        write_stdout(
-            "{{\"benchmark\":{{\"duration_ms\":0,\"cpu_percent\":0,\"mem_mb\":0}}}}",
-        );
+        write_stdout("{{\"benchmark\":{{\"duration_ms\":0,\"cpu_percent\":0,\"mem_mb\":0}}}}");
         write_stdout("\n");
     }
 
@@ -958,10 +957,7 @@ mod tests {
 
     #[test]
     fn parse_config_set_arg_valid() {
-        assert_eq!(
-            super::parse_config_set_arg("a=b"),
-            Some(("a", "b"))
-        );
+        assert_eq!(super::parse_config_set_arg("a=b"), Some(("a", "b")));
         assert_eq!(
             super::parse_config_set_arg("key = val "),
             Some(("key", "val"))
@@ -1194,10 +1190,7 @@ mod tests {
         with_temp_xdg(|| {
             let dir = tempfile::tempdir().expect("tempdir");
             let root = dir.path().to_str().unwrap();
-            assert_eq!(
-                run_async(&["scan", root, "--offline", "--benchmark"]),
-                0
-            );
+            assert_eq!(run_async(&["scan", root, "--offline", "--benchmark"]), 0);
         });
     }
 
@@ -1245,13 +1238,11 @@ mod tests {
             let empty_dir = tempfile::tempdir().expect("tempdir");
             let path_without_pip = empty_dir.path().to_string_lossy().into_owned();
             temp_env::with_var("PATH", Some(&path_without_pip), || {
-                let code = run_async(&[
-                    "scan",
-                    root,
-                    "--offline",
-                    "--package-manager-required",
-                ]);
-                assert_eq!(code, 3, "missing pip with --package-manager-required → exit 3");
+                let code = run_async(&["scan", root, "--offline", "--package-manager-required"]);
+                assert_eq!(
+                    code, 3,
+                    "missing pip with --package-manager-required → exit 3"
+                );
             });
         });
     }
@@ -1263,14 +1254,7 @@ mod tests {
             let dir = tempfile::tempdir().expect("tempdir");
             let root = dir.path().to_str().unwrap();
             assert_eq!(
-                run_async(&[
-                    "scan",
-                    root,
-                    "--format-type",
-                    "json",
-                    "--offline",
-                    "--benchmark",
-                ]),
+                run_async(&["scan", root, "--format", "json", "--offline", "--benchmark",]),
                 0
             );
         });
@@ -1296,14 +1280,7 @@ mod tests {
             let dir = tempfile::tempdir().expect("tempdir");
             let root = dir.path().to_str().unwrap();
             assert_eq!(
-                run_async(&[
-                    "scan",
-                    root,
-                    "--offline",
-                    "--benchmark",
-                    "--parallel",
-                    "51",
-                ]),
+                run_async(&["scan", root, "--offline", "--benchmark", "--parallel", "51",]),
                 2
             );
         });

@@ -92,8 +92,27 @@ pub enum DatabaseError {
     #[error("Serialization error: {0}")]
     Serde(#[from] serde_json::Error),
 
+    /// Storage/backend error with source preserved for verbose mode (NFR-018).
+    #[error("Storage error: {message}")]
+    Storage {
+        message: String,
+        #[source]
+        source: Box<dyn std::error::Error + Send + Sync + 'static>,
+    },
+
     #[error("{0}")]
     Other(String),
+}
+
+impl DatabaseError {
+    /// Wrap an error while preserving its source chain (NFR-018).
+    pub fn wrap<E: std::error::Error + Send + Sync + 'static>(e: E) -> Self {
+        let message = e.to_string();
+        DatabaseError::Storage {
+            message,
+            source: Box::new(e),
+        }
+    }
 }
 
 /// Summary of a single cache entry (FR-035, OP-009).

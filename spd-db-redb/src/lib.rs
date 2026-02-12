@@ -149,7 +149,7 @@ impl RedbBackend {
     /// * `path` – path to the `.redb` file (created if missing).
     /// * `ttl_secs` – time‑to‑live for cached CVE entries.
     pub fn with_path(path: PathBuf, ttl_secs: u64) -> Result<Self, DatabaseError> {
-        let db = Database::create(path).map_err(|e| DatabaseError::Other(e.to_string()))?;
+        let db = Database::create(path).map_err(DatabaseError::wrap)?;
         let db = Arc::new(db);
         let (hits, misses, _) = load_metadata(db.as_ref());
         let ttl = ttl_secs.max(1);
@@ -210,13 +210,13 @@ impl RedbBackend {
             .inner
             .db
             .begin_write()
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         let mut table = write_txn
             .open_table(CACHE_TABLE)
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         let keys_to_remove: Vec<String> = table
             .iter()
-            .map_err(|e| DatabaseError::Other(e.to_string()))?
+            .map_err(DatabaseError::wrap)?
             .filter_map(|entry| {
                 let (k, v) = entry.ok()?;
                 let val_str = v.value();
@@ -234,7 +234,7 @@ impl RedbBackend {
         drop(table);
         write_txn
             .commit()
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         Ok(())
     }
 }
@@ -252,13 +252,13 @@ impl DatabaseBackend for RedbBackend {
             .inner
             .db
             .begin_read()
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         let table = read_txn
             .open_table(CACHE_TABLE)
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         let guard = match table
             .get(key.as_str())
-            .map_err(|e| DatabaseError::Other(e.to_string()))?
+            .map_err(DatabaseError::wrap)?
         {
             Some(g) => g,
             None => {
@@ -340,17 +340,17 @@ impl DatabaseBackend for RedbBackend {
             .inner
             .db
             .begin_write()
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         let mut table = write_txn
             .open_table(CACHE_TABLE)
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         table
             .insert(key.as_str(), value.as_str())
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         drop(table);
         write_txn
             .commit()
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         Ok(())
     }
 
@@ -359,13 +359,13 @@ impl DatabaseBackend for RedbBackend {
             .inner
             .db
             .begin_read()
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         let table = read_txn
             .open_table(CACHE_TABLE)
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         let total = table
             .len()
-            .map_err(|e| DatabaseError::Other(e.to_string()))? as usize;
+            .map_err(DatabaseError::wrap)? as usize;
         let hits = self.inner.hits.load(Ordering::Relaxed);
         let misses = self.inner.misses.load(Ordering::Relaxed);
         persist_stats(self.inner.db.as_ref(), hits, misses, self.inner.ttl_secs);
@@ -382,16 +382,16 @@ impl DatabaseBackend for RedbBackend {
             .inner
             .db
             .begin_read()
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         let table = read_txn
             .open_table(CACHE_TABLE)
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         let mut out = Vec::new();
         for entry in table
             .iter()
-            .map_err(|e| DatabaseError::Other(e.to_string()))?
+            .map_err(DatabaseError::wrap)?
         {
-            let (k, v) = entry.map_err(|e| DatabaseError::Other(e.to_string()))?;
+            let (k, v) = entry.map_err(DatabaseError::wrap)?;
             let key = k.value().to_string();
             let val_str = v.value();
             let mut stored: StoredEntry = match serde_json::from_str(val_str) {
@@ -433,13 +433,13 @@ impl DatabaseBackend for RedbBackend {
                     .inner
                     .db
                     .begin_read()
-                    .map_err(|e| DatabaseError::Other(e.to_string()))?;
+                    .map_err(DatabaseError::wrap)?;
                 let table = read_txn
                     .open_table(CACHE_TABLE)
-                    .map_err(|e| DatabaseError::Other(e.to_string()))?;
+                    .map_err(DatabaseError::wrap)?;
                 table
                     .iter()
-                    .map_err(|e| DatabaseError::Other(e.to_string()))?
+                    .map_err(DatabaseError::wrap)?
                     .filter_map(|e| {
                         let (k, _) = e.ok()?;
                         Some(k.value().to_string())
@@ -454,14 +454,14 @@ impl DatabaseBackend for RedbBackend {
             .inner
             .db
             .begin_write()
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         let mut table = write_txn
             .open_table(CACHE_TABLE)
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         for key in keys {
             let val_str: String = match table
                 .get(key.as_str())
-                .map_err(|e| DatabaseError::Other(e.to_string()))?
+                .map_err(DatabaseError::wrap)?
             {
                 Some(g) => g.value().to_string(),
                 None => continue,
@@ -478,12 +478,12 @@ impl DatabaseBackend for RedbBackend {
             let new_val = serde_json::to_string(&stored).map_err(DatabaseError::Serde)?;
             table
                 .insert(key.as_str(), new_val.as_str())
-                .map_err(|e| DatabaseError::Other(e.to_string()))?;
+                .map_err(DatabaseError::wrap)?;
         }
         drop(table);
         write_txn
             .commit()
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         Ok(())
     }
 
@@ -494,16 +494,16 @@ impl DatabaseBackend for RedbBackend {
             .inner
             .db
             .begin_read()
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         let table = read_txn
             .open_table(CACHE_TABLE)
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         let mut hasher = Sha256::new();
         for entry in table
             .iter()
-            .map_err(|e| DatabaseError::Other(e.to_string()))?
+            .map_err(DatabaseError::wrap)?
         {
-            let (k, v) = entry.map_err(|e| DatabaseError::Other(e.to_string()))?;
+            let (k, v) = entry.map_err(DatabaseError::wrap)?;
             let line = format!("{}|{}", k.value(), v.value());
             hasher.update(line.as_bytes());
         }
@@ -549,7 +549,7 @@ impl RedbIgnoreDb {
                 std::fs::create_dir_all(parent).map_err(|e| DatabaseError::Io(e))?;
             }
         }
-        let db = Database::create(path).map_err(|e| DatabaseError::Other(e.to_string()))?;
+        let db = Database::create(path).map_err(DatabaseError::wrap)?;
         Ok(Self { db: Arc::new(db) })
     }
 
@@ -585,17 +585,17 @@ impl RedbIgnoreDb {
         let write_txn = self
             .db
             .begin_write()
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         let mut table = write_txn
             .open_table(FALSE_POSITIVE_TABLE)
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         table
             .insert(cve_id, value.as_str())
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         drop(table);
         write_txn
             .commit()
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         Ok(())
     }
 
@@ -604,17 +604,17 @@ impl RedbIgnoreDb {
         let write_txn = self
             .db
             .begin_write()
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         let mut table = write_txn
             .open_table(FALSE_POSITIVE_TABLE)
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         table
             .remove(cve_id)
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         drop(table);
         write_txn
             .commit()
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         Ok(())
     }
 
@@ -623,13 +623,13 @@ impl RedbIgnoreDb {
         let read_txn = self
             .db
             .begin_read()
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         let table = read_txn
             .open_table(FALSE_POSITIVE_TABLE)
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         Ok(table
             .get(cve_id)
-            .map_err(|e| DatabaseError::Other(e.to_string()))?
+            .map_err(DatabaseError::wrap)?
             .is_some())
     }
 
@@ -638,13 +638,13 @@ impl RedbIgnoreDb {
         let read_txn = self
             .db
             .begin_read()
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         let table = read_txn
             .open_table(FALSE_POSITIVE_TABLE)
-            .map_err(|e| DatabaseError::Other(e.to_string()))?;
+            .map_err(DatabaseError::wrap)?;
         let set: std::collections::HashSet<String> = table
             .iter()
-            .map_err(|e| DatabaseError::Other(e.to_string()))?
+            .map_err(DatabaseError::wrap)?
             .filter_map(|e| {
                 let (k, _) = e.ok()?;
                 Some(k.value().to_string())
