@@ -83,7 +83,7 @@ pub enum Commands {
         #[arg(long)]
         benchmark: bool,
 
-        /// Minimum CVSS score to count toward exit code (FR-014)
+        /// Minimum CVSS score to count toward exit code
         #[arg(long, value_name = "SCORE")]
         min_score: Option<f32>,
 
@@ -95,19 +95,19 @@ pub enum Commands {
         #[arg(long, value_name = "CODE")]
         exit_code_on_cve: Option<u8>,
 
-        /// Exit code when only false-positives are present (FR-016; default 0)
+        /// Exit code when only false-positives are present (default 0)
         #[arg(long, value_name = "CODE")]
         fp_exit_code: Option<u8>,
 
-        /// Require package manager on PATH; exit 3 with hint if missing (FR-024)
+        /// Require package manager on PATH; exit 3 with hint if missing
         #[arg(long)]
         package_manager_required: bool,
     },
 
-    /// List registered language/plugin names (FR-005)
+    /// List registered language/plugin names
     List,
 
-    /// Show or set configuration values (FR-006)
+    /// Show or set configuration values
     Config {
         #[arg(long)]
         list: bool,
@@ -128,13 +128,13 @@ pub enum Commands {
         cache_ttl_secs: Option<u64>,
     },
 
-    /// False-positive markings (FR-015)
+    /// False-positive markings
     Fp {
         #[command(subcommand)]
         sub: FpCommands,
     },
 
-    /// Pre-populate CVE cache from remote provider (FR-021; placeholder)
+    /// Pre-populate CVE cache from remote provider (placeholder)
     Preload,
 
     /// Show version / license information
@@ -170,9 +170,9 @@ pub enum DbCommands {
     Stats,
     Verify,
     Migrate,
-    /// List supported CVE providers (FR-018)
+    /// List supported CVE providers
     ListProviders,
-    /// Display cache entries with TTL and added timestamp (FR-035)
+    /// Display cache entries with TTL and added timestamp
     Show {
         /// Output format (e.g. json for full payload)
         #[arg(long, value_name = "FORMAT")]
@@ -181,7 +181,7 @@ pub enum DbCommands {
         #[arg(long)]
         full: bool,
     },
-    /// Update TTL for existing cache entries (OP-015)
+    /// Update TTL for existing cache entries
     SetTtl {
         /// New TTL in seconds
         #[arg(value_name = "SECS")]
@@ -226,7 +226,12 @@ mod tests {
     #[test]
     fn parse_scan_defaults() {
         let cli = parse(&["scan"]);
-        let Commands::Scan { format_type, root, .. } = &cli.cmd else { panic!("expected scan") };
+        let Commands::Scan {
+            format_type, root, ..
+        } = &cli.cmd
+        else {
+            panic!("expected scan")
+        };
         assert_eq!(format_type, "plain");
         assert!(root.is_none());
     }
@@ -234,7 +239,15 @@ mod tests {
     #[test]
     fn parse_scan_with_options() {
         let cli = parse(&["scan", "/tmp", "--format-type", "json", "--parallel", "5"]);
-        let Commands::Scan { root, format_type, parallel, .. } = &cli.cmd else { panic!("expected scan") };
+        let Commands::Scan {
+            root,
+            format_type,
+            parallel,
+            ..
+        } = &cli.cmd
+        else {
+            panic!("expected scan")
+        };
         assert_eq!(root.as_deref(), Some("/tmp"));
         assert_eq!(format_type, "json");
         assert_eq!(*parallel, Some(5));
@@ -243,7 +256,9 @@ mod tests {
     #[test]
     fn parse_config_list() {
         let cli = parse(&["config", "--list"]);
-        let Commands::Config { list, set } = &cli.cmd else { panic!("expected config") };
+        let Commands::Config { list, set } = &cli.cmd else {
+            panic!("expected config")
+        };
         assert!(*list);
         assert!(set.is_none());
     }
@@ -251,23 +266,36 @@ mod tests {
     #[test]
     fn parse_db_stats() {
         let cli = parse(&["db", "stats"]);
-        let Commands::Db { sub, .. } = &cli.cmd else { panic!("expected db") };
+        let Commands::Db { sub, .. } = &cli.cmd else {
+            panic!("expected db")
+        };
         assert!(matches!(sub, DbCommands::Stats));
     }
 
     #[test]
     fn parse_db_show_full() {
         let cli = parse(&["db", "show", "--full"]);
-        let Commands::Db { sub, .. } = &cli.cmd else { panic!("expected db") };
-        let DbCommands::Show { full, .. } = sub else { panic!("expected show") };
+        let Commands::Db { sub, .. } = &cli.cmd else {
+            panic!("expected db")
+        };
+        let DbCommands::Show { full, .. } = sub else {
+            panic!("expected show")
+        };
         assert!(*full);
     }
 
     #[test]
     fn parse_fp_mark() {
         let cli = parse(&["fp", "mark", "CVE-2023-1234", "--comment", "fp"]);
-        let Commands::Fp { sub } = &cli.cmd else { panic!("expected fp") };
-        let FpCommands::Mark { cve_id, comment, .. } = sub else { panic!("expected mark") };
+        let Commands::Fp { sub } = &cli.cmd else {
+            panic!("expected fp")
+        };
+        let FpCommands::Mark {
+            cve_id, comment, ..
+        } = sub
+        else {
+            panic!("expected mark")
+        };
         assert_eq!(cve_id, "CVE-2023-1234");
         assert_eq!(comment, "fp");
     }
