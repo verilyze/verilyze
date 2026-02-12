@@ -250,12 +250,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cvss"
-version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7fb220d3ce1b565af39cee5b89e47fd8dd1dab162900ee4363c8ee4169ee8a2"
-
-[[package]]
 name = "cvssrust"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1409,7 +1403,6 @@ dependencies = [
  "anyhow",
  "clap",
  "env_logger",
- "lazy_static",
  "log",
  "serde",
  "serde_json",
@@ -1434,7 +1427,6 @@ name = "spd-cve-client"
 version = "1.0.0"
 dependencies = [
  "async-trait",
- "cvss",
  "cvssrust",
  "reqwest",
  "serde",
