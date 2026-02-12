@@ -45,8 +45,10 @@ XTASK_ROOT="$XTASK_COVER" "$XTASK" replace 1>/dev/null 2>/dev/null
 # Run all workspace tests
 cargo +nightly test --workspace
 
-# Generate reports
-cargo +nightly llvm-cov report --html --output-dir reports
-cargo +nightly llvm-cov report --cobertura --output-path reports/cobertura.xml
+# Generate reports (NFR-017: fail if coverage below threshold)
+cargo +nightly llvm-cov report --html --output-dir reports \
+  --fail-under-lines 85 --fail-under-functions 80 --fail-under-regions 85
+cargo +nightly llvm-cov report --cobertura --output-path reports/cobertura.xml \
+  --fail-under-lines 85 --fail-under-functions 80 --fail-under-regions 85
 
 echo "Coverage report: reports/index.html"
