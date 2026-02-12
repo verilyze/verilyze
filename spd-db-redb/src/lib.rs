@@ -22,14 +22,13 @@
 use async_trait::async_trait;
 use redb::{Database, ReadableTable, TableDefinition};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use spd_cve_client::raw_vuln_to_cve_record;
 use spd_db::{
-    CacheEntryInfo, CveRecord, DatabaseBackend, DatabaseError, DatabaseStats, Package,
-    TtlSelector,
+    CacheEntryInfo, CveRecord, DatabaseBackend, DatabaseError, DatabaseStats, Package, TtlSelector,
 };
 
 /// RedB table: key = `"name::version"`, value = JSON of `StoredEntry`.
@@ -55,9 +54,7 @@ struct StoredEntry {
 fn normalize_stored_entry(entry: &mut StoredEntry, default_ttl_secs: u64) {
     if entry.added_at_secs.is_none() || entry.ttl_secs.is_none() {
         let ttl = entry.ttl_secs.unwrap_or(default_ttl_secs);
-        entry.added_at_secs = Some(
-            entry.expires_at_secs.saturating_sub(ttl),
-        );
+        entry.added_at_secs = Some(entry.expires_at_secs.saturating_sub(ttl));
         entry.ttl_secs = Some(ttl);
     }
 }
@@ -200,8 +197,7 @@ impl RedbBackend {
         let path = std::env::current_dir()
             .unwrap_or_else(|_| PathBuf::from("."))
             .join("spd-cache.redb");
-        Self::with_path(path, ttl_secs)
-            .expect("failed to open or create RedB database")
+        Self::with_path(path, ttl_secs).expect("failed to open or create RedB database")
     }
 
     /// Remove all entries that have passed their TTL (best-effort in one write txn).
@@ -372,12 +368,7 @@ impl DatabaseBackend for RedbBackend {
             .map_err(|e| DatabaseError::Other(e.to_string()))? as usize;
         let hits = self.inner.hits.load(Ordering::Relaxed);
         let misses = self.inner.misses.load(Ordering::Relaxed);
-        persist_stats(
-            self.inner.db.as_ref(),
-            hits,
-            misses,
-            self.inner.ttl_secs,
-        );
+        persist_stats(self.inner.db.as_ref(), hits, misses, self.inner.ttl_secs);
         Ok(DatabaseStats {
             cached_entries: total,
             hits,
@@ -433,11 +424,7 @@ impl DatabaseBackend for RedbBackend {
         Ok(out)
     }
 
-    async fn set_ttl(
-        &self,
-        selector: TtlSelector,
-        new_ttl_secs: u64,
-    ) -> Result<(), DatabaseError> {
+    async fn set_ttl(&self, selector: TtlSelector, new_ttl_secs: u64) -> Result<(), DatabaseError> {
         let keys: Vec<String> = match &selector {
             TtlSelector::One(k) => vec![k.clone()],
             TtlSelector::Multiple(keys) => keys.clone(),
@@ -472,7 +459,10 @@ impl DatabaseBackend for RedbBackend {
             .open_table(CACHE_TABLE)
             .map_err(|e| DatabaseError::Other(e.to_string()))?;
         for key in keys {
-            let val_str: String = match table.get(key.as_str()).map_err(|e| DatabaseError::Other(e.to_string()))? {
+            let val_str: String = match table
+                .get(key.as_str())
+                .map_err(|e| DatabaseError::Other(e.to_string()))?
+            {
                 Some(g) => g.value().to_string(),
                 None => continue,
             };
@@ -561,6 +551,14 @@ impl RedbIgnoreDb {
         }
         let db = Database::create(path).map_err(|e| DatabaseError::Other(e.to_string()))?;
         Ok(Self { db: Arc::new(db) })
+    }
+
+    /// Create from an existing Database (test-only, for injecting custom backends).
+    #[cfg(test)]
+    pub fn with_database(db: Database) -> Self {
+        Self {
+            db: Arc::new(db),
+        }
     }
 
     /// Mark a CVE as false positive (FR-015).
@@ -659,6 +657,111 @@ impl RedbIgnoreDb {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    /// StorageBackend that fails read() after a number of successful reads.
+    /// Used to trigger load_metadata's begin_read Err and persist_stats error paths.
+    #[derive(Debug)]
+    struct ReadFailingBackend {
+        inner: redb::backends::InMemoryBackend,
+        read_count: AtomicUsize,
+        fail_after_reads: usize,
+    }
+
+    impl ReadFailingBackend {
+        fn new(fail_after_reads: usize) -> Self {
+            Self {
+                inner: redb::backends::InMemoryBackend::new(),
+                read_count: AtomicUsize::new(0),
+                fail_after_reads,
+            }
+        }
+    }
+
+    impl redb::StorageBackend for ReadFailingBackend {
+        fn len(&self) -> io::Result<u64> {
+            self.inner.len()
+        }
+
+        fn read(&self, offset: u64, len: usize) -> io::Result<Vec<u8>> {
+            let n = self.read_count.fetch_add(1, Ordering::SeqCst);
+            if n >= self.fail_after_reads {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "injected read failure for coverage",
+                ));
+            }
+            self.inner.read(offset, len)
+        }
+
+        fn set_len(&self, len: u64) -> io::Result<()> {
+            self.inner.set_len(len)
+        }
+
+        fn sync_data(&self, eventual: bool) -> io::Result<()> {
+            self.inner.sync_data(eventual)
+        }
+
+        fn write(&self, offset: u64, data: &[u8]) -> io::Result<()> {
+            self.inner.write(offset, data)
+        }
+    }
+
+    /// StorageBackend that fails write() and sync_data() after a number of successes.
+    /// Used to trigger persist_stats error paths.
+    #[derive(Debug)]
+    struct WriteFailingBackend {
+        inner: redb::backends::InMemoryBackend,
+        write_count: AtomicUsize,
+        fail_after_writes: usize,
+    }
+
+    impl WriteFailingBackend {
+        fn new(fail_after_writes: usize) -> Self {
+            Self {
+                inner: redb::backends::InMemoryBackend::new(),
+                write_count: AtomicUsize::new(0),
+                fail_after_writes,
+            }
+        }
+    }
+
+    impl redb::StorageBackend for WriteFailingBackend {
+        fn len(&self) -> io::Result<u64> {
+            self.inner.len()
+        }
+
+        fn read(&self, offset: u64, len: usize) -> io::Result<Vec<u8>> {
+            self.inner.read(offset, len)
+        }
+
+        fn set_len(&self, len: u64) -> io::Result<()> {
+            self.inner.set_len(len)
+        }
+
+        fn sync_data(&self, eventual: bool) -> io::Result<()> {
+            let n = self.write_count.load(Ordering::SeqCst);
+            if n >= self.fail_after_writes {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "injected sync failure for coverage",
+                ));
+            }
+            self.inner.sync_data(eventual)
+        }
+
+        fn write(&self, offset: u64, data: &[u8]) -> io::Result<()> {
+            let n = self.write_count.fetch_add(1, Ordering::SeqCst);
+            if n >= self.fail_after_writes {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "injected write failure for coverage",
+                ));
+            }
+            self.inner.write(offset, data)
+        }
+    }
 
     /// Create a RedbBackend using in-memory storage (faster, no disk).
     fn in_memory_backend(ttl_secs: u64) -> RedbBackend {
@@ -703,10 +806,7 @@ mod tests {
             name: "mem_pkg".to_string(),
             version: "1.0".to_string(),
         };
-        backend
-            .put(&pkg, &[sample_raw_vuln()], None)
-            .await
-            .unwrap();
+        backend.put(&pkg, &[sample_raw_vuln()], None).await.unwrap();
         let got = backend.get(&pkg).await.unwrap();
         assert!(got.is_some());
         let stats = backend.stats().await.unwrap();
@@ -861,6 +961,46 @@ mod tests {
         let _ = std::fs::remove_file(&path);
     }
 
+    /// is_marked for a CVE that was never marked returns Ok(false).
+    #[tokio::test]
+    async fn ignore_db_is_marked_returns_false_for_unmarked_cve() {
+        let path = temp_ignore_path("is_marked_unmarked");
+        let _ = std::fs::remove_file(&path);
+        let db = RedbIgnoreDb::with_path(path.clone()).unwrap();
+        db.mark("CVE-2023-OTHER", "create table", None).unwrap();
+        assert!(!db.is_marked("CVE-9999-NEVER").unwrap());
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// unmark of a CVE that was never marked succeeds (no-op).
+    #[tokio::test]
+    async fn ignore_db_unmark_nonexistent_succeeds() {
+        let path = temp_ignore_path("unmark_nonexistent");
+        let _ = std::fs::remove_file(&path);
+        let db = RedbIgnoreDb::with_path(path.clone()).unwrap();
+        db.mark("CVE-2023-A", "create table", None).unwrap();
+        db.unmark("CVE-9999-NEVER").unwrap();
+        assert!(db.is_marked("CVE-2023-A").unwrap());
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// marked_ids returns multiple entries when several CVEs are marked.
+    #[tokio::test]
+    async fn ignore_db_marked_ids_multiple() {
+        let path = temp_ignore_path("marked_ids_multi");
+        let _ = std::fs::remove_file(&path);
+        let db = RedbIgnoreDb::with_path(path.clone()).unwrap();
+        db.mark("CVE-2023-A", "a", None).unwrap();
+        db.mark("CVE-2023-B", "b", None).unwrap();
+        db.mark("CVE-2023-C", "c", None).unwrap();
+        let ids = db.marked_ids().unwrap();
+        assert_eq!(ids.len(), 3);
+        assert!(ids.contains("CVE-2023-A"));
+        assert!(ids.contains("CVE-2023-B"));
+        assert!(ids.contains("CVE-2023-C"));
+        let _ = std::fs::remove_file(&path);
+    }
+
     /// put with ttl_override is stored and list_entries returns it (FR-035, OP-009).
     #[tokio::test]
     async fn put_with_ttl_override_stored_in_list_entries() {
@@ -932,10 +1072,7 @@ mod tests {
             .put(&pkg2, &[sample_raw_vuln()], None)
             .await
             .unwrap();
-        backend
-            .set_ttl(TtlSelector::All, 120)
-            .await
-            .unwrap();
+        backend.set_ttl(TtlSelector::All, 120).await.unwrap();
         let entries = backend.list_entries(false).await.unwrap();
         let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 2);
@@ -1008,16 +1145,16 @@ mod tests {
             name: "full_pkg".to_string(),
             version: "1.0".to_string(),
         };
-        backend
-            .put(&pkg, &[sample_raw_vuln()], None)
-            .await
-            .unwrap();
+        backend.put(&pkg, &[sample_raw_vuln()], None).await.unwrap();
         let entries = backend.list_entries(true).await.unwrap();
         let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 1);
         let raw = entries[0].raw_vulns.as_ref().unwrap();
         assert_eq!(raw.len(), 1);
-        assert_eq!(raw[0].get("id").and_then(|v| v.as_str()), Some("CVE-2023-test"));
+        assert_eq!(
+            raw[0].get("id").and_then(|v| v.as_str()),
+            Some("CVE-2023-test")
+        );
     }
 
     #[test]
@@ -1036,6 +1173,25 @@ mod tests {
         assert_eq!(f.user, e.user);
         assert_eq!(f.host, e.host);
         assert_eq!(f.project_id, e.project_id);
+    }
+
+    /// FpEntry with all optional fields None roundtrips correctly.
+    #[test]
+    fn fp_entry_serde_minimal() {
+        let e = FpEntry {
+            comment: "minimal".to_string(),
+            timestamp_secs: 1_700_000_001,
+            user: None,
+            host: None,
+            project_id: None,
+        };
+        let json = serde_json::to_string(&e).unwrap();
+        let f: FpEntry = serde_json::from_str(&json).unwrap();
+        assert_eq!(f.comment, e.comment);
+        assert_eq!(f.timestamp_secs, e.timestamp_secs);
+        assert_eq!(f.user, None);
+        assert_eq!(f.host, None);
+        assert_eq!(f.project_id, None);
     }
 
     // -----------------------------------------------------------------------
@@ -1182,6 +1338,22 @@ mod tests {
         assert!(entries.iter().all(|e| e.ttl_secs == 99));
     }
 
+    /// set_ttl with TtlSelector::All on in-memory backend exercises full path.
+    #[tokio::test]
+    async fn set_ttl_all_in_memory() {
+        let backend = in_memory_backend(3600);
+        backend.init().await.unwrap();
+        let pkg = Package {
+            name: "mem".to_string(),
+            version: "1".to_string(),
+        };
+        backend.put(&pkg, &[sample_raw_vuln()], None).await.unwrap();
+        backend.set_ttl(TtlSelector::All, 120).await.unwrap();
+        let entries = backend.list_entries(false).await.unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].ttl_secs, 120);
+    }
+
     #[tokio::test]
     async fn set_ttl_empty_multiple_is_no_op() {
         let path = temp_cache_path("set_ttl_empty");
@@ -1274,6 +1446,23 @@ mod tests {
         let _ = std::fs::remove_file(&cache_file);
     }
 
+    /// RedbBackend::new uses PathBuf::from(".") when current_dir() fails.
+    /// When cwd is a deleted directory, with_path fails; we catch the panic.
+    #[tokio::test]
+    async fn redb_backend_new_fallback_when_current_dir_fails() {
+        let orig = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().to_path_buf();
+        std::env::set_current_dir(&path).expect("chdir");
+        drop(dir);
+        let result = std::panic::catch_unwind(|| RedbBackend::new(3600));
+        std::env::set_current_dir(&orig).expect("restore cwd");
+        assert!(
+            result.is_err(),
+            "new() should panic when cwd is deleted and fallback path fails"
+        );
+    }
+
     #[tokio::test]
     async fn ttl_zero_clamped_to_one() {
         let path = temp_cache_path("ttl_zero");
@@ -1316,10 +1505,7 @@ mod tests {
                 name: "corrupt".to_string(),
                 version: "1".to_string(),
             };
-            backend
-                .put(&pkg, &[sample_raw_vuln()], None)
-                .await
-                .unwrap();
+            backend.put(&pkg, &[sample_raw_vuln()], None).await.unwrap();
         }
         {
             let db = redb::Database::create(&path).unwrap();
@@ -1457,7 +1643,10 @@ mod tests {
         assert_eq!(entries[0].key, "valid::1");
         let raw = entries[0].raw_vulns.as_ref().unwrap();
         assert_eq!(raw.len(), 1);
-        assert_eq!(raw[0].get("id").and_then(|v| v.as_str()), Some("CVE-2023-test"));
+        assert_eq!(
+            raw[0].get("id").and_then(|v| v.as_str()),
+            Some("CVE-2023-test")
+        );
     }
 
     #[tokio::test]
@@ -1538,6 +1727,55 @@ mod tests {
         );
     }
 
+    /// purge_expired removes only expired entries; non-expired are kept.
+    #[tokio::test]
+    async fn purge_expired_removes_expired_keeps_valid() {
+        let path = temp_cache_path("purge_mixed");
+        let _ = std::fs::remove_file(&path);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let expired_secs = now.saturating_sub(10);
+        let valid_secs = now + 3600;
+        let expired_entry = serde_json::json!({
+            "raw_vulns": [sample_raw_vuln()],
+            "expires_at_secs": expired_secs,
+            "added_at_secs": expired_secs - 3600,
+            "ttl_secs": 3600
+        });
+        let valid_entry = serde_json::json!({
+            "raw_vulns": [sample_raw_vuln()],
+            "expires_at_secs": valid_secs,
+            "added_at_secs": now,
+            "ttl_secs": 3600
+        });
+        {
+            let db = redb::Database::create(&path).unwrap();
+            let write_txn = db.begin_write().unwrap();
+            {
+                let mut cache = write_txn.open_table(CACHE_TABLE).unwrap();
+                let mut meta = write_txn.open_table(METADATA_TABLE).unwrap();
+                cache
+                    .insert("expired::1", expired_entry.to_string().as_str())
+                    .unwrap();
+                cache
+                    .insert("valid::1", valid_entry.to_string().as_str())
+                    .unwrap();
+                meta.insert("hits", "0").unwrap();
+                meta.insert("misses", "0").unwrap();
+                meta.insert("cache_ttl_secs", "3600").unwrap();
+            }
+            write_txn.commit().unwrap();
+        }
+        let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        backend.init().await.unwrap();
+        let entries = backend.list_entries(false).await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].key, "valid::1");
+    }
+
     #[tokio::test]
     async fn ignore_db_marked_ids_empty() {
         let path = temp_ignore_path("marked_ids_empty");
@@ -1553,6 +1791,16 @@ mod tests {
     #[tokio::test]
     async fn with_path_fails_on_directory() {
         let path = std::env::temp_dir();
+        let result = RedbBackend::with_path(path, 3600);
+        assert!(result.is_err());
+    }
+
+    /// with_path fails when parent directory does not exist.
+    #[tokio::test]
+    async fn with_path_fails_when_parent_missing() {
+        let path = std::env::temp_dir()
+            .join("spd_redb_nonexistent_parent_xxxx")
+            .join("cache.redb");
         let result = RedbBackend::with_path(path, 3600);
         assert!(result.is_err());
     }
@@ -1678,6 +1926,34 @@ mod tests {
         let _ = std::fs::remove_file(&path);
     }
 
+    /// load_metadata with METADATA_TABLE empty (no keys) returns (0, 0, None).
+    #[tokio::test]
+    async fn load_metadata_empty_table_returns_defaults() {
+        let path = temp_cache_path("empty_meta");
+        let _ = std::fs::remove_file(&path);
+        let db = redb::Database::create(&path).unwrap();
+        {
+            let write_txn = db.begin_write().unwrap();
+            {
+                let mut cache = write_txn.open_table(CACHE_TABLE).unwrap();
+                let meta = write_txn.open_table(METADATA_TABLE).unwrap();
+                cache
+                    .insert(
+                        "dummy::1",
+                        r#"{"raw_vulns":[],"expires_at_secs":9999999999}"#,
+                    )
+                    .unwrap();
+                drop(meta);
+            }
+            write_txn.commit().unwrap();
+        }
+        let backend = RedbBackend::with_database(db, 3600).unwrap();
+        let stats = backend.stats().await.unwrap();
+        assert_eq!(stats.hits, 0);
+        assert_eq!(stats.misses, 0);
+        let _ = std::fs::remove_file(&path);
+    }
+
     /// list_entries: raw_vulns where some lack "id" produce fewer cve_ids.
     #[tokio::test]
     async fn list_entries_vuln_without_id_omitted_from_cve_ids() {
@@ -1769,7 +2045,9 @@ mod tests {
             {
                 let mut cache = write_txn.open_table(CACHE_TABLE).unwrap();
                 let mut meta = write_txn.open_table(METADATA_TABLE).unwrap();
-                cache.insert("partial::1", partial.to_string().as_str()).unwrap();
+                cache
+                    .insert("partial::1", partial.to_string().as_str())
+                    .unwrap();
                 meta.insert("hits", "0").unwrap();
                 meta.insert("misses", "0").unwrap();
                 meta.insert("cache_ttl_secs", "3600").unwrap();
@@ -1807,7 +2085,9 @@ mod tests {
             {
                 let mut cache = write_txn.open_table(CACHE_TABLE).unwrap();
                 let mut meta = write_txn.open_table(METADATA_TABLE).unwrap();
-                cache.insert("partial::1", partial.to_string().as_str()).unwrap();
+                cache
+                    .insert("partial::1", partial.to_string().as_str())
+                    .unwrap();
                 meta.insert("hits", "0").unwrap();
                 meta.insert("misses", "0").unwrap();
                 meta.insert("cache_ttl_secs", "3600").unwrap();
@@ -1887,5 +2167,197 @@ mod tests {
         assert!(got.is_none());
         drop(backend);
         let _ = std::fs::remove_file(&path);
+    }
+
+    /// load_metadata returns (0,0,None) when db.begin_read() fails (custom backend).
+    /// ReadFailingBackend fails after N reads; creation uses some reads, so we pick
+    /// N so the first read in load_metadata fails.
+    #[tokio::test]
+    async fn load_metadata_begin_read_fails_returns_defaults() {
+        let backend = ReadFailingBackend::new(10);
+        let db = redb::Builder::new()
+            .create_with_backend(backend)
+            .expect("create should succeed");
+        let _b = RedbBackend::with_database(db, 3600)
+            .expect("with_database succeeds when load_metadata returns (0,0,None)");
+    }
+
+    /// persist_stats returns early when db.begin_write() or write fails (custom backend).
+    #[tokio::test]
+    async fn persist_stats_begin_write_fails_gracefully() {
+        let backend = ReadFailingBackend::new(1000);
+        let db = redb::Builder::new().create_with_backend(backend).unwrap();
+        let _b = RedbBackend::with_database(db, 3600).unwrap();
+    }
+
+    /// persist_stats fails when write/sync fails during commit (WriteFailingBackend).
+    #[tokio::test]
+    async fn persist_stats_write_fails_gracefully() {
+        let backend = WriteFailingBackend::new(20);
+        let db = redb::Builder::new()
+            .create_with_backend(backend)
+            .expect("create should succeed");
+        let _b = RedbBackend::with_database(db, 3600)
+            .expect("with_database succeeds; persist_stats best-effort");
+    }
+
+    /// list_entries propagates error when table iteration yields Err (ReadFailingBackend).
+    /// Fail threshold tuned so we succeed through init+put but fail during iteration.
+    #[tokio::test]
+    async fn list_entries_iteration_read_fails_propagates() {
+        for fail_after in [5, 6, 7, 8, 9, 10, 11, 12] {
+            let backend = ReadFailingBackend::new(fail_after);
+            let db = redb::Builder::new()
+                .create_with_backend(backend)
+                .expect("create should succeed");
+            let Ok(b) = RedbBackend::with_database(db, 3600) else {
+                continue;
+            };
+            if b.init().await.is_err() {
+                continue;
+            }
+            let pkg = Package {
+                name: "pkg".to_string(),
+                version: "1".to_string(),
+            };
+            if b.put(&pkg, &[sample_raw_vuln()], None).await.is_err() {
+                continue;
+            }
+            let res = b.list_entries(false).await;
+            if res.is_err() {
+                let err_msg = res.unwrap_err().to_string();
+                assert!(
+                    err_msg.contains("injected read failure") || err_msg.contains("read"),
+                    "fail_after={} error should mention read: {}",
+                    fail_after,
+                    err_msg
+                );
+                return;
+            }
+        }
+        panic!("list_entries should fail for some fail_after threshold");
+    }
+
+    /// verify_integrity propagates error when table iteration yields Err.
+    #[tokio::test]
+    async fn verify_integrity_iteration_read_fails_propagates() {
+        for fail_after in [5, 6, 7, 8, 9, 10, 11, 12, 15, 18, 20] {
+            let backend = ReadFailingBackend::new(fail_after);
+            let db = redb::Builder::new()
+                .create_with_backend(backend)
+                .expect("create should succeed");
+            let Ok(b) = RedbBackend::with_database(db, 3600) else {
+                continue;
+            };
+            if b.init().await.is_err() {
+                continue;
+            }
+            let pkg = Package {
+                name: "pkg".to_string(),
+                version: "1".to_string(),
+            };
+            if b.put(&pkg, &[sample_raw_vuln()], None).await.is_err() {
+                continue;
+            }
+            let res = b.verify_integrity().await;
+            if res.is_err() {
+                let err_msg = res.unwrap_err().to_string();
+                assert!(
+                    err_msg.contains("injected read failure") || err_msg.contains("read"),
+                    "fail_after={} error should mention read: {}",
+                    fail_after,
+                    err_msg
+                );
+                return;
+            }
+        }
+        panic!("verify_integrity should fail for some fail_after threshold");
+    }
+
+    /// purge_expired (via init) when iteration read fails: iter().map_err propagates.
+    #[tokio::test]
+    async fn purge_expired_iteration_read_fails_graceful() {
+        let backend = ReadFailingBackend::new(15);
+        let db = redb::Builder::new()
+            .create_with_backend(backend)
+            .expect("create should succeed");
+        let b = RedbBackend::with_database(db, 3600).unwrap();
+        b.init().await.unwrap();
+        let pkg = Package {
+            name: "pkg".to_string(),
+            version: "1".to_string(),
+        };
+        b.put(&pkg, &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
+        let res = b.init().await;
+        if let Err(e) = res {
+            assert!(
+                e.to_string().contains("injected read failure")
+                    || e.to_string().contains("read"),
+                "unexpected error: {}",
+                e
+            );
+        }
+    }
+
+    /// set_ttl with TtlSelector::All propagates error when iteration read fails.
+    #[tokio::test]
+    async fn set_ttl_all_iteration_read_fails_propagates() {
+        for fail_after in [5, 6, 7, 8, 9, 10, 11, 12, 15, 18, 20] {
+            let backend = ReadFailingBackend::new(fail_after);
+            let db = redb::Builder::new()
+                .create_with_backend(backend)
+                .expect("create should succeed");
+            let Ok(b) = RedbBackend::with_database(db, 3600) else {
+                continue;
+            };
+            if b.init().await.is_err() {
+                continue;
+            }
+            let pkg = Package {
+                name: "pkg".to_string(),
+                version: "1".to_string(),
+            };
+            if b.put(&pkg, &[sample_raw_vuln()], None).await.is_err() {
+                continue;
+            }
+            let res = b.set_ttl(TtlSelector::All, 120).await;
+            if res.is_err() {
+                let err_msg = res.unwrap_err().to_string();
+                assert!(
+                    err_msg.contains("injected read failure") || err_msg.contains("read"),
+                    "fail_after={} error should mention read: {}",
+                    fail_after,
+                    err_msg
+                );
+                return;
+            }
+        }
+        panic!("set_ttl All should fail for some fail_after threshold");
+    }
+
+    /// marked_ids filter_map Err branch: iteration yields Err, e.ok()? skips.
+    #[tokio::test]
+    async fn marked_ids_iteration_read_fails_graceful() {
+        for fail_after in [5, 6, 7, 8, 9, 10, 11, 12, 15, 18, 20] {
+            let backend = ReadFailingBackend::new(fail_after);
+            let db = redb::Builder::new()
+                .create_with_backend(backend)
+                .expect("create should succeed");
+            let ignore_db = RedbIgnoreDb::with_database(db);
+            ignore_db.mark("CVE-2023-X", "test", None).unwrap();
+            let res = ignore_db.marked_ids();
+            if res.is_err() {
+                let err_msg = res.unwrap_err().to_string();
+                assert!(
+                    err_msg.contains("injected read failure") || err_msg.contains("read"),
+                    "fail_after={} error should mention read: {}",
+                    fail_after,
+                    err_msg
+                );
+                return;
+            }
+        }
     }
 }
