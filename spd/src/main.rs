@@ -152,7 +152,7 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
     registry::ensure_default_integrity_checker();
 
     let db_backend = {
-        let mut backends = registry::DB_BACKENDS
+        let mut backends = registry::db_backends()
             .lock()
             .expect("DB_BACKENDS lock poisoned");
         if backends.is_empty() {
@@ -231,7 +231,7 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
         }
 
         Commands::List => {
-            let finders = registry::FINDERS.lock().expect("FINDERS lock poisoned");
+            let finders = registry::finders().lock().expect("FINDERS lock poisoned");
             let mut languages: Vec<String> = finders
                 .iter()
                 .map(|f| f.language_name().to_string())
@@ -296,7 +296,7 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
 
         Commands::Db { sub, .. } => match sub {
             cli::DbCommands::ListProviders => {
-                let providers = registry::PROVIDERS.lock().expect("PROVIDERS lock poisoned");
+                let providers = registry::providers().lock().expect("PROVIDERS lock poisoned");
                 for p in providers.iter() {
                     write_stdout(&format!("{}\n", p.name()));
                 }
@@ -312,7 +312,7 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
             }
             cli::DbCommands::Verify => {
                 let checker = {
-                    let mut c = registry::INTEGRITY_CHECKERS
+                    let mut c = registry::integrity_checkers()
                         .lock()
                         .expect("INTEGRITY_CHECKERS lock poisoned");
                     if c.is_empty() {
@@ -326,7 +326,7 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
                         error!("{}", e);
                         return Ok(1); // FR-033: exit 1 on verify failure
                     }
-                    registry::INTEGRITY_CHECKERS
+                    registry::integrity_checkers()
                         .lock()
                         .expect("INTEGRITY_CHECKERS lock poisoned")
                         .insert(0, c);
@@ -520,7 +520,7 @@ async fn run_scan(
     // -----------------------------------------------------------------
     let finder: Box<dyn spd_manifest_finder::ManifestFinder> =
         if effective.language_regexes.is_empty() {
-            let mut f = registry::FINDERS.lock().expect("FINDERS lock poisoned");
+            let mut f = registry::finders().lock().expect("FINDERS lock poisoned");
             if f.is_empty() {
                 error!("No ManifestFinder plug‑in registered");
                 return Err(anyhow!("No ManifestFinder plug‑in registered"));
@@ -548,7 +548,7 @@ async fn run_scan(
         };
 
     let parser = {
-        let mut p = registry::PARSERS.lock().expect("PARSERS lock poisoned");
+        let mut p = registry::parsers().lock().expect("PARSERS lock poisoned");
         if p.is_empty() {
             error!("No Parser plug‑in registered");
             return Err(anyhow!("No Parser plug‑in registered"));
@@ -557,7 +557,7 @@ async fn run_scan(
     };
 
     let resolver = {
-        let mut r = registry::RESOLVERS.lock().expect("RESOLVERS lock poisoned");
+        let mut r = registry::resolvers().lock().expect("RESOLVERS lock poisoned");
         if r.is_empty() {
             error!("No Resolver plug‑in registered");
             return Err(anyhow!("No Resolver plug‑in registered"));
@@ -579,7 +579,7 @@ async fn run_scan(
     }
 
     let provider_impl: Arc<Box<dyn spd_cve_client::CveProvider + Send + Sync + 'static>> = {
-        let mut prov = registry::PROVIDERS.lock().expect("PROVIDERS lock poisoned");
+        let mut prov = registry::providers().lock().expect("PROVIDERS lock poisoned");
         if prov.is_empty() {
             error!("No CveProvider plug‑in registered");
             return Err(anyhow!("No CveProvider plug‑in registered"));
@@ -608,7 +608,7 @@ async fn run_scan(
     let reporter: Box<dyn spd_report::Reporter> = if format.eq_ignore_ascii_case("json") {
         Box::new(spd_report::JsonReporter::new())
     } else {
-        let mut r = registry::REPORTERS.lock().expect("REPORTERS lock poisoned");
+        let mut r = registry::reporters().lock().expect("REPORTERS lock poisoned");
         if r.is_empty() {
             error!("No Reporter plug‑in registered");
             return Err(anyhow!("No Reporter plug‑in registered"));
@@ -996,7 +996,7 @@ mod tests {
 
     /// Repopulate plugin registries so run() can proceed (it consumes one backend per call).
     fn ensure_registries_for_run() {
-        let _guard = crate::registry::REGISTRY_TEST_MUTEX.lock().unwrap();
+        let _guard = crate::registry::registry_test_mutex().lock().unwrap();
         crate::registry::ensure_default_manifest_finder();
         crate::registry::ensure_default_parser();
         crate::registry::ensure_default_resolver();
@@ -1011,7 +1011,7 @@ mod tests {
     }
 
     fn run_async(args: &[&str]) -> i32 {
-        let _guard = crate::registry::REGISTRY_TEST_MUTEX.lock().unwrap();
+        let _guard = crate::registry::registry_test_mutex().lock().unwrap();
         let mut v = vec!["spd"];
         v.extend(args.iter().copied());
         let args = crate::cli::Cli::parse_from(v);

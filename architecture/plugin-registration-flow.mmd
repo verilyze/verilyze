@@ -1,6 +1,6 @@
 sequenceDiagram
     participant Core as spd "(core binary)"
-    participant Registries as "per-trait lazy_static registries"
+    participant Registries as "per-trait OnceLock registries"
     participant Plugin as "language / provider crate"
 
     note over Registries: One Vec per trait: FINDERS, PARSERS,<br/>RESOLVERS, PROVIDERS, DB_BACKENDS,<br/>REPORTERS, INTEGRITY_CHECKERS
