@@ -27,6 +27,10 @@ pub enum ParserError {
     #[error("Parse error: {0}")]
     Parse(String),
 
+    /// IO error when reading manifest; source preserved for verbose mode (NFR-018).
+    #[error("IO error reading manifest")]
+    Io(#[from] std::io::Error),
+
     #[error("{0}")]
     Other(String),
 }
@@ -35,6 +39,10 @@ pub enum ParserError {
 pub enum ResolverError {
     #[error("Resolve error: {0}")]
     Resolve(String),
+
+    /// IO or subprocess error during resolution; source preserved (NFR-018).
+    #[error("IO error during resolution")]
+    Io(#[from] std::io::Error),
 
     #[error("{0}")]
     Other(String),
