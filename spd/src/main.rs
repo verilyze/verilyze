@@ -232,8 +232,14 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
 
         Commands::List => {
             let finders = registry::FINDERS.lock().expect("FINDERS lock poisoned");
-            if !finders.is_empty() {
-                write_stdout("python\n");
+            let mut languages: Vec<String> = finders
+                .iter()
+                .map(|f| f.language_name().to_string())
+                .collect();
+            languages.sort();
+            languages.dedup();
+            for lang in languages {
+                write_stdout(&format!("{}\n", lang));
             }
             return Ok(0);
         }
@@ -517,19 +523,6 @@ async fn run_scan(
     info!("Scanning root: {}", root_path.display());
 
     // -----------------------------------------------------------------
-    // a2) FR-024: if package manager required, check for pip/pip3 and exit 3 with hint if missing
-    // -----------------------------------------------------------------
-    if effective.package_manager_required {
-        if !python_package_manager_available() {
-            eprintln!(
-                "Required package manager (pip) not found on PATH. {}",
-                package_manager_hint()
-            );
-            return Ok(3);
-        }
-    }
-
-    // -----------------------------------------------------------------
     // b) Choose the plug‑ins we will use (first entry of each registry)
     // -----------------------------------------------------------------
     let finder: Box<dyn spd_manifest_finder::ManifestFinder> =
@@ -546,12 +539,20 @@ async fn run_scan(
                 .iter()
                 .map(|(_, r)| r.clone())
                 .collect();
-            match spd_manifest_finder::DefaultManifestFinder::with_patterns(patterns) {
+            #[cfg(feature = "python")]
+            match spd_python::PythonManifestFinder::with_patterns(patterns) {
                 Ok(f) => Box::new(f),
                 Err(e) => {
                     error!("Invalid language regex in config: {}", e);
                     return Err(anyhow!("Invalid language regex in config: {}", e));
                 }
+            }
+            #[cfg(not(feature = "python"))]
+            {
+                error!("Custom language regexes require a language plugin (e.g. python feature)");
+                return Err(anyhow!(
+                    "Custom language regexes require a language plugin"
+                ));
             }
         };
 
@@ -572,6 +573,19 @@ async fn run_scan(
         }
         r.remove(0)
     };
+
+    // -----------------------------------------------------------------
+    // b2) FR-024: if package manager required, check via resolver and exit 3 with hint if missing
+    // -----------------------------------------------------------------
+    if effective.package_manager_required {
+        if !resolver.package_manager_available() {
+            eprintln!(
+                "Required package manager not found on PATH. {}",
+                resolver.package_manager_hint()
+            );
+            return Ok(3);
+        }
+    }
 
     let provider_impl: Arc<Box<dyn spd_cve_client::CveProvider + Send + Sync + 'static>> = {
         let mut prov = registry::PROVIDERS.lock().expect("PROVIDERS lock poisoned");
@@ -869,33 +883,6 @@ async fn run_scan(
     Ok(exit_code.into())
 }
 
-/// Returns true if pip or pip3 appears to be on PATH (FR-024).
-fn python_package_manager_available() -> bool {
-    for cmd in ["pip3", "pip"] {
-        if std::process::Command::new(cmd)
-            .arg("--version")
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
-        {
-            return true;
-        }
-    }
-    false
-}
-
-/// OS-specific hint when pip is missing (FR-024).
-fn package_manager_hint() -> &'static str {
-    #[cfg(target_os = "linux")]
-    return "Install via: apt-get install python3-pip (Debian/Ubuntu) or dnf install python3-pip (Fedora/RHEL).";
-    #[cfg(target_os = "macos")]
-    return "Install via: brew install python3.";
-    #[cfg(target_os = "windows")]
-    return "Install Python from https://www.python.org/ and ensure pip is enabled.";
-    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
-    return "Install Python and pip for your platform.";
-}
-
 #[cfg(test)]
 mod tests {
     use clap::Parser;
@@ -904,28 +891,6 @@ mod tests {
     // -------------------------------------------------------------------------
     // Unit tests for functions in main.rs (run in-process for coverage)
     // -------------------------------------------------------------------------
-
-    #[test]
-    fn package_manager_hint_returns_non_empty() {
-        let hint = super::package_manager_hint();
-        assert!(!hint.is_empty(), "hint must not be empty");
-        assert!(
-            hint.contains("pip") || hint.contains("Python"),
-            "hint should mention pip or Python"
-        );
-    }
-
-    #[test]
-    fn python_package_manager_available_does_not_panic() {
-        let _ = super::python_package_manager_available();
-    }
-
-    #[test]
-    fn python_package_manager_available_consistent() {
-        let a = super::python_package_manager_available();
-        let b = super::python_package_manager_available();
-        assert_eq!(a, b, "result should be consistent (env-dependent)");
-    }
 
     #[test]
     fn write_all_to_writes_bytes() {

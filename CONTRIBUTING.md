@@ -13,10 +13,11 @@ The workspace is split into:
   etc.
 - **spd-db-redb** -- Default RedB implementation for CVE cache and
   false-positive (ignore) DB.
-- **spd-manifest-finder** -- Trait `ManifestFinder`; default implementation
-  finds Python manifest files (or regex from config).
-- **spd-manifest-parser** -- Traits `Parser` and `Resolver`; parses manifests
-  into a dependency graph and resolves to packages.
+- **spd-manifest-finder** -- Trait `ManifestFinder`; no default implementation.
+- **spd-manifest-parser** -- Traits `Parser` and `Resolver`; defines
+  `DependencyGraph`; no default implementations.
+- **spd-python** -- Python language plugin: implements `ManifestFinder`,
+  `Parser`, and `Resolver` for Python (requirements.txt, pyproject.toml, etc.).
 - **spd-cve-client** -- Trait `CveProvider`; default OSV.dev client.
 - **spd-report** -- Trait `Reporter`; plain, JSON, HTML, SARIF reporters.
 - **spd-integrity** -- Trait `IntegrityChecker`; default delegates to backend
@@ -26,9 +27,9 @@ The workspace is split into:
 
 The binary uses **per-trait registries** (e.g. `FINDERS`, `PARSERS`,
 `RESOLVERS`, `PROVIDERS`, `DB_BACKENDS`, `REPORTERS`, `INTEGRITY_CHECKERS`) and
-calls `ensure_default_*` at startup to push default implementations. Optional
-backends (e.g. SQLite) can be added as separate crates and registered via Cargo
-features.
+calls `ensure_default_*` at startup to push default implementations. Language
+support (e.g. `spd-python`) and optional backends (e.g. SQLite) are gated behind
+Cargo features; see **Feature gating** below.
 
 ## Adding a new language plugin
 
@@ -44,6 +45,31 @@ features.
 
 See [architecture/PRD.md](architecture/PRD.md) MOD-002 and FR-020 for the
 formal trait contracts.
+
+## Feature gating (MOD-003)
+
+The `spd` binary supports optional capabilities via Cargo features:
+
+- **default** = `["redb", "python"]` — full build with Python support and RedB backend.
+- **redb** — RedB database backend for CVE cache and false-positive DB.
+- **python** — Python language plugin (`spd-python` crate).
+- **sqlite**, **mem** — placeholders for future backends.
+
+Build a **minimal binary** (no Python, no RedB) with:
+
+```sh
+cargo build --no-default-features
+```
+
+Build with only Java (when `spd-java` exists) and no Python:
+
+```sh
+cargo build --no-default-features --features java
+```
+
+A minimal build omits language plugins and the RedB backend; `spd list` will
+output nothing, and `spd scan` will fail with "No ManifestFinder plug‑in
+registered". See [architecture/PRD.md](architecture/PRD.md) MOD-003.
 
 ## Code style and checks
 
