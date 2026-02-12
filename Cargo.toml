@@ -6,6 +6,7 @@ members = [
     "spd",                     # core binary
     "spd-db",                  # trait definitions
     "spd-db-redb",             # default RedB backend (this crate)
+    "spd-python",              # Python language plugin
     "spd-manifest-finder",
     "spd-manifest-parser",
     "spd-cve-client",
