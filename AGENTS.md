@@ -18,9 +18,12 @@ sources of truth for the **super-duper (spd)** project.
   behavior).
 
 - **Architecture diagrams (Mermaid):**
-  - [architecture/execution-flow.mmd](architecture/execution-flow.mmd) -- Scan flow (config, find, parse, resolve, cache, report, exit codes).
-  - [architecture/plugin-registration-flow.mmd](architecture/plugin-registration-flow.mmd) -- Per-trait plugin registries and `spd_register!` macro.
-  - [architecture/workspace-layout.mmd](architecture/workspace-layout.mmd) -- Workspace crates and trait definitions.
+  - [architecture/execution-flow.mmd](architecture/execution-flow.mmd) -- Scan
+    flow (config, find, parse, resolve, cache, report, exit codes).
+  - [architecture/plugin-registration-flow.mmd](architecture/plugin-registration-flow.mmd) --
+    Per-trait plugin registries and `spd_register!` macro.
+  - [architecture/workspace-layout.mmd](architecture/workspace-layout.mmd) --
+    Workspace crates and trait definitions.
 
 ## Conventions
 
@@ -33,6 +36,8 @@ sources of truth for the **super-duper (spd)** project.
   `#[allow(unsafe_code)]` without explicit justification and approval.
 - When changing behavior or CLI, align with the PRD and update README or
   CONTRIBUTING if user- or contributor-facing.
+- Do not delete or modify the contents of the `COPYING` or `LICENSE` files at
+  the root of the project.
 
 ## Quick links
 

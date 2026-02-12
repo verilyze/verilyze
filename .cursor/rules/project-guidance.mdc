@@ -1,0 +1,16 @@
+---
+description: Project orientation and conventions for super-duper
+alwaysApply: true
+---
+
+# Protected Files - Do Not Modify
+
+Do not delete or modify the contents of the `COPYING` or `LICENSE` files at
+the root of the project.
+
+# Project Guidance
+
+Read and follow [AGENTS.md](AGENTS.md) for:
+- Primary references (PRD, CONTRIBUTING, architecture diagrams)
+- Conventions (TDD, SOLID, Unix philosophy, no unsafe code)
+- Quick links (exit codes, config precedence, adding plugins, etc.)
