@@ -59,14 +59,15 @@ and only where needed.
 interfaces), clarity over cleverness, composition (scriptable,
 pipeline-friendly output), separation of policy and mechanism, simplicity and
 parsimony, transparency and robustness, least surprise, silence when nothing
-to say, fail noisily when failing, and extensibility. Performance is validated
-by measurement; simplicity is preferred over premature optimization.
+to say, fail noisily when failing (see NFR-018 for error-handling
+requirements), and extensibility. Performance is validated by measurement;
+simplicity is preferred over premature optimization.
 
 **SOLID** – The codebase follows SOLID (Clean Code): single responsibility per
-crate and per trait; open for extension via traits and Cargo features; trait
-implementations are Liskov-substitutable; interfaces (traits) are narrow
-(Interface Segregation); the core depends on abstractions (traits), not
-concrete implementations (Dependency Inversion).
+crate, per trait, per file, and per function; open for extension via traits and
+Cargo features; trait implementations are Liskov-substitutable; interfaces
+(traits) are narrow (Interface Segregation); the core depends on abstractions
+(traits), not concrete implementations (Dependency Inversion).
 
 ---
 
@@ -83,6 +84,7 @@ concrete implementations (Dependency Inversion).
 | **SARIF** | Static Analysis Results Interchange Format (JSON). |
 | **TLS** | Transport Layer Security – encrypted HTTPS communication. |
 | **PASTA** | Process for Attack Simulation and Threat Analysis (threat modeling framework). |
+| **Error context** | The chain of underlying causes (source) attached to an error, surfacing in verbose mode for debugging. |
 
 ---
 
@@ -90,13 +92,13 @@ concrete implementations (Dependency Inversion).
 
 | Business Goal | Requirement(s) |
 |---------------|----------------|
-| **Confidence in shipped code** | |
+| **Confidence in shipped code** | SEC-020 |
 | **Low operational overhead** | |
 | **Regulatory compliance (SOC 2, ISO 27001, CMMC)** | |
 | **Developer productivity** | |
 | **Future‑proof extensibility** | |
 | **Networked or air-gapped environment** | |
-| **Design principles (Unix / SOLID)** | [Design principles](#design-principles), MOD-001, MOD-002, NFR-013, FR-007 |
+| **Design principles (Unix / SOLID)** | [Design principles](#design-principles), MOD-001, MOD-002, NFR-013, NFR-018, FR-007 |
 
 ---
 
@@ -163,6 +165,7 @@ concrete implementations (Dependency Inversion).
 | **NFR-015** | Compliance with security standards | The design and operation shall meet **SOC 2**, **ISO 27001**, and **CMMC** baseline requirements (data protection, audit logging, least-privilege operation). Compliance documentation and controls (e.g., audit logging, least-privilege) shall be implemented via well-defined interfaces so that the core tool remains simple, testable, and maintainable. | A compliance checklist is shipped with the repo and signed off by a security reviewer. |
 | **NFR-016** | Explicit plugin-in discovery | Plug-ins must register themselves via a `spd_register!` macro that expands to a `lazy_static!` registry. The core binary iterates over this registry at runtime; the presence of a plug-in is controlled solely by Cargo feature flags. | |
 | **NFR-017** | Coverage enforcement | The coverage run must exit with non-zero status when coverage falls below: line 85%, function 80%, region 85%, branch 70% (when stable). Implementation uses cargo-llvm-cov `--fail-under-lines 85`, `--fail-under-functions 80`, `--fail-under-regions 85`, and (when stable) `--fail-under-branch 70` or equivalent. | Running `make coverage` or `./scripts/coverage.sh` exits 1 when coverage is below threshold. |
+| **NFR-018** | Error handling | All error paths shall produce **clear, actionable** messages suitable for users and CI. Errors must identify the **offending source** (e.g., file path, config key, provider name) when applicable. The program shall **preserve and propagate** error context (cause chains) so that verbose mode can surface underlying failures. Plugin trait error types (`FinderError`, `ParserError`, `ResolverError`, `ProviderError`, `DatabaseError`, `IntegrityError`) shall implement `std::error::Error` and support cause propagation (`source()`). Exit codes shall follow FR-010. Error output shall go to stderr (NFR-013, SEC-009). Transient failures (e.g., network, retryable) shall be distinguishable from user-recoverable (config, missing tool) and unrecoverable errors where the distinction aids troubleshooting. **Security**: Error messages and cause chains must not disclose credentials, tokens, or other secrets (SEC-008, SEC-020). Paths shall use user-relative forms (e.g., `~`) where practical. Verbose mode may surface internal details; users shall be cautioned that verbose output is potentially sensitive (see DOC-010). | (1) Every error path exercised in tests includes a non-empty, human-readable message. (2) Verbose mode prints cause chains for errors that have underlying causes. (3) Each trait error type implements `Error` and `Display`; errors with underlying causes implement `source()`. (4) DOC-010 FAQ includes each error path with suggested remediation. (5) No credential, token, or secret appears in error output; paths use relative or user-relative forms where applicable (SEC-020). |
 
 ---
 
@@ -189,6 +192,7 @@ concrete implementations (Dependency Inversion).
 | **SEC-017** | Input validation | All inputs shall first be sanitized and then validated using an allow-list (not a deny-list). | Running a fuzz tester covers all main code paths and fails to crash the program, but instead returns a user-friendly error message when invalid input is supplied. |
 | **SEC-018** | Coordinated vulnerability disclosure | A top-level SECURITY.md describes how to securely contact the maintainer(s) using GPG-encrypted email to disclose security vulnerabilities responsibly. The document shall also contain links to the threat model and to test results, including fuzz testing, and the latest `spd scan` results. | A SECURITY.md file exists with guidance for those reporting vulnerabilities as well as information for users and links to the threat model and test results (including fuzzing and `spd scan` results). |
 | **SEC-019** | Software bill of materials | When a change in the dependencies is detected, the CI/CD system shall produce an updated SBOM in both SPDX and CycloneDX formats. | An SBOM in both SPDX 3.0 and Cyclone DX 1.6 formats is available in the repository. |
+| **SEC-020** | Error output content | Error and diagnostic output written to stderr must not contain credentials, tokens, or other secrets (SEC-008). Paths shall use user-relative forms (e.g., `~`) where practical to minimize disclosure of sensitive directory structure. Plugin-provided and provider-derived error content shall be safe for terminal display (no unescaped control sequences or escape-code injection). | (1) Fuzzing or audit finds no credential or token strings in error output. (2) Paths in common error scenarios use `~` or relative forms where applicable. (3) Malformed provider responses or plugin errors do not cause terminal escape-sequence injection. |
 
 ---
 
@@ -260,7 +264,7 @@ concrete implementations (Dependency Inversion).
 | **DOC-007** | Testing & coverage guidelines | Instructions for running the full test suite, interpreting coverage reports (**cargo-llvm-cov**, Cobertura XML), and guidelines for adding new unit/integration tests. Document that `make coverage` or `./scripts/coverage.sh` fails when coverage is below threshold. Fail-under flags: `--fail-under-lines 85 --fail-under-functions 80 --fail-under-regions 85` (and `--fail-under-branch 70` when branch coverage is stable). Test placement: unit tests in the same file as the code under test (or same crate) in a `#[cfg(test)] mod tests` block; integration tests in `tests/` or equivalent (e.g. binary tests that run the executable). Tests must make the expected behavior they verify clear (e.g. test name, doc comment, or requirement ID). | CI badge shows "Coverage >= 85% line, >= 80% function, >= 85% region, >= 70% branch (when stable)." |
 | **DOC-008** | Security & compliance overview | Summary of the security requirements (as listed above) and the mapping to SOC 2, ISO 27001, and CMMC controls. Includes the location of the COMPLIANCE.md checklist. | Auditors can locate the compliance matrix quickly. |
 | **DOC-009** | Release process & semantic versioning | Clear policy for bumping major/minor/patch versions, changelog generation (CHANGELOG.md), and publishing to crates.io. | Each tagged release on GitHub follows the described versioning rules. |
-| **DOC-010** | FAQ & troubleshooting | Common error messages (missing `pip`, DB permission issues, TLS failures) with suggested remediation steps. Every error path dfined in the requirements appears in the FAQ with a suggested fix. | Users can resolve typical problems without opening a new issue. |
+| **DOC-010** | FAQ & troubleshooting | Common error messages (missing `pip`, DB permission issues, TLS failures) with suggested remediation steps. Every error path defined in the requirements appears in the FAQ with a suggested fix. Includes guidance that verbose output may contain sensitive paths and internal details; users should redact before sharing in bug reports or public channels (NFR-018, SEC-020). | Users can resolve typical problems without opening a new issue. |
 | **DOC-011** | API reference (Rustdoc) | All public crates are documented with `///` comments; `cargo doc --open` generates a browsable HTML reference. | The generated docs contain no undocumented public items. |
 | **DOC-012** | License & attribution | The repository includes a LICENSE file (GPL-3.0-or-later) and a NOTICE file listing third-party licenses. | Both files exist and `cargo deny check-licenses` passes. |
 | **DOC-013** | Man pages | Install  `man` pages to the standard locations on Unix systems when using the program's package manager. Also make the man pages available via `spd help` and `spd help <subcommand>`. | `man spd` shows the manual for super-duper. `spd help` shows the same man page for super-duper. |
