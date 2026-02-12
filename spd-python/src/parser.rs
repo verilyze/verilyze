@@ -144,18 +144,24 @@ mod tests {
               bar>=2.0\n\
               baz\n\
               \n\
-              qux~=3.1\n",
+              qux~=3.1\n\
+              --extra-index-url https://example.com\n\
+              pkg[dev]==1.0\n\
+              \t # inline with nothing before\n\
+              ==1.0\n\
+              []\n",
         )
         .unwrap();
         let parser = RequirementsTxtParser::new();
         let graph = parser.parse(&path).await.unwrap();
-        assert_eq!(graph.packages.len(), 4);
+        assert_eq!(graph.packages.len(), 5);
         let names: Vec<_> = graph.packages.iter().map(|p| p.name.as_str()).collect();
-        assert_eq!(names, ["foo", "bar", "baz", "qux"]);
+        assert_eq!(names, ["foo", "bar", "baz", "qux", "pkg"]);
         assert_eq!(graph.packages[0].version, "1.0.0");
         assert_eq!(graph.packages[1].version, "2.0");
         assert_eq!(graph.packages[2].version, "any");
         assert_eq!(graph.packages[3].version, "3.1");
+        assert_eq!(graph.packages[4].version, "1.0");
         let _ = std::fs::remove_dir_all(&tmp);
     }
 
@@ -165,5 +171,51 @@ mod tests {
         let path = PathBuf::from("/some/path/pyproject.toml");
         let graph = parser.parse(&path).await.unwrap();
         assert!(graph.packages.is_empty());
+    }
+
+    #[tokio::test]
+    async fn parse_nonexistent_requirements_txt_returns_error() {
+        let parser = RequirementsTxtParser::new();
+        let path = PathBuf::from("/nonexistent/path/requirements.txt");
+        let err = parser.parse(&path).await.unwrap_err();
+        match &err {
+            ParserError::Other(msg) => assert!(
+                msg.contains("No such file") || msg.contains("not found"),
+                "expected file-not-found message, got: {}",
+                msg
+            ),
+            _ => panic!("expected ParserError::Other for nonexistent file, got {:?}", err),
+        }
+    }
+
+    #[test]
+    fn parse_requirement_line_strips_extras() {
+        let pkg = parse_requirement_line("foo[dev]==1.0").unwrap();
+        assert_eq!(pkg.name, "foo");
+        assert_eq!(pkg.version, "1.0");
+    }
+
+    #[test]
+    fn parse_requirement_line_skips_empty_after_comment() {
+        assert!(parse_requirement_line("  # x").is_none());
+    }
+
+    #[test]
+    fn parse_requirement_line_skips_empty_name() {
+        assert!(parse_requirement_line("==1.0").is_none());
+    }
+
+    #[test]
+    fn parse_requirement_line_skips_brackets_only() {
+        assert!(parse_requirement_line("[]").is_none());
+    }
+
+    #[test]
+    fn parse_requirements_txt_skips_double_dash_directive() {
+        let content = "foo==1.0\n--extra-index-url https://pypi.org\nbar>=2.0\n";
+        let packages = parse_requirements_txt(content).unwrap();
+        assert_eq!(packages.len(), 2);
+        assert_eq!(packages[0].name, "foo");
+        assert_eq!(packages[1].name, "bar");
     }
 }
