@@ -77,8 +77,8 @@ Stderr can stay as `eprintln!` or `log::error!`.
      - **Recommended:** `./scripts/coverage.sh` (or `make coverage`)
      - The script uses the [external tests](https://docs.rs/crate/cargo-llvm-cov/latest#get-coverage-of-external-tests) workflow: `cargo llvm-cov show-env`, then `cargo build` and direct binary invocation, so the xtask binary is covered without depending on `cargo llvm-cov run`.
      - Reports: `reports/index.html` (HTML), `reports/cobertura.xml` (CI)
-     - Thresholds (NFR-012): >= 70% branch coverage, >= 90% functional coverage.
-  **Note:** Branch coverage is currently **disabled** in the default coverage run (line and function coverage only). Enabling `--branch` can trigger an LLVM llvm-cov crash (SIGSEGV) when the report includes the proc-macro crate. Until that toolchain bug is resolved, coverage reports show line and function metrics; branch thresholds in NFR-012 remain the target when branch coverage is re-enabled.
+     - Thresholds (NFR-012, NFR-017): >= 85% line, >= 80% function, >= 85% region, >= 70% branch (when stable). The coverage run **exits 1** when below threshold. Fail-under flags: `--fail-under-lines 85 --fail-under-functions 80 --fail-under-regions 85` (and `--fail-under-branch 70` when branch coverage is stable).
+  **Note:** Branch coverage is currently **disabled** in the default coverage run (line, function, and region coverage only). Enabling `--branch` can trigger an LLVM llvm-cov crash (SIGSEGV) when the report includes the proc-macro crate. Until that toolchain bug is resolved, coverage reports show line, function, and region metrics; branch threshold (70%) remains the target when branch coverage is re-enabled.
 - **CI:** The Cobertura XML (e.g. `reports/cobertura.xml`) is consumed by common CI systems; see [taiki-e/cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov) or [taiki-e/install-action](https://github.com/taiki-e/install-action) for GitHub Actions.
 
 ## Test-driven development (TDD)
