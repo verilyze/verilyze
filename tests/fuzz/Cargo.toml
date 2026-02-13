@@ -19,3 +19,7 @@ path = "fuzz_targets/config_toml.rs"
 [[bin]]
 name = "fuzz_requirements_txt"
 path = "fuzz_targets/requirements_txt.rs"
+
+[[bin]]
+name = "fuzz_parse_config_set_arg"
+path = "fuzz_targets/parse_config_set_arg.rs"
