@@ -71,11 +71,27 @@ run_fuzz() {
     fi
 }
 
+# Check for crashes and exit 1 if any found (CI-friendly; see FR-009).
+check_crashes() {
+    local crash_files
+    crash_files=$(find "$FUZZ_OUT" -path "*/crashes/*" -type f 2>/dev/null || true)
+    if [[ -n "$crash_files" ]]; then
+        echo "Fuzz smoke test FAILED: crashes detected in $FUZZ_OUT" >&2
+        echo "Crash files:" >&2
+        echo "  ${crash_files//$'\n'/$'\n  '}" >&2
+        mkdir -p reports
+        echo "$crash_files" > reports/fuzz-crashes.txt
+        echo "Crash paths written to reports/fuzz-crashes.txt" >&2
+        exit 1
+    fi
+}
+
 if "$DO_COVERAGE"; then
     echo "Running fuzz with coverage (each target ${SMOKE_TIMEOUT}s)..."
     run_fuzz config_toml fuzz_config_toml "$CORPUS_CONFIG"
     run_fuzz requirements_txt fuzz_requirements_txt "$CORPUS_REQS"
     run_fuzz parse_config_set_arg fuzz_parse_config_set_arg "$CORPUS_CONFIG_SET"
+    check_crashes
     cargo llvm-cov report --lcov
     echo "Coverage report generated. See cargo-llvm-cov docs for --html, --cobertura, etc."
 else
@@ -83,5 +99,6 @@ else
     run_fuzz config_toml fuzz_config_toml "$CORPUS_CONFIG"
     run_fuzz requirements_txt fuzz_requirements_txt "$CORPUS_REQS"
     run_fuzz parse_config_set_arg fuzz_parse_config_set_arg "$CORPUS_CONFIG_SET"
+    check_crashes
     echo "Fuzz smoke test passed (no crashes)."
 fi

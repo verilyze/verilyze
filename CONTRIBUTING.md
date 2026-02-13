@@ -129,6 +129,10 @@ Stderr can stay as `eprintln!` or `log::error!`.
 - **Run fuzz:** `make fuzz` or `./scripts/fuzz.sh` runs AFL fuzz targets for config
   TOML, requirements.txt, and config KEY=VALUE parsing (`config --set`).
   Supports SEC-017 (no crash on invalid input).
+- **Exit codes (FR-009):** The script exits 0 when no crashes are detected and exits 1
+  when crashes are found. Crash paths are printed to stderr and written to
+  `reports/fuzz-crashes.txt` for CI artifact upload. Use `make fuzz` or
+  `./scripts/fuzz.sh` in CI; the non-zero exit propagates to fail the job.
 - **Prerequisites:** Install [cargo-afl](https://github.com/rust-fuzz/afl.rs)
   (`cargo install cargo-afl`) and [AFL++](https://github.com/AFLplusplus/AFLplusplus).
 - **Targets:** `tests/fuzz/` crate with `fuzz_config_toml`, `fuzz_requirements_txt`,
