@@ -6,6 +6,10 @@ license = "GPL-3.0-or-later"
 description = "Super Duper - fast, modular SCA command-line tool"
 publish = false               # internal binary, not published to crates.io
 
+[lib]
+name = "spd"
+path = "src/lib.rs"
+
 [[bin]]
 name = "spd"
 path = "src/main.rs"

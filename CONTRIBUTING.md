@@ -119,6 +119,17 @@ Stderr can stay as `eprintln!` or `log::error!`.
   **Note:** Branch coverage is currently **disabled** in the default coverage run (line, function, and region coverage only). Enabling `--branch` can trigger an LLVM llvm-cov crash (SIGSEGV) when the report includes the proc-macro crate. Until that toolchain bug is resolved, coverage reports show line, function, and region metrics; branch threshold (70%) remains the target when branch coverage is re-enabled.
 - **CI:** The Cobertura XML (e.g. `reports/cobertura.xml`) is consumed by common CI systems; see [taiki-e/cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov) or [taiki-e/install-action](https://github.com/taiki-e/install-action) for GitHub Actions.
 
+### Fuzz testing (NFR-020)
+
+- **Run fuzz:** `make fuzz` or `./scripts/fuzz.sh` runs AFL fuzz targets for config
+  TOML and requirements.txt parsing. Supports SEC-017 (no crash on invalid input).
+- **Prerequisites:** Install [cargo-afl](https://github.com/rust-fuzz/afl.rs)
+  (`cargo install cargo-afl`) and [AFL++](https://github.com/AFLplusplus/AFLplusplus).
+- **Targets:** `tests/fuzz/` crate with `fuzz_config_toml` and `fuzz_requirements_txt`.
+  Seed corpus in `tests/fuzz/corpus/`.
+- **Coverage:** Run `./scripts/fuzz.sh --coverage` to integrate with cargo-llvm-cov
+  (see [cargo-llvm-cov AFL docs](https://github.com/taiki-e/cargo-llvm-cov#get-coverage-of-afl-fuzzers)).
+
 ## Test-driven development (TDD)
 
 We use **test-driven development**: write tests that define the desired
