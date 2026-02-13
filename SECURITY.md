@@ -32,8 +32,10 @@ We will acknowledge receipt and work with you on a fix and disclosure timeline.
 
 ## Test results and dogfooding (SEC-018)
 
-- **Fuzz testing:** AFL fuzz targets in `tests/fuzz/` cover config TOML and
-  requirements.txt parsing (NFR-020, SEC-017). Run `make fuzz` or
+- **Fuzz testing:** AFL fuzz targets in `tests/fuzz/` cover config TOML, all
+  manifest and lock file formats (see [Appendix
+  A](architecture/PRD.md#appendix-a-manifest-and-lock-files)), and CLI
+  argument value parsing (`config --set`) (NFR-020, SEC-017). Run `make fuzz` or
   `./scripts/fuzz.sh` (requires cargo-afl and AFL++). Results and coverage can
   be linked here or from CI artifacts when available.
 - **Latest `spd scan` (dogfooding):** SEC-015 requires the project to be

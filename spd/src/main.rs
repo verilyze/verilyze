@@ -69,15 +69,6 @@ fn log_level_from_verbosity_count(count: usize) -> LevelFilter {
     }
 }
 
-/// Parse KEY=VALUE for `config --set`. Returns None if key is empty or no `=` present.
-fn parse_config_set_arg(pair: &str) -> Option<(&str, &str)> {
-    let parts: Vec<&str> = pair.splitn(2, '=').map(str::trim).collect();
-    match parts[..] {
-        [k, v] if !k.is_empty() => Some((k, v)),
-        _ => None,
-    }
-}
-
 /// Core entry point: runs the requested command and returns the exit code.
 /// Caller is responsible for initialising the logger and for calling `process::exit(code)`.
 pub(crate) async fn run(args: Cli) -> Result<i32> {
@@ -242,7 +233,7 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
 
         Commands::Config { list, set } => {
             if let Some(pair) = set {
-                let (key, value) = match parse_config_set_arg(pair.as_str()) {
+                let (key, value) = match spd::cli::parse_config_set_arg(pair.as_str()) {
                     Some((k, v)) => (k, v),
                     None => {
                         error!("Invalid --set argument; use KEY=VALUE (e.g. python.regex=\"^requirements\\.txt$\")");
@@ -953,19 +944,19 @@ mod tests {
 
     #[test]
     fn parse_config_set_arg_valid() {
-        assert_eq!(super::parse_config_set_arg("a=b"), Some(("a", "b")));
+        assert_eq!(spd::cli::parse_config_set_arg("a=b"), Some(("a", "b")));
         assert_eq!(
-            super::parse_config_set_arg("key = val "),
+            spd::cli::parse_config_set_arg("key = val "),
             Some(("key", "val"))
         );
-        assert_eq!(super::parse_config_set_arg("x="), Some(("x", "")));
+        assert_eq!(spd::cli::parse_config_set_arg("x="), Some(("x", "")));
     }
 
     #[test]
     fn parse_config_set_arg_invalid() {
-        assert_eq!(super::parse_config_set_arg(""), None);
-        assert_eq!(super::parse_config_set_arg("=value"), None);
-        assert_eq!(super::parse_config_set_arg("key"), None);
+        assert_eq!(spd::cli::parse_config_set_arg(""), None);
+        assert_eq!(spd::cli::parse_config_set_arg("=value"), None);
+        assert_eq!(spd::cli::parse_config_set_arg("key"), None);
     }
 
     // -------------------------------------------------------------------------
