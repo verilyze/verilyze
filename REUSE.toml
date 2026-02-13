@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+# SPDX-License-Identifier: CC0-1.0
+
+version = 1
+
+# Lock files: generated, not authored; assign via REUSE.toml instead of file headers
+[[annotations]]
+path = "Cargo.lock"
+precedence = "override"
+SPDX-FileCopyrightText = "The super-duper contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
+path = "package-lock.json"
+precedence = "override"
+SPDX-FileCopyrightText = "The super-duper contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# Config and data files
+[[annotations]]
+path = ".cursor/**"
+precedence = "override"
+SPDX-FileCopyrightText = "The super-duper contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
+path = ".cursorignore"
+precedence = "override"
+SPDX-FileCopyrightText = "The super-duper contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
+path = ".gitignore"
+precedence = "override"
+SPDX-FileCopyrightText = "The super-duper contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
+path = "TODO.md"
+precedence = "override"
+SPDX-FileCopyrightText = "The super-duper contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
+path = "tests/fuzz/corpus/**"
+precedence = "override"
+SPDX-FileCopyrightText = "The super-duper contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"

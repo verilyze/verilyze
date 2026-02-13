@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 # Generate coverage reports using cargo-llvm-cov.
-# Uses the "external tests" workflow so the xtask binary can be invoked directly.
 # See: https://docs.rs/crate/cargo-llvm-cov/latest#get-coverage-of-external-tests
 #
 # Run from the repository root: ./scripts/coverage.sh
@@ -27,21 +31,8 @@ cargo +nightly llvm-cov clean --workspace 2>/dev/null || true
 # Exclude spd-fuzz: it requires cargo afl build (AFL linker symbols).
 cargo +nightly build --workspace --exclude spd-fuzz
 
-XTASK=target/debug/xtask
-
-# Run xtask check (from project root)
-"$XTASK" check
-
-# Run xtask from empty dir to cover unwrap_or_else error path in main.rs
-XTASK_FAIL=$(mktemp -d)
-XTASK_ROOT="$XTASK_FAIL" "$XTASK" check 2>/dev/null || true
-
-# Run xtask replace from temp dir to cover write_if_changed and replace branch
-XTASK_COVER=$(mktemp -d)
-mkdir -p "$XTASK_COVER/tools"
-echo "// header" > "$XTASK_COVER/tools/header.txt"
-echo 'fn main() {}' > "$XTASK_COVER/foo.rs"
-XTASK_ROOT="$XTASK_COVER" "$XTASK" replace 1>/dev/null 2>/dev/null
+# Verify REUSE compliance (headers)
+./scripts/ensure-reuse.sh lint
 
 # Run all workspace tests (exclude spd-fuzz; it uses AFL and is run via make fuzz).
 cargo +nightly test --workspace --exclude spd-fuzz

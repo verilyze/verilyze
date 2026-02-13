@@ -1,9 +1,15 @@
+<!--
+SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
 # super-duper (spd)
 
 Fast, modular Software Composition Analysis (SCA) tool for dependency
 vulnerabilities. Written in Rust.
 
-**License:** SPDX-License-Identifier: GPL-3.0-or-later. See [COPYING](COPYING).
+**License:** GPL-3.0-or-later. See [LICENSES/GPL-3.0-or-later.txt](LICENSES/GPL-3.0-or-later.txt) for the full text.
 
 ## Installation
 

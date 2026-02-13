@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 # Run AFL fuzz targets for super-duper (NFR-020, SEC-017).
 #
 # Prerequisites:

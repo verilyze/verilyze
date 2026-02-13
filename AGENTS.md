@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
 # Guidance for AI agents and contributors
 
 This file orients automated agents and human contributors to the key
