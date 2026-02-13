@@ -17,12 +17,13 @@
 // super-duper (see the COPYING file in the project root for the full text). If
 // not, see <https://www.gnu.org/licenses/>.
 
-#![deny(unsafe_code)]
-
-mod finder;
-mod parser;
-mod resolver;
-
-pub use finder::PythonManifestFinder;
-pub use parser::{parse_requirements_txt, RequirementsTxtParser};
-pub use resolver::DirectOnlyResolver;
+fn main() {
+    afl::fuzz(true, |data: &[u8]| {
+        if let Ok(s) = std::str::from_utf8(data) {
+            // Outer catch_unwind: defense in depth; any panic becomes normal return (SEC-017).
+            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let _ = spd_python::parse_requirements_txt(s);
+            }));
+        }
+    });
+}

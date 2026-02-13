@@ -50,7 +50,8 @@ impl Parser for RequirementsTxtParser {
 /// Parse requirements.txt content into a list of packages (name, version).
 /// Skips comments, empty lines, and directive lines (-r, -e, etc.).
 /// Version: exact from `==`, first version from `>=`/`<=`/`~=`, else `"any"`.
-fn parse_requirements_txt(content: &str) -> Result<Vec<spd_db::Package>, ParserError> {
+/// Public for fuzzing (NFR-020).
+pub fn parse_requirements_txt(content: &str) -> Result<Vec<spd_db::Package>, ParserError> {
     let mut packages = Vec::new();
     for line in content.lines() {
         let line = line.trim();

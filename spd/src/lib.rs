@@ -19,10 +19,6 @@
 
 #![deny(unsafe_code)]
 
-mod finder;
-mod parser;
-mod resolver;
-
-pub use finder::PythonManifestFinder;
-pub use parser::{parse_requirements_txt, RequirementsTxtParser};
-pub use resolver::DirectOnlyResolver;
+pub mod cli;
+pub mod config;
+pub mod registry;

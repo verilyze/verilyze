@@ -23,8 +23,12 @@ unit-tests:
 	cargo test
 
 # Generate Cobertura XML (see CONTRIBUTING.md and NFR-012) and HTML coverage reports.
-coverage:
+coverage: fuzz
 	./scripts/coverage.sh
+
+# AFL fuzz targets (NFR-020). Requires cargo-afl and AFL++.
+fuzz:
+	./scripts/fuzz.sh
 
 check: check-headers cargo-check unit-tests
 

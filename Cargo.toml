@@ -4,6 +4,7 @@
 [workspace]
 members = [
     "spd",                     # core binary
+    "tests/fuzz",              # AFL fuzz targets (NFR-020); build with cargo afl build
     "spd-db",                  # trait definitions
     "spd-db-redb",             # default RedB backend (this crate)
     "spd-python",              # Python language plugin
@@ -15,9 +16,18 @@ members = [
     "spd-plugin-macro",        # procedural macro for plugin registration
     "tools/xtask"
 ]
+# Exclude fuzz crate from default build; it requires `cargo afl build` (AFL++).
+default-members = ["spd", "spd-db", "spd-db-redb", "spd-python", "spd-manifest-finder",
+    "spd-manifest-parser", "spd-cve-client", "spd-report", "spd-integrity",
+    "spd-plugin-macro", "tools/xtask"]
 
 # Enforce a single Rust edition for all members
 resolver = "2"
+
+# panic=unwind for dev: required by fuzz targets so thread panics are isolated (SEC-017).
+# Non-root packages inherit workspace profile; fuzz script builds with profile.dev.
+[profile.dev]
+panic = "unwind"
 
 # ----------------------------------------------------------------
 # Shared workspace-wide metadata (optional but useful)

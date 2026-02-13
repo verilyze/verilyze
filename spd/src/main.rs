@@ -19,10 +19,6 @@
 
 #![deny(unsafe_code)]
 
-mod cli;
-mod config;
-mod registry;
-
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use log::{error, info, LevelFilter};
@@ -30,7 +26,7 @@ use std::io::Write;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 
-use crate::cli::{Cli, Commands, FpCommands};
+use spd::cli::{Cli, Commands, FpCommands};
 
 /// Write all bytes to `w`; propagates I/O errors (e.g. BrokenPipe).
 /// Used by write_stdout and by tests with a buffer.
@@ -93,16 +89,16 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
     };
 
     // Load config from files + env + CLI for DB paths and TTL.
-    let early_cfg = config::load(
+    let early_cfg = spd::config::load(
         args.config.as_deref(),
-        config::env_parallel(),
-        config::env_cache_db(),
-        config::env_ignore_db(),
-        config::env_cache_ttl_secs(),
-        config::env_min_score(),
-        config::env_min_count(),
-        config::env_exit_code_on_cve(),
-        config::env_fp_exit_code(),
+        spd::config::env_parallel(),
+        spd::config::env_cache_db(),
+        spd::config::env_ignore_db(),
+        spd::config::env_cache_ttl_secs(),
+        spd::config::env_min_score(),
+        spd::config::env_min_count(),
+        spd::config::env_exit_code_on_cve(),
+        spd::config::env_fp_exit_code(),
         None,
         None,
         None,
@@ -123,7 +119,7 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
     let cache_path = early_cfg
         .cache_db
         .clone()
-        .unwrap_or_else(config::default_cache_path);
+        .unwrap_or_else(spd::config::default_cache_path);
 
     // -----------------------------------------------------------------
     // 3️⃣ Initialise plug‑ins (they register themselves via the macro)
@@ -135,7 +131,7 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
                 std::fs::create_dir_all(parent).context("Creating cache directory")?;
             }
         }
-        registry::ensure_default_db_backend_with_path(cache_path, early_cfg.cache_ttl_secs)
+        spd::registry::ensure_default_db_backend_with_path(cache_path, early_cfg.cache_ttl_secs)
             .map_err(|e| {
                 error!("Failed to open cache database: {}", e);
                 anyhow!("Failed to open cache database: {}", e)
@@ -144,15 +140,15 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
             info!("Cache TTL: {} s", early_cfg.cache_ttl_secs);
         }
     }
-    registry::ensure_default_manifest_finder();
-    registry::ensure_default_parser();
-    registry::ensure_default_resolver();
-    registry::ensure_default_cve_provider();
-    registry::ensure_default_reporter();
-    registry::ensure_default_integrity_checker();
+    spd::registry::ensure_default_manifest_finder();
+    spd::registry::ensure_default_parser();
+    spd::registry::ensure_default_resolver();
+    spd::registry::ensure_default_cve_provider();
+    spd::registry::ensure_default_reporter();
+    spd::registry::ensure_default_integrity_checker();
 
     let db_backend = {
-        let mut backends = registry::db_backends()
+        let mut backends = spd::registry::db_backends()
             .lock()
             .expect("DB_BACKENDS lock poisoned");
         if backends.is_empty() {
@@ -191,16 +187,16 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
             fp_exit_code: cli_fp_exit_code,
             package_manager_required,
         } => {
-            let effective = config::load(
+            let effective = spd::config::load(
                 args.config.as_deref(),
-                config::env_parallel(),
-                config::env_cache_db(),
-                config::env_ignore_db(),
-                config::env_cache_ttl_secs(),
-                config::env_min_score(),
-                config::env_min_count(),
-                config::env_exit_code_on_cve(),
-                config::env_fp_exit_code(),
+                spd::config::env_parallel(),
+                spd::config::env_cache_db(),
+                spd::config::env_ignore_db(),
+                spd::config::env_cache_ttl_secs(),
+                spd::config::env_min_score(),
+                spd::config::env_min_count(),
+                spd::config::env_exit_code_on_cve(),
+                spd::config::env_fp_exit_code(),
                 cli_parallel,
                 cli_cache_db.as_deref(),
                 cli_ignore_db.as_deref(),
@@ -231,7 +227,7 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
         }
 
         Commands::List => {
-            let finders = registry::finders().lock().expect("FINDERS lock poisoned");
+            let finders = spd::registry::finders().lock().expect("FINDERS lock poisoned");
             let mut languages: Vec<String> = finders
                 .iter()
                 .map(|f| f.language_name().to_string())
@@ -253,23 +249,23 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
                         return Err(anyhow!("Invalid --set argument; use KEY=VALUE"));
                     }
                 };
-                if let Err(e) = config::set_config_key(key, value) {
+                if let Err(e) = spd::config::set_config_key(key, value) {
                     error!("{}", e);
                     return Err(e.into());
                 }
                 write_stdout(&format!("Set {} = {}\n", key, value));
             }
             if list {
-                let cfg = config::load(
+                let cfg = spd::config::load(
                     args.config.as_deref(),
-                    config::env_parallel(),
-                    config::env_cache_db(),
-                    config::env_ignore_db(),
-                    config::env_cache_ttl_secs(),
-                    config::env_min_score(),
-                    config::env_min_count(),
-                    config::env_exit_code_on_cve(),
-                    config::env_fp_exit_code(),
+                    spd::config::env_parallel(),
+                    spd::config::env_cache_db(),
+                    spd::config::env_ignore_db(),
+                    spd::config::env_cache_ttl_secs(),
+                    spd::config::env_min_score(),
+                    spd::config::env_min_count(),
+                    spd::config::env_exit_code_on_cve(),
+                    spd::config::env_fp_exit_code(),
                     None,
                     None,
                     None,
@@ -295,14 +291,14 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
         }
 
         Commands::Db { sub, .. } => match sub {
-            cli::DbCommands::ListProviders => {
-                let providers = registry::providers().lock().expect("PROVIDERS lock poisoned");
+            spd::cli::DbCommands::ListProviders => {
+                let providers = spd::registry::providers().lock().expect("PROVIDERS lock poisoned");
                 for p in providers.iter() {
                     write_stdout(&format!("{}\n", p.name()));
                 }
                 return Ok(0);
             }
-            cli::DbCommands::Stats => {
+            spd::cli::DbCommands::Stats => {
                 let stats = db_backend.stats().await?;
                 write_stdout(&format!(
                     "Cache entries: {}, hits: {}, misses: {}\n",
@@ -310,9 +306,9 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
                 ));
                 return Ok(0);
             }
-            cli::DbCommands::Verify => {
+            spd::cli::DbCommands::Verify => {
                 let checker = {
-                    let mut c = registry::integrity_checkers()
+                    let mut c = spd::registry::integrity_checkers()
                         .lock()
                         .expect("INTEGRITY_CHECKERS lock poisoned");
                     if c.is_empty() {
@@ -326,7 +322,7 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
                         error!("{}", e);
                         return Ok(1); // FR-033: exit 1 on verify failure
                     }
-                    registry::integrity_checkers()
+                    spd::registry::integrity_checkers()
                         .lock()
                         .expect("INTEGRITY_CHECKERS lock poisoned")
                         .insert(0, c);
@@ -337,11 +333,11 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
                 write_stdout("Database integrity verified (SHA‑256)\n"); // FR-033
                 return Ok(0);
             }
-            cli::DbCommands::Migrate => {
+            spd::cli::DbCommands::Migrate => {
                 write_stdout("Database migration completed (nothing to do)\n");
                 return Ok(0);
             }
-            cli::DbCommands::Show { format, full } => {
+            spd::cli::DbCommands::Show { format, full } => {
                 let entries = db_backend.list_entries(full).await?;
                 if format.as_deref() == Some("json") {
                     write_stdout(&serde_json::to_string_pretty(&entries).unwrap());
@@ -364,7 +360,7 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
                 }
                 return Ok(0);
             }
-            cli::DbCommands::SetTtl {
+            spd::cli::DbCommands::SetTtl {
                 secs,
                 entry,
                 all,
@@ -412,7 +408,7 @@ pub(crate) async fn run(args: Cli) -> Result<i32> {
             let ignore_path = early_cfg
                 .ignore_db
                 .clone()
-                .unwrap_or_else(config::default_ignore_path);
+                .unwrap_or_else(spd::config::default_ignore_path);
             #[cfg(feature = "redb")]
             {
                 let fp_db = spd_db_redb::RedbIgnoreDb::with_path(ignore_path).map_err(|e| {
@@ -502,7 +498,7 @@ async fn run_scan(
     format: String,
     summary_file: Vec<String>,
     provider: Option<String>,
-    effective: config::EffectiveConfig,
+    effective: spd::config::EffectiveConfig,
     _verbosity: u8,
     db_backend: Arc<Box<dyn spd_db::DatabaseBackend + Send + Sync + 'static>>,
 ) -> Result<i32> {
@@ -520,7 +516,7 @@ async fn run_scan(
     // -----------------------------------------------------------------
     let finder: Box<dyn spd_manifest_finder::ManifestFinder> =
         if effective.language_regexes.is_empty() {
-            let mut f = registry::finders().lock().expect("FINDERS lock poisoned");
+            let mut f = spd::registry::finders().lock().expect("FINDERS lock poisoned");
             if f.is_empty() {
                 error!("No ManifestFinder plug‑in registered");
                 return Err(anyhow!("No ManifestFinder plug‑in registered"));
@@ -548,7 +544,7 @@ async fn run_scan(
         };
 
     let parser = {
-        let mut p = registry::parsers().lock().expect("PARSERS lock poisoned");
+        let mut p = spd::registry::parsers().lock().expect("PARSERS lock poisoned");
         if p.is_empty() {
             error!("No Parser plug‑in registered");
             return Err(anyhow!("No Parser plug‑in registered"));
@@ -557,7 +553,7 @@ async fn run_scan(
     };
 
     let resolver = {
-        let mut r = registry::resolvers().lock().expect("RESOLVERS lock poisoned");
+        let mut r = spd::registry::resolvers().lock().expect("RESOLVERS lock poisoned");
         if r.is_empty() {
             error!("No Resolver plug‑in registered");
             return Err(anyhow!("No Resolver plug‑in registered"));
@@ -579,7 +575,7 @@ async fn run_scan(
     }
 
     let provider_impl: Arc<Box<dyn spd_cve_client::CveProvider + Send + Sync + 'static>> = {
-        let mut prov = registry::providers().lock().expect("PROVIDERS lock poisoned");
+        let mut prov = spd::registry::providers().lock().expect("PROVIDERS lock poisoned");
         if prov.is_empty() {
             error!("No CveProvider plug‑in registered");
             return Err(anyhow!("No CveProvider plug‑in registered"));
@@ -608,7 +604,7 @@ async fn run_scan(
     let reporter: Box<dyn spd_report::Reporter> = if format.eq_ignore_ascii_case("json") {
         Box::new(spd_report::JsonReporter::new())
     } else {
-        let mut r = registry::reporters().lock().expect("REPORTERS lock poisoned");
+        let mut r = spd::registry::reporters().lock().expect("REPORTERS lock poisoned");
         if r.is_empty() {
             error!("No Reporter plug‑in registered");
             return Err(anyhow!("No Reporter plug‑in registered"));
@@ -744,7 +740,7 @@ async fn run_scan(
             let ignore_path = effective
                 .ignore_db
                 .clone()
-                .unwrap_or_else(config::default_ignore_path);
+                .unwrap_or_else(spd::config::default_ignore_path);
             spd_db_redb::RedbIgnoreDb::with_path(ignore_path)
                 .ok()
                 .and_then(|db| db.marked_ids().ok())
@@ -996,25 +992,25 @@ mod tests {
 
     /// Repopulate plugin registries so run() can proceed (it consumes one backend per call).
     fn ensure_registries_for_run() {
-        let _guard = crate::registry::registry_test_mutex().lock().unwrap();
-        crate::registry::ensure_default_manifest_finder();
-        crate::registry::ensure_default_parser();
-        crate::registry::ensure_default_resolver();
-        crate::registry::ensure_default_cve_provider();
-        crate::registry::ensure_default_reporter();
-        crate::registry::ensure_default_integrity_checker();
+        let _guard = spd::registry::registry_test_mutex().lock().unwrap();
+        spd::registry::ensure_default_manifest_finder();
+        spd::registry::ensure_default_parser();
+        spd::registry::ensure_default_resolver();
+        spd::registry::ensure_default_cve_provider();
+        spd::registry::ensure_default_reporter();
+        spd::registry::ensure_default_integrity_checker();
         #[cfg(feature = "redb")]
         {
-            let cache_path = crate::config::default_cache_path();
-            let _ = crate::registry::ensure_default_db_backend_with_path(cache_path, 432000);
+            let cache_path = spd::config::default_cache_path();
+            let _ = spd::registry::ensure_default_db_backend_with_path(cache_path, 432000);
         }
     }
 
     fn run_async(args: &[&str]) -> i32 {
-        let _guard = crate::registry::registry_test_mutex().lock().unwrap();
+        let _guard = spd::registry::registry_test_mutex().lock().unwrap();
         let mut v = vec!["spd"];
         v.extend(args.iter().copied());
-        let args = crate::cli::Cli::parse_from(v);
+        let args = spd::cli::Cli::parse_from(v);
         let rt = tokio::runtime::Runtime::new().expect("runtime");
         rt.block_on(super::run(args)).unwrap_or(2)
     }

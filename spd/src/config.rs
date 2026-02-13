@@ -119,8 +119,18 @@ const KNOWN_FILE_CONFIG_KEYS: &[&str] = &[
     "fp_exit_code",
 ];
 
-/// When true, also extract [lang].regex into language_regexes (only from user config).
-fn apply_file_config(
+/// Parse and validate raw TOML config content (SEC-006). Used for fuzzing (NFR-020).
+/// Does not perform file I/O; uses a synthetic path for error messages.
+pub fn parse_and_validate_toml(raw: &str) -> Result<(), ConfigError> {
+    let path = Path::new("<fuzz>");
+    let mut cfg = EffectiveConfig::default();
+    apply_file_config(&mut cfg, raw, path, "fuzz", true)
+}
+
+/// Inner implementation of apply_file_config. Panics from the toml crate (e.g. on
+/// malformed numbers like `0onccbttj`) are caught by apply_file_config and
+/// converted to InvalidToml (SEC-017).
+fn apply_file_config_inner(
     cfg: &mut EffectiveConfig,
     raw: &str,
     path: &Path,
@@ -190,6 +200,30 @@ fn apply_file_config(
     }
     let _ = source;
     Ok(())
+}
+
+/// When true, also extract [lang].regex into language_regexes (only from user config).
+/// Catches panics from the toml crate (e.g. malformed numbers) and converts to
+/// InvalidToml (SEC-017: user-friendly error instead of crash).
+fn apply_file_config(
+    cfg: &mut EffectiveConfig,
+    raw: &str,
+    path: &Path,
+    source: &str,
+    extract_language_regexes: bool,
+) -> Result<(), ConfigError> {
+    let path_buf = path.to_path_buf();
+    let path_display = user_relative_path(path);
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        apply_file_config_inner(cfg, raw, path, source, extract_language_regexes)
+    })) {
+        Ok(r) => r,
+        Err(_) => Err(ConfigError::InvalidToml {
+            path: path_buf,
+            path_display,
+            message: "invalid input caused parser error".to_string(),
+        }),
+    }
 }
 
 fn load_file_opt(path: &Path) -> Result<Option<String>, ConfigError> {
@@ -650,6 +684,32 @@ mod tests {
         );
         assert!(r.is_err());
         assert!(matches!(r.unwrap_err(), ConfigError::InvalidToml { .. }));
+    }
+
+    #[test]
+    fn parse_and_validate_toml_malformed_number_returns_error_sec017() {
+        // Input that triggers toml_parser panic (e.g. "0onccbttj" after =).
+        // SEC-017: we must return error, not panic.
+        let r = parse_and_validate_toml(
+            "min_score =0onccbttj_secs = 8\nmin_count = 33333333333333333333333333",
+        );
+        assert!(r.is_err());
+    }
+
+    #[test]
+    fn parse_and_validate_toml_malformed_fuzz_inputs_returns_error_sec017() {
+        // Additional fuzz crash inputs - must return error, not panic.
+        let inputs = [
+            r#"min__count =[3
+ pu =...........................ex = "^requirements\\.txt$""#,
+            r#"cs = 0b = " ==[ps = 20"#,
+            r#"parallel_queries = 100000000000000"#,
+            r#"min_count = 33333333333333333333333333"#,
+        ];
+        for input in inputs {
+            let r = parse_and_validate_toml(input);
+            assert!(r.is_err(), "input should error: {:?}", input);
+        }
     }
 
     #[test]

@@ -32,9 +32,10 @@ We will acknowledge receipt and work with you on a fix and disclosure timeline.
 
 ## Test results and dogfooding (SEC-018)
 
-- **Fuzz testing:** When available, fuzz testing results and coverage will be
-  linked here or from the CI artifacts. The PRD (SEC-017) requires allow-list
-  input validation and user-friendly errors on invalid input.
+- **Fuzz testing:** AFL fuzz targets in `tests/fuzz/` cover config TOML and
+  requirements.txt parsing (NFR-020, SEC-017). Run `make fuzz` or
+  `./scripts/fuzz.sh` (requires cargo-afl and AFL++). Results and coverage can
+  be linked here or from CI artifacts when available.
 - **Latest `spd scan` (dogfooding):** SEC-015 requires the project to be
   scannable by the latest stable super-duper with exit 0. When CI or release
   artifacts include a latest-scan report, it will be linked here (e.g. from the
