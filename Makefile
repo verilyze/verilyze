@@ -22,7 +22,8 @@ cargo-check:
 unit-tests:
 	cargo test
 
-# Generate Cobertura XML (see CONTRIBUTING.md and NFR-012) and HTML coverage reports.
+# Generate Cobertura XML (see CONTRIBUTING.md and NFR-012) and HTML coverage
+# reports.
 coverage: fuzz
 	./scripts/coverage.sh
 
@@ -35,7 +36,7 @@ check: check-headers cargo-check unit-tests
 debug: check-headers
 	cargo build
 
-release:
+release: check-headers
 	cargo build --release
 
 clean:
