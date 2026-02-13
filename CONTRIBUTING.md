@@ -42,6 +42,11 @@ Cargo features; see **Feature gating** below.
 3. In the binary’s startup path, when the feature is enabled, register your
    implementations (e.g. push to the appropriate registry or use a registration
    macro).
+4. **Add a fuzz target** for each manifest or lock format your parser supports
+   (NFR-020, SEC-017). Create `tests/fuzz/fuzz_targets/<format>.rs` (e.g.
+   `fuzz_pyproject_toml.rs`) and add seed corpus under
+   `tests/fuzz/corpus/<format>/`. Update `scripts/fuzz.sh` and
+   `tests/fuzz/Cargo.toml` to include the new target.
 
 See [architecture/PRD.md](architecture/PRD.md) MOD-002 and FR-020 for the
 formal trait contracts.
@@ -122,10 +127,12 @@ Stderr can stay as `eprintln!` or `log::error!`.
 ### Fuzz testing (NFR-020)
 
 - **Run fuzz:** `make fuzz` or `./scripts/fuzz.sh` runs AFL fuzz targets for config
-  TOML and requirements.txt parsing. Supports SEC-017 (no crash on invalid input).
+  TOML, requirements.txt, and config KEY=VALUE parsing (`config --set`).
+  Supports SEC-017 (no crash on invalid input).
 - **Prerequisites:** Install [cargo-afl](https://github.com/rust-fuzz/afl.rs)
   (`cargo install cargo-afl`) and [AFL++](https://github.com/AFLplusplus/AFLplusplus).
-- **Targets:** `tests/fuzz/` crate with `fuzz_config_toml` and `fuzz_requirements_txt`.
+- **Targets:** `tests/fuzz/` crate with `fuzz_config_toml`, `fuzz_requirements_txt`,
+  and `fuzz_parse_config_set_arg`.
   Seed corpus in `tests/fuzz/corpus/`.
 - **Coverage:** Run `./scripts/fuzz.sh --coverage` to integrate with cargo-llvm-cov
   (see [cargo-llvm-cov AFL docs](https://github.com/taiki-e/cargo-llvm-cov#get-coverage-of-afl-fuzzers)).

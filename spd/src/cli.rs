@@ -19,6 +19,15 @@
 
 use clap::{Parser as ClapParser, Subcommand};
 
+/// Parse KEY=VALUE for `config --set`. Returns None if key is empty or no `=` present.
+pub fn parse_config_set_arg(pair: &str) -> Option<(&str, &str)> {
+    let parts: Vec<&str> = pair.splitn(2, '=').map(str::trim).collect();
+    match parts[..] {
+        [k, v] if !k.is_empty() => Some((k, v)),
+        _ => None,
+    }
+}
+
 #[derive(ClapParser, Debug)]
 #[command(name = "spd", version, author, about = "super‑duper – fast SCA")]
 pub struct Cli {

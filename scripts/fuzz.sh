@@ -55,6 +55,7 @@ cargo afl build -p spd-fuzz
 
 CORPUS_CONFIG="tests/fuzz/corpus/config_toml"
 CORPUS_REQS="tests/fuzz/corpus/requirements_txt"
+CORPUS_CONFIG_SET="tests/fuzz/corpus/parse_config_set_arg"
 
 run_fuzz() {
     local name=$1
@@ -74,11 +75,13 @@ if "$DO_COVERAGE"; then
     echo "Running fuzz with coverage (each target ${SMOKE_TIMEOUT}s)..."
     run_fuzz config_toml fuzz_config_toml "$CORPUS_CONFIG"
     run_fuzz requirements_txt fuzz_requirements_txt "$CORPUS_REQS"
+    run_fuzz parse_config_set_arg fuzz_parse_config_set_arg "$CORPUS_CONFIG_SET"
     cargo llvm-cov report --lcov
     echo "Coverage report generated. See cargo-llvm-cov docs for --html, --cobertura, etc."
 else
     echo "Running fuzz smoke test (${SMOKE_TIMEOUT}s per target)..."
     run_fuzz config_toml fuzz_config_toml "$CORPUS_CONFIG"
     run_fuzz requirements_txt fuzz_requirements_txt "$CORPUS_REQS"
+    run_fuzz parse_config_set_arg fuzz_parse_config_set_arg "$CORPUS_CONFIG_SET"
     echo "Fuzz smoke test passed (no crashes)."
 fi
