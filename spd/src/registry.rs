@@ -42,8 +42,8 @@ pub enum Plugin {
 
 /// Register a plug‑in.  Typical usage (inside a plug‑in crate) is:
 ///
-/// ```rust
-/// spd_register!(MyFinder);   // expands to `registry::register(Plugin::ManifestFinder(...))`
+/// ```ignore
+/// spd_register!(ManifestFinder, MyFinder);   // expands to registry::register(Plugin::ManifestFinder(...))
 /// ```
 ///
 /// The macro itself lives in the optional `spd-plugin-macro` crate; the
@@ -172,44 +172,44 @@ pub fn ensure_default_integrity_checker() {
 // Global registries – OnceLock + helpers so `main.rs` can read them.
 // ---------------------------------------------------------------------
 
-pub(crate) fn finders() -> &'static Mutex<Vec<Box<dyn ManifestFinder>>> {
+pub fn finders() -> &'static Mutex<Vec<Box<dyn ManifestFinder>>> {
     static FINDERS: OnceLock<Mutex<Vec<Box<dyn ManifestFinder>>>> = OnceLock::new();
     FINDERS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
-pub(crate) fn parsers() -> &'static Mutex<Vec<Box<dyn Parser>>> {
+pub fn parsers() -> &'static Mutex<Vec<Box<dyn Parser>>> {
     static PARSERS: OnceLock<Mutex<Vec<Box<dyn Parser>>>> = OnceLock::new();
     PARSERS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
-pub(crate) fn resolvers() -> &'static Mutex<Vec<Box<dyn Resolver>>> {
+pub fn resolvers() -> &'static Mutex<Vec<Box<dyn Resolver>>> {
     static RESOLVERS: OnceLock<Mutex<Vec<Box<dyn Resolver>>>> = OnceLock::new();
     RESOLVERS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
-pub(crate) fn providers() -> &'static Mutex<Vec<Box<dyn CveProvider>>> {
+pub fn providers() -> &'static Mutex<Vec<Box<dyn CveProvider>>> {
     static PROVIDERS: OnceLock<Mutex<Vec<Box<dyn CveProvider>>>> = OnceLock::new();
     PROVIDERS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
-pub(crate) fn db_backends() -> &'static Mutex<Vec<Box<dyn DatabaseBackend>>> {
+pub fn db_backends() -> &'static Mutex<Vec<Box<dyn DatabaseBackend>>> {
     static DB_BACKENDS: OnceLock<Mutex<Vec<Box<dyn DatabaseBackend>>>> = OnceLock::new();
     DB_BACKENDS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
-pub(crate) fn reporters() -> &'static Mutex<Vec<Box<dyn Reporter>>> {
+pub fn reporters() -> &'static Mutex<Vec<Box<dyn Reporter>>> {
     static REPORTERS: OnceLock<Mutex<Vec<Box<dyn Reporter>>>> = OnceLock::new();
     REPORTERS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
-pub(crate) fn integrity_checkers() -> &'static Mutex<Vec<Box<dyn IntegrityChecker>>> {
+pub fn integrity_checkers() -> &'static Mutex<Vec<Box<dyn IntegrityChecker>>> {
     static INTEGRITY_CHECKERS: OnceLock<Mutex<Vec<Box<dyn IntegrityChecker>>>> = OnceLock::new();
     INTEGRITY_CHECKERS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
 /// Serializes tests that mutate or consume global registries (avoids races with main's run() tests).
 #[allow(dead_code)]
-pub(crate) fn registry_test_mutex() -> &'static Mutex<()> {
+pub fn registry_test_mutex() -> &'static Mutex<()> {
     static REGISTRY_TEST_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
     REGISTRY_TEST_MUTEX.get_or_init(|| Mutex::new(()))
 }

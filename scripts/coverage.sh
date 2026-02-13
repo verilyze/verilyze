@@ -23,8 +23,9 @@ mkdir -p reports
 source <(cargo +nightly llvm-cov show-env --sh)
 cargo +nightly llvm-cov clean --workspace 2>/dev/null || true
 
-# Build workspace with instrumentation (per show-env docs, use normal cargo)
-cargo +nightly build --workspace
+# Build workspace with instrumentation (per show-env docs, use normal cargo).
+# Exclude spd-fuzz: it requires cargo afl build (AFL linker symbols).
+cargo +nightly build --workspace --exclude spd-fuzz
 
 XTASK=target/debug/xtask
 
@@ -42,8 +43,8 @@ echo "// header" > "$XTASK_COVER/tools/header.txt"
 echo 'fn main() {}' > "$XTASK_COVER/foo.rs"
 XTASK_ROOT="$XTASK_COVER" "$XTASK" replace 1>/dev/null 2>/dev/null
 
-# Run all workspace tests
-cargo +nightly test --workspace
+# Run all workspace tests (exclude spd-fuzz; it uses AFL and is run via make fuzz).
+cargo +nightly test --workspace --exclude spd-fuzz
 
 # Generate reports (NFR-017: fail if coverage below threshold)
 cargo +nightly llvm-cov report --html --output-dir reports \

@@ -1,0 +1,7 @@
+cache_db = "/tmp/cache.redb"
+parallel_queries = 20
+cache_ttl_secs = 86400
+min_score = 7.0
+min_count = 3
+[python]
+regex = "^requirements\\.txt$"

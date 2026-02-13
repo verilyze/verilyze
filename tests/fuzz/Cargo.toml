@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Fuzz targets for super-duper (NFR-020, SEC-017).
+
+[package]
+name = "spd-fuzz"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+afl = "0.17"
+spd = { path = "../../spd" }
+spd-python = { path = "../../spd-python" }
+
+[[bin]]
+name = "fuzz_config_toml"
+path = "fuzz_targets/config_toml.rs"
+
+[[bin]]
+name = "fuzz_requirements_txt"
+path = "fuzz_targets/requirements_txt.rs"
