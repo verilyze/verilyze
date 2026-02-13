@@ -17,32 +17,10 @@
 // super-duper (see the COPYING file in the project root for the full text). If
 // not, see <https://www.gnu.org/licenses/>.
 
-use std::io::Read;
-
 fn main() {
-    // Subprocess mode: parse stdin and exit (0=ok, 1=error). Child crashes are isolated.
-    if std::env::args().nth(1).as_deref() == Some("--parse-stdin") {
-        let mut input = String::new();
-        let _ = std::io::stdin().read_to_string(&mut input);
-        let status = spd::config::parse_and_validate_toml(&input);
-        std::process::exit(status.is_err() as i32);
-    }
-
     afl::fuzz(true, |data: &[u8]| {
         if let Ok(s) = std::str::from_utf8(data) {
-            // Run parser in subprocess; crashes (abort, segfault) are isolated (SEC-017).
-            let exe = std::env::current_exe().expect("current_exe");
-            let mut child = std::process::Command::new(&exe)
-                .arg("--parse-stdin")
-                .stdin(std::process::Stdio::piped())
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .spawn()
-                .expect("spawn");
-            let mut stdin = child.stdin.take().expect("stdin");
-            let _ = std::io::Write::write_all(&mut stdin, s.as_bytes());
-            drop(stdin);
-            let _ = child.wait();
+            let _ = spd::config::parse_and_validate_toml(s);
         }
     });
 }
