@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 Travis Post <post.travis+git@gmail.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
 # Contributing to super-duper
 
 Thank you for your interest in contributing. This document gives a short
@@ -85,6 +91,24 @@ is necessary, document in the PR: (a) why in-house is not practical, (b)
 GPL-3.0 compatibility, (c) impact on `cargo tree` / build time. See
 [architecture/PRD.md](architecture/PRD.md) NFR-019, MOD-004, and the Minimal
 Dependencies design principle.
+
+## Copyright and licensing (REUSE)
+
+The project uses the [REUSE](https://reuse.software/) toolchain for SPDX
+copyright and license headers.
+
+- **Check headers:** `make check-headers` (runs `reuse lint`)
+- **Add/update headers:** `make headers` (runs `scripts/update-headers.sh`)
+
+REUSE is auto-installed when missing: `scripts/ensure-reuse.sh` tries (in order)
+`reuse` in PATH, `.venv/bin/reuse` if present, then creates `.venv-reuse` and
+installs via pip. Your `.venv` is never created or modified. You can also install
+manually: `pipx install reuse` or `python3 -m venv .venv && .venv/bin/pip install
+reuse`.
+
+The `update-headers` script derives copyright from git history and applies the
+*nontrivial change* threshold (~15 lines per author per file). See
+[docs/NONTRIVIAL-CHANGE.md](docs/NONTRIVIAL-CHANGE.md) for the definition.
 
 ## Code style and checks
 

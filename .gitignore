@@ -2,3 +2,5 @@
 /coverage
 /reports
 **/spd-cache.redb
+.venv
+.venv-reuse

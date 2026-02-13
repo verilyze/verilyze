@@ -1,20 +1,17 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis+git@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 .PHONY: headers check-headers check clean unit-tests cargo-check coverage
 DEFAULT: all
 
-# installs the xtask binary locally
-install-xtask:
-	cargo install --path tools/xtask
-
-# equivalent one-time install helper
-setup: install-xtask
-
-# add headers to source files (mutates files)
-headers: setup
-	cargo run -p xtask -- replace
+# add headers to covered text files (mutates files)
+headers:
+	./scripts/update-headers.sh
 
 # check-only (exit nonzero if any file missing header)
-check-headers: setup
-	cargo run -p xtask -- check
+check-headers:
+	@./scripts/ensure-reuse.sh lint
 
 cargo-check:
 	cargo check
