@@ -481,15 +481,15 @@ pub fn set_config_key(key: &str, value: &str) -> Result<(), ConfigError> {
         }
     }
     let raw = load_file_opt(&path)?.unwrap_or_else(|| String::new());
-    let mut root: toml::Value = if raw.trim().is_empty() {
-        toml::Value::Table(toml::map::Map::new())
+    // toml 1.0: Value::FromStr parses single values; use Table for documents.
+    let mut root: toml::Table = if raw.trim().is_empty() {
+        toml::Table::new()
     } else {
-        raw.parse()
-            .map_err(|e: toml::de::Error| ConfigError::InvalidToml {
-                path: path.clone(),
-                path_display: user_relative_path(&path),
-                message: e.to_string(),
-            })?
+        toml::from_str(&raw).map_err(|e: toml::de::Error| ConfigError::InvalidToml {
+            path: path.clone(),
+            path_display: user_relative_path(&path),
+            message: e.to_string(),
+        })?
     };
     let parts: Vec<&str> = key.splitn(2, '.').collect();
     if parts.len() != 2 {
@@ -499,16 +499,9 @@ pub fn set_config_key(key: &str, value: &str) -> Result<(), ConfigError> {
         });
     }
     let (table_key, sub_key) = (parts[0], parts[1]);
-    let table = root
-        .as_table_mut()
-        .ok_or_else(|| ConfigError::InvalidToml {
-            path: path.clone(),
-            path_display: user_relative_path(&path),
-            message: "root is not a table".to_string(),
-        })?;
-    let entry = table
+    let entry = root
         .entry(table_key.to_string())
-        .or_insert_with(|| toml::Value::Table(toml::map::Map::new()));
+        .or_insert_with(|| toml::Value::Table(toml::Table::new()));
     let inner = entry
         .as_table_mut()
         .ok_or_else(|| ConfigError::UnknownKey {
@@ -516,7 +509,7 @@ pub fn set_config_key(key: &str, value: &str) -> Result<(), ConfigError> {
             origin: "config set".to_string(),
         })?;
     inner.insert(sub_key.to_string(), toml::Value::String(value.to_string()));
-    let out = toml::ser::to_string_pretty(&root).map_err(|e| ConfigError::InvalidToml {
+    let out = toml::to_string_pretty(&root).map_err(|e| ConfigError::InvalidToml {
         path: path.clone(),
         path_display: user_relative_path(&path),
         message: e.to_string(),
