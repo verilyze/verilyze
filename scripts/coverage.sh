@@ -60,5 +60,5 @@ PYTHONPATH=. "$PY" -m pytest tests/scripts/ \
   --cov-fail-under=85 \
   -v || ERR=1
 
-echo "Coverage report: reports/rust/index.html (Rust), reports/python/index.html (scripts)"
+echo "Coverage report: reports/rust/html/index.html (Rust), reports/python/index.html (Python)"
 exit "$ERR"
