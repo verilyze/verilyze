@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 .PHONY: headers check-headers setup-hooks check clean distclean unit-tests \
-	cargo-test test-scripts cargo-check coverage lint-python
+	cargo-test test-scripts cargo-check coverage lint-python lint-shell
 DEFAULT: all
 
 # add headers to covered text files (mutates files)
@@ -27,6 +27,10 @@ lint-python: .venv-lint/bin/black
 	X=$${V}/bandit; [ -x "$$X" ] || X=bandit; \
 	"$$X" -r scripts/ || ERR=1; \
 	exit $$ERR
+
+# Lint shell scripts (NFR-022). Requires shellcheck.
+lint-shell:
+	shellcheck scripts/*.sh
 
 # check-only (exit nonzero if any file missing header)
 check-headers:
@@ -59,7 +63,7 @@ coverage: fuzz
 fuzz:
 	./scripts/fuzz.sh
 
-check: check-headers cargo-check unit-tests lint-python
+check: check-headers cargo-check unit-tests lint-python lint-shell
 
 debug: check-headers
 	cargo build
