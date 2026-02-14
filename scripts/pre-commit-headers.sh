@@ -40,16 +40,18 @@ if ! [ -d "LICENSES" ]; then
     $REUSE_CMD download "$DEFAULT_LICENSE" >/dev/null 2>&1 || true
 fi
 
-# Verify git config
+# Verify git config; fall back to DEFAULT_COPYRIGHT from config if unset
 user_name=$(git config user.name 2>/dev/null || true)
 user_email=$(git config user.email 2>/dev/null || true)
-if [ -z "$user_name" ] || [ -z "$user_email" ]; then
+if [ -n "$user_name" ] && [ -n "$user_email" ]; then
+    copyright="$user_name <$user_email>"
+elif [ -n "$DEFAULT_COPYRIGHT" ]; then
+    copyright="$DEFAULT_COPYRIGHT"
+else
     echo "REUSE pre-commit: git user.name and user.email required for copyright headers." >&2
     echo "  Configure: git config user.name 'Your Name' && git config user.email 'you@example.com'" >&2
     exit 1
 fi
-
-copyright="$user_name <$user_email>"
 year=$(date +%Y)
 
 # Check if file matches covered patterns and is not excluded

@@ -117,12 +117,23 @@ The `update_headers.py` script derives copyright from git history and applies th
 
 ## Code style and checks
 
+- Run `make check` before submitting to verify headers, build, tests, and
+  linters (including `lint-python` and `lint-shell`).
 - Follow the [Rust Style Guide](https://doc.rust-lang.org/beta/style-guide/index.html).
 - The codebase uses `#![deny(unsafe_code)]`.
 - Run `cargo fmt` and `cargo clippy` before submitting.
 - Python scripts in `scripts/` follow PEP 8, use line length 79, and pass
   `make lint-python` (black, pylint, mypy, bandit). The Makefile auto-creates
   `.venv-lint` and installs the linters if they are not found.
+- Shell scripts in `scripts/` follow
+  [Google's Shell Style Guide](https://google.github.io/styleguide/shellguide.html)
+  (PRD NFR-022). Run `make lint-shell` (ShellCheck) before submitting.
+  Install ShellCheck via your package manager (e.g. `apt install shellcheck`).
+  Key rules: use `#!/usr/bin/env bash` or `#!/bin/bash`; 2-space indentation;
+  max 80-character lines; prefer `$(command)` over backticks and `[[ ]]` over
+  `[ ]`; quote variables (`"${var}"`); use `local` in functions; send error
+  messages to stderr (`>&2`). The style guide is authoritative; this is a
+  concise summary.
 - We **encourage** a **test-driven development (TDD)** approach (see below).
   Add unit tests in the crate that owns the logic; integration tests where
   appropriate. We may ask for tests to be added or updated before merging.
