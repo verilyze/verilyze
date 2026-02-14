@@ -100,13 +100,19 @@ annotate_file() {
 
     local args=(-l "$DEFAULT_LICENSE" --merge-copyrights)
     if [ ${#authors[@]} -eq 0 ]; then
-        # Fallback: use first commit author for files with history
+        # Fallback 1: use first commit author (earliest in history)
         local first_author
         first_author=$(git log --reverse -1 --format="%ad %aN <%aE>" --date=format:%Y --follow -- "$file" 2>/dev/null)
         if [ -n "$first_author" ]; then
             authors=("$first_author")
         else
-            args+=(-c "$DEFAULT_COPYRIGHT" -y "$(date +%Y)")
+            # Fallback 2: use most recent committer (survives shallow clones)
+            first_author=$(git log -1 --format="%ad %aN <%aE>" --date=format:%Y -- "$file" 2>/dev/null)
+            if [ -n "$first_author" ]; then
+                authors=("$first_author")
+            else
+                args+=(-c "$DEFAULT_COPYRIGHT" -y "$(date +%Y)")
+            fi
         fi
     fi
     if [ ${#authors[@]} -gt 0 ]; then
