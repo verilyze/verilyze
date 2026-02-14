@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-.PHONY: headers check-headers check clean unit-tests cargo-check coverage
+.PHONY: headers check-headers setup-hooks check clean unit-tests cargo-check coverage
 DEFAULT: all
 
 # add headers to covered text files (mutates files)
@@ -12,6 +12,10 @@ headers:
 # check-only (exit nonzero if any file missing header)
 check-headers:
 	@./scripts/ensure-reuse.sh lint
+
+# install git hooks (REUSE headers on new files)
+setup-hooks:
+	./scripts/install-hooks.sh
 
 cargo-check:
 	cargo check

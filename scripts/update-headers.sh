@@ -38,7 +38,7 @@ collect_files() {
         # Exclude paths
         for ex in $EXCLUDE_PATHS; do
             case "$f" in
-                $ex|$ex/*) continue 2 ;;
+                "$ex"|"$ex"/*) continue 2 ;;
             esac
         done
         # Match extensions
@@ -98,8 +98,16 @@ annotate_file() {
 
     local args=(-l "$DEFAULT_LICENSE" --merge-copyrights)
     if [ ${#authors[@]} -eq 0 ]; then
-        args+=(-c "$DEFAULT_COPYRIGHT" -y "$(date +%Y)")
-    else
+        # Fallback: use first commit author for files with history
+        local first_author
+        first_author=$(git log --reverse -1 --format="%ad %aN <%aE>" --date=format:%Y --follow -- "$file" 2>/dev/null)
+        if [ -n "$first_author" ]; then
+            authors=("$first_author")
+        else
+            args+=(-c "$DEFAULT_COPYRIGHT" -y "$(date +%Y)")
+        fi
+    fi
+    if [ ${#authors[@]} -gt 0 ]; then
         for entry in "${authors[@]}"; do
             year="${entry%% *}"
             rest="${entry#* }"
