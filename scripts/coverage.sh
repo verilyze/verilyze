@@ -19,8 +19,10 @@ rustup toolchain install nightly 2>/dev/null || true
 rustup component add llvm-tools --toolchain nightly 2>/dev/null || true
 
 rm -rf reports
+rm -f .coverage
 find . -name spd-cache.redb -delete
-mkdir -p reports
+find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+mkdir -p reports/rust
 
 # Set env for instrumentation; use normal cargo commands per cargo-llvm-cov docs
 # shellcheck source=/dev/null
@@ -38,9 +40,22 @@ cargo +nightly build --workspace --exclude spd-fuzz
 cargo +nightly test --workspace --exclude spd-fuzz
 
 # Generate reports (NFR-017: fail if coverage below threshold)
-cargo +nightly llvm-cov report --html --output-dir reports \
+cargo +nightly llvm-cov report --html --output-dir reports/rust \
   --fail-under-lines 85 --fail-under-functions 80 --fail-under-regions 85
 cargo +nightly llvm-cov report --cobertura --output-path reports/cobertura.xml \
   --fail-under-lines 85 --fail-under-functions 80 --fail-under-regions 85
 
-echo "Coverage report: reports/index.html"
+# Script coverage (NFR-012, NFR-017): pytest-cov for scripts/
+PY=python3
+[ -x ".venv-test/bin/python" ] && PY=.venv-test/bin/python
+command -v "$PY" >/dev/null 2>&1 || { echo "ERROR: python3 not found." >&2; exit 1; }
+"$PY" -m pytest --version >/dev/null 2>&1 || \
+  { echo "ERROR: pytest not found. Run: pip install pytest pytest-cov" >&2; exit 1; }
+PYTHONPATH=. "$PY" -m pytest tests/scripts/ \
+  --cov=scripts \
+  --cov-report=html:reports/python \
+  --cov-report=xml:reports/cobertura-python.xml \
+  --cov-fail-under=85 \
+  -v
+
+echo "Coverage report: reports/index.html (Rust), reports/python/index.html (scripts)"
