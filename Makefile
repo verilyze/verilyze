@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-.PHONY: headers check-headers setup-hooks check clean unit-tests cargo-check coverage lint-python
+.PHONY: headers check-headers setup-hooks check clean distclean unit-tests cargo-check coverage lint-python
 DEFAULT: all
 
 # add headers to covered text files (mutates files)
@@ -54,10 +54,13 @@ release: check-headers
 	cargo build --release
 
 clean:
-	cargo clean
-	cargo llvm-cov clean --workspace 2>/dev/null || true
-	find . -name "*.profraw" -delete
-	find . -name spd-cache.redb -delete
-	rm -rf reports/ .mypy_cache .cache
+	@cargo clean
+	@cargo llvm-cov clean --workspace 2>/dev/null || true
+	@find . -name "*.profraw" -delete
+	@find . -name spd-cache.redb -delete
+	@rm -rfv reports/ .mypy_cache .cache
+
+distclean: clean
+	@rm -rfv .mypy_cache .venv-lint .venv-reuse
 
 all: debug
