@@ -2,6 +2,9 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+# Default project license and copyright live in pyproject.toml [tool.spd-headers].
+# Annotation values below must stay in sync with that config.
+
 version = 1
 
 # Lock files: generated, not authored; assign via REUSE.toml instead of file headers

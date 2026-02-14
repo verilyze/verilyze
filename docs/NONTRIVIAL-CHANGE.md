@@ -17,7 +17,8 @@ Maintenance Guidelines](https://www.gnu.org/prep/maintain/html_node/Legally-Sign
 
 A contribution is **nontrivial** if it constitutes **approximately 15 or more lines** of
 original code or text. Changes below this threshold are not legally significant for
-copyright purposes.
+copyright purposes. The threshold is configured in `pyproject.toml` under
+`[tool.spd-headers]`.
 
 - **Cumulative:** A series of minor changes by the same person can add up. What matters
   is the total contribution per author per file, not each individual commit.
@@ -39,7 +40,7 @@ The following do **not** count as nontrivial contributions for copyright purpose
 
 ## Application
 
-The `scripts/update-headers.sh` automation uses this definition to determine which
+The `scripts/update_headers.py` automation uses this definition to determine which
 contributors receive `SPDX-FileCopyrightText` attribution in each file. Only authors
 who have contributed at least 15 lines to a file (cumulatively) are included in
 that file's copyright notice.
