@@ -37,6 +37,28 @@ calls `ensure_default_*` at startup to push default implementations. Language
 support (e.g. `spd-python`) and optional backends (e.g. SQLite) are gated behind
 Cargo features; see **Feature gating** below.
 
+## Quick setup
+
+| Prerequisite | Install |
+|--------------|---------|
+| rust, cargo | [rustup](https://rustup.rs/) |
+| python3 (≥3.11) | OS package manager |
+| shellcheck | `apt install shellcheck` / `dnf install ShellCheck` |
+| afl++ (for fuzz) | [AFL++](https://github.com/AFLplusplus/AFLplusplus) |
+
+After cloning, run:
+
+```sh
+make setup
+make check
+```
+
+`make setup` bootstraps Python venvs (`.venv-lint`, `.venv-test`) for lint and
+tests. REUSE is auto-installed when `check-headers` runs.
+
+Optional: `make setup-hooks` (git pre-commit); `cargo install cargo-llvm-cov
+cargo-afl` for coverage and fuzz.
+
 ## Adding a new language plugin
 
 1. Create a new crate (e.g. `spd-java`) that implements:
@@ -170,7 +192,9 @@ Stderr can stay as `eprintln!` or `log::error!`.
 ### Script testing (NFR-021)
 
 - **Run script tests:** `make test-scripts` runs `pytest tests/scripts/ -v`.
-- **Prerequisites:** Install pytest and pytest-cov. Create a venv: `python3 -m venv .venv-test && .venv-test/bin/pip install -e ".[dev]"`. The Makefile uses `.venv-test/bin/python` if present, otherwise `python3`.
+- **Prerequisites:** The Makefile auto-creates `.venv-test` and installs pytest
+  and pytest-cov. Run `make setup` first, or `make test-scripts` will bootstrap
+  it on demand.
 - **Placement:** Script tests live in `tests/scripts/`; the `scripts/` package is imported via conftest path setup.
 - **Coverage:** `make coverage` runs script tests with pytest-cov (`--cov=scripts --cov-fail-under=85`). Reports: `reports/python/index.html`, `reports/cobertura-python.xml`.
 
