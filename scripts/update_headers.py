@@ -386,7 +386,9 @@ def annotate_file(
         return True
     result = run(args + ["--force-dot-license", str(full_path)])
     if result.returncode != 0 and (result.stderr or result.stdout):
-        print(f"Warning: reuse annotate failed for {file_path}:", file=sys.stderr)
+        print(
+            f"Warning: reuse annotate failed for {file_path}:", file=sys.stderr
+        )
         if result.stderr:
             print(result.stderr, file=sys.stderr)
     return result.returncode == 0
