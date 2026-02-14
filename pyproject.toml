@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 The super-duper contributors
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[tool.spd-headers]
+default_copyright = "The super-duper contributors"
+default_license = "GPL-3.0-or-later"
+nontrivial_lines = 15
+extensions = ["py", "rs", "toml", "md", "mmd", "sh", "json"]
+literal_names = ["Makefile"]
+exclude_paths = ["Cargo.lock", "package-lock.json"]
+
+[tool.black]
+line-length = 79
+target-version = ["py311"]
+include = "scripts/.*\\.py"
+
+[tool.pylint.main]
+max-line-length = 79
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true

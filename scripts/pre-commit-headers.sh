@@ -15,20 +15,29 @@
 
 set -e
 
-DEFAULT_LICENSE="GPL-3.0-or-later"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$REPO_ROOT"
 
-# File patterns: must match update-headers.sh
+# Load config from pyproject.toml via update_headers.py (no eval)
+DEFAULT_LICENSE="GPL-3.0-or-later"
+DEFAULT_COPYRIGHT="The super-duper contributors"
 EXTENSIONS="rs toml md mmd sh json"
 LITERAL_NAMES="Makefile"
 EXCLUDE_PATHS="tools/xtask Cargo.lock package-lock.json"
-
-cd "$REPO_ROOT"
+while IFS=: read -r key value; do
+    case "$key" in
+        license) DEFAULT_LICENSE="$value" ;;
+        copyright) DEFAULT_COPYRIGHT="$value" ;;
+        extensions) EXTENSIONS="$value" ;;
+        literal_names) LITERAL_NAMES="$value" ;;
+        exclude_paths) EXCLUDE_PATHS="$value" ;;
+    esac
+done < <(python3 scripts/update_headers.py --print-config 2>/dev/null || true)
 REUSE_CMD="$REPO_ROOT/scripts/ensure-reuse.sh"
 
 # Ensure LICENSES exists
 if ! [ -d "LICENSES" ]; then
-    $REUSE_CMD download GPL-3.0-or-later >/dev/null 2>&1 || true
+    $REUSE_CMD download "$DEFAULT_LICENSE" >/dev/null 2>&1 || true
 fi
 
 # Verify git config
