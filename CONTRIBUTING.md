@@ -99,6 +99,10 @@ copyright and license headers.
 
 - **Check headers:** `make check-headers` (runs `reuse lint`)
 - **Add/update headers:** `make headers` (runs `scripts/update-headers.sh`)
+- **Install Git hooks:** Run `make setup-hooks` or `./scripts/install-hooks.sh` to add a
+  pre-commit hook that inserts REUSE headers into newly created files, using the
+  committer as the copyright holder. Requires `git config user.name` and
+  `user.email` to be set.
 
 REUSE is auto-installed when missing: `scripts/ensure-reuse.sh` tries (in order)
 `reuse` in PATH, `.venv/bin/reuse` if present, then creates `.venv-reuse` and
