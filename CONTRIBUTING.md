@@ -39,11 +39,11 @@ Cargo features; see **Feature gating** below.
 
 ## Quick setup
 
-| Prerequisite | Install |
-|--------------|---------|
-| rust, cargo | [rustup](https://rustup.rs/) |
-| python3 (≥3.11) | OS package manager |
-| shellcheck | `apt install shellcheck` / `dnf install ShellCheck` |
+| Prerequisite     | Install                                             |
+|------------------|-----------------------------------------------------|
+| rust, cargo      | [rustup](https://rustup.rs/)                        |
+| python3 (≥3.11)  | OS package manager                                  |
+| shellcheck       | `apt install shellcheck` / `dnf install ShellCheck` |
 | afl++ (for fuzz) | [AFL++](https://github.com/AFLplusplus/AFLplusplus) |
 
 After cloning, run:
@@ -177,17 +177,39 @@ Stderr can stay as `eprintln!` or `log::error!`.
 
 ## Running tests and coverage
 
-- **Run tests:** `make unit-tests` runs both `cargo test` and `make test-scripts`. To test only Rust: `cargo test`. To test a single crate (see MOD-005): `cargo test -p <crate>` (e.g. `cargo test -p spd-cve-client`).
-- **Generate coverage (cargo-llvm-cov, XML for CI):** Use **cargo-llvm-cov** with the **nightly** toolchain so all workspace crates appear in the report.
+- **Run tests:** `make unit-tests` runs both `cargo test` and
+  `make test-scripts`. To test only Rust: `cargo test`. To test a single crate
+  (see MOD-005): `cargo test -p <crate>` (e.g. `cargo test -p spd-cve-client`).
+- **Generate coverage (cargo-llvm-cov, XML for CI):** Use **cargo-llvm-cov**
+  with the **nightly** toolchain so all workspace crates appear in the report.
   1. Install cargo-llvm-cov: `cargo install cargo-llvm-cov --locked`
-  2. Install the nightly toolchain and LLVM tools: `rustup toolchain install nightly` and `rustup component add llvm-tools --toolchain nightly`
+  2. Install the nightly toolchain and LLVM tools:
+     `rustup toolchain install nightly` and
+     `rustup component add llvm-tools --toolchain nightly`
   3. Run coverage from the repo root:
      - **Recommended:** `./scripts/coverage.sh` (or `make coverage`)
-     - The script uses the [external tests](https://docs.rs/crate/cargo-llvm-cov/latest#get-coverage-of-external-tests) workflow: `cargo llvm-cov show-env`, then `cargo build` and direct binary invocation, so the xtask binary is covered without depending on `cargo llvm-cov run`.
-     - Reports: `reports/index.html` (Rust HTML), `reports/cobertura.xml` (Rust Cobertura), `reports/python/index.html` (script HTML), `reports/cobertura-python.xml` (script Cobertura)
-     - Thresholds (NFR-012, NFR-017): Rust >= 85% line, >= 80% function, >= 85% region; scripts >= 85% line. The coverage run **exits 1** when either is below threshold.
-  **Note:** Branch coverage is currently **disabled** in the default coverage run (line, function, and region coverage only). Enabling `--branch` can trigger an LLVM llvm-cov crash (SIGSEGV) when the report includes the proc-macro crate. Until that toolchain bug is resolved, coverage reports show line, function, and region metrics; branch threshold (70%) remains the target when branch coverage is re-enabled.
-- **CI:** The Cobertura XML files (`reports/cobertura.xml`, `reports/cobertura-python.xml`) are consumed by common CI systems; see [taiki-e/cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov) or [taiki-e/install-action](https://github.com/taiki-e/install-action) for GitHub Actions.
+     - The script uses the
+       [external tests](https://docs.rs/crate/cargo-llvm-cov/latest#get-coverage-of-external-tests)
+       workflow: `cargo llvm-cov show-env`, then `cargo build` and direct
+       binary invocation, so the xtask binary is covered without depending on
+       `cargo llvm-cov run`.
+     - Reports: `reports/rust/html/index.html` (Rust HTML),
+       `reports/cobertura.xml` (Rust Cobertura), `reports/python/index.html`
+       (Python HTML), `reports/cobertura-python.xml` (Python Cobertura).
+     - Thresholds (NFR-012, NFR-017): Rust >= 85% line, >= 80% function,
+       >= 85% region; scripts >= 85% line. The coverage run **exits 1** when
+       below threshold.
+  **Note:** Branch coverage is currently **disabled** in the default coverage
+  run (line, function, and region coverage only). Enabling `--branch` can
+  trigger an LLVM llvm-cov crash (SIGSEGV) when the report includes the
+  proc-macro crate. Until that toolchain bug is resolved, coverage reports show
+  line, function, and region metrics; branch threshold (70%) remains the target
+  when branch coverage is re-enabled.
+- **CI:** The Cobertura XML files (`reports/cobertura.xml`,
+  `reports/cobertura-python.xml`) are consumed by common CI systems; see
+  [taiki-e/cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov) or
+  [taiki-e/install-action](https://github.com/taiki-e/install-action) for
+  GitHub Actions.
 
 ### Script testing (NFR-021)
 
@@ -195,25 +217,29 @@ Stderr can stay as `eprintln!` or `log::error!`.
 - **Prerequisites:** The Makefile auto-creates `.venv-test` and installs pytest
   and pytest-cov. Run `make setup` first, or `make test-scripts` will bootstrap
   it on demand.
-- **Placement:** Script tests live in `tests/scripts/`; the `scripts/` package is imported via conftest path setup.
-- **Coverage:** `make coverage` runs script tests with pytest-cov (`--cov=scripts --cov-fail-under=85`). Reports: `reports/python/index.html`, `reports/cobertura-python.xml`.
+- **Placement:** Script tests live in `tests/scripts/`; the `scripts/` package
+  is imported via conftest path setup.
+- **Coverage:** `make coverage` runs script tests with pytest-cov
+  (`--cov=scripts --cov-fail-under=85`). Reports: `reports/python/index.html`,
+  `reports/cobertura-python.xml`.
 
 ### Fuzz testing (NFR-020)
 
-- **Run fuzz:** `make fuzz` or `./scripts/fuzz.sh` runs AFL fuzz targets for config
-  TOML, requirements.txt, and config KEY=VALUE parsing (`config --set`).
+- **Run fuzz:** `make fuzz` or `./scripts/fuzz.sh` runs AFL fuzz targets for
+  config TOML, requirements.txt, and config KEY=VALUE parsing (`config --set`).
   Supports SEC-017 (no crash on invalid input).
-- **Exit codes (FR-009):** The script exits 0 when no crashes are detected and exits 1
-  when crashes are found. Crash paths are printed to stderr and written to
-  `reports/fuzz-crashes.txt` for CI artifact upload. Use `make fuzz` or
+- **Exit codes (FR-009):** The script exits 0 when no crashes are detected and
+  exits 1 when crashes are found. Crash paths are printed to stderr and written
+  to `reports/fuzz-crashes.txt` for CI artifact upload. Use `make fuzz` or
   `./scripts/fuzz.sh` in CI; the non-zero exit propagates to fail the job.
 - **Prerequisites:** Install [cargo-afl](https://github.com/rust-fuzz/afl.rs)
   (`cargo install cargo-afl`) and [AFL++](https://github.com/AFLplusplus/AFLplusplus).
-- **Targets:** `tests/fuzz/` crate with `fuzz_config_toml`, `fuzz_requirements_txt`,
-  and `fuzz_parse_config_set_arg`.
-  Seed corpus in `tests/fuzz/corpus/`.
-- **Coverage:** Run `./scripts/fuzz.sh --coverage` to integrate with cargo-llvm-cov
-  (see [cargo-llvm-cov AFL docs](https://github.com/taiki-e/cargo-llvm-cov#get-coverage-of-afl-fuzzers)).
+- **Targets:** `tests/fuzz/` crate with `fuzz_config_toml`,
+  `fuzz_requirements_txt`, and `fuzz_parse_config_set_arg`. Seed corpus in
+  `tests/fuzz/corpus/`.
+- **Coverage:** Run `./scripts/fuzz.sh --coverage` to integrate with
+  cargo-llvm-cov (see
+  [cargo-llvm-cov AFL docs](https://github.com/taiki-e/cargo-llvm-cov#get-coverage-of-afl-fuzzers)).
 
 ## Test-driven development (TDD)
 
