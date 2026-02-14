@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
+
 # SPDX-FileCopyrightText: 2026 Travis Post <post.travis+git@gmail.com>
-# SPDX-License-Identifier: GPL-3.0-or-later
 #
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 # Add REUSE-compliant copyright and license headers to covered text files.
 # Uses git history and the 15-line "nontrivial change" threshold (see docs/NONTRIVIAL-CHANGE.md).
 #
