@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis+git@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Pre-commit hook logic: add REUSE headers to newly added files using the
+# committer as copyright holder. Invoked by .git/hooks/pre-commit when
+# installed via scripts/install-hooks.sh.
+#
+# For newly added files (git diff --cached --diff-filter=A) that need headers,
+# runs: reuse annotate -c "Name <email>" -y YEAR -l GPL-3.0-or-later
+#
+# Run from repository root: ./scripts/pre-commit-headers.sh
+
+set -e
+
+DEFAULT_LICENSE="GPL-3.0-or-later"
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+# File patterns: must match update-headers.sh
+EXTENSIONS="rs toml md mmd sh json"
+LITERAL_NAMES="Makefile"
+EXCLUDE_PATHS="tools/xtask Cargo.lock package-lock.json"
+
+cd "$REPO_ROOT"
+REUSE_CMD="$REPO_ROOT/scripts/ensure-reuse.sh"
+
+# Ensure LICENSES exists
+if ! [ -d "LICENSES" ]; then
+    $REUSE_CMD download GPL-3.0-or-later >/dev/null 2>&1 || true
+fi
+
+# Verify git config
+user_name=$(git config user.name 2>/dev/null || true)
+user_email=$(git config user.email 2>/dev/null || true)
+if [ -z "$user_name" ] || [ -z "$user_email" ]; then
+    echo "REUSE pre-commit: git user.name and user.email required for copyright headers." >&2
+    echo "  Configure: git config user.name 'Your Name' && git config user.email 'you@example.com'" >&2
+    exit 1
+fi
+
+copyright="$user_name <$user_email>"
+year=$(date +%Y)
+
+# Check if file matches covered patterns and is not excluded
+is_covered() {
+    local f="$1"
+    local base
+    for ex in $EXCLUDE_PATHS; do
+        case "$f" in
+            "$ex"|"$ex"/*) return 1 ;;
+        esac
+    done
+    for ext in $EXTENSIONS; do
+        case "$f" in
+            *.$ext) return 0 ;;
+        esac
+    done
+    base=$(basename "$f")
+    for lit in $LITERAL_NAMES; do
+        if [ "$base" = "$lit" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Check if file lacks SPDX headers (returns 0 when headers are missing)
+needs_headers() {
+    local f="$1"
+    [ -f "$f" ] || return 1
+    ! head -30 "$f" 2>/dev/null | grep -qE "SPDX-FileCopyrightText|SPDX-License-Identifier"
+}
+
+annotated=0
+while IFS= read -r file; do
+    [ -z "$file" ] && continue
+    is_covered "$file" || continue
+    needs_headers "$file" || continue
+
+    if $REUSE_CMD annotate -c "$copyright" -y "$year" -l "$DEFAULT_LICENSE" \
+        --merge-copyrights "$file" 2>/dev/null; then
+        :
+    else
+        $REUSE_CMD annotate -c "$copyright" -y "$year" -l "$DEFAULT_LICENSE" \
+            --merge-copyrights --force-dot-license "$file" 2>/dev/null || continue
+    fi
+    git add "$file"
+    annotated=$((annotated + 1))
+done < <(git diff --cached --diff-filter=A --name-only 2>/dev/null)
+
+if [ "$annotated" -gt 0 ]; then
+    echo "REUSE: added headers (author: $copyright) to $annotated new file(s)."
+fi
+exit 0
