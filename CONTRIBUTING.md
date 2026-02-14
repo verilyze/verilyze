@@ -121,7 +121,8 @@ The `update_headers.py` script derives copyright from git history and applies th
 - The codebase uses `#![deny(unsafe_code)]`.
 - Run `cargo fmt` and `cargo clippy` before submitting.
 - Python scripts in `scripts/` follow PEP 8, use line length 79, and pass
-  `make lint-python` (black, pylint, mypy, bandit).
+  `make lint-python` (black, pylint, mypy, bandit). The Makefile auto-creates
+  `.venv-lint` and installs the linters if they are not found.
 - We **encourage** a **test-driven development (TDD)** approach (see below).
   Add unit tests in the crate that owns the logic; integration tests where
   appropriate. We may ask for tests to be added or updated before merging.
