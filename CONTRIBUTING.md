@@ -53,11 +53,36 @@ make setup
 make check
 ```
 
-`make setup` bootstraps Python venvs (`.venv-lint`, `.venv-test`) for lint and
-tests. REUSE is auto-installed when `check-headers` runs.
+Run `make` or `make help` for a full list of targets. `make setup` bootstraps
+Python venvs (`.venv-lint`, `.venv-test`) for lint and tests. REUSE is
+auto-installed when `check-headers` runs.
 
 Optional: `make setup-hooks` (git pre-commit); `cargo install cargo-llvm-cov
 cargo-afl` for coverage and fuzz.
+
+### Quick reference
+
+| Workflow              | Target                            |
+|-----------------------|-----------------------------------|
+| List all targets      | `make` / `make help`              |
+| Bootstrap environment | `make setup`                      |
+| Full CI check         | `make check`                      |
+| Quick build           | `make cargo-check` / `make debug` |
+| Run tests             | `make unit-tests`                 |
+| Coverage (with fuzz)  | `make coverage`                   |
+| Coverage (skip fuzz)  | `make coverage-quick`             |
+| Fuzz smoke test       | `make fuzz`                       |
+
+### Dependency matrix
+
+| Target               | System deps                      | Bootstrapped by Make            |
+|----------------------|----------------------------------|---------------------------------|
+| `make setup`         | rust, cargo, python3             | .venv-lint, .venv-test          |
+| `make check`         | + shellcheck                     | —                               |
+| `make fuzz`          | + cargo-afl, AFL++               | —                               |
+| `make coverage`      | + cargo-llvm-cov, rustup nightly | Runs fuzz first (~90s+)         |
+| `make coverage-quick`| + cargo-llvm-cov, rustup nightly | Skips fuzz for dev iteration    |
+| `make check-headers` | reuse (or Python)                | .venv-reuse via ensure-reuse.sh |
 
 ## Adding a new language plugin
 
@@ -122,19 +147,19 @@ copyright and license headers. Default license and copyright are defined in
 
 - **Check headers:** `make check-headers` (runs `reuse lint`)
 - **Add/update headers:** `make headers` (runs `scripts/update_headers.py`)
-- **Install Git hooks:** Run `make setup-hooks` or `./scripts/install-hooks.sh` to add a
-  pre-commit hook that inserts REUSE headers into newly created files, using the
-  committer as the copyright holder. Requires `git config user.name` and
-  `user.email` to be set.
+- **Install Git hooks:** Run `make setup-hooks` or `./scripts/install-hooks.sh`
+  to add a pre-commit hook that inserts REUSE headers into newly created files,
+  using the committer as the copyright holder. Requires `git config user.name`
+  and `user.email` to be set.
 
-REUSE is auto-installed when missing: `scripts/ensure-reuse.sh` tries (in order)
-`reuse` in PATH, `.venv/bin/reuse` if present, then creates `.venv-reuse` and
-installs via pip. Your `.venv` is never created or modified. You can also install
-manually: `pipx install reuse` or `python3 -m venv .venv && .venv/bin/pip install
-reuse`.
+REUSE is auto-installed when missing: `scripts/ensure-reuse.sh` tries (in
+order) `reuse` in PATH, `.venv/bin/reuse` if present, then creates
+`.venv-reuse` and installs via pip. Your `.venv` is never created or modified.
+You can also install manually: `pipx install reuse` or
+`python3 -m venv .venv && .venv/bin/pip install reuse`.
 
-The `update_headers.py` script derives copyright from git history and applies the
-*nontrivial change* threshold (~15 lines per author per file). See
+The `update_headers.py` script derives copyright from git history and applies
+the *nontrivial change* threshold (~15 lines per author per file). See
 [docs/NONTRIVIAL-CHANGE.md](docs/NONTRIVIAL-CHANGE.md) for the definition.
 
 ## Code style and checks
@@ -187,7 +212,12 @@ Stderr can stay as `eprintln!` or `log::error!`.
      `rustup toolchain install nightly` and
      `rustup component add llvm-tools --toolchain nightly`
   3. Run coverage from the repo root:
-     - **Recommended:** `./scripts/coverage.sh` (or `make coverage`)
+     - **Full run (CI):** `make coverage` — runs fuzz first (cargo-llvm-cov +
+       AFL improves metrics; NFR-012, NFR-020), then coverage. Slower (~90s+
+       for fuzz).
+     - **Quick run (dev):** `make coverage-quick` — skips fuzz, runs coverage
+       only. Use when you have not changed fuzz-relevant code.
+     - Direct script: `./scripts/coverage.sh` (same as `make coverage-quick`).
      - The script uses the
        [external tests](https://docs.rs/crate/cargo-llvm-cov/latest#get-coverage-of-external-tests)
        workflow: `cargo llvm-cov show-env`, then `cargo build` and direct
@@ -219,7 +249,8 @@ Stderr can stay as `eprintln!` or `log::error!`.
   it on demand.
 - **Placement:** Script tests live in `tests/scripts/`; the `scripts/` package
   is imported via conftest path setup.
-- **Coverage:** `make coverage` runs script tests with pytest-cov
+- **Coverage:** `make coverage` or `make coverage-quick` runs script tests
+  with pytest-cov
   (`--cov=scripts --cov-fail-under=85`). Reports: `reports/python/index.html`,
   `reports/cobertura-python.xml`.
 
@@ -227,14 +258,17 @@ Stderr can stay as `eprintln!` or `log::error!`.
 
 - **Run fuzz:** `make fuzz` or `./scripts/fuzz.sh` runs AFL fuzz targets for
   config TOML, requirements.txt, and config KEY=VALUE parsing (`config --set`).
-  Supports SEC-017 (no crash on invalid input).
+  Supports SEC-017 (no crash on invalid input). Optional for most PRs; `make
+  check` is sufficient for typical development. Fuzz runs before `make
+  coverage` (cargo-llvm-cov + AFL improves metrics; NFR-020).
 - **Exit codes (FR-009):** The script exits 0 when no crashes are detected and
   exits 1 when crashes are found. Crash paths are printed to stderr and written
   to `reports/fuzz-crashes.txt` for CI artifact upload. Use `make fuzz` or
   `./scripts/fuzz.sh` in CI; the non-zero exit propagates to fail the job.
 - **Prerequisites:** Install [cargo-afl](https://github.com/rust-fuzz/afl.rs)
-  (`cargo install cargo-afl`) and [AFL++](https://github.com/AFLplusplus/AFLplusplus).
-- **Targets:** `tests/fuzz/` crate with `fuzz_config_toml`,
+  (`cargo install cargo-afl`) and
+  [AFL++](https://github.com/AFLplusplus/AFLplusplus).
+- **Targets:** The `tests/fuzz/` crate provides `fuzz_config_toml`,
   `fuzz_requirements_txt`, and `fuzz_parse_config_set_arg`. Seed corpus in
   `tests/fuzz/corpus/`.
 - **Coverage:** Run `./scripts/fuzz.sh --coverage` to integrate with
