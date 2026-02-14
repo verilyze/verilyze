@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
+
 # SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
-# SPDX-License-Identifier: GPL-3.0-or-later
 #
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 # Pre-commit hook logic: add REUSE headers to newly added files using the
 # committer as copyright holder. Invoked by .git/hooks/pre-commit when
 # installed via scripts/install-hooks.sh.

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
+
 # SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
-# SPDX-License-Identifier: GPL-3.0-or-later
 #
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 # Ensure reuse is available; run it with the given arguments.
 # Resolution order: PATH, .venv/bin/reuse, .venv-reuse/bin/reuse (create if missing),
 # pipx run reuse. Never creates or modifies the user's .venv.
