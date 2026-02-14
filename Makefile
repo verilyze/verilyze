@@ -11,17 +11,22 @@ headers:
 	python3 scripts/update_headers.py
 
 # Lint Python scripts (black, pylint, mypy, bandit).
-# Create .venv-lint: python3 -m venv .venv-lint && .venv-lint/bin/pip install black pylint mypy bandit
-lint-python:
-	@V=.venv-lint/bin; \
+# Bootstrap .venv-lint with linters if missing
+.venv-lint/bin/black:
+	python3 -m venv .venv-lint
+	.venv-lint/bin/pip install black pylint mypy bandit
+
+lint-python: .venv-lint/bin/black
+	@V=.venv-lint/bin; ERR=0; \
 	B=$${V}/black; [ -x "$$B" ] || B=black; \
-	"$$B" scripts/ --check --line-length 79
-	@V=.venv-lint/bin; P=$${V}/pylint; [ -x "$$P" ] || P=pylint; \
-	"$$P" scripts/ --max-line-length=79
-	@V=.venv-lint/bin; M=$${V}/mypy; [ -x "$$M" ] || M=mypy; \
-	"$$M" scripts/
-	@V=.venv-lint/bin; X=$${V}/bandit; [ -x "$$X" ] || X=bandit; \
-	"$$X" -r scripts/
+	"$$B" scripts/ --check --line-length 79 || ERR=1; \
+	P=$${V}/pylint; [ -x "$$P" ] || P=pylint; \
+	"$$P" scripts/ --max-line-length=79 || ERR=1; \
+	M=$${V}/mypy; [ -x "$$M" ] || M=mypy; \
+	"$$M" scripts/ || ERR=1; \
+	X=$${V}/bandit; [ -x "$$X" ] || X=bandit; \
+	"$$X" -r scripts/ || ERR=1; \
+	exit $$ERR
 
 # check-only (exit nonzero if any file missing header)
 check-headers:
@@ -54,7 +59,7 @@ coverage: fuzz
 fuzz:
 	./scripts/fuzz.sh
 
-check: check-headers cargo-check unit-tests
+check: check-headers cargo-check unit-tests lint-python
 
 debug: check-headers
 	cargo build
