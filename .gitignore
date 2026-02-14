@@ -4,3 +4,8 @@
 **/spd-cache.redb
 .venv
 .venv-reuse
+.venv-lint
+.cache
+.mypy_cache
+**/__pycache__
+*.pyc

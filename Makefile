@@ -2,12 +2,25 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-.PHONY: headers check-headers setup-hooks check clean unit-tests cargo-check coverage
+.PHONY: headers check-headers setup-hooks check clean unit-tests cargo-check coverage lint-python
 DEFAULT: all
 
 # add headers to covered text files (mutates files)
 headers:
-	./scripts/update-headers.sh
+	python3 scripts/update_headers.py
+
+# Lint Python scripts (black, pylint, mypy, bandit).
+# Create .venv-lint: python3 -m venv .venv-lint && .venv-lint/bin/pip install black pylint mypy bandit
+lint-python:
+	@V=.venv-lint/bin; \
+	B=$${V}/black; [ -x "$$B" ] || B=black; \
+	"$$B" scripts/ --check --line-length 79
+	@V=.venv-lint/bin; P=$${V}/pylint; [ -x "$$P" ] || P=pylint; \
+	"$$P" scripts/ --max-line-length=79
+	@V=.venv-lint/bin; M=$${V}/mypy; [ -x "$$M" ] || M=mypy; \
+	"$$M" scripts/
+	@V=.venv-lint/bin; X=$${V}/bandit; [ -x "$$X" ] || X=bandit; \
+	"$$X" -r scripts/
 
 # check-only (exit nonzero if any file missing header)
 check-headers:
@@ -45,6 +58,6 @@ clean:
 	cargo llvm-cov clean --workspace 2>/dev/null || true
 	find . -name "*.profraw" -delete
 	find . -name spd-cache.redb -delete
-	rm -rf reports/
+	rm -rf reports/ .mypy_cache .cache
 
 all: debug

@@ -95,10 +95,11 @@ Dependencies design principle.
 ## Copyright and licensing (REUSE)
 
 The project uses the [REUSE](https://reuse.software/) toolchain for SPDX
-copyright and license headers.
+copyright and license headers. Default license and copyright are defined in
+`pyproject.toml` under `[tool.spd-headers]`.
 
 - **Check headers:** `make check-headers` (runs `reuse lint`)
-- **Add/update headers:** `make headers` (runs `scripts/update-headers.sh`)
+- **Add/update headers:** `make headers` (runs `scripts/update_headers.py`)
 - **Install Git hooks:** Run `make setup-hooks` or `./scripts/install-hooks.sh` to add a
   pre-commit hook that inserts REUSE headers into newly created files, using the
   committer as the copyright holder. Requires `git config user.name` and
@@ -110,7 +111,7 @@ installs via pip. Your `.venv` is never created or modified. You can also instal
 manually: `pipx install reuse` or `python3 -m venv .venv && .venv/bin/pip install
 reuse`.
 
-The `update-headers` script derives copyright from git history and applies the
+The `update_headers.py` script derives copyright from git history and applies the
 *nontrivial change* threshold (~15 lines per author per file). See
 [docs/NONTRIVIAL-CHANGE.md](docs/NONTRIVIAL-CHANGE.md) for the definition.
 
@@ -119,6 +120,8 @@ The `update-headers` script derives copyright from git history and applies the
 - Follow the [Rust Style Guide](https://doc.rust-lang.org/beta/style-guide/index.html).
 - The codebase uses `#![deny(unsafe_code)]`.
 - Run `cargo fmt` and `cargo clippy` before submitting.
+- Python scripts in `scripts/` follow PEP 8, use line length 79, and pass
+  `make lint-python` (black, pylint, mypy, bandit).
 - We **encourage** a **test-driven development (TDD)** approach (see below).
   Add unit tests in the crate that owns the logic; integration tests where
   appropriate. We may ask for tests to be added or updated before merging.

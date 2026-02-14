@@ -25,13 +25,15 @@ if [ -x ".venv/bin/reuse" ] && .venv/bin/reuse --help >/dev/null 2>&1; then
     exec .venv/bin/reuse "$@"
 fi
 
-# 3. .venv-reuse/bin/reuse (create venv and install if missing)
+# 3. .venv-reuse/bin/reuse (create venv and install if missing or broken)
 if [ -x ".venv-reuse/bin/reuse" ] && .venv-reuse/bin/reuse --help >/dev/null 2>&1; then
     exec .venv-reuse/bin/reuse "$@"
 fi
-if ! [ -d ".venv-reuse" ]; then
-    python3 -m venv .venv-reuse
-    .venv-reuse/bin/pip install --quiet reuse
+# .venv-reuse missing or broken (e.g. venv created but pip install failed)
+if [ -d ".venv-reuse" ]; then
+    rm -rf .venv-reuse
+fi
+if python3 -m venv .venv-reuse && .venv-reuse/bin/pip install --quiet reuse; then
     exec .venv-reuse/bin/reuse "$@"
 fi
 
