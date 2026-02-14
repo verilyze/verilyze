@@ -39,11 +39,13 @@ cargo +nightly build --workspace --exclude spd-fuzz
 # Run all workspace tests (exclude spd-fuzz; it uses AFL and is run via make fuzz).
 cargo +nightly test --workspace --exclude spd-fuzz
 
-# Generate reports (NFR-017: fail if coverage below threshold)
+# Generate Rust reports (NFR-017: fail if coverage below threshold)
+# Use || true so script continues to Python coverage even when Rust fails
+ERR=0
 cargo +nightly llvm-cov report --html --output-dir reports/rust \
-  --fail-under-lines 85 --fail-under-functions 80 --fail-under-regions 85
+  --fail-under-lines 85 --fail-under-functions 80 --fail-under-regions 85 || ERR=1
 cargo +nightly llvm-cov report --cobertura --output-path reports/cobertura.xml \
-  --fail-under-lines 85 --fail-under-functions 80 --fail-under-regions 85
+  --fail-under-lines 85 --fail-under-functions 80 --fail-under-regions 85 || ERR=1
 
 # Script coverage (NFR-012, NFR-017): pytest-cov for scripts/
 PY=python3
@@ -56,6 +58,7 @@ PYTHONPATH=. "$PY" -m pytest tests/scripts/ \
   --cov-report=html:reports/python \
   --cov-report=xml:reports/cobertura-python.xml \
   --cov-fail-under=85 \
-  -v
+  -v || ERR=1
 
-echo "Coverage report: reports/index.html (Rust), reports/python/index.html (scripts)"
+echo "Coverage report: reports/rust/index.html (Rust), reports/python/index.html (scripts)"
+exit "$ERR"
