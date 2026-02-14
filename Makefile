@@ -2,9 +2,13 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-.PHONY: headers check-headers setup-hooks check clean distclean unit-tests \
+.PHONY: headers check-headers setup setup-hooks check clean distclean unit-tests \
 	cargo-test test-scripts cargo-check coverage lint-python lint-shell
 DEFAULT: all
+
+# check-only (exit nonzero if any file missing header)
+check-headers:
+	@./scripts/ensure-reuse.sh lint
 
 # add headers to covered text files (mutates files)
 headers:
@@ -32,9 +36,15 @@ lint-python: .venv-lint/bin/black
 lint-shell:
 	shellcheck scripts/*.sh
 
-# check-only (exit nonzero if any file missing header)
-check-headers:
-	@./scripts/ensure-reuse.sh lint
+# Prepare dev environment: bootstrap Python venvs for lint and tests.
+# System deps (rust, python3, shellcheck, afl++) must be installed separately;
+# see CONTRIBUTING.md "Quick setup".
+setup: .venv-lint/bin/black .venv-test/bin/pytest
+	@echo "Dev environment ready. Run: make check"
+	@echo "Recommended:"
+	@echo "  make setup-hooks # git pre-commit (auto update file headers)"
+	@echo "  make fuzz # needs cargo-afl, AFL++"
+	@echo "  make coverage # needs fuzz and cargo-llvm-cov"
 
 # install git hooks (REUSE headers on new files)
 setup-hooks:
@@ -46,11 +56,13 @@ cargo-check:
 cargo-test:
 	cargo test
 
-# Run script tests (NFR-021). Requires pytest; create .venv-test with dev deps
-# if needed: python3 -m venv .venv-test && .venv-test/bin/pip install -e ".[dev]"
-test-scripts:
-	@V=.venv-test/bin; P=$${V}/python; [ -x "$$P" ] || P=python3; \
-	"$$P" -m pytest tests/scripts/ -v
+# Bootstrap .venv-test with pytest and pytest-cov (NFR-021)
+.venv-test/bin/pytest:
+	python3 -m venv .venv-test
+	.venv-test/bin/pip install pytest pytest-cov
+
+test-scripts: .venv-test/bin/pytest lint-shell
+	@.venv-test/bin/python -m pytest tests/scripts/ -v
 
 unit-tests: cargo-test test-scripts
 
