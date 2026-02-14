@@ -50,3 +50,16 @@ path = "tests/fuzz/corpus/**"
 precedence = "override"
 SPDX-FileCopyrightText = "The super-duper contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# Generated/cache files (pytest, coverage)
+[[annotations]]
+path = "**/__pycache__/**"
+precedence = "override"
+SPDX-FileCopyrightText = "The super-duper contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
+path = ".coverage"
+precedence = "override"
+SPDX-FileCopyrightText = "The super-duper contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"

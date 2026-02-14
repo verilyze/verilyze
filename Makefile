@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-.PHONY: headers check-headers setup-hooks check clean distclean unit-tests cargo-check coverage lint-python
+.PHONY: headers check-headers setup-hooks check clean distclean unit-tests \
+	cargo-test test-scripts cargo-check coverage lint-python
 DEFAULT: all
 
 # add headers to covered text files (mutates files)
@@ -33,8 +34,16 @@ setup-hooks:
 cargo-check:
 	cargo check
 
-unit-tests:
+cargo-test:
 	cargo test
+
+# Run script tests (NFR-021). Requires pytest; create .venv-test with dev deps
+# if needed: python3 -m venv .venv-test && .venv-test/bin/pip install -e ".[dev]"
+test-scripts:
+	@V=.venv-test/bin; P=$${V}/python; [ -x "$$P" ] || P=python3; \
+	"$$P" -m pytest tests/scripts/ -v
+
+unit-tests: cargo-test test-scripts
 
 # Generate Cobertura XML (see CONTRIBUTING.md and NFR-012) and HTML coverage
 # reports.
@@ -61,6 +70,6 @@ clean:
 	@rm -rfv reports/ .mypy_cache .cache
 
 distclean: clean
-	@rm -rfv .mypy_cache .venv-lint .venv-reuse
+	@rm -rfv .mypy_cache .venv-lint .venv-reuse .venv-test
 
 all: debug

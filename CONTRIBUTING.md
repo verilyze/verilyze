@@ -143,17 +143,24 @@ Stderr can stay as `eprintln!` or `log::error!`.
 
 ## Running tests and coverage
 
-- **Run tests:** `cargo test` runs the full suite. To test a single crate (see MOD-005): `cargo test -p <crate>` (e.g. `cargo test -p spd-cve-client`).
+- **Run tests:** `make unit-tests` runs both `cargo test` and `make test-scripts`. To test only Rust: `cargo test`. To test a single crate (see MOD-005): `cargo test -p <crate>` (e.g. `cargo test -p spd-cve-client`).
 - **Generate coverage (cargo-llvm-cov, XML for CI):** Use **cargo-llvm-cov** with the **nightly** toolchain so all workspace crates appear in the report.
   1. Install cargo-llvm-cov: `cargo install cargo-llvm-cov --locked`
   2. Install the nightly toolchain and LLVM tools: `rustup toolchain install nightly` and `rustup component add llvm-tools --toolchain nightly`
   3. Run coverage from the repo root:
      - **Recommended:** `./scripts/coverage.sh` (or `make coverage`)
      - The script uses the [external tests](https://docs.rs/crate/cargo-llvm-cov/latest#get-coverage-of-external-tests) workflow: `cargo llvm-cov show-env`, then `cargo build` and direct binary invocation, so the xtask binary is covered without depending on `cargo llvm-cov run`.
-     - Reports: `reports/index.html` (HTML), `reports/cobertura.xml` (CI)
-     - Thresholds (NFR-012, NFR-017): >= 85% line, >= 80% function, >= 85% region, >= 70% branch (when stable). The coverage run **exits 1** when below threshold. Fail-under flags: `--fail-under-lines 85 --fail-under-functions 80 --fail-under-regions 85` (and `--fail-under-branch 70` when branch coverage is stable).
+     - Reports: `reports/index.html` (Rust HTML), `reports/cobertura.xml` (Rust Cobertura), `reports/python/index.html` (script HTML), `reports/cobertura-python.xml` (script Cobertura)
+     - Thresholds (NFR-012, NFR-017): Rust >= 85% line, >= 80% function, >= 85% region; scripts >= 85% line. The coverage run **exits 1** when either is below threshold.
   **Note:** Branch coverage is currently **disabled** in the default coverage run (line, function, and region coverage only). Enabling `--branch` can trigger an LLVM llvm-cov crash (SIGSEGV) when the report includes the proc-macro crate. Until that toolchain bug is resolved, coverage reports show line, function, and region metrics; branch threshold (70%) remains the target when branch coverage is re-enabled.
-- **CI:** The Cobertura XML (e.g. `reports/cobertura.xml`) is consumed by common CI systems; see [taiki-e/cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov) or [taiki-e/install-action](https://github.com/taiki-e/install-action) for GitHub Actions.
+- **CI:** The Cobertura XML files (`reports/cobertura.xml`, `reports/cobertura-python.xml`) are consumed by common CI systems; see [taiki-e/cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov) or [taiki-e/install-action](https://github.com/taiki-e/install-action) for GitHub Actions.
+
+### Script testing (NFR-021)
+
+- **Run script tests:** `make test-scripts` runs `pytest tests/scripts/ -v`.
+- **Prerequisites:** Install pytest and pytest-cov. Create a venv: `python3 -m venv .venv-test && .venv-test/bin/pip install -e ".[dev]"`. The Makefile uses `.venv-test/bin/python` if present, otherwise `python3`.
+- **Placement:** Script tests live in `tests/scripts/`; the `scripts/` package is imported via conftest path setup.
+- **Coverage:** `make coverage` runs script tests with pytest-cov (`--cov=scripts --cov-fail-under=85`). Reports: `reports/python/index.html`, `reports/cobertura-python.xml`.
 
 ### Fuzz testing (NFR-020)
 

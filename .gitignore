@@ -5,7 +5,9 @@
 .venv
 .venv-reuse
 .venv-lint
+.venv-test
 .cache
+.coverage
 .mypy_cache
-**/__pycache__
+**/__pycache__/**
 *.pyc
