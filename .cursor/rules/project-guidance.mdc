@@ -25,3 +25,9 @@ CONTRIBUTING.md § Test-driven development.
 
 Do not use em dashes or en dashes in code comments or documentation.
 Use `--` for em dashes and `-` for en dashes.
+
+# SPDX headers
+
+When adding SPDX headers manually, include a trailing blank line (not a
+commented one) after the block so REUSE automation does not replace existing
+header comments.

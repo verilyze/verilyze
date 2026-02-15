@@ -69,6 +69,12 @@ observable behavior.
 - Do not delete or modify the files in the `LICENSES` directory.
 - **Dashes:** Do not use em dashes or en dashes in code comments or
   documentation. Use `--` instead of em dashes, and `-` instead of en dashes.
+- **SPDX headers (manual):** When adding SPDX copyright/license headers without
+  using REUSE (`make headers` or `reuse annotate`), include a trailing blank
+  line after the header block. Use an actual blank line (empty), not a commented
+  blank line (e.g. `# ` or `// `). This prevents REUSE automation from
+  replacing existing file header comments when it later adds or updates SPDX
+  tags.
 
 ## Quick links
 
