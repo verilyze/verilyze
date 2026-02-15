@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# Install Git hooks for REUSE copyright headers on new files.
+# Install Git hooks: REUSE headers on new files, diagram embedding on .mmd changes.
 # Copies the pre-commit hook into .git/hooks/pre-commit.
 #
 # Run from repository root: ./scripts/install-hooks.sh
@@ -25,8 +25,8 @@ HOOK_FILE="$HOOK_DIR/pre-commit"
 mkdir -p "$HOOK_DIR"
 cat > "$HOOK_FILE" << 'HOOK'
 #!/bin/sh
-# Installed by scripts/install-hooks.sh - adds REUSE headers to new files
-cd "$(git rev-parse --show-toplevel)" && exec ./scripts/pre-commit-headers.sh
+# Installed by scripts/install-hooks.sh - REUSE headers + diagram embedding
+cd "$(git rev-parse --show-toplevel)" && exec ./scripts/pre-commit.sh
 HOOK
 chmod +x "$HOOK_FILE"
 echo "Installed pre-commit hook: $HOOK_FILE"
