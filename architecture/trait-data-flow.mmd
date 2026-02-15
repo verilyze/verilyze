@@ -1,0 +1,8 @@
+flowchart LR
+    Root[Scan root] --> Finder[ManifestFinder::find]
+    Finder --> Manifests[Manifest paths]
+    Manifests --> Parser[Parser::parse]
+    Parser --> DepGraph[DependencyGraph]
+    DepGraph --> Resolver[Resolver::resolve]
+    Resolver --> Packages[Vec Package]
+    Packages --> CVE[CVE lookup]
