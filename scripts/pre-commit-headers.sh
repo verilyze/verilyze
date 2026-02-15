@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # Pre-commit hook logic: add REUSE headers to newly added files using the
-# committer as copyright holder. Invoked by .git/hooks/pre-commit when
+# author as copyright holder. Invoked by .git/hooks/pre-commit when
 # installed via scripts/install-hooks.sh.
 #
 # For newly added files (git diff --cached --diff-filter=A) that need headers,
@@ -40,17 +40,21 @@ if ! [ -d "LICENSES" ]; then
     $REUSE_CMD download "$DEFAULT_LICENSE" >/dev/null 2>&1 || true
 fi
 
-# Verify git config; fall back to DEFAULT_COPYRIGHT from config if unset
-user_name=$(git config user.name 2>/dev/null || true)
-user_email=$(git config user.email 2>/dev/null || true)
-if [ -n "$user_name" ] && [ -n "$user_email" ]; then
-    copyright="$user_name <$user_email>"
-elif [ -n "$DEFAULT_COPYRIGHT" ]; then
-    copyright="$DEFAULT_COPYRIGHT"
+# Determine author for copyright (matches Git's precedence: env vars > config)
+if [ -n "${GIT_AUTHOR_NAME:-}" ] && [ -n "${GIT_AUTHOR_EMAIL:-}" ]; then
+    copyright="${GIT_AUTHOR_NAME} <${GIT_AUTHOR_EMAIL}>"
 else
-    echo "REUSE pre-commit: git user.name and user.email required for copyright headers." >&2
-    echo "  Configure: git config user.name 'Your Name' && git config user.email 'you@example.com'" >&2
-    exit 1
+    user_name=$(git config user.name 2>/dev/null || true)
+    user_email=$(git config user.email 2>/dev/null || true)
+    if [ -n "$user_name" ] && [ -n "$user_email" ]; then
+        copyright="$user_name <$user_email>"
+    elif [ -n "$DEFAULT_COPYRIGHT" ]; then
+        copyright="$DEFAULT_COPYRIGHT"
+    else
+        echo "REUSE pre-commit: GIT_AUTHOR_NAME/GIT_AUTHOR_EMAIL or git user.name/user.email required for copyright headers." >&2
+        echo "  Configure: git config user.name 'Your Name' && git config user.email 'you@example.com'" >&2
+        exit 1
+    fi
 fi
 year=$(date +%Y)
 

@@ -100,7 +100,7 @@ DOC-002).
 | **TLS** | Transport Layer Security – encrypted HTTPS communication. |
 | **PASTA** | Process for Attack Simulation and Threat Analysis (threat modeling framework). |
 | **Error context** | The chain of underlying causes (source) attached to an error, surfacing in verbose mode for debugging. |
-| **REUSE** | FSFE REUSE specification – toolchain for machine-readable copyright and license information; uses `LICENSES/` with SPDX-named files and SPDX headers in sources. |
+| **REUSE** | FSFE REUSE specification – toolchain for machine-readable copyright and license information; uses `LICENSES/` with SPDX-named files and SPDX headers in sources. Copyright holders in SPDX headers are derived from the Git author (creator of the work), not the committer, per REUSE specification. |
 
 ---
 
