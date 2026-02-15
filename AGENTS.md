@@ -36,15 +36,19 @@ sources of truth for the **super-duper (spd)** project.
 When adding or changing behavior (new features, bug fixes, refactors that affect
 behavior), you **must** follow test-driven development (TDD):
 
-1. **Write tests first** — Define tests from expected inputs/outputs or behavior.
+1. **Write tests first** -- Define tests from expected inputs/outputs or behavior.
    Do not create mock implementations for functionality that does not exist yet.
-2. **Run tests and confirm they fail** — Ensure new tests fail for the right reason.
+2. **Run tests and confirm they fail** -- Ensure new tests fail for the right reason.
    Do not write implementation code at this stage.
-3. **Implement to pass** — Write the minimal code that makes the tests pass.
+3. **Implement to pass** -- Write the minimal code that makes the tests pass.
    Do not modify the tests to match the implementation.
-4. **Iterate** — Keep iterating on the implementation until all tests pass.
+4. **Iterate** -- Keep iterating on the implementation until all tests pass.
+5. **Code coverage** -- Ensure code coverage meets or exceeds the minimum
+   thresholds defined in the PRD.md. Add mocking if necessary, and iterate
+   until coverage thresholds are satisfied.
 
-Full workflow and rationale: [CONTRIBUTING.md -- Test-driven development](CONTRIBUTING.md#test-driven-development-tdd).
+Full workflow and rationale:
+[CONTRIBUTING.md -- Test-driven development](CONTRIBUTING.md#test-driven-development-tdd).
 
 **Scope:** This requirement applies only to AI agents. Human contributors may use
 TDD but it remains **preferred**, not required (see CONTRIBUTING.md). Exceptions
@@ -66,11 +70,11 @@ observable behavior.
 
 ## Quick links
 
-| Topic            | Where to look                                  |
-|------------------|------------------------------------------------|
-| Exit codes       | PRD FR-009, FR-010, FR-016; README “Exit codes” |
-| Shell script style | CONTRIBUTING "Code style and checks"; PRD NFR-022 |
-| Config precedence| PRD CFG-001–CFG-008; README “Configuration precedence” |
-| Adding a plugin  | CONTRIBUTING "Adding a new language plugin"; PRD MOD-002 |
-| TDD workflow     | [CONTRIBUTING.md -- Test-driven development](CONTRIBUTING.md#test-driven-development-tdd) |
-| Security         | PRD section 6 (SEC-*), section 11 (Risk & Threat Model); [SECURITY.md](SECURITY.md); [COMPLIANCE.md](COMPLIANCE.md) |
+| Topic              | Where to look                                            |
+|--------------------|----------------------------------------------------------|
+| Exit codes         | PRD FR-009, FR-010, FR-016; README “Exit codes”          |
+| Shell script style | CONTRIBUTING "Code style and checks"; PRD NFR-022        |
+| Config precedence  | PRD CFG-001--CFG-008; README “Configuration precedence”  |
+| Adding a plugin    | CONTRIBUTING "Adding a new language plugin"; PRD MOD-002 |
+| TDD workflow       | [CONTRIBUTING.md -- Test-driven development](CONTRIBUTING.md#test-driven-development-tdd) |
+| Security           | PRD section 6 (SEC-*), section 11 (Risk & Threat Model); [SECURITY.md](SECURITY.md); [COMPLIANCE.md](COMPLIANCE.md) |
