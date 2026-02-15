@@ -308,6 +308,8 @@ the *nontrivial change* threshold (~15 lines per author per file). See
   readability (e.g., long URLs that can't be reasonably broken apart). This
   applies to source code and other text such as Markdown files, but does not
   apply to auto-generated files.
+- In code comments and documentation, do not use em dashes (—) or en dashes (–).
+  Use `--` instead of em dashes, and `-` instead of en dashes.
 
 ### CLI output (stdout)
 
