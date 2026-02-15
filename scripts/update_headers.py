@@ -254,7 +254,7 @@ def resolve_authors(
     """
     Resolve effective authors when get_nontrivial_authors returns empty.
 
-    Fallbacks: first commit author, then most recent committer,
+    Fallbacks: first commit author, then most recent author,
     then default copyright.
     """
     if raw_authors:
