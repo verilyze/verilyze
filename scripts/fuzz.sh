@@ -11,8 +11,13 @@
 #   - AFL++:      https://github.com/AFLplusplus/AFLplusplus
 #
 # Usage:
-#   ./scripts/fuzz.sh              # Smoke test (short run)
+#   ./scripts/fuzz.sh              # Smoke test (all targets)
+#   ./scripts/fuzz.sh --changed    # Run only targets for changed code (skip if none)
+#   ./scripts/fuzz.sh --targets config_toml,requirements_txt  # Explicit subset
+#   ./scripts/fuzz.sh --extended   # Longer timeout (30 min per target)
 #   ./scripts/fuzz.sh --coverage   # Run with cargo-llvm-cov integration
+#
+# FUZZ_TIMEOUT: per-target timeout in seconds. When unset: 30 (smoke) or 1800 (extended).
 #
 # See CONTRIBUTING.md and https://github.com/taiki-e/cargo-llvm-cov#get-coverage-of-afl-fuzzers
 
@@ -20,15 +25,32 @@ set -e
 
 cd "$(dirname "$0")/.." || exit 1
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+FUZZ_TARGETS_ENV="${FUZZ_TARGETS_ENV:-$SCRIPT_DIR/fuzz-targets.env}"
 FUZZ_OUT="${FUZZ_OUT:-/tmp/spd-fuzz-out}"
-SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-30}"
+
 DO_COVERAGE=false
+DO_CHANGED=false
+DO_EXTENDED=false
+TARGETS_FILTER=""
 
 for arg in "$@"; do
     case "$arg" in
         --coverage) DO_COVERAGE=true ;;
+        --changed) DO_CHANGED=true ;;
+        --extended) DO_EXTENDED=true ;;
+        --targets=*) TARGETS_FILTER="${arg#--targets=}" ;;
     esac
 done
+
+# FUZZ_TIMEOUT: override when set; else default 30 (smoke) or 1800 (extended)
+if [[ -n "${FUZZ_TIMEOUT:-}" ]]; then
+    TIMEOUT_SEC="$FUZZ_TIMEOUT"
+elif "$DO_EXTENDED"; then
+    TIMEOUT_SEC=1800
+else
+    TIMEOUT_SEC=30
+fi
 
 # Ensure cargo-afl is available
 command -v cargo-afl >/dev/null 2>&1 || cargo install cargo-afl
@@ -58,15 +80,110 @@ fi
 export RUSTFLAGS="${RUSTFLAGS} -C panic=unwind"
 cargo afl build -p spd-fuzz
 
-CORPUS_CONFIG="tests/fuzz/corpus/config_toml"
-CORPUS_REQS="tests/fuzz/corpus/requirements_txt"
-CORPUS_CONFIG_SET="tests/fuzz/corpus/parse_config_set_arg"
+# Load target-to-path mapping from fuzz-targets.env.
+# Format: target_name=path (one per line; # for comments)
+# bin = fuzz_${target_name}, corpus = tests/fuzz/corpus/${target_name}
+get_all_targets() {
+    local line
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%%#*}"
+        line="${line// }"
+        [[ -z "$line" ]] && continue
+        if [[ "$line" == *=* ]]; then
+            echo "${line%%=*}"
+        fi
+    done < "$FUZZ_TARGETS_ENV"
+}
+
+# Resolve which targets to run.
+TARGETS_TO_RUN=""
+if [[ -n "$TARGETS_FILTER" ]]; then
+    # Explicit --targets=list
+    TARGETS_TO_RUN="$TARGETS_FILTER"
+elif "$DO_CHANGED"; then
+    # Change detection: run only targets whose mapped paths changed, or all if unclear
+    BASE_REF=""
+    if ref=$(git rev-parse --abbrev-ref 'HEAD@{upstream}' 2>/dev/null); then
+        BASE_REF=$(git merge-base HEAD "origin/$ref" 2>/dev/null || true)
+    fi
+    [[ -z "$BASE_REF" ]] && BASE_REF=$(git merge-base HEAD origin/main 2>/dev/null || true)
+    [[ -z "$BASE_REF" ]] && BASE_REF="origin/main"
+
+    CHANGED_FILES=""
+    if [[ -n "$BASE_REF" ]] && git rev-parse --verify "$BASE_REF" >/dev/null 2>&1; then
+        CHANGED_FILES=$(git diff --name-only "$BASE_REF"..HEAD 2>/dev/null || true)
+    fi
+
+    if [[ -z "$CHANGED_FILES" ]] && [[ -z "$BASE_REF" ]]; then
+        echo "Running all fuzz targets (change detection inconclusive)." >&2
+        TARGETS_TO_RUN=$(get_all_targets | tr '\n' ',')
+        TARGETS_TO_RUN="${TARGETS_TO_RUN%,}"
+    elif [[ -n "$CHANGED_FILES" ]]; then
+        # Shared crates: any change triggers "run all"
+        SHARED_PATTERNS="spd-db/ spd-db-redb/ spd-plugin-macro/"
+        RUN_ALL=false
+        for f in $CHANGED_FILES; do
+            for p in $SHARED_PATTERNS; do
+                if [[ "$f" == "$p"* ]]; then
+                    RUN_ALL=true
+                    break 2
+                fi
+            done
+            if [[ "$f" == tests/fuzz/* ]] || [[ "$f" == "Cargo.toml" ]] ||
+                [[ "$f" == "Cargo.lock" ]]; then
+                RUN_ALL=true
+                break
+            fi
+        done
+
+        if "$RUN_ALL"; then
+            echo "Running all fuzz targets (shared/fuzz/crate changes)." >&2
+            TARGETS_TO_RUN=$(get_all_targets | tr '\n' ',')
+            TARGETS_TO_RUN="${TARGETS_TO_RUN%,}"
+        else
+            # Match changed files to target paths
+            matched=""
+            while IFS= read -r line || [[ -n "$line" ]]; do
+                line="${line%%#*}"
+                line="${line// }"
+                [[ -z "$line" ]] || [[ "$line" != *=* ]] && continue
+                target="${line%%=*}"
+                path="${line#*=}"
+                for f in $CHANGED_FILES; do
+                    if [[ "$f" == "$path" ]] || [[ "$f" == "$path"* ]]; then
+                        matched="${matched:+$matched,}$target"
+                        break
+                    fi
+                done
+            done < "$FUZZ_TARGETS_ENV"
+            if [[ -z "$matched" ]]; then
+                echo "No mapped files changed; skipping fuzz (exit 0)." >&2
+                if "$DO_COVERAGE"; then
+                    cargo llvm-cov report --lcov 2>/dev/null || true
+                fi
+                exit 0
+            fi
+            TARGETS_TO_RUN="$matched"
+            echo "Running fuzz targets for changed code: $TARGETS_TO_RUN" >&2
+        fi
+    else
+        echo "No mapped files changed; skipping fuzz (exit 0)." >&2
+        if "$DO_COVERAGE"; then
+            cargo llvm-cov report --lcov 2>/dev/null || true
+        fi
+        exit 0
+    fi
+else
+    # Default: run all targets
+    TARGETS_TO_RUN=$(get_all_targets | tr '\n' ',')
+    TARGETS_TO_RUN="${TARGETS_TO_RUN%,}"
+fi
 
 run_fuzz() {
     local name=$1
     local bin=$2
     local corpus=$3
-    local timeout_sec="${4:-$SMOKE_TIMEOUT}"
+    local timeout_sec="${4:-$TIMEOUT_SEC}"
     if "$DO_COVERAGE"; then
         AFL_FUZZER_LOOPCOUNT=20 timeout "$timeout_sec" cargo afl fuzz \
             -i "$corpus" -o "$FUZZ_OUT/$name" -c - -- "target/debug/$bin" || true
@@ -91,19 +208,25 @@ check_crashes() {
     fi
 }
 
+# Run selected targets
+IFS=',' read -ra TARGET_ARR <<< "$TARGETS_TO_RUN"
+for target in "${TARGET_ARR[@]}"; do
+    target="${target// }"
+    [[ -z "$target" ]] && continue
+    bin="fuzz_${target}"
+    corpus="tests/fuzz/corpus/${target}"
+    if [[ -d "$corpus" ]]; then
+        run_fuzz "$target" "$bin" "$corpus"
+    else
+        echo "Warning: corpus $corpus not found, skipping $target" >&2
+    fi
+done
+
+check_crashes
+
 if "$DO_COVERAGE"; then
-    echo "Running fuzz with coverage (each target ${SMOKE_TIMEOUT}s)..."
-    run_fuzz config_toml fuzz_config_toml "$CORPUS_CONFIG"
-    run_fuzz requirements_txt fuzz_requirements_txt "$CORPUS_REQS"
-    run_fuzz parse_config_set_arg fuzz_parse_config_set_arg "$CORPUS_CONFIG_SET"
-    check_crashes
     cargo llvm-cov report --lcov
     echo "Coverage report generated. See cargo-llvm-cov docs for --html, --cobertura, etc."
 else
-    echo "Running fuzz smoke test (${SMOKE_TIMEOUT}s per target)..."
-    run_fuzz config_toml fuzz_config_toml "$CORPUS_CONFIG"
-    run_fuzz requirements_txt fuzz_requirements_txt "$CORPUS_REQS"
-    run_fuzz parse_config_set_arg fuzz_parse_config_set_arg "$CORPUS_CONFIG_SET"
-    check_crashes
     echo "Fuzz smoke test passed (no crashes)."
 fi
