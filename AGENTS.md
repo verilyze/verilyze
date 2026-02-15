@@ -67,6 +67,8 @@ observable behavior.
 - When changing behavior or CLI, align with the PRD and update README or
   CONTRIBUTING if user- or contributor-facing.
 - Do not delete or modify the files in the `LICENSES` directory.
+- **Dashes:** Do not use em dashes or en dashes in code comments or
+  documentation. Use `--` instead of em dashes, and `-` instead of en dashes.
 
 ## Quick links
 
