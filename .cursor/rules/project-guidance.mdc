@@ -20,3 +20,8 @@ AI agents: when adding or changing behavior, write tests first, confirm they
 fail, then implement. Do not write implementation before tests. (Human
 contributors: TDD is preferred but not required.) See AGENTS.md and
 CONTRIBUTING.md § Test-driven development.
+
+# Writing style
+
+Do not use em dashes or en dashes in code comments or documentation.
+Use `--` for em dashes and `-` for en dashes.
