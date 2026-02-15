@@ -31,6 +31,26 @@ sources of truth for the **super-duper (spd)** project.
   - [architecture/workspace-layout.mmd](architecture/workspace-layout.mmd) --
     Workspace crates and trait definitions.
 
+## AI agent requirements
+
+When adding or changing behavior (new features, bug fixes, refactors that affect
+behavior), you **must** follow test-driven development (TDD):
+
+1. **Write tests first** — Define tests from expected inputs/outputs or behavior.
+   Do not create mock implementations for functionality that does not exist yet.
+2. **Run tests and confirm they fail** — Ensure new tests fail for the right reason.
+   Do not write implementation code at this stage.
+3. **Implement to pass** — Write the minimal code that makes the tests pass.
+   Do not modify the tests to match the implementation.
+4. **Iterate** — Keep iterating on the implementation until all tests pass.
+
+Full workflow and rationale: [CONTRIBUTING.md -- Test-driven development](CONTRIBUTING.md#test-driven-development-tdd).
+
+**Scope:** This requirement applies only to AI agents. Human contributors may use
+TDD but it remains **preferred**, not required (see CONTRIBUTING.md). Exceptions
+for AI: documentation-only, comment/typo fixes, or changes that do not affect
+observable behavior.
+
 ## Conventions
 
 - **TDD:** The project encourages test-driven development. When adding or
@@ -42,8 +62,7 @@ sources of truth for the **super-duper (spd)** project.
   `#[allow(unsafe_code)]` without explicit justification and approval.
 - When changing behavior or CLI, align with the PRD and update README or
   CONTRIBUTING if user- or contributor-facing.
-- Do not delete or modify the contents of the `COPYING` or `LICENSE` files at
-  the root of the project.
+- Do not delete or modify the files in the `LICENSES` directory.
 
 ## Quick links
 
