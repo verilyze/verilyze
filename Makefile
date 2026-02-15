@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # ---- Configuration ----
-# Requires GNU Make 4.0+ (abspath). Run from any dir: make -f <path/to/Makefile> <target>
+# Requires GNU Make 4.0+ (abspath). Portable per OP-017: run from any dir via
+# make -f <path/to/Makefile> <target>
 MKFILE_DIR := $(abspath $(lastword $(MAKEFILE_LIST)))
 MKFILE_DIR := $(patsubst %/,%,$(dir $(MKFILE_DIR)))
 SCRIPTS_DIR := $(MKFILE_DIR)/scripts
