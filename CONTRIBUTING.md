@@ -100,8 +100,9 @@ Run `make` or `make help` for a full list of targets. `make setup` bootstraps
 Python venvs (`.venv-lint`, `.venv-test`) for lint and tests. REUSE is
 auto-installed when `check-headers` runs.
 
-Optional: `make setup-hooks` (git pre-commit); `cargo install cargo-llvm-cov
-cargo-afl` for coverage and fuzz.
+Optional: `make setup-hooks` (git pre-commit). For fuzz: AFL++ is required;
+cargo-afl is auto-installed by the script. For coverage: rustup and cargo-llvm-cov
+are auto-installed; AFL++ required only when `make coverage` runs fuzz first.
 
 ### Quick reference
 
@@ -115,17 +116,37 @@ cargo-afl` for coverage and fuzz.
 | Coverage (with fuzz)  | `make coverage`                   |
 | Coverage (skip fuzz)  | `make coverage-quick`             |
 | Fuzz smoke test       | `make fuzz`                       |
+| Fuzz changed only     | `make fuzz-changed`               |
+| Fuzz extended         | `make fuzz-extended`              |
 
 ### Dependency matrix
 
-| Target               | System deps                      | Bootstrapped by Make            |
-|----------------------|----------------------------------|---------------------------------|
-| `make setup`         | rust, cargo, python3             | .venv-lint, .venv-test          |
-| `make check`         | + shellcheck                     | —                               |
-| `make fuzz`          | + cargo-afl, AFL++               | —                               |
-| `make coverage`      | + cargo-llvm-cov, rustup nightly | Runs fuzz first (~90s+)         |
-| `make coverage-quick`| + cargo-llvm-cov, rustup nightly | Skips fuzz for dev iteration    |
-| `make check-headers` | reuse (or Python)                | .venv-reuse via ensure-reuse.sh |
+What you must install before running each target (system deps), and what the
+Makefile or its scripts install automatically (bootstrapped).
+
+| Target                     | System deps                         | Bootstrapped                        |
+|----------------------------|-------------------------------------|-------------------------------------|
+| `make setup`               | python3                             | .venv-lint, .venv-test              |
+| `make setup-hooks`         | git                                 | —                                   |
+| `make check`               | rust, cargo, python3, shellcheck    | .venv-lint, .venv-test, .venv-reuse |
+| `make check-headers`       | python3 (or pipx, or reuse)         | .venv-reuse via ensure-reuse.sh     |
+| `make headers`             | python3                             | —                                   |
+| `make cargo-check`         | rust, cargo                         | —                                   |
+| `make debug`               | rust, cargo, python3                | .venv-reuse (via check-headers)     |
+| `make release`             | rust, cargo, python3                | .venv-reuse (via check-headers)     |
+| `make unit-tests`          | rust, cargo, python3, shellcheck    | .venv-test                          |
+| `make lint-python`         | python3                             | .venv-lint                          |
+| `make lint-shell`          | shellcheck                          | —                                   |
+| `make fuzz`                | rust, cargo, AFL++                  | cargo-afl (via fuzz.sh)             |
+| `make fuzz-changed`        | rust, cargo, AFL++                  | cargo-afl (via fuzz.sh)             |
+| `make fuzz-extended`       | rust, cargo, AFL++                  | cargo-afl (via fuzz.sh)             |
+| `make coverage`            | rust, cargo, rustup, AFL++, python3 | cargo-afl, cargo-llvm-cov, nightly  |
+| `make coverage-quick`      | rust, cargo, rustup, python3        | cargo-llvm-cov, nightly             |
+| `make update-doc-diagrams` | python3                             | —                                   |
+| `make check-doc-diagrams`  | python3                             | —                                   |
+
+**Coverage:** `make coverage` and `make coverage-quick` run pytest for script
+coverage; run `make setup` first to bootstrap `.venv-test` with pytest.
 
 ## Adding a new language plugin
 
@@ -192,7 +213,8 @@ flowchart LR
    (NFR-020, SEC-017). Parsers accept untrusted manifest files; fuzzing ensures
    no crash on malformed input (SEC-017). Create `tests/fuzz/fuzz_targets/<format>.rs` (e.g.
    `fuzz_pyproject_toml.rs`) and add seed corpus under
-   `tests/fuzz/corpus/<format>/`. Update `scripts/fuzz.sh` and
+   `tests/fuzz/corpus/<format>/`. Update `scripts/fuzz-targets.env` (add one
+   mapping line: `format=path/to/source.rs`), `scripts/fuzz.sh`, and
    `tests/fuzz/Cargo.toml` to include the new target.
 
 See [architecture/PRD.md](architecture/PRD.md) MOD-002 and FR-020 for the
@@ -350,23 +372,27 @@ Stderr can stay as `eprintln!` or `log::error!`.
 
 ### Fuzz testing (NFR-020)
 
-- **Run fuzz:** `make fuzz` or `./scripts/fuzz.sh` runs AFL fuzz targets for
-  config TOML, requirements.txt, and config KEY=VALUE parsing (`config --set`).
-  Supports SEC-017 (no crash on invalid input). Optional for most PRs; `make
-  check` is sufficient for typical development. Fuzz runs before `make
-  coverage` (cargo-llvm-cov + AFL improves metrics; NFR-020).
-- **Exit codes (FR-009):** The script exits 0 when no crashes are detected and
-  exits 1 when crashes are found. Crash paths are printed to stderr and written
-  to `reports/fuzz-crashes.txt` for CI artifact upload. Use `make fuzz` or
-  `./scripts/fuzz.sh` in CI; the non-zero exit propagates to fail the job.
-- **Prerequisites:** Install [cargo-afl](https://github.com/rust-fuzz/afl.rs)
-  (`cargo install cargo-afl`) and
+- **Three tiers:**
+  - **Smoke (default):** `make fuzz` or `./scripts/fuzz.sh` runs all targets
+    (~30 s each). Use for on-demand verification.
+  - **Changed code only:** `make fuzz-changed` or `./scripts/fuzz.sh --changed`
+    runs only targets whose mapped files changed. **Skipped by default** when
+    none of the mapped files have changed (exit 0).
+  - **Extended:** `make fuzz-extended` or `./scripts/fuzz.sh --extended` runs
+    all targets with 30 min timeout each. Use for nightly or deep verification.
+- **Mapping:** `scripts/fuzz-targets.env` maps each target to source paths.
+  Add one mapping entry when adding a new fuzz target.
+- **FUZZ_TIMEOUT:** Overrides per-target timeout (seconds). When unset: 30
+  (smoke) or 1800 (extended).
+- **Exit codes (FR-009):** The script exits 0 when no crashes (or when skipped);
+  exits 1 when crashes are found. Crash paths written to
+  `reports/fuzz-crashes.txt`.
+- **Prerequisites:** [cargo-afl](https://github.com/rust-fuzz/afl.rs) and
   [AFL++](https://github.com/AFLplusplus/AFLplusplus).
-- **Targets:** The `tests/fuzz/` crate provides `fuzz_config_toml`,
-  `fuzz_requirements_txt`, and `fuzz_parse_config_set_arg`. Seed corpus in
-  `tests/fuzz/corpus/`.
-- **Coverage:** Run `./scripts/fuzz.sh --coverage` to integrate with
-  cargo-llvm-cov (see
+- **Targets:** `fuzz_config_toml`, `fuzz_requirements_txt`,
+  `fuzz_parse_config_set_arg`. Seed corpus in `tests/fuzz/corpus/`.
+- **Coverage:** `./scripts/fuzz.sh --coverage` integrates with cargo-llvm-cov
+  (see
   [cargo-llvm-cov AFL docs](https://github.com/taiki-e/cargo-llvm-cov#get-coverage-of-afl-fuzzers)).
 
 ## Test-driven development (TDD)
