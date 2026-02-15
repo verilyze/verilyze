@@ -5,8 +5,7 @@ alwaysApply: true
 
 # Protected Files - Do Not Modify
 
-Do not delete or modify the contents of the `COPYING` or `LICENSE` files at
-the root of the project.
+Do not delete or modify the files in the `LICENSES` directory.
 
 # Project Guidance
 
@@ -14,3 +13,10 @@ Read and follow [AGENTS.md](AGENTS.md) for:
 - Primary references (PRD, CONTRIBUTING, architecture diagrams)
 - Conventions (TDD, SOLID, Unix philosophy, no unsafe code)
 - Quick links (exit codes, config precedence, adding plugins, etc.)
+
+# TDD for AI Agents
+
+AI agents: when adding or changing behavior, write tests first, confirm they
+fail, then implement. Do not write implementation before tests. (Human
+contributors: TDD is preferred but not required.) See AGENTS.md and
+CONTRIBUTING.md § Test-driven development.

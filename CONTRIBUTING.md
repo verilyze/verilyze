@@ -402,8 +402,13 @@ assertions that make the expected outcome obvious.
 
 ### Instructions for AI users
 
-If you use an AI assistant to contribute, instruct your agent to follow the
-following steps:
+AI agents that read [AGENTS.md](AGENTS.md) are expected to follow TDD
+automatically when adding or changing behavior. If you use an AI assistant to
+contribute, you may instruct your agent explicitly using the steps below, or
+rely on it reading AGENTS.md. If your agent is not following TDD, ensure it has
+read AGENTS.md or include one of the prompts below in your request.
+
+**Explicit prompts (optional):**
 
 - **Step 1:** "Write tests based on expected input/output pairs. We are doing
   TDD--do not create mock implementations for functionality that does not exist
