@@ -243,7 +243,7 @@ copyright and license headers. Default license and copyright are defined in
 - **Add/update headers:** `make headers` (runs `scripts/update_headers.py`)
 - **Install Git hooks:** Run `make setup-hooks` or `./scripts/install-hooks.sh`
   to add a pre-commit hook that inserts REUSE headers into newly created files,
-  using the committer as the copyright holder. Requires `git config user.name`
+  using the Git author as the copyright holder. Requires `git config user.name`
   and `user.email` to be set.
 
 REUSE is auto-installed when missing: `scripts/ensure-reuse.sh` tries (in
