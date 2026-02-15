@@ -100,6 +100,7 @@ DOC-002).
 | **TLS** | Transport Layer Security – encrypted HTTPS communication. |
 | **PASTA** | Process for Attack Simulation and Threat Analysis (threat modeling framework). |
 | **Error context** | The chain of underlying causes (source) attached to an error, surfacing in verbose mode for debugging. |
+| **REUSE** | FSFE REUSE specification – toolchain for machine-readable copyright and license information; uses `LICENSES/` with SPDX-named files and SPDX headers in sources. |
 
 ---
 
@@ -125,7 +126,7 @@ DOC-002).
 |----|-------|-------------|---------------------|
 | **FR‑001** | CLI entry point | Binary named `spd`; invoked as `spd <subcommand> [options]`. | **Given** the binary is installed, **when** the user runs `spd --help`, **then** usage information is printed to STDOUT and the process exits with code 0. |
 | **FR‑002** | Program name | `--version` prints `super‑duper <semver>`. | Same pattern as FR‑01, expecting output `super-duper 1.0.0`. |
-| **FR‑003** | License | Source released under **GPL‑3.0‑or‑later**. | Presence of `LICENSE` file containing SPDX identifier `GPL-3.0-or-later`. |
+| **FR‑003** | License | Source released under **GPL‑3.0‑or‑later**. The project uses the REUSE toolchain: license texts live in `LICENSES/` with SPDX identifiers as filenames (e.g. `LICENSES/GPL-3.0-or-later.txt`); SPDX headers in source files; `reuse lint` for verification. | `reuse lint` passes; `LICENSES/GPL-3.0-or-later.txt` exists. |
 | **FR‑004** | Directory scanning | Scan a directory tree (default: cwd) for manifest files; positional argument overrides root. | `spd scan` scans cwd; `spd scan /my/project` scans the supplied path. |
 | **FR‑005** | Manifest discovery (initial) | Detect all registered language plugins (Python, initially). For Python, the default manifest file names are **requirements.txt**, **pyproject.toml**, **Pipfile**, **setup.py**, and **setup.cfg**; this set is overridable via FR‑006 (per-language regex). | `spd list` prints `python`. |
 | **FR‑006** | Configurable regexes | Users can add custom manifest‑file patterns per language. Patterns are evaluated in order, first match wins, and conflicts are resolved by user-defined order. | `spd config --set python.regex="^requirements\\.txt$"` stores the pattern; subsequent scans honor it. |
@@ -287,7 +288,7 @@ DOC-002).
 | **DOC-009** | Release process & semantic versioning | Clear policy for bumping major/minor/patch versions, changelog generation (CHANGELOG.md), and publishing to crates.io. | Each tagged release on GitHub follows the described versioning rules. |
 | **DOC-010** | FAQ & troubleshooting | Common error messages (missing `pip`, DB permission issues, TLS failures) with suggested remediation steps. Every error path defined in the requirements appears in the FAQ with a suggested fix. Includes guidance that verbose output may contain sensitive paths and internal details; users should redact before sharing in bug reports or public channels (NFR-018, SEC-020). | Users can resolve typical problems without opening a new issue. |
 | **DOC-011** | API reference (Rustdoc) | All public crates are documented with `///` comments; `cargo doc --open` generates a browsable HTML reference. | The generated docs contain no undocumented public items. |
-| **DOC-012** | License & attribution | The repository includes a LICENSE file (GPL-3.0-or-later) and a NOTICE file listing third-party licenses. | Both files exist and `cargo deny check-licenses` passes. |
+| **DOC-012** | License & attribution | The repository uses the REUSE toolchain for license and attribution: license texts in `LICENSES/` (e.g. `GPL-3.0-or-later.txt`), SPDX headers in source files, and `reuse lint` for verification. Third-party dependency licenses are checked via `cargo deny check licenses`. See CONTRIBUTING.md for REUSE workflow. | `reuse lint` passes; `cargo deny check licenses` passes. |
 | **DOC-013** | Man pages | Install  `man` pages to the standard locations on Unix systems when using the program's package manager. Also make the man pages available via `spd help` and `spd help <subcommand>`. | `man spd` shows the manual for super-duper. `spd help` shows the same man page for super-duper. |
 
 ---
