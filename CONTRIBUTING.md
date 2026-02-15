@@ -34,8 +34,8 @@ The workspace is split into:
 The binary uses **per-trait registries** (e.g. `FINDERS`, `PARSERS`,
 `RESOLVERS`, `PROVIDERS`, `DB_BACKENDS`, `REPORTERS`, `INTEGRITY_CHECKERS`) and
 calls `ensure_default_*` at startup to push default implementations. Language
-support (e.g. `spd-python`) and optional backends (e.g. SQLite) are gated behind
-Cargo features; see **Feature gating** below.
+support (e.g. `spd-python`) and optional backends (e.g. SQLite) are gated
+behind Cargo features; see **Feature gating** below.
 
 ## Quick setup
 
