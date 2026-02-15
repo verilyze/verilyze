@@ -52,21 +52,14 @@ flowchart LR
 
 ## Configuration precedence
 
-Options are resolved in order (highest wins):
+Options are resolved in precedence order; each source overrides the ones below:
 
-```mermaid
-flowchart LR
-    CLI[CLI flags] --> Env[Env vars]
-    Env --> User[User config]
-    User --> Sys[System config]
-```
-
-1. **CLI flags** (e.g. `--parallel 20`, `--cache-ttl-secs 86400`, `--min-score 7.0`)
+1. **CLI flags** (e.g. `--parallel 20`, `--cache-ttl-secs 86400`, `--min-score 7.0`) -- highest precedence
 2. **Environment variables** `SPD_*` (e.g. `SPD_PARALLEL_QUERIES=20`,
    `SPD_CACHE_TTL_SECS=86400`)
 3. **User config file** (`-c/--config <path>` or default
    `$XDG_CONFIG_HOME/super-duper/super-duper.conf`)
-4. **System config** (`/etc/super-duper.conf`)
+4. **System config** (`/etc/super-duper.conf`) -- lowest precedence
 
 See [architecture/PRD.md](architecture/PRD.md) (CFG-001 - CFG-008) for full
 details.
