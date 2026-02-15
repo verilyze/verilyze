@@ -3,14 +3,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # ---- Configuration ----
-SCRIPTS_DIR := scripts
+# Requires GNU Make 4.0+ (abspath). Run from any dir: make -f <path/to/Makefile> <target>
+MKFILE_DIR := $(abspath $(lastword $(MAKEFILE_LIST)))
+MKFILE_DIR := $(patsubst %/,%,$(dir $(MKFILE_DIR)))
+SCRIPTS_DIR := $(MKFILE_DIR)/scripts
 REUSE_SCRIPT := $(SCRIPTS_DIR)/ensure-reuse.sh
 COVERAGE_SCRIPT := $(SCRIPTS_DIR)/coverage.sh
 FUZZ_SCRIPT := $(SCRIPTS_DIR)/fuzz.sh
 LINT_PYTHON_SCRIPT := $(SCRIPTS_DIR)/lint-python.sh
-VENV_LINT := .venv-lint
-VENV_REUSE := .venv-reuse
-VENV_TEST := .venv-test
+VENV_LINT := $(MKFILE_DIR)/.venv-lint
+VENV_REUSE := $(MKFILE_DIR)/.venv-reuse
+VENV_TEST := $(MKFILE_DIR)/.venv-test
 
 .PHONY: help all debug release
 .PHONY: setup setup-hooks check check-headers headers
@@ -74,12 +77,12 @@ setup: $(VENV_LINT)/bin/black $(VENV_TEST)/bin/pytest
 	@echo "  make coverage-quick # coverage without fuzz (faster)"
 
 setup-hooks:
-	./$(SCRIPTS_DIR)/install-hooks.sh
+	$(SCRIPTS_DIR)/install-hooks.sh
 
 # ---- Headers ----
 # check-headers: verify REUSE compliance (exit nonzero if any file missing header)
 check-headers:
-	@./$(REUSE_SCRIPT) lint
+	@$(REUSE_SCRIPT) lint
 
 # headers: add headers to covered text files (mutates files)
 headers:
@@ -87,17 +90,17 @@ headers:
 
 # ---- Build ----
 cargo-check:
-	cargo check
+	cd "$(MKFILE_DIR)" && cargo check
 
 debug: check-headers
-	cargo build
+	cd "$(MKFILE_DIR)" && cargo build
 
 release: check-headers
-	cargo build --release
+	cd "$(MKFILE_DIR)" && cargo build --release
 
 # ---- Tests ----
 cargo-test:
-	cargo test
+	cd "$(MKFILE_DIR)" && cargo test
 
 # Bootstrap .venv-test with pytest and pytest-cov (NFR-021)
 $(VENV_TEST)/bin/pytest:
@@ -105,7 +108,7 @@ $(VENV_TEST)/bin/pytest:
 	$(VENV_TEST)/bin/pip install pytest pytest-cov
 
 test-scripts: $(VENV_TEST)/bin/pytest lint-shell
-	@$(VENV_TEST)/bin/python -m pytest tests/scripts/ -v
+	@cd "$(MKFILE_DIR)" && $(VENV_TEST)/bin/python -m pytest tests/scripts/ -v
 
 unit-tests: cargo-test test-scripts
 
@@ -117,7 +120,7 @@ $(VENV_LINT)/bin/black:
 
 # lint-python: black, pylint, mypy, bandit (aggregates failures; NFR-021)
 lint-python: $(VENV_LINT)/bin/black
-	./$(LINT_PYTHON_SCRIPT)
+	$(LINT_PYTHON_SCRIPT)
 
 # lint-shell: ShellCheck (NFR-022). Requires shellcheck.
 lint-shell:
@@ -126,24 +129,24 @@ lint-shell:
 # ---- Advanced (fuzz, coverage) ----
 # fuzz: AFL smoke test (NFR-020, SEC-017). Requires cargo-afl and AFL++.
 fuzz:
-	./$(FUZZ_SCRIPT)
+	$(FUZZ_SCRIPT)
 
 # fuzz-changed: run only targets whose mapped files changed; skip if none.
 fuzz-changed:
-	./$(FUZZ_SCRIPT) --changed
+	$(FUZZ_SCRIPT) --changed
 
 # fuzz-extended: run all targets with extended timeout (FUZZ_TIMEOUT=1800 by default).
 fuzz-extended:
-	./$(FUZZ_SCRIPT) --extended
+	$(FUZZ_SCRIPT) --extended
 
 # coverage: Rust + script coverage; runs fuzz first (cargo-llvm-cov + AFL, NFR-012, NFR-020)
 # coverage-quick: same but skips fuzz for faster dev iteration
 # Prereqs: cargo-llvm-cov, rustup nightly, .venv-test (via setup)
 coverage: fuzz
-	./$(COVERAGE_SCRIPT)
+	$(COVERAGE_SCRIPT)
 
 coverage-quick:
-	./$(COVERAGE_SCRIPT)
+	$(COVERAGE_SCRIPT)
 
 # ---- Doc diagrams ----
 # Embed Mermaid diagrams from architecture/*.mmd into README and CONTRIBUTING
@@ -159,14 +162,15 @@ check: check-headers check-doc-diagrams cargo-check unit-tests lint-python lint-
 
 # ---- Clean ----
 clean:
-	@cargo clean
-	@cargo llvm-cov clean --workspace 2>/dev/null || true
-	@find . -name "*.profraw" -delete
-	@find . -name spd-cache.redb -delete
-	@rm -rfv reports/ .mypy_cache .cache
+	@cd "$(MKFILE_DIR)" && cargo clean
+	@cd "$(MKFILE_DIR)" && cargo llvm-cov clean --workspace 2>/dev/null || true
+	@find $(MKFILE_DIR) -type f \( -name "*.profraw" -o \
+                                       -name "spd-cache.redb" \) -delete
+	@find $(MKFILE_DIR) -type d -name "__pycache__" -exec rm -rf {} +
+	@rm -rfv $(MKFILE_DIR)/reports/ $(MKFILE_DIR)/.cache
 
 distclean: clean
-	@rm -rfv .mypy_cache $(VENV_LINT) $(VENV_REUSE) $(VENV_TEST)
+	@rm -rfv $(MKFILE_DIR)/.mypy_cache $(VENV_LINT) $(VENV_REUSE) $(VENV_TEST)
 
 # ---- Default build ----
 all: debug
