@@ -268,6 +268,11 @@ copyright and license headers. Default license and copyright are defined in
   to add a pre-commit hook that inserts REUSE headers into newly created files,
   using the Git author as the copyright holder. Requires `git config user.name`
   and `user.email` to be set.
+- **Manual SPDX headers:** If you add SPDX headers by hand (e.g. when creating
+  a new file before running `make headers`), include a trailing blank line after
+  the header block. Use an actual empty line, not a commented blank line. This
+  ensures REUSE automation does not overwrite or merge incorrectly with
+  existing header content when `reuse annotate` or `make headers` runs later.
 
 REUSE is auto-installed when missing: `scripts/ensure-reuse.sh` tries (in
 order) `reuse` in PATH, `.venv/bin/reuse` if present, then creates
