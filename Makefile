@@ -14,6 +14,7 @@ VENV_TEST := .venv-test
 
 .PHONY: help all debug release
 .PHONY: setup setup-hooks check check-headers headers
+.PHONY: update-doc-diagrams check-doc-diagrams
 .PHONY: cargo-check cargo-test unit-tests test-scripts
 .PHONY: lint-python lint-shell
 .PHONY: fuzz coverage coverage-quick
@@ -38,8 +39,10 @@ help:
 	@echo "    make check       - Headers, build, tests, lint (pre-commit gate)"
 	@echo ""
 	@echo "  Lint:"
-	@echo "    make check-headers - Verify REUSE headers"
-	@echo "    make headers       - Add/update headers (mutates files)"
+	@echo "    make check-headers     - Verify REUSE headers"
+	@echo "    make headers           - Add/update headers (mutates files)"
+	@echo "    make update-doc-diagrams - Embed Mermaid diagrams into README/CONTRIBUTING"
+	@echo "    make check-doc-diagrams  - Verify diagram content is in sync"
 	@echo "    make lint-python   - black, pylint, mypy, bandit"
 	@echo "    make lint-shell    - ShellCheck (requires shellcheck)"
 	@echo ""
@@ -132,9 +135,17 @@ coverage: fuzz
 coverage-quick:
 	./$(COVERAGE_SCRIPT)
 
+# ---- Doc diagrams ----
+# Embed Mermaid diagrams from architecture/*.mmd into README and CONTRIBUTING
+update-doc-diagrams:
+	python3 $(SCRIPTS_DIR)/embed-diagrams.py README.md CONTRIBUTING.md
+
+check-doc-diagrams:
+	python3 $(SCRIPTS_DIR)/embed-diagrams.py --check README.md CONTRIBUTING.md
+
 # ---- Check (full CI gate) ----
 # check: full pre-commit/CI gate (NFR-021, NFR-022, DOC-007)
-check: check-headers cargo-check unit-tests lint-python lint-shell
+check: check-headers check-doc-diagrams cargo-check unit-tests lint-python lint-shell
 
 # ---- Clean ----
 clean:

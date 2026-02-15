@@ -37,6 +37,49 @@ calls `ensure_default_*` at startup to push default implementations. Language
 support (e.g. `spd-python`) and optional backends (e.g. SQLite) are gated
 behind Cargo features; see **Feature gating** below.
 
+See [execution-flow.mmd](architecture/execution-flow.mmd) for the full scan
+pipeline.
+
+```mermaid
+graph TD
+    %% Core binary
+    A["spd (binary crate)"]
+    %% Macro crate (used by binary for plugin registration)
+    M["spd-plugin-macro"]
+    %% Library crates
+    B["spd-manifest-finder"]
+    C["spd-manifest-parser"]
+    D["spd-cve-client"]
+    E["spd-db (trait definitions)"]
+    F["spd-report"]
+    G["spd-integrity"]
+    %% Concrete implementations (plug‑ins)
+    H["spd-db-redb (default DatabaseBackend)"]
+    I["spd-db-sqlite (optional, future)"]
+    J["spd-db-mem (test/mock, future)"]
+    %% Edges from binary to libraries
+    A --> B
+    A --> C
+    A --> D
+    A --> E
+    A --> F
+    A --> G
+    A --> M
+    %% Edges from libraries to the traits they expose (collapsed for brevity)
+    B -.->|defines| ManifestFinder
+    C -.->|defines| Parser
+    D -.->|defines| CveProvider
+    E -.->|defines| DatabaseBackend
+    F -.->|defines| Reporter
+    G -.->|defines| IntegrityChecker
+    %% Registration edges (plug‑in discovery)
+    H -->|"spd_register! (feature = redb)"| A
+    I -->|"spd_register! (feature = sqlite)"| A
+    J -->|"spd_register! (feature = mem)"| A
+    %% Visual styling
+    style A fill:#f9f,stroke:#333,stroke-width:2px
+```
+
 ## Quick setup
 
 | Prerequisite     | Install                                             |
@@ -86,17 +129,68 @@ cargo-afl` for coverage and fuzz.
 
 ## Adding a new language plugin
 
+To add support for a new language (e.g., Java), you implement three traits
+(`ManifestFinder`, `Parser`, `Resolver`), register them via a macro, and gate
+the crate behind a Cargo feature. Formal trait contracts (method signatures,
+error types) are in [architecture/PRD.md](architecture/PRD.md) MOD-002 and
+FR-020. The diagrams below illustrate the model.
+
+**Registration flow** — Plugins register at compile time; the binary discovers
+them at startup:
+
+```mermaid
+sequenceDiagram
+    participant Core as spd "(core binary)"
+    participant Registries as "per-trait OnceLock registries"
+    participant Plugin as "language / provider crate"
+
+    note over Registries: One Vec per trait: FINDERS, PARSERS,<br/>RESOLVERS, PROVIDERS, DB_BACKENDS,<br/>REPORTERS, INTEGRITY_CHECKERS
+
+    %% Plug‑in registration (compile-time, one-way)
+    Plugin -) Registries: spd_register!(Trait, Impl)  // pushes Box::new(Impl) to the matching registry
+
+    %% Runtime start‑up (core reads the compiled registries)
+    Core ->> Registries: ensure_default_*() / enumerate plug‑ins
+    Registries -->> Core: ManifestFinder instances
+    Registries -->> Core: Parser instances
+    Registries -->> Core: Resolver instances
+    Registries -->> Core: CveProvider instances
+    Registries -->> Core: DatabaseBackend instances
+    Registries -->> Core: IntegrityChecker instances
+    Registries -->> Core: Reporter instances
+```
+
+**Data pipeline** — Your `ManifestFinder`, `Parser`, and `Resolver`
+implementations participate in this data pipeline. See
+[execution-flow.mmd](architecture/execution-flow.mmd) for where this pipeline
+fits in the full scan.
+
+```mermaid
+flowchart LR
+    Root[Scan root] --> Finder[ManifestFinder::find]
+    Finder --> Manifests[Manifest paths]
+    Manifests --> Parser[Parser::parse]
+    Parser --> DepGraph[DependencyGraph]
+    DepGraph --> Resolver[Resolver::resolve]
+    Resolver --> Packages[Vec Package]
+    Packages --> CVE[CVE lookup]
+```
+
 1. Create a new crate (e.g. `spd-java`) that implements:
    - `ManifestFinder` -- discover manifest files (e.g. `pom.xml`).
    - `Parser` -- parse manifest into `DependencyGraph`.
    - `Resolver` -- resolve to `Vec<Package>` (e.g. using lock file or package
      manager).
-2. Gate the crate behind a Cargo feature in the `spd` binary.
+2. Gate the crate behind a Cargo feature in the `spd` binary: add your crate
+   (e.g. `spd-java`) as an optional dependency and define a feature (e.g.
+   `java`) that enables it. When the feature is enabled, your crate is compiled
+   and its `spd_register!` calls run (see Registration flow above). For feature
+   mechanics and examples, see **Feature gating** below.
 3. In the binary’s startup path, when the feature is enabled, register your
-   implementations (e.g. push to the appropriate registry or use a registration
-   macro).
+   implementations via `spd_register!` (or push to the registry directly).
 4. **Add a fuzz target** for each manifest or lock format your parser supports
-   (NFR-020, SEC-017). Create `tests/fuzz/fuzz_targets/<format>.rs` (e.g.
+   (NFR-020, SEC-017). Parsers accept untrusted manifest files; fuzzing ensures
+   no crash on malformed input (SEC-017). Create `tests/fuzz/fuzz_targets/<format>.rs` (e.g.
    `fuzz_pyproject_toml.rs`) and add seed corpus under
    `tests/fuzz/corpus/<format>/`. Update `scripts/fuzz.sh` and
    `tests/fuzz/Cargo.toml` to include the new target.
@@ -184,7 +278,7 @@ the *nontrivial change* threshold (~15 lines per author per file). See
 - We **encourage** a **test-driven development (TDD)** approach (see below).
   Add unit tests in the crate that owns the logic; integration tests where
   appropriate. We may ask for tests to be added or updated before merging.
-- Keep line lenghts to less than 100 characters. Give a best effort at keeping
+- Keep line lengths to less than 100 characters. Give a best effort at keeping
   line lengths below 80 characters (i.e., 79 characters or less) so that users
   with 80-character terminals can view the entire line, even when viewing
   patch files/diffs. Some lines can extend past this guideline when it improves

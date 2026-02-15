@@ -37,9 +37,27 @@ spd scan --format json
 spd list
 ```
 
+## How it works
+
+```mermaid
+flowchart LR
+    Dir[Project directory] --> Find[Find manifests]
+    Find --> Parse[Parse dependencies]
+    Parse --> Resolve[Resolve versions]
+    Resolve --> CVE[Check CVEs]
+    CVE --> Report[Report results]
+```
+
 ## Configuration precedence
 
 Options are resolved in order (highest wins):
+
+```mermaid
+flowchart LR
+    CLI[CLI flags] --> Env[Env vars]
+    Env --> User[User config]
+    User --> Sys[System config]
+```
 
 1. **CLI flags** (e.g. `--parallel 20`, `--cache-ttl-secs 86400`, `--min-score 7.0`)
 2. **Environment variables** `SPD_*` (e.g. `SPD_PARALLEL_QUERIES=20`,

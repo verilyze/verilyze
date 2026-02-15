@@ -1,0 +1,6 @@
+flowchart LR
+    Dir[Project directory] --> Find[Find manifests]
+    Find --> Parse[Parse dependencies]
+    Parse --> Resolve[Resolve versions]
+    Resolve --> CVE[Check CVEs]
+    CVE --> Report[Report results]
