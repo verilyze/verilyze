@@ -9,7 +9,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 Fast, modular Software Composition Analysis (SCA) tool for dependency
 vulnerabilities. Written in Rust.
 
-**License:** GPL-3.0-or-later. See [LICENSES/GPL-3.0-or-later.txt](LICENSES/GPL-3.0-or-later.txt) for the full text.
+**License:** GPL-3.0-or-later. See
+[LICENSES/GPL-3.0-or-later.txt](LICENSES/GPL-3.0-or-later.txt) for the full
+text.
 
 ## Installation
 
@@ -66,14 +68,15 @@ flowchart LR
    `$XDG_CONFIG_HOME/super-duper/super-duper.conf`)
 4. **System config** (`/etc/super-duper.conf`)
 
-See [architecture/PRD.md](architecture/PRD.md) (CFG-001–CFG-008) for full details.
+See [architecture/PRD.md](architecture/PRD.md) (CFG-001 - CFG-008) for full
+details.
 
-| Key | Default | Env var | CLI flag |
-|-----|---------|---------|----------|
-| cache_ttl_secs | 432000 (5 days) | SPD_CACHE_TTL_SECS | --cache-ttl-secs |
-| parallel_queries | 10 | SPD_PARALLEL_QUERIES | --parallel |
-| min_score | 0 | SPD_MIN_SCORE | --min-score |
-| min_count | 0 | SPD_MIN_COUNT | --min-count |
+| Key              | Default         | Env var              | CLI flag         |
+|------------------|-----------------|----------------------|------------------|
+| cache_ttl_secs   | 432000 (5 days) | SPD_CACHE_TTL_SECS   | --cache-ttl-secs |
+| parallel_queries | 10              | SPD_PARALLEL_QUERIES | --parallel       |
+| min_score        | 0               | SPD_MIN_SCORE        | --min-score      |
+| min_count        | 0               | SPD_MIN_COUNT        | --min-count      |
 
 Changing **cache_ttl_secs** only affects new cache entries; existing entries
 keep their stored expiry until they expire or are purged.
@@ -82,21 +85,21 @@ Run `spd config --list` to print effective values.
 
 ## CLI reference (summary)
 
-| Subcommand | Description |
-|------------|-------------|
-| `spd scan [PATH]` | Scan for manifests and CVEs; optional path (default: cwd) |
-| `spd list` | List registered language plugins |
-| `spd config --list` | Show effective configuration |
+| Subcommand                   | Description                                                   |
+|------------------------------|---------------------------------------------------------------|
+| `spd scan [PATH]`            | Scan for manifests and CVEs; optional path (default: cwd)     |
+| `spd list`                   | List registered language plugins                              |
+| `spd config --list`          | Show effective configuration                                  |
 | `spd config --set KEY=VALUE` | Set a config key (e.g. `python.regex="^requirements\\.txt$"`) |
-| `spd db list-providers` | List CVE providers (e.g. osv) |
-| `spd db stats` | Cache statistics |
+| `spd db list-providers`      | List CVE providers (e.g. osv)                                 |
+| `spd db stats`               | Cache statistics                                              |
 | `spd db show [--format FORMAT] [--full]` | Display cache entries (key, TTL, added-at, CVE summary or full payload) |
 | `spd db set-ttl SECS [--entry KEY] [--all] [--pattern PATTERN] [--entries KEYS]` | Update TTL for existing cache entries |
-| `spd db verify` | Verify database integrity (SHA-256) |
-| `spd db migrate` | Run migrations |
-| `spd fp mark CVE-ID [--comment ...]` | Mark CVE as false positive |
-| `spd fp unmark CVE-ID` | Remove false-positive marking |
-| `spd --version` | Print version |
+| `spd db verify`              | Verify database integrity (SHA-256)                           |
+| `spd db migrate`             | Run migrations                                                |
+| `spd fp mark CVE-ID [--comment ...]` | Mark CVE as false positive                            |
+| `spd fp unmark CVE-ID`       | Remove false-positive marking                                 |
+| `spd --version`              | Print version                                                 |
 
 **Scan options (examples):** `--format plain|json|sarif`,
 `--summary-file html:path,json:path`, `--provider osv`, `--parallel N`,
@@ -106,14 +109,14 @@ Run `spd config --list` to print effective values.
 
 ## Exit codes
 
-| Code | Meaning |
-|------|---------|
-| 0 | Success (no CVEs, or only false-positives when using default fp-exit-code) |
-| 1 | Panic / internal error |
-| 2 | Misconfiguration (unknown key, invalid value, etc.) |
-| 3 | Missing required package manager |
-| 4 | CVE lookup needed but `--offline` |
-| 86 | One or more CVEs meet threshold (overridable via `--exit-code-on-cve`) |
+| Code | Meaning                                                                    |
+|------|----------------------------------------------------------------------------|
+| 0    | Success (no CVEs, or only false-positives when using default fp-exit-code) |
+| 1    | Panic / internal error                                                     |
+| 2    | Misconfiguration (unknown key, invalid value, etc.)                        |
+| 3    | Missing required package manager                                           |
+| 4    | CVE lookup needed but `--offline`                                          |
+| 86   | One or more CVEs meet threshold (overridable via `--exit-code-on-cve`)     |
 
 ## Testing
 

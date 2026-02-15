@@ -88,6 +88,7 @@ graph TD
 | python3 (≥3.11)  | OS package manager                                  |
 | shellcheck       | `apt install shellcheck` / `dnf install ShellCheck` |
 | afl++ (for fuzz) | [AFL++](https://github.com/AFLplusplus/AFLplusplus) |
+| make             | OS package manager (GNU Make 4.0+ required)         |
 
 After cloning, run:
 
@@ -127,23 +128,23 @@ Makefile or its scripts install automatically (bootstrapped).
 | Target                     | System deps                         | Bootstrapped                        |
 |----------------------------|-------------------------------------|-------------------------------------|
 | `make setup`               | python3                             | .venv-lint, .venv-test              |
-| `make setup-hooks`         | git                                 | —                                   |
+| `make setup-hooks`         | git                                 | -                                   |
 | `make check`               | rust, cargo, python3, shellcheck    | .venv-lint, .venv-test, .venv-reuse |
 | `make check-headers`       | python3 (or pipx, or reuse)         | .venv-reuse via ensure-reuse.sh     |
-| `make headers`             | python3                             | —                                   |
-| `make cargo-check`         | rust, cargo                         | —                                   |
+| `make headers`             | python3                             | -                                   |
+| `make cargo-check`         | rust, cargo                         | -                                   |
 | `make debug`               | rust, cargo, python3                | .venv-reuse (via check-headers)     |
 | `make release`             | rust, cargo, python3                | .venv-reuse (via check-headers)     |
 | `make unit-tests`          | rust, cargo, python3, shellcheck    | .venv-test                          |
 | `make lint-python`         | python3                             | .venv-lint                          |
-| `make lint-shell`          | shellcheck                          | —                                   |
+| `make lint-shell`          | shellcheck                          | -                                   |
 | `make fuzz`                | rust, cargo, AFL++                  | cargo-afl (via fuzz.sh)             |
 | `make fuzz-changed`        | rust, cargo, AFL++                  | cargo-afl (via fuzz.sh)             |
 | `make fuzz-extended`       | rust, cargo, AFL++                  | cargo-afl (via fuzz.sh)             |
 | `make coverage`            | rust, cargo, rustup, AFL++, python3 | cargo-afl, cargo-llvm-cov, nightly  |
 | `make coverage-quick`      | rust, cargo, rustup, python3        | cargo-llvm-cov, nightly             |
-| `make update-doc-diagrams` | python3                             | —                                   |
-| `make check-doc-diagrams`  | python3                             | —                                   |
+| `make update-doc-diagrams` | python3                             | -                                   |
+| `make check-doc-diagrams`  | python3                             | -                                   |
 
 **Coverage:** `make coverage` and `make coverage-quick` run pytest for script
 coverage; run `make setup` first to bootstrap `.venv-test` with pytest.
@@ -156,7 +157,7 @@ the crate behind a Cargo feature. Formal trait contracts (method signatures,
 error types) are in [architecture/PRD.md](architecture/PRD.md) MOD-002 and
 FR-020. The diagrams below illustrate the model.
 
-**Registration flow** — Plugins register at compile time; the binary discovers
+**Registration flow** -- Plugins register at compile time; the binary discovers
 them at startup:
 
 ```mermaid
@@ -181,7 +182,7 @@ sequenceDiagram
     Registries -->> Core: Reporter instances
 ```
 
-**Data pipeline** — Your `ManifestFinder`, `Parser`, and `Resolver`
+**Data pipeline** -- Your `ManifestFinder`, `Parser`, and `Resolver`
 implementations participate in this data pipeline. See
 [execution-flow.mmd](architecture/execution-flow.mmd) for where this pipeline
 fits in the full scan.
@@ -224,10 +225,10 @@ formal trait contracts.
 
 The `spd` binary supports optional capabilities via Cargo features:
 
-- **default** = `["redb", "python"]` — full build with Python support and RedB backend.
-- **redb** — RedB database backend for CVE cache and false-positive DB.
-- **python** — Python language plugin (`spd-python` crate).
-- **sqlite**, **mem** — placeholders for future backends.
+- **default** = `["redb", "python"]` -- full build with Python support and RedB backend.
+- **redb** -- RedB database backend for CVE cache and false-positive DB.
+- **python** -- Python language plugin (`spd-python` crate).
+- **sqlite**, **mem** -- placeholders for future backends.
 
 Build a **minimal binary** (no Python, no RedB) with:
 
@@ -328,10 +329,10 @@ Stderr can stay as `eprintln!` or `log::error!`.
      `rustup toolchain install nightly` and
      `rustup component add llvm-tools --toolchain nightly`
   3. Run coverage from the repo root:
-     - **Full run (CI):** `make coverage` — runs fuzz first (cargo-llvm-cov +
+     - **Full run (CI):** `make coverage` -- runs fuzz first (cargo-llvm-cov +
        AFL improves metrics; NFR-012, NFR-020), then coverage. Slower (~90s+
        for fuzz).
-     - **Quick run (dev):** `make coverage-quick` — skips fuzz, runs coverage
+     - **Quick run (dev):** `make coverage-quick` -- skips fuzz, runs coverage
        only. Use when you have not changed fuzz-relevant code.
      - Direct script: `./scripts/coverage.sh` (same as `make coverage-quick`).
      - The script uses the
@@ -342,20 +343,21 @@ Stderr can stay as `eprintln!` or `log::error!`.
      - Reports: `reports/rust/html/index.html` (Rust HTML),
        `reports/cobertura.xml` (Rust Cobertura), `reports/python/index.html`
        (Python HTML), `reports/cobertura-python.xml` (Python Cobertura).
-     - Thresholds (NFR-012, NFR-017): Rust >= 85% line, >= 80% function,
-       >= 85% region; scripts >= 85% line. The coverage run **exits 1** when
-       below threshold.
-  **Note:** Branch coverage is currently **disabled** in the default coverage
-  run (line, function, and region coverage only). Enabling `--branch` can
-  trigger an LLVM llvm-cov crash (SIGSEGV) when the report includes the
-  proc-macro crate. Until that toolchain bug is resolved, coverage reports show
-  line, function, and region metrics; branch threshold (70%) remains the target
-  when branch coverage is re-enabled.
+     - Thresholds (NFR-012, NFR-017): Rust >= 85% line, >= 80% function, >= 85%
+       region; scripts >= 85% line. The coverage run **exits 1** when
+       below these thresholds.
 - **CI:** The Cobertura XML files (`reports/cobertura.xml`,
   `reports/cobertura-python.xml`) are consumed by common CI systems; see
   [taiki-e/cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov) or
   [taiki-e/install-action](https://github.com/taiki-e/install-action) for
   GitHub Actions.
+
+**[!NOTE]** Branch coverage is currently **disabled** in the default coverage
+run (line, function, and region coverage only). Enabling `--branch` can
+trigger an LLVM llvm-cov crash (SIGSEGV) when the report includes the
+proc-macro crate. Until that toolchain bug is resolved, coverage reports show
+line, function, and region metrics; branch threshold (70%) remains the target
+when branch coverage is re-enabled.
 
 ### Script testing (NFR-021)
 
@@ -376,7 +378,7 @@ Stderr can stay as `eprintln!` or `log::error!`.
   - **Smoke (default):** `make fuzz` or `./scripts/fuzz.sh` runs all targets
     (~30 s each). Use for on-demand verification.
   - **Changed code only:** `make fuzz-changed` or `./scripts/fuzz.sh --changed`
-    runs only targets whose mapped files changed. **Skipped by default** when
+    runs only targets whose mapped files changed. **Skipped** when
     none of the mapped files have changed (exit 0).
   - **Extended:** `make fuzz-extended` or `./scripts/fuzz.sh --extended` runs
     all targets with 30 min timeout each. Use for nightly or deep verification.
@@ -407,23 +409,27 @@ the appropriate integration test layout.
 under test (or same crate) in a `#[cfg(test)] mod tests` block; integration
 tests live in a top-level `tests/` directory or, for the binary, in tests that
 run the built executable. **Documenting expected behavior:** Each test should
-make the behavior it verifies clear—e.g. descriptive test names, a short `///`
+make the behavior it verifies clear--e.g. descriptive test names, a short `///`
 doc comment tying the test to a requirement (e.g. FR-006, SEC-006), or
 assertions that make the expected outcome obvious.
 
 ### TDD workflow
 
 1. **Write tests** -- Define tests from expected inputs and outputs (or
-   behavior). Be explicit that you are doing TDD so that agents do not create
-   mock implementations for functionality that does not exist yet.
-2. **Run tests and confirm they fail** – Run the test suite and ensure the new
+   behavior) based on PRD requirements. When using an AI agent, be explicit
+   that you are doing TDD so that agents do not create mock implementations for
+   functionality that does not exist yet.
+2. **Run tests and confirm they fail** -- Run the test suite and ensure the new
    tests fail for the right reason. Do not write implementation code at this
    stage.
 3. **Commit the tests** -- Once the tests are satisfactory, commit them.
 4. **Implement to pass** -- Write the minimal code that makes the tests pass.
    Do not change the tests to match the implementation; iterate on the code
    until all tests pass.
-5. **Commit the implementation** -- When all tests pass and you are satisfied,
+5. **Code coverage** -- Ensure code coverage meets or exceeds minimum
+   thresholds. Add mocking if necessary, and iterate until coverage targets are
+   satisfied.
+6. **Commit the implementation** -- When all tests pass and you are satisfied,
    commit the implementation.
 
 ### Instructions for AI users
@@ -434,17 +440,19 @@ contribute, you may instruct your agent explicitly using the steps below, or
 rely on it reading AGENTS.md. If your agent is not following TDD, ensure it has
 read AGENTS.md or include one of the prompts below in your request.
 
-**Explicit prompts (optional):**
+**Explicit prompts:**
 
 - **Step 1:** "Write tests based on expected input/output pairs. We are doing
-  TDD--do not create mock implementations for functionality that does not exist
-  yet."
+  TDD--do not create mock implementations for functionality that does not yet
+  exist."
 - **Step 2:** "Run the tests and confirm they fail. Do not write implementation
   code at this stage."
 - **Step 3:** Commit the tests when satisfied.
 - **Step 4:** "Write code that passes the tests. Do not modify the tests. Keep
   iterating until all tests pass."
-- **Step 5:** Commit the implementation when satisfied.
+- **Step 5:**: At this point, if mocking is required, implement it now and
+  confirm code coverage thresholds are met.
+- **Step 6:** Commit the implementation when satisfied.
 
 ## Requirements
 

@@ -31,11 +31,11 @@ copyright purposes. The threshold is configured in `pyproject.toml` under
 
 The following do **not** count as nontrivial contributions for copyright purposes:
 
-- **Ideas only** — Suggestions, design input, or concepts without accompanying code
+- **Ideas only** -- Suggestions, design input, or concepts without accompanying code
   or text. (These may deserve credit in an "Ideas by:" section but are not
   copyrightable contributions.)
-- **Bug reports** — Describing a problem without providing a fix.
-- **Mechanical renames** — e.g. renaming a symbol across many locations. Such
+- **Bug reports** -- Describing a problem without providing a fix.
+- **Mechanical renames** -- e.g. renaming a symbol across many locations. Such
   changes are repetitive and do not represent substantial new authorship.
 
 ## Application
@@ -53,4 +53,4 @@ that file's copyright notice.
 > mind, however, that a series of minor changes by the same person can add up to a
 > significant contribution.
 >
-> — [GNU: Legally Significant Changes](https://www.gnu.org/prep/maintain/html_node/Legally-Significant.html)
+> -- [GNU: Legally Significant Changes](https://www.gnu.org/prep/maintain/html_node/Legally-Significant.html)
