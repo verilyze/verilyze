@@ -17,7 +17,7 @@ VENV_TEST := .venv-test
 .PHONY: update-doc-diagrams check-doc-diagrams
 .PHONY: cargo-check cargo-test unit-tests test-scripts
 .PHONY: lint-python lint-shell
-.PHONY: fuzz coverage coverage-quick
+.PHONY: fuzz fuzz-changed fuzz-extended coverage coverage-quick
 .PHONY: clean distclean
 
 .DEFAULT_GOAL := help
@@ -48,6 +48,8 @@ help:
 	@echo ""
 	@echo "  Advanced (slower):"
 	@echo "    make fuzz         - AFL fuzz smoke test (needs cargo-afl, AFL++)"
+	@echo "    make fuzz-changed  - Fuzz only targets for changed code (skip if none)"
+	@echo "    make fuzz-extended - Fuzz all targets, extended timeout (30 min each)"
 	@echo "    make coverage     - Coverage report (runs fuzz first; needs cargo-llvm-cov)"
 	@echo "    make coverage-quick - Coverage without fuzz (faster dev iteration)"
 	@echo ""
@@ -125,6 +127,14 @@ lint-shell:
 # fuzz: AFL smoke test (NFR-020, SEC-017). Requires cargo-afl and AFL++.
 fuzz:
 	./$(FUZZ_SCRIPT)
+
+# fuzz-changed: run only targets whose mapped files changed; skip if none.
+fuzz-changed:
+	./$(FUZZ_SCRIPT) --changed
+
+# fuzz-extended: run all targets with extended timeout (FUZZ_TIMEOUT=1800 by default).
+fuzz-extended:
+	./$(FUZZ_SCRIPT) --extended
 
 # coverage: Rust + script coverage; runs fuzz first (cargo-llvm-cov + AFL, NFR-012, NFR-020)
 # coverage-quick: same but skips fuzz for faster dev iteration

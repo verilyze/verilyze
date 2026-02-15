@@ -115,6 +115,12 @@ Run `spd config --list` to print effective values.
 | 4 | CVE lookup needed but `--offline` |
 | 86 | One or more CVEs meet threshold (overridable via `--exit-code-on-cve`) |
 
+## Testing
+
+Run `make check` for the standard pre-commit gate. For fuzz testing (smoke,
+changed-code-only, or extended), see [CONTRIBUTING.md](CONTRIBUTING.md)
+(Fuzz testing § NFR-020).
+
 ## Documentation
 
 - **Requirements and architecture:** [architecture/PRD.md](architecture/PRD.md)
