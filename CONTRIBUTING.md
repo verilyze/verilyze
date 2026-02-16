@@ -82,15 +82,23 @@ graph TD
 
 ## Quick setup
 
-| Prerequisite     | Install                                             |
-|------------------|-----------------------------------------------------|
-| rust, cargo      | [rustup](https://rustup.rs/)                        |
-| python3 (≥3.11)  | OS package manager                                  |
-| shellcheck       | `apt install shellcheck` / `dnf install ShellCheck` |
-| afl++ (for fuzz) | [AFL++](https://github.com/AFLplusplus/AFLplusplus) |
-| make             | OS package manager (GNU Make 4.0+ required)         |
+**Required (install before `make check`)**
 
-After cloning, run:
+| Dependency       | Purpose                                    | Install                       |
+| ---------------- | ------------------------------------------ | ----------------------------- |
+| Rust, Cargo      | Build and test                             | [rustup](https://rustup.rs/)  |
+| Python 3 (≥3.11) | Scripts, linters, tests                    | OS package manager            |
+| ShellCheck       | Shell script linting                       | OS package manager            |
+| GNU Make (4.0+)  | Build orchestration                        | OS package manager            |
+| Git              | Contributing, hooks, fuzz change detection | OS package manager            |
+
+**Recommended**
+
+| Dependency | Purpose                                | Install                                             |
+| ---------- | -------------------------------------- | --------------------------------------------------- |
+| AFL++      | Fuzzing (`make fuzz`, `make coverage`) | [AFL++](https://github.com/AFLplusplus/AFLplusplus) |
+
+After installing dependencies and cloning, run:
 
 ```sh
 make setup
@@ -98,56 +106,26 @@ make check
 ```
 
 Run `make` or `make help` for a full list of targets. `make setup` bootstraps
-Python venvs (`.venv-lint`, `.venv-test`) for lint and tests. REUSE is
-auto-installed when `check-headers` runs.
-
-Optional: `make setup-hooks` (git pre-commit). For fuzz: AFL++ is required;
-cargo-afl is auto-installed by the script. For coverage: rustup and cargo-llvm-cov
-are auto-installed; AFL++ required only when `make coverage` runs fuzz first.
+Python venvs; REUSE is auto-installed when `check-headers` runs. Optional:
+`make setup-hooks` for git pre-commit. For fuzz: AFL++ must be installed;
+cargo-afl is auto-installed. For coverage: rustup, cargo-llvm-cov, and nightly
+are auto-installed; AFL++ required only when `make coverage` runs (since it
+runs fuzz first).
 
 ### Quick reference
 
-| Workflow              | Target                            |
-|-----------------------|-----------------------------------|
-| List all targets      | `make` / `make help`              |
-| Bootstrap environment | `make setup`                      |
-| Full CI check         | `make check`                      |
-| Quick build           | `make cargo-check` / `make debug` |
-| Run tests             | `make unit-tests`                 |
-| Coverage (with fuzz)  | `make coverage`                   |
-| Coverage (skip fuzz)  | `make coverage-quick`             |
-| Fuzz smoke test       | `make fuzz`                       |
-| Fuzz changed only     | `make fuzz-changed`               |
-| Fuzz extended         | `make fuzz-extended`              |
-
-### Dependency matrix
-
-What you must install before running each target (system deps), and what the
-Makefile or its scripts install automatically (bootstrapped).
-
-| Target                     | System deps                         | Bootstrapped                        |
-|----------------------------|-------------------------------------|-------------------------------------|
-| `make setup`               | python3                             | .venv-lint, .venv-test              |
-| `make setup-hooks`         | git                                 | -                                   |
-| `make check`               | rust, cargo, python3, shellcheck    | .venv-lint, .venv-test, .venv-reuse |
-| `make check-headers`       | python3 (or pipx, or reuse)         | .venv-reuse via ensure-reuse.sh     |
-| `make headers`             | python3                             | -                                   |
-| `make cargo-check`         | rust, cargo                         | -                                   |
-| `make debug`               | rust, cargo, python3                | .venv-reuse (via check-headers)     |
-| `make release`             | rust, cargo, python3                | .venv-reuse (via check-headers)     |
-| `make unit-tests`          | rust, cargo, python3, shellcheck    | .venv-test                          |
-| `make lint-python`         | python3                             | .venv-lint                          |
-| `make lint-shell`          | shellcheck                          | -                                   |
-| `make fuzz`                | rust, cargo, AFL++                  | cargo-afl (via fuzz.sh)             |
-| `make fuzz-changed`        | rust, cargo, AFL++                  | cargo-afl (via fuzz.sh)             |
-| `make fuzz-extended`       | rust, cargo, AFL++                  | cargo-afl (via fuzz.sh)             |
-| `make coverage`            | rust, cargo, rustup, AFL++, python3 | cargo-afl, cargo-llvm-cov, nightly  |
-| `make coverage-quick`      | rust, cargo, rustup, python3        | cargo-llvm-cov, nightly             |
-| `make update-doc-diagrams` | python3                             | -                                   |
-| `make check-doc-diagrams`  | python3                             | -                                   |
-
-**Coverage:** `make coverage` and `make coverage-quick` run pytest for script
-coverage; run `make setup` first to bootstrap `.venv-test` with pytest.
+| Workflow              | Target                |
+|-----------------------|-----------------------|
+| List all targets      | `make` / `make help`  |
+| Bootstrap environment | `make setup`          |
+| Full CI check         | `make check`          |
+| Quick build           | `make debug`          |
+| Run tests             | `make unit-tests`     |
+| Coverage (with fuzz)  | `make coverage`       |
+| Coverage (skip fuzz)  | `make coverage-quick` |
+| Fuzz smoke test       | `make fuzz`           |
+| Fuzz changed only     | `make fuzz-changed`   |
+| Fuzz extended         | `make fuzz-extended`  |
 
 ## Adding a new language plugin
 
@@ -313,7 +291,7 @@ the *nontrivial change* threshold (~15 lines per author per file). See
   readability (e.g., long URLs that can't be reasonably broken apart). This
   applies to source code and other text such as Markdown files, but does not
   apply to auto-generated files.
-- In code comments and documentation, do not use em dashes (—) or en dashes (–).
+- In code comments and documentation, do not use em dashes or en dashes.
   Use `--` instead of em dashes, and `-` instead of en dashes.
 
 ### CLI output (stdout)
