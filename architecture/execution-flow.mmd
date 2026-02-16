@@ -16,10 +16,10 @@ flowchart TD
     Parse["Parser::parse(manifest)"]
     Resolve["Resolver::resolve(dep‑graph)"]
     Reachability["Reachability analysis (optional / phased, FR-032)"]
-    
+
     %% Cache handling
     CacheCheck{Cache hit?}
-    
+
     %% Offline handling
     OfflineCheck{Offline?}
 
@@ -27,17 +27,17 @@ flowchart TD
     FPFilter["Apply false‑positive DB"]
     Severity["Map CVSS → severity"]
     Threshold["Count & compare to min‑score / min‑count"]
-    
+
     %% Exit‑code logic
     ExitDecision{"Determine exit code"}
     ExitNormal["0 – success (no CVE)"]
     ExitCVE["86 – CVE(s) meet thresholds"]
     ExitOverride["Override (user‑defined)"]
-    
+
     %% Reporting
     Report["Reporter::render(report)"]
     BenchReport["Emit benchmark JSON (duration, mem, cpu)"]
-    
+
     %% Finish
     End([Finish])
 
