@@ -586,4 +586,272 @@ class TestMainPrintConfig:
                     exit_code = update_headers.main()
         assert exit_code == 1
 
+    def test_main_full_run_updated_count(self, tmp_path: Path) -> None:
+        """Run main with mocked deps to cover ThreadPoolExecutor and print."""
+        (tmp_path / "scripts").mkdir()
+        (tmp_path / "scripts" / "ensure-reuse.sh").write_text("#!/bin/sh\nexit 0\n")
+        (tmp_path / "LICENSES").mkdir()
+        with patch("sys.argv", ["update_headers.py"]):
+            with patch(
+                "scripts.update_headers.get_repo_root",
+                return_value=tmp_path,
+            ):
+                with patch("os.chdir"):
+                    with patch(
+                        "scripts.update_headers.collect_files",
+                        return_value=[],
+                    ):
+                        exit_code = update_headers.main()
+        assert exit_code == 0
+
+    def test_main_downloads_license_when_missing(self, tmp_path: Path) -> None:
+        """Run main when LICENSES dir does not exist; covers download path."""
+        (tmp_path / "scripts").mkdir()
+        (tmp_path / "scripts" / "ensure-reuse.sh").write_text("#!/bin/sh\nexit 0\n")
+        assert not (tmp_path / "LICENSES").exists()
+        with patch("sys.argv", ["update_headers.py"]):
+            with patch(
+                "scripts.update_headers.get_repo_root",
+                return_value=tmp_path,
+            ):
+                with patch("os.chdir"):
+                    with patch(
+                        "scripts.update_headers.collect_files",
+                        return_value=[],
+                    ):
+                        with patch("scripts.update_headers.run") as mock_run:
+                            mock_run.return_value = MagicMock(
+                                returncode=0, stdout="", stderr=""
+                            )
+                            exit_code = update_headers.main()
+        assert exit_code == 0
+        assert mock_run.call_count >= 1
+
+    def test_main_prints_updated_files(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Run main with one file that gets annotated; covers print(result) path."""
+        (tmp_path / "scripts").mkdir()
+        (tmp_path / "scripts" / "ensure-reuse.sh").write_text("#!/bin/sh\nexit 0\n")
+        (tmp_path / "LICENSES").mkdir()
+        with patch("sys.argv", ["update_headers.py"]):
+            with patch(
+                "scripts.update_headers.get_repo_root",
+                return_value=tmp_path,
+            ):
+                with patch("os.chdir"):
+                    with patch(
+                        "scripts.update_headers.collect_files",
+                        return_value=["new.py"],
+                    ):
+                        with patch(
+                            "scripts.update_headers.process_one_file",
+                            return_value="Annotated: new.py",
+                        ):
+                            exit_code = update_headers.main()
+        assert exit_code == 0
+        out, _ = capsys.readouterr()
+        assert "Annotated: new.py" in out
+
+
+class TestCoveredFilesExcludePaths:
+    """Tests for collect_files exclude_paths behavior."""
+
+    def test_excludes_path_starting_with_exclude_prefix(self, tmp_path: Path) -> None:
+        config: update_headers.HeadersConfig = {
+            "default_copyright": "x",
+            "default_license": "GPL-3.0-or-later",
+            "nontrivial_lines": 15,
+            "extensions": ("py",),
+            "literal_names": (),
+            "exclude_paths": ("vendor",),
+        }
+        mock_result = MagicMock(
+            returncode=0,
+            stdout="vendor/sub/module.py\0",
+        )
+        with patch("scripts.update_headers.run", return_value=mock_result):
+            result = collect_files(tmp_path, config)
+        assert "vendor/sub/module.py" not in result
+
+
+class TestHeadersMatchReadError:
+    """Tests for headers_match error paths."""
+
+    def test_returns_false_on_read_error(self, tmp_path: Path) -> None:
+        f = tmp_path / "bad.py"
+        f.write_text("content\n", encoding="utf-8")
+        config: update_headers.HeadersConfig = {
+            "default_copyright": "x",
+            "default_license": "GPL-3.0-or-later",
+            "nontrivial_lines": 15,
+            "extensions": ("py",),
+            "literal_names": (),
+            "exclude_paths": (),
+        }
+        with patch.object(Path, "read_text", side_effect=OSError("read failed")):
+            assert (
+                headers_match(tmp_path, "bad.py", ["2024 A <a@x>"], config)
+                is False
+            )
+
+
+class TestAnnotateFileForceDotLicense:
+    """Tests for annotate_file --force-dot-license fallback."""
+
+    def test_skips_author_with_empty_identifier(self, tmp_path: Path) -> None:
+        f = tmp_path / "test.py"
+        f.write_text("code\n", encoding="utf-8")
+        config: update_headers.HeadersConfig = {
+            "default_copyright": "x",
+            "default_license": "GPL-3.0-or-later",
+            "nontrivial_lines": 15,
+            "extensions": (),
+            "literal_names": (),
+            "exclude_paths": (),
+        }
+        mock_ok = MagicMock(returncode=0, stdout="", stderr="")
+        with patch("scripts.update_headers.run", return_value=mock_ok):
+            with patch(
+                "scripts.update_headers.get_reuse_cmd",
+                return_value=Path("/bin/echo"),
+            ):
+                ok = annotate_file(
+                    tmp_path, "test.py", ["2024", "2023 Alice <a@x>"], config
+                )
+        assert ok is True
+
+    def test_returns_true_when_force_dot_license_succeeds(self, tmp_path: Path) -> None:
+        f = tmp_path / "test.mmd"
+        f.write_text("graph\n", encoding="utf-8")
+        config: update_headers.HeadersConfig = {
+            "default_copyright": "x",
+            "default_license": "GPL-3.0-or-later",
+            "nontrivial_lines": 15,
+            "extensions": (),
+            "literal_names": (),
+            "exclude_paths": (),
+        }
+        first_fail = MagicMock(returncode=1, stdout="", stderr="")
+        second_ok = MagicMock(returncode=0, stdout="", stderr="")
+        with patch(
+            "scripts.update_headers.run",
+            side_effect=[first_fail, second_ok],
+        ):
+            with patch(
+                "scripts.update_headers.get_reuse_cmd",
+                return_value=Path("/bin/echo"),
+            ):
+                ok = annotate_file(
+                    tmp_path, "test.mmd", ["2024 A <a@x>"], config
+                )
+        assert ok is True
+
+
+class TestProcessOneFileEdgeCases:
+    """Tests for process_one_file edge cases."""
+
+    def test_returns_none_when_file_nonexistent(self, tmp_path: Path) -> None:
+        config: update_headers.HeadersConfig = {
+            "default_copyright": "x",
+            "default_license": "GPL-3.0-or-later",
+            "nontrivial_lines": 15,
+            "extensions": ("py",),
+            "literal_names": (),
+            "exclude_paths": (),
+        }
+        result = process_one_file(
+            tmp_path, "nonexistent.py", None, config
+        )
+        assert result is None
+
+    def test_returns_none_when_annotate_fails(self, tmp_path: Path) -> None:
+        f = tmp_path / "noheader.py"
+        f.write_text("print(1)\n", encoding="utf-8")
+        config: update_headers.HeadersConfig = {
+            "default_copyright": "x",
+            "default_license": "GPL-3.0-or-later",
+            "nontrivial_lines": 15,
+            "extensions": ("py",),
+            "literal_names": (),
+            "exclude_paths": (),
+        }
+        with patch("scripts.update_headers.run", return_value=MagicMock(returncode=1)):
+            with patch(
+                "scripts.update_headers.get_reuse_cmd",
+                return_value=Path("/bin/echo"),
+            ):
+                result = process_one_file(tmp_path, "noheader.py", None, config)
+        assert result is None
+
+
+class TestParseGitLogNumstatEdgeCases:
+    """Tests for _parse_git_log_numstat edge cases."""
+
+    def test_non_digit_add_uses_zero(self) -> None:
+        log = "Alice <a@x>\n2024\nabc\t5\tfoo.py"
+        result = _parse_git_log_numstat(log, 15)
+        assert result == []
+
+    def test_author_with_year_unknown_firstyear(self) -> None:
+        log = "Alice <a@x>\n2024\n20\t0\tfoo.py"
+        result = _parse_git_log_numstat(log, 15)
+        assert result == ["2024 Alice <a@x>"]
+
+
+class TestExtractFileIdentifiersNoMatch:
+    """Tests for _extract_file_identifiers."""
+
+    def test_copyright_line_with_year_only_no_identifier(self) -> None:
+        header = "SPDX-FileCopyrightText: 2024\nSPDX-License-Identifier: MIT"
+        result = _extract_file_identifiers(header)
+        assert result == set()
+
+
+class TestGetNontrivialAuthorsCacheErrors:
+    """Tests for get_nontrivial_authors cache error handling."""
+
+    def test_continues_on_cache_read_error(self, tmp_path: Path) -> None:
+        config: update_headers.HeadersConfig = {
+            "default_copyright": "x",
+            "default_license": "GPL-3.0-or-later",
+            "nontrivial_lines": 15,
+            "extensions": (),
+            "literal_names": (),
+            "exclude_paths": (),
+        }
+        cache_dir = tmp_path / ".cache"
+        cache_dir.mkdir()
+        rev_result = MagicMock(returncode=0, stdout="abc123")
+        digest = hashlib.sha256(b"abc123:foo.py").hexdigest()
+        (cache_dir / digest).write_text("x")
+        with patch("scripts.update_headers.run", side_effect=[rev_result, MagicMock(returncode=0, stdout="Alice <a@x>\n2024\n20\t0\tfoo.py")]):
+            with patch.object(Path, "read_text", side_effect=OSError):
+                result = get_nontrivial_authors(
+                    tmp_path, "foo.py", cache_dir, config
+                )
+        assert result == ["2024 Alice <a@x>"]
+
+    def test_continues_on_cache_write_error(self, tmp_path: Path) -> None:
+        config: update_headers.HeadersConfig = {
+            "default_copyright": "x",
+            "default_license": "GPL-3.0-or-later",
+            "nontrivial_lines": 15,
+            "extensions": (),
+            "literal_names": (),
+            "exclude_paths": (),
+        }
+        cache_dir = tmp_path / ".cache"
+        rev_result = MagicMock(returncode=0, stdout="abc123")
+        log_result = MagicMock(returncode=0, stdout="Alice <a@x>\n2024\n20\t0\tfoo.py")
+        with patch(
+            "scripts.update_headers.run",
+            side_effect=[rev_result, log_result],
+        ):
+            with patch.object(Path, "write_text", side_effect=OSError):
+                result = get_nontrivial_authors(
+                    tmp_path, "foo.py", cache_dir, config
+                )
+        assert result == ["2024 Alice <a@x>"]
+
 # REUSE-IgnoreEnd
