@@ -7,3 +7,9 @@
 pub mod cli;
 pub mod config;
 pub mod registry;
+pub mod run;
+
+#[cfg(any(test, feature = "testing"))]
+pub mod mocks;
+
+pub use run::run;

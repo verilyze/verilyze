@@ -39,6 +39,23 @@ cargo +nightly build --workspace --exclude spd-fuzz
 # Run all workspace tests (exclude spd-fuzz; it uses AFL and is run via make fuzz).
 cargo +nightly test --workspace --exclude spd-fuzz
 
+# Run the spd binary to capture main.rs and run() coverage (binary is not a test target).
+# Use isolated XDG dirs so we do not touch user config or cache.
+run_cov_bin() {
+  env XDG_CONFIG_HOME=/tmp/spd-cov-cfg XDG_CACHE_HOME=/tmp/spd-cov-cache \
+    XDG_DATA_HOME=/tmp/spd-cov-data cargo +nightly run --bin spd -- "$@"
+}
+run_cov_bin version
+run_cov_bin -v version
+run_cov_bin list
+run_cov_bin config --list
+run_cov_bin db stats
+run_cov_bin db verify
+run_cov_bin db show --format json
+run_cov_bin preload
+mkdir -p /tmp/spd-cov-scan
+run_cov_bin scan /tmp/spd-cov-scan --offline --benchmark
+
 # Generate Rust reports (NFR-017: fail if coverage below threshold)
 # Use || true so script continues to Python coverage even when Rust fails
 ERR=0

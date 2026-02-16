@@ -297,4 +297,21 @@ mod tests {
         assert_eq!(cli.config.as_deref(), Some("/etc/spd.toml"));
         assert!(matches!(cli.cmd, Commands::List));
     }
+
+    #[test]
+    fn parse_config_set_arg_valid() {
+        assert_eq!(parse_config_set_arg("a=b"), Some(("a", "b")));
+        assert_eq!(
+            parse_config_set_arg("key = val "),
+            Some(("key", "val"))
+        );
+        assert_eq!(parse_config_set_arg("x="), Some(("x", "")));
+    }
+
+    #[test]
+    fn parse_config_set_arg_invalid() {
+        assert_eq!(parse_config_set_arg(""), None);
+        assert_eq!(parse_config_set_arg("=value"), None);
+        assert_eq!(parse_config_set_arg("key"), None);
+    }
 }

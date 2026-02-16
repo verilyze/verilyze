@@ -45,14 +45,20 @@ spd-db-redb = { path = "../spd-db-redb", optional = true }
 # Macro for plugin registration (used in registry.rs)
 spd-plugin-macro = { path = "../spd-plugin-macro" }
 
+# For mock implementations (feature = "testing")
+async-trait = { version = "0.1", optional = true }
+
 [dev-dependencies]
 tempfile = "3"
 temp-env = "0.3"
 
 # Feature gating – matches MOD‑003
 [features]
-default = ["redb", "python"]
+default = ["redb", "python", "testing"]
 redb = ["spd-db-redb"]
 python = ["spd-python"]
+# Mocks and registry clear helpers for integration tests (integration tests
+# build spd as a dep, so cfg(test) is false; this feature enables them).
+testing = ["async-trait"]
 sqlite = []      # placeholder for a future SQLite backend
 mem = []         # placeholder for an in‑memory/mock backend
