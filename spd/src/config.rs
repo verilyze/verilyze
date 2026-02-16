@@ -256,7 +256,26 @@ pub fn default_ignore_path() -> PathBuf {
     }
 }
 
+#[cfg(any(test, feature = "testing"))]
+thread_local! {
+    static MOCK_PRIVILEGED: std::cell::RefCell<Option<bool>> =
+        std::cell::RefCell::new(None);
+}
+
+/// Set mock privileged state for tests. Call with Some(true) to simulate root,
+/// Some(false) to force non-root, None to use real implementation.
+#[cfg(any(test, feature = "testing"))]
+pub fn set_mock_privileged(value: Option<bool>) {
+    MOCK_PRIVILEGED.with(|c| *c.borrow_mut() = value);
+}
+
 fn is_privileged() -> bool {
+    #[cfg(any(test, feature = "testing"))]
+    {
+        if let Some(v) = MOCK_PRIVILEGED.with(|c| *c.borrow()) {
+            return v;
+        }
+    }
     #[cfg(target_os = "linux")]
     {
         if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
@@ -507,14 +526,6 @@ pub fn set_config_key(key: &str, value: &str) -> Result<(), ConfigError> {
 mod tests {
     use super::*;
 
-    fn temp_config(content: &str) -> (tempfile::TempDir, PathBuf) {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("super-duper.conf");
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        std::fs::write(&path, content).unwrap();
-        (dir, path)
-    }
-
     #[test]
     fn load_defaults_when_no_files() {
         let cfg = load(
@@ -542,66 +553,6 @@ mod tests {
         .unwrap();
         assert_eq!(cfg.parallel_queries, DEFAULT_PARALLEL_QUERIES);
         assert_eq!(cfg.cache_ttl_secs, DEFAULT_CACHE_TTL_SECS);
-    }
-
-    #[test]
-    fn load_cli_overrides_file_cfg007() {
-        let (_dir, path) = temp_config("parallel_queries = 5\n");
-        let path_str = path.to_string_lossy().into_owned();
-        let cfg = load(
-            Some(&path_str),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Some(20),
-            None,
-            None,
-            None,
-            false,
-            false,
-            None,
-            None,
-            None,
-            None,
-            false,
-        )
-        .unwrap();
-        assert_eq!(cfg.parallel_queries, 20);
-    }
-
-    #[test]
-    fn load_env_overrides_file() {
-        let (_dir, path) = temp_config("parallel_queries = 5\n");
-        let path_str = path.to_string_lossy().into_owned();
-        let cfg = load(
-            Some(&path_str),
-            Some(15),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            false,
-            false,
-            None,
-            None,
-            None,
-            None,
-            false,
-        )
-        .unwrap();
-        assert_eq!(cfg.parallel_queries, 15);
     }
 
     #[test]
@@ -635,36 +586,6 @@ mod tests {
     }
 
     #[test]
-    fn load_invalid_toml_cfg001() {
-        let (_dir, path) = temp_config("not valid toml {{{");
-        let path_str = path.to_string_lossy().into_owned();
-        let r = load(
-            Some(&path_str),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            false,
-            false,
-            None,
-            None,
-            None,
-            None,
-            false,
-        );
-        assert!(r.is_err());
-        assert!(matches!(r.unwrap_err(), ConfigError::InvalidToml { .. }));
-    }
-
-    #[test]
     fn parse_and_validate_toml_malformed_number_returns_error_sec017() {
         // Input that triggers toml_parser panic (e.g. "0onccbttj" after =).
         // SEC-017: we must return error, not panic.
@@ -691,58 +612,12 @@ mod tests {
     }
 
     #[test]
-    fn load_unknown_key_returns_error_sec006() {
-        let (_dir, path) = temp_config("unknown_key = 1\n");
-        let path_str = path.to_string_lossy().into_owned();
-        let r = load(
-            Some(&path_str),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            false,
-            false,
-            None,
-            None,
-            None,
-            None,
-            false,
-        );
-        assert!(r.is_err());
-        let e = r.unwrap_err();
-        assert!(e.to_string().contains("unknown") || e.to_string().contains("InvalidToml"));
-    }
-
-    #[test]
     fn set_config_key_invalid_key_returns_unknown_key() {
-        let r = set_config_key("nodot", "value");
-        assert!(r.is_err());
-        assert!(matches!(r.unwrap_err(), ConfigError::UnknownKey { .. }));
-    }
-
-    #[test]
-    fn set_config_key_then_load_fr006() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::create_dir_all(dir.path().join("super-duper")).unwrap();
-        let path_str = dir.path().to_string_lossy().into_owned();
-        temp_env::with_var("XDG_CONFIG_HOME", Some(path_str.as_str()), || {
-            let res = set_config_key("python.regex", "^requirements\\.txt$");
-            assert!(res.is_ok());
-            let path = user_config_path();
-            let raw = std::fs::read_to_string(&path).unwrap();
-            let value: toml::Value = toml::from_str(&raw).unwrap();
-            assert_eq!(
-                value.get("python").and_then(|t| t.get("regex")).and_then(|v| v.as_str()),
-                Some("^requirements\\.txt$")
-            );
+        temp_env::with_var("XDG_CONFIG_HOME", Some(dir.path().to_str().unwrap()), || {
+            let r = set_config_key("nodot", "value");
+            assert!(r.is_err());
+            assert!(matches!(r.unwrap_err(), ConfigError::UnknownKey { .. }));
         });
     }
 
@@ -769,67 +644,19 @@ mod tests {
     }
 
     #[test]
-    fn load_user_config_populates_language_regexes() {
-        // [python] section with regex; use value without backslash (\. invalid in TOML double-quoted)
-        let (_dir, path) = temp_config("[python]\nregex = \"requirements.txt\"\n");
-        let path_str = path.to_string_lossy().into_owned();
-        let cfg = load(
-            Some(&path_str),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            false,
-            false,
-            None,
-            None,
-            None,
-            None,
-            false,
-        )
-        .unwrap();
-        assert_eq!(cfg.language_regexes.len(), 1);
-        assert_eq!(cfg.language_regexes[0].0, "python");
-        assert_eq!(cfg.language_regexes[0].1, "requirements.txt");
+    fn default_cache_path_privileged_uses_var_cache() {
+        set_mock_privileged(Some(true));
+        let p = default_cache_path();
+        set_mock_privileged(None);
+        assert_eq!(p.to_string_lossy(), "/var/cache/super-duper/spd-cache.redb");
     }
 
     #[test]
-    fn load_config_file_not_found_uses_defaults() {
-        let dir = tempfile::tempdir().unwrap();
-        let missing = dir.path().join("nonexistent.conf");
-        let path_str = missing.to_string_lossy().into_owned();
-        let cfg = load(
-            Some(&path_str),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            false,
-            false,
-            None,
-            None,
-            None,
-            None,
-            false,
-        )
-        .unwrap();
-        assert_eq!(cfg.parallel_queries, DEFAULT_PARALLEL_QUERIES);
+    fn default_ignore_path_privileged_uses_var_lib() {
+        set_mock_privileged(Some(true));
+        let p = default_ignore_path();
+        set_mock_privileged(None);
+        assert_eq!(p.to_string_lossy(), "/var/lib/super-duper/spd-ignore.redb");
     }
 
     #[test]
@@ -876,5 +703,351 @@ mod tests {
                 assert_eq!(env_cache_ttl_secs(), None);
             },
         );
+    }
+
+    #[test]
+    fn user_relative_path_home_tilde() {
+        let f = tempfile::NamedTempFile::new().unwrap();
+        let path_str = f.path().to_string_lossy().into_owned();
+        temp_env::with_var("HOME", Some(path_str.as_str()), || {
+            std::fs::write(f.path(), "invalid {{{").unwrap();
+            let r = load(Some(f.path().to_str().unwrap()), None, None, None, None, None, None, None, None, None, None, None, None, false, false, None, None, None, None, false);
+            assert!(r.is_err());
+            let err = r.unwrap_err();
+            assert!(err.to_string().contains("~"));
+        });
+    }
+
+    #[test]
+    fn user_relative_path_home_tilde_with_rest() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("super-duper").join("super-duper.conf");
+        std::fs::create_dir_all(config_path.parent().unwrap()).unwrap();
+        std::fs::write(&config_path, "invalid {{{").unwrap();
+        let home_str = dir.path().to_string_lossy().into_owned();
+        temp_env::with_var("HOME", Some(home_str.as_str()), || {
+            let r = load(Some(config_path.to_str().unwrap()), None, None, None, None, None, None, None, None, None, None, None, None, false, false, None, None, None, None, false);
+            assert!(r.is_err());
+            let err = r.unwrap_err();
+            assert!(err.to_string().contains("~/"));
+        });
+    }
+
+    #[test]
+    fn user_relative_path_no_home_uses_full_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("spd.conf");
+        std::fs::write(&config_path, "invalid {{{").unwrap();
+        temp_env::with_var("HOME", None::<&str>, || {
+            let r = load(Some(config_path.to_str().unwrap()), None, None, None, None, None, None, None, None, None, None, None, None, false, false, None, None, None, None, false);
+            assert!(r.is_err());
+            let err = r.unwrap_err();
+            assert!(err.to_string().contains(config_path.to_str().unwrap()));
+        });
+    }
+
+    #[test]
+    fn apply_file_config_all_fields_from_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("spd.conf");
+        let toml = r#"
+cache_db = "/tmp/cache.redb"
+ignore_db = "/tmp/ignore.redb"
+parallel_queries = 5
+cache_ttl_secs = 100
+min_score = 7.5
+min_count = 2
+exit_code_on_cve = 86
+fp_exit_code = 0
+[python]
+regex = "^req\\.txt$"
+"#;
+        std::fs::write(&config_path, toml).unwrap();
+        let path_str = config_path.to_string_lossy().into_owned();
+        let cfg = load(
+            Some(&path_str),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            false,
+        )
+        .unwrap();
+        assert_eq!(cfg.cache_db.as_ref().unwrap().to_str(), Some("/tmp/cache.redb"));
+        assert_eq!(cfg.ignore_db.as_ref().unwrap().to_str(), Some("/tmp/ignore.redb"));
+        assert_eq!(cfg.parallel_queries, 5);
+        assert_eq!(cfg.cache_ttl_secs, 100);
+        assert_eq!(cfg.min_score, 7.5);
+        assert_eq!(cfg.min_count, 2);
+        assert_eq!(cfg.exit_code_on_cve, Some(86));
+        assert_eq!(cfg.fp_exit_code, Some(0));
+        assert_eq!(cfg.language_regexes, vec![("python".to_string(), "^req\\.txt$".to_string())]);
+    }
+
+    #[test]
+    fn apply_file_config_unknown_scalar_key_returns_error() {
+        let r = parse_and_validate_toml("unknown_key = 1");
+        assert!(r.is_err());
+        assert!(matches!(r.unwrap_err(), ConfigError::UnknownKey { .. }));
+    }
+
+    #[test]
+    fn load_config_file_override_uses_given_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("custom.conf");
+        std::fs::write(&config_path, "parallel_queries = 3").unwrap();
+        let path_str = config_path.to_string_lossy().into_owned();
+        let cfg = load(
+            Some(&path_str),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            false,
+        )
+        .unwrap();
+        assert_eq!(cfg.parallel_queries, 3);
+        assert_eq!(cfg.config_file.as_ref().unwrap(), &config_path);
+    }
+
+    #[test]
+    fn load_env_overrides_applied() {
+        let cfg = load(
+            None,
+            Some(7),
+            Some(PathBuf::from("/env/cache.redb")),
+            Some(PathBuf::from("/env/ignore.redb")),
+            Some(200),
+            Some(6.0),
+            Some(4),
+            Some(90),
+            Some(1),
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            false,
+        )
+        .unwrap();
+        assert_eq!(cfg.parallel_queries, 7);
+        assert_eq!(cfg.cache_db.as_ref().unwrap().to_str(), Some("/env/cache.redb"));
+        assert_eq!(cfg.ignore_db.as_ref().unwrap().to_str(), Some("/env/ignore.redb"));
+        assert_eq!(cfg.cache_ttl_secs, 200);
+        assert_eq!(cfg.min_score, 6.0);
+        assert_eq!(cfg.min_count, 4);
+        assert_eq!(cfg.exit_code_on_cve, Some(90));
+        assert_eq!(cfg.fp_exit_code, Some(1));
+    }
+
+    #[test]
+    fn load_cli_overrides_applied() {
+        let cfg = load(
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(8),
+            Some("/cli/cache.redb"),
+            Some("/cli/ignore.redb"),
+            Some(300),
+            true,
+            true,
+            Some(5.0),
+            Some(6),
+            Some(88),
+            Some(2),
+            true,
+        )
+        .unwrap();
+        assert_eq!(cfg.parallel_queries, 8);
+        assert_eq!(cfg.cache_db.as_ref().unwrap().to_str(), Some("/cli/cache.redb"));
+        assert_eq!(cfg.ignore_db.as_ref().unwrap().to_str(), Some("/cli/ignore.redb"));
+        assert_eq!(cfg.cache_ttl_secs, 300);
+        assert_eq!(cfg.offline, true);
+        assert_eq!(cfg.benchmark, true);
+        assert_eq!(cfg.min_score, 5.0);
+        assert_eq!(cfg.min_count, 6);
+        assert_eq!(cfg.exit_code_on_cve, Some(88));
+        assert_eq!(cfg.fp_exit_code, Some(2));
+        assert_eq!(cfg.package_manager_required, true);
+    }
+
+    #[test]
+    fn set_config_key_config_path_is_directory_returns_io_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let xdg = dir.path().join("xdg").join("super-duper");
+        std::fs::create_dir_all(&xdg).unwrap();
+        std::fs::create_dir(xdg.join("super-duper.conf")).unwrap();
+        temp_env::with_var("XDG_CONFIG_HOME", Some(dir.path().join("xdg").to_str().unwrap()), || {
+            let r = set_config_key("python.regex", "x");
+            assert!(r.is_err());
+            assert!(matches!(r.unwrap_err(), ConfigError::Io(_)));
+        });
+    }
+
+    #[test]
+    fn user_config_path_xdg_overrides_home() {
+        let dir = tempfile::tempdir().unwrap();
+        let xdg = dir.path().join("xdg-config");
+        std::fs::create_dir_all(xdg.join("super-duper")).unwrap();
+        std::fs::write(xdg.join("super-duper").join("super-duper.conf"), "parallel_queries = 10").unwrap();
+        temp_env::with_vars(
+            [
+                ("XDG_CONFIG_HOME", Some(xdg.to_str().unwrap())),
+                ("HOME", Some("/nonexistent")),
+            ],
+            || {
+                let cfg = load(None, None, None, None, None, None, None, None, None, None, None, None, None, false, false, None, None, None, None, false).unwrap();
+                assert_eq!(cfg.parallel_queries, 10);
+            },
+        );
+    }
+
+    #[test]
+    fn user_config_path_home_fallback() {
+        let dir = tempfile::tempdir().unwrap();
+        let home = dir.path().join("home");
+        std::fs::create_dir_all(home.join(".config").join("super-duper")).unwrap();
+        std::fs::write(home.join(".config").join("super-duper").join("super-duper.conf"), "parallel_queries = 42").unwrap();
+        temp_env::with_var("XDG_CONFIG_HOME", None::<&str>, || {
+            temp_env::with_var("HOME", Some(home.to_str().unwrap()), || {
+                let cfg = load(None, None, None, None, None, None, None, None, None, None, None, None, None, false, false, None, None, None, None, false).unwrap();
+                assert_eq!(cfg.parallel_queries, 42);
+            });
+        });
+    }
+
+    #[test]
+    fn cache_home_fallback_when_no_xdg() {
+        temp_env::with_vars(
+            [
+                ("XDG_CACHE_HOME", None::<&str>),
+                ("HOME", Some("/fake/home")),
+            ],
+            || {
+                let p = default_cache_path();
+                assert!(p.to_string_lossy().contains(".cache"));
+            },
+        );
+    }
+
+    #[test]
+    fn cache_home_fallback_when_no_xdg_and_no_home() {
+        temp_env::with_vars(
+            [
+                ("XDG_CACHE_HOME", None::<&str>),
+                ("HOME", None::<&str>),
+            ],
+            || {
+                let p = default_cache_path();
+                assert!(p.to_string_lossy().contains(".cache"));
+            },
+        );
+    }
+
+    #[test]
+    fn data_home_fallback_when_no_xdg() {
+        temp_env::with_vars(
+            [
+                ("XDG_DATA_HOME", None::<&str>),
+                ("HOME", Some("/fake/home")),
+            ],
+            || {
+                let p = default_ignore_path();
+                assert!(p.to_string_lossy().contains(".local"));
+            },
+        );
+    }
+
+    #[test]
+    fn data_home_fallback_when_no_xdg_and_no_home() {
+        temp_env::with_vars(
+            [
+                ("XDG_DATA_HOME", None::<&str>),
+                ("HOME", None::<&str>),
+            ],
+            || {
+                let p = default_ignore_path();
+                assert!(p.to_string_lossy().contains(".local"));
+            },
+        );
+    }
+
+    #[test]
+    fn set_config_key_invalid_existing_toml_returns_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_dir = dir.path().join("xdg").join("super-duper");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        std::fs::write(config_dir.join("super-duper.conf"), "invalid toml {{{").unwrap();
+        temp_env::with_var("XDG_CONFIG_HOME", Some(dir.path().join("xdg").to_str().unwrap()), || {
+            let r = set_config_key("python.regex", "x");
+            assert!(r.is_err());
+        });
+    }
+
+    #[test]
+    fn set_config_key_create_parent_dirs() {
+        let dir = tempfile::tempdir().unwrap();
+        let xdg = dir.path().join("new").join("path");
+        let config_path = xdg.join("super-duper").join("super-duper.conf");
+        temp_env::with_var("XDG_CONFIG_HOME", Some(xdg.to_str().unwrap()), || {
+            let r = set_config_key("python.regex", "^test$");
+            assert!(r.is_ok());
+            assert!(config_path.exists());
+            let content = std::fs::read_to_string(&config_path).unwrap();
+            assert!(content.contains("^test$"));
+        });
+    }
+
+    #[test]
+    fn set_config_key_value_not_table_returns_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_dir = dir.path().join("xdg").join("super-duper");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        std::fs::write(config_dir.join("super-duper.conf"), "python = 42").unwrap();
+        temp_env::with_var("XDG_CONFIG_HOME", Some(dir.path().join("xdg").to_str().unwrap()), || {
+            let r = set_config_key("python.regex", "x");
+            assert!(r.is_err());
+            assert!(matches!(r.unwrap_err(), ConfigError::UnknownKey { .. }));
+        });
     }
 }

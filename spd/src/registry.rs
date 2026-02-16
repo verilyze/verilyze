@@ -199,6 +199,32 @@ pub fn registry_test_mutex() -> &'static Mutex<()> {
     REGISTRY_TEST_MUTEX.get_or_init(|| Mutex::new(()))
 }
 
+/// Clear registries for test use. Call before registering mocks (e.g. FailingResolver).
+#[cfg(any(test, feature = "testing"))]
+pub fn clear_resolvers() {
+    resolvers().lock().unwrap().clear();
+}
+
+#[cfg(any(test, feature = "testing"))]
+pub fn clear_providers() {
+    providers().lock().unwrap().clear();
+}
+
+#[cfg(any(test, feature = "testing"))]
+pub fn clear_db_backends() {
+    db_backends().lock().unwrap().clear();
+}
+
+#[cfg(any(test, feature = "testing"))]
+pub fn clear_reporters() {
+    reporters().lock().unwrap().clear();
+}
+
+#[cfg(any(test, feature = "testing"))]
+pub fn clear_integrity_checkers() {
+    integrity_checkers().lock().unwrap().clear();
+}
+
 // ---------------------------------------------------------------------
 // Unit tests – mutate global registries. Single test runs all steps
 // sequentially to avoid races when tests run in parallel.
@@ -273,7 +299,11 @@ mod tests {
         #[cfg(feature = "redb")]
         {
             clear_db_backends();
-            register(Plugin::DatabaseBackend(Box::new(spd_db_redb::RedbBackend::default())));
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("reg.redb");
+            let backend =
+                spd_db_redb::RedbBackend::with_path(path, 3600).expect("RedbBackend::with_path");
+            register(Plugin::DatabaseBackend(Box::new(backend)));
             assert_eq!(db_backends().lock().unwrap().len(), 1);
         }
 
@@ -317,15 +347,17 @@ mod tests {
         ensure_default_integrity_checker();
         assert_eq!(integrity_checkers().lock().unwrap().len(), 1);
 
-        // 3) ensure_default_db_backend (redb)
+        // 3) ensure_default_db_backend_with_path (redb) when empty adds one
         #[cfg(feature = "redb")]
         {
             clear_db_backends();
-            ensure_default_db_backend();
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("ensure.redb");
+            ensure_default_db_backend_with_path(path, 3600).expect("ensure_default_db_backend_with_path");
             assert!(!db_backends().lock().unwrap().is_empty());
         }
 
-        // 4) ensure_default_db_backend_with_path (redb)
+        // 4) ensure_default_db_backend_with_path idempotent (redb)
         #[cfg(feature = "redb")]
         {
             clear_db_backends();

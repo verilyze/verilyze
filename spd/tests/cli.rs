@@ -317,3 +317,49 @@ fn config_list_succeeds() {
         );
     });
 }
+
+#[test]
+fn config_invalid_file_exits_2() {
+    if !spd_exe_exists() {
+        return;
+    }
+    with_isolated_env(|p| {
+        let f = tempfile::NamedTempFile::new().expect("temp file");
+        std::fs::write(f.path(), "invalid toml {{{").expect("write");
+        let path = f.path().to_str().unwrap();
+        let out = Command::new(spd_exe())
+            .args(["-c", path, "list"])
+            .env("XDG_CACHE_HOME", p)
+            .env("XDG_DATA_HOME", p)
+            .env("XDG_CONFIG_HOME", p)
+            .output()
+            .expect("run spd");
+        assert_eq!(
+            out.status.code(),
+            Some(2),
+            "invalid config should exit 2"
+        );
+    });
+}
+
+#[test]
+fn config_invalid_file_verbose_logs_to_stderr() {
+    if !spd_exe_exists() {
+        return;
+    }
+    with_isolated_env(|p| {
+        let f = tempfile::NamedTempFile::new().expect("temp file");
+        std::fs::write(f.path(), "invalid toml {{{").expect("write");
+        let path = f.path().to_str().unwrap();
+        let out = Command::new(spd_exe())
+            .args(["-vv", "-c", path, "list"])
+            .env("XDG_CACHE_HOME", p)
+            .env("XDG_DATA_HOME", p)
+            .env("XDG_CONFIG_HOME", p)
+            .output()
+            .expect("run spd");
+        assert_eq!(out.status.code(), Some(2));
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert!(!stderr.is_empty(), "verbose error should log to stderr");
+    });
+}
