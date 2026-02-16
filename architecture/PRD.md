@@ -7,11 +7,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
 # super‑duper (spd) – Requirements Specification
 *Version 1.0 – 29 Jan 2026*
 
----  
+---
 
 ## Table of Contents
 
-1. [Purpose & Scope](#purpose--scope)  
+1. [Purpose & Scope](#purpose--scope)
    - [Design principles](#design-principles)
 2. [Glossary](#glossary)
 3. [Stakeholder Goals & Traceability Matrix](#goals--traceability)
