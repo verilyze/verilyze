@@ -11,13 +11,13 @@ sources of truth for the **super-duper (spd)** project.
 
 ## Primary references
 
-- **Requirements and scope:** [architecture/PRD.md](architecture/PRD.md)  
+- **Requirements and scope:** [architecture/PRD.md](architecture/PRD.md)
   Functional (FR-*), non-functional (NFR-*), security (SEC-*), operational
   (OP-*), configuration (CFG-*), modularity (MOD-*), and documentation
   (DOC-*) requirements. Use requirement IDs when proposing or implementing
   features.
 
-- **Contributing and crate layout:** [CONTRIBUTING.md](CONTRIBUTING.md)  
+- **Contributing and crate layout:** [CONTRIBUTING.md](CONTRIBUTING.md)
   Crate architecture, public traits, extension points, how to add a new
   language plugin, code style, use of `write_stdout()` for CLI output, and
   **test-driven development (TDD)** workflow (preferred when adding or changing
