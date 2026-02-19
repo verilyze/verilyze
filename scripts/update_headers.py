@@ -173,6 +173,7 @@ def get_nontrivial_authors(
         [
             "git",
             "log",
+            "--use-mailmap",
             "--numstat",
             "--format=%aN <%aE>%n%ad",
             "--date=format:%Y",
@@ -263,6 +264,7 @@ def resolve_authors(
         [
             "git",
             "log",
+            "--use-mailmap",
             "--reverse",
             "-1",
             "--format=%ad %aN <%aE>",
@@ -279,6 +281,7 @@ def resolve_authors(
         [
             "git",
             "log",
+            "--use-mailmap",
             "-1",
             "--format=%ad %aN <%aE>",
             "--date=format:%Y",

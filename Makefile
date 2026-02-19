@@ -17,7 +17,7 @@ VENV_REUSE := $(MKFILE_DIR)/.venv-reuse
 VENV_TEST := $(MKFILE_DIR)/.venv-test
 
 .PHONY: help all debug release
-.PHONY: setup setup-hooks check check-headers headers
+.PHONY: setup setup-hooks check check-headers check-header-duplicates headers
 .PHONY: update-doc-diagrams check-doc-diagrams
 .PHONY: cargo-check cargo-test unit-tests test-scripts
 .PHONY: lint-python lint-shell
@@ -43,7 +43,8 @@ help:
 	@echo "    make check       - Headers, build, tests, lint (pre-commit gate)"
 	@echo ""
 	@echo "  Lint:"
-	@echo "    make check-headers     - Verify REUSE headers"
+	@echo "    make check-headers     - Verify REUSE headers (lint + no duplicates)"
+	@echo "    make check-header-duplicates - Verify no duplicate copyright holders"
 	@echo "    make headers           - Add/update headers (mutates files)"
 	@echo "    make update-doc-diagrams - Embed Mermaid diagrams into README/CONTRIBUTING"
 	@echo "    make check-doc-diagrams  - Verify diagram content is in sync"
@@ -81,8 +82,12 @@ setup-hooks:
 	$(SCRIPTS_DIR)/install-hooks.sh
 
 # ---- Headers ----
-# check-headers: verify REUSE compliance (exit nonzero if any file missing header)
-check-headers:
+# check-header-duplicates: verify no duplicate copyright holders per .mailmap (DOC-013)
+check-header-duplicates:
+	cd "$(MKFILE_DIR)" && PYTHONPATH="$(MKFILE_DIR)" python3 $(SCRIPTS_DIR)/check_header_duplicates.py
+
+# check-headers: verify REUSE compliance + no duplicate copyright holders
+check-headers: check-header-duplicates
 	@$(REUSE_SCRIPT) lint
 
 # headers: add headers to covered text files (mutates files)

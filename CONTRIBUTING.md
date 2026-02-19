@@ -240,7 +240,8 @@ The project uses the [REUSE](https://reuse.software/) toolchain for SPDX
 copyright and license headers. Default license and copyright are defined in
 `pyproject.toml` under `[tool.spd-headers]`.
 
-- **Check headers:** `make check-headers` (runs `reuse lint`)
+- **Check headers:** `make check-headers` (runs `check-header-duplicates` and
+  `reuse lint`)
 - **Add/update headers:** `make headers` (runs `scripts/update_headers.py`)
 - **Install Git hooks:** Run `make setup-hooks` or `./scripts/install-hooks.sh`
   to add a pre-commit hook that inserts REUSE headers into newly created files,
@@ -261,6 +262,13 @@ You can also install manually: `pipx install reuse` or
 The `update_headers.py` script derives copyright from git history and applies
 the *nontrivial change* threshold (~15 lines per author per file). See
 [docs/NONTRIVIAL-CHANGE.md](docs/NONTRIVIAL-CHANGE.md) for the definition.
+
+**.mailmap:** Contributors who use multiple email addresses should add a
+`.mailmap` entry at the repository root to map alternate identities to a
+canonical form. Format: `Canonical Name <canonical@email.com> Alternate Name <alt@email.com>`.
+The `make headers` script uses `git log --use-mailmap`, so `.mailmap` affects
+which copyright lines are generated. `make check-header-duplicates` verifies
+no file lists the same copyright holder twice (per `.mailmap` canonicalization).
 
 ## Code style and checks
 
