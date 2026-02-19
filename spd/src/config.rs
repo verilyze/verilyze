@@ -31,6 +31,15 @@ pub const DEFAULT_PARALLEL_QUERIES: usize = 10;
 /// Default cache TTL in seconds (OP-009: 5 days).
 pub const DEFAULT_CACHE_TTL_SECS: u64 = 5 * 24 * 60 * 60;
 
+/// Default backoff base in milliseconds (SEC-007).
+pub const DEFAULT_BACKOFF_BASE_MS: u64 = 100;
+
+/// Default backoff max in milliseconds.
+pub const DEFAULT_BACKOFF_MAX_MS: u64 = 30_000;
+
+/// Default max retries for transient errors (NFR-005, SEC-007).
+pub const DEFAULT_MAX_RETRIES: u32 = 5;
+
 #[derive(Debug, Clone, Default)]
 pub struct EffectiveConfig {
     pub cache_db: Option<PathBuf>,
@@ -48,6 +57,12 @@ pub struct EffectiveConfig {
     pub language_regexes: Vec<(String, String)>,
     /// If true, exit 3 with hint when required package manager (e.g. pip) is not on PATH (FR-024).
     pub package_manager_required: bool,
+    /// Backoff base delay in milliseconds (NFR-005, SEC-007, OP-010).
+    pub backoff_base_ms: u64,
+    /// Backoff maximum delay in milliseconds.
+    pub backoff_max_ms: u64,
+    /// Maximum retries for transient errors.
+    pub max_retries: u32,
     pub config_file: Option<PathBuf>,
 }
 
@@ -71,6 +86,12 @@ struct FileConfig {
     exit_code_on_cve: Option<u8>,
     #[serde(rename = "fp_exit_code")]
     fp_exit_code: Option<u8>,
+    #[serde(rename = "backoff_base_ms")]
+    backoff_base_ms: Option<u64>,
+    #[serde(rename = "backoff_max_ms")]
+    backoff_max_ms: Option<u64>,
+    #[serde(rename = "max_retries")]
+    max_retries: Option<u32>,
 }
 
 #[derive(Error, Debug)]
@@ -102,6 +123,9 @@ const KNOWN_FILE_CONFIG_KEYS: &[&str] = &[
     "min_count",
     "exit_code_on_cve",
     "fp_exit_code",
+    "backoff_base_ms",
+    "backoff_max_ms",
+    "max_retries",
 ];
 
 /// Parse and validate raw TOML config content (SEC-006). Used for fuzzing (NFR-020).
@@ -168,6 +192,15 @@ fn apply_file_config_inner(
     }
     if let Some(c) = parsed.fp_exit_code {
         cfg.fp_exit_code = Some(c);
+    }
+    if let Some(n) = parsed.backoff_base_ms {
+        cfg.backoff_base_ms = n;
+    }
+    if let Some(n) = parsed.backoff_max_ms {
+        cfg.backoff_max_ms = n;
+    }
+    if let Some(n) = parsed.max_retries {
+        cfg.max_retries = n;
     }
     if extract_language_regexes {
         cfg.language_regexes.clear();
@@ -331,6 +364,9 @@ pub fn load(
     env_min_count: Option<usize>,
     env_exit_code_on_cve: Option<u8>,
     env_fp_exit_code: Option<u8>,
+    env_backoff_base_ms: Option<u64>,
+    env_backoff_max_ms: Option<u64>,
+    env_max_retries: Option<u32>,
     cli_parallel: Option<usize>,
     cli_cache_db: Option<&str>,
     cli_ignore_db: Option<&str>,
@@ -342,10 +378,16 @@ pub fn load(
     cli_exit_code_on_cve: Option<u8>,
     cli_fp_exit_code: Option<u8>,
     cli_package_manager_required: bool,
+    cli_backoff_base_ms: Option<u64>,
+    cli_backoff_max_ms: Option<u64>,
+    cli_max_retries: Option<u32>,
 ) -> Result<EffectiveConfig, ConfigError> {
     let mut cfg = EffectiveConfig {
         parallel_queries: DEFAULT_PARALLEL_QUERIES,
         cache_ttl_secs: DEFAULT_CACHE_TTL_SECS,
+        backoff_base_ms: DEFAULT_BACKOFF_BASE_MS,
+        backoff_max_ms: DEFAULT_BACKOFF_MAX_MS,
+        max_retries: DEFAULT_MAX_RETRIES,
         ..Default::default()
     };
 
@@ -390,6 +432,15 @@ pub fn load(
     if let Some(c) = env_fp_exit_code {
         cfg.fp_exit_code = Some(c);
     }
+    if let Some(n) = env_backoff_base_ms {
+        cfg.backoff_base_ms = n;
+    }
+    if let Some(n) = env_backoff_max_ms {
+        cfg.backoff_max_ms = n;
+    }
+    if let Some(n) = env_max_retries {
+        cfg.max_retries = n;
+    }
 
     // 5) CLI
     if let Some(n) = cli_parallel {
@@ -419,6 +470,15 @@ pub fn load(
         cfg.fp_exit_code = Some(c);
     }
     cfg.package_manager_required = cli_package_manager_required;
+    if let Some(n) = cli_backoff_base_ms {
+        cfg.backoff_base_ms = n;
+    }
+    if let Some(n) = cli_backoff_max_ms {
+        cfg.backoff_max_ms = n;
+    }
+    if let Some(n) = cli_max_retries {
+        cfg.max_retries = n;
+    }
 
     if cfg.parallel_queries > MAX_PARALLEL_QUERIES {
         return Err(ConfigError::ParallelTooHigh {
@@ -472,6 +532,27 @@ pub fn env_exit_code_on_cve() -> Option<u8> {
 
 pub fn env_fp_exit_code() -> Option<u8> {
     std::env::var("SPD_FP_EXIT_CODE")
+        .ok()
+        .and_then(|s| s.parse().ok())
+}
+
+/// Read SPD_BACKOFF_BASE_MS (OP-010, CFG-005).
+pub fn env_backoff_base_ms() -> Option<u64> {
+    std::env::var("SPD_BACKOFF_BASE_MS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+}
+
+/// Read SPD_BACKOFF_MAX_MS (OP-010, CFG-005).
+pub fn env_backoff_max_ms() -> Option<u64> {
+    std::env::var("SPD_BACKOFF_MAX_MS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+}
+
+/// Read SPD_MAX_RETRIES (OP-010, CFG-005).
+pub fn env_max_retries() -> Option<u32> {
+    std::env::var("SPD_MAX_RETRIES")
         .ok()
         .and_then(|s| s.parse().ok())
 }
@@ -542,6 +623,9 @@ mod tests {
             None,
             None,
             None,
+            None,
+            None,
+            None,
             false,
             false,
             None,
@@ -549,15 +633,23 @@ mod tests {
             None,
             None,
             false,
+            None,
+            None,
+            None,
         )
         .unwrap();
         assert_eq!(cfg.parallel_queries, DEFAULT_PARALLEL_QUERIES);
         assert_eq!(cfg.cache_ttl_secs, DEFAULT_CACHE_TTL_SECS);
+        assert_eq!(cfg.backoff_base_ms, DEFAULT_BACKOFF_BASE_MS);
+        assert_eq!(cfg.max_retries, DEFAULT_MAX_RETRIES);
     }
 
     #[test]
     fn load_parallel_too_high_fr012() {
         let r = load(
+            None,
+            None,
+            None,
             None,
             None,
             None,
@@ -578,6 +670,9 @@ mod tests {
             None,
             None,
             false,
+            None,
+            None,
+            None,
         );
         assert!(matches!(
             r,
@@ -711,7 +806,16 @@ mod tests {
         let path_str = f.path().to_string_lossy().into_owned();
         temp_env::with_var("HOME", Some(path_str.as_str()), || {
             std::fs::write(f.path(), "invalid {{{").unwrap();
-            let r = load(Some(f.path().to_str().unwrap()), None, None, None, None, None, None, None, None, None, None, None, None, false, false, None, None, None, None, false);
+            let r = load(
+                Some(f.path().to_str().unwrap()),
+                None, None, None, None, None, None, None, None,
+                None, None, None,
+                None, None, None, None,
+                false, false,
+                None, None, None, None,
+                false,
+                None, None, None,
+            );
             assert!(r.is_err());
             let err = r.unwrap_err();
             assert!(err.to_string().contains("~"));
@@ -726,7 +830,16 @@ mod tests {
         std::fs::write(&config_path, "invalid {{{").unwrap();
         let home_str = dir.path().to_string_lossy().into_owned();
         temp_env::with_var("HOME", Some(home_str.as_str()), || {
-            let r = load(Some(config_path.to_str().unwrap()), None, None, None, None, None, None, None, None, None, None, None, None, false, false, None, None, None, None, false);
+            let r = load(
+                Some(config_path.to_str().unwrap()),
+                None, None, None, None, None, None, None, None,
+                None, None, None,
+                None, None, None, None,
+                false, false,
+                None, None, None, None,
+                false,
+                None, None, None,
+            );
             assert!(r.is_err());
             let err = r.unwrap_err();
             assert!(err.to_string().contains("~/"));
@@ -739,7 +852,16 @@ mod tests {
         let config_path = dir.path().join("spd.conf");
         std::fs::write(&config_path, "invalid {{{").unwrap();
         temp_env::with_var("HOME", None::<&str>, || {
-            let r = load(Some(config_path.to_str().unwrap()), None, None, None, None, None, None, None, None, None, None, None, None, false, false, None, None, None, None, false);
+            let r = load(
+                Some(config_path.to_str().unwrap()),
+                None, None, None, None, None, None, None, None,
+                None, None, None,
+                None, None, None, None,
+                false, false,
+                None, None, None, None,
+                false,
+                None, None, None,
+            );
             assert!(r.is_err());
             let err = r.unwrap_err();
             assert!(err.to_string().contains(config_path.to_str().unwrap()));
@@ -759,6 +881,9 @@ min_score = 7.5
 min_count = 2
 exit_code_on_cve = 86
 fp_exit_code = 0
+backoff_base_ms = 50
+backoff_max_ms = 5000
+max_retries = 3
 [python]
 regex = "^req\\.txt$"
 "#;
@@ -766,25 +891,13 @@ regex = "^req\\.txt$"
         let path_str = config_path.to_string_lossy().into_owned();
         let cfg = load(
             Some(&path_str),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
+            None, None, None, None, None, None, None, None,
+            None, None, None,
+            None, None, None, None,
+            false, false,
+            None, None, None, None,
             false,
-            false,
-            None,
-            None,
-            None,
-            None,
-            false,
+            None, None, None,
         )
         .unwrap();
         assert_eq!(cfg.cache_db.as_ref().unwrap().to_str(), Some("/tmp/cache.redb"));
@@ -795,6 +908,9 @@ regex = "^req\\.txt$"
         assert_eq!(cfg.min_count, 2);
         assert_eq!(cfg.exit_code_on_cve, Some(86));
         assert_eq!(cfg.fp_exit_code, Some(0));
+        assert_eq!(cfg.backoff_base_ms, 50);
+        assert_eq!(cfg.backoff_max_ms, 5000);
+        assert_eq!(cfg.max_retries, 3);
         assert_eq!(cfg.language_regexes, vec![("python".to_string(), "^req\\.txt$".to_string())]);
     }
 
@@ -813,25 +929,13 @@ regex = "^req\\.txt$"
         let path_str = config_path.to_string_lossy().into_owned();
         let cfg = load(
             Some(&path_str),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
+            None, None, None, None, None, None, None, None,
+            None, None, None,
+            None, None, None, None,
+            false, false,
+            None, None, None, None,
             false,
-            false,
-            None,
-            None,
-            None,
-            None,
-            false,
+            None, None, None,
         )
         .unwrap();
         assert_eq!(cfg.parallel_queries, 3);
@@ -853,14 +957,11 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
-            None,
+            None, None, None, None,
+            false, false,
+            None, None, None, None,
             false,
-            false,
-            None,
-            None,
-            None,
-            None,
-            false,
+            None, None, None,
         )
         .unwrap();
         assert_eq!(cfg.parallel_queries, 7);
@@ -877,25 +978,19 @@ regex = "^req\\.txt$"
     fn load_cli_overrides_applied() {
         let cfg = load(
             None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
+            None, None, None, None, None, None, None, None,
+            None, None, None,
             Some(8),
             Some("/cli/cache.redb"),
             Some("/cli/ignore.redb"),
             Some(300),
-            true,
-            true,
+            true, true,
             Some(5.0),
             Some(6),
             Some(88),
             Some(2),
             true,
+            None, None, None,
         )
         .unwrap();
         assert_eq!(cfg.parallel_queries, 8);
@@ -909,6 +1004,64 @@ regex = "^req\\.txt$"
         assert_eq!(cfg.exit_code_on_cve, Some(88));
         assert_eq!(cfg.fp_exit_code, Some(2));
         assert_eq!(cfg.package_manager_required, true);
+    }
+
+    #[test]
+    fn load_backoff_config_from_env() {
+        temp_env::with_vars(
+            [
+                ("SPD_BACKOFF_BASE_MS", Some("200")),
+                ("SPD_BACKOFF_MAX_MS", Some("10000")),
+                ("SPD_MAX_RETRIES", Some("7")),
+            ],
+            || {
+                let cfg = load(
+                    None,
+                    env_parallel(),
+                    env_cache_db(),
+                    env_ignore_db(),
+                    env_cache_ttl_secs(),
+                    env_min_score(),
+                    env_min_count(),
+                    env_exit_code_on_cve(),
+                    env_fp_exit_code(),
+                    env_backoff_base_ms(),
+                    env_backoff_max_ms(),
+                    env_max_retries(),
+                    None, None, None, None,
+                    false, false,
+                    None, None, None, None,
+                    false,
+                    None, None, None,
+                )
+                .unwrap();
+                assert_eq!(cfg.backoff_base_ms, 200);
+                assert_eq!(cfg.backoff_max_ms, 10000);
+                assert_eq!(cfg.max_retries, 7);
+            },
+        );
+    }
+
+    #[test]
+    fn load_backoff_config_cli_overrides() {
+        let cfg = load(
+            None,
+            None, None, None, None, None, None, None, None,
+            Some(150),
+            Some(8000),
+            Some(4),
+            None, None, None, None,
+            false, false,
+            None, None, None, None,
+            false,
+            Some(250),
+            Some(15000),
+            Some(6),
+        )
+        .unwrap();
+        assert_eq!(cfg.backoff_base_ms, 250);
+        assert_eq!(cfg.backoff_max_ms, 15000);
+        assert_eq!(cfg.max_retries, 6);
     }
 
     #[test]
@@ -936,7 +1089,17 @@ regex = "^req\\.txt$"
                 ("HOME", Some("/nonexistent")),
             ],
             || {
-                let cfg = load(None, None, None, None, None, None, None, None, None, None, None, None, None, false, false, None, None, None, None, false).unwrap();
+                let cfg = load(
+                    None,
+                    None, None, None, None, None, None, None, None,
+                    None, None, None,
+                    None, None, None, None,
+                    false, false,
+                    None, None, None, None,
+                    false,
+                    None, None, None,
+                )
+                .unwrap();
                 assert_eq!(cfg.parallel_queries, 10);
             },
         );
@@ -950,7 +1113,17 @@ regex = "^req\\.txt$"
         std::fs::write(home.join(".config").join("super-duper").join("super-duper.conf"), "parallel_queries = 42").unwrap();
         temp_env::with_var("XDG_CONFIG_HOME", None::<&str>, || {
             temp_env::with_var("HOME", Some(home.to_str().unwrap()), || {
-                let cfg = load(None, None, None, None, None, None, None, None, None, None, None, None, None, false, false, None, None, None, None, false).unwrap();
+                let cfg = load(
+                    None,
+                    None, None, None, None, None, None, None, None,
+                    None, None, None,
+                    None, None, None, None,
+                    false, false,
+                    None, None, None, None,
+                    false,
+                    None, None, None,
+                )
+                .unwrap();
                 assert_eq!(cfg.parallel_queries, 42);
             });
         });

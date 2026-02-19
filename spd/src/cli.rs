@@ -96,6 +96,18 @@ pub enum Commands {
         /// Require package manager on PATH; exit 3 with hint if missing
         #[arg(long)]
         package_manager_required: bool,
+
+        /// Base delay in ms for retry backoff (default 100)
+        #[arg(long, value_name = "MS")]
+        backoff_base: Option<u64>,
+
+        /// Maximum delay in ms for retry backoff (default 30000)
+        #[arg(long, value_name = "MS")]
+        backoff_max: Option<u64>,
+
+        /// Maximum retries for transient errors (default 5)
+        #[arg(long, value_name = "N")]
+        max_retries: Option<u32>,
     },
 
     /// List registered language/plugin names
@@ -225,6 +237,23 @@ mod tests {
         };
         assert_eq!(format, "plain");
         assert!(root.is_none());
+    }
+
+    #[test]
+    fn parse_scan_backoff_options() {
+        let cli = parse(&["scan", "--backoff-base", "200", "--backoff-max", "10000", "--max-retries", "3"]);
+        let Commands::Scan {
+            backoff_base,
+            backoff_max,
+            max_retries,
+            ..
+        } = &cli.cmd
+        else {
+            panic!("expected scan")
+        };
+        assert_eq!(*backoff_base, Some(200));
+        assert_eq!(*backoff_max, Some(10000));
+        assert_eq!(*max_retries, Some(3));
     }
 
     #[test]
