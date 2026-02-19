@@ -112,6 +112,9 @@ pub async fn run(args: Cli) -> Result<i32> {
         crate::config::env_min_count(),
         crate::config::env_exit_code_on_cve(),
         crate::config::env_fp_exit_code(),
+        crate::config::env_backoff_base_ms(),
+        crate::config::env_backoff_max_ms(),
+        crate::config::env_max_retries(),
         None,
         None,
         None,
@@ -123,6 +126,9 @@ pub async fn run(args: Cli) -> Result<i32> {
         None,
         None,
         false,
+        None,
+        None,
+        None,
     )
     .map_err(|e| {
         error!("{}", e);
@@ -197,6 +203,9 @@ pub async fn run(args: Cli) -> Result<i32> {
             exit_code_on_cve: cli_exit_code_on_cve,
             fp_exit_code: cli_fp_exit_code,
             package_manager_required,
+            backoff_base: cli_backoff_base,
+            backoff_max: cli_backoff_max,
+            max_retries: cli_max_retries,
         } => {
             let effective = crate::config::load(
                 args.config.as_deref(),
@@ -208,6 +217,9 @@ pub async fn run(args: Cli) -> Result<i32> {
                 crate::config::env_min_count(),
                 crate::config::env_exit_code_on_cve(),
                 crate::config::env_fp_exit_code(),
+                crate::config::env_backoff_base_ms(),
+                crate::config::env_backoff_max_ms(),
+                crate::config::env_max_retries(),
                 cli_parallel,
                 cli_cache_db.as_deref(),
                 cli_ignore_db.as_deref(),
@@ -219,6 +231,9 @@ pub async fn run(args: Cli) -> Result<i32> {
                 cli_exit_code_on_cve,
                 cli_fp_exit_code,
                 package_manager_required,
+                cli_backoff_base,
+                cli_backoff_max,
+                cli_max_retries,
             )
             .map_err(|e| {
                 error!("{}", e);
@@ -277,6 +292,9 @@ pub async fn run(args: Cli) -> Result<i32> {
                     crate::config::env_min_count(),
                     crate::config::env_exit_code_on_cve(),
                     crate::config::env_fp_exit_code(),
+                    crate::config::env_backoff_base_ms(),
+                    crate::config::env_backoff_max_ms(),
+                    crate::config::env_max_retries(),
                     None,
                     None,
                     None,
@@ -288,12 +306,18 @@ pub async fn run(args: Cli) -> Result<i32> {
                     None,
                     None,
                     false,
+                    None,
+                    None,
+                    None,
                 )
                 .unwrap_or_default();
                 write_stdout(&format!("parallel_queries = {}\n", cfg.parallel_queries));
                 write_stdout(&format!("cache_ttl_secs = {}\n", cfg.cache_ttl_secs));
                 write_stdout(&format!("min_score = {}\n", cfg.min_score));
                 write_stdout(&format!("min_count = {}\n", cfg.min_count));
+                write_stdout(&format!("backoff_base_ms = {}\n", cfg.backoff_base_ms));
+                write_stdout(&format!("backoff_max_ms = {}\n", cfg.backoff_max_ms));
+                write_stdout(&format!("max_retries = {}\n", cfg.max_retries));
                 for (lang, re) in &cfg.language_regexes {
                     write_stdout(&format!("{}.regex = {}\n", lang, re));
                 }
@@ -556,7 +580,7 @@ async fn run_scan(
             error!("No CveProvider plug-in registered");
             return Err(anyhow!("No CveProvider plug-in registered"));
         }
-        let p = if let Some(ref name) = provider {
+        let inner = if let Some(ref name) = provider {
             let pos = prov.iter().position(|p| p.name() == name.as_str());
             match pos {
                 Some(i) => prov.remove(i),
@@ -574,7 +598,14 @@ async fn run_scan(
         } else {
             prov.remove(0)
         };
-        Arc::new(p)
+        let backoff_config = spd_cve_client::BackoffConfig {
+            base_ms: effective.backoff_base_ms,
+            max_ms: effective.backoff_max_ms,
+            max_retries: effective.max_retries,
+        };
+        let wrapped =
+            spd_cve_client::RetryingCveProvider::new(inner, backoff_config);
+        Arc::new(Box::new(wrapped))
     };
 
     let reporter: Box<dyn spd_report::Reporter> = if format.eq_ignore_ascii_case("json") {

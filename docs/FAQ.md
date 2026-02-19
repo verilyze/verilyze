@@ -137,13 +137,16 @@ understand the security implications.
 
 ### Network error (transient)
 
-**Message:** `Network error` (with optional `Caused by:` in verbose mode)
+**Message:** `Network error` or `Transient error` (with optional `Caused by:`
+in verbose mode)
 
 **Cause:** Connection failed, timeout, or HTTP error (e.g. 429, 5xx). Network
 errors are often transient (NFR-018).
 
-**Remediation:** Retry the command. Check connectivity and firewall settings.
-If the provider returns 429 (rate limit), wait and retry. Use `-v` for more
+**Remediation:** The client automatically retries with exponential backoff on
+transient errors (NFR-005, SEC-007). If retries are exhausted, run the command
+again. Use `--backoff-base`, `--backoff-max`, and `--max-retries` to tune
+retry behavior. Check connectivity and firewall settings. Use `-v` for more
 detail.
 
 ---

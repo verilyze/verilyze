@@ -199,6 +199,16 @@ flowchart LR
 See [architecture/PRD.md](architecture/PRD.md) MOD-002 and FR-020 for the
 formal trait contracts.
 
+### Adding a new CVE provider
+
+To add a new CVE provider (e.g. NVD, GitHub Advisory), implement the
+`CveProvider` trait in `spd-cve-client` and register it. **Important:** map
+retryable errors (connection timeout, connection refused, rate limiting 429,
+server errors 5xx) to `ProviderError::Network` or `ProviderError::Transient`
+so that `RetryingCveProvider` automatically applies exponential backoff
+(NFR-005, SEC-007). Use `Transient { retry_after_secs: Some(n), ... }` when
+the upstream API returns a Retry-After value (e.g. HTTP 429 with header).
+
 ## Feature gating (MOD-003)
 
 The `spd` binary supports optional capabilities via Cargo features:

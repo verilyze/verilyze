@@ -64,12 +64,15 @@ Options are resolved in precedence order; each source overrides the ones below:
 See [architecture/PRD.md](architecture/PRD.md) (CFG-001 - CFG-008) for full
 details.
 
-| Key              | Default         | Env var              | CLI flag         |
-|------------------|-----------------|----------------------|------------------|
-| cache_ttl_secs   | 432000 (5 days) | SPD_CACHE_TTL_SECS   | --cache-ttl-secs |
-| parallel_queries | 10              | SPD_PARALLEL_QUERIES | --parallel       |
-| min_score        | 0               | SPD_MIN_SCORE        | --min-score      |
-| min_count        | 0               | SPD_MIN_COUNT        | --min-count      |
+| Key              | Default         | Env var                | CLI flag         |
+|------------------|-----------------|------------------------|------------------|
+| cache_ttl_secs   | 432000 (5 days) | SPD_CACHE_TTL_SECS     | --cache-ttl-secs |
+| parallel_queries | 10              | SPD_PARALLEL_QUERIES   | --parallel       |
+| min_score        | 0               | SPD_MIN_SCORE          | --min-score      |
+| min_count        | 0               | SPD_MIN_COUNT          | --min-count      |
+| backoff_base_ms  | 100             | SPD_BACKOFF_BASE_MS    | --backoff-base   |
+| backoff_max_ms   | 30000           | SPD_BACKOFF_MAX_MS     | --backoff-max    |
+| max_retries      | 5               | SPD_MAX_RETRIES        | --max-retries    |
 
 Changing **cache_ttl_secs** only affects new cache entries; existing entries
 keep their stored expiry until they expire or are purged.
