@@ -91,6 +91,16 @@ pub fn log_level_from_verbosity_count(count: usize) -> LevelFilter {
     }
 }
 
+/// Deduplicate packages by (name, version). Keeps first occurrence.
+fn deduplicate_packages(packages: &[spd_db::Package]) -> Vec<spd_db::Package> {
+    let mut seen = std::collections::HashSet::new();
+    packages
+        .iter()
+        .filter(|p| seen.insert((p.name.as_str(), p.version.as_str())))
+        .cloned()
+        .collect()
+}
+
 /// Core entry point: runs the requested command and returns the exit code.
 /// Caller is responsible for initialising the logger and for calling `process::exit(code)`.
 pub async fn run(args: Cli) -> Result<i32> {
@@ -610,6 +620,12 @@ async fn run_scan(
 
     let reporter: Box<dyn spd_report::Reporter> = if format.eq_ignore_ascii_case("json") {
         Box::new(spd_report::JsonReporter::new())
+    } else if format.eq_ignore_ascii_case("sarif") {
+        Box::new(spd_report::SarifReporter::new())
+    } else if format.eq_ignore_ascii_case("cyclonedx") {
+        Box::new(spd_report::CycloneDxReporter::new())
+    } else if format.eq_ignore_ascii_case("spdx") {
+        Box::new(spd_report::SpdxReporter::new())
     } else {
         let mut r = crate::registry::reporters().lock().expect("REPORTERS lock poisoned");
         if r.is_empty() {
@@ -654,6 +670,7 @@ async fn run_scan(
         all_packages.extend(resolved);
     }
     info!("Discovered {} package entries", all_packages.len());
+    let all_packages_for_sbom = deduplicate_packages(&all_packages);
 
     // -----------------------------------------------------------------
     // f) For each package: try cache -> (optional) network -> store
@@ -802,6 +819,7 @@ async fn run_scan(
             .collect();
     let report_data = spd_report::ReportData {
         findings: report_findings,
+        all_packages: Some(all_packages_for_sbom),
     };
     reporter
         .render(&report_data)
@@ -823,10 +841,12 @@ async fn run_scan(
             "html" => Box::new(spd_report::HtmlReporter::new()),
             "json" => Box::new(spd_report::JsonReporter::new()),
             "sarif" => Box::new(spd_report::SarifReporter::new()),
+            "cyclonedx" => Box::new(spd_report::CycloneDxReporter::new()),
+            "spdx" => Box::new(spd_report::SpdxReporter::new()),
             "plain" | "text" => Box::new(spd_report::DefaultReporter::new()),
             _ => {
                 error!(
-                    "Unknown summary format '{}'; use html, json, sarif, or plain",
+                    "Unknown summary format '{}'; use html, json, sarif, cyclonedx, spdx, or plain",
                     fmt
                 );
                 continue;
@@ -1004,6 +1024,28 @@ mod tests {
         assert!(entry_key_matches_pattern("foobar", "foo*"));
         assert!(!entry_key_matches_pattern("xfoo", "foo*"));
         assert!(entry_key_matches_pattern("pkg", "pkg*"));
+    }
+
+    #[test]
+    fn deduplicate_packages_removes_duplicates() {
+        let packages = vec![
+            spd_db::Package {
+                name: "foo".to_string(),
+                version: "1.0".to_string(),
+            },
+            spd_db::Package {
+                name: "bar".to_string(),
+                version: "2.0".to_string(),
+            },
+            spd_db::Package {
+                name: "foo".to_string(),
+                version: "1.0".to_string(),
+            },
+        ];
+        let deduped = deduplicate_packages(&packages);
+        assert_eq!(deduped.len(), 2);
+        assert_eq!(deduped[0].name, "foo");
+        assert_eq!(deduped[1].name, "bar");
     }
 
     #[test]

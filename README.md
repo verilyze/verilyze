@@ -35,6 +35,10 @@ spd scan /path/to/project
 # JSON output
 spd scan --format json
 
+# SBOM output (CycloneDX 1.6, SPDX 3.0)
+spd scan --format cyclonedx
+spd scan -s cyclonedx:sbom.cdx.json,spdx:sbom.spdx.json
+
 # List registered language plugins
 spd list
 ```
@@ -97,11 +101,11 @@ Run `spd config --list` to print effective values.
 | `spd fp unmark CVE-ID`       | Remove false-positive marking                                 |
 | `spd --version`              | Print version                                                 |
 
-**Scan options (examples):** `--format plain|json|sarif`,
-`--summary-file html:path,json:path`, `--provider osv`, `--parallel N`,
-`--cache-ttl-secs SECS`, `--offline`, `--benchmark`, `--min-score`,
-`--min-count`, `--exit-code-on-cve`, `--fp-exit-code`, `--cache-db`,
-`--ignore-db`.
+**Scan options (examples):** `--format plain|json|sarif|cyclonedx|spdx`,
+`--summary-file html:path,cyclonedx:sbom.json,spdx:sbom.spdx.json`,
+`--provider osv`, `--parallel N`, `--cache-ttl-secs SECS`, `--offline`,
+`--benchmark`, `--min-score`, `--min-count`, `--exit-code-on-cve`,
+`--fp-exit-code`, `--cache-db`, `--ignore-db`.
 
 ## Exit codes
 

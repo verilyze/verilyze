@@ -94,6 +94,8 @@ pub enum ReportError {
 /// Simple data structure handed to the reporter. Each CVE has a pre-resolved severity (FR-013).
 pub struct ReportData {
     pub findings: Vec<(Package, Vec<(CveRecord, Severity)>)>,
+    /// All resolved packages (for SBOM formats). When Some, SBOM reporters list all components.
+    pub all_packages: Option<Vec<Package>>,
 }
 
 #[async_trait]
@@ -319,11 +321,31 @@ impl Reporter for SarifReporter {
                 })
             })
             .collect();
+        let rules: Vec<serde_json::Value> = data
+            .findings
+            .iter()
+            .flat_map(|(_, recs)| recs.iter().map(|(cve, _)| cve.id.clone()))
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .map(|id| {
+                serde_json::json!({
+                    "id": id,
+                    "shortDescription": { "text": id },
+                    "helpUri": format!("https://nvd.nist.gov/vuln/detail/{}", id)
+                })
+            })
+            .collect();
         let sarif = serde_json::json!({
             "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
             "version": "2.1.0",
             "runs": [{
-                "tool": { "driver": { "name": "spd", "informationUri": "https://github.com/your-org/super-duper" } },
+                "tool": {
+                    "driver": {
+                        "name": "spd",
+                        "informationUri": "https://github.com/your-org/super-duper",
+                        "rules": rules
+                    }
+                },
                 "results": results
             }]
         });
@@ -341,6 +363,264 @@ fn severity_level_sarif(s: &Severity) -> &'static str {
         Severity::Medium => "warning",
         Severity::Low => "warning",
         Severity::Unknown => "note",
+    }
+}
+
+/// PURL for a Python package (pypi ecosystem; SEC-019 CycloneDX 1.6).
+fn purl_pypi(name: &str, version: &str) -> String {
+    format!("pkg:pypi/{}@{}", name, version)
+}
+
+/// RFC 3339 timestamp for BOM metadata (no external deps).
+fn format_timestamp_rfc3339() -> String {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let (y, m, d, h, min, s) = secs_to_ymdhms(secs);
+    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", y, m, d, h, min, s)
+}
+
+fn secs_to_ymdhms(secs: u64) -> (u64, u64, u64, u64, u64, u64) {
+    const SECS_PER_DAY: u64 = 86400;
+    let days = secs / SECS_PER_DAY;
+    let rem = secs % SECS_PER_DAY;
+    let h = rem / 3600;
+    let rem = rem % 3600;
+    let min = rem / 60;
+    let s = rem % 60;
+    let (y, m, d) = days_to_ymd(days);
+    (y, m, d, h, min, s)
+}
+
+fn days_to_ymd(days: u64) -> (u64, u64, u64) {
+    let mut d = days as i64 + 719468;
+    let era = if d >= 0 { d / 146097 } else { (d - 146096) / 146097 };
+    d -= era * 146097;
+    let doe = if d >= 0 { d } else { d + 146097 };
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let y = (yoe + era * 400) as u64 + 1970;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = (doy - (153 * mp + 2) / 5 + 1) as u64;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 } as u64;
+    let y = if mp >= 10 { y + 1 } else { y };
+    (y, m, d)
+}
+
+/// Reporter that outputs CycloneDX 1.6 BOM JSON (SEC-019, FR-008).
+#[derive(Debug, Default)]
+pub struct CycloneDxReporter;
+
+impl CycloneDxReporter {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[async_trait]
+impl Reporter for CycloneDxReporter {
+    async fn render_to_writer(
+        &self,
+        data: &ReportData,
+        w: &mut (dyn std::io::Write + Send),
+    ) -> Result<(), ReportError> {
+        let packages: Vec<&Package> = data
+            .all_packages
+            .as_ref()
+            .map(|v| v.iter().collect())
+            .unwrap_or_else(|| {
+                data.findings
+                    .iter()
+                    .map(|(p, _)| p)
+                    .collect::<Vec<_>>()
+            });
+        let components: Vec<serde_json::Value> = packages
+            .iter()
+            .map(|p| {
+                let bom_ref = purl_pypi(&p.name, &p.version);
+                serde_json::json!({
+                    "type": "library",
+                    "name": p.name,
+                    "version": p.version,
+                    "bom-ref": bom_ref,
+                    "purl": bom_ref
+                })
+            })
+            .collect();
+        let vulnerabilities: Vec<serde_json::Value> = data
+            .findings
+            .iter()
+            .flat_map(|(pkg, recs)| {
+                recs.iter().map(|(cve, severity)| {
+                    let bom_ref = purl_pypi(&pkg.name, &pkg.version);
+                    let mut vuln = serde_json::json!({
+                        "id": cve.id,
+                        "description": cve.description,
+                        "affects": [{ "ref": bom_ref }]
+                    });
+                    if let Some(score) = cve.cvss_score {
+                        let method = match cve.cvss_version {
+                            Some(CvssVersion::V2) => "CVSSv2",
+                            Some(CvssVersion::V3) => "CVSSv3",
+                            Some(CvssVersion::V4) => "CVSSv4",
+                            None => "CVSSv3",
+                        };
+                        let severity_str = match severity {
+                            Severity::Critical => "Critical",
+                            Severity::High => "High",
+                            Severity::Medium => "Medium",
+                            Severity::Low => "Low",
+                            Severity::Unknown => "Unknown",
+                        };
+                        if let Some(obj) = vuln.as_object_mut() {
+                            obj.insert(
+                                "ratings".to_string(),
+                                serde_json::json!([{
+                                    "method": method,
+                                    "score": score,
+                                    "severity": severity_str
+                                }]),
+                            );
+                        }
+                    }
+                    vuln
+                })
+            })
+            .collect();
+        let bom = serde_json::json!({
+            "bomFormat": "CycloneDX",
+            "specVersion": "1.6",
+            "version": 1,
+            "metadata": {
+                "timestamp": format_timestamp_rfc3339(),
+                "tools": [{ "name": "spd", "vendor": "super-duper" }]
+            },
+            "components": components,
+            "vulnerabilities": vulnerabilities
+        });
+        let s = serde_json::to_string_pretty(&bom)?;
+        writeln!(w, "{}", s).map_err(ReportError::Io)?;
+        w.flush()?;
+        Ok(())
+    }
+}
+
+/// SPDX ID for a Python package (SEC-019 SPDX 3.0).
+fn spdx_id_pkg(name: &str, version: &str) -> String {
+    format!(
+        "urn:spdx.dev:pkg-pypi-{}-{}",
+        name.replace(['.', '-', '_'], "-"),
+        version.replace(['.', '-', '_'], "-")
+    )
+}
+
+/// SPDX ID for a vulnerability (SEC-019 SPDX 3.0).
+fn spdx_id_vuln(cve_id: &str) -> String {
+    format!("urn:spdx.dev:vuln-{}", cve_id.replace('.', "-"))
+}
+
+/// Reporter that outputs SPDX 3.0 JSON (SEC-019, FR-008).
+#[derive(Debug, Default)]
+pub struct SpdxReporter;
+
+impl SpdxReporter {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[async_trait]
+impl Reporter for SpdxReporter {
+    async fn render_to_writer(
+        &self,
+        data: &ReportData,
+        w: &mut (dyn std::io::Write + Send),
+    ) -> Result<(), ReportError> {
+        let packages: Vec<&Package> = data
+            .all_packages
+            .as_ref()
+            .map(|v| v.iter().collect())
+            .unwrap_or_else(|| {
+                data.findings
+                    .iter()
+                    .map(|(p, _)| p)
+                    .collect::<Vec<_>>()
+            });
+        let pkg_elements: Vec<serde_json::Value> = packages
+            .iter()
+            .map(|p| {
+                let sid = spdx_id_pkg(&p.name, &p.version);
+                serde_json::json!({
+                    "@type": "Package",
+                    "spdxId": sid,
+                    "name": p.name,
+                    "versionInfo": p.version,
+                    "packageUrl": purl_pypi(&p.name, &p.version)
+                })
+            })
+            .collect();
+        let vuln_elements: Vec<serde_json::Value> = data
+            .findings
+            .iter()
+            .flat_map(|(_pkg, recs)| {
+                recs.iter().map(|(cve, _)| {
+                    let vuln_id = spdx_id_vuln(&cve.id);
+                    serde_json::json!({
+                        "@type": "Vulnerability",
+                        "spdxId": vuln_id,
+                        "description": cve.description,
+                        "externalIdentifier": {
+                            "@type": "ExternalIdentifier",
+                            "externalIdentifierType": "securityAdvisory",
+                            "identifier": cve.id,
+                            "identifierLocation": format!("https://nvd.nist.gov/vuln/detail/{}", cve.id)
+                        }
+                    })
+                })
+            })
+            .collect();
+        let relationships: Vec<serde_json::Value> = data
+            .findings
+            .iter()
+            .flat_map(|(pkg, recs)| {
+                recs.iter().map(|(cve, _)| {
+                    serde_json::json!({
+                        "@type": "Relationship",
+                        "relationshipType": "hasAssociatedVulnerability",
+                        "from": spdx_id_pkg(&pkg.name, &pkg.version),
+                        "to": [spdx_id_vuln(&cve.id)]
+                    })
+                })
+            })
+            .collect();
+        let elements: Vec<serde_json::Value> = pkg_elements
+            .into_iter()
+            .chain(vuln_elements.into_iter())
+            .collect();
+        let doc_id = format!(
+            "urn:spdx.dev:doc-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+        );
+        let spdx = serde_json::json!({
+            "@context": "https://spdx.org/rdf/3.0.1/spdx-context.jsonld",
+            "@type": "SpdxDocument",
+            "spdxId": doc_id,
+            "creationInfo": {
+                "created": format_timestamp_rfc3339(),
+                "createdBy": ["urn:spdx.dev:tool-spd"],
+                "profile": ["Core", "Software"]
+            },
+            "element": elements,
+            "relationship": relationships
+        });
+        let s = serde_json::to_string_pretty(&spdx)?;
+        writeln!(w, "{}", s).map_err(ReportError::Io)?;
+        w.flush()?;
+        Ok(())
     }
 }
 
@@ -400,7 +680,10 @@ mod tests {
     }
 
     fn sample_report_data_empty() -> ReportData {
-        ReportData { findings: vec![] }
+        ReportData {
+            findings: vec![],
+            all_packages: None,
+        }
     }
 
     fn sample_report_data_one_finding() -> ReportData {
@@ -417,6 +700,29 @@ mod tests {
         };
         ReportData {
             findings: vec![(pkg, vec![(cve, Severity::High)])],
+            all_packages: None,
+        }
+    }
+
+    fn sample_report_data_with_all_packages() -> ReportData {
+        let pkg_foo = Package {
+            name: "foo".to_string(),
+            version: "1.0".to_string(),
+        };
+        let pkg_bar = Package {
+            name: "bar".to_string(),
+            version: "2.0".to_string(),
+        };
+        let cve = CveRecord {
+            id: "CVE-2023-1234".to_string(),
+            cvss_score: Some(7.0),
+            cvss_version: Some(CvssVersion::V3),
+            description: "A bug".to_string(),
+            reachable: None,
+        };
+        ReportData {
+            findings: vec![(pkg_foo.clone(), vec![(cve, Severity::High)])],
+            all_packages: Some(vec![pkg_foo, pkg_bar]),
         }
     }
 
@@ -499,6 +805,7 @@ mod tests {
         };
         let data = ReportData {
             findings: vec![(pkg, vec![(cve, Severity::Medium)])],
+            all_packages: None,
         };
         let mut buf = Vec::new();
         HtmlReporter::new()
@@ -529,5 +836,221 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].get("ruleId").unwrap(), "CVE-2023-1234");
         assert!(results[0].get("message").is_some());
+    }
+
+    #[tokio::test]
+    async fn sarif_reporter_has_required_schema_fields() {
+        let data = sample_report_data_one_finding();
+        let mut buf = Vec::new();
+        SarifReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+        assert!(parsed.get("$schema").is_some());
+        assert_eq!(parsed.get("version").unwrap(), "2.1.0");
+        let runs = parsed.get("runs").unwrap().as_array().unwrap();
+        assert!(!runs.is_empty());
+        let driver = runs[0]
+            .get("tool")
+            .unwrap()
+            .get("driver")
+            .unwrap();
+        assert!(driver.get("name").is_some());
+        assert!(driver.get("rules").is_some());
+    }
+
+    #[tokio::test]
+    async fn sarif_reporter_includes_rules_for_each_cve() {
+        let data = sample_report_data_one_finding();
+        let mut buf = Vec::new();
+        SarifReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+        let rules = parsed
+            .get("runs")
+            .unwrap()
+            .get(0)
+            .unwrap()
+            .get("tool")
+            .unwrap()
+            .get("driver")
+            .unwrap()
+            .get("rules")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        assert_eq!(rules.len(), 1);
+        assert_eq!(rules[0].get("id").unwrap(), "CVE-2023-1234");
+    }
+
+    #[tokio::test]
+    async fn cyclonedx_reporter_empty_findings_produces_valid_bom() {
+        let data = ReportData {
+            findings: vec![],
+            all_packages: Some(vec![]),
+        };
+        let mut buf = Vec::new();
+        CycloneDxReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+        assert_eq!(parsed.get("bomFormat").unwrap(), "CycloneDX");
+        assert_eq!(parsed.get("specVersion").unwrap(), "1.6");
+        assert!(parsed.get("metadata").is_some());
+        let components = parsed.get("components").unwrap().as_array().unwrap();
+        assert!(components.is_empty());
+    }
+
+    #[tokio::test]
+    async fn cyclonedx_reporter_includes_all_packages_as_components() {
+        let data = sample_report_data_with_all_packages();
+        let mut buf = Vec::new();
+        CycloneDxReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+        let components = parsed.get("components").unwrap().as_array().unwrap();
+        assert_eq!(components.len(), 2);
+        let names: Vec<&str> = components
+            .iter()
+            .map(|c| c.get("name").unwrap().as_str().unwrap())
+            .collect();
+        assert!(names.contains(&"foo"));
+        assert!(names.contains(&"bar"));
+        assert!(components[0].get("bom-ref").unwrap().as_str().unwrap().starts_with("pkg:pypi/"));
+    }
+
+    #[tokio::test]
+    async fn cyclonedx_reporter_includes_vulnerabilities_with_affects() {
+        let data = sample_report_data_with_all_packages();
+        let mut buf = Vec::new();
+        CycloneDxReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+        let vulns = parsed.get("vulnerabilities").unwrap().as_array().unwrap();
+        assert_eq!(vulns.len(), 1);
+        assert_eq!(vulns[0].get("id").unwrap(), "CVE-2023-1234");
+        let affects = vulns[0].get("affects").unwrap().as_array().unwrap();
+        assert_eq!(affects.len(), 1);
+        assert_eq!(
+            affects[0].get("ref").unwrap(),
+            "pkg:pypi/foo@1.0"
+        );
+    }
+
+    #[tokio::test]
+    async fn cyclonedx_reporter_schema_key_fields() {
+        let data = sample_report_data_one_finding();
+        let mut buf = Vec::new();
+        CycloneDxReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+        assert_eq!(parsed.get("bomFormat").unwrap(), "CycloneDX");
+        assert_eq!(parsed.get("specVersion").unwrap(), "1.6");
+        assert!(parsed.get("metadata").is_some());
+        assert!(parsed.get("components").is_some());
+        assert!(parsed.get("vulnerabilities").is_some());
+    }
+
+    #[tokio::test]
+    async fn spdx_reporter_empty_produces_valid_document() {
+        let data = ReportData {
+            findings: vec![],
+            all_packages: Some(vec![]),
+        };
+        let mut buf = Vec::new();
+        SpdxReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+        assert!(parsed.get("@context").is_some());
+        assert!(parsed.get("@type").is_some());
+        assert_eq!(parsed.get("@type").unwrap(), "SpdxDocument");
+        assert!(parsed.get("spdxId").is_some());
+        assert!(parsed.get("creationInfo").is_some());
+    }
+
+    #[tokio::test]
+    async fn spdx_reporter_includes_packages_as_elements() {
+        let data = sample_report_data_with_all_packages();
+        let mut buf = Vec::new();
+        SpdxReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+        let elements = parsed.get("element").unwrap().as_array().unwrap();
+        let pkg_count = elements
+            .iter()
+            .filter(|e| e.get("@type").and_then(|t| t.as_str()) == Some("Package"))
+            .count();
+        assert!(pkg_count >= 2);
+    }
+
+    #[tokio::test]
+    async fn spdx_reporter_includes_vulnerabilities_and_relationships() {
+        let data = sample_report_data_with_all_packages();
+        let mut buf = Vec::new();
+        SpdxReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+        let elements = parsed.get("element").unwrap().as_array().unwrap();
+        let vuln_count = elements
+            .iter()
+            .filter(|e| e.get("@type").and_then(|t| t.as_str()) == Some("Vulnerability"))
+            .count();
+        assert_eq!(vuln_count, 1);
+        let rels = parsed.get("relationship").unwrap().as_array().unwrap();
+        assert!(!rels.is_empty());
+        assert_eq!(
+            rels[0].get("relationshipType").unwrap(),
+            "hasAssociatedVulnerability"
+        );
+    }
+
+    #[tokio::test]
+    async fn spdx_reporter_uses_external_identifier_for_cve() {
+        let data = sample_report_data_one_finding();
+        let mut buf = Vec::new();
+        SpdxReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+        let elements = parsed.get("element").unwrap().as_array().unwrap();
+        let vuln = elements
+            .iter()
+            .find(|e| e.get("@type").and_then(|t| t.as_str()) == Some("Vulnerability"))
+            .unwrap();
+        assert_eq!(
+            vuln
+                .get("externalIdentifier")
+                .unwrap()
+                .get("identifier")
+                .unwrap(),
+            "CVE-2023-1234"
+        );
     }
 }

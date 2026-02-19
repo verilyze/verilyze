@@ -25,7 +25,8 @@ The workspace is split into:
 - **spd-python** -- Python language plugin: implements `ManifestFinder`,
   `Parser`, and `Resolver` for Python (requirements.txt, pyproject.toml, etc.).
 - **spd-cve-client** -- Trait `CveProvider`; default OSV.dev client.
-- **spd-report** -- Trait `Reporter`; plain, JSON, HTML, SARIF reporters.
+- **spd-report** -- Trait `Reporter`; plain, JSON, HTML, SARIF, CycloneDX, SPDX
+  reporters.
 - **spd-integrity** -- Trait `IntegrityChecker`; default delegates to backend
   `verify_integrity`.
 - **spd-plugin-macro** -- `spd_register!` macro for registering default plugins
