@@ -330,6 +330,29 @@ class TestGetNontrivialAuthors:
             )
         assert result == ["2023 Cached <cached@x>"]
 
+    def test_git_log_includes_use_mailmap(self, tmp_path: Path) -> None:
+        """get_nontrivial_authors passes --use-mailmap to git log (DOC-013)."""
+        config: update_headers.HeadersConfig = {
+            "default_copyright": "x",
+            "default_license": "GPL-3.0-or-later",
+            "nontrivial_lines": 15,
+            "extensions": (),
+            "literal_names": (),
+            "exclude_paths": (),
+        }
+        log_result = MagicMock(
+            returncode=0,
+            stdout="Canonical <canonical@x>\n2024\n20\t0\tfoo.py",
+        )
+
+        with patch("scripts.update_headers.run", return_value=log_result) as mock:
+            get_nontrivial_authors(tmp_path, "foo.py", None, config)
+            mock.assert_called_once()
+            cmd = mock.call_args[0][0]
+            assert cmd[0] == "git"
+            assert cmd[1] == "log"
+            assert "--use-mailmap" in cmd
+
 
 class TestGetReuseCmd:
     """Tests for get_reuse_cmd."""
@@ -387,6 +410,32 @@ class TestResolveAuthors:
         ):
             result = resolve_authors(tmp_path, "x.py", [], config)
         assert result == ["2024 Recent <recent@x>"]
+
+    def test_resolve_authors_git_log_includes_use_mailmap(
+        self, tmp_path: Path
+    ) -> None:
+        """resolve_authors passes --use-mailmap to git log (DOC-013)."""
+        config: update_headers.HeadersConfig = {
+            "default_copyright": "x",
+            "default_license": "GPL-3.0-or-later",
+            "nontrivial_lines": 15,
+            "extensions": (),
+            "literal_names": (),
+            "exclude_paths": (),
+        }
+        mock_result = MagicMock(returncode=0, stdout="2023 First <first@x>")
+        with patch(
+            "scripts.update_headers.run", return_value=mock_result
+        ) as mock:
+            resolve_authors(tmp_path, "x.py", [], config)
+            mock.assert_called()
+            for call in mock.call_args_list:
+                cmd = call[0][0]
+                if cmd[0] == "git" and cmd[1] == "log":
+                    assert "--use-mailmap" in cmd
+                    break
+            else:
+                pytest.fail("No git log call found in resolve_authors")
 
     def test_fallback_to_default_copyright_when_no_git(
         self, tmp_path: Path
