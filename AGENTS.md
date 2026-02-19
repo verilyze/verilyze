@@ -75,6 +75,9 @@ observable behavior.
   blank line (e.g. `# ` or `// `). This prevents REUSE automation from
   replacing existing file header comments when it later adds or updates SPDX
   tags.
+- **No duplicate copyright holders:** Do not add the same copyright owner twice.
+  Use `.mailmap` to map alternate identities (e.g. different emails) to a single
+  canonical form. See CONTRIBUTING "Copyright and licensing".
 
 ## Quick links
 
@@ -86,3 +89,4 @@ observable behavior.
 | Adding a plugin    | CONTRIBUTING "Adding a new language plugin"; PRD MOD-002 |
 | TDD workflow       | [CONTRIBUTING.md -- Test-driven development](CONTRIBUTING.md#test-driven-development-tdd) |
 | Security           | PRD section 6 (SEC-*), section 11 (Risk & Threat Model); [SECURITY.md](SECURITY.md); [COMPLIANCE.md](COMPLIANCE.md) |
+| Copyright duplicates | `make check-header-duplicates`; CONTRIBUTING "Copyright and licensing"; `.mailmap` |
