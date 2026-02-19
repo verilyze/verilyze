@@ -464,6 +464,19 @@ fn run_scan_format_json_exits_0() {
     });
 }
 
+#[test]
+fn run_scan_format_sarif_exits_0() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().to_str().unwrap();
+        assert_eq!(
+            run_async(&["scan", root, "--format", "sarif", "--offline", "--benchmark",]),
+            0
+        );
+    });
+}
+
 #[cfg(feature = "python")]
 #[test]
 fn run_scan_resolver_fails_exits_2() {
@@ -668,7 +681,7 @@ fn run_scan_with_summary_file_exits_0() {
 }
 
 #[test]
-fn run_scan_summary_file_html_plain_text_sarif() {
+fn run_scan_summary_file_html_plain_text_sarif_cyclonedx_spdx() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -677,10 +690,14 @@ fn run_scan_summary_file_html_plain_text_sarif() {
         let plain_path = dir.path().join("out.txt");
         let text_path = dir.path().join("out2.txt");
         let sarif_path = dir.path().join("out.sarif");
+        let cyclonedx_path = dir.path().join("sbom.cdx.json");
+        let spdx_path = dir.path().join("sbom.spdx.json");
         let spec_html = format!("html:{}", html_path.to_str().unwrap());
         let spec_plain = format!("plain:{}", plain_path.to_str().unwrap());
         let spec_text = format!("text:{}", text_path.to_str().unwrap());
         let spec_sarif = format!("sarif:{}", sarif_path.to_str().unwrap());
+        let spec_cyclonedx = format!("cyclonedx:{}", cyclonedx_path.to_str().unwrap());
+        let spec_spdx = format!("spdx:{}", spdx_path.to_str().unwrap());
         assert_eq!(
             run_async(&[
                 "scan",
@@ -695,6 +712,10 @@ fn run_scan_summary_file_html_plain_text_sarif() {
                 &spec_text,
                 "--summary-file",
                 &spec_sarif,
+                "--summary-file",
+                &spec_cyclonedx,
+                "--summary-file",
+                &spec_spdx,
             ]),
             0
         );
@@ -702,6 +723,8 @@ fn run_scan_summary_file_html_plain_text_sarif() {
         assert!(plain_path.exists());
         assert!(text_path.exists());
         assert!(sarif_path.exists());
+        assert!(cyclonedx_path.exists());
+        assert!(spdx_path.exists());
     });
 }
 

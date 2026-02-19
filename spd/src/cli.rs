@@ -40,11 +40,11 @@ pub enum Commands {
         #[arg(value_name = "PATH")]
         root: Option<String>,
 
-        /// Output format (plain, json, sarif)
+        /// Output format (plain, json, sarif, cyclonedx, spdx)
         #[arg(long, default_value = "plain")]
         format: String,
 
-        /// Generate additional files: e.g. html:/tmp/out.html,json:/tmp/out.json
+        /// Generate additional files: e.g. html:/tmp/out.html,cyclonedx:/tmp/sbom.json
         #[arg(long, value_name = "TYPE:PATH")]
         summary_file: Vec<String>,
 
