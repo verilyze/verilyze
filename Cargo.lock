@@ -1423,7 +1423,9 @@ dependencies = [
  "serde",
  "serde_json",
  "spd-cve-client",
+ "spd-cve-provider-github",
  "spd-cve-provider-nvd",
+ "spd-cve-provider-sonatype",
  "spd-db",
  "spd-db-redb",
  "spd-integrity",
@@ -1455,6 +1457,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "spd-cve-provider-github"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "spd-cve-client",
+ "spd-db",
+ "temp-env",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
 name = "spd-cve-provider-nvd"
 version = "1.0.0"
 dependencies = [
@@ -1465,6 +1482,22 @@ dependencies = [
  "spd-cve-client",
  "spd-db",
  "thiserror",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
+name = "spd-cve-provider-sonatype"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "base64",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "spd-cve-client",
+ "spd-db",
+ "temp-env",
  "tokio",
  "wiremock",
 ]
