@@ -131,15 +131,20 @@ pub trait DatabaseBackend: Send + Sync {
     /// Initialise the backend (create files, run migrations, …).
     async fn init(&self) -> Result<(), DatabaseError>;
 
-    /// Retrieve all cached CVE records for a package, if present.
-    async fn get(&self, pkg: &Package) -> Result<Option<Vec<CveRecord>>, DatabaseError>;
+    /// Retrieve all cached CVE records for a package from the given provider, if present.
+    async fn get(
+        &self,
+        pkg: &Package,
+        provider_id: &str,
+    ) -> Result<Option<Vec<CveRecord>>, DatabaseError>;
 
-    /// Store freshly‑fetched raw CVE vuln JSON for a package (replaces any
-    /// existing entry). If `ttl_override` is Some, that entry uses that TTL
-    /// instead of the backend default.
+    /// Store freshly-fetched raw CVE vuln JSON for a package from the given provider
+    /// (replaces any existing entry). If `ttl_override` is Some, that entry uses
+    /// that TTL instead of the backend default.
     async fn put(
         &self,
         pkg: &Package,
+        provider_id: &str,
         raw_vulns: &[serde_json::Value],
         ttl_override: Option<u64>,
     ) -> Result<(), DatabaseError>;
@@ -242,12 +247,17 @@ mod tests {
         async fn init(&self) -> Result<(), DatabaseError> {
             Ok(())
         }
-        async fn get(&self, _pkg: &Package) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
+        async fn get(
+            &self,
+            _pkg: &Package,
+            _provider_id: &str,
+        ) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
             Ok(None)
         }
         async fn put(
             &self,
             _pkg: &Package,
+            _provider_id: &str,
             _raw_vulns: &[serde_json::Value],
             _ttl_override: Option<u64>,
         ) -> Result<(), DatabaseError> {
@@ -267,10 +277,15 @@ mod tests {
         };
 
         backend.init().await.unwrap();
-        let got = backend.get(&pkg).await.unwrap();
+        let got = backend.get(&pkg, "osv").await.unwrap();
         assert!(got.is_none());
         backend
-            .put(&pkg, &[serde_json::json!({"id": "CVE-2024-0001"})], None)
+            .put(
+                &pkg,
+                "osv",
+                &[serde_json::json!({"id": "CVE-2024-0001"})],
+                None,
+            )
             .await
             .unwrap();
         let stats = backend.stats().await.unwrap();

@@ -192,7 +192,7 @@ fn run_db_show_with_cached_entry_and_raw_vulns() {
                     };
                     let raw =
                         vec![serde_json::json!({"id": "CVE-2024-TEST", "summary": "test vuln"})];
-                    backend.put(&pkg, &raw, None).await.expect("put");
+                    backend.put(&pkg, "osv", &raw, None).await.expect("put");
                 });
                 drop(backend);
                 ensure_registries_for_run();
@@ -230,7 +230,7 @@ fn run_scan_fp_exit_code_when_all_cves_marked_fp() {
                         "id": "CVE-2024-FP-TEST",
                         "summary": "marked as fp"
                     })];
-                    backend.put(&pkg, &raw, None).await.expect("put");
+                    backend.put(&pkg, "osv", &raw, None).await.expect("put");
                 });
                 drop(backend);
                 ensure_registries_for_run();

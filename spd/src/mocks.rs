@@ -83,13 +83,14 @@ impl DatabaseBackend for FailingDbBackend {
         Ok(())
     }
 
-    async fn get(&self, _: &Package) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
+    async fn get(&self, _: &Package, _: &str) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
         Ok(None)
     }
 
     async fn put(
         &self,
         _: &Package,
+        _: &str,
         _: &[serde_json::Value],
         _: Option<u64>,
     ) -> Result<(), DatabaseError> {
@@ -168,7 +169,7 @@ mod tests {
             name: "pkg".to_string(),
             version: "1.0".to_string(),
         };
-        let result = db.get(&pkg).await;
+        let result = db.get(&pkg, "osv").await;
         assert!(matches!(result, Ok(None)));
     }
 
@@ -180,7 +181,7 @@ mod tests {
             version: "1.0".to_string(),
         };
         let raw = vec![serde_json::json!({"id": "CVE-X"})];
-        assert!(db.put(&pkg, &raw, None).await.is_ok());
+        assert!(db.put(&pkg, "osv", &raw, None).await.is_ok());
     }
 
     #[tokio::test]

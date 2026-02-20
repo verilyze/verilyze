@@ -55,12 +55,13 @@ mod tests {
         async fn init(&self) -> Result<(), DatabaseError> {
             Ok(())
         }
-        async fn get(&self, _: &Package) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
+        async fn get(&self, _: &Package, _: &str) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
             Ok(None)
         }
         async fn put(
             &self,
             _: &Package,
+            _: &str,
             _: &[serde_json::Value],
             _: Option<u64>,
         ) -> Result<(), DatabaseError> {
@@ -81,12 +82,13 @@ mod tests {
         async fn init(&self) -> Result<(), DatabaseError> {
             Ok(())
         }
-        async fn get(&self, _: &Package) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
+        async fn get(&self, _: &Package, _: &str) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
             Ok(None)
         }
         async fn put(
             &self,
             _: &Package,
+            _: &str,
             _: &[serde_json::Value],
             _: Option<u64>,
         ) -> Result<(), DatabaseError> {
@@ -126,8 +128,8 @@ mod tests {
             version: "1.0.0".to_string(),
         };
         db.init().await.unwrap();
-        assert!(db.get(&pkg).await.unwrap().is_none());
-        db.put(&pkg, &[], None).await.unwrap();
+        assert!(db.get(&pkg, "osv").await.unwrap().is_none());
+        db.put(&pkg, "osv", &[], None).await.unwrap();
         let _ = db.stats().await.unwrap();
         db.verify_integrity().await.unwrap();
     }
@@ -140,8 +142,8 @@ mod tests {
             version: "1.0.0".to_string(),
         };
         db.init().await.unwrap();
-        assert!(db.get(&pkg).await.unwrap().is_none());
-        db.put(&pkg, &[], None).await.unwrap();
+        assert!(db.get(&pkg, "osv").await.unwrap().is_none());
+        db.put(&pkg, "osv", &[], None).await.unwrap();
         let _ = db.stats().await.unwrap();
         let r = db.verify_integrity().await;
         assert!(r.is_err());

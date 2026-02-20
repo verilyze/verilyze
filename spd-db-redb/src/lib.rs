@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use spd_cve_client::raw_vuln_to_cve_record;
+use spd_cve_client::decode_raw_vulns;
 use spd_db::{
     CacheEntryInfo, CveRecord, DatabaseBackend, DatabaseError, DatabaseStats, Package, TtlSelector,
 };
@@ -22,17 +22,24 @@ const CACHE_TABLE: TableDefinition<&str, &str> = TableDefinition::new("cve_cache
 /// RedB table for persisted stats: keys "hits", "misses"; values decimal strings.
 const METADATA_TABLE: TableDefinition<&str, &str> = TableDefinition::new("metadata");
 
-/// Serialized form of a cache entry (raw OSV vuln JSON per package + TTL).
-/// Old entries may lack added_at_secs/ttl_secs; they are inferred when missing.
+/// Serialized form of a cache entry (raw vuln JSON per package+provider + TTL).
 #[derive(serde::Serialize, serde::Deserialize)]
 struct StoredEntry {
     raw_vulns: Vec<serde_json::Value>,
+    provider_id: String,
     #[serde(rename = "expires_at_secs")]
     expires_at_secs: u64,
     #[serde(default)]
     added_at_secs: Option<u64>,
     #[serde(default)]
     ttl_secs: Option<u64>,
+}
+
+/// Minimal struct for purge: only need expires_at to decide whether to remove.
+#[derive(serde::Deserialize)]
+struct PurgeEntry {
+    #[serde(rename = "expires_at_secs")]
+    expires_at_secs: u64,
 }
 
 /// Normalize after deserialization: fill added_at_secs/ttl_secs from expiry if missing.
@@ -44,8 +51,8 @@ fn normalize_stored_entry(entry: &mut StoredEntry, default_ttl_secs: u64) {
     }
 }
 
-fn pkg_key(pkg: &Package) -> String {
-    format!("{}::{}", pkg.name, pkg.version)
+fn pkg_cache_key(pkg: &Package, provider_id: &str) -> String {
+    format!("{}::{}::{}", pkg.name, pkg.version, provider_id)
 }
 
 /// Load persisted hits/misses and cache_ttl_secs from the metadata table.
@@ -205,8 +212,8 @@ impl RedbBackend {
             .filter_map(|entry| {
                 let (k, v) = entry.ok()?;
                 let val_str = v.value();
-                let stored: StoredEntry = serde_json::from_str(val_str).ok()?;
-                if stored.expires_at_secs <= now_secs {
+                let purge_entry: PurgeEntry = serde_json::from_str(val_str).ok()?;
+                if purge_entry.expires_at_secs <= now_secs {
                     Some(k.value().to_string())
                 } else {
                     None
@@ -227,12 +234,18 @@ impl RedbBackend {
 #[async_trait]
 impl DatabaseBackend for RedbBackend {
     async fn init(&self) -> Result<(), DatabaseError> {
+        spd_cve_client::ensure_default_decoders();
         self.purge_expired()
     }
 
-    async fn get(&self, pkg: &Package) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
+    async fn get(
+        &self,
+        pkg: &Package,
+        provider_id: &str,
+    ) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
+        spd_cve_client::ensure_default_decoders();
         let _ = self.purge_expired();
-        let key = pkg_key(pkg);
+        let key = pkg_cache_key(pkg, provider_id);
         let read_txn = self
             .inner
             .db
@@ -286,11 +299,7 @@ impl DatabaseBackend for RedbBackend {
             );
             return Ok(None);
         }
-        let records: Vec<CveRecord> = stored
-            .raw_vulns
-            .iter()
-            .filter_map(raw_vuln_to_cve_record)
-            .collect();
+        let records = decode_raw_vulns(&stored.provider_id, &stored.raw_vulns);
         self.inner.hits.fetch_add(1, Ordering::Relaxed);
         persist_stats(
             self.inner.db.as_ref(),
@@ -304,10 +313,11 @@ impl DatabaseBackend for RedbBackend {
     async fn put(
         &self,
         pkg: &Package,
+        provider_id: &str,
         raw_vulns: &[serde_json::Value],
         ttl_override: Option<u64>,
     ) -> Result<(), DatabaseError> {
-        let key = pkg_key(pkg);
+        let key = pkg_cache_key(pkg, provider_id);
         let ttl = ttl_override.unwrap_or(self.inner.ttl_secs).max(1);
         let now_secs = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -316,6 +326,7 @@ impl DatabaseBackend for RedbBackend {
         let expires_at_secs = now_secs.saturating_add(ttl);
         let entry = StoredEntry {
             raw_vulns: raw_vulns.to_vec(),
+            provider_id: provider_id.to_string(),
             expires_at_secs,
             added_at_secs: Some(now_secs),
             ttl_secs: Some(ttl),
@@ -363,6 +374,7 @@ impl DatabaseBackend for RedbBackend {
     }
 
     async fn list_entries(&self, full: bool) -> Result<Vec<CacheEntryInfo>, DatabaseError> {
+        spd_cve_client::ensure_default_decoders();
         let read_txn = self
             .inner
             .db
@@ -386,12 +398,8 @@ impl DatabaseBackend for RedbBackend {
             normalize_stored_entry(&mut stored, self.inner.ttl_secs);
             let added = stored.added_at_secs.unwrap_or(0);
             let ttl = stored.ttl_secs.unwrap_or(self.inner.ttl_secs);
-            let cve_ids: Vec<String> = stored
-                .raw_vulns
-                .iter()
-                .filter_map(|v| v.get("id").and_then(|id| id.as_str()))
-                .map(String::from)
-                .collect();
+            let records = decode_raw_vulns(&stored.provider_id, &stored.raw_vulns);
+            let cve_ids: Vec<String> = records.iter().map(|r| r.id.clone()).collect();
             let raw_vulns = if full {
                 Some(stored.raw_vulns.clone())
             } else {
@@ -782,8 +790,8 @@ mod tests {
             name: "mem_pkg".to_string(),
             version: "1.0".to_string(),
         };
-        backend.put(&pkg, &[sample_raw_vuln()], None).await.unwrap();
-        let got = backend.get(&pkg).await.unwrap();
+        backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
+        let got = backend.get(&pkg, "osv").await.unwrap();
         assert!(got.is_some());
         let stats = backend.stats().await.unwrap();
         assert!(stats.cached_entries >= 1);
@@ -842,11 +850,11 @@ mod tests {
             version: "1.0".to_string(),
         };
         let raw = vec![sample_raw_vuln()];
-        backend.put(&pkg, &raw, Some(60)).await.unwrap();
+        backend.put(&pkg, "osv", &raw, Some(60)).await.unwrap();
         let entries = backend.list_entries(false).await.unwrap();
         let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 1, "list_entries should return one entry");
-        assert_eq!(entries[0].key, "foo::1.0");
+        assert_eq!(entries[0].key, "foo::1.0::osv");
         assert_eq!(entries[0].ttl_secs, 60);
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -869,7 +877,7 @@ mod tests {
             version: "2.0".to_string(),
         };
         backend
-            .put(&pkg, &[sample_raw_vuln()], Some(120))
+            .put(&pkg, "osv", &[sample_raw_vuln()], Some(120))
             .await
             .unwrap();
         let entries = backend.list_entries(false).await.unwrap();
@@ -894,11 +902,11 @@ mod tests {
             version: "2".to_string(),
         };
         backend
-            .put(&pkg1, &[sample_raw_vuln()], None)
+            .put(&pkg1, "osv", &[sample_raw_vuln()], None)
             .await
             .unwrap();
         backend
-            .put(&pkg2, &[sample_raw_vuln()], None)
+            .put(&pkg2, "osv", &[sample_raw_vuln()], None)
             .await
             .unwrap();
         backend.set_ttl(TtlSelector::All, 120).await.unwrap();
@@ -923,22 +931,22 @@ mod tests {
             version: "2".to_string(),
         };
         backend
-            .put(&pkg1, &[sample_raw_vuln()], None)
+            .put(&pkg1, "osv", &[sample_raw_vuln()], None)
             .await
             .unwrap();
         backend
-            .put(&pkg2, &[sample_raw_vuln()], None)
+            .put(&pkg2, "osv", &[sample_raw_vuln()], None)
             .await
             .unwrap();
         backend
-            .set_ttl(TtlSelector::One("a::1".into()), 200)
+            .set_ttl(TtlSelector::One("a::1::osv".into()), 200)
             .await
             .unwrap();
         let entries = backend.list_entries(false).await.unwrap();
         let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 2);
-        let a = entries.iter().find(|e| e.key == "a::1").unwrap();
-        let b = entries.iter().find(|e| e.key == "b::2").unwrap();
+        let a = entries.iter().find(|e| e.key == "a::1::osv").unwrap();
+        let b = entries.iter().find(|e| e.key == "b::2::osv").unwrap();
         assert_eq!(a.ttl_secs, 200);
         assert_eq!(b.ttl_secs, 3600);
     }
@@ -954,12 +962,12 @@ mod tests {
             version: "1".to_string(),
         };
         backend
-            .put(&pkg, &[sample_raw_vuln()], Some(1))
+            .put(&pkg, "osv", &[sample_raw_vuln()], Some(1))
             .await
             .unwrap();
-        assert!(backend.get(&pkg).await.unwrap().is_some());
+        assert!(backend.get(&pkg, "osv").await.unwrap().is_some());
         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-        let got = backend.get(&pkg).await.unwrap();
+        let got = backend.get(&pkg, "osv").await.unwrap();
         let _ = std::fs::remove_file(&path);
         assert!(got.is_none());
     }
@@ -974,7 +982,7 @@ mod tests {
             name: "full_pkg".to_string(),
             version: "1.0".to_string(),
         };
-        backend.put(&pkg, &[sample_raw_vuln()], None).await.unwrap();
+        backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
         let entries = backend.list_entries(true).await.unwrap();
         let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 1);
@@ -1039,6 +1047,7 @@ mod tests {
                     name: "x".to_string(),
                     version: "1".to_string(),
                 },
+                "osv",
                 &[sample_raw_vuln()],
                 None,
             )
@@ -1081,10 +1090,10 @@ mod tests {
             version: "1".to_string(),
         };
         backend
-            .put(&pkg, &[vuln_ok, vuln_no_id], None)
+            .put(&pkg, "osv", &[vuln_ok, vuln_no_id], None)
             .await
             .unwrap();
-        let got = backend.get(&pkg).await.unwrap();
+        let got = backend.get(&pkg, "osv").await.unwrap();
         let _ = std::fs::remove_file(&path);
         assert!(got.is_some());
         let recs = got.unwrap();
@@ -1105,13 +1114,14 @@ mod tests {
                     name: "real".to_string(),
                     version: "1".to_string(),
                 },
+                "osv",
                 &[sample_raw_vuln()],
                 None,
             )
             .await
             .unwrap();
         backend
-            .set_ttl(TtlSelector::One("fake::999".into()), 99)
+            .set_ttl(TtlSelector::One("fake::999::osv".into()), 99)
             .await
             .unwrap();
         let entries = backend.list_entries(false).await.unwrap();
@@ -1147,16 +1157,16 @@ mod tests {
             version: "2".to_string(),
         };
         backend
-            .put(&pkg1, &[sample_raw_vuln()], None)
+            .put(&pkg1, "osv", &[sample_raw_vuln()], None)
             .await
             .unwrap();
         backend
-            .put(&pkg2, &[sample_raw_vuln()], None)
+            .put(&pkg2, "osv", &[sample_raw_vuln()], None)
             .await
             .unwrap();
         backend
             .set_ttl(
-                TtlSelector::Multiple(vec!["p1::1".into(), "p2::2".into()]),
+                TtlSelector::Multiple(vec!["p1::1::osv".into(), "p2::2::osv".into()]),
                 99,
             )
             .await
@@ -1176,7 +1186,7 @@ mod tests {
             name: "mem".to_string(),
             version: "1".to_string(),
         };
-        backend.put(&pkg, &[sample_raw_vuln()], None).await.unwrap();
+        backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
         backend.set_ttl(TtlSelector::All, 120).await.unwrap();
         let entries = backend.list_entries(false).await.unwrap();
         assert_eq!(entries.len(), 1);
@@ -1195,6 +1205,7 @@ mod tests {
                     name: "foo".to_string(),
                     version: "1".to_string(),
                 },
+                "osv",
                 &[sample_raw_vuln()],
                 None,
             )
@@ -1222,6 +1233,7 @@ mod tests {
                     name: "real".to_string(),
                     version: "1".to_string(),
                 },
+                "osv",
                 &[sample_raw_vuln()],
                 None,
             )
@@ -1229,14 +1241,14 @@ mod tests {
             .unwrap();
         backend
             .set_ttl(
-                TtlSelector::Multiple(vec!["real::1".into(), "fake::999".into()]),
+                TtlSelector::Multiple(vec!["real::1::osv".into(), "fake::999::osv".into()]),
                 50,
             )
             .await
             .unwrap();
         let entries = backend.list_entries(false).await.unwrap();
         let _ = std::fs::remove_file(&path);
-        let real = entries.iter().find(|e| e.key == "real::1").unwrap();
+        let real = entries.iter().find(|e| e.key == "real::1::osv").unwrap();
         assert_eq!(real.ttl_secs, 50);
     }
 
@@ -1303,7 +1315,7 @@ mod tests {
             version: "1".to_string(),
         };
         backend
-            .put(&pkg, &[sample_raw_vuln()], Some(0))
+            .put(&pkg, "osv", &[sample_raw_vuln()], Some(0))
             .await
             .unwrap();
         let entries = backend.list_entries(false).await.unwrap();
@@ -1334,14 +1346,14 @@ mod tests {
                 name: "corrupt".to_string(),
                 version: "1".to_string(),
             };
-            backend.put(&pkg, &[sample_raw_vuln()], None).await.unwrap();
+            backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
         }
         {
             let db = redb::Database::create(&path).unwrap();
             let write_txn = db.begin_write().unwrap();
             {
                 let mut table = write_txn.open_table(CACHE_TABLE).unwrap();
-                table.insert("corrupt::1", "not valid json").unwrap();
+                table.insert("corrupt::1::osv", "not valid json").unwrap();
             }
             write_txn.commit().unwrap();
         }
@@ -1351,14 +1363,14 @@ mod tests {
             name: "corrupt".to_string(),
             version: "1".to_string(),
         };
-        let got = backend.get(&pkg).await.unwrap();
+        let got = backend.get(&pkg, "osv").await.unwrap();
         let stats = backend.stats().await.unwrap();
         let _ = std::fs::remove_file(&path);
         assert!(got.is_none());
         assert_eq!(stats.misses, 1);
     }
 
-    /// Old-format entry without added_at_secs/ttl_secs; normalize_stored_entry fills them.
+    /// Entry without added_at_secs/ttl_secs; normalize_stored_entry fills them.
     #[tokio::test]
     async fn get_old_format_entry_normalizes() {
         let path = temp_cache_path("old_format");
@@ -1370,6 +1382,7 @@ mod tests {
         let expires = now + 3600;
         let old_entry = serde_json::json!({
             "raw_vulns": [sample_raw_vuln()],
+            "provider_id": "osv",
             "expires_at_secs": expires
         });
         let val = old_entry.to_string();
@@ -1379,7 +1392,7 @@ mod tests {
             {
                 let mut cache = write_txn.open_table(CACHE_TABLE).unwrap();
                 let mut meta = write_txn.open_table(METADATA_TABLE).unwrap();
-                cache.insert("old::1", val.as_str()).unwrap();
+                cache.insert("old::1::osv", val.as_str()).unwrap();
                 meta.insert("hits", "0").unwrap();
                 meta.insert("misses", "0").unwrap();
                 meta.insert("cache_ttl_secs", "3600").unwrap();
@@ -1392,7 +1405,7 @@ mod tests {
             name: "old".to_string(),
             version: "1".to_string(),
         };
-        let got = backend.get(&pkg).await.unwrap();
+        let got = backend.get(&pkg, "osv").await.unwrap();
         let _ = std::fs::remove_file(&path);
         assert!(got.is_some());
         assert_eq!(got.unwrap()[0].id, "CVE-2023-test");
@@ -1411,6 +1424,7 @@ mod tests {
                         name: "good".to_string(),
                         version: "1".to_string(),
                     },
+                    "osv",
                     &[sample_raw_vuln()],
                     None,
                 )
@@ -1422,7 +1436,7 @@ mod tests {
             let write_txn = db.begin_write().unwrap();
             {
                 let mut table = write_txn.open_table(CACHE_TABLE).unwrap();
-                table.insert("bad::1", "{{{ invalid }").unwrap();
+                table.insert("bad::1::osv", "{{{ invalid }").unwrap();
             }
             write_txn.commit().unwrap();
         }
@@ -1431,7 +1445,7 @@ mod tests {
         let entries = backend.list_entries(false).await.unwrap();
         let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0].key, "good::1");
+        assert_eq!(entries[0].key, "good::1::osv");
     }
 
     /// list_entries(full: true) with mixed valid+corrupt: returns valid with raw_vulns,
@@ -1449,6 +1463,7 @@ mod tests {
                         name: "valid".to_string(),
                         version: "1".to_string(),
                     },
+                    "osv",
                     &[sample_raw_vuln()],
                     None,
                 )
@@ -1460,7 +1475,7 @@ mod tests {
             let write_txn = db.begin_write().unwrap();
             {
                 let mut table = write_txn.open_table(CACHE_TABLE).unwrap();
-                table.insert("corrupt::x", "not json {{{").unwrap();
+                table.insert("corrupt::x::osv", "not json {{{").unwrap();
             }
             write_txn.commit().unwrap();
         }
@@ -1469,7 +1484,7 @@ mod tests {
         let entries = backend.list_entries(true).await.unwrap();
         let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0].key, "valid::1");
+        assert_eq!(entries[0].key, "valid::1::osv");
         let raw = entries[0].raw_vulns.as_ref().unwrap();
         assert_eq!(raw.len(), 1);
         assert_eq!(
@@ -1491,6 +1506,7 @@ mod tests {
                         name: "valid".to_string(),
                         version: "1".to_string(),
                     },
+                    "osv",
                     &[sample_raw_vuln()],
                     None,
                 )
@@ -1502,7 +1518,7 @@ mod tests {
             let write_txn = db.begin_write().unwrap();
             {
                 let mut table = write_txn.open_table(CACHE_TABLE).unwrap();
-                table.insert("corrupt::x", "not json").unwrap();
+                table.insert("corrupt::x::osv", "not json").unwrap();
             }
             write_txn.commit().unwrap();
         }
@@ -1511,7 +1527,7 @@ mod tests {
         backend.set_ttl(TtlSelector::All, 100).await.unwrap();
         let entries = backend.list_entries(false).await.unwrap();
         let _ = std::fs::remove_file(&path);
-        let valid = entries.iter().find(|e| e.key == "valid::1").unwrap();
+        let valid = entries.iter().find(|e| e.key == "valid::1::osv").unwrap();
         assert_eq!(valid.ttl_secs, 100);
     }
 
@@ -1526,6 +1542,7 @@ mod tests {
         let expired = now.saturating_sub(10);
         let expired_entry = serde_json::json!({
             "raw_vulns": [sample_raw_vuln()],
+            "provider_id": "osv",
             "expires_at_secs": expired,
             "added_at_secs": expired - 3600,
             "ttl_secs": 3600
@@ -1537,9 +1554,9 @@ mod tests {
                 let mut cache = write_txn.open_table(CACHE_TABLE).unwrap();
                 let mut meta = write_txn.open_table(METADATA_TABLE).unwrap();
                 cache
-                    .insert("expired::1", expired_entry.to_string().as_str())
+                    .insert("expired::1::osv", expired_entry.to_string().as_str())
                     .unwrap();
-                cache.insert("corrupt::1", "garbage").unwrap();
+                cache.insert("corrupt::1::osv", "garbage").unwrap();
                 meta.insert("hits", "0").unwrap();
                 meta.insert("misses", "0").unwrap();
                 meta.insert("cache_ttl_secs", "3600").unwrap();
@@ -1569,12 +1586,14 @@ mod tests {
         let valid_secs = now + 3600;
         let expired_entry = serde_json::json!({
             "raw_vulns": [sample_raw_vuln()],
+            "provider_id": "osv",
             "expires_at_secs": expired_secs,
             "added_at_secs": expired_secs - 3600,
             "ttl_secs": 3600
         });
         let valid_entry = serde_json::json!({
             "raw_vulns": [sample_raw_vuln()],
+            "provider_id": "osv",
             "expires_at_secs": valid_secs,
             "added_at_secs": now,
             "ttl_secs": 3600
@@ -1586,10 +1605,10 @@ mod tests {
                 let mut cache = write_txn.open_table(CACHE_TABLE).unwrap();
                 let mut meta = write_txn.open_table(METADATA_TABLE).unwrap();
                 cache
-                    .insert("expired::1", expired_entry.to_string().as_str())
+                    .insert("expired::1::osv", expired_entry.to_string().as_str())
                     .unwrap();
                 cache
-                    .insert("valid::1", valid_entry.to_string().as_str())
+                    .insert("valid::1::osv", valid_entry.to_string().as_str())
                     .unwrap();
                 meta.insert("hits", "0").unwrap();
                 meta.insert("misses", "0").unwrap();
@@ -1602,7 +1621,7 @@ mod tests {
         let entries = backend.list_entries(false).await.unwrap();
         let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0].key, "valid::1");
+        assert_eq!(entries[0].key, "valid::1::osv");
     }
 
     #[tokio::test]
@@ -1658,8 +1677,8 @@ mod tests {
             name: "d".to_string(),
             version: "1".to_string(),
         };
-        backend.put(&pkg, &[sample_raw_vuln()], None).await.unwrap();
-        let _ = backend.get(&pkg).await.unwrap();
+        backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
+        let _ = backend.get(&pkg, "osv").await.unwrap();
         let stats_before = backend.stats().await.unwrap();
         assert!(stats_before.hits >= 1);
         std::mem::drop(backend);
@@ -1684,8 +1703,8 @@ mod tests {
                 name: "p".to_string(),
                 version: "1".to_string(),
             };
-            backend.put(&pkg, &[sample_raw_vuln()], None).await.unwrap();
-            let _ = backend.get(&pkg).await.unwrap();
+            backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
+            let _ = backend.get(&pkg, "osv").await.unwrap();
             backend.__test_persist_stats_on_drop();
         }
         let backend2 = RedbBackend::with_path(path.clone(), 3600).unwrap();
@@ -1797,7 +1816,7 @@ mod tests {
             version: "1".to_string(),
         };
         backend
-            .put(&pkg, &[vuln_with_id, vuln_without_id], None)
+            .put(&pkg, "osv", &[vuln_with_id, vuln_without_id], None)
             .await
             .unwrap();
         let entries = backend.list_entries(false).await.unwrap();
@@ -1821,7 +1840,7 @@ mod tests {
             version: "1".to_string(),
         };
         backend
-            .put(&pkg, &[vuln_ok, vuln_id_number], None)
+            .put(&pkg, "osv", &[vuln_ok, vuln_id_number], None)
             .await
             .unwrap();
         let entries = backend.list_entries(false).await.unwrap();
@@ -1845,8 +1864,8 @@ mod tests {
             name: "no_conv".to_string(),
             version: "1".to_string(),
         };
-        backend.put(&pkg, &vulns_no_id, None).await.unwrap();
-        let got = backend.get(&pkg).await.unwrap();
+        backend.put(&pkg, "osv", &vulns_no_id, None).await.unwrap();
+        let got = backend.get(&pkg, "osv").await.unwrap();
         let _ = std::fs::remove_file(&path);
         assert!(got.is_some());
         assert!(got.unwrap().is_empty());
@@ -1865,6 +1884,7 @@ mod tests {
         let ttl = 120u64;
         let partial = serde_json::json!({
             "raw_vulns": [sample_raw_vuln()],
+            "provider_id": "osv",
             "expires_at_secs": expires,
             "ttl_secs": ttl
         });
@@ -1875,7 +1895,7 @@ mod tests {
                 let mut cache = write_txn.open_table(CACHE_TABLE).unwrap();
                 let mut meta = write_txn.open_table(METADATA_TABLE).unwrap();
                 cache
-                    .insert("partial::1", partial.to_string().as_str())
+                    .insert("partial::1::osv", partial.to_string().as_str())
                     .unwrap();
                 meta.insert("hits", "0").unwrap();
                 meta.insert("misses", "0").unwrap();
@@ -1905,6 +1925,7 @@ mod tests {
         let expires = now + 3600;
         let partial = serde_json::json!({
             "raw_vulns": [sample_raw_vuln()],
+            "provider_id": "osv",
             "expires_at_secs": expires,
             "added_at_secs": added
         });
@@ -1915,7 +1936,7 @@ mod tests {
                 let mut cache = write_txn.open_table(CACHE_TABLE).unwrap();
                 let mut meta = write_txn.open_table(METADATA_TABLE).unwrap();
                 cache
-                    .insert("partial::1", partial.to_string().as_str())
+                    .insert("partial::1::osv", partial.to_string().as_str())
                     .unwrap();
                 meta.insert("hits", "0").unwrap();
                 meta.insert("misses", "0").unwrap();
@@ -1940,9 +1961,9 @@ mod tests {
             name: "shared".to_string(),
             version: "1".to_string(),
         };
-        backend.put(&pkg, &[sample_raw_vuln()], None).await.unwrap();
+        backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
         let clone = backend.clone();
-        let got = clone.get(&pkg).await.unwrap();
+        let got = clone.get(&pkg, "osv").await.unwrap();
         assert!(got.is_some());
         assert_eq!(got.unwrap()[0].id, "CVE-2023-test");
     }
@@ -1958,8 +1979,8 @@ mod tests {
             name: "empty".to_string(),
             version: "1".to_string(),
         };
-        backend.put(&pkg, &[], None).await.unwrap();
-        let got = backend.get(&pkg).await.unwrap();
+        backend.put(&pkg, "osv", &[], None).await.unwrap();
+        let got = backend.get(&pkg, "osv").await.unwrap();
         let _ = std::fs::remove_file(&path);
         assert!(got.is_some());
         assert!(got.unwrap().is_empty());
@@ -1992,7 +2013,7 @@ mod tests {
             name: "nonexist".to_string(),
             version: "0".to_string(),
         };
-        let got = backend.get(&pkg).await.unwrap();
+        let got = backend.get(&pkg, "osv").await.unwrap();
         assert!(got.is_none());
         drop(backend);
         let _ = std::fs::remove_file(&path);
@@ -2049,7 +2070,7 @@ mod tests {
                 name: "pkg".to_string(),
                 version: "1".to_string(),
             };
-            if b.put(&pkg, &[sample_raw_vuln()], None).await.is_err() {
+            if b.put(&pkg, "osv", &[sample_raw_vuln()], None).await.is_err() {
                 continue;
             }
             let res = b.list_entries(false).await;
@@ -2085,7 +2106,7 @@ mod tests {
                 name: "pkg".to_string(),
                 version: "1".to_string(),
             };
-            if b.put(&pkg, &[sample_raw_vuln()], None).await.is_err() {
+            if b.put(&pkg, "osv", &[sample_raw_vuln()], None).await.is_err() {
                 continue;
             }
             let res = b.verify_integrity().await;
@@ -2116,7 +2137,7 @@ mod tests {
             name: "pkg".to_string(),
             version: "1".to_string(),
         };
-        b.put(&pkg, &[sample_raw_vuln()], None)
+        b.put(&pkg, "osv", &[sample_raw_vuln()], None)
             .await
             .unwrap();
         let res = b.init().await;
@@ -2148,7 +2169,7 @@ mod tests {
                 name: "pkg".to_string(),
                 version: "1".to_string(),
             };
-            if b.put(&pkg, &[sample_raw_vuln()], None).await.is_err() {
+            if b.put(&pkg, "osv", &[sample_raw_vuln()], None).await.is_err() {
                 continue;
             }
             let res = b.set_ttl(TtlSelector::All, 120).await;

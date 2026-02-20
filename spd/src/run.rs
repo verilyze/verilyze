@@ -688,7 +688,7 @@ async fn run_scan(
         let fut = async move {
             let _guard = permit;
 
-            if let Some(cached) = db.as_ref().get(&pkg).await? {
+            if let Some(cached) = db.as_ref().get(&pkg, prov.name()).await? {
                 return Ok((pkg.clone(), cached));
             }
 
@@ -704,7 +704,7 @@ async fn run_scan(
                 .await
                 .with_context(|| format!("Fetching CVEs for {}@{}", pkg.name, pkg.version))?;
             db.as_ref()
-                .put(&pkg, &fetched.raw_vulns, None)
+                .put(&pkg, prov.name(), &fetched.raw_vulns, None)
                 .await
                 .with_context(|| format!("Storing cache for {}@{}", pkg.name, pkg.version))?;
             Ok((pkg.clone(), fetched.records))

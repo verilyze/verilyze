@@ -24,7 +24,8 @@ The workspace is split into:
   `DependencyGraph`; no default implementations.
 - **spd-python** -- Python language plugin: implements `ManifestFinder`,
   `Parser`, and `Resolver` for Python (requirements.txt, pyproject.toml, etc.).
-- **spd-cve-client** -- Trait `CveProvider`; default OSV.dev client.
+- **spd-cve-client** -- Trait `CveProvider` and `RawVulnDecoder`; defines the provider contract and decoder registry; includes default OSV.dev client.
+- **spd-cve-provider-nvd** -- NVD (NIST) CVE provider; optional, gated behind `nvd` feature.
 - **spd-report** -- Trait `Reporter`; plain, JSON, HTML, SARIF, CycloneDX, SPDX
   reporters.
 - **spd-integrity** -- Trait `IntegrityChecker`; default delegates to backend
@@ -77,6 +78,7 @@ graph TD
     H -->|"spd_register! (feature = redb)"| A
     I -->|"spd_register! (feature = sqlite)"| A
     J -->|"spd_register! (feature = mem)"| A
+    K["spd-cve-provider-nvd"] -->|"spd_register! (feature = nvd)"| A
     %% Visual styling
     style A fill:#f9f,stroke:#333,stroke-width:2px
 ```
@@ -202,13 +204,37 @@ formal trait contracts.
 
 ### Adding a new CVE provider
 
-To add a new CVE provider (e.g. NVD, GitHub Advisory), implement the
-`CveProvider` trait in `spd-cve-client` and register it. **Important:** map
-retryable errors (connection timeout, connection refused, rate limiting 429,
-server errors 5xx) to `ProviderError::Network` or `ProviderError::Transient`
-so that `RetryingCveProvider` automatically applies exponential backoff
-(NFR-005, SEC-007). Use `Transient { retry_after_secs: Some(n), ... }` when
-the upstream API returns a Retry-After value (e.g. HTTP 429 with header).
+Per MOD-001 and MOD-002, optional CVE providers live in **separate crates**
+(e.g. `spd-cve-provider-nvd`). The default OSV provider remains in
+`spd-cve-client`; additional providers use their own crates.
+
+1. Create a new crate (e.g. `spd-cve-provider-nvd`) that:
+   - Depends on `spd-cve-client` (trait `CveProvider`, types `FetchedCves`,
+     `ProviderError`) and `spd-db` (`Package`, `CveRecord`).
+   - Implements `CveProvider` (including `name()` for provider selection).
+   - Implements `RawVulnDecoder` (or provides a decoder) and registers it
+     with `spd_cve_client::register_decoder()` so the cache can decode your
+     provider's raw JSON back to `CveRecord`s.
+2. Gate the crate behind a Cargo feature in the `spd` binary (e.g. `nvd`).
+   When the feature is enabled, your crate is compiled and registers its
+   provider and decoder at startup.
+3. In the binary's startup path (e.g. `ensure_default_cve_provider`), when
+   the feature is enabled, register your provider via `spd_register!` or push
+   to the PROVIDERS registry.
+
+**Important:** Map retryable errors (connection timeout, connection refused,
+rate limiting 429, server errors 5xx) to `ProviderError::Network` or
+`ProviderError::Transient` so that `RetryingCveProvider` automatically
+applies exponential backoff (NFR-005, SEC-007). Use
+`Transient { retry_after_secs: Some(n), ... }` when the upstream API returns
+a Retry-After value (e.g. HTTP 429 with header).
+
+**Provider-specific notes:** NVD uses CPE for package lookup; map PyPI
+packages to `cpe:2.3:a:{package}:{package}:{version}:*:*:*:*:python:*:*` (package name as
+   vendor; NVD's cpeName rejects wildcard vendor). NVD
+unauthenticated rate limit is 5 req/30s. Future multi-provider scans
+(`--providers osv,nvd` or `--providers all`) are planned as a roadmap
+enhancement; the cache design supports this.
 
 ## Feature gating (MOD-003)
 
@@ -217,6 +243,7 @@ The `spd` binary supports optional capabilities via Cargo features:
 - **default** = `["redb", "python"]` -- full build with Python support and RedB backend.
 - **redb** -- RedB database backend for CVE cache and false-positive DB.
 - **python** -- Python language plugin (`spd-python` crate).
+- **nvd** -- NVD CVE provider (`spd-cve-provider-nvd` crate); opt-in.
 - **sqlite**, **mem** -- placeholders for future backends.
 
 Build a **minimal binary** (no Python, no RedB) with:
@@ -229,6 +256,12 @@ Build with only Java (when `spd-java` exists) and no Python:
 
 ```sh
 cargo build --no-default-features --features java
+```
+
+Build with NVD CVE provider in addition to defaults:
+
+```sh
+cargo build --features nvd
 ```
 
 A minimal build omits language plugins and the RedB backend; `spd list` will

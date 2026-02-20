@@ -130,10 +130,19 @@ pub fn ensure_default_resolver() {
 
 /// Ensures at least one CVE provider is registered (default OSV.dev provider).
 /// Call this at startup so the default provider is used when no plugin has registered one.
+/// When the `nvd` feature is enabled, also registers the NVD provider.
 pub fn ensure_default_cve_provider() {
+    spd_cve_client::ensure_default_decoders();
     let mut providers = providers().lock().unwrap();
     if providers.is_empty() {
         providers.push(Box::new(OsvProvider::default()));
+    }
+    #[cfg(feature = "nvd")]
+    {
+        if !providers.iter().any(|p| p.name() == "nvd") {
+            spd_cve_provider_nvd::register_nvd_decoder();
+            providers.push(Box::new(spd_cve_provider_nvd::NvdProvider::default()));
+        }
     }
 }
 
@@ -331,9 +340,10 @@ mod tests {
 
         clear_providers();
         ensure_default_cve_provider();
-        assert_eq!(providers().lock().unwrap().len(), 1);
+        let expected_providers = 1 + if cfg!(feature = "nvd") { 1 } else { 0 };
+        assert_eq!(providers().lock().unwrap().len(), expected_providers);
         ensure_default_cve_provider();
-        assert_eq!(providers().lock().unwrap().len(), 1);
+        assert_eq!(providers().lock().unwrap().len(), expected_providers);
 
         clear_reporters();
         ensure_default_reporter();
