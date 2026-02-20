@@ -1,0 +1,6 @@
+lock-version = "1.0"
+created-by = "test"
+
+[[packages]]
+name = "attrs"
+version = "25.1.0"
