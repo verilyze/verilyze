@@ -15,6 +15,7 @@ members = [
     "spd-manifest-finder",
     "spd-manifest-parser",
     "spd-cve-client",
+    "spd-cve-provider-nvd",    # NVD CVE provider (optional, nvd feature)
     "spd-report",
     "spd-integrity",
     "spd-plugin-macro"          # procedural macro for plugin registration

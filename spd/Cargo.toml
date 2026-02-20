@@ -36,6 +36,7 @@ spd-manifest-finder = { path = "../spd-manifest-finder" }
 spd-manifest-parser = { path = "../spd-manifest-parser" }
 spd-python = { path = "../spd-python", optional = true }
 spd-cve-client = { path = "../spd-cve-client" }
+spd-cve-provider-nvd = { path = "../spd-cve-provider-nvd", optional = true }
 spd-report = { path = "../spd-report" }
 spd-integrity = { path = "../spd-integrity" }
 
@@ -57,6 +58,7 @@ temp-env = "0.3"
 default = ["redb", "python", "testing"]
 redb = ["spd-db-redb"]
 python = ["spd-python"]
+nvd = ["dep:spd-cve-provider-nvd"]
 # Mocks and registry clear helpers for integration tests (integration tests
 # build spd as a dep, so cfg(test) is false; this feature enables them).
 testing = ["async-trait"]

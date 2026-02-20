@@ -7,6 +7,7 @@ graph TD
     B["spd-manifest-finder"]
     C["spd-manifest-parser"]
     D["spd-cve-client"]
+    D2["spd-cve-provider-nvd (optional, nvd feature)"]
     E["spd-db (trait definitions)"]
     F["spd-report"]
     G["spd-integrity"]
@@ -18,6 +19,7 @@ graph TD
     A --> B
     A --> C
     A --> D
+    A --> D2
     A --> E
     A --> F
     A --> G
@@ -26,6 +28,7 @@ graph TD
     B -.->|defines| ManifestFinder
     C -.->|defines| Parser
     D -.->|defines| CveProvider
+    D2 -.->|implements| CveProvider
     E -.->|defines| DatabaseBackend
     F -.->|defines| Reporter
     G -.->|defines| IntegrityChecker
