@@ -246,6 +246,12 @@ The `spd` binary supports optional capabilities via Cargo features:
 - **nvd** -- NVD CVE provider (`spd-cve-provider-nvd` crate); opt-in.
 - **sqlite**, **mem** -- placeholders for future backends.
 
+NVD is opt-in because: (1) NVD enforces 5 requests per 30-second window for
+unauthenticated use, whereas spd defaults to 10 parallel queries, so a
+cold-cache scan would immediately hit rate limits; (2) including NVD increases
+binary size and dependencies (PRD Purpose & Scope, NFR-019, MOD-004); (3) PRD
+MOD-003 specifies OSV-only as the default CVE provider.
+
 Build a **minimal binary** (no Python, no RedB) with:
 
 ```sh

@@ -57,7 +57,8 @@ commas, invalid escape sequences. Use a TOML validator or check the
 **Cause:** `--provider` names a provider that is not registered (FR-019).
 
 **Remediation:** Run `spd db list-providers` to see available providers (e.g.
-`osv`). Ensure the relevant Cargo feature (e.g. OSV) is enabled.
+`osv`). Ensure the relevant Cargo feature (e.g. `nvd` for NVD) is enabled when
+building.
 
 ---
 
@@ -80,6 +81,34 @@ or path relative to the current directory.
 
 **Remediation:** Fix file permissions: directories `0755`, files `0644`. Remove
 world-writable bits. Do not use `0666` for DB files.
+
+---
+
+## CVE providers
+
+### Why is NVD not available by default?
+
+**Cause:** NVD (NIST National Vulnerability Database) is opt-in for several
+reasons: (1) NVD enforces 5 requests per 30-second window for unauthenticated
+use; spd defaults to 10 parallel queries, so a cold-cache scan would exceed
+the limit and trigger 429 backoff; (2) including NVD increases binary size
+and dependencies (PRD Purpose & Scope, NFR-019); (3) PRD MOD-003 specifies
+OSV-only as the default CVE provider.
+
+**Remediation:** Build with `cargo install spd --features nvd` if you need NVD.
+See "How do I use NVD?" below.
+
+---
+
+### How do I use NVD?
+
+**Steps:**
+
+1. Build with the NVD feature: `cargo build --features nvd` or
+   `cargo install spd --features nvd`
+2. Run a scan with NVD: `spd scan --provider nvd`
+3. For unauthenticated NVD use, lower `parallel_queries` (e.g. 2-3) via
+   `--parallel 3` or config to avoid 429 rate-limit responses.
 
 ---
 
