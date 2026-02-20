@@ -8,6 +8,8 @@ graph TD
     C["spd-manifest-parser"]
     D["spd-cve-client"]
     D2["spd-cve-provider-nvd (optional, nvd feature)"]
+    D3["spd-cve-provider-github (optional, github feature)"]
+    D4["spd-cve-provider-sonatype (optional, sonatype feature)"]
     E["spd-db (trait definitions)"]
     F["spd-report"]
     G["spd-integrity"]
@@ -20,6 +22,8 @@ graph TD
     A --> C
     A --> D
     A --> D2
+    A --> D3
+    A --> D4
     A --> E
     A --> F
     A --> G
@@ -29,6 +33,8 @@ graph TD
     C -.->|defines| Parser
     D -.->|defines| CveProvider
     D2 -.->|implements| CveProvider
+    D3 -.->|implements| CveProvider
+    D4 -.->|implements| CveProvider
     E -.->|defines| DatabaseBackend
     F -.->|defines| Reporter
     G -.->|defines| IntegrityChecker

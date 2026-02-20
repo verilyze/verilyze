@@ -86,6 +86,28 @@ world-writable bits. Do not use `0666` for DB files.
 
 ## CVE providers
 
+### Provider authentication
+
+- **GitHub Advisory:** Optional. Use `GITHUB_TOKEN` (or `SPD_GITHUB_TOKEN` to
+  override) for higher rate limits. `GITHUB_TOKEN` is automatically set in
+  GitHub Actions.
+- **Sonatype OSS Index:** Required. Set `SPD_SONATYPE_EMAIL` and
+  `SPD_SONATYPE_TOKEN` (create a free account at
+  https://ossindex.sonatype.org).
+
+### 401 Unauthorized from Sonatype
+
+**Cause:** Missing or invalid credentials. Sonatype OSS Index requires
+authentication.
+
+**Remediation:** Set both `SPD_SONATYPE_EMAIL` and `SPD_SONATYPE_TOKEN`.
+Verify the token is valid at https://ossindex.sonatype.org.
+
+### Credential in error output
+
+If you suspect a token or email was leaked in stderr: SEC-020 requires no
+credential in error output. Report this as a security bug (see SECURITY.md).
+
 ### Why is NVD not available by default?
 
 **Cause:** NVD (NIST National Vulnerability Database) is opt-in for several
