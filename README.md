@@ -91,7 +91,7 @@ Run `spd config --list` to print effective values.
 | `spd list`                   | List registered language plugins                              |
 | `spd config --list`          | Show effective configuration                                  |
 | `spd config --set KEY=VALUE` | Set a config key (e.g. `python.regex="^requirements\\.txt$"`) |
-| `spd db list-providers`      | List CVE providers (e.g. osv)                                 |
+| `spd db list-providers`      | List CVE providers (e.g. osv, nvd when built with `--features nvd`) |
 | `spd db stats`               | Cache statistics                                              |
 | `spd db show [--format FORMAT] [--full]` | Display cache entries (key, TTL, added-at, CVE summary or full payload) |
 | `spd db set-ttl SECS [--entry KEY] [--all] [--pattern PATTERN] [--entries KEYS]` | Update TTL for existing cache entries |
@@ -103,7 +103,7 @@ Run `spd config --list` to print effective values.
 
 **Scan options (examples):** `--format plain|json|sarif|cyclonedx|spdx`,
 `--summary-file html:path,cyclonedx:sbom.json,spdx:sbom.spdx.json`,
-`--provider osv`, `--parallel N`, `--cache-ttl-secs SECS`, `--offline`,
+`--provider osv|nvd`, `--parallel N`, `--cache-ttl-secs SECS`, `--offline`,
 `--benchmark`, `--min-score`, `--min-count`, `--exit-code-on-cve`,
 `--fp-exit-code`, `--cache-db`, `--ignore-db`.
 

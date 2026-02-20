@@ -1423,6 +1423,7 @@ dependencies = [
  "serde",
  "serde_json",
  "spd-cve-client",
+ "spd-cve-provider-nvd",
  "spd-db",
  "spd-db-redb",
  "spd-integrity",
@@ -1447,6 +1448,21 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "spd-db",
+ "thiserror",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
+name = "spd-cve-provider-nvd"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "spd-cve-client",
  "spd-db",
  "thiserror",
  "tokio",
