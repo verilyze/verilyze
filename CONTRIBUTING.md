@@ -81,8 +81,6 @@ graph TD
     I -->|"spd_register! (feature = sqlite)"| A
     J -->|"spd_register! (feature = mem)"| A
     K["spd-cve-provider-nvd"] -->|"spd_register! (feature = nvd)"| A
-    %% Visual styling
-    style A fill:#f9f,stroke:#333,stroke-width:2px
 ```
 
 ## Quick setup
@@ -357,6 +355,10 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   `[ ]`; quote variables (`"${var}"`); use `local` in functions; send error
   messages to stderr (`>&2`). The style guide is authoritative; this is a
   concise summary.
+- **Mermaid diagrams:** To view them in Cursor/VS Code, install the
+  **Markdown Preview Mermaid Support** extension (or accept the workspace
+  recommendation). Follow Mermaid diagram guidelines: no explicit colors or
+  styling; use quoted labels for special characters (see project conventions).
 - We **encourage** a **test-driven development (TDD)** approach (see below).
   Add unit tests in the crate that owns the logic; integration tests where
   appropriate. We may ask for tests to be added or updated before merging.
