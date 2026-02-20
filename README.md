@@ -22,6 +22,10 @@ cargo install spd
 - **Privileged:** binary goes to `/usr/local/bin/` (or equivalent).
 - **Non-privileged:** binary goes to `$HOME/.cargo/bin/`.
 
+The default build includes the OSV CVE provider. The NVD provider is opt-in
+(reasons: NVD rate limits, binary size; see [docs/FAQ.md](docs/FAQ.md)). To
+include NVD: `cargo install spd --features nvd`, then `spd scan --provider nvd`.
+
 ## Quick start
 
 ```bash
