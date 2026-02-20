@@ -14,8 +14,11 @@ concrete implementation in the codebase (SOC 2, ISO 27001, CMMC baseline).
 
 - **Data protection:** How cached CVE data and false-positive markings
   are stored, accessed, and protected (e.g. file permissions, SEC-014).
+  Provider credentials: Stored only in process environment; never written
+  to config files, cache, or reports. SEC-020 ensures no credential
+  strings in error output.
 - **Auditability:** Error logging, exit codes, and audit trail (SEC-009,
-  NFR-013).
+  NFR-013). Credential usage is not logged (by design).
 - **Least privilege:** No privilege escalation, no set-UID (SEC-003,
   OP-001).
 - **Secure communications:** TLS verification, certificate validation

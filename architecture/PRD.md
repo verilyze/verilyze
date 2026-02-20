@@ -203,7 +203,7 @@ DOC-002).
 | **SEC-005** | Non-repudiation | Optional FIPS-204 signature of redb values enabled with Cargo feature gating. Mutually exclusive with SEC-004 | `spd db verify` reports "integrity OK (FIPS-204)" for untouched files and flags tampering when the file is altered manually. |
 | **SEC-006** | Secure configuration loading | Configuration files are parsed with strict validation; unknown keys cause a fatal error (exit 2) with a helpful message. | Providing malformed TOML entry results in `Error: Unknown configuration key "foo_bar"` -- exiting with code 2. |
 | **SEC-007** | Back-off & retry strategy | On HTTP 429 or 5xx responses the client backs off exponentially (configurable base delay, max retries). The strategy is deterministic and logged in verbose mode. | When the provider returns 429 repeatedly, the client waits 100ms, 200ms, 400ms... up to the configured maximum before giving up. |
-| **SEC-008** | Credential-free operation | The tool never stores or transmits credentials; all network calls are unauthenticated public API requests. | No secret files are created in $HOME/.config/super-duper; an `strace` shows no credential usage. |
+| **SEC-008** | Credential-free operation | The default configuration is credential-free: OSV, NVD, and GitHub Advisory work without credentials. Optional CVE providers may accept credentials via environment variables only (e.g. `GITHUB_TOKEN` or `SPD_GITHUB_TOKEN` for GitHub; `SPD_SONATYPE_EMAIL`, `SPD_SONATYPE_TOKEN` for Sonatype) for higher rate limits or provider-required auth. Credentials are never stored on disk, never logged, and never appear in error output (SEC-020). | No secret files are created in $HOME/.config/super-duper; credentials come only from process environment; `strace` shows no credential writes; error output is audited for redaction. |
 | **SEC-009** | Auditable logging | All error conditions that lead to exit codes 2 or 3 are written to **stderr** with timestamps and actionable hints. Verbose mode (`-v/--verbose`) adds debug-level logs. Stdout is reserved for requested reports and listings only; stderr is for errors and diagnostics (see NFR-013). | Running `spd scan` with a missing `pip` prints `ERROR [2025-09-11T14:32:01Z] pip not found --install via apt-get install python3-pip.` |
 | **SEC-010** | Compliance baseline | The overall design satisfies the baseline controls of **SOC 2**, **ISO 27001**, and **CMMC** (data protection, auditability, least-privilege, secure communications). A compliance checklist is shipped with the repository and signed off by a security reviewer. Compliance documentation and controls shall be implemented via well-defined interfaces so that the core tool remains simple, testable, and maintainable. | The checklist document (COMPLIANCE.md) is present, up-to-date, and references each control mapped to a concrete implementation in code. |
 | **SEC-011** | No unsafe code | The crate is compiled with `#![deny(unsafe_code)];` any introduction of `unsafe` blocks fails the build. | `cargo check` succeeds; adding `unsafe {}` triggers a compilation error. |
@@ -264,7 +264,7 @@ DOC-002).
 |----|-------|-------------|---------------------|
 | **MOD-001** | Separate crates for distinct responsibilities | The project shall be split into seven top-level crates (all published under the same workspace): 1. `spd-manifest-finder` -- discovers manifest files on disk. 2. `spd-manifest-parser` -- parses each manifest and resolved direct & transitive dependencies. 3. `spd-cve-client` -- queries online CVE providers (currently OSV.dev) and handles parallelism, back-off, and TLS verification. 4. `spd-db` -- defines the public trait DatabaseBackend that abstracts all persistent storage operations. 5. `spd-db-redb` -- default implementation of DatabaseBackend backed by RedB (`spd-cache.redb` and `spd-ignore.redb`). 6. `spd-report` -- reads data from the chosen DatabaseBackend implementation and emits reports (JSON by default, extensible to other formats). 7. `spd-integrity` -- ensures the integrity of the databases using SHA256 by default, extensible to FIPS-204, FIPS-205, etc. | Building the workspace produces distinct library crates (`cargo build -p spd-manifest-finder`, etc.) and a binary crate `spd` that depends on them. |
 | **MOD-002** | Public trait contracts | Each crate shall expose a small set of **public traits** that define the contract for plug-ins. Traits may use `async fn` where appropriate. - ManifestFinder (async fn find(&self, root: &Path) -> Result<Vec<PathBuf>, FinderError>). - Parser (async fn parse(&self, manifest: &Path) -> Result<DependencyGraph, ParserError>). - Resolver (async fn resolve(&self, graph: &DependencyGraph) -> Result<Vec<Package>, ResolverError>). - CveProvider (async fn fetch(&self, pkg: &Package) -> Result<FetchedCves, ProviderError>); returns a cacheable raw form plus derived Vec<CveRecord>. - DatabaseBackend (async_trait): init; get(&self, pkg, provider_id: &str) -> Result<Option<Vec<CveRecord>>, DatabaseError> (per-package and provider; one package may have many CVEs per provider); put(&self, pkg, provider_id: &str, raw_vulns: &[Value], ttl_override: Option<u64>) -> Result<(), DatabaseError> (store raw JSON for TTL/cache; if ttl_override is None, backend uses default TTL from config); set_ttl(selector, new_ttl_secs) for updating TTL of existing entries (one, multiple, or all; backends that do not support updates may return an error or no-op); list_entries() -> Result<Vec<CacheEntryInfo>, DatabaseError> (optional; each entry has key, TTL or expires_at, added_at, and cache data summary or full; backends that do not support listing may return an empty list or unsupported); stats; verify_integrity. Backends store at least expiry (or TTL), added-at timestamp, and raw/derived CVE data per entry. - Reporter (async fn render / render_to_writer / render_to_path). - IntegrityChecker (async fn verify(&self, db: &dyn DatabaseBackend) -> Result<(), IntegrityError>). | Adding a new language, database backend, CVE provider, integrity checker algorithm, or report format only requires implementing the relevant traits in a separate crate; the core binary can load it without recompilation. |
-| **MOD-003** | Feature-gate extensibility | Optional language support, integrity checker algorithms, reporting output formats, and additional CVE providers shall be gated behind Cargo **features** (e.g., feature = "java" enables the Java manifest finder/parser). The default feature set includes only **Python** support, **SHA256** integrity checks, **JSON** reports, and **OSV** CVE provider. The **nvd** feature enables the NVD CVE provider; default remains OSV-only. Feature flags shall allow independent toggles where applicable (e.g., `network`, `docs`). The `default` feature set is documented (e.g., in CONTRIBUTING or crate docs). Building with `--no-default-features` produces a minimal binary; which capabilities are omitted shall be documented. | `cargo build --no-default-features --features java` compiles the Java modules; omitting the feature leaves the binary smaller. |
+| **MOD-003** | Feature-gate extensibility | Optional language support, integrity checker algorithms, reporting output formats, and additional CVE providers shall be gated behind Cargo **features** (e.g., feature = "java" enables the Java manifest finder/parser). The default feature set includes only **Python** support, **SHA256** integrity checks, **JSON** reports, and **OSV** CVE provider. The **nvd** feature enables the NVD CVE provider; **github** enables the GitHub Advisory provider; **sonatype** enables the Sonatype OSS Index provider; default remains OSV-only. Feature flags shall allow independent toggles where applicable (e.g., `network`, `docs`). The `default` feature set is documented (e.g., in CONTRIBUTING or crate docs). Building with `--no-default-features` produces a minimal binary; which capabilities are omitted shall be documented. | `cargo build --no-default-features --features java` compiles the Java modules; omitting the feature leaves the binary smaller. |
 | **MOD-004** | Minimal external dependencies | The `spd` binary shall depend only on internal crates and a small, justified set of external crates. No heavy runtime frameworks are allowed. To add a new dependency, the contributor must document in the PR or design doc: (a) why in-house implementation is not practical (scope, complexity, security), and (b) that the crate is GPL-3.0-compatible and maintained. See the Minimal Dependencies design principle. | `cargo tree` shows a shallow dependency graph; the count threshold applies to direct workspace dependencies plus their first-level transitive dependencies, measured at the root `spd` binary. `cargo deny` (SEC-012) and `cargo audit` (SEC-016) pass. |
 | **MOD-005** | Testing isolation per crate | Each crate must contain its own unit-tests and, where appropriate, integration-tests that mock external services (e.g., a local HTTP server for `spd-cve-client`). Test coverage goals (>= 85% line, >= 80% function, >= 85% region, >= 70% branch when stable) apply **per crate**. | Running `cargo test -p spd-cve-client` exercises the HTTP client with a mock server and reaches the required coverage. |
 | **MOD-006** | Documentation per crate | Every public trait, struct, and function in each crate shall have a `/// doc` comment. `cargo doc --open` must generate a complete API reference for each crate. | The generated docs contain no "missing documentation" warnings from `cargo rustdoc`. |
@@ -315,8 +315,8 @@ security reviewers with no outstanding issues.
 
 ### 11.2 Non-objectives
 
-- The tool does not authenticate to CVE providers (SEC-008); it is
-  credential-free.
+- The default build is credential-free; optional providers may use
+  env-provided credentials per SEC-008.
 - No guarantee of real-time CVE feed; cache TTL and offline use are
   by design.
 
@@ -325,6 +325,7 @@ security reviewers with no outstanding issues.
 - Local cache and ignore (false-positive) databases.
 - Configuration files (system and user).
 - Output reports (JSON, SARIF, HTML) that may contain CVE details.
+- Provider credentials (when set via environment variables; never persisted).
 
 ### 11.4 Threats and mitigations
 
@@ -334,6 +335,7 @@ security reviewers with no outstanding issues.
 | MITM or spoofed CVE provider | TLS verification, hostname validation (SEC-002, NFR-004). |
 | Malformed or malicious config | Strict validation, unknown keys cause exit 2 (SEC-006). |
 | Information disclosure via reports | Reports are written to user-specified or default paths; no unsanitized secrets. |
+| Credential exposure via env, log, or error | Env-only for credentials; never log or include in errors (SEC-020); fuzz/audit verifies no token strings in output. |
 | Supply-chain compromise of dependencies | License checks (SEC-012), `cargo audit` (SEC-016), dogfooding (SEC-015). |
 
 ### 11.5 Attack tree (ASCII)
@@ -341,12 +343,13 @@ security reviewers with no outstanding issues.
 ```
                     [Compromise spd user outcome]
                                     |
-        +-------------------+------+------+-------------------+
-        |                   |             |                   |
- [Tamper cache]    [Spoof CVE API]  [Malicious config]  [Compromise deps]
-        |                   |             |                   |
-   (verify_integrity,   (TLS verify,  (strict parsing,    (cargo deny,
-    file perms)          cert chain)   exit 2)             audit, SBOM)
+        +-------------------+------+------+------+-------------------+
+        |                   |             |     |                   |
+ [Tamper cache]    [Spoof CVE API]  [Malicious config] [Exfiltrate provider credentials]  [Compromise deps]
+        |                   |             |                         |                   |
+   (verify_integrity,   (TLS verify,  (strict parsing,    (env-only, no disk;   (cargo deny,
+    file perms)          cert chain)   exit 2)             no log/error disclosure; audit, SBOM)
+                                                        redact in verbose)
 ```
 
 ---

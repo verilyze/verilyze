@@ -24,6 +24,23 @@ Please include:
 
 We will acknowledge receipt and work with you on a fix and disclosure timeline.
 
+## Optional provider credentials
+
+GitHub Advisory and Sonatype OSS Index CVE providers support optional or
+required authentication via environment variables:
+
+- **GitHub:** Optional. Set `GITHUB_TOKEN` (or `SPD_GITHUB_TOKEN` to override)
+  for higher rate limits. `GITHUB_TOKEN` is automatically set in GitHub Actions.
+- **Sonatype:** Required. Set `SPD_SONATYPE_EMAIL` and `SPD_SONATYPE_TOKEN`
+  (create a free account at https://ossindex.sonatype.org).
+
+Credentials are read from the process environment only; they are never
+stored in config files or on disk. Error messages and verbose output must
+never contain tokens or emails; SEC-020 and tests enforce this. Users should
+set env vars only in secure contexts (e.g. CI secrets, not shared terminals).
+See [architecture/PRD.md -- Risk & Threat Model (section 11)](architecture/PRD.md#risk-threat-model)
+and [COMPLIANCE.md](COMPLIANCE.md) for credential-handling controls.
+
 ## Threat model and compliance
 
 - **Threat model:** The project maintains a threat model using the PASTA

@@ -16,6 +16,8 @@ members = [
     "spd-manifest-parser",
     "spd-cve-client",
     "spd-cve-provider-nvd",    # NVD CVE provider (optional, nvd feature)
+    "spd-cve-provider-github", # GitHub Advisory CVE provider (optional, github feature)
+    "spd-cve-provider-sonatype", # Sonatype OSS Index CVE provider (optional, sonatype feature)
     "spd-report",
     "spd-integrity",
     "spd-plugin-macro"          # procedural macro for plugin registration

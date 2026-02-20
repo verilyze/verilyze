@@ -26,6 +26,8 @@ The workspace is split into:
   `Parser`, and `Resolver` for Python (requirements.txt, pyproject.toml, etc.).
 - **spd-cve-client** -- Trait `CveProvider` and `RawVulnDecoder`; defines the provider contract and decoder registry; includes default OSV.dev client.
 - **spd-cve-provider-nvd** -- NVD (NIST) CVE provider; optional, gated behind `nvd` feature.
+- **spd-cve-provider-github** -- GitHub Advisory Database; optional, gated behind `github` feature.
+- **spd-cve-provider-sonatype** -- Sonatype OSS Index; optional, gated behind `sonatype` feature.
 - **spd-report** -- Trait `Reporter`; plain, JSON, HTML, SARIF, CycloneDX, SPDX
   reporters.
 - **spd-integrity** -- Trait `IntegrityChecker`; default delegates to backend
@@ -236,6 +238,14 @@ unauthenticated rate limit is 5 req/30s. Future multi-provider scans
 (`--providers osv,nvd` or `--providers all`) are planned as a roadmap
 enhancement; the cache design supports this.
 
+**Auth and credential redaction:** Providers that accept credentials (e.g.
+GitHub via `GITHUB_TOKEN`/`SPD_GITHUB_TOKEN`, Sonatype via
+`SPD_SONATYPE_EMAIL`+`SPD_SONATYPE_TOKEN`) must read from environment
+variables only; never store or log credentials. Error messages and
+`ProviderError::Display` must never contain token values or email addresses
+(SEC-020). Add tests that assert error output does not contain credential
+strings (e.g. `assert!(!format!("{}", err).contains("secret"))`).
+
 ## Feature gating (MOD-003)
 
 The `spd` binary supports optional capabilities via Cargo features:
@@ -244,6 +254,8 @@ The `spd` binary supports optional capabilities via Cargo features:
 - **redb** -- RedB database backend for CVE cache and false-positive DB.
 - **python** -- Python language plugin (`spd-python` crate).
 - **nvd** -- NVD CVE provider (`spd-cve-provider-nvd` crate); opt-in.
+- **github** -- GitHub Advisory CVE provider (`spd-cve-provider-github` crate); opt-in.
+- **sonatype** -- Sonatype OSS Index CVE provider (`spd-cve-provider-sonatype` crate); opt-in.
 - **sqlite**, **mem** -- placeholders for future backends.
 
 NVD is opt-in because: (1) NVD enforces 5 requests per 30-second window for
@@ -268,6 +280,12 @@ Build with NVD CVE provider in addition to defaults:
 
 ```sh
 cargo build --features nvd
+```
+
+Build with GitHub and Sonatype CVE providers:
+
+```sh
+cargo build --features github,sonatype
 ```
 
 A minimal build omits language plugins and the RedB backend; `spd list` will

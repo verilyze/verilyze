@@ -144,6 +144,20 @@ pub fn ensure_default_cve_provider() {
             providers.push(Box::new(spd_cve_provider_nvd::NvdProvider::default()));
         }
     }
+    #[cfg(feature = "github")]
+    {
+        if !providers.iter().any(|p| p.name() == "github") {
+            spd_cve_provider_github::register_github_decoder();
+            providers.push(Box::new(spd_cve_provider_github::GitHubProvider::default()));
+        }
+    }
+    #[cfg(feature = "sonatype")]
+    {
+        if !providers.iter().any(|p| p.name() == "sonatype") {
+            spd_cve_provider_sonatype::register_sonatype_decoder();
+            providers.push(Box::new(spd_cve_provider_sonatype::SonatypeProvider::default()));
+        }
+    }
 }
 
 /// Ensures at least one reporter is registered (default plain-text table reporter).
@@ -340,7 +354,10 @@ mod tests {
 
         clear_providers();
         ensure_default_cve_provider();
-        let expected_providers = 1 + if cfg!(feature = "nvd") { 1 } else { 0 };
+        let expected_providers = 1
+            + if cfg!(feature = "nvd") { 1 } else { 0 }
+            + if cfg!(feature = "github") { 1 } else { 0 }
+            + if cfg!(feature = "sonatype") { 1 } else { 0 };
         assert_eq!(providers().lock().unwrap().len(), expected_providers);
         ensure_default_cve_provider();
         assert_eq!(providers().lock().unwrap().len(), expected_providers);

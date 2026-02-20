@@ -82,6 +82,15 @@ details.
 | backoff_max_ms   | 30000           | SPD_BACKOFF_MAX_MS     | --backoff-max    |
 | max_retries      | 5               | SPD_MAX_RETRIES        | --max-retries    |
 
+**Environment variables for optional CVE providers** (not stored in config):
+
+| Variable              | Provider   | Purpose                                      |
+|-----------------------|------------|----------------------------------------------|
+| GITHUB_TOKEN         | GitHub     | Optional; higher rate limits (Actions sets this) |
+| SPD_GITHUB_TOKEN     | GitHub     | Override for GITHUB_TOKEN                     |
+| SPD_SONATYPE_EMAIL   | Sonatype   | Required for Sonatype OSS Index               |
+| SPD_SONATYPE_TOKEN   | Sonatype   | Required for Sonatype OSS Index               |
+
 Changing **cache_ttl_secs** only affects new cache entries; existing entries
 keep their stored expiry until they expire or are purged.
 
@@ -95,7 +104,7 @@ Run `spd config --list` to print effective values.
 | `spd list`                   | List registered language plugins                              |
 | `spd config --list`          | Show effective configuration                                  |
 | `spd config --set KEY=VALUE` | Set a config key (e.g. `python.regex="^requirements\\.txt$"`) |
-| `spd db list-providers`      | List CVE providers (e.g. osv, nvd when built with `--features nvd`) |
+| `spd db list-providers`      | List CVE providers (e.g. osv, nvd, github, sonatype when built with respective features) |
 | `spd db stats`               | Cache statistics                                              |
 | `spd db show [--format FORMAT] [--full]` | Display cache entries (key, TTL, added-at, CVE summary or full payload) |
 | `spd db set-ttl SECS [--entry KEY] [--all] [--pattern PATTERN] [--entries KEYS]` | Update TTL for existing cache entries |
@@ -107,7 +116,7 @@ Run `spd config --list` to print effective values.
 
 **Scan options (examples):** `--format plain|json|sarif|cyclonedx|spdx`,
 `--summary-file html:path,cyclonedx:sbom.json,spdx:sbom.spdx.json`,
-`--provider osv|nvd`, `--parallel N`, `--cache-ttl-secs SECS`, `--offline`,
+`--provider osv|nvd|github|sonatype`, `--parallel N`, `--cache-ttl-secs SECS`, `--offline`,
 `--benchmark`, `--min-score`, `--min-count`, `--exit-code-on-cve`,
 `--fp-exit-code`, `--cache-db`, `--ignore-db`.
 
