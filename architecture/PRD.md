@@ -360,4 +360,4 @@ security reviewers with no outstanding issues.
 
 | Language | Manifest files (discovered by default or via config) | Lock files (used for transitive resolution when present) |
 |----------|------------------------------------------------------|----------------------------------------------------------|
-| **Python** | requirements.txt, pyproject.toml, Pipfile, setup.py, setup.cfg | poetry.lock, Pipfile.lock (planned). Initial implementation parses requirements.txt only. |
+| **Python** | requirements.txt, pyproject.toml, Pipfile, setup.cfg (setup.py deferred) | pylock.toml, pylock.*.toml, poetry.lock, Pipfile.lock, uv.lock |

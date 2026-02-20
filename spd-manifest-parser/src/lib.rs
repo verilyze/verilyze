@@ -39,6 +39,9 @@ pub enum ResolverError {
 #[derive(Debug, Default, Clone)]
 pub struct DependencyGraph {
     pub packages: Vec<spd_db::Package>,
+
+    /// Path to the manifest file; used by Resolver for lock file discovery (FR-022).
+    pub manifest_path: Option<PathBuf>,
 }
 
 /// Trait for parsing a manifest file into a dependency graph.

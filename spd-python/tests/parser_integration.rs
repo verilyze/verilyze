@@ -5,7 +5,7 @@
 use std::error::Error;
 use std::path::PathBuf;
 
-use spd_manifest_parser::Parser;
+use spd_manifest_parser::{Parser, Resolver};
 use spd_python::RequirementsTxtParser;
 
 #[tokio::test]
@@ -39,6 +39,26 @@ async fn parse_requirements_txt_file() {
     assert_eq!(graph.packages[2].version, "any");
     assert_eq!(graph.packages[3].version, "3.1");
     assert_eq!(graph.packages[4].version, "1.0");
+    assert_eq!(graph.manifest_path.as_deref(), Some(path.as_path()));
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+async fn parse_pyproject_toml_returns_packages_and_sets_manifest_path() {
+    let tmp = std::env::temp_dir().join("spd_python_pyproject_test");
+    let _ = std::fs::remove_dir_all(&tmp);
+    std::fs::create_dir_all(&tmp).unwrap();
+    let path = tmp.join("pyproject.toml");
+    std::fs::write(
+        &path,
+        b"[project]\nname = \"test\"\nversion = \"0.1.0\"\n\
+          dependencies = [\"httpx>=0.20\", \"requests==2.31.0\"]\n",
+    )
+    .unwrap();
+    let parser = RequirementsTxtParser::new();
+    let graph = parser.parse(&path).await.unwrap();
+    assert_eq!(graph.packages.len(), 2);
+    assert_eq!(graph.manifest_path.as_deref(), Some(path.as_path()));
     let _ = std::fs::remove_dir_all(&tmp);
 }
 
@@ -60,4 +80,29 @@ async fn parse_nonexistent_requirements_txt_returns_error() {
         msg,
         source_msg
     );
+}
+
+#[tokio::test]
+async fn resolve_uses_lock_file_when_present() {
+    let tmp = std::env::temp_dir().join("spd_lock_resolve_test");
+    let _ = std::fs::remove_dir_all(&tmp);
+    std::fs::create_dir_all(&tmp).unwrap();
+    let pyproject = tmp.join("pyproject.toml");
+    let poetry_lock = tmp.join("poetry.lock");
+    std::fs::write(
+        &pyproject,
+        b"[project]\nname = \"test\"\ndependencies = [\"requests\"]\n",
+    )
+    .unwrap();
+    std::fs::write(
+        &poetry_lock,
+        b"[[package]]\nname = \"requests\"\nversion = \"2.31.0\"\n\n[[package]]\nname = \"certifi\"\nversion = \"2024.1.0\"\n",
+    )
+    .unwrap();
+    let parser = RequirementsTxtParser::new();
+    let resolver = spd_python::DirectOnlyResolver::new();
+    let graph = parser.parse(&pyproject).await.unwrap();
+    let resolved = resolver.resolve(&graph).await.unwrap();
+    assert_eq!(resolved.len(), 2);
+    let _ = std::fs::remove_dir_all(&tmp);
 }

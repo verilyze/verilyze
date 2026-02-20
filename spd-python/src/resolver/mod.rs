@@ -2,16 +2,21 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use async_trait::async_trait;
+mod lock_discovery;
+mod lock_parser;
 
+use async_trait::async_trait;
 use spd_manifest_parser::{DependencyGraph, Resolver, ResolverError};
 
-/// Resolver that returns direct dependencies only (no lock file / package manager).
+pub use lock_discovery::find_lock_file;
+pub use lock_parser::parse_lock_file;
+
+/// Resolver that prefers lock files, falls back to direct deps (Phase 6 will add pip).
 #[derive(Debug, Default)]
 pub struct DirectOnlyResolver;
 
 impl DirectOnlyResolver {
-    /// Create a new direct-only resolver.
+    /// Create a new resolver.
     pub fn new() -> Self {
         Self
     }
@@ -54,6 +59,17 @@ impl Resolver for DirectOnlyResolver {
         &self,
         graph: &DependencyGraph,
     ) -> Result<Vec<spd_db::Package>, ResolverError> {
+        if let Some(ref manifest_path) = graph.manifest_path {
+            if let Some(lock_path) = find_lock_file(manifest_path) {
+                if let Ok(content) = std::fs::read_to_string(&lock_path) {
+                    if let Ok(packages) = parse_lock_file(lock_path.as_path(), &content) {
+                        if !packages.is_empty() {
+                            return Ok(packages);
+                        }
+                    }
+                }
+            }
+        }
         Ok(graph.packages.clone())
     }
 
@@ -113,6 +129,7 @@ mod tests {
                     version: "2".to_string(),
                 },
             ],
+            manifest_path: None,
         };
         let resolver = DirectOnlyResolver::new();
         let resolved = resolver.resolve(&graph).await.unwrap();
