@@ -24,3 +24,19 @@ path = "fuzz_targets/requirements_txt.rs"
 [[bin]]
 name = "fuzz_parse_config_set_arg"
 path = "fuzz_targets/parse_config_set_arg.rs"
+
+[[bin]]
+name = "fuzz_pyproject_toml"
+path = "fuzz_targets/pyproject_toml.rs"
+
+[[bin]]
+name = "fuzz_pipfile"
+path = "fuzz_targets/pipfile.rs"
+
+[[bin]]
+name = "fuzz_pylock_toml"
+path = "fuzz_targets/pylock_toml.rs"
+
+[[bin]]
+name = "fuzz_poetry_lock"
+path = "fuzz_targets/poetry_lock.rs"

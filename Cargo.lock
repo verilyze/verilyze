@@ -1583,11 +1583,14 @@ version = "1.0.0"
 dependencies = [
  "async-trait",
  "regex",
+ "serde",
+ "serde_json",
  "spd-db",
  "spd-manifest-finder",
  "spd-manifest-parser",
  "thiserror",
  "tokio",
+ "toml",
 ]
 
 [[package]]

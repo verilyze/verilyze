@@ -2,35 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use async_trait::async_trait;
-use std::path::PathBuf;
-
-use spd_manifest_parser::{DependencyGraph, Parser, ParserError};
-
-/// Parser for `requirements.txt` files.
-/// For other manifest paths (e.g. `pyproject.toml`) returns an empty graph so the scan can continue.
-#[derive(Debug, Default)]
-pub struct RequirementsTxtParser;
-
-impl RequirementsTxtParser {
-    /// Create a new requirements.txt parser.
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-#[async_trait]
-impl Parser for RequirementsTxtParser {
-    async fn parse(&self, manifest: &PathBuf) -> Result<DependencyGraph, ParserError> {
-        let name = manifest.file_name().and_then(|n| n.to_str()).unwrap_or("");
-        if name != "requirements.txt" {
-            return Ok(DependencyGraph::default());
-        }
-        let content = std::fs::read_to_string(manifest)?;
-        let packages = parse_requirements_txt(&content)?;
-        Ok(DependencyGraph { packages })
-    }
-}
+use spd_manifest_parser::ParserError;
 
 /// Parse requirements.txt content into a list of packages (name, version).
 /// Skips comments, empty lines, and directive lines (-r, -e, etc.).
@@ -115,14 +87,6 @@ fn parse_name_version(spec: &str) -> Option<(String, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[tokio::test]
-    async fn non_requirements_path_returns_empty_graph() {
-        let parser = RequirementsTxtParser::new();
-        let path = PathBuf::from("/some/path/pyproject.toml");
-        let graph = parser.parse(&path).await.unwrap();
-        assert!(graph.packages.is_empty());
-    }
 
     #[test]
     fn parse_requirement_line_strips_extras() {
