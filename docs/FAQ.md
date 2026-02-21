@@ -17,7 +17,7 @@ Common error messages and suggested remediation steps. See also
 ### Invalid TOML in configuration file
 
 **Message:** `Invalid TOML in configuration file
-~/.config/super-duper/super-duper.conf: ...`
+~/.config/verilyze/verilyze.conf: ...`
 
 **Cause:** The configuration file contains syntax that is not valid TOML.
 
@@ -34,7 +34,7 @@ commas, invalid escape sequences. Use a TOML validator or check the
 **Cause:** A key in the config file is not recognized (SEC-006).
 
 **Remediation:** Remove the unknown key or fix the key name. Run
-`spd config --list` to see supported keys. For per-language regex patterns, use
+`vlz config --list` to see supported keys. For per-language regex patterns, use
 `[python].regex` (see FR-006).
 
 ---
@@ -43,20 +43,20 @@ commas, invalid escape sequences. Use a TOML validator or check the
 
 **Message:** `Parallel queries must be at most 50; got 51`
 
-**Cause:** `--parallel` or `SPD_PARALLEL_QUERIES` exceeds the maximum (FR-012).
+**Cause:** `--parallel` or `VLZ_PARALLEL_QUERIES` exceeds the maximum (FR-012).
 
-**Remediation:** Use a value ≤ 50, e.g. `spd scan --parallel 50` or
-`export SPD_PARALLEL_QUERIES=50`.
+**Remediation:** Use a value ≤ 50, e.g. `vlz scan --parallel 50` or
+`export VLZ_PARALLEL_QUERIES=50`.
 
 ---
 
 ### Unknown provider
 
-**Message:** `Unknown provider: foo (use 'spd db list-providers' to list)`
+**Message:** `Unknown provider: foo (use 'vlz db list-providers' to list)`
 
 **Cause:** `--provider` names a provider that is not registered (FR-019).
 
-**Remediation:** Run `spd db list-providers` to see available providers (e.g.
+**Remediation:** Run `vlz db list-providers` to see available providers (e.g.
 `osv`). Ensure the relevant Cargo feature (e.g. `nvd` for NVD) is enabled when
 building.
 
@@ -88,11 +88,11 @@ world-writable bits. Do not use `0666` for DB files.
 
 ### Provider authentication
 
-- **GitHub Advisory:** Optional. Use `GITHUB_TOKEN` (or `SPD_GITHUB_TOKEN` to
+- **GitHub Advisory:** Optional. Use `GITHUB_TOKEN` (or `VLZ_GITHUB_TOKEN` to
   override) for higher rate limits. `GITHUB_TOKEN` is automatically set in
   GitHub Actions.
-- **Sonatype OSS Index:** Required. Set `SPD_SONATYPE_EMAIL` and
-  `SPD_SONATYPE_TOKEN` (create a free account at
+- **Sonatype OSS Index:** Required. Set `VLZ_SONATYPE_EMAIL` and
+  `VLZ_SONATYPE_TOKEN` (create a free account at
   https://ossindex.sonatype.org).
 
 ### 401 Unauthorized from Sonatype
@@ -100,7 +100,7 @@ world-writable bits. Do not use `0666` for DB files.
 **Cause:** Missing or invalid credentials. Sonatype OSS Index requires
 authentication.
 
-**Remediation:** Set both `SPD_SONATYPE_EMAIL` and `SPD_SONATYPE_TOKEN`.
+**Remediation:** Set both `VLZ_SONATYPE_EMAIL` and `VLZ_SONATYPE_TOKEN`.
 Verify the token is valid at https://ossindex.sonatype.org.
 
 ### Credential in error output
@@ -112,12 +112,12 @@ credential in error output. Report this as a security bug (see SECURITY.md).
 
 **Cause:** NVD (NIST National Vulnerability Database) is opt-in for several
 reasons: (1) NVD enforces 5 requests per 30-second window for unauthenticated
-use; spd defaults to 10 parallel queries, so a cold-cache scan would exceed
+use; vlz defaults to 10 parallel queries, so a cold-cache scan would exceed
 the limit and trigger 429 backoff; (2) including NVD increases binary size
 and dependencies (PRD Purpose & Scope, NFR-019); (3) PRD MOD-003 specifies
 OSV-only as the default CVE provider.
 
-**Remediation:** Build with `cargo install spd --features nvd` if you need NVD.
+**Remediation:** Build with `cargo install vlz --features nvd` if you need NVD.
 See "How do I use NVD?" below.
 
 ---
@@ -127,8 +127,8 @@ See "How do I use NVD?" below.
 **Steps:**
 
 1. Build with the NVD feature: `cargo build --features nvd` or
-   `cargo install spd --features nvd`
-2. Run a scan with NVD: `spd scan --provider nvd`
+   `cargo install vlz --features nvd`
+2. Run a scan with NVD: `vlz scan --provider nvd`
 3. For unauthenticated NVD use, lower `parallel_queries` (e.g. 2-3) via
    `--parallel 3` or config to avoid 429 rate-limit responses.
 
@@ -166,7 +166,7 @@ network calls and the cache has no entries for them (FR-031).
 **Remediation:** Either:
 1. Run a scan without `--offline` once to populate the cache, then use
    `--offline`.
-2. Use `spd preload` (when implemented) to pre-populate the cache.
+2. Use `vlz preload` (when implemented) to pre-populate the cache.
 3. Remove `--offline` if network access is acceptable.
 
 ---
@@ -206,7 +206,7 @@ detail.
 
 ### Database integrity check failed
 
-**Message:** `spd db verify` reports failure or "Database integrity check
+**Message:** `vlz db verify` reports failure or "Database integrity check
 failed".
 
 **Cause:** Cache or ignore DB was modified or corrupted (SEC-004).

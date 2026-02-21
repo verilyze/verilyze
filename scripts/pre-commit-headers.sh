@@ -20,7 +20,7 @@ cd "$REPO_ROOT"
 
 # Load config from pyproject.toml via update_headers.py (no eval)
 DEFAULT_LICENSE="GPL-3.0-or-later"
-DEFAULT_COPYRIGHT="The super-duper contributors"
+DEFAULT_COPYRIGHT="The verilyze contributors"
 EXTENSIONS="rs toml md mmd sh json"
 LITERAL_NAMES="Makefile"
 EXCLUDE_PATHS="tools/xtask Cargo.lock package-lock.json"

@@ -2,4 +2,4 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Scripts package for super-duper auxiliary tooling."""
+"""Scripts package for verilyze auxiliary tooling."""

@@ -1,12 +1,12 @@
 sequenceDiagram
-    participant Core as spd "(core binary)"
+    participant Core as vlz "(core binary)"
     participant Registries as "per-trait OnceLock registries"
     participant Plugin as "language / provider crate"
 
     note over Registries: One Vec per trait: FINDERS, PARSERS,<br/>RESOLVERS, PROVIDERS, DB_BACKENDS,<br/>REPORTERS, INTEGRITY_CHECKERS
 
     %% Plug‑in registration (compile-time, one-way)
-    Plugin -) Registries: spd_register!(Trait, Impl)  // pushes Box::new(Impl) to the matching registry
+    Plugin -) Registries: vlz_register!(Trait, Impl)  // pushes Box::new(Impl) to the matching registry
 
     %% Runtime start‑up (core reads the compiled registries)
     Core ->> Registries: ensure_default_*() / enumerate plug‑ins

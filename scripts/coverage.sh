@@ -20,7 +20,7 @@ rustup component add llvm-tools --toolchain nightly 2>/dev/null || true
 
 rm -rf reports
 rm -f .coverage
-find . -name spd-cache.redb -delete
+find . -name vlz-cache.redb -delete
 find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 mkdir -p reports/rust
 
@@ -30,20 +30,20 @@ source <(cargo +nightly llvm-cov show-env --sh)
 cargo +nightly llvm-cov clean --workspace 2>/dev/null || true
 
 # Build workspace with instrumentation (per show-env docs, use normal cargo).
-# Exclude spd-fuzz: it requires cargo afl build (AFL linker symbols).
-cargo +nightly build --workspace --exclude spd-fuzz
+# Exclude vlz-fuzz: it requires cargo afl build (AFL linker symbols).
+cargo +nightly build --workspace --exclude vlz-fuzz
 
 # Verify REUSE compliance (headers)
 ./scripts/ensure-reuse.sh lint
 
-# Run all workspace tests (exclude spd-fuzz; it uses AFL and is run via make fuzz).
-cargo +nightly test --workspace --exclude spd-fuzz
+# Run all workspace tests (exclude vlz-fuzz; it uses AFL and is run via make fuzz).
+cargo +nightly test --workspace --exclude vlz-fuzz
 
-# Run the spd binary to capture main.rs and run() coverage (binary is not a test target).
+# Run the vlz binary to capture main.rs and run() coverage (binary is not a test target).
 # Use isolated XDG dirs so we do not touch user config or cache.
 run_cov_bin() {
-  env XDG_CONFIG_HOME=/tmp/spd-cov-cfg XDG_CACHE_HOME=/tmp/spd-cov-cache \
-    XDG_DATA_HOME=/tmp/spd-cov-data cargo +nightly run --bin spd -- "$@"
+  env XDG_CONFIG_HOME=/tmp/vlz-cov-cfg XDG_CACHE_HOME=/tmp/vlz-cov-cache \
+    XDG_DATA_HOME=/tmp/vlz-cov-data cargo +nightly run --bin vlz -- "$@"
 }
 run_cov_bin version
 run_cov_bin -v version
@@ -53,8 +53,8 @@ run_cov_bin db stats
 run_cov_bin db verify
 run_cov_bin db show --format json
 run_cov_bin preload
-mkdir -p /tmp/spd-cov-scan
-run_cov_bin scan /tmp/spd-cov-scan --offline --benchmark
+mkdir -p /tmp/vlz-cov-scan
+run_cov_bin scan /tmp/vlz-cov-scan --offline --benchmark
 
 # Generate Rust reports (NFR-017: fail if coverage below threshold)
 # Use || true so script continues to Python coverage even when Rust fails

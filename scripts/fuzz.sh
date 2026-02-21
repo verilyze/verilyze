@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# Run AFL fuzz targets for super-duper (NFR-020, SEC-017).
+# Run AFL fuzz targets for verilyze (NFR-020, SEC-017).
 #
 # Prerequisites:
 #   - cargo-afl:  cargo install cargo-afl
@@ -27,7 +27,7 @@ cd "$(dirname "$0")/.." || exit 1
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 FUZZ_TARGETS_ENV="${FUZZ_TARGETS_ENV:-$SCRIPT_DIR/fuzz-targets.env}"
-FUZZ_OUT="${FUZZ_OUT:-/tmp/spd-fuzz-out}"
+FUZZ_OUT="${FUZZ_OUT:-/tmp/vlz-fuzz-out}"
 
 DO_COVERAGE=false
 DO_CHANGED=false
@@ -78,7 +78,7 @@ fi
 # Build fuzz targets with AFL instrumentation.
 # -C panic=unwind required so catch_unwind can convert toml parser panics to errors (SEC-017).
 export RUSTFLAGS="${RUSTFLAGS} -C panic=unwind"
-cargo afl build -p spd-fuzz
+cargo afl build -p vlz-fuzz
 
 # Load target-to-path mapping from fuzz-targets.env.
 # Format: target_name=path (one per line; # for comments)
@@ -120,7 +120,7 @@ elif "$DO_CHANGED"; then
         TARGETS_TO_RUN="${TARGETS_TO_RUN%,}"
     elif [[ -n "$CHANGED_FILES" ]]; then
         # Shared crates: any change triggers "run all"
-        SHARED_PATTERNS="spd-db/ spd-db-redb/ spd-plugin-macro/"
+        SHARED_PATTERNS="vlz-db/ vlz-db-redb/ vlz-plugin-macro/"
         RUN_ALL=false
         for f in $CHANGED_FILES; do
             for p in $SHARED_PATTERNS; do

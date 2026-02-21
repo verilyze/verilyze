@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
-# Contributing to super-duper
+# Contributing to verilyze
 
 Thank you for your interest in contributing. This document gives a short
 overview of the crate layout and extension points.
@@ -13,32 +13,32 @@ overview of the crate layout and extension points.
 
 The workspace is split into:
 
-- **spd** -- Binary; parses CLI, loads config, dispatches subcommands, runs the
+- **vlz** -- Binary; parses CLI, loads config, dispatches subcommands, runs the
   scan pipeline.
-- **spd-db** -- Trait definitions: `Package`, `CveRecord`, `DatabaseBackend`,
+- **vlz-db** -- Trait definitions: `Package`, `CveRecord`, `DatabaseBackend`,
   etc.
-- **spd-db-redb** -- Default RedB implementation for CVE cache and
+- **vlz-db-redb** -- Default RedB implementation for CVE cache and
   false-positive (ignore) DB.
-- **spd-manifest-finder** -- Trait `ManifestFinder`; no default implementation.
-- **spd-manifest-parser** -- Traits `Parser` and `Resolver`; defines
+- **vlz-manifest-finder** -- Trait `ManifestFinder`; no default implementation.
+- **vlz-manifest-parser** -- Traits `Parser` and `Resolver`; defines
   `DependencyGraph`; no default implementations.
-- **spd-python** -- Python language plugin: implements `ManifestFinder`,
+- **vlz-python** -- Python language plugin: implements `ManifestFinder`,
   `Parser`, and `Resolver` for Python (requirements.txt, pyproject.toml, etc.).
-- **spd-cve-client** -- Trait `CveProvider` and `RawVulnDecoder`; defines the provider contract and decoder registry; includes default OSV.dev client.
-- **spd-cve-provider-nvd** -- NVD (NIST) CVE provider; optional, gated behind `nvd` feature.
-- **spd-cve-provider-github** -- GitHub Advisory Database; optional, gated behind `github` feature.
-- **spd-cve-provider-sonatype** -- Sonatype OSS Index; optional, gated behind `sonatype` feature.
-- **spd-report** -- Trait `Reporter`; plain, JSON, HTML, SARIF, CycloneDX, SPDX
+- **vlz-cve-client** -- Trait `CveProvider` and `RawVulnDecoder`; defines the provider contract and decoder registry; includes default OSV.dev client.
+- **vlz-cve-provider-nvd** -- NVD (NIST) CVE provider; optional, gated behind `nvd` feature.
+- **vlz-cve-provider-github** -- GitHub Advisory Database; optional, gated behind `github` feature.
+- **vlz-cve-provider-sonatype** -- Sonatype OSS Index; optional, gated behind `sonatype` feature.
+- **vlz-report** -- Trait `Reporter`; plain, JSON, HTML, SARIF, CycloneDX, SPDX
   reporters.
-- **spd-integrity** -- Trait `IntegrityChecker`; default delegates to backend
+- **vlz-integrity** -- Trait `IntegrityChecker`; default delegates to backend
   `verify_integrity`.
-- **spd-plugin-macro** -- `spd_register!` macro for registering default plugins
+- **vlz-plugin-macro** -- `vlz_register!` macro for registering default plugins
   in the binary.
 
 The binary uses **per-trait registries** (e.g. `FINDERS`, `PARSERS`,
 `RESOLVERS`, `PROVIDERS`, `DB_BACKENDS`, `REPORTERS`, `INTEGRITY_CHECKERS`) and
 calls `ensure_default_*` at startup to push default implementations. Language
-support (e.g. `spd-python`) and optional backends (e.g. SQLite) are gated
+support (e.g. `vlz-python`) and optional backends (e.g. SQLite) are gated
 behind Cargo features; see **Feature gating** below.
 
 See [execution-flow.mmd](architecture/execution-flow.mmd) for the full scan
@@ -47,20 +47,20 @@ pipeline.
 ```mermaid
 graph TD
     %% Core binary
-    A["spd (binary crate)"]
+    A["vlz (binary crate)"]
     %% Macro crate (used by binary for plugin registration)
-    M["spd-plugin-macro"]
+    M["vlz-plugin-macro"]
     %% Library crates
-    B["spd-manifest-finder"]
-    C["spd-manifest-parser"]
-    D["spd-cve-client"]
-    E["spd-db (trait definitions)"]
-    F["spd-report"]
-    G["spd-integrity"]
+    B["vlz-manifest-finder"]
+    C["vlz-manifest-parser"]
+    D["vlz-cve-client"]
+    E["vlz-db (trait definitions)"]
+    F["vlz-report"]
+    G["vlz-integrity"]
     %% Concrete implementations (plug‑ins)
-    H["spd-db-redb (default DatabaseBackend)"]
-    I["spd-db-sqlite (optional, future)"]
-    J["spd-db-mem (test/mock, future)"]
+    H["vlz-db-redb (default DatabaseBackend)"]
+    I["vlz-db-sqlite (optional, future)"]
+    J["vlz-db-mem (test/mock, future)"]
     %% Edges from binary to libraries
     A --> B
     A --> C
@@ -77,10 +77,10 @@ graph TD
     F -.->|defines| Reporter
     G -.->|defines| IntegrityChecker
     %% Registration edges (plug‑in discovery)
-    H -->|"spd_register! (feature = redb)"| A
-    I -->|"spd_register! (feature = sqlite)"| A
-    J -->|"spd_register! (feature = mem)"| A
-    K["spd-cve-provider-nvd"] -->|"spd_register! (feature = nvd)"| A
+    H -->|"vlz_register! (feature = redb)"| A
+    I -->|"vlz_register! (feature = sqlite)"| A
+    J -->|"vlz_register! (feature = mem)"| A
+    K["vlz-cve-provider-nvd"] -->|"vlz_register! (feature = nvd)"| A
 ```
 
 ## Quick setup
@@ -143,14 +143,14 @@ them at startup:
 
 ```mermaid
 sequenceDiagram
-    participant Core as spd "(core binary)"
+    participant Core as vlz "(core binary)"
     participant Registries as "per-trait OnceLock registries"
     participant Plugin as "language / provider crate"
 
     note over Registries: One Vec per trait: FINDERS, PARSERS,<br/>RESOLVERS, PROVIDERS, DB_BACKENDS,<br/>REPORTERS, INTEGRITY_CHECKERS
 
     %% Plug‑in registration (compile-time, one-way)
-    Plugin -) Registries: spd_register!(Trait, Impl)  // pushes Box::new(Impl) to the matching registry
+    Plugin -) Registries: vlz_register!(Trait, Impl)  // pushes Box::new(Impl) to the matching registry
 
     %% Runtime start‑up (core reads the compiled registries)
     Core ->> Registries: ensure_default_*() / enumerate plug‑ins
@@ -179,18 +179,18 @@ flowchart LR
     Packages --> CVE[CVE lookup]
 ```
 
-1. Create a new crate (e.g. `spd-java`) that implements:
+1. Create a new crate (e.g. `vlz-java`) that implements:
    - `ManifestFinder` -- discover manifest files (e.g. `pom.xml`).
    - `Parser` -- parse manifest into `DependencyGraph`.
    - `Resolver` -- resolve to `Vec<Package>` (e.g. using lock file or package
      manager).
-2. Gate the crate behind a Cargo feature in the `spd` binary: add your crate
-   (e.g. `spd-java`) as an optional dependency and define a feature (e.g.
+2. Gate the crate behind a Cargo feature in the `vlz` binary: add your crate
+   (e.g. `vlz-java`) as an optional dependency and define a feature (e.g.
    `java`) that enables it. When the feature is enabled, your crate is compiled
-   and its `spd_register!` calls run (see Registration flow above). For feature
+   and its `vlz_register!` calls run (see Registration flow above). For feature
    mechanics and examples, see **Feature gating** below.
 3. In the binary’s startup path, when the feature is enabled, register your
-   implementations via `spd_register!` (or push to the registry directly).
+   implementations via `vlz_register!` (or push to the registry directly).
 4. **Add a fuzz target** for each manifest or lock format your parser supports
    (NFR-020, SEC-017). Parsers accept untrusted manifest files; fuzzing ensures
    no crash on malformed input (SEC-017). Create `tests/fuzz/fuzz_targets/<format>.rs` (e.g.
@@ -205,21 +205,21 @@ formal trait contracts.
 ### Adding a new CVE provider
 
 Per MOD-001 and MOD-002, optional CVE providers live in **separate crates**
-(e.g. `spd-cve-provider-nvd`). The default OSV provider remains in
-`spd-cve-client`; additional providers use their own crates.
+(e.g. `vlz-cve-provider-nvd`). The default OSV provider remains in
+`vlz-cve-client`; additional providers use their own crates.
 
-1. Create a new crate (e.g. `spd-cve-provider-nvd`) that:
-   - Depends on `spd-cve-client` (trait `CveProvider`, types `FetchedCves`,
-     `ProviderError`) and `spd-db` (`Package`, `CveRecord`).
+1. Create a new crate (e.g. `vlz-cve-provider-nvd`) that:
+   - Depends on `vlz-cve-client` (trait `CveProvider`, types `FetchedCves`,
+     `ProviderError`) and `vlz-db` (`Package`, `CveRecord`).
    - Implements `CveProvider` (including `name()` for provider selection).
    - Implements `RawVulnDecoder` (or provides a decoder) and registers it
-     with `spd_cve_client::register_decoder()` so the cache can decode your
+     with `vlz_cve_client::register_decoder()` so the cache can decode your
      provider's raw JSON back to `CveRecord`s.
-2. Gate the crate behind a Cargo feature in the `spd` binary (e.g. `nvd`).
+2. Gate the crate behind a Cargo feature in the `vlz` binary (e.g. `nvd`).
    When the feature is enabled, your crate is compiled and registers its
    provider and decoder at startup.
 3. In the binary's startup path (e.g. `ensure_default_cve_provider`), when
-   the feature is enabled, register your provider via `spd_register!` or push
+   the feature is enabled, register your provider via `vlz_register!` or push
    to the PROVIDERS registry.
 
 **Important:** Map retryable errors (connection timeout, connection refused,
@@ -237,8 +237,8 @@ unauthenticated rate limit is 5 req/30s. Future multi-provider scans
 enhancement; the cache design supports this.
 
 **Auth and credential redaction:** Providers that accept credentials (e.g.
-GitHub via `GITHUB_TOKEN`/`SPD_GITHUB_TOKEN`, Sonatype via
-`SPD_SONATYPE_EMAIL`+`SPD_SONATYPE_TOKEN`) must read from environment
+GitHub via `GITHUB_TOKEN`/`VLZ_GITHUB_TOKEN`, Sonatype via
+`VLZ_SONATYPE_EMAIL`+`VLZ_SONATYPE_TOKEN`) must read from environment
 variables only; never store or log credentials. Error messages and
 `ProviderError::Display` must never contain token values or email addresses
 (SEC-020). Add tests that assert error output does not contain credential
@@ -246,18 +246,18 @@ strings (e.g. `assert!(!format!("{}", err).contains("secret"))`).
 
 ## Feature gating (MOD-003)
 
-The `spd` binary supports optional capabilities via Cargo features:
+The `vlz` binary supports optional capabilities via Cargo features:
 
 - **default** = `["redb", "python"]` -- full build with Python support and RedB backend.
 - **redb** -- RedB database backend for CVE cache and false-positive DB.
-- **python** -- Python language plugin (`spd-python` crate).
-- **nvd** -- NVD CVE provider (`spd-cve-provider-nvd` crate); opt-in.
-- **github** -- GitHub Advisory CVE provider (`spd-cve-provider-github` crate); opt-in.
-- **sonatype** -- Sonatype OSS Index CVE provider (`spd-cve-provider-sonatype` crate); opt-in.
+- **python** -- Python language plugin (`vlz-python` crate).
+- **nvd** -- NVD CVE provider (`vlz-cve-provider-nvd` crate); opt-in.
+- **github** -- GitHub Advisory CVE provider (`vlz-cve-provider-github` crate); opt-in.
+- **sonatype** -- Sonatype OSS Index CVE provider (`vlz-cve-provider-sonatype` crate); opt-in.
 - **sqlite**, **mem** -- placeholders for future backends.
 
 NVD is opt-in because: (1) NVD enforces 5 requests per 30-second window for
-unauthenticated use, whereas spd defaults to 10 parallel queries, so a
+unauthenticated use, whereas vlz defaults to 10 parallel queries, so a
 cold-cache scan would immediately hit rate limits; (2) including NVD increases
 binary size and dependencies (PRD Purpose & Scope, NFR-019, MOD-004); (3) PRD
 MOD-003 specifies OSV-only as the default CVE provider.
@@ -268,7 +268,7 @@ Build a **minimal binary** (no Python, no RedB) with:
 cargo build --no-default-features
 ```
 
-Build with only Java (when `spd-java` exists) and no Python:
+Build with only Java (when `vlz-java` exists) and no Python:
 
 ```sh
 cargo build --no-default-features --features java
@@ -286,8 +286,8 @@ Build with GitHub and Sonatype CVE providers:
 cargo build --features github,sonatype
 ```
 
-A minimal build omits language plugins and the RedB backend; `spd list` will
-output nothing, and `spd scan` will fail with "No ManifestFinder plug‑in
+A minimal build omits language plugins and the RedB backend; `vlz list` will
+output nothing, and `vlz scan` will fail with "No ManifestFinder plug‑in
 registered". See [architecture/PRD.md](architecture/PRD.md) MOD-003.
 
 ## Adding dependencies
@@ -304,7 +304,7 @@ Dependencies design principle.
 
 The project uses the [REUSE](https://reuse.software/) toolchain for SPDX
 copyright and license headers. Default license and copyright are defined in
-`pyproject.toml` under `[tool.spd-headers]`.
+`pyproject.toml` under `[tool.vlz-headers]`.
 
 - **Check headers:** `make check-headers` (runs `check-header-duplicates` and
   `reuse lint`)
@@ -374,17 +374,17 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
 
 ### CLI output (stdout)
 
-In `spd/src/main.rs`, use the `write_stdout()` helper for all user-facing
+In `vlz/src/main.rs`, use the `write_stdout()` helper for all user-facing
 stdout (e.g. anything that would otherwise be `println!`). Do not use
 `println!` for that. This ensures every command exits with code 0 when stdout
-is a broken pipe (e.g. `spd db show | less` then `q`), instead of panicking.
+is a broken pipe (e.g. `vlz db show | less` then `q`), instead of panicking.
 Stderr can stay as `eprintln!` or `log::error!`.
 
 ## Running tests and coverage
 
 - **Run tests:** `make unit-tests` runs both `cargo test` and
   `make test-scripts`. To test only Rust: `cargo test`. To test a single crate
-  (see MOD-005): `cargo test -p <crate>` (e.g. `cargo test -p spd-cve-client`).
+  (see MOD-005): `cargo test -p <crate>` (e.g. `cargo test -p vlz-cve-client`).
 - **Generate coverage (cargo-llvm-cov, XML for CI):** Use **cargo-llvm-cov**
   with the **nightly** toolchain so all workspace crates appear in the report.
   1. Install cargo-llvm-cov: `cargo install cargo-llvm-cov --locked`

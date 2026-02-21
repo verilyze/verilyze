@@ -28,7 +28,7 @@ VENV_TEST := $(MKFILE_DIR)/.venv-test
 
 # ---- Help ----
 help:
-	@echo "super-duper development targets:"
+	@echo "verilyze development targets:"
 	@echo ""
 	@echo "  Onboarding:"
 	@echo "    make setup       - Bootstrap Python venvs (.venv-lint, .venv-test)"
@@ -171,7 +171,7 @@ clean:
 	@cd "$(MKFILE_DIR)" && cargo clean
 	@cd "$(MKFILE_DIR)" && cargo llvm-cov clean --workspace 2>/dev/null || true
 	@find $(MKFILE_DIR) -type f \( -name "*.profraw" -o \
-                                       -name "spd-cache.redb" \) -delete
+                                       -name "vlz-cache.redb" \) -delete
 	@find $(MKFILE_DIR) -type d -name "__pycache__" -exec rm -rf {} +
 	@rm -rfv $(MKFILE_DIR)/reports/ $(MKFILE_DIR)/.cache
 

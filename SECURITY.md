@@ -29,9 +29,9 @@ We will acknowledge receipt and work with you on a fix and disclosure timeline.
 GitHub Advisory and Sonatype OSS Index CVE providers support optional or
 required authentication via environment variables:
 
-- **GitHub:** Optional. Set `GITHUB_TOKEN` (or `SPD_GITHUB_TOKEN` to override)
+- **GitHub:** Optional. Set `GITHUB_TOKEN` (or `VLZ_GITHUB_TOKEN` to override)
   for higher rate limits. `GITHUB_TOKEN` is automatically set in GitHub Actions.
-- **Sonatype:** Required. Set `SPD_SONATYPE_EMAIL` and `SPD_SONATYPE_TOKEN`
+- **Sonatype:** Required. Set `VLZ_SONATYPE_EMAIL` and `VLZ_SONATYPE_TOKEN`
   (create a free account at https://ossindex.sonatype.org).
 
 Credentials are read from the process environment only; they are never
@@ -61,15 +61,15 @@ and [COMPLIANCE.md](COMPLIANCE.md) for credential-handling controls.
   argument value parsing (`config --set`) (NFR-020, SEC-017). Run `make fuzz` or
   `./scripts/fuzz.sh` (requires cargo-afl and AFL++). Results and coverage can
   be linked here or from CI artifacts when available.
-- **Latest `spd scan` (dogfooding):** SEC-015 requires the project to be
-  scannable by the latest stable super-duper with exit 0. When CI or release
+- **Latest `vlz scan` (dogfooding):** SEC-015 requires the project to be
+  scannable by the latest stable verilyze with exit 0. When CI or release
   artifacts include a latest-scan report, it will be linked here (e.g. from the
   repository Releases or a dedicated docs path).
 
 ## For users
 
-- Run `spd` with the minimum privileges needed (no set-UID; it runs as the
+- Run `vlz` with the minimum privileges needed (no set-UID; it runs as the
   invoking user).
-- Use `spd db verify` to check integrity of cached data (SHA-256 by default).
-- Keep the tool and dependencies updated; run `spd scan` on this repository
+- Use `vlz db verify` to check integrity of cached data (SHA-256 by default).
+- Keep the tool and dependencies updated; run `vlz scan` on this repository
   (dogfooding, SEC-015) as part of your workflow.
