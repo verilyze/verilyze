@@ -1,22 +1,22 @@
 graph TD
     %% Core binary
-    A["spd (binary crate)"]
+    A["vlz (binary crate)"]
     %% Macro crate (used by binary for plugin registration)
-    M["spd-plugin-macro"]
+    M["vlz-plugin-macro"]
     %% Library crates
-    B["spd-manifest-finder"]
-    C["spd-manifest-parser"]
-    D["spd-cve-client"]
-    D2["spd-cve-provider-nvd (optional, nvd feature)"]
-    D3["spd-cve-provider-github (optional, github feature)"]
-    D4["spd-cve-provider-sonatype (optional, sonatype feature)"]
-    E["spd-db (trait definitions)"]
-    F["spd-report"]
-    G["spd-integrity"]
+    B["vlz-manifest-finder"]
+    C["vlz-manifest-parser"]
+    D["vlz-cve-client"]
+    D2["vlz-cve-provider-nvd (optional, nvd feature)"]
+    D3["vlz-cve-provider-github (optional, github feature)"]
+    D4["vlz-cve-provider-sonatype (optional, sonatype feature)"]
+    E["vlz-db (trait definitions)"]
+    F["vlz-report"]
+    G["vlz-integrity"]
     %% Concrete implementations (plug‑ins)
-    H["spd-db-redb (default DatabaseBackend)"]
-    I["spd-db-sqlite (optional, future)"]
-    J["spd-db-mem (test/mock, future)"]
+    H["vlz-db-redb (default DatabaseBackend)"]
+    I["vlz-db-sqlite (optional, future)"]
+    J["vlz-db-mem (test/mock, future)"]
     %% Edges from binary to libraries
     A --> B
     A --> C
@@ -39,6 +39,6 @@ graph TD
     F -.->|defines| Reporter
     G -.->|defines| IntegrityChecker
     %% Registration edges (plug‑in discovery)
-    H -->|"spd_register! (feature = redb)"| A
-    I -->|"spd_register! (feature = sqlite)"| A
-    J -->|"spd_register! (feature = mem)"| A
+    H -->|"vlz_register! (feature = redb)"| A
+    I -->|"vlz_register! (feature = sqlite)"| A
+    J -->|"vlz_register! (feature = mem)"| A

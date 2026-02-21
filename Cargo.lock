@@ -1412,200 +1412,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "spd"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "clap",
- "env_logger",
- "log",
- "serde",
- "serde_json",
- "spd-cve-client",
- "spd-cve-provider-github",
- "spd-cve-provider-nvd",
- "spd-cve-provider-sonatype",
- "spd-db",
- "spd-db-redb",
- "spd-integrity",
- "spd-manifest-finder",
- "spd-manifest-parser",
- "spd-plugin-macro",
- "spd-python",
- "spd-report",
- "temp-env",
- "tempfile",
- "thiserror",
- "tokio",
- "toml",
-]
-
-[[package]]
-name = "spd-cve-client"
-version = "1.0.0"
-dependencies = [
- "async-trait",
- "cvssrust",
- "reqwest",
- "serde",
- "serde_json",
- "spd-db",
- "thiserror",
- "tokio",
- "wiremock",
-]
-
-[[package]]
-name = "spd-cve-provider-github"
-version = "1.0.0"
-dependencies = [
- "async-trait",
- "reqwest",
- "serde",
- "serde_json",
- "spd-cve-client",
- "spd-db",
- "temp-env",
- "tokio",
- "wiremock",
-]
-
-[[package]]
-name = "spd-cve-provider-nvd"
-version = "1.0.0"
-dependencies = [
- "async-trait",
- "reqwest",
- "serde",
- "serde_json",
- "spd-cve-client",
- "spd-db",
- "thiserror",
- "tokio",
- "wiremock",
-]
-
-[[package]]
-name = "spd-cve-provider-sonatype"
-version = "1.0.0"
-dependencies = [
- "async-trait",
- "base64",
- "reqwest",
- "serde",
- "serde_json",
- "spd-cve-client",
- "spd-db",
- "temp-env",
- "tokio",
- "wiremock",
-]
-
-[[package]]
-name = "spd-db"
-version = "1.0.0"
-dependencies = [
- "async-trait",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
-]
-
-[[package]]
-name = "spd-db-redb"
-version = "1.0.0"
-dependencies = [
- "async-trait",
- "redb",
- "serde",
- "serde_json",
- "sha2",
- "spd-cve-client",
- "spd-db",
- "tempfile",
- "tokio",
-]
-
-[[package]]
-name = "spd-fuzz"
-version = "0.1.0"
-dependencies = [
- "afl",
- "spd",
- "spd-python",
-]
-
-[[package]]
-name = "spd-integrity"
-version = "1.0.0"
-dependencies = [
- "async-trait",
- "serde_json",
- "sha2",
- "spd-db",
- "thiserror",
- "tokio",
-]
-
-[[package]]
-name = "spd-manifest-finder"
-version = "1.0.0"
-dependencies = [
- "async-trait",
- "thiserror",
- "tokio",
-]
-
-[[package]]
-name = "spd-manifest-parser"
-version = "1.0.0"
-dependencies = [
- "async-trait",
- "spd-db",
- "thiserror",
- "tokio",
-]
-
-[[package]]
-name = "spd-plugin-macro"
-version = "1.0.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "spd-python"
-version = "1.0.0"
-dependencies = [
- "async-trait",
- "regex",
- "serde",
- "serde_json",
- "spd-db",
- "spd-manifest-finder",
- "spd-manifest-parser",
- "thiserror",
- "tokio",
- "toml",
-]
-
-[[package]]
-name = "spd-report"
-version = "1.0.0"
-dependencies = [
- "async-trait",
- "serde",
- "serde_json",
- "spd-db",
- "thiserror",
- "tokio",
-]
-
-[[package]]
 name = "stable_deref_trait"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1934,6 +1740,200 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
+
+[[package]]
+name = "vlz"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "clap",
+ "env_logger",
+ "log",
+ "serde",
+ "serde_json",
+ "temp-env",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "toml",
+ "vlz-cve-client",
+ "vlz-cve-provider-github",
+ "vlz-cve-provider-nvd",
+ "vlz-cve-provider-sonatype",
+ "vlz-db",
+ "vlz-db-redb",
+ "vlz-integrity",
+ "vlz-manifest-finder",
+ "vlz-manifest-parser",
+ "vlz-plugin-macro",
+ "vlz-python",
+ "vlz-report",
+]
+
+[[package]]
+name = "vlz-cve-client"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "cvssrust",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "vlz-db",
+ "wiremock",
+]
+
+[[package]]
+name = "vlz-cve-provider-github"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "temp-env",
+ "tokio",
+ "vlz-cve-client",
+ "vlz-db",
+ "wiremock",
+]
+
+[[package]]
+name = "vlz-cve-provider-nvd"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "vlz-cve-client",
+ "vlz-db",
+ "wiremock",
+]
+
+[[package]]
+name = "vlz-cve-provider-sonatype"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "base64",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "temp-env",
+ "tokio",
+ "vlz-cve-client",
+ "vlz-db",
+ "wiremock",
+]
+
+[[package]]
+name = "vlz-db"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "vlz-db-redb"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "redb",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "tokio",
+ "vlz-cve-client",
+ "vlz-db",
+]
+
+[[package]]
+name = "vlz-fuzz"
+version = "0.1.0"
+dependencies = [
+ "afl",
+ "vlz",
+ "vlz-python",
+]
+
+[[package]]
+name = "vlz-integrity"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "tokio",
+ "vlz-db",
+]
+
+[[package]]
+name = "vlz-manifest-finder"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "vlz-manifest-parser"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "thiserror",
+ "tokio",
+ "vlz-db",
+]
+
+[[package]]
+name = "vlz-plugin-macro"
+version = "1.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "vlz-python"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "regex",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "toml",
+ "vlz-db",
+ "vlz-manifest-finder",
+ "vlz-manifest-parser",
+]
+
+[[package]]
+name = "vlz-report"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "vlz-db",
+]
 
 [[package]]
 name = "want"

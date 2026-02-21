@@ -1,0 +1,70 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis+git@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[package]
+name = "vlz"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+description = "Super Duper - fast, modular SCA command-line tool"
+publish = false               # internal binary, not published to crates.io
+
+[lib]
+name = "vlz"
+path = "src/lib.rs"
+
+[[bin]]
+name = "vlz"
+path = "src/main.rs"
+
+[dependencies]
+# Core utilities
+clap = { version = "4.5", features = ["derive"] }
+tokio = { version = "1.38", features = ["full"] }
+log = "0.4"
+env_logger = "0.11"
+anyhow = "1.0"
+toml = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+
+# Workspace‑internal trait crates
+vlz-db = { path = "../vlz-db" }
+vlz-manifest-finder = { path = "../vlz-manifest-finder" }
+vlz-manifest-parser = { path = "../vlz-manifest-parser" }
+vlz-python = { path = "../vlz-python", optional = true }
+vlz-cve-client = { path = "../vlz-cve-client" }
+vlz-cve-provider-nvd = { path = "../vlz-cve-provider-nvd", optional = true }
+vlz-cve-provider-github = { path = "../vlz-cve-provider-github", optional = true }
+vlz-cve-provider-sonatype = { path = "../vlz-cve-provider-sonatype", optional = true }
+vlz-report = { path = "../vlz-report" }
+vlz-integrity = { path = "../vlz-integrity" }
+
+# Default database implementation (feature‑gated)
+vlz-db-redb = { path = "../vlz-db-redb", optional = true }
+
+# Macro for plugin registration (used in registry.rs)
+vlz-plugin-macro = { path = "../vlz-plugin-macro" }
+
+# For mock implementations (feature = "testing")
+async-trait = { version = "0.1", optional = true }
+
+[dev-dependencies]
+tempfile = "3"
+temp-env = "0.3"
+
+# Feature gating – matches MOD‑003
+[features]
+default = ["redb", "python", "testing"]
+redb = ["vlz-db-redb"]
+python = ["vlz-python"]
+nvd = ["dep:vlz-cve-provider-nvd"]
+github = ["dep:vlz-cve-provider-github"]
+sonatype = ["dep:vlz-cve-provider-sonatype"]
+# Mocks and registry clear helpers for integration tests (integration tests
+# build vlz as a dep, so cfg(test) is false; this feature enables them).
+testing = ["async-trait"]
+sqlite = []      # placeholder for a future SQLite backend
+mem = []         # placeholder for an in‑memory/mock backend

@@ -3,29 +3,29 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # ------------------------------------------------------------
-# super‑duper – workspace root
+# verilyze -- workspace root
 # ------------------------------------------------------------
 [workspace]
 members = [
-    "spd",                     # core binary
+    "vlz",                     # core binary
     "tests/fuzz",              # AFL fuzz targets (NFR-020); build with cargo afl build
-    "spd-db",                  # trait definitions
-    "spd-db-redb",             # default RedB backend (this crate)
-    "spd-python",              # Python language plugin
-    "spd-manifest-finder",
-    "spd-manifest-parser",
-    "spd-cve-client",
-    "spd-cve-provider-nvd",    # NVD CVE provider (optional, nvd feature)
-    "spd-cve-provider-github", # GitHub Advisory CVE provider (optional, github feature)
-    "spd-cve-provider-sonatype", # Sonatype OSS Index CVE provider (optional, sonatype feature)
-    "spd-report",
-    "spd-integrity",
-    "spd-plugin-macro"          # procedural macro for plugin registration
+    "vlz-db",                  # trait definitions
+    "vlz-db-redb",             # default RedB backend (this crate)
+    "vlz-python",              # Python language plugin
+    "vlz-manifest-finder",
+    "vlz-manifest-parser",
+    "vlz-cve-client",
+    "vlz-cve-provider-nvd",    # NVD CVE provider (optional, nvd feature)
+    "vlz-cve-provider-github", # GitHub Advisory CVE provider (optional, github feature)
+    "vlz-cve-provider-sonatype", # Sonatype OSS Index CVE provider (optional, sonatype feature)
+    "vlz-report",
+    "vlz-integrity",
+    "vlz-plugin-macro"          # procedural macro for plugin registration
 ]
 # Exclude fuzz crate from default build; it requires `cargo afl build` (AFL++).
-default-members = ["spd", "spd-db", "spd-db-redb", "spd-python", "spd-manifest-finder",
-    "spd-manifest-parser", "spd-cve-client", "spd-report", "spd-integrity",
-    "spd-plugin-macro"]
+default-members = ["vlz", "vlz-db", "vlz-db-redb", "vlz-python", "vlz-manifest-finder",
+    "vlz-manifest-parser", "vlz-cve-client", "vlz-report", "vlz-integrity",
+    "vlz-plugin-macro"]
 
 # Enforce a single Rust edition for all members
 resolver = "2"
@@ -41,10 +41,10 @@ panic = "unwind"
 [workspace.package]
 edition = "2024"
 license = "GPL-3.0-or-later"
-repository = "https://github.com/your-org/super-duper"
-homepage = "https://github.com/your-org/super-duper"
+repository = "https://github.com/your-org/verilyze"
+homepage = "https://github.com/your-org/verilyze"
 authors = ["Your Name <you@example.com>"]
-description = "Super‑Duper – fast, modular Software Composition Analysis tool"
+description = "verilyze -- fast, modular Software Composition Analysis tool"
 keywords = ["sca", "supply‑chain", "rust", "cve", "sbom"]
 categories = ["command-line-utilities", "development-tools"]
 readme = "README.md"

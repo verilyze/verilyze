@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 [project]
-name = "super-duper"
+name = "verilyze"
 version = "0.0.0"
 description = "CVE scanner (Python scripts are auxiliary tooling)"
 requires-python = ">=3.11"
@@ -15,8 +15,8 @@ dev = ["pytest>=7", "pytest-cov>=4"]
 testpaths = ["tests/scripts"]
 addopts = "-v"
 
-[tool.spd-headers]
-default_copyright = "The super-duper contributors"
+[tool.vlz-headers]
+default_copyright = "The verilyze contributors"
 default_license = "GPL-3.0-or-later"
 nontrivial_lines = 15
 extensions = ["py", "rs", "toml", "md", "mmd", "sh", "json"]

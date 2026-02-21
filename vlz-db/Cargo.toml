@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis+git@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[package]
+name = "vlz-db"
+version = "1.0.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+description = "DatabaseBackend trait and related data structures for Super‑Duper"
+publish = false
+
+[dependencies]
+async-trait = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }

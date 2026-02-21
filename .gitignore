@@ -1,7 +1,7 @@
 /target
 /coverage
 /reports
-**/spd-cache.redb
+**/vlz-cache.redb
 .venv
 .venv-reuse
 .venv-lint
