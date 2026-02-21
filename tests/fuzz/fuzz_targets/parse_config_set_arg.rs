@@ -6,7 +6,7 @@ fn main() {
     afl::fuzz(true, |data: &[u8]| {
         if let Ok(s) = std::str::from_utf8(data) {
             let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                let _ = spd::cli::parse_config_set_arg(s);
+                let _ = vlz::cli::parse_config_set_arg(s);
             }));
         }
     });

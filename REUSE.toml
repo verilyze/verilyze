@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# Default project license and copyright live in pyproject.toml [tool.spd-headers].
+# Default project license and copyright live in pyproject.toml [tool.vlz-headers].
 # Annotation values below must stay in sync with that config.
 
 version = 1
@@ -11,55 +11,55 @@ version = 1
 [[annotations]]
 path = "Cargo.lock"
 precedence = "override"
-SPDX-FileCopyrightText = "The super-duper contributors"
+SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
 [[annotations]]
 path = "package-lock.json"
 precedence = "override"
-SPDX-FileCopyrightText = "The super-duper contributors"
+SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
 # Config and data files
 [[annotations]]
 path = ".cursor/**"
 precedence = "override"
-SPDX-FileCopyrightText = "The super-duper contributors"
+SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
 [[annotations]]
 path = ".cursorignore"
 precedence = "override"
-SPDX-FileCopyrightText = "The super-duper contributors"
+SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
 [[annotations]]
 path = ".gitignore"
 precedence = "override"
-SPDX-FileCopyrightText = "The super-duper contributors"
+SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
 [[annotations]]
 path = "TODO.md"
 precedence = "override"
-SPDX-FileCopyrightText = "The super-duper contributors"
+SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
 [[annotations]]
 path = "tests/fuzz/corpus/**"
 precedence = "override"
-SPDX-FileCopyrightText = "The super-duper contributors"
+SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
 # Generated/cache files (pytest, coverage)
 [[annotations]]
 path = "**/__pycache__/**"
 precedence = "override"
-SPDX-FileCopyrightText = "The super-duper contributors"
+SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
 [[annotations]]
 path = ".coverage"
 precedence = "override"
-SPDX-FileCopyrightText = "The super-duper contributors"
+SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"

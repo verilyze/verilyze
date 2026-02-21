@@ -7,7 +7,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 # Guidance for AI agents and contributors
 
 This file orients automated agents and human contributors to the key
-sources of truth for the **super-duper (spd)** project.
+sources of truth for the **verilyze (vlz)** project.
 
 ## Primary references
 
@@ -27,7 +27,7 @@ sources of truth for the **super-duper (spd)** project.
   - [architecture/execution-flow.mmd](architecture/execution-flow.mmd) -- Scan
     flow (config, find, parse, resolve, cache, report, exit codes).
   - [architecture/plugin-registration-flow.mmd](architecture/plugin-registration-flow.mmd) --
-    Per-trait plugin registries and `spd_register!` macro.
+    Per-trait plugin registries and `vlz_register!` macro.
   - [architecture/workspace-layout.mmd](architecture/workspace-layout.mmd) --
     Workspace crates and trait definitions.
 

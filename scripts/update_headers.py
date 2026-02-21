@@ -29,7 +29,7 @@ _CONFIG_CACHE_DIR: str = ".cache/update-headers"
 
 
 class HeadersConfig(TypedDict):
-    """Config from [tool.spd-headers] in pyproject.toml."""
+    """Config from [tool.vlz-headers] in pyproject.toml."""
 
     default_copyright: str
     default_license: str
@@ -41,7 +41,7 @@ class HeadersConfig(TypedDict):
 
 # Defaults when pyproject.toml keys are missing
 _DEFAULTS: HeadersConfig = {
-    "default_copyright": "The super-duper contributors",
+    "default_copyright": "The verilyze contributors",
     "default_license": "GPL-3.0-or-later",
     "nontrivial_lines": 15,
     "extensions": ("py", "rs", "toml", "md", "mmd", "sh", "json"),
@@ -57,7 +57,7 @@ def get_repo_root() -> Path:
 
 def load_config(repo_root: Path) -> HeadersConfig:
     """
-    Load [tool.spd-headers] from pyproject.toml. Returns dict with keys:
+    Load [tool.vlz-headers] from pyproject.toml. Returns dict with keys:
     default_copyright, default_license, nontrivial_lines, extensions,
     literal_names, exclude_paths. Uses _DEFAULTS for missing keys.
     """
@@ -76,7 +76,7 @@ def load_config(repo_root: Path) -> HeadersConfig:
         with path.open("rb") as f:
             data = tomllib.load(f)
         tool = data.get("tool") or {}
-        section: dict[str, Any] = dict(tool.get("spd-headers") or {})
+        section: dict[str, Any] = dict(tool.get("vlz-headers") or {})
         if "default_copyright" in section and isinstance(
             section["default_copyright"], str
         ):

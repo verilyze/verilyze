@@ -5,12 +5,12 @@ flowchart TD
     end
 
     subgraph Auth ["Credential resolution (at fetch time)"]
-        GH --> GHCheck{SPD_GITHUB_TOKEN set?}
-        GHCheck -- yes --> GHUseSPD["Use SPD_GITHUB_TOKEN"]
+        GH --> GHCheck{VLZ_GITHUB_TOKEN set?}
+        GHCheck -- yes --> GHUseSPD["Use VLZ_GITHUB_TOKEN"]
         GHCheck -- no --> GHCheck2{GITHUB_TOKEN set?}
         GHCheck2 -- yes --> GHUseStd["Use GITHUB_TOKEN"]
         GHCheck2 -- no --> GHUnauth["Unauthenticated (lower rate limits)"]
-        SO --> SOCheck{SPD_SONATYPE_EMAIL and SPD_SONATYPE_TOKEN set?}
+        SO --> SOCheck{VLZ_SONATYPE_EMAIL and VLZ_SONATYPE_TOKEN set?}
         SOCheck -- yes --> SOBasic["HTTP Basic auth"]
         SOCheck -- no --> SOError["Return clear error (missing credentials)"]
     end

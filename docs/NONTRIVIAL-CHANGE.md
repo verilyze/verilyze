@@ -7,7 +7,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 # Nontrivial Change Definition
 
 This document defines what constitutes a *nontrivial* (legally significant) change for
-copyright and attribution purposes in super-duper. It follows the [GNU Software
+copyright and attribution purposes in verilyze. It follows the [GNU Software
 Maintenance Guidelines](https://www.gnu.org/prep/maintain/html_node/Legally-Significant.html).
 
 ## Threshold
@@ -15,7 +15,7 @@ Maintenance Guidelines](https://www.gnu.org/prep/maintain/html_node/Legally-Sign
 A contribution is **nontrivial** if it constitutes **approximately 15 or more lines** of
 original code or text. Changes below this threshold are not legally significant for
 copyright purposes. The threshold is configured in `pyproject.toml` under
-`[tool.spd-headers]`.
+`[tool.vlz-headers]`.
 
 - **Cumulative:** A series of minor changes by the same person can add up. What matters
   is the total contribution per author per file, not each individual commit.

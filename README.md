@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2026 Travis Post <post.travis+git@gmail.com>
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
-# super-duper (spd)
+# verilyze (vlz)
 
 Fast, modular Software Composition Analysis (SCA) tool for dependency
 vulnerabilities. Written in Rust.
@@ -16,7 +16,7 @@ text.
 ## Installation
 
 ```bash
-cargo install spd
+cargo install vlz
 ```
 
 - **Privileged:** binary goes to `/usr/local/bin/` (or equivalent).
@@ -24,27 +24,27 @@ cargo install spd
 
 The default build includes the OSV CVE provider. The NVD provider is opt-in
 (reasons: NVD rate limits, binary size; see [docs/FAQ.md](docs/FAQ.md)). To
-include NVD: `cargo install spd --features nvd`, then `spd scan --provider nvd`.
+include NVD: `cargo install vlz --features nvd`, then `vlz scan --provider nvd`.
 
 ## Quick start
 
 ```bash
 # Scan current directory for Python manifests (e.g. requirements.txt) and check
 # for CVEs
-spd scan
+vlz scan
 
 # Scan a specific path
-spd scan /path/to/project
+vlz scan /path/to/project
 
 # JSON output
-spd scan --format json
+vlz scan --format json
 
 # SBOM output (CycloneDX 1.6, SPDX 3.0)
-spd scan --format cyclonedx
-spd scan -s cyclonedx:sbom.cdx.json,spdx:sbom.spdx.json
+vlz scan --format cyclonedx
+vlz scan -s cyclonedx:sbom.cdx.json,spdx:sbom.spdx.json
 
 # List registered language plugins
-spd list
+vlz list
 ```
 
 ## How it works
@@ -63,56 +63,56 @@ flowchart LR
 Options are resolved in precedence order; each source overrides the ones below:
 
 1. **CLI flags** (e.g. `--parallel 20`, `--cache-ttl-secs 86400`, `--min-score 7.0`) -- highest precedence
-2. **Environment variables** `SPD_*` (e.g. `SPD_PARALLEL_QUERIES=20`,
-   `SPD_CACHE_TTL_SECS=86400`)
+2. **Environment variables** `VLZ_*` (e.g. `VLZ_PARALLEL_QUERIES=20`,
+   `VLZ_CACHE_TTL_SECS=86400`)
 3. **User config file** (`-c/--config <path>` or default
-   `$XDG_CONFIG_HOME/super-duper/super-duper.conf`)
-4. **System config** (`/etc/super-duper.conf`) -- lowest precedence
+   `$XDG_CONFIG_HOME/verilyze/verilyze.conf`)
+4. **System config** (`/etc/verilyze.conf`) -- lowest precedence
 
 See [architecture/PRD.md](architecture/PRD.md) (CFG-001 - CFG-008) for full
 details.
 
 | Key              | Default         | Env var                | CLI flag         |
 |------------------|-----------------|------------------------|------------------|
-| cache_ttl_secs   | 432000 (5 days) | SPD_CACHE_TTL_SECS     | --cache-ttl-secs |
-| parallel_queries | 10              | SPD_PARALLEL_QUERIES   | --parallel       |
-| min_score        | 0               | SPD_MIN_SCORE          | --min-score      |
-| min_count        | 0               | SPD_MIN_COUNT          | --min-count      |
-| backoff_base_ms  | 100             | SPD_BACKOFF_BASE_MS    | --backoff-base   |
-| backoff_max_ms   | 30000           | SPD_BACKOFF_MAX_MS     | --backoff-max    |
-| max_retries      | 5               | SPD_MAX_RETRIES        | --max-retries    |
+| cache_ttl_secs   | 432000 (5 days) | VLZ_CACHE_TTL_SECS     | --cache-ttl-secs |
+| parallel_queries | 10              | VLZ_PARALLEL_QUERIES   | --parallel       |
+| min_score        | 0               | VLZ_MIN_SCORE          | --min-score      |
+| min_count        | 0               | VLZ_MIN_COUNT          | --min-count      |
+| backoff_base_ms  | 100             | VLZ_BACKOFF_BASE_MS    | --backoff-base   |
+| backoff_max_ms   | 30000           | VLZ_BACKOFF_MAX_MS     | --backoff-max    |
+| max_retries      | 5               | VLZ_MAX_RETRIES        | --max-retries    |
 
 **Environment variables for optional CVE providers** (not stored in config):
 
 | Variable              | Provider   | Purpose                                      |
 |-----------------------|------------|----------------------------------------------|
 | GITHUB_TOKEN         | GitHub     | Optional; higher rate limits (Actions sets this) |
-| SPD_GITHUB_TOKEN     | GitHub     | Override for GITHUB_TOKEN                     |
-| SPD_SONATYPE_EMAIL   | Sonatype   | Required for Sonatype OSS Index               |
-| SPD_SONATYPE_TOKEN   | Sonatype   | Required for Sonatype OSS Index               |
+| VLZ_GITHUB_TOKEN     | GitHub     | Override for GITHUB_TOKEN                     |
+| VLZ_SONATYPE_EMAIL   | Sonatype   | Required for Sonatype OSS Index               |
+| VLZ_SONATYPE_TOKEN   | Sonatype   | Required for Sonatype OSS Index               |
 
 Changing **cache_ttl_secs** only affects new cache entries; existing entries
 keep their stored expiry until they expire or are purged.
 
-Run `spd config --list` to print effective values.
+Run `vlz config --list` to print effective values.
 
 ## CLI reference (summary)
 
 | Subcommand                   | Description                                                   |
 |------------------------------|---------------------------------------------------------------|
-| `spd scan [PATH]`            | Scan for manifests and CVEs; optional path (default: cwd)     |
-| `spd list`                   | List registered language plugins                              |
-| `spd config --list`          | Show effective configuration                                  |
-| `spd config --set KEY=VALUE` | Set a config key (e.g. `python.regex="^requirements\\.txt$"`) |
-| `spd db list-providers`      | List CVE providers (e.g. osv, nvd, github, sonatype when built with respective features) |
-| `spd db stats`               | Cache statistics                                              |
-| `spd db show [--format FORMAT] [--full]` | Display cache entries (key, TTL, added-at, CVE summary or full payload) |
-| `spd db set-ttl SECS [--entry KEY] [--all] [--pattern PATTERN] [--entries KEYS]` | Update TTL for existing cache entries |
-| `spd db verify`              | Verify database integrity (SHA-256)                           |
-| `spd db migrate`             | Run migrations                                                |
-| `spd fp mark CVE-ID [--comment ...]` | Mark CVE as false positive                            |
-| `spd fp unmark CVE-ID`       | Remove false-positive marking                                 |
-| `spd --version`              | Print version                                                 |
+| `vlz scan [PATH]`            | Scan for manifests and CVEs; optional path (default: cwd)     |
+| `vlz list`                   | List registered language plugins                              |
+| `vlz config --list`          | Show effective configuration                                  |
+| `vlz config --set KEY=VALUE` | Set a config key (e.g. `python.regex="^requirements\\.txt$"`) |
+| `vlz db list-providers`      | List CVE providers (e.g. osv, nvd, github, sonatype when built with respective features) |
+| `vlz db stats`               | Cache statistics                                              |
+| `vlz db show [--format FORMAT] [--full]` | Display cache entries (key, TTL, added-at, CVE summary or full payload) |
+| `vlz db set-ttl SECS [--entry KEY] [--all] [--pattern PATTERN] [--entries KEYS]` | Update TTL for existing cache entries |
+| `vlz db verify`              | Verify database integrity (SHA-256)                           |
+| `vlz db migrate`             | Run migrations                                                |
+| `vlz fp mark CVE-ID [--comment ...]` | Mark CVE as false positive                            |
+| `vlz fp unmark CVE-ID`       | Remove false-positive marking                                 |
+| `vlz --version`              | Print version                                                 |
 
 **Scan options (examples):** `--format plain|json|sarif|cyclonedx|spdx`,
 `--summary-file html:path,cyclonedx:sbom.json,spdx:sbom.spdx.json`,

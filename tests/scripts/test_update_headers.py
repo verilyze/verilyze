@@ -111,7 +111,7 @@ class TestLoadConfig:
     def test_missing_pyproject_returns_defaults(self, tmp_path: Path) -> None:
         result = load_config(tmp_path)
         assert result["default_license"] == "GPL-3.0-or-later"
-        assert result["default_copyright"] == "The super-duper contributors"
+        assert result["default_copyright"] == "The verilyze contributors"
         assert result["nontrivial_lines"] == 15
         assert "py" in result["extensions"]
 
@@ -119,7 +119,7 @@ class TestLoadConfig:
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text(
             """
-[tool.spd-headers]
+[tool.vlz-headers]
 default_copyright = "Custom Contributor"
 default_license = "MIT"
 nontrivial_lines = 20
@@ -157,7 +157,7 @@ class TestHeadersMatch:
             encoding="utf-8",
         )
         config: update_headers.HeadersConfig = {
-            "default_copyright": "The super-duper contributors",
+            "default_copyright": "The verilyze contributors",
             "default_license": "GPL-3.0-or-later",
             "nontrivial_lines": 15,
             "extensions": ("py",),
@@ -441,7 +441,7 @@ class TestResolveAuthors:
         self, tmp_path: Path
     ) -> None:
         config: update_headers.HeadersConfig = {
-            "default_copyright": "The super-duper contributors",
+            "default_copyright": "The verilyze contributors",
             "default_license": "GPL-3.0-or-later",
             "nontrivial_lines": 15,
             "extensions": (),
@@ -452,7 +452,7 @@ class TestResolveAuthors:
         with patch("scripts.update_headers.run", return_value=mock_result):
             result = resolve_authors(tmp_path, "x.py", [], config)
         assert len(result) == 1
-        assert "The super-duper contributors" in result[0]
+        assert "The verilyze contributors" in result[0]
 
 
 class TestCollectFiles:
