@@ -84,48 +84,52 @@ pub fn ensure_default_db_backend_with_path(
     Ok(())
 }
 
-/// Ensures at least one manifest finder is registered (Python finder when `python` feature).
-/// Call this at startup so the default finder is used when no plugin has registered one.
-#[cfg(feature = "python")]
+/// Ensures language finders are registered (Python and/or Rust when features enabled).
+/// Call this at startup so default finders are used.
 pub fn ensure_default_manifest_finder() {
-    if finders().lock().unwrap().is_empty() {
-        use vlz_python::PythonManifestFinder;
-        vlz_register!(ManifestFinder, PythonManifestFinder);
+    let mut f = finders().lock().unwrap();
+    #[cfg(feature = "python")]
+    if !f.iter().any(|x| x.language_name() == "python") {
+        f.push(Box::new(vlz_python::PythonManifestFinder::new()));
+    }
+    #[cfg(feature = "rust")]
+    if !f.iter().any(|x| x.language_name() == "rust") {
+        f.push(Box::new(vlz_rust::RustManifestFinder::new()));
     }
 }
 
-#[cfg(not(feature = "python"))]
-pub fn ensure_default_manifest_finder() {
-    // No-op when python feature is disabled; registries stay empty.
-}
-
-/// Ensures at least one parser is registered (Python requirements.txt parser when `python` feature).
-/// Call this at startup so the default parser is used when no plugin has registered one.
-#[cfg(feature = "python")]
+/// Ensures language parsers are registered (Python and/or Rust when features enabled).
+/// Call this at startup so default parsers are used.
 pub fn ensure_default_parser() {
-    if parsers().lock().unwrap().is_empty() {
-        use vlz_python::RequirementsTxtParser;
-        vlz_register!(Parser, RequirementsTxtParser);
+    let mut p = parsers().lock().unwrap();
+    #[cfg(feature = "python")]
+    if p.is_empty() {
+        p.push(Box::new(vlz_python::RequirementsTxtParser::new()));
+    }
+    #[cfg(feature = "rust")]
+    {
+        let need_rust = if cfg!(feature = "python") {
+            p.len() < 2
+        } else {
+            p.is_empty()
+        };
+        if need_rust {
+            p.push(Box::new(vlz_rust::CargoTomlParser::new()));
+        }
     }
 }
 
-#[cfg(not(feature = "python"))]
-pub fn ensure_default_parser() {
-    // No-op when python feature is disabled.
-}
-
-/// Ensures at least one resolver is registered (Python direct-only resolver when `python` feature).
-#[cfg(feature = "python")]
+/// Ensures language resolvers are registered (Python and/or Rust when features enabled).
 pub fn ensure_default_resolver() {
-    if resolvers().lock().unwrap().is_empty() {
-        use vlz_python::DirectOnlyResolver;
-        vlz_register!(Resolver, DirectOnlyResolver);
+    let mut r = resolvers().lock().unwrap();
+    #[cfg(feature = "python")]
+    if !r.iter().any(|x| x.package_manager_hint().contains("pip")) {
+        r.push(Box::new(vlz_python::DirectOnlyResolver::new()));
     }
-}
-
-#[cfg(not(feature = "python"))]
-pub fn ensure_default_resolver() {
-    // No-op when python feature is disabled.
+    #[cfg(feature = "rust")]
+    if !r.iter().any(|x| x.package_manager_hint().contains("cargo")) {
+        r.push(Box::new(vlz_rust::CargoResolver::new()));
+    }
 }
 
 /// Ensures at least one CVE provider is registered (default OSV.dev provider).
@@ -330,26 +334,29 @@ mod tests {
             assert_eq!(db_backends().lock().unwrap().len(), 1);
         }
 
-        // 2) ensure_default_* when empty add one; second call is idempotent
-        #[cfg(feature = "python")]
+        // 2) ensure_default_* when empty add one per language; second call is idempotent
+        #[cfg(any(feature = "python", feature = "rust"))]
         {
+            let expected: usize =
+                if cfg!(all(feature = "python", feature = "rust")) { 2 } else { 1 };
+
             clear_finders();
             ensure_default_manifest_finder();
-            assert_eq!(finders().lock().unwrap().len(), 1);
+            assert_eq!(finders().lock().unwrap().len(), expected);
             ensure_default_manifest_finder();
-            assert_eq!(finders().lock().unwrap().len(), 1);
+            assert_eq!(finders().lock().unwrap().len(), expected);
 
             clear_parsers();
             ensure_default_parser();
-            assert_eq!(parsers().lock().unwrap().len(), 1);
+            assert_eq!(parsers().lock().unwrap().len(), expected);
             ensure_default_parser();
-            assert_eq!(parsers().lock().unwrap().len(), 1);
+            assert_eq!(parsers().lock().unwrap().len(), expected);
 
             clear_resolvers();
             ensure_default_resolver();
-            assert_eq!(resolvers().lock().unwrap().len(), 1);
+            assert_eq!(resolvers().lock().unwrap().len(), expected);
             ensure_default_resolver();
-            assert_eq!(resolvers().lock().unwrap().len(), 1);
+            assert_eq!(resolvers().lock().unwrap().len(), expected);
         }
 
         clear_providers();

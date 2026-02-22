@@ -19,6 +19,7 @@ default-members = [
     "crates/core/vlz-db",
     "crates/db-backends/vlz-db-redb",
     "crates/languages/vlz-python",
+    "crates/languages/vlz-rust",
     "crates/core/vlz-manifest-finder",
     "crates/core/vlz-manifest-parser",
     "crates/core/vlz-cve-client",

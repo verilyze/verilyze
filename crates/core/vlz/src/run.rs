@@ -525,71 +525,86 @@ async fn run_scan(
     info!("Scanning root: {}", root_path.display());
 
     // -----------------------------------------------------------------
-    // b) Choose the plug-ins we will use (first entry of each registry)
+    // b) Choose the plug-ins we will use (all registered finder/parser/resolver triplets)
     // -----------------------------------------------------------------
-    let finder: Box<dyn vlz_manifest_finder::ManifestFinder> =
-        if effective.language_regexes.is_empty() {
-            let mut f = crate::registry::finders()
-                .lock()
-                .expect("FINDERS lock poisoned");
-            if f.is_empty() {
-                error!("No ManifestFinder plug-in registered");
-                return Err(anyhow!("No ManifestFinder plug-in registered"));
-            }
-            f.remove(0)
-        } else {
-            let patterns: Vec<String> = effective
-                .language_regexes
-                .iter()
-                .map(|(_, r)| r.clone())
-                .collect();
-            #[cfg(feature = "python")]
-            match vlz_python::PythonManifestFinder::with_patterns(patterns) {
-                Ok(f) => Box::new(f),
+    let mut finders = Vec::new();
+    let mut parsers = Vec::new();
+    let mut resolvers = Vec::new();
+
+    if effective.language_regexes.is_empty() {
+        std::mem::swap(
+            &mut *crate::registry::finders().lock().unwrap(),
+            &mut finders,
+        );
+        std::mem::swap(
+            &mut *crate::registry::parsers().lock().unwrap(),
+            &mut parsers,
+        );
+        std::mem::swap(
+            &mut *crate::registry::resolvers().lock().unwrap(),
+            &mut resolvers,
+        );
+    } else {
+        let patterns: Vec<String> = effective
+            .language_regexes
+            .iter()
+            .map(|(_, r)| r.clone())
+            .collect();
+        let first_lang = effective.language_regexes.first().map(|(l, _)| l.as_str());
+        #[cfg(feature = "python")]
+        if first_lang != Some("rust") {
+            match vlz_python::PythonManifestFinder::with_patterns(patterns.clone()) {
+                Ok(f) => finders.push(Box::new(f)),
                 Err(e) => {
                     error!("Invalid language regex in config: {}", e);
                     return Err(anyhow!("Invalid language regex in config: {}", e));
                 }
             }
-            #[cfg(not(feature = "python"))]
-            {
-                error!("Custom language regexes require a language plugin (e.g. python feature)");
-                return Err(anyhow!("Custom language regexes require a language plugin"));
+        }
+        #[cfg(feature = "rust")]
+        if first_lang == Some("rust") || finders.is_empty() {
+            match vlz_rust::RustManifestFinder::with_patterns(patterns) {
+                Ok(f) => finders.push(Box::new(f)),
+                Err(e) => {
+                    error!("Invalid language regex in config: {}", e);
+                    return Err(anyhow!("Invalid language regex in config: {}", e));
+                }
             }
-        };
-
-    let parser = {
-        let mut p = crate::registry::parsers()
-            .lock()
-            .expect("PARSERS lock poisoned");
-        if p.is_empty() {
-            error!("No Parser plug-in registered");
-            return Err(anyhow!("No Parser plug-in registered"));
         }
-        p.remove(0)
-    };
-
-    let resolver = {
-        let mut r = crate::registry::resolvers()
-            .lock()
-            .expect("RESOLVERS lock poisoned");
-        if r.is_empty() {
-            error!("No Resolver plug-in registered");
-            return Err(anyhow!("No Resolver plug-in registered"));
+        #[cfg(not(any(feature = "python", feature = "rust")))]
+        {
+            error!("Custom language regexes require a language plugin (e.g. python or rust feature)");
+            return Err(anyhow!("Custom language regexes require a language plugin"));
         }
-        r.remove(0)
-    };
+        let mut p = crate::registry::parsers().lock().unwrap();
+        let mut r = crate::registry::resolvers().lock().unwrap();
+        let m = finders.len().min(p.len()).min(r.len());
+        for _ in 0..m {
+            parsers.push(p.remove(0));
+            resolvers.push(r.remove(0));
+        }
+    }
+
+    let n = finders.len().min(parsers.len()).min(resolvers.len());
+    if n == 0 {
+        error!("No ManifestFinder, Parser, or Resolver plug-in registered");
+        return Err(anyhow!(
+            "No ManifestFinder, Parser, or Resolver plug-in registered"
+        ));
+    }
 
     // -----------------------------------------------------------------
-    // b2) FR-024: if package manager required, check via resolver and exit 3 with hint if missing
+    // b2) FR-024: if package manager required, check resolvers and exit 3 with hint if missing
     // -----------------------------------------------------------------
     if effective.package_manager_required {
-        if !resolver.package_manager_available() {
-            eprintln!(
-                "Required package manager not found on PATH. {}",
-                resolver.package_manager_hint()
-            );
-            return Ok(3);
+        for i in 0..n {
+            if !resolvers[i].package_manager_available() {
+                eprintln!(
+                    "Required package manager not found on PATH. {}",
+                    resolvers[i].package_manager_hint()
+                );
+                return Ok(3);
+            }
         }
     }
 
@@ -658,31 +673,34 @@ async fn run_scan(
     let use_network = !(effective.offline || effective.benchmark);
 
     // -----------------------------------------------------------------
-    // d) Scan phase - find manifest files
-    // -----------------------------------------------------------------
-    let manifests = finder
-        .find(&root_path)
-        .await
-        .context("Failed during manifest discovery")?;
-    info!("Found {} manifest(s)", manifests.len());
-
-    // -----------------------------------------------------------------
-    // e) Parse each manifest -> dependency graph, then resolve to packages
+    // d) Scan phase - find manifest files, parse, resolve (per language triplet)
     // -----------------------------------------------------------------
     let mut all_packages = Vec::new();
-    for mf in manifests {
-        let graph = parser
-            .parse(&mf)
+    for i in 0..n {
+        let manifests = finders[i]
+            .find(&root_path)
             .await
-            .with_context(|| format!("Parsing manifest {:?}", mf))?;
-        let resolved = resolver
-            .resolve(&graph)
-            .await
-            .with_context(|| format!("Resolving dependencies for {:?}", mf))?;
-        all_packages.extend(resolved);
+            .context("Failed during manifest discovery")?;
+        info!(
+            "Found {} manifest(s) for {}",
+            manifests.len(),
+            finders[i].language_name()
+        );
+        for mf in manifests {
+            let graph = parsers[i]
+                .parse(&mf)
+                .await
+                .with_context(|| format!("Parsing manifest {:?}", mf))?;
+            let resolved = resolvers[i]
+                .resolve(&graph)
+                .await
+                .with_context(|| format!("Resolving dependencies for {:?}", mf))?;
+            all_packages.extend(resolved);
+        }
     }
     info!("Discovered {} package entries", all_packages.len());
-    let all_packages_for_sbom = deduplicate_packages(&all_packages);
+    let packages_to_check = deduplicate_packages(&all_packages);
+    info!("Checking {} unique packages for CVEs", packages_to_check.len());
 
     // -----------------------------------------------------------------
     // f) For each package: try cache -> (optional) network -> store
@@ -691,11 +709,12 @@ async fn run_scan(
     let semaphore = Arc::new(Semaphore::new(effective_parallel));
     let mut handles = Vec::new();
 
-    for pkg in all_packages {
+    for pkg in &packages_to_check {
         let db = db_backend.clone();
         let prov = provider_impl.clone();
         let sem = semaphore.clone();
         let permit = sem.acquire_owned().await.unwrap();
+        let pkg = pkg.clone();
 
         let fut = async move {
             let _guard = permit;
@@ -841,7 +860,7 @@ async fn run_scan(
             .collect();
     let report_data = vlz_report::ReportData {
         findings: report_findings,
-        all_packages: Some(all_packages_for_sbom),
+        all_packages: Some(packages_to_check),
     };
     reporter
         .render(&report_data)
@@ -1042,14 +1061,17 @@ mod tests {
             vlz_db::Package {
                 name: "foo".to_string(),
                 version: "1.0".to_string(),
+                ecosystem: None,
             },
             vlz_db::Package {
                 name: "bar".to_string(),
                 version: "2.0".to_string(),
+                ecosystem: None,
             },
             vlz_db::Package {
                 name: "foo".to_string(),
                 version: "1.0".to_string(),
+                ecosystem: None,
             },
         ];
         let deduped = deduplicate_packages(&packages);

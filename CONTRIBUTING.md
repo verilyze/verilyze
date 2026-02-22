@@ -30,6 +30,7 @@ Crates are organized by plugin type under `crates/`:
     in the binary.
 - **crates/languages/** -- Language plugins (ManifestFinder, Parser, Resolver):
   - **vlz-python** -- Python: requirements.txt, pyproject.toml, Pipfile, etc.
+  - **vlz-rust** -- Rust: Cargo.toml, Cargo.lock (workspace members supported).
 - **crates/providers/** -- CVE providers (optional, feature-gated):
   - **vlz-cve-provider-nvd** -- NVD (NIST); `nvd` feature.
   - **vlz-cve-provider-github** -- GitHub Advisory Database; `github` feature.
@@ -182,8 +183,8 @@ flowchart LR
     Packages --> CVE[CVE lookup]
 ```
 
-1. Create a new crate under `crates/languages/` (e.g. `crates/languages/vlz-java/`) that
-   implements:
+1. Create a new crate under `crates/languages/` (e.g.
+   `crates/languages/vlz-java/`) that implements:
    - `ManifestFinder` -- discover manifest files (e.g. `pom.xml`).
    - `Parser` -- parse manifest into `DependencyGraph`.
    - `Resolver` -- resolve to `Vec<Package>` (e.g. using lock file or package
@@ -197,10 +198,11 @@ flowchart LR
    implementations via `vlz_register!` (or push to the registry directly).
 4. **Add a fuzz target** for each manifest or lock format your parser supports
    (NFR-020, SEC-017). Parsers accept untrusted manifest files; fuzzing ensures
-   no crash on malformed input (SEC-017). Create `tests/fuzz/fuzz_targets/<format>.rs` (e.g.
-   `fuzz_pyproject_toml.rs`) and add seed corpus under
-   `tests/fuzz/corpus/<format>/`. Update `scripts/fuzz-targets.env` (add one
-   mapping line: `target_name=crates/languages/vlz-java/src/...`), `scripts/fuzz.sh`, and
+   no crash on malformed input (SEC-017). Create
+   `tests/fuzz/fuzz_targets/<format>.rs` (e.g. `fuzz_pyproject_toml.rs`) and
+   add seed corpus under `tests/fuzz/corpus/<format>/`. Update
+   `scripts/fuzz-targets.env` (add one mapping line:
+   `target_name=crates/languages/vlz-java/src/...`), `scripts/fuzz.sh`, and
    `tests/fuzz/Cargo.toml` to include the new target.
 
 See [architecture/PRD.md](architecture/PRD.md) MOD-002 and FR-020 for the
@@ -212,7 +214,8 @@ Per MOD-001 and MOD-002, optional CVE providers live in **separate crates**
 (e.g. `vlz-cve-provider-nvd`). The default OSV provider remains in
 `vlz-cve-client`; additional providers use their own crates.
 
-1. Create a new crate under `crates/providers/` (e.g. `crates/providers/vlz-cve-provider-nvd/`) that:
+1. Create a new crate under `crates/providers/` (e.g.
+   `crates/providers/vlz-cve-provider-nvd/`) that:
    - Depends on `vlz-cve-client` (trait `CveProvider`, types `FetchedCves`,
      `ProviderError`) and `vlz-db` (`Package`, `CveRecord`).
    - Implements `CveProvider` (including `name()` for provider selection).
@@ -234,8 +237,8 @@ applies exponential backoff (NFR-005, SEC-007). Use
 a Retry-After value (e.g. HTTP 429 with header).
 
 **Provider-specific notes:** NVD uses CPE for package lookup; map PyPI
-packages to `cpe:2.3:a:{package}:{package}:{version}:*:*:*:*:python:*:*` (package name as
-   vendor; NVD's cpeName rejects wildcard vendor). NVD
+packages to `cpe:2.3:a:{package}:{package}:{version}:*:*:*:*:python:*:*`
+(package name as vendor; NVD's cpeName rejects wildcard vendor). NVD
 unauthenticated rate limit is 5 req/30s. Future multi-provider scans
 (`--providers osv,nvd` or `--providers all`) are planned as a roadmap
 enhancement; the cache design supports this.
@@ -252,12 +255,16 @@ strings (e.g. `assert!(!format!("{}", err).contains("secret"))`).
 
 The `vlz` binary supports optional capabilities via Cargo features:
 
-- **default** = `["redb", "python"]` -- full build with Python support and RedB backend.
+- **default** = `["redb", "python", "rust", "testing"]` -- full build with
+  Python and Rust support, RedB backend.
 - **redb** -- RedB database backend for CVE cache and false-positive DB.
 - **python** -- Python language plugin (`vlz-python` crate).
+- **rust** -- Rust language plugin (`vlz-rust` crate).
 - **nvd** -- NVD CVE provider (`vlz-cve-provider-nvd` crate); opt-in.
-- **github** -- GitHub Advisory CVE provider (`vlz-cve-provider-github` crate); opt-in.
-- **sonatype** -- Sonatype OSS Index CVE provider (`vlz-cve-provider-sonatype` crate); opt-in.
+- **github** -- GitHub Advisory CVE provider (`vlz-cve-provider-github` crate);
+  opt-in.
+- **sonatype** -- Sonatype OSS Index CVE provider (`vlz-cve-provider-sonatype`
+  crate); opt-in.
 - **sqlite**, **mem** -- placeholders for future backends.
 
 NVD is opt-in because: (1) NVD enforces 5 requests per 30-second window for
@@ -266,13 +273,19 @@ cold-cache scan would immediately hit rate limits; (2) including NVD increases
 binary size and dependencies (PRD Purpose & Scope, NFR-019, MOD-004); (3) PRD
 MOD-003 specifies OSV-only as the default CVE provider.
 
-Build a **minimal binary** (no Python, no RedB) with:
+Build a **minimal binary** (no Python, no Rust, no RedB) with:
 
 ```sh
 cargo build --no-default-features
 ```
 
-Build with only Java (when `vlz-java` exists) and no Python:
+Build with only Rust (no Python):
+
+```sh
+cargo build --no-default-features --features rust
+```
+
+Build with only Java (when `vlz-java` exists) and no Python/Rust:
 
 ```sh
 cargo build --no-default-features --features java
@@ -335,8 +348,9 @@ the *nontrivial change* threshold (~15 lines per author per file). See
 
 **.mailmap:** Contributors who use multiple email addresses should add a
 `.mailmap` entry at the repository root to map alternate identities to a
-canonical form. Format: `Canonical Name <canonical@email.com> Alternate Name <alt@email.com>`.
-The `make headers` script uses `git log --use-mailmap`, so `.mailmap` affects
+canonical form. Format:
+`Canonical Name <canonical@email.com> Alternate Name <alt@email.com>`. The
+`make headers` script uses `git log --use-mailmap`, so `.mailmap` affects
 which copyright lines are generated. `make check-header-duplicates` verifies
 no file lists the same copyright holder twice (per `.mailmap` canonicalization).
 
