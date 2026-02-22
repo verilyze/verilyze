@@ -17,9 +17,9 @@ serde_json = "1.0"
 thiserror = "2.0"
 toml = "1.0"
 regex = "1"
-vlz-db = { path = "../vlz-db" }
-vlz-manifest-finder = { path = "../vlz-manifest-finder" }
-vlz-manifest-parser = { path = "../vlz-manifest-parser" }
+vlz-db = { path = "../../core/vlz-db" }
+vlz-manifest-finder = { path = "../../core/vlz-manifest-finder" }
+vlz-manifest-parser = { path = "../../core/vlz-manifest-parser" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }

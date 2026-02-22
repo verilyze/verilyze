@@ -120,7 +120,7 @@ elif "$DO_CHANGED"; then
         TARGETS_TO_RUN="${TARGETS_TO_RUN%,}"
     elif [[ -n "$CHANGED_FILES" ]]; then
         # Shared crates: any change triggers "run all"
-        SHARED_PATTERNS="vlz-db/ vlz-db-redb/ vlz-plugin-macro/"
+        SHARED_PATTERNS="crates/core/vlz-db/ crates/db-backends/vlz-db-redb/ crates/core/vlz-plugin-macro/"
         RUN_ALL=false
         for f in $CHANGED_FILES; do
             for p in $SHARED_PATTERNS; do

@@ -10,8 +10,8 @@ publish = false
 
 [dependencies]
 afl = "0.17"
-vlz = { path = "../../vlz" }
-vlz-python = { path = "../../vlz-python" }
+vlz = { path = "../../crates/core/vlz" }
+vlz-python = { path = "../../crates/languages/vlz-python" }
 
 [[bin]]
 name = "fuzz_config_toml"
