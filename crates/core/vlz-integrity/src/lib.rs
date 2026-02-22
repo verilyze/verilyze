@@ -126,6 +126,7 @@ mod tests {
         let pkg = Package {
             name: "test".to_string(),
             version: "1.0.0".to_string(),
+            ..Default::default()
         };
         db.init().await.unwrap();
         assert!(db.get(&pkg, "osv").await.unwrap().is_none());
@@ -140,6 +141,7 @@ mod tests {
         let pkg = Package {
             name: "test".to_string(),
             version: "1.0.0".to_string(),
+            ..Default::default()
         };
         db.init().await.unwrap();
         assert!(db.get(&pkg, "osv").await.unwrap().is_none());

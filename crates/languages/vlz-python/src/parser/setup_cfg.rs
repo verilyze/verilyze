@@ -100,7 +100,11 @@ fn parse_pep508_dependency(spec: &str) -> Option<vlz_db::Package> {
     if name.is_empty() {
         return None;
     }
-    Some(vlz_db::Package { name, version })
+    Some(vlz_db::Package {
+        name,
+        version,
+        ecosystem: Some("PyPI".to_string()),
+    })
 }
 
 fn parse_name_version(spec: &str) -> Option<(String, String)> {
@@ -274,12 +278,54 @@ install_requires =
 "#;
         let packages = parse_setup_cfg(content).unwrap();
         assert_eq!(packages.len(), 6);
-        assert_eq!(packages[0], vlz_db::Package { name: "pkg".into(), version: "1.0".into() });
-        assert_eq!(packages[1], vlz_db::Package { name: "a".into(), version: "2.0".into() });
-        assert_eq!(packages[2], vlz_db::Package { name: "b".into(), version: "3.0".into() });
-        assert_eq!(packages[3], vlz_db::Package { name: "c".into(), version: "4.0".into() });
-        assert_eq!(packages[4], vlz_db::Package { name: "d".into(), version: "5.0".into() });
-        assert_eq!(packages[5], vlz_db::Package { name: "e".into(), version: "6.0".into() });
+        assert_eq!(
+            packages[0],
+            vlz_db::Package {
+                name: "pkg".into(),
+                version: "1.0".into(),
+                ecosystem: Some("PyPI".into())
+            }
+        );
+        assert_eq!(
+            packages[1],
+            vlz_db::Package {
+                name: "a".into(),
+                version: "2.0".into(),
+                ecosystem: Some("PyPI".into())
+            }
+        );
+        assert_eq!(
+            packages[2],
+            vlz_db::Package {
+                name: "b".into(),
+                version: "3.0".into(),
+                ecosystem: Some("PyPI".into())
+            }
+        );
+        assert_eq!(
+            packages[3],
+            vlz_db::Package {
+                name: "c".into(),
+                version: "4.0".into(),
+                ecosystem: Some("PyPI".into())
+            }
+        );
+        assert_eq!(
+            packages[4],
+            vlz_db::Package {
+                name: "d".into(),
+                version: "5.0".into(),
+                ecosystem: Some("PyPI".into())
+            }
+        );
+        assert_eq!(
+            packages[5],
+            vlz_db::Package {
+                name: "e".into(),
+                version: "6.0".into(),
+                ecosystem: Some("PyPI".into())
+            }
+        );
     }
 
     #[test]

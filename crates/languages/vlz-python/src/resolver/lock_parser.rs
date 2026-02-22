@@ -53,6 +53,7 @@ pub fn parse_pylock_toml(content: &str) -> Result<Vec<vlz_db::Package>, ParserEr
                     packages.push(vlz_db::Package {
                         name: name.to_string(),
                         version,
+                        ecosystem: Some("PyPI".to_string()),
                     });
                 }
             }
@@ -79,6 +80,7 @@ pub fn parse_poetry_lock(content: &str) -> Result<Vec<vlz_db::Package>, ParserEr
                     packages.push(vlz_db::Package {
                         name: name.to_string(),
                         version,
+                        ecosystem: Some("PyPI".to_string()),
                     });
                 }
             }
@@ -106,6 +108,7 @@ pub fn parse_pipfile_lock(content: &str) -> Result<Vec<vlz_db::Package>, ParserE
                     packages.push(vlz_db::Package {
                         name: name.clone(),
                         version,
+                        ecosystem: Some("PyPI".to_string()),
                     });
                 }
             }
@@ -132,6 +135,7 @@ pub fn parse_uv_lock(content: &str) -> Result<Vec<vlz_db::Package>, ParserError>
                     packages.push(vlz_db::Package {
                         name: name.to_string(),
                         version,
+                        ecosystem: Some("PyPI".to_string()),
                     });
                 }
             }

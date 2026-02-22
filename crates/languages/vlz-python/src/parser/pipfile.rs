@@ -33,6 +33,7 @@ fn parse_pipfile_dep(name: &str, val: &toml::Value) -> Option<vlz_db::Package> {
         return Some(vlz_db::Package {
             name: name.to_string(),
             version,
+            ecosystem: Some("PyPI".to_string()),
         });
     }
     if let Some(tbl) = val.as_table() {
@@ -44,6 +45,7 @@ fn parse_pipfile_dep(name: &str, val: &toml::Value) -> Option<vlz_db::Package> {
         return Some(vlz_db::Package {
             name: name.to_string(),
             version,
+            ecosystem: Some("PyPI".to_string()),
         });
     }
     None

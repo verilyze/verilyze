@@ -123,10 +123,12 @@ mod tests {
                 vlz_db::Package {
                     name: "a".to_string(),
                     version: "1".to_string(),
+                    ecosystem: Some("PyPI".to_string()),
                 },
                 vlz_db::Package {
                     name: "b".to_string(),
                     version: "2".to_string(),
+                    ecosystem: Some("PyPI".to_string()),
                 },
             ],
             manifest_path: None,

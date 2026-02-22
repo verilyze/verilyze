@@ -55,7 +55,11 @@ fn parse_requirement_line(line: &str) -> Option<vlz_db::Package> {
     if name.is_empty() {
         return None;
     }
-    Some(vlz_db::Package { name, version })
+    Some(vlz_db::Package {
+        name,
+        version,
+        ecosystem: Some("PyPI".to_string()),
+    })
 }
 
 /// Split a requirement spec (no [extras]) into (name, version).

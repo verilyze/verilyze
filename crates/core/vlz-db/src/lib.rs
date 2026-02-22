@@ -11,7 +11,20 @@ use async_trait::async_trait;
 pub struct Package {
     pub name: String,
     pub version: String,
-    // additional fields (ecosystem, source url…) can be added later
+
+    /// Ecosystem for CVE lookup (e.g. "PyPI", "crates.io"). When None, providers default to PyPI.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ecosystem: Option<String>,
+}
+
+impl Default for Package {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            version: String::new(),
+            ecosystem: None,
+        }
+    }
 }
 
 /// CVSS version used for the primary score (FR-034).
@@ -197,6 +210,7 @@ mod tests {
         let p = Package {
             name: "foo".to_string(),
             version: "1.0.0".to_string(),
+            ecosystem: None,
         };
         assert_eq!(p.name, "foo");
         assert_eq!(p.version, "1.0.0");
@@ -274,6 +288,7 @@ mod tests {
         let pkg = Package {
             name: "test-pkg".to_string(),
             version: "1.0.0".to_string(),
+            ecosystem: None,
         };
 
         backend.init().await.unwrap();

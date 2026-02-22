@@ -31,6 +31,13 @@ mkdir -p reports/rust
 # Set env for instrumentation; use normal cargo commands per cargo-llvm-cov docs
 # shellcheck source=/dev/null
 source <(cargo +nightly llvm-cov show-env --sh)
+
+# Workaround: rust-lld has known issues with instrument-coverage (e.g. "invalid symbol index").
+# Use GNU ld (bfd) on Linux when available. See rust-lang/rust#79555, rust-lang/rust#128938.
+if [[ "$(uname -s)" == "Linux" ]] && command -v ld.bfd &>/dev/null; then
+  export RUSTFLAGS="${RUSTFLAGS} -C link-arg=-fuse-ld=bfd"
+fi
+
 cargo +nightly llvm-cov clean --workspace 2>/dev/null || true
 
 # Build workspace with instrumentation (per show-env docs, use normal cargo).

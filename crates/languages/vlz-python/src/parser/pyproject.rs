@@ -56,17 +56,20 @@ pub fn parse_pyproject_toml(content: &str) -> Result<Vec<vlz_db::Package>, Parse
                         packages.push(vlz_db::Package {
                             name: name.clone(),
                             version,
+                            ecosystem: Some("PyPI".to_string()),
                         });
                     } else if let Some(tbl) = val.as_table() {
                         if let Some(version) = tbl.get("version").and_then(|v| v.as_str()) {
                             packages.push(vlz_db::Package {
                                 name: name.clone(),
                                 version: extract_version_from_constraint(version),
+                                ecosystem: Some("PyPI".to_string()),
                             });
                         } else {
                             packages.push(vlz_db::Package {
                                 name: name.clone(),
                                 version: "any".to_string(),
+                                ecosystem: Some("PyPI".to_string()),
                             });
                         }
                     }
@@ -114,7 +117,11 @@ fn parse_pep508_dependency(spec: &str) -> Option<vlz_db::Package> {
     if name.is_empty() {
         return None;
     }
-    Some(vlz_db::Package { name, version })
+    Some(vlz_db::Package {
+        name,
+        version,
+        ecosystem: Some("PyPI".to_string()),
+    })
 }
 
 fn parse_name_version(spec: &str) -> Option<(String, String)> {
