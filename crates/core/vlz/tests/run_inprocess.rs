@@ -506,7 +506,7 @@ fn run_scan_cve_provider_fails_logs_error() {
             vlz::mocks::FailingCveProvider::new(),
         )));
         let code = run_async(&["-v", "scan", root]);
-        assert_eq!(code, 0, "scan exits 0 when no CVEs meet threshold despite fetch errors");
+        assert_eq!(code, 5, "scan exits 5 when CVE provider fetch fails (avoid false negative)");
     });
 }
 

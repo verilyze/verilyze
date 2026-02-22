@@ -263,7 +263,9 @@ pub async fn run(args: Cli) -> Result<i32> {
         }
 
         Commands::List => {
-            let finders = crate::registry::finders().lock().expect("FINDERS lock poisoned");
+            let finders = crate::registry::finders()
+                .lock()
+                .expect("FINDERS lock poisoned");
             let mut languages: Vec<String> = finders
                 .iter()
                 .map(|f| f.language_name().to_string())
@@ -337,8 +339,9 @@ pub async fn run(args: Cli) -> Result<i32> {
 
         Commands::Db { sub, .. } => match sub {
             crate::cli::DbCommands::ListProviders => {
-                let providers =
-                    crate::registry::providers().lock().expect("PROVIDERS lock poisoned");
+                let providers = crate::registry::providers()
+                    .lock()
+                    .expect("PROVIDERS lock poisoned");
                 for p in providers.iter() {
                     write_stdout(&format!("{}\n", p.name()));
                 }
@@ -526,7 +529,9 @@ async fn run_scan(
     // -----------------------------------------------------------------
     let finder: Box<dyn vlz_manifest_finder::ManifestFinder> =
         if effective.language_regexes.is_empty() {
-            let mut f = crate::registry::finders().lock().expect("FINDERS lock poisoned");
+            let mut f = crate::registry::finders()
+                .lock()
+                .expect("FINDERS lock poisoned");
             if f.is_empty() {
                 error!("No ManifestFinder plug-in registered");
                 return Err(anyhow!("No ManifestFinder plug-in registered"));
@@ -554,7 +559,9 @@ async fn run_scan(
         };
 
     let parser = {
-        let mut p = crate::registry::parsers().lock().expect("PARSERS lock poisoned");
+        let mut p = crate::registry::parsers()
+            .lock()
+            .expect("PARSERS lock poisoned");
         if p.is_empty() {
             error!("No Parser plug-in registered");
             return Err(anyhow!("No Parser plug-in registered"));
@@ -563,7 +570,9 @@ async fn run_scan(
     };
 
     let resolver = {
-        let mut r = crate::registry::resolvers().lock().expect("RESOLVERS lock poisoned");
+        let mut r = crate::registry::resolvers()
+            .lock()
+            .expect("RESOLVERS lock poisoned");
         if r.is_empty() {
             error!("No Resolver plug-in registered");
             return Err(anyhow!("No Resolver plug-in registered"));
@@ -585,7 +594,9 @@ async fn run_scan(
     }
 
     let provider_impl: Arc<Box<dyn vlz_cve_client::CveProvider + Send + Sync + 'static>> = {
-        let mut prov = crate::registry::providers().lock().expect("PROVIDERS lock poisoned");
+        let mut prov = crate::registry::providers()
+            .lock()
+            .expect("PROVIDERS lock poisoned");
         if prov.is_empty() {
             error!("No CveProvider plug-in registered");
             return Err(anyhow!("No CveProvider plug-in registered"));
@@ -613,8 +624,7 @@ async fn run_scan(
             max_ms: effective.backoff_max_ms,
             max_retries: effective.max_retries,
         };
-        let wrapped =
-            vlz_cve_client::RetryingCveProvider::new(inner, backoff_config);
+        let wrapped = vlz_cve_client::RetryingCveProvider::new(inner, backoff_config);
         Arc::new(Box::new(wrapped))
     };
 
@@ -627,7 +637,9 @@ async fn run_scan(
     } else if format.eq_ignore_ascii_case("spdx") {
         Box::new(vlz_report::SpdxReporter::new())
     } else {
-        let mut r = crate::registry::reporters().lock().expect("REPORTERS lock poisoned");
+        let mut r = crate::registry::reporters()
+            .lock()
+            .expect("REPORTERS lock poisoned");
         if r.is_empty() {
             error!("No Reporter plug-in registered");
             return Err(anyhow!("No Reporter plug-in registered"));
@@ -717,6 +729,7 @@ async fn run_scan(
     // g) Gather results, apply false-positive filtering & severity map
     // -----------------------------------------------------------------
     let mut offline_cache_miss = false;
+    let mut provider_fetch_failed = false;
     for h in handles {
         match h.await? {
             Ok((pkg, recs)) => {
@@ -727,6 +740,7 @@ async fn run_scan(
                 if effective.offline && msg.contains("--offline") {
                     offline_cache_miss = true;
                 } else {
+                    provider_fetch_failed = true;
                     error!("{}", e);
                     if _verbosity > 0 {
                         for cause in e.chain().skip(1) {
@@ -741,6 +755,11 @@ async fn run_scan(
         let _ = db_backend.stats().await;
         eprintln!("CVE not found in cache, and unable to lookup CVE due to `--offline` argument.");
         return Ok(4);
+    }
+    if provider_fetch_failed {
+        let _ = db_backend.stats().await;
+        eprintln!("Unable to fetch CVE data from provider. Run with -v for details.");
+        return Ok(5);
     }
 
     // -----------------------------------------------------------------
@@ -787,8 +806,11 @@ async fn run_scan(
         .flat_map(|(_, recs)| recs.iter())
         .filter(|cve| cve_meets_score_threshold(cve.cvss_score, effective.min_score))
         .count();
-    let exit_code =
-        compute_scan_exit_code(meeting_threshold, effective.min_count, effective.exit_code_on_cve);
+    let exit_code = compute_scan_exit_code(
+        meeting_threshold,
+        effective.min_count,
+        effective.exit_code_on_cve,
+    );
     let total_cves: usize = findings.iter().map(|(_, r)| r.len()).sum();
     info!(
         "Total CVEs discovered: {}, meeting threshold (score>={}): {}",
@@ -942,18 +964,12 @@ mod tests {
 
     #[test]
     fn log_level_from_verbosity_count_zero_is_info() {
-        assert_eq!(
-            log_level_from_verbosity_count(0),
-            log::LevelFilter::Info
-        );
+        assert_eq!(log_level_from_verbosity_count(0), log::LevelFilter::Info);
     }
 
     #[test]
     fn log_level_from_verbosity_count_one_is_debug() {
-        assert_eq!(
-            log_level_from_verbosity_count(1),
-            log::LevelFilter::Debug
-        );
+        assert_eq!(log_level_from_verbosity_count(1), log::LevelFilter::Debug);
     }
 
     #[test]
@@ -964,21 +980,15 @@ mod tests {
 
     #[test]
     fn is_broken_pipe_detects_io_error() {
-        let e: anyhow::Error = std::io::Error::new(
-            std::io::ErrorKind::BrokenPipe,
-            "broken pipe",
-        )
-        .into();
+        let e: anyhow::Error =
+            std::io::Error::new(std::io::ErrorKind::BrokenPipe, "broken pipe").into();
         assert!(is_broken_pipe(&e));
     }
 
     #[test]
     fn is_broken_pipe_ignores_other_errors() {
-        let e: anyhow::Error = std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "not found",
-        )
-        .into();
+        let e: anyhow::Error =
+            std::io::Error::new(std::io::ErrorKind::NotFound, "not found").into();
         assert!(!is_broken_pipe(&e));
     }
 
