@@ -84,12 +84,12 @@ details.
 
 **Environment variables for optional CVE providers** (not stored in config):
 
-| Variable              | Provider   | Purpose                                      |
-|-----------------------|------------|----------------------------------------------|
+| Variable              | Provider   | Purpose                                         |
+|-----------------------|------------|-------------------------------------------------|
 | GITHUB_TOKEN         | GitHub     | Optional; higher rate limits (Actions sets this) |
-| VLZ_GITHUB_TOKEN     | GitHub     | Override for GITHUB_TOKEN                     |
-| VLZ_SONATYPE_EMAIL   | Sonatype   | Required for Sonatype OSS Index               |
-| VLZ_SONATYPE_TOKEN   | Sonatype   | Required for Sonatype OSS Index               |
+| VLZ_GITHUB_TOKEN     | GitHub     | Override for GITHUB_TOKEN                        |
+| VLZ_SONATYPE_EMAIL   | Sonatype   | Required for Sonatype OSS Index                  |
+| VLZ_SONATYPE_TOKEN   | Sonatype   | Required for Sonatype OSS Index                  |
 
 Changing **cache_ttl_secs** only affects new cache entries; existing entries
 keep their stored expiry until they expire or are purged.
@@ -129,6 +129,7 @@ Run `vlz config --list` to print effective values.
 | 2    | Misconfiguration (unknown key, invalid value, etc.)                        |
 | 3    | Missing required package manager                                           |
 | 4    | CVE lookup needed but `--offline`                                          |
+| 5    | CVE provider fetch failed (network, API error, auth, etc.)                 |
 | 86   | One or more CVEs meet threshold (overridable via `--exit-code-on-cve`)     |
 
 ## Testing

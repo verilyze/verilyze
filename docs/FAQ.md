@@ -171,6 +171,23 @@ network calls and the cache has no entries for them (FR-031).
 
 ---
 
+## Exit code 5 (CVE provider fetch failed)
+
+### Unable to fetch CVE data from provider
+
+**Message:** `Unable to fetch CVE data from provider. Run with -v for details.`
+
+**Cause:** One or more CVE lookups failed after retries (network error, API
+error, auth failure, etc.). The scan exits 5 instead of reporting "No
+vulnerabilities found" to avoid false negatives (FR-010).
+
+**Remediation:** Run with `-v` for detailed error output. Check network
+connectivity, firewall, and provider-specific auth (e.g. VLZ_SONATYPE_EMAIL and
+VLZ_SONATYPE_TOKEN for Sonatype). Verify the provider API is reachable. Retry
+later if the failure was transient.
+
+---
+
 ## Network and TLS errors
 
 ### TLS / certificate verification failed

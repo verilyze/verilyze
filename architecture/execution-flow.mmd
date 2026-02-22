@@ -55,7 +55,11 @@ flowchart TD
 
     CacheCheck -- hit --> FPFilter
     CacheCheck -- miss --> OfflineCheck
-    OfflineCheck -- no --> Query["CveProvider::fetch(pkg)"] --> CacheWrite["Write result to RedB (TTL, atomic)"] --> FPFilter
+    OfflineCheck -- no --> Query["CveProvider::fetch(pkg)"]
+    Query --> QueryResult{Fetch OK?}
+    QueryResult -- yes --> CacheWrite["Write result to RedB (TTL, atomic)"] --> FPFilter
+    QueryResult -- no --> FetchError["Exit 5 – provider fetch failed (FR-010)"]
+    FetchError --> End
     OfflineCheck -- yes --> OfflineError["Exit 4 – offline cache miss (FR-031)"]
     OfflineError --> End
 

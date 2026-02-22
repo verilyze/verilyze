@@ -148,10 +148,10 @@ fuzz-extended:
 # coverage: Rust + script coverage; runs fuzz first (cargo-llvm-cov + AFL, NFR-012, NFR-020)
 # coverage-quick: same but skips fuzz for faster dev iteration
 # Prereqs: cargo-llvm-cov, rustup nightly, .venv-test (via setup)
-coverage: fuzz
+coverage: setup fuzz
 	$(COVERAGE_SCRIPT)
 
-coverage-quick:
+coverage-quick: setup
 	$(COVERAGE_SCRIPT)
 
 # ---- Doc diagrams ----
