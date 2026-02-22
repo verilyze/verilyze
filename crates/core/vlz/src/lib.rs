@@ -72,6 +72,7 @@ mod tests {
 
     #[tokio::test]
     async fn run_main_unknown_provider_returns_2() {
+        let _guard = crate::registry::registry_test_mutex().lock().unwrap();
         let code = run_main_from_args([
             "vlz",
             "scan",

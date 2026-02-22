@@ -7,25 +7,25 @@
 # ------------------------------------------------------------
 [workspace]
 members = [
-    "vlz",                     # core binary
+    "crates/core/*",
+    "crates/languages/*",
+    "crates/providers/*",
+    "crates/db-backends/*",
     "tests/fuzz",              # AFL fuzz targets (NFR-020); build with cargo afl build
-    "vlz-db",                  # trait definitions
-    "vlz-db-redb",             # default RedB backend (this crate)
-    "vlz-python",              # Python language plugin
-    "vlz-manifest-finder",
-    "vlz-manifest-parser",
-    "vlz-cve-client",
-    "vlz-cve-provider-nvd",    # NVD CVE provider (optional, nvd feature)
-    "vlz-cve-provider-github", # GitHub Advisory CVE provider (optional, github feature)
-    "vlz-cve-provider-sonatype", # Sonatype OSS Index CVE provider (optional, sonatype feature)
-    "vlz-report",
-    "vlz-integrity",
-    "vlz-plugin-macro"          # procedural macro for plugin registration
 ]
 # Exclude fuzz crate from default build; it requires `cargo afl build` (AFL++).
-default-members = ["vlz", "vlz-db", "vlz-db-redb", "vlz-python", "vlz-manifest-finder",
-    "vlz-manifest-parser", "vlz-cve-client", "vlz-report", "vlz-integrity",
-    "vlz-plugin-macro"]
+default-members = [
+    "crates/core/vlz",
+    "crates/core/vlz-db",
+    "crates/db-backends/vlz-db-redb",
+    "crates/languages/vlz-python",
+    "crates/core/vlz-manifest-finder",
+    "crates/core/vlz-manifest-parser",
+    "crates/core/vlz-cve-client",
+    "crates/core/vlz-report",
+    "crates/core/vlz-integrity",
+    "crates/core/vlz-plugin-macro",
+]
 
 # Enforce a single Rust edition for all members
 resolver = "2"
