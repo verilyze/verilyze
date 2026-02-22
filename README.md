@@ -122,15 +122,19 @@ Run `vlz config --list` to print effective values.
 
 ## Exit codes
 
-| Code | Meaning                                                                    |
-|------|----------------------------------------------------------------------------|
-| 0    | Success (no CVEs, or only false-positives when using default fp-exit-code) |
-| 1    | Panic / internal error                                                     |
-| 2    | Misconfiguration (unknown key, invalid value, etc.)                        |
-| 3    | Missing required package manager                                           |
-| 4    | CVE lookup needed but `--offline`                                          |
-| 5    | CVE provider fetch failed (network, API error, auth, etc.)                 |
-| 86   | One or more CVEs meet threshold (overridable via `--exit-code-on-cve`)     |
+Exit 0 means the analysis completed successfully and the result is known. Any
+failure (config, network, parsing, etc.) returns a non-zero code to prevent
+false-negatives in CI.
+
+| Code | Meaning                                                                         |
+|------|---------------------------------------------------------------------------------|
+| 0    | Success: analysis completed; no CVEs (or only false-positives per fp-exit-code) |
+| 1    | Panic / internal error                                                          |
+| 2    | Misconfiguration (unknown key, invalid value, etc.)                             |
+| 3    | Missing required package manager                                                |
+| 4    | CVE lookup needed but `--offline`                                               |
+| 5    | CVE provider fetch failed (network, API error, auth, etc.)                      |
+| 86   | One or more CVEs meet threshold (overridable via `--exit-code-on-cve`)          |
 
 ## Testing
 
