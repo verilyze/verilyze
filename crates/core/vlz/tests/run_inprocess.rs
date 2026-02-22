@@ -3,7 +3,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use clap::Parser;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use vlz::cli::Cli;
+use vlz::mocks::CountingCveProvider;
 use vlz_db::{DatabaseBackend, Package};
 
 fn with_temp_xdg<F, R>(f: F) -> R
@@ -189,6 +192,7 @@ fn run_db_show_with_cached_entry_and_raw_vulns() {
                     let pkg = Package {
                         name: "test-pkg".to_string(),
                         version: "1.0".to_string(),
+                        ..Default::default()
                     };
                     let raw =
                         vec![serde_json::json!({"id": "CVE-2024-TEST", "summary": "test vuln"})];
@@ -225,6 +229,7 @@ fn run_scan_fp_exit_code_when_all_cves_marked_fp() {
                     let pkg = Package {
                         name: "test-pkg".to_string(),
                         version: "1.0".to_string(),
+                        ..Default::default()
                     };
                     let raw = vec![serde_json::json!({
                         "id": "CVE-2024-FP-TEST",
@@ -370,7 +375,11 @@ fn run_scan_no_root_uses_cwd() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
         let code = run_async(&["scan", "--offline", "--benchmark"]);
-        assert!(code == 0 || code == 2, "scan without root uses cwd");
+        assert!(
+            code == 0 || code == 2 || code == 4,
+            "scan without root uses cwd; code={} (0=ok, 2=error, 4=offline with manifests)",
+            code
+        );
     });
 }
 
@@ -507,6 +516,38 @@ fn run_scan_cve_provider_fails_logs_error() {
         )));
         let code = run_async(&["-v", "scan", root]);
         assert_eq!(code, 5, "scan exits 5 when CVE provider fetch fails (avoid false negative)");
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_deduplicates_packages_before_cve_lookup() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().to_str().unwrap();
+        std::fs::create_dir_all(dir.path().join("sub1")).expect("mkdir");
+        std::fs::create_dir_all(dir.path().join("sub2")).expect("mkdir");
+        std::fs::write(dir.path().join("sub1/requirements.txt"), "pkg==1.0\n").expect("write");
+        std::fs::write(dir.path().join("sub2/requirements.txt"), "pkg==1.0\n").expect("write");
+
+        let fetch_counts: Arc<Mutex<HashMap<String, usize>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        let provider = CountingCveProvider::new(fetch_counts.clone());
+
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(provider)));
+
+        let code = run_async(&["scan", root, "--provider", "counting"]);
+        assert_eq!(code, 0, "scan should succeed with mock provider");
+
+        let counts = fetch_counts.lock().unwrap();
+        let pkg_count = counts.get("pkg::1.0").copied().unwrap_or(0);
+        assert_eq!(
+            pkg_count, 1,
+            "pkg@1.0 should be fetched exactly once (deduplicated); got {}",
+            pkg_count
+        );
     });
 }
 

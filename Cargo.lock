@@ -1769,6 +1769,7 @@ dependencies = [
  "vlz-plugin-macro",
  "vlz-python",
  "vlz-report",
+ "vlz-rust",
 ]
 
 [[package]]
@@ -1865,6 +1866,7 @@ dependencies = [
  "afl",
  "vlz",
  "vlz-python",
+ "vlz-rust",
 ]
 
 [[package]]
@@ -1933,6 +1935,22 @@ dependencies = [
  "thiserror",
  "tokio",
  "vlz-db",
+]
+
+[[package]]
+name = "vlz-rust"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "regex",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "toml",
+ "vlz-db",
+ "vlz-manifest-finder",
+ "vlz-manifest-parser",
 ]
 
 [[package]]

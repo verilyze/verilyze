@@ -690,6 +690,7 @@ mod tests {
         let pkg = Package {
             name: "foo".to_string(),
             version: "1.0".to_string(),
+            ..Default::default()
         };
         let cve = CveRecord {
             id: "CVE-2023-1234".to_string(),
@@ -708,10 +709,12 @@ mod tests {
         let pkg_foo = Package {
             name: "foo".to_string(),
             version: "1.0".to_string(),
+            ..Default::default()
         };
         let pkg_bar = Package {
             name: "bar".to_string(),
             version: "2.0".to_string(),
+            ..Default::default()
         };
         let cve = CveRecord {
             id: "CVE-2023-1234".to_string(),
@@ -795,6 +798,7 @@ mod tests {
         let pkg = Package {
             name: "pkg".to_string(),
             version: "1.0".to_string(),
+            ..Default::default()
         };
         let cve = CveRecord {
             id: "CVE-X".to_string(),

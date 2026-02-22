@@ -35,7 +35,7 @@ commas, invalid escape sequences. Use a TOML validator or check the
 
 **Remediation:** Remove the unknown key or fix the key name. Run
 `vlz config --list` to see supported keys. For per-language regex patterns, use
-`[python].regex` (see FR-006).
+`[python].regex` or `[rust].regex` (see FR-006).
 
 ---
 

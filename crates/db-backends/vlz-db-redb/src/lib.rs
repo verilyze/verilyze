@@ -789,6 +789,7 @@ mod tests {
         let pkg = Package {
             name: "mem_pkg".to_string(),
             version: "1.0".to_string(),
+            ecosystem: None,
         };
         backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
         let got = backend.get(&pkg, "osv").await.unwrap();
@@ -848,6 +849,7 @@ mod tests {
         let pkg = Package {
             name: "foo".to_string(),
             version: "1.0".to_string(),
+            ecosystem: None,
         };
         let raw = vec![sample_raw_vuln()];
         backend.put(&pkg, "osv", &raw, Some(60)).await.unwrap();
@@ -875,6 +877,7 @@ mod tests {
         let pkg = Package {
             name: "pkg".to_string(),
             version: "2.0".to_string(),
+            ecosystem: None,
         };
         backend
             .put(&pkg, "osv", &[sample_raw_vuln()], Some(120))
@@ -896,10 +899,12 @@ mod tests {
         let pkg1 = Package {
             name: "a".to_string(),
             version: "1".to_string(),
+            ecosystem: None,
         };
         let pkg2 = Package {
             name: "b".to_string(),
             version: "2".to_string(),
+            ecosystem: None,
         };
         backend
             .put(&pkg1, "osv", &[sample_raw_vuln()], None)
@@ -925,10 +930,12 @@ mod tests {
         let pkg1 = Package {
             name: "a".to_string(),
             version: "1".to_string(),
+            ecosystem: None,
         };
         let pkg2 = Package {
             name: "b".to_string(),
             version: "2".to_string(),
+            ecosystem: None,
         };
         backend
             .put(&pkg1, "osv", &[sample_raw_vuln()], None)
@@ -960,6 +967,7 @@ mod tests {
         let pkg = Package {
             name: "expired_pkg".to_string(),
             version: "1".to_string(),
+            ecosystem: None,
         };
         backend
             .put(&pkg, "osv", &[sample_raw_vuln()], Some(3))
@@ -984,6 +992,7 @@ mod tests {
         let pkg = Package {
             name: "full_pkg".to_string(),
             version: "1.0".to_string(),
+            ecosystem: None,
         };
         backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
         let entries = backend.list_entries(true).await.unwrap();
@@ -1049,6 +1058,7 @@ mod tests {
                 &Package {
                     name: "x".to_string(),
                     version: "1".to_string(),
+                    ecosystem: None,
                 },
                 "osv",
                 &[sample_raw_vuln()],
@@ -1091,6 +1101,7 @@ mod tests {
         let pkg = Package {
             name: "mixed".to_string(),
             version: "1".to_string(),
+            ecosystem: None,
         };
         backend
             .put(&pkg, "osv", &[vuln_ok, vuln_no_id], None)
@@ -1116,6 +1127,7 @@ mod tests {
                 &Package {
                     name: "real".to_string(),
                     version: "1".to_string(),
+                    ecosystem: None,
                 },
                 "osv",
                 &[sample_raw_vuln()],
@@ -1154,10 +1166,12 @@ mod tests {
         let pkg1 = Package {
             name: "p1".to_string(),
             version: "1".to_string(),
+            ecosystem: None,
         };
         let pkg2 = Package {
             name: "p2".to_string(),
             version: "2".to_string(),
+            ecosystem: None,
         };
         backend
             .put(&pkg1, "osv", &[sample_raw_vuln()], None)
@@ -1188,6 +1202,7 @@ mod tests {
         let pkg = Package {
             name: "mem".to_string(),
             version: "1".to_string(),
+            ecosystem: None,
         };
         backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
         backend.set_ttl(TtlSelector::All, 120).await.unwrap();
@@ -1207,6 +1222,7 @@ mod tests {
                 &Package {
                     name: "foo".to_string(),
                     version: "1".to_string(),
+                    ecosystem: None,
                 },
                 "osv",
                 &[sample_raw_vuln()],
@@ -1235,6 +1251,7 @@ mod tests {
                 &Package {
                     name: "real".to_string(),
                     version: "1".to_string(),
+                    ecosystem: None,
                 },
                 "osv",
                 &[sample_raw_vuln()],
@@ -1316,6 +1333,7 @@ mod tests {
         let pkg = Package {
             name: "z".to_string(),
             version: "1".to_string(),
+            ecosystem: None,
         };
         backend
             .put(&pkg, "osv", &[sample_raw_vuln()], Some(0))
@@ -1348,6 +1366,7 @@ mod tests {
             let pkg = Package {
                 name: "corrupt".to_string(),
                 version: "1".to_string(),
+                ecosystem: None,
             };
             backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
         }
@@ -1365,6 +1384,7 @@ mod tests {
         let pkg = Package {
             name: "corrupt".to_string(),
             version: "1".to_string(),
+            ecosystem: None,
         };
         let got = backend.get(&pkg, "osv").await.unwrap();
         let stats = backend.stats().await.unwrap();
@@ -1407,6 +1427,7 @@ mod tests {
         let pkg = Package {
             name: "old".to_string(),
             version: "1".to_string(),
+            ecosystem: None,
         };
         let got = backend.get(&pkg, "osv").await.unwrap();
         let _ = std::fs::remove_file(&path);
@@ -1426,6 +1447,7 @@ mod tests {
                     &Package {
                         name: "good".to_string(),
                         version: "1".to_string(),
+                        ecosystem: None,
                     },
                     "osv",
                     &[sample_raw_vuln()],
@@ -1465,6 +1487,7 @@ mod tests {
                     &Package {
                         name: "valid".to_string(),
                         version: "1".to_string(),
+                        ecosystem: None,
                     },
                     "osv",
                     &[sample_raw_vuln()],
@@ -1508,6 +1531,7 @@ mod tests {
                     &Package {
                         name: "valid".to_string(),
                         version: "1".to_string(),
+                        ecosystem: None,
                     },
                     "osv",
                     &[sample_raw_vuln()],
@@ -1679,6 +1703,7 @@ mod tests {
         let pkg = Package {
             name: "d".to_string(),
             version: "1".to_string(),
+            ecosystem: None,
         };
         backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
         let _ = backend.get(&pkg, "osv").await.unwrap();
@@ -1705,6 +1730,7 @@ mod tests {
             let pkg = Package {
                 name: "p".to_string(),
                 version: "1".to_string(),
+                ecosystem: None,
             };
             backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
             let _ = backend.get(&pkg, "osv").await.unwrap();
@@ -1817,6 +1843,7 @@ mod tests {
         let pkg = Package {
             name: "mixed".to_string(),
             version: "1".to_string(),
+            ecosystem: None,
         };
         backend
             .put(&pkg, "osv", &[vuln_with_id, vuln_without_id], None)
@@ -1841,6 +1868,7 @@ mod tests {
         let pkg = Package {
             name: "mixed_id".to_string(),
             version: "1".to_string(),
+            ecosystem: None,
         };
         backend
             .put(&pkg, "osv", &[vuln_ok, vuln_id_number], None)
@@ -1866,6 +1894,7 @@ mod tests {
         let pkg = Package {
             name: "no_conv".to_string(),
             version: "1".to_string(),
+            ecosystem: None,
         };
         backend.put(&pkg, "osv", &vulns_no_id, None).await.unwrap();
         let got = backend.get(&pkg, "osv").await.unwrap();
@@ -1963,6 +1992,7 @@ mod tests {
         let pkg = Package {
             name: "shared".to_string(),
             version: "1".to_string(),
+            ecosystem: None,
         };
         backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
         let clone = backend.clone();
@@ -1981,6 +2011,7 @@ mod tests {
         let pkg = Package {
             name: "empty".to_string(),
             version: "1".to_string(),
+            ecosystem: None,
         };
         backend.put(&pkg, "osv", &[], None).await.unwrap();
         let got = backend.get(&pkg, "osv").await.unwrap();
@@ -2015,6 +2046,7 @@ mod tests {
         let pkg = Package {
             name: "nonexist".to_string(),
             version: "0".to_string(),
+            ecosystem: None,
         };
         let got = backend.get(&pkg, "osv").await.unwrap();
         assert!(got.is_none());
@@ -2072,6 +2104,7 @@ mod tests {
             let pkg = Package {
                 name: "pkg".to_string(),
                 version: "1".to_string(),
+                ecosystem: None,
             };
             if b.put(&pkg, "osv", &[sample_raw_vuln()], None).await.is_err() {
                 continue;
@@ -2108,6 +2141,7 @@ mod tests {
             let pkg = Package {
                 name: "pkg".to_string(),
                 version: "1".to_string(),
+                ecosystem: None,
             };
             if b.put(&pkg, "osv", &[sample_raw_vuln()], None).await.is_err() {
                 continue;
@@ -2139,6 +2173,7 @@ mod tests {
         let pkg = Package {
             name: "pkg".to_string(),
             version: "1".to_string(),
+            ecosystem: None,
         };
         b.put(&pkg, "osv", &[sample_raw_vuln()], None)
             .await
@@ -2171,6 +2206,7 @@ mod tests {
             let pkg = Package {
                 name: "pkg".to_string(),
                 version: "1".to_string(),
+                ecosystem: None,
             };
             if b.put(&pkg, "osv", &[sample_raw_vuln()], None).await.is_err() {
                 continue;

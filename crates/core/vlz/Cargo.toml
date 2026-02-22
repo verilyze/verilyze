@@ -41,6 +41,7 @@ vlz-plugin-macro = { path = "../vlz-plugin-macro" }
 
 # Language plugins
 vlz-python = { path = "../../languages/vlz-python", optional = true }
+vlz-rust = { path = "../../languages/vlz-rust", optional = true }
 
 # CVE providers (optional)
 vlz-cve-provider-nvd = { path = "../../providers/vlz-cve-provider-nvd", optional = true }
@@ -59,9 +60,10 @@ temp-env = "0.3"
 
 # Feature gating – matches MOD‑003
 [features]
-default = ["redb", "python", "testing"]
+default = ["redb", "python", "rust", "testing"]
 redb = ["vlz-db-redb"]
 python = ["vlz-python"]
+rust = ["vlz-rust"]
 nvd = ["dep:vlz-cve-provider-nvd"]
 github = ["dep:vlz-cve-provider-github"]
 sonatype = ["dep:vlz-cve-provider-sonatype"]

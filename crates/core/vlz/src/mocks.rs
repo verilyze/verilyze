@@ -8,6 +8,8 @@
 #![cfg(any(test, feature = "testing"))]
 
 use async_trait::async_trait;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use vlz_cve_client::{CveProvider, FetchedCves, ProviderError};
 use vlz_db::{
     CacheEntryInfo, CveRecord, DatabaseBackend, DatabaseError, DatabaseStats, Package,
@@ -63,6 +65,41 @@ impl CveProvider for FailingCveProvider {
     async fn fetch(&self, pkg: &Package) -> Result<FetchedCves, ProviderError> {
         let _ = pkg;
         Err(ProviderError::Other("mock fetch failure".to_string()))
+    }
+}
+
+/// CVE provider that counts fetch calls per (name, version). Used to verify deduplication.
+#[derive(Clone)]
+pub struct CountingCveProvider {
+    counts: Arc<Mutex<HashMap<String, usize>>>,
+}
+
+impl CountingCveProvider {
+    pub fn new(counts: Arc<Mutex<HashMap<String, usize>>>) -> Self {
+        Self { counts }
+    }
+
+    pub fn get_counts(&self) -> HashMap<String, usize> {
+        self.counts.lock().unwrap().clone()
+    }
+}
+
+#[async_trait]
+impl CveProvider for CountingCveProvider {
+    fn name(&self) -> &'static str {
+        "counting"
+    }
+
+    async fn fetch(&self, pkg: &Package) -> Result<FetchedCves, ProviderError> {
+        let key = format!("{}::{}", pkg.name, pkg.version);
+        {
+            let mut counts = self.counts.lock().unwrap();
+            *counts.entry(key).or_insert(0) += 1;
+        }
+        Ok(FetchedCves {
+            raw_vulns: vec![],
+            records: vec![],
+        })
     }
 }
 
@@ -144,6 +181,7 @@ mod tests {
         let pkg = Package {
             name: "pkg".to_string(),
             version: "1.0".to_string(),
+            ecosystem: None,
         };
         let result = p.fetch(&pkg).await;
         assert!(result.is_err());
@@ -168,6 +206,7 @@ mod tests {
         let pkg = Package {
             name: "pkg".to_string(),
             version: "1.0".to_string(),
+            ecosystem: None,
         };
         let result = db.get(&pkg, "osv").await;
         assert!(matches!(result, Ok(None)));
@@ -179,6 +218,7 @@ mod tests {
         let pkg = Package {
             name: "pkg".to_string(),
             version: "1.0".to_string(),
+            ecosystem: None,
         };
         let raw = vec![serde_json::json!({"id": "CVE-X"})];
         assert!(db.put(&pkg, "osv", &raw, None).await.is_ok());

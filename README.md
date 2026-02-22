@@ -29,12 +29,15 @@ include NVD: `cargo install vlz --features nvd`, then `vlz scan --provider nvd`.
 ## Quick start
 
 ```bash
-# Scan current directory for Python manifests (e.g. requirements.txt) and check
-# for CVEs
+# Scan current directory for manifests (Python: requirements.txt, pyproject.toml;
+# Rust: Cargo.toml) and check for CVEs
 vlz scan
 
 # Scan a specific path
 vlz scan /path/to/project
+
+# Scan a Rust project
+vlz scan /path/to/rust/crate
 
 # JSON output
 vlz scan --format json

@@ -12,6 +12,7 @@ publish = false
 afl = "0.17"
 vlz = { path = "../../crates/core/vlz" }
 vlz-python = { path = "../../crates/languages/vlz-python" }
+vlz-rust = { path = "../../crates/languages/vlz-rust" }
 
 [[bin]]
 name = "fuzz_config_toml"
@@ -44,3 +45,11 @@ path = "fuzz_targets/poetry_lock.rs"
 [[bin]]
 name = "fuzz_setup_cfg"
 path = "fuzz_targets/setup_cfg.rs"
+
+[[bin]]
+name = "fuzz_cargo_toml"
+path = "fuzz_targets/cargo_toml.rs"
+
+[[bin]]
+name = "fuzz_cargo_lock"
+path = "fuzz_targets/cargo_lock.rs"
