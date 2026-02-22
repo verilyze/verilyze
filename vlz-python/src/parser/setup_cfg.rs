@@ -170,4 +170,163 @@ dev = black, mypy>=1.0
         let packages = parse_setup_cfg(content).unwrap();
         assert_eq!(packages.len(), 4);
     }
+
+    #[test]
+    fn parse_setup_cfg_section_reset() {
+        let content = r#"
+[options]
+install_requires = a
+
+  b
+"#;
+        let packages = parse_setup_cfg(content).unwrap();
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "a");
+    }
+
+    #[test]
+    fn parse_setup_cfg_other_section_ignored() {
+        let content = r#"
+[metadata]
+name = foo
+
+[options]
+install_requires = django
+"#;
+        let packages = parse_setup_cfg(content).unwrap();
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "django");
+    }
+
+    #[test]
+    fn parse_setup_cfg_key_not_install_requires() {
+        let content = r#"
+[options]
+some_other_key = x
+install_requires = requests
+"#;
+        let packages = parse_setup_cfg(content).unwrap();
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "requests");
+    }
+
+    #[test]
+    fn parse_setup_cfg_continuation_with_comma() {
+        let content = r#"
+[options]
+install_requires = a,
+    b
+"#;
+        let packages = parse_setup_cfg(content).unwrap();
+        assert_eq!(packages.len(), 2);
+        assert_eq!(packages[0].name, "a");
+        assert_eq!(packages[1].name, "b");
+    }
+
+    #[test]
+    fn parse_setup_cfg_line_without_equals() {
+        let content = r#"
+[options]
+bare_key_no_equals
+install_requires = foo
+"#;
+        let packages = parse_setup_cfg(content).unwrap();
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "foo");
+    }
+
+    #[test]
+    fn parse_setup_cfg_comments_reset_continuation() {
+        let content = r#"
+[options]
+install_requires = a
+# comment
+    b
+"#;
+        let packages = parse_setup_cfg(content).unwrap();
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "a");
+    }
+
+    #[test]
+    fn parse_setup_cfg_pep508_with_extras() {
+        let content = r#"
+[options]
+install_requires = pkg[dev]==1.0
+"#;
+        let packages = parse_setup_cfg(content).unwrap();
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "pkg");
+        assert_eq!(packages[0].version, "1.0");
+    }
+
+    #[test]
+    fn parse_setup_cfg_pep508_operators() {
+        let content = r#"
+[options]
+install_requires =
+    pkg~=1.0
+    a>=2.0
+    b<=3.0
+    c!=4.0
+    d>5.0
+    e<6.0
+"#;
+        let packages = parse_setup_cfg(content).unwrap();
+        assert_eq!(packages.len(), 6);
+        assert_eq!(packages[0], vlz_db::Package { name: "pkg".into(), version: "1.0".into() });
+        assert_eq!(packages[1], vlz_db::Package { name: "a".into(), version: "2.0".into() });
+        assert_eq!(packages[2], vlz_db::Package { name: "b".into(), version: "3.0".into() });
+        assert_eq!(packages[3], vlz_db::Package { name: "c".into(), version: "4.0".into() });
+        assert_eq!(packages[4], vlz_db::Package { name: "d".into(), version: "5.0".into() });
+        assert_eq!(packages[5], vlz_db::Package { name: "e".into(), version: "6.0".into() });
+    }
+
+    #[test]
+    fn parse_setup_cfg_pep508_env_marker() {
+        let content = r#"
+[options]
+install_requires = foo>=1.0;python_version>='3'
+"#;
+        let packages = parse_setup_cfg(content).unwrap();
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "foo");
+        assert_eq!(packages[0].version, "1.0");
+    }
+
+    #[test]
+    fn parse_setup_cfg_pep508_version_comma() {
+        let content = r#"
+[options]
+install_requires = foo>=1.0,<2
+"#;
+        let packages = parse_setup_cfg(content).unwrap();
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].version, "1.0");
+    }
+
+    #[test]
+    fn parse_setup_cfg_pep508_no_operator() {
+        let content = r#"
+[options]
+install_requires = barepkg
+"#;
+        let packages = parse_setup_cfg(content).unwrap();
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "barepkg");
+        assert_eq!(packages[0].version, "any");
+    }
+
+    #[test]
+    fn parse_setup_cfg_split_deps_multiple_spaces() {
+        let content = r#"
+[options]
+install_requires = a,,   b    c
+"#;
+        let packages = parse_setup_cfg(content).unwrap();
+        assert_eq!(packages.len(), 3);
+        assert_eq!(packages[0].name, "a");
+        assert_eq!(packages[1].name, "b");
+        assert_eq!(packages[2].name, "c");
+    }
 }
