@@ -962,11 +962,14 @@ mod tests {
             version: "1".to_string(),
         };
         backend
-            .put(&pkg, "osv", &[sample_raw_vuln()], Some(1))
+            .put(&pkg, "osv", &[sample_raw_vuln()], Some(3))
             .await
             .unwrap();
-        assert!(backend.get(&pkg, "osv").await.unwrap().is_some());
-        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        assert!(
+            backend.get(&pkg, "osv").await.unwrap().is_some(),
+            "entry should be present immediately after put"
+        );
+        tokio::time::sleep(std::time::Duration::from_secs(4)).await;
         let got = backend.get(&pkg, "osv").await.unwrap();
         let _ = std::fs::remove_file(&path);
         assert!(got.is_none());

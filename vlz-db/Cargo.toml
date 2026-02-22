@@ -7,7 +7,7 @@ name = "vlz-db"
 version = "1.0.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
-description = "DatabaseBackend trait and related data structures for Super‑Duper"
+description = "DatabaseBackend trait and related data structures for verilyze"
 publish = false
 
 [dependencies]

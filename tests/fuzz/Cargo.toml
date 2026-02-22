@@ -40,3 +40,7 @@ path = "fuzz_targets/pylock_toml.rs"
 [[bin]]
 name = "fuzz_poetry_lock"
 path = "fuzz_targets/poetry_lock.rs"
+
+[[bin]]
+name = "fuzz_setup_cfg"
+path = "fuzz_targets/setup_cfg.rs"
