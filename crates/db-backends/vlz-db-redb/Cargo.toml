@@ -13,13 +13,13 @@ publish = false
 [dependencies]
 async-trait = "0.1"
 redb = "1"
-vlz-cve-client = { path = "../vlz-cve-client" }
-vlz-db = { path = "../vlz-db" }
+vlz-cve-client = { path = "../../core/vlz-cve-client" }
+vlz-db = { path = "../../core/vlz-db" }
 sha2 = "0.10"          # for SEC‑004 integrity verification
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"     # for serialising cache entries to table values
 
 [dev-dependencies]
-vlz-db = { path = "../vlz-db" }
+vlz-db = { path = "../../core/vlz-db" }
 tempfile = "3"
 tokio = { version = "1", features = ["rt", "macros"] }

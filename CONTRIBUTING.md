@@ -11,29 +11,32 @@ overview of the crate layout and extension points.
 
 ## Crate architecture
 
-The workspace is split into:
+Crates are organized by plugin type under `crates/`:
 
-- **vlz** -- Binary; parses CLI, loads config, dispatches subcommands, runs the
-  scan pipeline.
-- **vlz-db** -- Trait definitions: `Package`, `CveRecord`, `DatabaseBackend`,
-  etc.
-- **vlz-db-redb** -- Default RedB implementation for CVE cache and
-  false-positive (ignore) DB.
-- **vlz-manifest-finder** -- Trait `ManifestFinder`; no default implementation.
-- **vlz-manifest-parser** -- Traits `Parser` and `Resolver`; defines
-  `DependencyGraph`; no default implementations.
-- **vlz-python** -- Python language plugin: implements `ManifestFinder`,
-  `Parser`, and `Resolver` for Python (requirements.txt, pyproject.toml, etc.).
-- **vlz-cve-client** -- Trait `CveProvider` and `RawVulnDecoder`; defines the provider contract and decoder registry; includes default OSV.dev client.
-- **vlz-cve-provider-nvd** -- NVD (NIST) CVE provider; optional, gated behind `nvd` feature.
-- **vlz-cve-provider-github** -- GitHub Advisory Database; optional, gated behind `github` feature.
-- **vlz-cve-provider-sonatype** -- Sonatype OSS Index; optional, gated behind `sonatype` feature.
-- **vlz-report** -- Trait `Reporter`; plain, JSON, HTML, SARIF, CycloneDX, SPDX
-  reporters.
-- **vlz-integrity** -- Trait `IntegrityChecker`; default delegates to backend
-  `verify_integrity`.
-- **vlz-plugin-macro** -- `vlz_register!` macro for registering default plugins
-  in the binary.
+- **crates/core/** -- Binary and trait-defining crates:
+  - **vlz** -- Binary; parses CLI, loads config, dispatches subcommands, runs the
+    scan pipeline.
+  - **vlz-db** -- Trait definitions: `Package`, `CveRecord`, `DatabaseBackend`, etc.
+  - **vlz-manifest-finder** -- Trait `ManifestFinder`; no default implementation.
+  - **vlz-manifest-parser** -- Traits `Parser` and `Resolver`; defines
+    `DependencyGraph`; no default implementations.
+  - **vlz-cve-client** -- Trait `CveProvider` and `RawVulnDecoder`; defines the
+    provider contract and decoder registry; includes default OSV.dev client.
+  - **vlz-report** -- Trait `Reporter`; plain, JSON, HTML, SARIF, CycloneDX, SPDX
+    reporters.
+  - **vlz-integrity** -- Trait `IntegrityChecker`; default delegates to backend
+    `verify_integrity`.
+  - **vlz-plugin-macro** -- `vlz_register!` macro for registering default plugins
+    in the binary.
+- **crates/languages/** -- Language plugins (ManifestFinder, Parser, Resolver):
+  - **vlz-python** -- Python: requirements.txt, pyproject.toml, Pipfile, etc.
+- **crates/providers/** -- CVE providers (optional, feature-gated):
+  - **vlz-cve-provider-nvd** -- NVD (NIST); `nvd` feature.
+  - **vlz-cve-provider-github** -- GitHub Advisory Database; `github` feature.
+  - **vlz-cve-provider-sonatype** -- Sonatype OSS Index; `sonatype` feature.
+- **crates/db-backends/** -- Database backend implementations:
+  - **vlz-db-redb** -- Default RedB implementation for CVE cache and
+    false-positive (ignore) DB.
 
 The binary uses **per-trait registries** (e.g. `FINDERS`, `PARSERS`,
 `RESOLVERS`, `PROVIDERS`, `DB_BACKENDS`, `REPORTERS`, `INTEGRITY_CHECKERS`) and
@@ -179,7 +182,8 @@ flowchart LR
     Packages --> CVE[CVE lookup]
 ```
 
-1. Create a new crate (e.g. `vlz-java`) that implements:
+1. Create a new crate under `crates/languages/` (e.g. `crates/languages/vlz-java/`) that
+   implements:
    - `ManifestFinder` -- discover manifest files (e.g. `pom.xml`).
    - `Parser` -- parse manifest into `DependencyGraph`.
    - `Resolver` -- resolve to `Vec<Package>` (e.g. using lock file or package
@@ -196,7 +200,7 @@ flowchart LR
    no crash on malformed input (SEC-017). Create `tests/fuzz/fuzz_targets/<format>.rs` (e.g.
    `fuzz_pyproject_toml.rs`) and add seed corpus under
    `tests/fuzz/corpus/<format>/`. Update `scripts/fuzz-targets.env` (add one
-   mapping line: `format=path/to/source.rs`), `scripts/fuzz.sh`, and
+   mapping line: `target_name=crates/languages/vlz-java/src/...`), `scripts/fuzz.sh`, and
    `tests/fuzz/Cargo.toml` to include the new target.
 
 See [architecture/PRD.md](architecture/PRD.md) MOD-002 and FR-020 for the
@@ -208,7 +212,7 @@ Per MOD-001 and MOD-002, optional CVE providers live in **separate crates**
 (e.g. `vlz-cve-provider-nvd`). The default OSV provider remains in
 `vlz-cve-client`; additional providers use their own crates.
 
-1. Create a new crate (e.g. `vlz-cve-provider-nvd`) that:
+1. Create a new crate under `crates/providers/` (e.g. `crates/providers/vlz-cve-provider-nvd/`) that:
    - Depends on `vlz-cve-client` (trait `CveProvider`, types `FetchedCves`,
      `ProviderError`) and `vlz-db` (`Package`, `CveRecord`).
    - Implements `CveProvider` (including `name()` for provider selection).
