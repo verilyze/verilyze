@@ -8,7 +8,6 @@ mod requirements;
 mod setup_cfg;
 
 use async_trait::async_trait;
-use std::path::PathBuf;
 
 use vlz_manifest_parser::{DependencyGraph, Parser, ParserError};
 
@@ -31,9 +30,12 @@ impl RequirementsTxtParser {
 
 #[async_trait]
 impl Parser for RequirementsTxtParser {
-    async fn parse(&self, manifest: &PathBuf) -> Result<DependencyGraph, ParserError> {
+    async fn parse(
+        &self,
+        manifest: &std::path::Path,
+    ) -> Result<DependencyGraph, ParserError> {
         let name = manifest.file_name().and_then(|n| n.to_str()).unwrap_or("");
-        let manifest_path = Some(manifest.clone());
+        let manifest_path = Some(manifest.to_path_buf());
 
         if name == "requirements.txt" {
             let content = std::fs::read_to_string(manifest)?;
@@ -81,6 +83,7 @@ impl Parser for RequirementsTxtParser {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[tokio::test]
     async fn unsupported_manifest_returns_empty_graph() {

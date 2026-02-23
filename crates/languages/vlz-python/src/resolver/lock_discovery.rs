@@ -11,11 +11,7 @@ pub fn find_lock_file(manifest_path: &Path) -> Option<PathBuf> {
     let name = manifest_path.file_name().and_then(|n| n.to_str())?;
 
     let lock_candidates: Vec<&str> = match name {
-        "pyproject.toml" => vec![
-            "pylock.toml",
-            "poetry.lock",
-            "uv.lock",
-        ],
+        "pyproject.toml" => vec!["pylock.toml", "poetry.lock", "uv.lock"],
         "Pipfile" => vec!["Pipfile.lock"],
         "requirements.txt" => vec![],
         _ => vec![],

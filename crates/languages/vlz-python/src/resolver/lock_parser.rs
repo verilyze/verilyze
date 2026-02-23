@@ -7,11 +7,11 @@ use std::path::Path;
 use vlz_manifest_parser::ParserError;
 
 /// Parse a lock file into packages. Detects format by filename and content.
-pub fn parse_lock_file(path: &Path, content: &str) -> Result<Vec<vlz_db::Package>, ParserError> {
-    let name = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("");
+pub fn parse_lock_file(
+    path: &Path,
+    content: &str,
+) -> Result<Vec<vlz_db::Package>, ParserError> {
+    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
     if name == "Pipfile.lock" || content.trim_start().starts_with('{') {
         return parse_pipfile_lock(content);
@@ -22,7 +22,9 @@ pub fn parse_lock_file(path: &Path, content: &str) -> Result<Vec<vlz_db::Package
     if name == "uv.lock" {
         return parse_uv_lock(content);
     }
-    if name == "pylock.toml" || (name.starts_with("pylock.") && name.ends_with(".toml")) {
+    if name == "pylock.toml"
+        || (name.starts_with("pylock.") && name.ends_with(".toml"))
+    {
         return parse_pylock_toml(content);
     }
     if content.contains("[[package]]") {
@@ -36,26 +38,29 @@ pub fn parse_lock_file(path: &Path, content: &str) -> Result<Vec<vlz_db::Package
 }
 
 /// Parse pylock.toml (PEP 751) format.
-pub fn parse_pylock_toml(content: &str) -> Result<Vec<vlz_db::Package>, ParserError> {
-    let value: toml::Value = toml::from_str(content)
-        .map_err(|e| ParserError::Parse(format!("pylock.toml parse error: {}", e)))?;
+pub fn parse_pylock_toml(
+    content: &str,
+) -> Result<Vec<vlz_db::Package>, ParserError> {
+    let value: toml::Value = toml::from_str(content).map_err(|e| {
+        ParserError::Parse(format!("pylock.toml parse error: {}", e))
+    })?;
 
     let mut packages = Vec::new();
     if let Some(arr) = value.get("packages").and_then(|p| p.as_array()) {
         for entry in arr {
-            if let Some(tbl) = entry.as_table() {
-                if let Some(name) = tbl.get("name").and_then(|n| n.as_str()) {
-                    let version = tbl
-                        .get("version")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("any")
-                        .to_string();
-                    packages.push(vlz_db::Package {
-                        name: name.to_string(),
-                        version,
-                        ecosystem: Some("PyPI".to_string()),
-                    });
-                }
+            if let Some(tbl) = entry.as_table()
+                && let Some(name) = tbl.get("name").and_then(|n| n.as_str())
+            {
+                let version = tbl
+                    .get("version")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("any")
+                    .to_string();
+                packages.push(vlz_db::Package {
+                    name: name.to_string(),
+                    version,
+                    ecosystem: Some("PyPI".to_string()),
+                });
             }
         }
     }
@@ -63,26 +68,29 @@ pub fn parse_pylock_toml(content: &str) -> Result<Vec<vlz_db::Package>, ParserEr
 }
 
 /// Parse poetry.lock format.
-pub fn parse_poetry_lock(content: &str) -> Result<Vec<vlz_db::Package>, ParserError> {
-    let value: toml::Value = toml::from_str(content)
-        .map_err(|e| ParserError::Parse(format!("poetry.lock parse error: {}", e)))?;
+pub fn parse_poetry_lock(
+    content: &str,
+) -> Result<Vec<vlz_db::Package>, ParserError> {
+    let value: toml::Value = toml::from_str(content).map_err(|e| {
+        ParserError::Parse(format!("poetry.lock parse error: {}", e))
+    })?;
 
     let mut packages = Vec::new();
     if let Some(arr) = value.get("package").and_then(|p| p.as_array()) {
         for entry in arr {
-            if let Some(tbl) = entry.as_table() {
-                if let Some(name) = tbl.get("name").and_then(|n| n.as_str()) {
-                    let version = tbl
-                        .get("version")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("any")
-                        .to_string();
-                    packages.push(vlz_db::Package {
-                        name: name.to_string(),
-                        version,
-                        ecosystem: Some("PyPI".to_string()),
-                    });
-                }
+            if let Some(tbl) = entry.as_table()
+                && let Some(name) = tbl.get("name").and_then(|n| n.as_str())
+            {
+                let version = tbl
+                    .get("version")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("any")
+                    .to_string();
+                packages.push(vlz_db::Package {
+                    name: name.to_string(),
+                    version,
+                    ecosystem: Some("PyPI".to_string()),
+                });
             }
         }
     }
@@ -90,9 +98,13 @@ pub fn parse_poetry_lock(content: &str) -> Result<Vec<vlz_db::Package>, ParserEr
 }
 
 /// Parse Pipfile.lock JSON format.
-pub fn parse_pipfile_lock(content: &str) -> Result<Vec<vlz_db::Package>, ParserError> {
-    let value: serde_json::Value = serde_json::from_str(content)
-        .map_err(|e| ParserError::Parse(format!("Pipfile.lock parse error: {}", e)))?;
+pub fn parse_pipfile_lock(
+    content: &str,
+) -> Result<Vec<vlz_db::Package>, ParserError> {
+    let value: serde_json::Value =
+        serde_json::from_str(content).map_err(|e| {
+            ParserError::Parse(format!("Pipfile.lock parse error: {}", e))
+        })?;
 
     let mut packages = Vec::new();
     for section in ["default", "develop"] {
@@ -118,26 +130,29 @@ pub fn parse_pipfile_lock(content: &str) -> Result<Vec<vlz_db::Package>, ParserE
 }
 
 /// Parse uv.lock TOML format.
-pub fn parse_uv_lock(content: &str) -> Result<Vec<vlz_db::Package>, ParserError> {
-    let value: toml::Value = toml::from_str(content)
-        .map_err(|e| ParserError::Parse(format!("uv.lock parse error: {}", e)))?;
+pub fn parse_uv_lock(
+    content: &str,
+) -> Result<Vec<vlz_db::Package>, ParserError> {
+    let value: toml::Value = toml::from_str(content).map_err(|e| {
+        ParserError::Parse(format!("uv.lock parse error: {}", e))
+    })?;
 
     let mut packages = Vec::new();
     if let Some(arr) = value.get("package").and_then(|p| p.as_array()) {
         for entry in arr {
-            if let Some(tbl) = entry.as_table() {
-                if let Some(name) = tbl.get("name").and_then(|n| n.as_str()) {
-                    let version = tbl
-                        .get("version")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("any")
-                        .to_string();
-                    packages.push(vlz_db::Package {
-                        name: name.to_string(),
-                        version,
-                        ecosystem: Some("PyPI".to_string()),
-                    });
-                }
+            if let Some(tbl) = entry.as_table()
+                && let Some(name) = tbl.get("name").and_then(|n| n.as_str())
+            {
+                let version = tbl
+                    .get("version")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("any")
+                    .to_string();
+                packages.push(vlz_db::Package {
+                    name: name.to_string(),
+                    version,
+                    ecosystem: Some("PyPI".to_string()),
+                });
             }
         }
     }

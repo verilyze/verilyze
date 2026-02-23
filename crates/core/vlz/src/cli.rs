@@ -266,7 +266,8 @@ mod tests {
 
     #[test]
     fn parse_scan_with_options() {
-        let cli = parse(&["scan", "/tmp", "--format", "json", "--parallel", "5"]);
+        let cli =
+            parse(&["scan", "/tmp", "--format", "json", "--parallel", "5"]);
         let Commands::Scan {
             root,
             format,

@@ -36,7 +36,9 @@ fn ensure_registries_for_run() {
     #[cfg(feature = "redb")]
     {
         let cache_path = vlz::config::default_cache_path();
-        let _ = vlz::registry::ensure_default_db_backend_with_path(cache_path, 432000);
+        let _ = vlz::registry::ensure_default_db_backend_with_path(
+            cache_path, 432000,
+        );
     }
 }
 
@@ -92,7 +94,11 @@ fn run_config_set_exits_0() {
     with_temp_xdg(|| {
         ensure_registries_for_run();
         assert_eq!(
-            run_async(&["config", "--set", "python.regex=^requirements\\.txt$"]),
+            run_async(&[
+                "config",
+                "--set",
+                "python.regex=^requirements\\.txt$"
+            ]),
             0
         );
     });
@@ -184,8 +190,8 @@ fn run_db_show_with_cached_entry_and_raw_vulns() {
                 if let Some(parent) = path.parent() {
                     std::fs::create_dir_all(parent).ok();
                 }
-                let backend =
-                    vlz_db_redb::RedbBackend::with_path(path, 3600).expect("create backend");
+                let backend = vlz_db_redb::RedbBackend::with_path(path, 3600)
+                    .expect("create backend");
                 let rt = tokio::runtime::Runtime::new().expect("runtime");
                 rt.block_on(async {
                     backend.init().await.expect("init");
@@ -211,7 +217,8 @@ fn run_db_show_with_cached_entry_and_raw_vulns() {
 fn run_scan_fp_exit_code_when_all_cves_marked_fp() {
     let _ = env_logger::try_init();
     let dir = tempfile::tempdir().expect("tempdir");
-    std::fs::write(dir.path().join("requirements.txt"), "test-pkg==1.0\n").expect("write");
+    std::fs::write(dir.path().join("requirements.txt"), "test-pkg==1.0\n")
+        .expect("write");
     let root = dir.path().to_str().unwrap();
     let p = dir.path().to_string_lossy().into_owned();
     temp_env::with_var("XDG_CACHE_HOME", Some(p.as_str()), || {
@@ -221,8 +228,8 @@ fn run_scan_fp_exit_code_when_all_cves_marked_fp() {
                 if let Some(parent) = path.parent() {
                     std::fs::create_dir_all(parent).ok();
                 }
-                let backend =
-                    vlz_db_redb::RedbBackend::with_path(path, 3600).expect("create backend");
+                let backend = vlz_db_redb::RedbBackend::with_path(path, 3600)
+                    .expect("create backend");
                 let rt = tokio::runtime::Runtime::new().expect("runtime");
                 rt.block_on(async {
                     backend.init().await.expect("init");
@@ -245,7 +252,13 @@ fn run_scan_fp_exit_code_when_all_cves_marked_fp() {
                     "scan finds CVE, exits 86"
                 );
                 assert_eq!(
-                    run_async(&["fp", "mark", "CVE-2024-FP-TEST", "--comment", "test"]),
+                    run_async(&[
+                        "fp",
+                        "mark",
+                        "CVE-2024-FP-TEST",
+                        "--comment",
+                        "test"
+                    ]),
                     0
                 );
                 assert_eq!(
@@ -267,13 +280,17 @@ fn run_scan_fp_exit_code_when_all_cves_marked_fp() {
 #[test]
 fn run_db_show_format_json_exits_0() {
     let _ = env_logger::try_init();
-    with_temp_xdg(|| assert_eq!(run_async(&["db", "show", "--format", "json"]), 0));
+    with_temp_xdg(|| {
+        assert_eq!(run_async(&["db", "show", "--format", "json"]), 0)
+    });
 }
 
 #[test]
 fn run_db_set_ttl_all_exits_0() {
     let _ = env_logger::try_init();
-    with_temp_xdg(|| assert_eq!(run_async(&["db", "set-ttl", "3600", "--all"]), 0));
+    with_temp_xdg(|| {
+        assert_eq!(run_async(&["db", "set-ttl", "3600", "--all"]), 0)
+    });
 }
 
 #[test]
@@ -326,7 +343,10 @@ fn run_scan_verbose_logs_cache_ttl() {
     with_temp_xdg(|| {
         let dir = tempfile::tempdir().expect("tempdir");
         let root = dir.path().to_str().unwrap();
-        assert_eq!(run_async(&["-v", "scan", root, "--offline", "--benchmark"]), 0);
+        assert_eq!(
+            run_async(&["-v", "scan", root, "--offline", "--benchmark"]),
+            0
+        );
     });
 }
 
@@ -338,10 +358,17 @@ fn run_cache_db_path_is_directory_exits_2() {
         let cache_dir = dir.path().join("cache-dir");
         std::fs::create_dir(&cache_dir).expect("create dir");
         assert!(cache_dir.is_dir());
-        temp_env::with_var("VLZ_CACHE_DB", Some(cache_dir.as_os_str()), || {
-            let code = run_async(&["db", "stats"]);
-            assert_eq!(code, 2, "cache path is directory, cannot create DB");
-        });
+        temp_env::with_var(
+            "VLZ_CACHE_DB",
+            Some(cache_dir.as_os_str()),
+            || {
+                let code = run_async(&["db", "stats"]);
+                assert_eq!(
+                    code, 2,
+                    "cache path is directory, cannot create DB"
+                );
+            },
+        );
     });
 }
 
@@ -392,11 +419,18 @@ fn run_scan_parse_fails_when_file_unreadable_exits_2() {
         let dir = tempfile::tempdir().expect("tempdir");
         let req_file = dir.path().join("requirements.txt");
         std::fs::write(&req_file, "pkg==1.0").expect("write");
-        std::fs::set_permissions(&req_file, std::fs::Permissions::from_mode(0o000))
-            .expect("chmod");
+        std::fs::set_permissions(
+            &req_file,
+            std::fs::Permissions::from_mode(0o000),
+        )
+        .expect("chmod");
         let root = dir.path().to_str().unwrap();
         let code = run_async(&["scan", root, "--offline"]);
-        std::fs::set_permissions(&req_file, std::fs::Permissions::from_mode(0o644)).ok();
+        std::fs::set_permissions(
+            &req_file,
+            std::fs::Permissions::from_mode(0o644),
+        )
+        .ok();
         assert_eq!(code, 2);
     });
 }
@@ -425,10 +459,7 @@ fn run_scan_offline_with_manifest_verbose_exits_4() {
         std::fs::write(dir.path().join("requirements.txt"), "pkg==1.0\n")
             .expect("write requirements");
         let root = dir.path().to_str().unwrap();
-        assert_eq!(
-            run_async(&["-vv", "scan", root, "--offline"]),
-            4
-        );
+        assert_eq!(run_async(&["-vv", "scan", root, "--offline"]), 4);
     });
 }
 
@@ -451,7 +482,12 @@ fn run_scan_package_manager_required_no_pip_exits_3() {
         let empty_dir = tempfile::tempdir().expect("tempdir");
         let path_without_pip = empty_dir.path().to_string_lossy().into_owned();
         temp_env::with_var("PATH", Some(&path_without_pip), || {
-            let code = run_async(&["scan", root, "--offline", "--package-manager-required"]);
+            let code = run_async(&[
+                "scan",
+                root,
+                "--offline",
+                "--package-manager-required",
+            ]);
             assert_eq!(
                 code, 3,
                 "missing pip with --package-manager-required -> exit 3"
@@ -467,7 +503,14 @@ fn run_scan_format_json_exits_0() {
         let dir = tempfile::tempdir().expect("tempdir");
         let root = dir.path().to_str().unwrap();
         assert_eq!(
-            run_async(&["scan", root, "--format", "json", "--offline", "--benchmark",]),
+            run_async(&[
+                "scan",
+                root,
+                "--format",
+                "json",
+                "--offline",
+                "--benchmark",
+            ]),
             0
         );
     });
@@ -480,7 +523,14 @@ fn run_scan_format_sarif_exits_0() {
         let dir = tempfile::tempdir().expect("tempdir");
         let root = dir.path().to_str().unwrap();
         assert_eq!(
-            run_async(&["scan", root, "--format", "sarif", "--offline", "--benchmark",]),
+            run_async(&[
+                "scan",
+                root,
+                "--format",
+                "sarif",
+                "--offline",
+                "--benchmark",
+            ]),
             0
         );
     });
@@ -492,7 +542,8 @@ fn run_scan_resolver_fails_exits_2() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
         let dir = tempfile::tempdir().expect("tempdir");
-        std::fs::write(dir.path().join("requirements.txt"), "pkg==1.0\n").expect("write");
+        std::fs::write(dir.path().join("requirements.txt"), "pkg==1.0\n")
+            .expect("write");
         let root = dir.path().to_str().unwrap();
         vlz::registry::clear_resolvers();
         vlz::registry::register(vlz::registry::Plugin::Resolver(Box::new(
@@ -508,14 +559,18 @@ fn run_scan_cve_provider_fails_logs_error() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
         let dir = tempfile::tempdir().expect("tempdir");
-        std::fs::write(dir.path().join("requirements.txt"), "pkg==1.0\n").expect("write");
+        std::fs::write(dir.path().join("requirements.txt"), "pkg==1.0\n")
+            .expect("write");
         let root = dir.path().to_str().unwrap();
         vlz::registry::clear_providers();
         vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
             vlz::mocks::FailingCveProvider::new(),
         )));
         let code = run_async(&["-v", "scan", root]);
-        assert_eq!(code, 5, "scan exits 5 when CVE provider fetch fails (avoid false negative)");
+        assert_eq!(
+            code, 5,
+            "scan exits 5 when CVE provider fetch fails (avoid false negative)"
+        );
     });
 }
 
@@ -528,15 +583,19 @@ fn run_scan_deduplicates_packages_before_cve_lookup() {
         let root = dir.path().to_str().unwrap();
         std::fs::create_dir_all(dir.path().join("sub1")).expect("mkdir");
         std::fs::create_dir_all(dir.path().join("sub2")).expect("mkdir");
-        std::fs::write(dir.path().join("sub1/requirements.txt"), "pkg==1.0\n").expect("write");
-        std::fs::write(dir.path().join("sub2/requirements.txt"), "pkg==1.0\n").expect("write");
+        std::fs::write(dir.path().join("sub1/requirements.txt"), "pkg==1.0\n")
+            .expect("write");
+        std::fs::write(dir.path().join("sub2/requirements.txt"), "pkg==1.0\n")
+            .expect("write");
 
         let fetch_counts: Arc<Mutex<HashMap<String, usize>>> =
             Arc::new(Mutex::new(HashMap::new()));
         let provider = CountingCveProvider::new(fetch_counts.clone());
 
         vlz::registry::clear_providers();
-        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(provider)));
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            provider,
+        )));
 
         let code = run_async(&["scan", root, "--provider", "counting"]);
         assert_eq!(code, 0, "scan should succeed with mock provider");
@@ -556,9 +615,9 @@ fn run_db_verify_backend_fails_exits_1() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
         vlz::registry::clear_db_backends();
-        vlz::registry::register(vlz::registry::Plugin::DatabaseBackend(Box::new(
-            vlz::mocks::FailingDbBackend::new(),
-        )));
+        vlz::registry::register(vlz::registry::Plugin::DatabaseBackend(
+            Box::new(vlz::mocks::FailingDbBackend::new()),
+        ));
         assert_eq!(run_async(&["db", "verify"]), 1);
     });
 }
@@ -568,10 +627,13 @@ fn run_db_set_ttl_backend_fails_exits_2() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
         vlz::registry::clear_db_backends();
-        vlz::registry::register(vlz::registry::Plugin::DatabaseBackend(Box::new(
-            vlz::mocks::FailingDbBackend::new(),
-        )));
-        assert_eq!(run_async(&["db", "set-ttl", "3600", "--entry", "foo::1.0"]), 2);
+        vlz::registry::register(vlz::registry::Plugin::DatabaseBackend(
+            Box::new(vlz::mocks::FailingDbBackend::new()),
+        ));
+        assert_eq!(
+            run_async(&["db", "set-ttl", "3600", "--entry", "foo::1.0"]),
+            2
+        );
     });
 }
 
@@ -660,7 +722,13 @@ fn run_scan_unknown_provider_exits_2() {
         let dir = tempfile::tempdir().expect("tempdir");
         let root = dir.path().to_str().unwrap();
         assert_eq!(
-            run_async(&["scan", root, "--offline", "--provider", "nonexistent"]),
+            run_async(&[
+                "scan",
+                root,
+                "--offline",
+                "--provider",
+                "nonexistent"
+            ]),
             2
         );
     });
@@ -691,7 +759,14 @@ fn run_scan_config_parallel_too_high_exits_2() {
         let dir = tempfile::tempdir().expect("tempdir");
         let root = dir.path().to_str().unwrap();
         assert_eq!(
-            run_async(&["scan", root, "--offline", "--benchmark", "--parallel", "51",]),
+            run_async(&[
+                "scan",
+                root,
+                "--offline",
+                "--benchmark",
+                "--parallel",
+                "51",
+            ]),
             2
         );
     });
@@ -737,7 +812,8 @@ fn run_scan_summary_file_html_plain_text_sarif_cyclonedx_spdx() {
         let spec_plain = format!("plain:{}", plain_path.to_str().unwrap());
         let spec_text = format!("text:{}", text_path.to_str().unwrap());
         let spec_sarif = format!("sarif:{}", sarif_path.to_str().unwrap());
-        let spec_cyclonedx = format!("cyclonedx:{}", cyclonedx_path.to_str().unwrap());
+        let spec_cyclonedx =
+            format!("cyclonedx:{}", cyclonedx_path.to_str().unwrap());
         let spec_spdx = format!("spdx:{}", spdx_path.to_str().unwrap());
         assert_eq!(
             run_async(&[
@@ -843,10 +919,20 @@ fn run_fp_ignore_db_path_is_directory_exits_2() {
         let dir = tempfile::tempdir().expect("tempdir");
         let ignore_dir = dir.path().join("ignore-dir");
         std::fs::create_dir(&ignore_dir).expect("create dir");
-        temp_env::with_var("VLZ_IGNORE_DB", Some(ignore_dir.as_os_str()), || {
-            let code = run_async(&["fp", "mark", "CVE-2020-1234", "--comment", "test"]);
-            assert_eq!(code, 2);
-        });
+        temp_env::with_var(
+            "VLZ_IGNORE_DB",
+            Some(ignore_dir.as_os_str()),
+            || {
+                let code = run_async(&[
+                    "fp",
+                    "mark",
+                    "CVE-2020-1234",
+                    "--comment",
+                    "test",
+                ]);
+                assert_eq!(code, 2);
+            },
+        );
     });
 }
 
