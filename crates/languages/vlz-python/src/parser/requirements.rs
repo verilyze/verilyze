@@ -8,7 +8,9 @@ use vlz_manifest_parser::ParserError;
 /// Skips comments, empty lines, and directive lines (-r, -e, etc.).
 /// Version: exact from `==`, first version from `>=`/`<=`/`~=`, else `"any"`.
 /// Public for fuzzing (NFR-020).
-pub fn parse_requirements_txt(content: &str) -> Result<Vec<vlz_db::Package>, ParserError> {
+pub fn parse_requirements_txt(
+    content: &str,
+) -> Result<Vec<vlz_db::Package>, ParserError> {
     let mut packages = Vec::new();
     for line in content.lines() {
         let line = line.trim();
@@ -75,7 +77,8 @@ fn parse_name_version(spec: &str) -> Option<(String, String)> {
     // Version specifiers: take first version-like part
     for sep in ["~=", ">=", "<=", "!=", ">", "<"] {
         if let Some((n, v)) = spec.split_once(sep) {
-            let version = v.trim().split(',').next().unwrap_or("").trim().to_string();
+            let version =
+                v.trim().split(',').next().unwrap_or("").trim().to_string();
             let version = if version.is_empty() {
                 "any".to_string()
             } else {
@@ -116,7 +119,8 @@ mod tests {
 
     #[test]
     fn parse_requirements_txt_skips_double_dash_directive() {
-        let content = "foo==1.0\n--extra-index-url https://pypi.org\nbar>=2.0\n";
+        let content =
+            "foo==1.0\n--extra-index-url https://pypi.org\nbar>=2.0\n";
         let packages = parse_requirements_txt(content).unwrap();
         assert_eq!(packages.len(), 2);
         assert_eq!(packages[0].name, "foo");

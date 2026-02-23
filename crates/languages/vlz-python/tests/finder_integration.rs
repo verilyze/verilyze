@@ -48,8 +48,10 @@ async fn with_patterns_only_requirements_fr006() {
     fs::create_dir_all(tmp.join("sub")).unwrap();
     fs::File::create(tmp.join("requirements.txt")).unwrap();
     fs::File::create(tmp.join("sub").join("pyproject.toml")).unwrap();
-    let finder = PythonManifestFinder::with_patterns(vec![r"^requirements\.txt$".to_string()])
-        .unwrap();
+    let finder = PythonManifestFinder::with_patterns(vec![
+        r"^requirements\.txt$".to_string(),
+    ])
+    .unwrap();
     let mut got = finder.find(&tmp).await.unwrap();
     got.sort();
     assert_eq!(got, vec![tmp.join("requirements.txt")]);

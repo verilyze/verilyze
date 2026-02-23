@@ -7,7 +7,9 @@ use vlz_manifest_parser::ParserError;
 /// Parse setup.cfg content into a list of packages (name, version).
 /// Supports [options] install_requires and [options.extras_require].
 /// Public for fuzzing (NFR-020).
-pub fn parse_setup_cfg(content: &str) -> Result<Vec<vlz_db::Package>, ParserError> {
+pub fn parse_setup_cfg(
+    content: &str,
+) -> Result<Vec<vlz_db::Package>, ParserError> {
     let mut packages = Vec::new();
     let mut in_options = false;
     let mut in_extras = false;
@@ -19,7 +21,10 @@ pub fn parse_setup_cfg(content: &str) -> Result<Vec<vlz_db::Package>, ParserErro
             && (line.starts_with(' ') || line.starts_with('\t'))
             && !trimmed.is_empty();
 
-        if trimmed.is_empty() || trimmed.starts_with('#') || trimmed.starts_with(';') {
+        if trimmed.is_empty()
+            || trimmed.starts_with('#')
+            || trimmed.starts_with(';')
+        {
             in_install_requires = false;
             continue;
         }
@@ -61,12 +66,10 @@ pub fn parse_setup_cfg(content: &str) -> Result<Vec<vlz_db::Package>, ParserErro
             }
         }
 
-        if in_extras {
-            if let Some((_, val)) = trimmed.split_once('=') {
-                for dep in split_deps(val.trim()) {
-                    if let Some(pkg) = parse_pep508_dependency(dep) {
-                        packages.push(pkg);
-                    }
+        if in_extras && let Some((_, val)) = trimmed.split_once('=') {
+            for dep in split_deps(val.trim()) {
+                if let Some(pkg) = parse_pep508_dependency(dep) {
+                    packages.push(pkg);
                 }
             }
         }
@@ -118,7 +121,8 @@ fn parse_name_version(spec: &str) -> Option<(String, String)> {
     for sep in ["~=", ">=", "<=", "!=", ">", "<"] {
         if let Some((n, v)) = spec.split_once(sep) {
             let version = v.trim().split(';').next().unwrap_or("").trim();
-            let version = version.split(',').next().unwrap_or("").trim().to_string();
+            let version =
+                version.split(',').next().unwrap_or("").trim().to_string();
             let version = if version.is_empty() {
                 "any".to_string()
             } else {

@@ -84,7 +84,10 @@ async fn redb_backend_stats() {
         version: "1".to_string(),
         ecosystem: None,
     };
-    backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
+    backend
+        .put(&pkg, "osv", &[sample_raw_vuln()], None)
+        .await
+        .unwrap();
     let _ = backend.get(&pkg, "osv").await.unwrap();
     let stats = backend.stats().await.unwrap();
     let _ = std::fs::remove_file(&path);
@@ -103,7 +106,10 @@ async fn stats_reflect_hits_after_get() {
         version: "1.0".to_string(),
         ecosystem: None,
     };
-    backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
+    backend
+        .put(&pkg, "osv", &[sample_raw_vuln()], None)
+        .await
+        .unwrap();
     let _ = backend.get(&pkg, "osv").await.unwrap();
     let _ = backend.get(&pkg, "osv").await.unwrap();
     let stats = backend.stats().await.unwrap();
@@ -124,7 +130,10 @@ async fn stats_persisted_across_backend_instances() {
             version: "2.0".to_string(),
             ecosystem: None,
         };
-        backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
+        backend
+            .put(&pkg, "osv", &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
         let _ = backend.get(&pkg, "osv").await.unwrap();
     }
     let backend2 = RedbBackend::with_path(path.clone(), 3600).unwrap();

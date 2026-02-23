@@ -13,14 +13,17 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use vlz_cve_client::decode_raw_vulns;
 use vlz_db::{
-    CacheEntryInfo, CveRecord, DatabaseBackend, DatabaseError, DatabaseStats, Package, TtlSelector,
+    CacheEntryInfo, CveRecord, DatabaseBackend, DatabaseError, DatabaseStats,
+    Package, TtlSelector,
 };
 
 /// RedB table: key = `"name::version"`, value = JSON of `StoredEntry`.
-const CACHE_TABLE: TableDefinition<&str, &str> = TableDefinition::new("cve_cache");
+const CACHE_TABLE: TableDefinition<&str, &str> =
+    TableDefinition::new("cve_cache");
 
 /// RedB table for persisted stats: keys "hits", "misses"; values decimal strings.
-const METADATA_TABLE: TableDefinition<&str, &str> = TableDefinition::new("metadata");
+const METADATA_TABLE: TableDefinition<&str, &str> =
+    TableDefinition::new("metadata");
 
 /// Serialized form of a cache entry (raw vuln JSON per package+provider + TTL).
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -140,7 +143,10 @@ impl RedbBackend {
     ///
     /// * `path` – path to the `.redb` file (created if missing).
     /// * `ttl_secs` – time‑to‑live for cached CVE entries.
-    pub fn with_path(path: PathBuf, ttl_secs: u64) -> Result<Self, DatabaseError> {
+    pub fn with_path(
+        path: PathBuf,
+        ttl_secs: u64,
+    ) -> Result<Self, DatabaseError> {
         let db = Database::create(path).map_err(DatabaseError::wrap)?;
         let db = Arc::new(db);
         let (hits, misses, _) = load_metadata(db.as_ref());
@@ -165,7 +171,10 @@ impl RedbBackend {
 
     /// Create a backend from an existing Database (test-only, to inject broken DBs).
     #[cfg(test)]
-    pub fn with_database(db: Database, ttl_secs: u64) -> Result<Self, DatabaseError> {
+    pub fn with_database(
+        db: Database,
+        ttl_secs: u64,
+    ) -> Result<Self, DatabaseError> {
         let db = Arc::new(db);
         let (hits, misses, _) = load_metadata(db.as_ref());
         let ttl = ttl_secs.max(1);
@@ -189,7 +198,8 @@ impl RedbBackend {
         let path = std::env::current_dir()
             .unwrap_or_else(|_| PathBuf::from("."))
             .join("vlz-cache.redb");
-        Self::with_path(path, ttl_secs).expect("failed to open or create RedB database")
+        Self::with_path(path, ttl_secs)
+            .expect("failed to open or create RedB database")
     }
 
     /// Remove all entries that have passed their TTL (best-effort in one write txn).
@@ -198,11 +208,8 @@ impl RedbBackend {
             .duration_since(UNIX_EPOCH)
             .unwrap_or(Duration::ZERO)
             .as_secs();
-        let write_txn = self
-            .inner
-            .db
-            .begin_write()
-            .map_err(DatabaseError::wrap)?;
+        let write_txn =
+            self.inner.db.begin_write().map_err(DatabaseError::wrap)?;
         let mut table = write_txn
             .open_table(CACHE_TABLE)
             .map_err(DatabaseError::wrap)?;
@@ -212,7 +219,8 @@ impl RedbBackend {
             .filter_map(|entry| {
                 let (k, v) = entry.ok()?;
                 let val_str = v.value();
-                let purge_entry: PurgeEntry = serde_json::from_str(val_str).ok()?;
+                let purge_entry: PurgeEntry =
+                    serde_json::from_str(val_str).ok()?;
                 if purge_entry.expires_at_secs <= now_secs {
                     Some(k.value().to_string())
                 } else {
@@ -224,9 +232,7 @@ impl RedbBackend {
             let _ = table.remove(k.as_str());
         }
         drop(table);
-        write_txn
-            .commit()
-            .map_err(DatabaseError::wrap)?;
+        write_txn.commit().map_err(DatabaseError::wrap)?;
         Ok(())
     }
 }
@@ -246,30 +252,25 @@ impl DatabaseBackend for RedbBackend {
         vlz_cve_client::ensure_default_decoders();
         let _ = self.purge_expired();
         let key = pkg_cache_key(pkg, provider_id);
-        let read_txn = self
-            .inner
-            .db
-            .begin_read()
-            .map_err(DatabaseError::wrap)?;
+        let read_txn =
+            self.inner.db.begin_read().map_err(DatabaseError::wrap)?;
         let table = read_txn
             .open_table(CACHE_TABLE)
             .map_err(DatabaseError::wrap)?;
-        let guard = match table
-            .get(key.as_str())
-            .map_err(DatabaseError::wrap)?
-        {
-            Some(g) => g,
-            None => {
-                self.inner.misses.fetch_add(1, Ordering::Relaxed);
-                persist_stats(
-                    self.inner.db.as_ref(),
-                    self.inner.hits.load(Ordering::Relaxed),
-                    self.inner.misses.load(Ordering::Relaxed),
-                    self.inner.ttl_secs,
-                );
-                return Ok(None);
-            }
-        };
+        let guard =
+            match table.get(key.as_str()).map_err(DatabaseError::wrap)? {
+                Some(g) => g,
+                None => {
+                    self.inner.misses.fetch_add(1, Ordering::Relaxed);
+                    persist_stats(
+                        self.inner.db.as_ref(),
+                        self.inner.hits.load(Ordering::Relaxed),
+                        self.inner.misses.load(Ordering::Relaxed),
+                        self.inner.ttl_secs,
+                    );
+                    return Ok(None);
+                }
+            };
         let val_str = guard.value();
         let mut stored: StoredEntry = match serde_json::from_str(val_str) {
             Ok(s) => s,
@@ -331,12 +332,10 @@ impl DatabaseBackend for RedbBackend {
             added_at_secs: Some(now_secs),
             ttl_secs: Some(ttl),
         };
-        let value = serde_json::to_string(&entry).map_err(DatabaseError::Serde)?;
-        let write_txn = self
-            .inner
-            .db
-            .begin_write()
-            .map_err(DatabaseError::wrap)?;
+        let value =
+            serde_json::to_string(&entry).map_err(DatabaseError::Serde)?;
+        let write_txn =
+            self.inner.db.begin_write().map_err(DatabaseError::wrap)?;
         let mut table = write_txn
             .open_table(CACHE_TABLE)
             .map_err(DatabaseError::wrap)?;
@@ -344,27 +343,25 @@ impl DatabaseBackend for RedbBackend {
             .insert(key.as_str(), value.as_str())
             .map_err(DatabaseError::wrap)?;
         drop(table);
-        write_txn
-            .commit()
-            .map_err(DatabaseError::wrap)?;
+        write_txn.commit().map_err(DatabaseError::wrap)?;
         Ok(())
     }
 
     async fn stats(&self) -> Result<DatabaseStats, DatabaseError> {
-        let read_txn = self
-            .inner
-            .db
-            .begin_read()
-            .map_err(DatabaseError::wrap)?;
+        let read_txn =
+            self.inner.db.begin_read().map_err(DatabaseError::wrap)?;
         let table = read_txn
             .open_table(CACHE_TABLE)
             .map_err(DatabaseError::wrap)?;
-        let total = table
-            .len()
-            .map_err(DatabaseError::wrap)? as usize;
+        let total = table.len().map_err(DatabaseError::wrap)? as usize;
         let hits = self.inner.hits.load(Ordering::Relaxed);
         let misses = self.inner.misses.load(Ordering::Relaxed);
-        persist_stats(self.inner.db.as_ref(), hits, misses, self.inner.ttl_secs);
+        persist_stats(
+            self.inner.db.as_ref(),
+            hits,
+            misses,
+            self.inner.ttl_secs,
+        );
         Ok(DatabaseStats {
             cached_entries: total,
             hits,
@@ -373,21 +370,18 @@ impl DatabaseBackend for RedbBackend {
         })
     }
 
-    async fn list_entries(&self, full: bool) -> Result<Vec<CacheEntryInfo>, DatabaseError> {
+    async fn list_entries(
+        &self,
+        full: bool,
+    ) -> Result<Vec<CacheEntryInfo>, DatabaseError> {
         vlz_cve_client::ensure_default_decoders();
-        let read_txn = self
-            .inner
-            .db
-            .begin_read()
-            .map_err(DatabaseError::wrap)?;
+        let read_txn =
+            self.inner.db.begin_read().map_err(DatabaseError::wrap)?;
         let table = read_txn
             .open_table(CACHE_TABLE)
             .map_err(DatabaseError::wrap)?;
         let mut out = Vec::new();
-        for entry in table
-            .iter()
-            .map_err(DatabaseError::wrap)?
-        {
+        for entry in table.iter().map_err(DatabaseError::wrap)? {
             let (k, v) = entry.map_err(DatabaseError::wrap)?;
             let key = k.value().to_string();
             let val_str = v.value();
@@ -398,8 +392,10 @@ impl DatabaseBackend for RedbBackend {
             normalize_stored_entry(&mut stored, self.inner.ttl_secs);
             let added = stored.added_at_secs.unwrap_or(0);
             let ttl = stored.ttl_secs.unwrap_or(self.inner.ttl_secs);
-            let records = decode_raw_vulns(&stored.provider_id, &stored.raw_vulns);
-            let cve_ids: Vec<String> = records.iter().map(|r| r.id.clone()).collect();
+            let records =
+                decode_raw_vulns(&stored.provider_id, &stored.raw_vulns);
+            let cve_ids: Vec<String> =
+                records.iter().map(|r| r.id.clone()).collect();
             let raw_vulns = if full {
                 Some(stored.raw_vulns.clone())
             } else {
@@ -417,16 +413,17 @@ impl DatabaseBackend for RedbBackend {
         Ok(out)
     }
 
-    async fn set_ttl(&self, selector: TtlSelector, new_ttl_secs: u64) -> Result<(), DatabaseError> {
+    async fn set_ttl(
+        &self,
+        selector: TtlSelector,
+        new_ttl_secs: u64,
+    ) -> Result<(), DatabaseError> {
         let keys: Vec<String> = match &selector {
             TtlSelector::One(k) => vec![k.clone()],
             TtlSelector::Multiple(keys) => keys.clone(),
             TtlSelector::All => {
-                let read_txn = self
-                    .inner
-                    .db
-                    .begin_read()
-                    .map_err(DatabaseError::wrap)?;
+                let read_txn =
+                    self.inner.db.begin_read().map_err(DatabaseError::wrap)?;
                 let table = read_txn
                     .open_table(CACHE_TABLE)
                     .map_err(DatabaseError::wrap)?;
@@ -443,23 +440,19 @@ impl DatabaseBackend for RedbBackend {
         if keys.is_empty() {
             return Ok(());
         }
-        let write_txn = self
-            .inner
-            .db
-            .begin_write()
-            .map_err(DatabaseError::wrap)?;
+        let write_txn =
+            self.inner.db.begin_write().map_err(DatabaseError::wrap)?;
         let mut table = write_txn
             .open_table(CACHE_TABLE)
             .map_err(DatabaseError::wrap)?;
         for key in keys {
-            let val_str: String = match table
-                .get(key.as_str())
-                .map_err(DatabaseError::wrap)?
+            let val_str: String =
+                match table.get(key.as_str()).map_err(DatabaseError::wrap)? {
+                    Some(g) => g.value().to_string(),
+                    None => continue,
+                };
+            let mut stored: StoredEntry = match serde_json::from_str(&val_str)
             {
-                Some(g) => g.value().to_string(),
-                None => continue,
-            };
-            let mut stored: StoredEntry = match serde_json::from_str(&val_str) {
                 Ok(s) => s,
                 Err(_) => continue,
             };
@@ -468,34 +461,27 @@ impl DatabaseBackend for RedbBackend {
             let new_expires = added.saturating_add(new_ttl_secs);
             stored.expires_at_secs = new_expires;
             stored.ttl_secs = Some(new_ttl_secs);
-            let new_val = serde_json::to_string(&stored).map_err(DatabaseError::Serde)?;
+            let new_val = serde_json::to_string(&stored)
+                .map_err(DatabaseError::Serde)?;
             table
                 .insert(key.as_str(), new_val.as_str())
                 .map_err(DatabaseError::wrap)?;
         }
         drop(table);
-        write_txn
-            .commit()
-            .map_err(DatabaseError::wrap)?;
+        write_txn.commit().map_err(DatabaseError::wrap)?;
         Ok(())
     }
 
     async fn verify_integrity(&self) -> Result<(), DatabaseError> {
         use sha2::{Digest, Sha256};
 
-        let read_txn = self
-            .inner
-            .db
-            .begin_read()
-            .map_err(DatabaseError::wrap)?;
+        let read_txn =
+            self.inner.db.begin_read().map_err(DatabaseError::wrap)?;
         let table = read_txn
             .open_table(CACHE_TABLE)
             .map_err(DatabaseError::wrap)?;
         let mut hasher = Sha256::new();
-        for entry in table
-            .iter()
-            .map_err(DatabaseError::wrap)?
-        {
+        for entry in table.iter().map_err(DatabaseError::wrap)? {
             let (k, v) = entry.map_err(DatabaseError::wrap)?;
             let line = format!("{}|{}", k.value(), v.value());
             hasher.update(line.as_bytes());
@@ -516,7 +502,8 @@ impl Default for RedbBackend {
 // ---------------------------------------------------------------------------
 
 /// RedB table for false-positive markings: key = CVE ID, value = JSON FpEntry.
-const FALSE_POSITIVE_TABLE: TableDefinition<&str, &str> = TableDefinition::new("false_positive");
+const FALSE_POSITIVE_TABLE: TableDefinition<&str, &str> =
+    TableDefinition::new("false_positive");
 
 /// Stored row for a CVE marked as false positive (FR-015: comment, timestamp, user/host, optional project_id).
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -537,10 +524,10 @@ pub struct RedbIgnoreDb {
 impl RedbIgnoreDb {
     /// Open or create the ignore DB at `path`.
     pub fn with_path(path: PathBuf) -> Result<Self, DatabaseError> {
-        if let Some(parent) = path.parent() {
-            if !parent.exists() {
-                std::fs::create_dir_all(parent).map_err(|e| DatabaseError::Io(e))?;
-            }
+        if let Some(parent) = path.parent()
+            && !parent.exists()
+        {
+            std::fs::create_dir_all(parent).map_err(DatabaseError::Io)?;
         }
         let db = Database::create(path).map_err(DatabaseError::wrap)?;
         Ok(Self { db: Arc::new(db) })
@@ -549,9 +536,7 @@ impl RedbIgnoreDb {
     /// Create from an existing Database (test-only, for injecting custom backends).
     #[cfg(test)]
     pub fn with_database(db: Database) -> Self {
-        Self {
-            db: Arc::new(db),
-        }
+        Self { db: Arc::new(db) }
     }
 
     /// Mark a CVE as false positive (FR-015).
@@ -574,11 +559,9 @@ impl RedbIgnoreDb {
             host,
             project_id: project_id.map(String::from),
         };
-        let value = serde_json::to_string(&entry).map_err(DatabaseError::Serde)?;
-        let write_txn = self
-            .db
-            .begin_write()
-            .map_err(DatabaseError::wrap)?;
+        let value =
+            serde_json::to_string(&entry).map_err(DatabaseError::Serde)?;
+        let write_txn = self.db.begin_write().map_err(DatabaseError::wrap)?;
         let mut table = write_txn
             .open_table(FALSE_POSITIVE_TABLE)
             .map_err(DatabaseError::wrap)?;
@@ -586,52 +569,36 @@ impl RedbIgnoreDb {
             .insert(cve_id, value.as_str())
             .map_err(DatabaseError::wrap)?;
         drop(table);
-        write_txn
-            .commit()
-            .map_err(DatabaseError::wrap)?;
+        write_txn.commit().map_err(DatabaseError::wrap)?;
         Ok(())
     }
 
     /// Remove a false-positive marking.
     pub fn unmark(&self, cve_id: &str) -> Result<(), DatabaseError> {
-        let write_txn = self
-            .db
-            .begin_write()
-            .map_err(DatabaseError::wrap)?;
+        let write_txn = self.db.begin_write().map_err(DatabaseError::wrap)?;
         let mut table = write_txn
             .open_table(FALSE_POSITIVE_TABLE)
             .map_err(DatabaseError::wrap)?;
-        table
-            .remove(cve_id)
-            .map_err(DatabaseError::wrap)?;
+        table.remove(cve_id).map_err(DatabaseError::wrap)?;
         drop(table);
-        write_txn
-            .commit()
-            .map_err(DatabaseError::wrap)?;
+        write_txn.commit().map_err(DatabaseError::wrap)?;
         Ok(())
     }
 
     /// Return true if the CVE is marked as false positive.
     pub fn is_marked(&self, cve_id: &str) -> Result<bool, DatabaseError> {
-        let read_txn = self
-            .db
-            .begin_read()
-            .map_err(DatabaseError::wrap)?;
+        let read_txn = self.db.begin_read().map_err(DatabaseError::wrap)?;
         let table = read_txn
             .open_table(FALSE_POSITIVE_TABLE)
             .map_err(DatabaseError::wrap)?;
-        Ok(table
-            .get(cve_id)
-            .map_err(DatabaseError::wrap)?
-            .is_some())
+        Ok(table.get(cve_id).map_err(DatabaseError::wrap)?.is_some())
     }
 
     /// Return the set of all CVE IDs marked as false positive (for filtering in scan).
-    pub fn marked_ids(&self) -> Result<std::collections::HashSet<String>, DatabaseError> {
-        let read_txn = self
-            .db
-            .begin_read()
-            .map_err(DatabaseError::wrap)?;
+    pub fn marked_ids(
+        &self,
+    ) -> Result<std::collections::HashSet<String>, DatabaseError> {
+        let read_txn = self.db.begin_read().map_err(DatabaseError::wrap)?;
         let table = read_txn
             .open_table(FALSE_POSITIVE_TABLE)
             .map_err(DatabaseError::wrap)?;
@@ -680,8 +647,7 @@ mod tests {
         fn read(&self, offset: u64, len: usize) -> io::Result<Vec<u8>> {
             let n = self.read_count.fetch_add(1, Ordering::SeqCst);
             if n >= self.fail_after_reads {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
+                return Err(io::Error::other(
                     "injected read failure for coverage",
                 ));
             }
@@ -736,8 +702,7 @@ mod tests {
         fn sync_data(&self, eventual: bool) -> io::Result<()> {
             let n = self.write_count.load(Ordering::SeqCst);
             if n >= self.fail_after_writes {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
+                return Err(io::Error::other(
                     "injected sync failure for coverage",
                 ));
             }
@@ -747,8 +712,7 @@ mod tests {
         fn write(&self, offset: u64, data: &[u8]) -> io::Result<()> {
             let n = self.write_count.fetch_add(1, Ordering::SeqCst);
             if n >= self.fail_after_writes {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
+                return Err(io::Error::other(
                     "injected write failure for coverage",
                 ));
             }
@@ -791,7 +755,10 @@ mod tests {
             version: "1.0".to_string(),
             ecosystem: None,
         };
-        backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
+        backend
+            .put(&pkg, "osv", &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
         let got = backend.get(&pkg, "osv").await.unwrap();
         assert!(got.is_some());
         let stats = backend.stats().await.unwrap();
@@ -863,7 +830,8 @@ mod tests {
             .unwrap()
             .as_secs();
         assert!(
-            entries[0].added_at_secs <= now && entries[0].added_at_secs + 2 >= now,
+            entries[0].added_at_secs <= now
+                && entries[0].added_at_secs + 2 >= now,
             "added_at_secs should be roughly now"
         );
     }
@@ -994,7 +962,10 @@ mod tests {
             version: "1.0".to_string(),
             ecosystem: None,
         };
-        backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
+        backend
+            .put(&pkg, "osv", &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
         let entries = backend.list_entries(true).await.unwrap();
         let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 1);
@@ -1183,7 +1154,10 @@ mod tests {
             .unwrap();
         backend
             .set_ttl(
-                TtlSelector::Multiple(vec!["p1::1::osv".into(), "p2::2::osv".into()]),
+                TtlSelector::Multiple(vec![
+                    "p1::1::osv".into(),
+                    "p2::2::osv".into(),
+                ]),
                 99,
             )
             .await
@@ -1204,7 +1178,10 @@ mod tests {
             version: "1".to_string(),
             ecosystem: None,
         };
-        backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
+        backend
+            .put(&pkg, "osv", &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
         backend.set_ttl(TtlSelector::All, 120).await.unwrap();
         let entries = backend.list_entries(false).await.unwrap();
         assert_eq!(entries.len(), 1);
@@ -1261,7 +1238,10 @@ mod tests {
             .unwrap();
         backend
             .set_ttl(
-                TtlSelector::Multiple(vec!["real::1::osv".into(), "fake::999::osv".into()]),
+                TtlSelector::Multiple(vec![
+                    "real::1::osv".into(),
+                    "fake::999::osv".into(),
+                ]),
                 50,
             )
             .await
@@ -1276,7 +1256,8 @@ mod tests {
     async fn redb_backend_default_works() {
         let tmp = std::env::temp_dir().join("vlz_redb_test_default");
         let _ = std::fs::create_dir_all(&tmp);
-        let orig_cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let orig_cwd =
+            std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         let _ = std::env::set_current_dir(&tmp);
         let cache_file = tmp.join("vlz-cache.redb");
         let _ = std::fs::remove_file(&cache_file);
@@ -1294,7 +1275,8 @@ mod tests {
     async fn redb_backend_new_explicit() {
         let tmp = std::env::temp_dir().join("vlz_redb_test_new");
         let _ = std::fs::create_dir_all(&tmp);
-        let orig_cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let orig_cwd =
+            std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         let _ = std::env::set_current_dir(&tmp);
         let cache_file = tmp.join("vlz-cache.redb");
         let _ = std::fs::remove_file(&cache_file);
@@ -1311,7 +1293,8 @@ mod tests {
     /// When cwd is a deleted directory, with_path fails; we catch the panic.
     #[tokio::test]
     async fn redb_backend_new_fallback_when_current_dir_fails() {
-        let orig = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let orig =
+            std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         let dir = tempfile::tempdir().expect("tempdir");
         let path = dir.path().to_path_buf();
         std::env::set_current_dir(&path).expect("chdir");
@@ -1368,7 +1351,10 @@ mod tests {
                 version: "1".to_string(),
                 ecosystem: None,
             };
-            backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
+            backend
+                .put(&pkg, "osv", &[sample_raw_vuln()], None)
+                .await
+                .unwrap();
         }
         {
             let db = redb::Database::create(&path).unwrap();
@@ -1581,7 +1567,10 @@ mod tests {
                 let mut cache = write_txn.open_table(CACHE_TABLE).unwrap();
                 let mut meta = write_txn.open_table(METADATA_TABLE).unwrap();
                 cache
-                    .insert("expired::1::osv", expired_entry.to_string().as_str())
+                    .insert(
+                        "expired::1::osv",
+                        expired_entry.to_string().as_str(),
+                    )
                     .unwrap();
                 cache.insert("corrupt::1::osv", "garbage").unwrap();
                 meta.insert("hits", "0").unwrap();
@@ -1632,7 +1621,10 @@ mod tests {
                 let mut cache = write_txn.open_table(CACHE_TABLE).unwrap();
                 let mut meta = write_txn.open_table(METADATA_TABLE).unwrap();
                 cache
-                    .insert("expired::1::osv", expired_entry.to_string().as_str())
+                    .insert(
+                        "expired::1::osv",
+                        expired_entry.to_string().as_str(),
+                    )
                     .unwrap();
                 cache
                     .insert("valid::1::osv", valid_entry.to_string().as_str())
@@ -1705,7 +1697,10 @@ mod tests {
             version: "1".to_string(),
             ecosystem: None,
         };
-        backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
+        backend
+            .put(&pkg, "osv", &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
         let _ = backend.get(&pkg, "osv").await.unwrap();
         let stats_before = backend.stats().await.unwrap();
         assert!(stats_before.hits >= 1);
@@ -1732,7 +1727,10 @@ mod tests {
                 version: "1".to_string(),
                 ecosystem: None,
             };
-            backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
+            backend
+                .put(&pkg, "osv", &[sample_raw_vuln()], None)
+                .await
+                .unwrap();
             let _ = backend.get(&pkg, "osv").await.unwrap();
             backend.__test_persist_stats_on_drop();
         }
@@ -1799,7 +1797,10 @@ mod tests {
         let backend = RedbBackend::with_database(db, 3600).unwrap();
         let stats = backend.stats().await.unwrap();
         assert_eq!(stats.hits, 0, "parse failure should default hits to 0");
-        assert_eq!(stats.misses, 0, "parse failure should default misses to 0");
+        assert_eq!(
+            stats.misses, 0,
+            "parse failure should default misses to 0"
+        );
         let _ = std::fs::remove_file(&path);
     }
 
@@ -1864,7 +1865,8 @@ mod tests {
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         let vuln_ok = sample_raw_vuln();
-        let vuln_id_number = serde_json::json!({"id": 12345, "summary": "id is number"});
+        let vuln_id_number =
+            serde_json::json!({"id": 12345, "summary": "id is number"});
         let pkg = Package {
             name: "mixed_id".to_string(),
             version: "1".to_string(),
@@ -1994,7 +1996,10 @@ mod tests {
             version: "1".to_string(),
             ecosystem: None,
         };
-        backend.put(&pkg, "osv", &[sample_raw_vuln()], None).await.unwrap();
+        backend
+            .put(&pkg, "osv", &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
         let clone = backend.clone();
         let got = clone.get(&pkg, "osv").await.unwrap();
         assert!(got.is_some());
@@ -2022,7 +2027,8 @@ mod tests {
 
     /// load_metadata and persist_stats error paths: DB with no METADATA_TABLE.
     #[tokio::test]
-    async fn load_metadata_and_persist_stats_fail_gracefully_without_metadata_table() {
+    async fn load_metadata_and_persist_stats_fail_gracefully_without_metadata_table()
+     {
         let path = temp_cache_path("no_meta_table");
         let _ = std::fs::remove_file(&path);
         let db = redb::Database::create(&path).unwrap();
@@ -2063,8 +2069,9 @@ mod tests {
         let db = redb::Builder::new()
             .create_with_backend(backend)
             .expect("create should succeed");
-        let _b = RedbBackend::with_database(db, 3600)
-            .expect("with_database succeeds when load_metadata returns (0,0,None)");
+        let _b = RedbBackend::with_database(db, 3600).expect(
+            "with_database succeeds when load_metadata returns (0,0,None)",
+        );
     }
 
     /// persist_stats returns early when db.begin_write() or write fails (custom backend).
@@ -2106,14 +2113,18 @@ mod tests {
                 version: "1".to_string(),
                 ecosystem: None,
             };
-            if b.put(&pkg, "osv", &[sample_raw_vuln()], None).await.is_err() {
+            if b.put(&pkg, "osv", &[sample_raw_vuln()], None)
+                .await
+                .is_err()
+            {
                 continue;
             }
             let res = b.list_entries(false).await;
-            if res.is_err() {
-                let err_msg = res.unwrap_err().to_string();
+            if let Err(e) = res {
+                let err_msg = e.to_string();
                 assert!(
-                    err_msg.contains("injected read failure") || err_msg.contains("read"),
+                    err_msg.contains("injected read failure")
+                        || err_msg.contains("read"),
                     "fail_after={} error should mention read: {}",
                     fail_after,
                     err_msg
@@ -2143,14 +2154,18 @@ mod tests {
                 version: "1".to_string(),
                 ecosystem: None,
             };
-            if b.put(&pkg, "osv", &[sample_raw_vuln()], None).await.is_err() {
+            if b.put(&pkg, "osv", &[sample_raw_vuln()], None)
+                .await
+                .is_err()
+            {
                 continue;
             }
             let res = b.verify_integrity().await;
-            if res.is_err() {
-                let err_msg = res.unwrap_err().to_string();
+            if let Err(e) = res {
+                let err_msg = e.to_string();
                 assert!(
-                    err_msg.contains("injected read failure") || err_msg.contains("read"),
+                    err_msg.contains("injected read failure")
+                        || err_msg.contains("read"),
                     "fail_after={} error should mention read: {}",
                     fail_after,
                     err_msg
@@ -2208,14 +2223,18 @@ mod tests {
                 version: "1".to_string(),
                 ecosystem: None,
             };
-            if b.put(&pkg, "osv", &[sample_raw_vuln()], None).await.is_err() {
+            if b.put(&pkg, "osv", &[sample_raw_vuln()], None)
+                .await
+                .is_err()
+            {
                 continue;
             }
             let res = b.set_ttl(TtlSelector::All, 120).await;
-            if res.is_err() {
-                let err_msg = res.unwrap_err().to_string();
+            if let Err(e) = res {
+                let err_msg = e.to_string();
                 assert!(
-                    err_msg.contains("injected read failure") || err_msg.contains("read"),
+                    err_msg.contains("injected read failure")
+                        || err_msg.contains("read"),
                     "fail_after={} error should mention read: {}",
                     fail_after,
                     err_msg
@@ -2237,10 +2256,11 @@ mod tests {
             let ignore_db = RedbIgnoreDb::with_database(db);
             ignore_db.mark("CVE-2023-X", "test", None).unwrap();
             let res = ignore_db.marked_ids();
-            if res.is_err() {
-                let err_msg = res.unwrap_err().to_string();
+            if let Err(e) = res {
+                let err_msg = e.to_string();
                 assert!(
-                    err_msg.contains("injected read failure") || err_msg.contains("read"),
+                    err_msg.contains("injected read failure")
+                        || err_msg.contains("read"),
                     "fail_after={} error should mention read: {}",
                     fail_after,
                     err_msg

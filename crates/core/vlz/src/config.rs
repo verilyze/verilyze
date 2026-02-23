@@ -146,27 +146,28 @@ fn apply_file_config_inner(
     source: &str,
     extract_language_regexes: bool,
 ) -> Result<(), ConfigError> {
-    let parsed: FileConfig = toml::from_str(raw).map_err(|e| ConfigError::InvalidToml {
-        path: path.to_path_buf(),
-        path_display: user_relative_path(path),
-        message: e.to_string(),
-    })?;
+    let parsed: FileConfig =
+        toml::from_str(raw).map_err(|e| ConfigError::InvalidToml {
+            path: path.to_path_buf(),
+            path_display: user_relative_path(path),
+            message: e.to_string(),
+        })?;
     // SEC-006: reject unknown keys. Allow only known scalars and [lang] tables.
     // Use toml::from_str (same as FileConfig) so we get the same parse behavior.
-    if let Ok(value) = toml::from_str::<toml::Value>(raw) {
-        if let Some(t) = value.as_table() {
-            for (key, val) in t.iter() {
-                if KNOWN_FILE_CONFIG_KEYS.contains(&key.as_str()) {
-                    continue;
-                }
-                if val.is_table() {
-                    continue; // [lang] sections allowed
-                }
-                return Err(ConfigError::UnknownKey {
-                    key: key.clone(),
-                    origin: source.to_string(),
-                });
+    if let Ok(value) = toml::from_str::<toml::Value>(raw)
+        && let Some(t) = value.as_table()
+    {
+        for (key, val) in t.iter() {
+            if KNOWN_FILE_CONFIG_KEYS.contains(&key.as_str()) {
+                continue;
             }
+            if val.is_table() {
+                continue; // [lang] sections allowed
+            }
+            return Err(ConfigError::UnknownKey {
+                key: key.clone(),
+                origin: source.to_string(),
+            });
         }
     }
     if let Some(p) = parsed.cache_db {
@@ -204,14 +205,14 @@ fn apply_file_config_inner(
     }
     if extract_language_regexes {
         cfg.language_regexes.clear();
-        if let Ok(value) = toml::from_str::<toml::Value>(raw) {
-            if let Some(t) = value.as_table() {
-                for (lang, table) in t {
-                    if let Some(tbl) = table.as_table() {
-                        if let Some(r) = tbl.get("regex").and_then(|v| v.as_str()) {
-                            cfg.language_regexes.push((lang.clone(), r.to_string()));
-                        }
-                    }
+        if let Ok(value) = toml::from_str::<toml::Value>(raw)
+            && let Some(t) = value.as_table()
+        {
+            for (lang, table) in t {
+                if let Some(tbl) = table.as_table()
+                    && let Some(r) = tbl.get("regex").and_then(|v| v.as_str())
+                {
+                    cfg.language_regexes.push((lang.clone(), r.to_string()));
                 }
             }
         }
@@ -233,7 +234,13 @@ fn apply_file_config(
     let path_buf = path.to_path_buf();
     let path_display = user_relative_path(path);
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        apply_file_config_inner(cfg, raw, path, source, extract_language_regexes)
+        apply_file_config_inner(
+            cfg,
+            raw,
+            path,
+            source,
+            extract_language_regexes,
+        )
     })) {
         Ok(r) => r,
         Err(_) => Err(ConfigError::InvalidToml {
@@ -292,7 +299,7 @@ pub fn default_ignore_path() -> PathBuf {
 #[cfg(any(test, feature = "testing"))]
 thread_local! {
     static MOCK_PRIVILEGED: std::cell::RefCell<Option<bool>> =
-        std::cell::RefCell::new(None);
+        const { std::cell::RefCell::new(None) };
 }
 
 /// Set mock privileged state for tests. Call with Some(true) to simulate root,
@@ -313,15 +320,16 @@ fn is_privileged() -> bool {
     {
         if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
             for line in s.lines() {
-                if line.starts_with("Uid:") {
-                    let mut fields = line[4..].split_whitespace();
+                if let Some(stripped) = line.strip_prefix("Uid:") {
+                    let mut fields = stripped.split_whitespace();
                     let _real = fields.next();
-                    let effective = fields.next().and_then(|s| s.parse::<u32>().ok());
+                    let effective =
+                        fields.next().and_then(|s| s.parse::<u32>().ok());
                     return effective == Some(0);
                 }
             }
         }
-        return false;
+        false
     }
     #[cfg(all(unix, not(target_os = "linux")))]
     return false;
@@ -354,6 +362,7 @@ fn data_home() -> PathBuf {
 
 /// Build effective config: defaults, then system file, user file, -c file, env, CLI.
 /// Validates parallel_queries <= MAX_PARALLEL_QUERIES (FR-012).
+#[allow(clippy::too_many_arguments)]
 pub fn load(
     config_file_override: Option<&str>,
     env_parallel: Option<usize>,
@@ -403,7 +412,13 @@ pub fn load(
         .map(PathBuf::from)
         .unwrap_or_else(|| user_path.clone());
     if let Ok(Some(ref raw)) = load_file_opt(&path_to_load) {
-        apply_file_config(&mut cfg, raw.as_str(), &path_to_load, "user", true)?;
+        apply_file_config(
+            &mut cfg,
+            raw.as_str(),
+            &path_to_load,
+            "user",
+            true,
+        )?;
     }
     cfg.config_file = config_file_override.map(PathBuf::from);
 
@@ -560,20 +575,22 @@ pub fn env_max_retries() -> Option<u32> {
 /// Set a config key (e.g. python.regex) in the user config file (FR-006).
 pub fn set_config_key(key: &str, value: &str) -> Result<(), ConfigError> {
     let path = user_config_path();
-    if let Some(parent) = path.parent() {
-        if !parent.exists() {
-            std::fs::create_dir_all(parent)?;
-        }
+    if let Some(parent) = path.parent()
+        && !parent.exists()
+    {
+        std::fs::create_dir_all(parent)?;
     }
-    let raw = load_file_opt(&path)?.unwrap_or_else(|| String::new());
+    let raw = load_file_opt(&path)?.unwrap_or_else(String::new);
     // toml 1.0: Value::FromStr parses single values; use Table for documents.
     let mut root: toml::Table = if raw.trim().is_empty() {
         toml::Table::new()
     } else {
-        toml::from_str(&raw).map_err(|e: toml::de::Error| ConfigError::InvalidToml {
-            path: path.clone(),
-            path_display: user_relative_path(&path),
-            message: e.to_string(),
+        toml::from_str(&raw).map_err(|e: toml::de::Error| {
+            ConfigError::InvalidToml {
+                path: path.clone(),
+                path_display: user_relative_path(&path),
+                message: e.to_string(),
+            }
         })?
     };
     let parts: Vec<&str> = key.splitn(2, '.').collect();
@@ -587,17 +604,20 @@ pub fn set_config_key(key: &str, value: &str) -> Result<(), ConfigError> {
     let entry = root
         .entry(table_key.to_string())
         .or_insert_with(|| toml::Value::Table(toml::Table::new()));
-    let inner = entry
-        .as_table_mut()
-        .ok_or_else(|| ConfigError::UnknownKey {
-            key: key.to_string(),
-            origin: "config set".to_string(),
-        })?;
+    let inner =
+        entry
+            .as_table_mut()
+            .ok_or_else(|| ConfigError::UnknownKey {
+                key: key.to_string(),
+                origin: "config set".to_string(),
+            })?;
     inner.insert(sub_key.to_string(), toml::Value::String(value.to_string()));
-    let out = toml::to_string_pretty(&root).map_err(|e| ConfigError::InvalidToml {
-        path: path.clone(),
-        path_display: user_relative_path(&path),
-        message: e.to_string(),
+    let out = toml::to_string_pretty(&root).map_err(|e| {
+        ConfigError::InvalidToml {
+            path: path.clone(),
+            path_display: user_relative_path(&path),
+            message: e.to_string(),
+        }
     })?;
     std::fs::write(&path, out)?;
     Ok(())
@@ -610,32 +630,9 @@ mod tests {
     #[test]
     fn load_defaults_when_no_files() {
         let cfg = load(
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            false,
-            false,
-            None,
-            None,
-            None,
-            None,
-            false,
-            None,
-            None,
-            None,
+            None, None, None, None, None, None, None, None, None, None, None,
+            None, None, None, None, None, false, false, None, None, None,
+            None, false, None, None, None,
         )
         .unwrap();
         assert_eq!(cfg.parallel_queries, DEFAULT_PARALLEL_QUERIES);
@@ -709,11 +706,18 @@ mod tests {
     #[test]
     fn set_config_key_invalid_key_returns_unknown_key() {
         let dir = tempfile::tempdir().unwrap();
-        temp_env::with_var("XDG_CONFIG_HOME", Some(dir.path().to_str().unwrap()), || {
-            let r = set_config_key("nodot", "value");
-            assert!(r.is_err());
-            assert!(matches!(r.unwrap_err(), ConfigError::UnknownKey { .. }));
-        });
+        temp_env::with_var(
+            "XDG_CONFIG_HOME",
+            Some(dir.path().to_str().unwrap()),
+            || {
+                let r = set_config_key("nodot", "value");
+                assert!(r.is_err());
+                assert!(matches!(
+                    r.unwrap_err(),
+                    ConfigError::UnknownKey { .. }
+                ));
+            },
+        );
     }
 
     #[test]
@@ -808,13 +812,31 @@ mod tests {
             std::fs::write(f.path(), "invalid {{{").unwrap();
             let r = load(
                 Some(f.path().to_str().unwrap()),
-                None, None, None, None, None, None, None, None,
-                None, None, None,
-                None, None, None, None,
-                false, false,
-                None, None, None, None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
                 false,
-                None, None, None,
+                false,
+                None,
+                None,
+                None,
+                None,
+                false,
+                None,
+                None,
+                None,
             );
             assert!(r.is_err());
             let err = r.unwrap_err();
@@ -832,13 +854,31 @@ mod tests {
         temp_env::with_var("HOME", Some(home_str.as_str()), || {
             let r = load(
                 Some(config_path.to_str().unwrap()),
-                None, None, None, None, None, None, None, None,
-                None, None, None,
-                None, None, None, None,
-                false, false,
-                None, None, None, None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
                 false,
-                None, None, None,
+                false,
+                None,
+                None,
+                None,
+                None,
+                false,
+                None,
+                None,
+                None,
             );
             assert!(r.is_err());
             let err = r.unwrap_err();
@@ -854,13 +894,31 @@ mod tests {
         temp_env::with_var("HOME", None::<&str>, || {
             let r = load(
                 Some(config_path.to_str().unwrap()),
-                None, None, None, None, None, None, None, None,
-                None, None, None,
-                None, None, None, None,
-                false, false,
-                None, None, None, None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
                 false,
-                None, None, None,
+                false,
+                None,
+                None,
+                None,
+                None,
+                false,
+                None,
+                None,
+                None,
             );
             assert!(r.is_err());
             let err = r.unwrap_err();
@@ -891,17 +949,41 @@ regex = "^req\\.txt$"
         let path_str = config_path.to_string_lossy().into_owned();
         let cfg = load(
             Some(&path_str),
-            None, None, None, None, None, None, None, None,
-            None, None, None,
-            None, None, None, None,
-            false, false,
-            None, None, None, None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
             false,
-            None, None, None,
+            false,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
         )
         .unwrap();
-        assert_eq!(cfg.cache_db.as_ref().unwrap().to_str(), Some("/tmp/cache.redb"));
-        assert_eq!(cfg.ignore_db.as_ref().unwrap().to_str(), Some("/tmp/ignore.redb"));
+        assert_eq!(
+            cfg.cache_db.as_ref().unwrap().to_str(),
+            Some("/tmp/cache.redb")
+        );
+        assert_eq!(
+            cfg.ignore_db.as_ref().unwrap().to_str(),
+            Some("/tmp/ignore.redb")
+        );
         assert_eq!(cfg.parallel_queries, 5);
         assert_eq!(cfg.cache_ttl_secs, 100);
         assert_eq!(cfg.min_score, 7.5);
@@ -911,7 +993,10 @@ regex = "^req\\.txt$"
         assert_eq!(cfg.backoff_base_ms, 50);
         assert_eq!(cfg.backoff_max_ms, 5000);
         assert_eq!(cfg.max_retries, 3);
-        assert_eq!(cfg.language_regexes, vec![("python".to_string(), "^req\\.txt$".to_string())]);
+        assert_eq!(
+            cfg.language_regexes,
+            vec![("python".to_string(), "^req\\.txt$".to_string())]
+        );
     }
 
     #[test]
@@ -929,13 +1014,31 @@ regex = "^req\\.txt$"
         let path_str = config_path.to_string_lossy().into_owned();
         let cfg = load(
             Some(&path_str),
-            None, None, None, None, None, None, None, None,
-            None, None, None,
-            None, None, None, None,
-            false, false,
-            None, None, None, None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
             false,
-            None, None, None,
+            false,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
         )
         .unwrap();
         assert_eq!(cfg.parallel_queries, 3);
@@ -957,16 +1060,31 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
-            None, None, None, None,
-            false, false,
-            None, None, None, None,
+            None,
+            None,
+            None,
+            None,
             false,
-            None, None, None,
+            false,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
         )
         .unwrap();
         assert_eq!(cfg.parallel_queries, 7);
-        assert_eq!(cfg.cache_db.as_ref().unwrap().to_str(), Some("/env/cache.redb"));
-        assert_eq!(cfg.ignore_db.as_ref().unwrap().to_str(), Some("/env/ignore.redb"));
+        assert_eq!(
+            cfg.cache_db.as_ref().unwrap().to_str(),
+            Some("/env/cache.redb")
+        );
+        assert_eq!(
+            cfg.ignore_db.as_ref().unwrap().to_str(),
+            Some("/env/ignore.redb")
+        );
         assert_eq!(cfg.cache_ttl_secs, 200);
         assert_eq!(cfg.min_score, 6.0);
         assert_eq!(cfg.min_count, 4);
@@ -978,32 +1096,50 @@ regex = "^req\\.txt$"
     fn load_cli_overrides_applied() {
         let cfg = load(
             None,
-            None, None, None, None, None, None, None, None,
-            None, None, None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
             Some(8),
             Some("/cli/cache.redb"),
             Some("/cli/ignore.redb"),
             Some(300),
-            true, true,
+            true,
+            true,
             Some(5.0),
             Some(6),
             Some(88),
             Some(2),
             true,
-            None, None, None,
+            None,
+            None,
+            None,
         )
         .unwrap();
         assert_eq!(cfg.parallel_queries, 8);
-        assert_eq!(cfg.cache_db.as_ref().unwrap().to_str(), Some("/cli/cache.redb"));
-        assert_eq!(cfg.ignore_db.as_ref().unwrap().to_str(), Some("/cli/ignore.redb"));
+        assert_eq!(
+            cfg.cache_db.as_ref().unwrap().to_str(),
+            Some("/cli/cache.redb")
+        );
+        assert_eq!(
+            cfg.ignore_db.as_ref().unwrap().to_str(),
+            Some("/cli/ignore.redb")
+        );
         assert_eq!(cfg.cache_ttl_secs, 300);
-        assert_eq!(cfg.offline, true);
-        assert_eq!(cfg.benchmark, true);
+        assert!(cfg.offline);
+        assert!(cfg.benchmark);
         assert_eq!(cfg.min_score, 5.0);
         assert_eq!(cfg.min_count, 6);
         assert_eq!(cfg.exit_code_on_cve, Some(88));
         assert_eq!(cfg.fp_exit_code, Some(2));
-        assert_eq!(cfg.package_manager_required, true);
+        assert!(cfg.package_manager_required);
     }
 
     #[test]
@@ -1028,11 +1164,20 @@ regex = "^req\\.txt$"
                     env_backoff_base_ms(),
                     env_backoff_max_ms(),
                     env_max_retries(),
-                    None, None, None, None,
-                    false, false,
-                    None, None, None, None,
+                    None,
+                    None,
+                    None,
+                    None,
                     false,
-                    None, None, None,
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    None,
+                    None,
+                    None,
                 )
                 .unwrap();
                 assert_eq!(cfg.backoff_base_ms, 200);
@@ -1046,13 +1191,27 @@ regex = "^req\\.txt$"
     fn load_backoff_config_cli_overrides() {
         let cfg = load(
             None,
-            None, None, None, None, None, None, None, None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
             Some(150),
             Some(8000),
             Some(4),
-            None, None, None, None,
-            false, false,
-            None, None, None, None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
             false,
             Some(250),
             Some(15000),
@@ -1070,11 +1229,15 @@ regex = "^req\\.txt$"
         let xdg = dir.path().join("xdg").join("verilyze");
         std::fs::create_dir_all(&xdg).unwrap();
         std::fs::create_dir(xdg.join("verilyze.conf")).unwrap();
-        temp_env::with_var("XDG_CONFIG_HOME", Some(dir.path().join("xdg").to_str().unwrap()), || {
-            let r = set_config_key("python.regex", "x");
-            assert!(r.is_err());
-            assert!(matches!(r.unwrap_err(), ConfigError::Io(_)));
-        });
+        temp_env::with_var(
+            "XDG_CONFIG_HOME",
+            Some(dir.path().join("xdg").to_str().unwrap()),
+            || {
+                let r = set_config_key("python.regex", "x");
+                assert!(r.is_err());
+                assert!(matches!(r.unwrap_err(), ConfigError::Io(_)));
+            },
+        );
     }
 
     #[test]
@@ -1082,7 +1245,11 @@ regex = "^req\\.txt$"
         let dir = tempfile::tempdir().unwrap();
         let xdg = dir.path().join("xdg-config");
         std::fs::create_dir_all(xdg.join("verilyze")).unwrap();
-        std::fs::write(xdg.join("verilyze").join("verilyze.conf"), "parallel_queries = 10").unwrap();
+        std::fs::write(
+            xdg.join("verilyze").join("verilyze.conf"),
+            "parallel_queries = 10",
+        )
+        .unwrap();
         temp_env::with_vars(
             [
                 ("XDG_CONFIG_HOME", Some(xdg.to_str().unwrap())),
@@ -1090,14 +1257,9 @@ regex = "^req\\.txt$"
             ],
             || {
                 let cfg = load(
-                    None,
-                    None, None, None, None, None, None, None, None,
-                    None, None, None,
-                    None, None, None, None,
-                    false, false,
-                    None, None, None, None,
-                    false,
-                    None, None, None,
+                    None, None, None, None, None, None, None, None, None,
+                    None, None, None, None, None, None, None, false, false,
+                    None, None, None, None, false, None, None, None,
                 )
                 .unwrap();
                 assert_eq!(cfg.parallel_queries, 10);
@@ -1109,19 +1271,19 @@ regex = "^req\\.txt$"
     fn user_config_path_home_fallback() {
         let dir = tempfile::tempdir().unwrap();
         let home = dir.path().join("home");
-        std::fs::create_dir_all(home.join(".config").join("verilyze")).unwrap();
-        std::fs::write(home.join(".config").join("verilyze").join("verilyze.conf"), "parallel_queries = 42").unwrap();
+        std::fs::create_dir_all(home.join(".config").join("verilyze"))
+            .unwrap();
+        std::fs::write(
+            home.join(".config").join("verilyze").join("verilyze.conf"),
+            "parallel_queries = 42",
+        )
+        .unwrap();
         temp_env::with_var("XDG_CONFIG_HOME", None::<&str>, || {
             temp_env::with_var("HOME", Some(home.to_str().unwrap()), || {
                 let cfg = load(
-                    None,
-                    None, None, None, None, None, None, None, None,
-                    None, None, None,
-                    None, None, None, None,
-                    false, false,
-                    None, None, None, None,
-                    false,
-                    None, None, None,
+                    None, None, None, None, None, None, None, None, None,
+                    None, None, None, None, None, None, None, false, false,
+                    None, None, None, None, false, None, None, None,
                 )
                 .unwrap();
                 assert_eq!(cfg.parallel_queries, 42);
@@ -1146,10 +1308,7 @@ regex = "^req\\.txt$"
     #[test]
     fn cache_home_fallback_when_no_xdg_and_no_home() {
         temp_env::with_vars(
-            [
-                ("XDG_CACHE_HOME", None::<&str>),
-                ("HOME", None::<&str>),
-            ],
+            [("XDG_CACHE_HOME", None::<&str>), ("HOME", None::<&str>)],
             || {
                 let p = default_cache_path();
                 assert!(p.to_string_lossy().contains(".cache"));
@@ -1174,10 +1333,7 @@ regex = "^req\\.txt$"
     #[test]
     fn data_home_fallback_when_no_xdg_and_no_home() {
         temp_env::with_vars(
-            [
-                ("XDG_DATA_HOME", None::<&str>),
-                ("HOME", None::<&str>),
-            ],
+            [("XDG_DATA_HOME", None::<&str>), ("HOME", None::<&str>)],
             || {
                 let p = default_ignore_path();
                 assert!(p.to_string_lossy().contains(".local"));
@@ -1190,11 +1346,16 @@ regex = "^req\\.txt$"
         let dir = tempfile::tempdir().unwrap();
         let config_dir = dir.path().join("xdg").join("verilyze");
         std::fs::create_dir_all(&config_dir).unwrap();
-        std::fs::write(config_dir.join("verilyze.conf"), "invalid toml {{{").unwrap();
-        temp_env::with_var("XDG_CONFIG_HOME", Some(dir.path().join("xdg").to_str().unwrap()), || {
-            let r = set_config_key("python.regex", "x");
-            assert!(r.is_err());
-        });
+        std::fs::write(config_dir.join("verilyze.conf"), "invalid toml {{{")
+            .unwrap();
+        temp_env::with_var(
+            "XDG_CONFIG_HOME",
+            Some(dir.path().join("xdg").to_str().unwrap()),
+            || {
+                let r = set_config_key("python.regex", "x");
+                assert!(r.is_err());
+            },
+        );
     }
 
     #[test]
@@ -1202,13 +1363,17 @@ regex = "^req\\.txt$"
         let dir = tempfile::tempdir().unwrap();
         let xdg = dir.path().join("new").join("path");
         let config_path = xdg.join("verilyze").join("verilyze.conf");
-        temp_env::with_var("XDG_CONFIG_HOME", Some(xdg.to_str().unwrap()), || {
-            let r = set_config_key("python.regex", "^test$");
-            assert!(r.is_ok());
-            assert!(config_path.exists());
-            let content = std::fs::read_to_string(&config_path).unwrap();
-            assert!(content.contains("^test$"));
-        });
+        temp_env::with_var(
+            "XDG_CONFIG_HOME",
+            Some(xdg.to_str().unwrap()),
+            || {
+                let r = set_config_key("python.regex", "^test$");
+                assert!(r.is_ok());
+                assert!(config_path.exists());
+                let content = std::fs::read_to_string(&config_path).unwrap();
+                assert!(content.contains("^test$"));
+            },
+        );
     }
 
     #[test]
@@ -1216,11 +1381,19 @@ regex = "^req\\.txt$"
         let dir = tempfile::tempdir().unwrap();
         let config_dir = dir.path().join("xdg").join("verilyze");
         std::fs::create_dir_all(&config_dir).unwrap();
-        std::fs::write(config_dir.join("verilyze.conf"), "python = 42").unwrap();
-        temp_env::with_var("XDG_CONFIG_HOME", Some(dir.path().join("xdg").to_str().unwrap()), || {
-            let r = set_config_key("python.regex", "x");
-            assert!(r.is_err());
-            assert!(matches!(r.unwrap_err(), ConfigError::UnknownKey { .. }));
-        });
+        std::fs::write(config_dir.join("verilyze.conf"), "python = 42")
+            .unwrap();
+        temp_env::with_var(
+            "XDG_CONFIG_HOME",
+            Some(dir.path().join("xdg").to_str().unwrap()),
+            || {
+                let r = set_config_key("python.regex", "x");
+                assert!(r.is_err());
+                assert!(matches!(
+                    r.unwrap_err(),
+                    ConfigError::UnknownKey { .. }
+                ));
+            },
+        );
     }
 }

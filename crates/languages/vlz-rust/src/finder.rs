@@ -12,16 +12,10 @@ const RUST_MANIFEST_NAME: &str = "Cargo.toml";
 
 /// Rust manifest finder that discovers Cargo.toml files under a directory tree.
 /// When patterns are set (FR-006), file names are matched by regex in order; first match wins.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct RustManifestFinder {
     /// When Some, use these regexes to match manifest file names; when None, use RUST_MANIFEST_NAME.
     patterns: Option<Vec<regex::Regex>>,
-}
-
-impl Default for RustManifestFinder {
-    fn default() -> Self {
-        Self { patterns: None }
-    }
 }
 
 impl RustManifestFinder {
@@ -35,7 +29,10 @@ impl RustManifestFinder {
     pub fn with_patterns(patterns: Vec<String>) -> Result<Self, FinderError> {
         let re: Result<Vec<_>, _> = patterns
             .into_iter()
-            .map(|s| regex::Regex::new(&s).map_err(|e| FinderError::Regex(e.to_string())))
+            .map(|s| {
+                regex::Regex::new(&s)
+                    .map_err(|e| FinderError::Regex(e.to_string()))
+            })
             .collect();
         Ok(Self {
             patterns: Some(re?),
@@ -100,14 +97,17 @@ mod tests {
 
     #[test]
     fn with_patterns_creates_finder() {
-        let finder =
-            RustManifestFinder::with_patterns(vec!["^Cargo\\.toml$".to_string()]).unwrap();
+        let finder = RustManifestFinder::with_patterns(vec![
+            "^Cargo\\.toml$".to_string(),
+        ])
+        .unwrap();
         assert_eq!(finder.language_name(), "rust");
     }
 
     #[test]
     fn with_patterns_invalid_regex_returns_error() {
-        let result = RustManifestFinder::with_patterns(vec!["[invalid".to_string()]);
+        let result =
+            RustManifestFinder::with_patterns(vec!["[invalid".to_string()]);
         assert!(result.is_err());
     }
 
@@ -129,7 +129,10 @@ mod tests {
         let finder = RustManifestFinder::new();
         let mut got = finder.find(&tmp).await.unwrap();
         got.sort();
-        let mut want = vec![tmp.join("Cargo.toml"), tmp.join("crates/foo").join("Cargo.toml")];
+        let mut want = vec![
+            tmp.join("Cargo.toml"),
+            tmp.join("crates/foo").join("Cargo.toml"),
+        ];
         want.sort();
         assert_eq!(got, want);
 
@@ -144,17 +147,23 @@ mod tests {
         std::fs::File::create(tmp.join("Cargo.toml")).unwrap();
         std::fs::File::create(tmp.join("sub").join("Cargo.toml")).unwrap();
 
-        let finder = RustManifestFinder::with_patterns(vec!["^Cargo\\.toml$".to_string()]).unwrap();
+        let finder = RustManifestFinder::with_patterns(vec![
+            "^Cargo\\.toml$".to_string(),
+        ])
+        .unwrap();
         let mut got = finder.find(&tmp).await.unwrap();
         got.sort();
-        let mut want = vec![tmp.join("Cargo.toml"), tmp.join("sub").join("Cargo.toml")];
+        let mut want =
+            vec![tmp.join("Cargo.toml"), tmp.join("sub").join("Cargo.toml")];
         want.sort();
         assert_eq!(got, want);
 
-        let finder =
-            RustManifestFinder::with_patterns(vec![r"^Cargo\.toml$".to_string()]).unwrap();
+        let finder = RustManifestFinder::with_patterns(vec![
+            r"^Cargo\.toml$".to_string(),
+        ])
+        .unwrap();
         let got = finder.find(&tmp).await.unwrap();
-        assert!(got.len() >= 1);
+        assert!(!got.is_empty());
 
         let _ = std::fs::remove_dir_all(&tmp);
     }

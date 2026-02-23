@@ -10,7 +10,7 @@ mod resolver;
 
 pub use finder::PythonManifestFinder;
 pub use parser::{
-    parse_pipfile, parse_pyproject_toml, parse_requirements_txt, parse_setup_cfg,
-    RequirementsTxtParser,
+    RequirementsTxtParser, parse_pipfile, parse_pyproject_toml,
+    parse_requirements_txt, parse_setup_cfg,
 };
-pub use resolver::{find_lock_file, parse_lock_file, DirectOnlyResolver};
+pub use resolver::{DirectOnlyResolver, find_lock_file, parse_lock_file};

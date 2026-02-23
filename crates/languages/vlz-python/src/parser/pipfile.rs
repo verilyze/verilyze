@@ -7,7 +7,9 @@ use vlz_manifest_parser::ParserError;
 /// Parse Pipfile content into a list of packages (name, version).
 /// Supports [packages] and [dev-packages] sections.
 /// Public for fuzzing (NFR-020).
-pub fn parse_pipfile(content: &str) -> Result<Vec<vlz_db::Package>, ParserError> {
+pub fn parse_pipfile(
+    content: &str,
+) -> Result<Vec<vlz_db::Package>, ParserError> {
     let value: toml::Value = toml::from_str(content).map_err(|e| {
         ParserError::Parse(format!("Pipfile parse error: {}", e))
     })?;
@@ -27,7 +29,10 @@ pub fn parse_pipfile(content: &str) -> Result<Vec<vlz_db::Package>, ParserError>
     Ok(packages)
 }
 
-fn parse_pipfile_dep(name: &str, val: &toml::Value) -> Option<vlz_db::Package> {
+fn parse_pipfile_dep(
+    name: &str,
+    val: &toml::Value,
+) -> Option<vlz_db::Package> {
     if let Some(s) = val.as_str() {
         let version = extract_pipfile_version(s);
         return Some(vlz_db::Package {
@@ -61,7 +66,8 @@ fn extract_pipfile_version(s: &str) -> String {
     }
     for sep in ["~=", ">=", "<=", "!=", ">", "<"] {
         if let Some((_, v)) = s.split_once(sep) {
-            let version = v.trim().split(',').next().unwrap_or("").trim().to_string();
+            let version =
+                v.trim().split(',').next().unwrap_or("").trim().to_string();
             return if version.is_empty() {
                 "any".to_string()
             } else {

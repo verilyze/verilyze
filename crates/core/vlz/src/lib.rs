@@ -23,19 +23,21 @@ pub async fn run_main() -> i32 {
 }
 
 /// Same as run_main but accepts args. Used by run_main() and by tests.
-fn run_main_from_args<I, T>(args: I) -> impl std::future::Future<Output = i32>
+async fn run_main_from_args<I, T>(args: I) -> i32
 where
     I: IntoIterator<Item = T>,
     T: Into<std::ffi::OsString> + Clone + AsRef<std::ffi::OsStr>,
 {
-    async move {
     let env = env_logger::Env::default()
         .filter_or("RUST_LOG", "info")
         .write_style_or("RUST_LOG_STYLE", "always");
     let args_vec: Vec<_> = args.into_iter().collect();
     let verbose_count = args_vec
         .iter()
-        .filter(|a| Into::<std::ffi::OsString>::into((*a).clone()).to_string_lossy() == "-v")
+        .filter(|a| {
+            Into::<std::ffi::OsString>::into((*a).clone()).to_string_lossy()
+                == "-v"
+        })
         .count();
     let log_filter = run::log_level_from_verbosity_count(verbose_count);
     env_logger::Builder::from_env(env)
@@ -63,7 +65,6 @@ where
             2
         }
     })
-    }
 }
 
 #[cfg(test)]
@@ -71,6 +72,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    #[allow(clippy::await_holding_lock)]
     async fn run_main_unknown_provider_returns_2() {
         let _guard = crate::registry::registry_test_mutex().lock().unwrap();
         let code = run_main_from_args([
@@ -82,6 +84,9 @@ mod tests {
             "/tmp",
         ])
         .await;
-        assert_eq!(code, 2, "unknown provider should yield exit code 2 (FR-019)");
+        assert_eq!(
+            code, 2,
+            "unknown provider should yield exit code 2 (FR-019)"
+        );
     }
 }

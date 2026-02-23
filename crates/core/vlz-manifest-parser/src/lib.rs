@@ -5,7 +5,7 @@
 #![deny(unsafe_code)]
 
 use async_trait::async_trait;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(thiserror::Error, Debug)]
 pub enum ParserError {
@@ -48,7 +48,10 @@ pub struct DependencyGraph {
 #[async_trait]
 pub trait Parser: Send + Sync {
     /// Parse a single manifest file.
-    async fn parse(&self, manifest: &PathBuf) -> Result<DependencyGraph, ParserError>;
+    async fn parse(
+        &self,
+        manifest: &Path,
+    ) -> Result<DependencyGraph, ParserError>;
 }
 
 /// Resolves a dependency graph to a full list of packages (e.g. transitive deps).

@@ -12,8 +12,8 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use vlz_cve_client::{CveProvider, FetchedCves, ProviderError};
 use vlz_db::{
-    CacheEntryInfo, CveRecord, DatabaseBackend, DatabaseError, DatabaseStats, Package,
-    TtlSelector,
+    CacheEntryInfo, CveRecord, DatabaseBackend, DatabaseError, DatabaseStats,
+    Package, TtlSelector,
 };
 use vlz_manifest_parser::{DependencyGraph, Resolver, ResolverError};
 
@@ -62,7 +62,10 @@ impl CveProvider for FailingCveProvider {
         "failing"
     }
 
-    async fn fetch(&self, pkg: &Package) -> Result<FetchedCves, ProviderError> {
+    async fn fetch(
+        &self,
+        pkg: &Package,
+    ) -> Result<FetchedCves, ProviderError> {
         let _ = pkg;
         Err(ProviderError::Other("mock fetch failure".to_string()))
     }
@@ -90,7 +93,10 @@ impl CveProvider for CountingCveProvider {
         "counting"
     }
 
-    async fn fetch(&self, pkg: &Package) -> Result<FetchedCves, ProviderError> {
+    async fn fetch(
+        &self,
+        pkg: &Package,
+    ) -> Result<FetchedCves, ProviderError> {
         let key = format!("{}::{}", pkg.name, pkg.version);
         {
             let mut counts = self.counts.lock().unwrap();
@@ -120,7 +126,11 @@ impl DatabaseBackend for FailingDbBackend {
         Ok(())
     }
 
-    async fn get(&self, _: &Package, _: &str) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
+    async fn get(
+        &self,
+        _: &Package,
+        _: &str,
+    ) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
         Ok(None)
     }
 
@@ -138,7 +148,10 @@ impl DatabaseBackend for FailingDbBackend {
         Ok(DatabaseStats::default())
     }
 
-    async fn list_entries(&self, _full: bool) -> Result<Vec<CacheEntryInfo>, DatabaseError> {
+    async fn list_entries(
+        &self,
+        _full: bool,
+    ) -> Result<Vec<CacheEntryInfo>, DatabaseError> {
         Ok(vec![])
     }
 
@@ -151,7 +164,9 @@ impl DatabaseBackend for FailingDbBackend {
     }
 
     async fn verify_integrity(&self) -> Result<(), DatabaseError> {
-        Err(DatabaseError::Other("mock verify_integrity failure".to_string()))
+        Err(DatabaseError::Other(
+            "mock verify_integrity failure".to_string(),
+        ))
     }
 }
 
@@ -165,7 +180,12 @@ mod tests {
         let graph = DependencyGraph::default();
         let result = r.resolve(&graph).await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("mock resolve failure"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("mock resolve failure")
+        );
     }
 
     #[test]
@@ -185,7 +205,12 @@ mod tests {
         };
         let result = p.fetch(&pkg).await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("mock fetch failure"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("mock fetch failure")
+        );
     }
 
     #[test]
@@ -245,7 +270,12 @@ mod tests {
         let db = FailingDbBackend::new();
         let result = db.set_ttl(TtlSelector::One("k".to_string()), 3600).await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("mock set_ttl failure"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("mock set_ttl failure")
+        );
     }
 
     #[tokio::test]
@@ -253,6 +283,11 @@ mod tests {
         let db = FailingDbBackend::new();
         let result = db.verify_integrity().await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("mock verify_integrity failure"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("mock verify_integrity failure")
+        );
     }
 }

@@ -14,31 +14,37 @@ pub fn find_lock_file(manifest_path: &Path) -> Option<std::path::PathBuf> {
     if lock_path.exists() && lock_path.is_file() {
         return Some(lock_path);
     }
-    dir.parent().and_then(|p| find_lock_file(&p.join("Cargo.toml")))
+    dir.parent()
+        .and_then(|p| find_lock_file(&p.join("Cargo.toml")))
 }
 
 /// Parse Cargo.lock content into a list of packages. Public for fuzzing.
-pub fn parse_cargo_lock(content: &str) -> Result<Vec<vlz_db::Package>, vlz_manifest_parser::ParserError> {
+pub fn parse_cargo_lock(
+    content: &str,
+) -> Result<Vec<vlz_db::Package>, vlz_manifest_parser::ParserError> {
     let value: toml::Value = toml::from_str(content).map_err(|e| {
-        vlz_manifest_parser::ParserError::Parse(format!("Cargo.lock parse error: {}", e))
+        vlz_manifest_parser::ParserError::Parse(format!(
+            "Cargo.lock parse error: {}",
+            e
+        ))
     })?;
 
     let mut packages = Vec::new();
     if let Some(arr) = value.get("package").and_then(|p| p.as_array()) {
         for entry in arr {
-            if let Some(tbl) = entry.as_table() {
-                if let Some(name) = tbl.get("name").and_then(|n| n.as_str()) {
-                    let version = tbl
-                        .get("version")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("any")
-                        .to_string();
-                    packages.push(vlz_db::Package {
-                        name: name.to_string(),
-                        version,
-                        ecosystem: Some("crates.io".to_string()),
-                    });
-                }
+            if let Some(tbl) = entry.as_table()
+                && let Some(name) = tbl.get("name").and_then(|n| n.as_str())
+            {
+                let version = tbl
+                    .get("version")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("any")
+                    .to_string();
+                packages.push(vlz_db::Package {
+                    name: name.to_string(),
+                    version,
+                    ecosystem: Some("crates.io".to_string()),
+                });
             }
         }
     }
@@ -87,16 +93,13 @@ impl Resolver for CargoResolver {
         &self,
         graph: &DependencyGraph,
     ) -> Result<Vec<vlz_db::Package>, ResolverError> {
-        if let Some(ref manifest_path) = graph.manifest_path {
-            if let Some(lock_path) = find_lock_file(manifest_path) {
-                if let Ok(content) = std::fs::read_to_string(&lock_path) {
-                    if let Ok(packages) = parse_cargo_lock(&content) {
-                        if !packages.is_empty() {
-                            return Ok(packages);
-                        }
-                    }
-                }
-            }
+        if let Some(ref manifest_path) = graph.manifest_path
+            && let Some(lock_path) = find_lock_file(manifest_path)
+            && let Ok(content) = std::fs::read_to_string(&lock_path)
+            && let Ok(packages) = parse_cargo_lock(&content)
+            && !packages.is_empty()
+        {
+            return Ok(packages);
         }
         Ok(graph.packages.clone())
     }
@@ -143,8 +146,16 @@ version = "1.0"
 "#;
         let packages = parse_cargo_lock(content).unwrap();
         assert_eq!(packages.len(), 2);
-        assert!(packages.iter().any(|p| p.name == "serde" && p.version == "1.0.0"));
-        assert!(packages.iter().any(|p| p.name == "tokio" && p.version == "1.0"));
+        assert!(
+            packages
+                .iter()
+                .any(|p| p.name == "serde" && p.version == "1.0.0")
+        );
+        assert!(
+            packages
+                .iter()
+                .any(|p| p.name == "tokio" && p.version == "1.0")
+        );
     }
 
     #[test]
@@ -152,7 +163,9 @@ version = "1.0"
         let hint = cargo_package_manager_hint();
         assert!(!hint.is_empty());
         assert!(
-            hint.contains("cargo") || hint.contains("Rust") || hint.contains("rustup"),
+            hint.contains("cargo")
+                || hint.contains("Rust")
+                || hint.contains("rustup"),
             "hint should mention cargo or Rust"
         );
     }
@@ -215,7 +228,11 @@ version = "1.0.2"
         let resolver = CargoResolver::new();
         let resolved = resolver.resolve(&graph).await.unwrap();
         assert_eq!(resolved.len(), 2);
-        assert!(resolved.iter().any(|p| p.name == "serde" && p.version == "1.0.2"));
+        assert!(
+            resolved
+                .iter()
+                .any(|p| p.name == "serde" && p.version == "1.0.2")
+        );
         assert!(resolved.iter().any(|p| p.name == "serde_derive"));
 
         let _ = std::fs::remove_dir_all(&tmp);
@@ -252,9 +269,11 @@ version = "1.0.2"
         std::fs::create_dir_all(tmp.join("crates/foo")).unwrap();
         std::fs::write(tmp.join("Cargo.toml"), "[package]\n").unwrap();
         std::fs::write(tmp.join("Cargo.lock"), "version = 3\n").unwrap();
-        std::fs::write(tmp.join("crates/foo/Cargo.toml"), "[package]\n").unwrap();
+        std::fs::write(tmp.join("crates/foo/Cargo.toml"), "[package]\n")
+            .unwrap();
 
-        let found = find_lock_file(tmp.join("crates/foo/Cargo.toml").as_path());
+        let found =
+            find_lock_file(tmp.join("crates/foo/Cargo.toml").as_path());
         assert_eq!(found.as_deref(), Some(tmp.join("Cargo.lock").as_path()));
 
         let _ = std::fs::remove_dir_all(&tmp);

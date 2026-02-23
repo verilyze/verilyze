@@ -9,5 +9,5 @@ mod parser;
 mod resolver;
 
 pub use finder::RustManifestFinder;
-pub use parser::{parse_cargo_toml, CargoTomlParser};
-pub use resolver::{find_lock_file, parse_cargo_lock, CargoResolver};
+pub use parser::{CargoTomlParser, parse_cargo_toml};
+pub use resolver::{CargoResolver, find_lock_file, parse_cargo_lock};

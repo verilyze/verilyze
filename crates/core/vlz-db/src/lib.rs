@@ -7,7 +7,16 @@
 use async_trait::async_trait;
 //use std::path::PathBuf;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    Default,
+)]
 pub struct Package {
     pub name: String,
     pub version: String,
@@ -17,18 +26,17 @@ pub struct Package {
     pub ecosystem: Option<String>,
 }
 
-impl Default for Package {
-    fn default() -> Self {
-        Self {
-            name: String::new(),
-            version: String::new(),
-            ecosystem: None,
-        }
-    }
-}
-
 /// CVSS version used for the primary score (FR-034).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum CvssVersion {
     V2,
@@ -37,7 +45,16 @@ pub enum CvssVersion {
 }
 
 /// Severity label for display in reports (FR-013). Derived from primary CVSS score + configurable thresholds.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum Severity {
     Critical,
@@ -168,7 +185,10 @@ pub trait DatabaseBackend: Send + Sync {
     /// List cache entries with key, TTL, added_at, and summary (FR-035).
     /// If `full` is true, entries include full CVE payload in `raw_vulns`.
     /// Default returns empty list for backends that do not support listing.
-    async fn list_entries(&self, full: bool) -> Result<Vec<CacheEntryInfo>, DatabaseError> {
+    async fn list_entries(
+        &self,
+        full: bool,
+    ) -> Result<Vec<CacheEntryInfo>, DatabaseError> {
         let _ = (self, full);
         Ok(vec![])
     }

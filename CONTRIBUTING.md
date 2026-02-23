@@ -128,6 +128,9 @@ runs fuzz first).
 | Full CI check         | `make check`          |
 | Quick build           | `make debug`          |
 | Run tests             | `make unit-tests`     |
+| Format Rust code      | `make fmt`            |
+| Verify Rust format    | `make fmt-check`      |
+| Run Clippy lints      | `make clippy`         |
 | Coverage (with fuzz)  | `make coverage`       |
 | Coverage (skip fuzz)  | `make coverage-quick` |
 | Fuzz smoke test       | `make fuzz`           |
@@ -357,10 +360,12 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
 ## Code style and checks
 
 - Run `make check` before submitting to verify headers, build, tests, and
-  linters (including `lint-python` and `lint-shell`).
+  linters (including `fmt-check`, `clippy`, `lint-python`, and `lint-shell`).
+  `make check` runs `fmt-check` and `clippy` automatically.
 - Follow the [Rust Style Guide](https://doc.rust-lang.org/beta/style-guide/index.html).
 - The codebase uses `#![deny(unsafe_code)]`.
-- Run `cargo fmt` and `cargo clippy` before submitting.
+- Run `make fmt` to auto-format Rust code; run `make clippy` to verify lints.
+  Both are included in `make check`; fix any failures before submitting.
 - Python scripts in `scripts/` follow PEP 8, use line length 79, and pass
   `make lint-python` (black, pylint, mypy, bandit). The Makefile auto-creates
   `.venv-lint` and installs the linters if they are not found.

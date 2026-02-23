@@ -6,8 +6,8 @@
 
 use async_trait::async_trait;
 use serde::Serialize;
-use vlz_db::{CveRecord, CvssVersion, Package, Severity};
 use std::io::Write;
+use vlz_db::{CveRecord, CvssVersion, Package, Severity};
 
 const DESCRIPTION_MAX_LEN: usize = 60;
 
@@ -32,21 +32,11 @@ impl Default for SeverityThresholds {
 }
 
 /// Severity mapping configuration: default thresholds per CVSS version (FR-013).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SeverityConfig {
     pub v2: SeverityThresholds,
     pub v3: SeverityThresholds,
     pub v4: SeverityThresholds,
-}
-
-impl Default for SeverityConfig {
-    fn default() -> Self {
-        Self {
-            v2: SeverityThresholds::default(),
-            v3: SeverityThresholds::default(),
-            v4: SeverityThresholds::default(),
-        }
-    }
 }
 
 /// Resolve severity from primary CVSS score and version using the given config.
@@ -154,7 +144,8 @@ impl Reporter for DefaultReporter {
             for (cve, severity) in recs {
                 let severity_display = severity.as_str();
                 let mut chars = cve.description.chars();
-                let truncated: String = chars.by_ref().take(DESCRIPTION_MAX_LEN).collect();
+                let truncated: String =
+                    chars.by_ref().take(DESCRIPTION_MAX_LEN).collect();
                 let had_more = chars.next().is_some();
                 let desc = truncated.trim().replace('\n', " ");
                 let desc_display = if had_more {
@@ -165,7 +156,11 @@ impl Reporter for DefaultReporter {
                 writeln!(
                     w,
                     "{} | {} | {} | {} | {}",
-                    pkg.name, pkg.version, cve.id, severity_display, desc_display
+                    pkg.name,
+                    pkg.version,
+                    cve.id,
+                    severity_display,
+                    desc_display
                 )?;
             }
         }
@@ -251,12 +246,18 @@ impl Reporter for HtmlReporter {
         data: &ReportData,
         w: &mut (dyn std::io::Write + Send),
     ) -> Result<(), ReportError> {
-        writeln!(w, "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>vlz report</title></head><body>")?;
+        writeln!(
+            w,
+            "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>vlz report</title></head><body>"
+        )?;
         writeln!(w, "<h1>Vulnerability report</h1>")?;
         if data.findings.is_empty() {
             writeln!(w, "<p>No vulnerabilities found.</p>")?;
         } else {
-            writeln!(w, "<table border=\"1\"><thead><tr><th>Package</th><th>Version</th><th>CVE ID</th><th>Severity</th><th>Description</th></tr></thead><tbody>")?;
+            writeln!(
+                w,
+                "<table border=\"1\"><thead><tr><th>Package</th><th>Version</th><th>CVE ID</th><th>Severity</th><th>Description</th></tr></thead><tbody>"
+            )?;
             for (pkg, recs) in &data.findings {
                 for (cve, severity) in recs {
                     let desc_escaped = html_escape(&cve.description);
@@ -395,7 +396,11 @@ fn secs_to_ymdhms(secs: u64) -> (u64, u64, u64, u64, u64, u64) {
 
 fn days_to_ymd(days: u64) -> (u64, u64, u64) {
     let mut d = days as i64 + 719468;
-    let era = if d >= 0 { d / 146097 } else { (d - 146096) / 146097 };
+    let era = if d >= 0 {
+        d / 146097
+    } else {
+        (d - 146096) / 146097
+    };
     d -= era * 146097;
     let doe = if d >= 0 { d } else { d + 146097 };
     let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
@@ -430,10 +435,7 @@ impl Reporter for CycloneDxReporter {
             .as_ref()
             .map(|v| v.iter().collect())
             .unwrap_or_else(|| {
-                data.findings
-                    .iter()
-                    .map(|(p, _)| p)
-                    .collect::<Vec<_>>()
+                data.findings.iter().map(|(p, _)| p).collect::<Vec<_>>()
             });
         let components: Vec<serde_json::Value> = packages
             .iter()
@@ -542,10 +544,7 @@ impl Reporter for SpdxReporter {
             .as_ref()
             .map(|v| v.iter().collect())
             .unwrap_or_else(|| {
-                data.findings
-                    .iter()
-                    .map(|(p, _)| p)
-                    .collect::<Vec<_>>()
+                data.findings.iter().map(|(p, _)| p).collect::<Vec<_>>()
             });
         let pkg_elements: Vec<serde_json::Value> = packages
             .iter()
@@ -594,10 +593,8 @@ impl Reporter for SpdxReporter {
                 })
             })
             .collect();
-        let elements: Vec<serde_json::Value> = pkg_elements
-            .into_iter()
-            .chain(vuln_elements.into_iter())
-            .collect();
+        let elements: Vec<serde_json::Value> =
+            pkg_elements.into_iter().chain(vuln_elements).collect();
         let doc_id = format!(
             "urn:spdx.dev:doc-{}",
             std::time::SystemTime::now()
@@ -764,13 +761,16 @@ mod tests {
             .await
             .unwrap();
         let out = String::from_utf8(buf).unwrap();
-        let parsed: serde_json::Value = serde_json::from_str(out.trim()).unwrap();
-        assert!(parsed
-            .get("findings")
-            .unwrap()
-            .as_array()
-            .unwrap()
-            .is_empty());
+        let parsed: serde_json::Value =
+            serde_json::from_str(out.trim()).unwrap();
+        assert!(
+            parsed
+                .get("findings")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[tokio::test]
@@ -782,7 +782,8 @@ mod tests {
             .await
             .unwrap();
         let out = String::from_utf8(buf).unwrap();
-        let parsed: serde_json::Value = serde_json::from_str(out.trim()).unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(out.trim()).unwrap();
         let findings = parsed.get("findings").unwrap().as_array().unwrap();
         assert_eq!(findings.len(), 1);
         assert_eq!(
@@ -834,7 +835,8 @@ mod tests {
         let out = String::from_utf8(buf).unwrap();
         assert!(out.contains("$schema"));
         assert!(out.contains("2.1.0"));
-        let parsed: serde_json::Value = serde_json::from_str(out.trim()).unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(out.trim()).unwrap();
         let runs = parsed.get("runs").unwrap().as_array().unwrap();
         let results = runs[0].get("results").unwrap().as_array().unwrap();
         assert_eq!(results.len(), 1);
@@ -851,16 +853,13 @@ mod tests {
             .await
             .unwrap();
         let parsed: serde_json::Value =
-            serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim())
+                .unwrap();
         assert!(parsed.get("$schema").is_some());
         assert_eq!(parsed.get("version").unwrap(), "2.1.0");
         let runs = parsed.get("runs").unwrap().as_array().unwrap();
         assert!(!runs.is_empty());
-        let driver = runs[0]
-            .get("tool")
-            .unwrap()
-            .get("driver")
-            .unwrap();
+        let driver = runs[0].get("tool").unwrap().get("driver").unwrap();
         assert!(driver.get("name").is_some());
         assert!(driver.get("rules").is_some());
     }
@@ -874,7 +873,8 @@ mod tests {
             .await
             .unwrap();
         let parsed: serde_json::Value =
-            serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim())
+                .unwrap();
         let rules = parsed
             .get("runs")
             .unwrap()
@@ -904,7 +904,8 @@ mod tests {
             .await
             .unwrap();
         let parsed: serde_json::Value =
-            serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim())
+                .unwrap();
         assert_eq!(parsed.get("bomFormat").unwrap(), "CycloneDX");
         assert_eq!(parsed.get("specVersion").unwrap(), "1.6");
         assert!(parsed.get("metadata").is_some());
@@ -921,7 +922,8 @@ mod tests {
             .await
             .unwrap();
         let parsed: serde_json::Value =
-            serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim())
+                .unwrap();
         let components = parsed.get("components").unwrap().as_array().unwrap();
         assert_eq!(components.len(), 2);
         let names: Vec<&str> = components
@@ -930,7 +932,14 @@ mod tests {
             .collect();
         assert!(names.contains(&"foo"));
         assert!(names.contains(&"bar"));
-        assert!(components[0].get("bom-ref").unwrap().as_str().unwrap().starts_with("pkg:pypi/"));
+        assert!(
+            components[0]
+                .get("bom-ref")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .starts_with("pkg:pypi/")
+        );
     }
 
     #[tokio::test]
@@ -942,16 +951,14 @@ mod tests {
             .await
             .unwrap();
         let parsed: serde_json::Value =
-            serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim())
+                .unwrap();
         let vulns = parsed.get("vulnerabilities").unwrap().as_array().unwrap();
         assert_eq!(vulns.len(), 1);
         assert_eq!(vulns[0].get("id").unwrap(), "CVE-2023-1234");
         let affects = vulns[0].get("affects").unwrap().as_array().unwrap();
         assert_eq!(affects.len(), 1);
-        assert_eq!(
-            affects[0].get("ref").unwrap(),
-            "pkg:pypi/foo@1.0"
-        );
+        assert_eq!(affects[0].get("ref").unwrap(), "pkg:pypi/foo@1.0");
     }
 
     #[tokio::test]
@@ -963,7 +970,8 @@ mod tests {
             .await
             .unwrap();
         let parsed: serde_json::Value =
-            serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim())
+                .unwrap();
         assert_eq!(parsed.get("bomFormat").unwrap(), "CycloneDX");
         assert_eq!(parsed.get("specVersion").unwrap(), "1.6");
         assert!(parsed.get("metadata").is_some());
@@ -983,7 +991,8 @@ mod tests {
             .await
             .unwrap();
         let parsed: serde_json::Value =
-            serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim())
+                .unwrap();
         assert!(parsed.get("@context").is_some());
         assert!(parsed.get("@type").is_some());
         assert_eq!(parsed.get("@type").unwrap(), "SpdxDocument");
@@ -1000,11 +1009,14 @@ mod tests {
             .await
             .unwrap();
         let parsed: serde_json::Value =
-            serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim())
+                .unwrap();
         let elements = parsed.get("element").unwrap().as_array().unwrap();
         let pkg_count = elements
             .iter()
-            .filter(|e| e.get("@type").and_then(|t| t.as_str()) == Some("Package"))
+            .filter(|e| {
+                e.get("@type").and_then(|t| t.as_str()) == Some("Package")
+            })
             .count();
         assert!(pkg_count >= 2);
     }
@@ -1018,11 +1030,15 @@ mod tests {
             .await
             .unwrap();
         let parsed: serde_json::Value =
-            serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim())
+                .unwrap();
         let elements = parsed.get("element").unwrap().as_array().unwrap();
         let vuln_count = elements
             .iter()
-            .filter(|e| e.get("@type").and_then(|t| t.as_str()) == Some("Vulnerability"))
+            .filter(|e| {
+                e.get("@type").and_then(|t| t.as_str())
+                    == Some("Vulnerability")
+            })
             .count();
         assert_eq!(vuln_count, 1);
         let rels = parsed.get("relationship").unwrap().as_array().unwrap();
@@ -1042,15 +1058,18 @@ mod tests {
             .await
             .unwrap();
         let parsed: serde_json::Value =
-            serde_json::from_str(String::from_utf8(buf).unwrap().trim()).unwrap();
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim())
+                .unwrap();
         let elements = parsed.get("element").unwrap().as_array().unwrap();
         let vuln = elements
             .iter()
-            .find(|e| e.get("@type").and_then(|t| t.as_str()) == Some("Vulnerability"))
+            .find(|e| {
+                e.get("@type").and_then(|t| t.as_str())
+                    == Some("Vulnerability")
+            })
             .unwrap();
         assert_eq!(
-            vuln
-                .get("externalIdentifier")
+            vuln.get("externalIdentifier")
                 .unwrap()
                 .get("identifier")
                 .unwrap(),

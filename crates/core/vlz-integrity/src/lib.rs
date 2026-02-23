@@ -19,7 +19,10 @@ pub enum IntegrityError {
 
 #[async_trait]
 pub trait IntegrityChecker: Send + Sync {
-    async fn verify(&self, db: &dyn DatabaseBackend) -> Result<(), IntegrityError>;
+    async fn verify(
+        &self,
+        db: &dyn DatabaseBackend,
+    ) -> Result<(), IntegrityError>;
 }
 
 /// Default checker that delegates to the backend's verify_integrity (e.g. SHA-256 for RedB).
@@ -34,10 +37,11 @@ impl BackendDelegatingChecker {
 
 #[async_trait]
 impl IntegrityChecker for BackendDelegatingChecker {
-    async fn verify(&self, db: &dyn DatabaseBackend) -> Result<(), IntegrityError> {
-        db.verify_integrity()
-            .await
-            .map_err(IntegrityError::Backend)
+    async fn verify(
+        &self,
+        db: &dyn DatabaseBackend,
+    ) -> Result<(), IntegrityError> {
+        db.verify_integrity().await.map_err(IntegrityError::Backend)
     }
 }
 
@@ -55,7 +59,11 @@ mod tests {
         async fn init(&self) -> Result<(), DatabaseError> {
             Ok(())
         }
-        async fn get(&self, _: &Package, _: &str) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
+        async fn get(
+            &self,
+            _: &Package,
+            _: &str,
+        ) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
             Ok(None)
         }
         async fn put(
@@ -82,7 +90,11 @@ mod tests {
         async fn init(&self) -> Result<(), DatabaseError> {
             Ok(())
         }
-        async fn get(&self, _: &Package, _: &str) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
+        async fn get(
+            &self,
+            _: &Package,
+            _: &str,
+        ) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
             Ok(None)
         }
         async fn put(
@@ -117,7 +129,12 @@ mod tests {
         assert!(r.is_err());
         let err = r.unwrap_err();
         assert!(err.to_string().contains("integrity"));
-        assert!(err.source().unwrap().to_string().contains("mock integrity failure"));
+        assert!(
+            err.source()
+                .unwrap()
+                .to_string()
+                .contains("mock integrity failure")
+        );
     }
 
     #[tokio::test]
@@ -149,7 +166,11 @@ mod tests {
         let _ = db.stats().await.unwrap();
         let r = db.verify_integrity().await;
         assert!(r.is_err());
-        assert!(r.unwrap_err().to_string().contains("mock integrity failure"));
+        assert!(
+            r.unwrap_err()
+                .to_string()
+                .contains("mock integrity failure")
+        );
     }
 
     #[test]
@@ -161,14 +182,20 @@ mod tests {
     #[test]
     fn integrity_error_backend_has_source() {
         use vlz_db::DatabaseError;
-        let db_err = DatabaseError::Other("mock integrity failure".to_string());
+        let db_err =
+            DatabaseError::Other("mock integrity failure".to_string());
         let e = IntegrityError::Backend(db_err);
         assert!(e.source().is_some());
-        assert!(e.source().unwrap().to_string().contains("mock integrity failure"));
+        assert!(
+            e.source()
+                .unwrap()
+                .to_string()
+                .contains("mock integrity failure")
+        );
     }
 
     #[test]
     fn backend_delegating_checker_default() {
-        let _ = BackendDelegatingChecker::default();
+        let _ = BackendDelegatingChecker;
     }
 }

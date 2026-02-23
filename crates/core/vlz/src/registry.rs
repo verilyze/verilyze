@@ -145,21 +145,26 @@ pub fn ensure_default_cve_provider() {
     {
         if !providers.iter().any(|p| p.name() == "nvd") {
             vlz_cve_provider_nvd::register_nvd_decoder();
-            providers.push(Box::new(vlz_cve_provider_nvd::NvdProvider::default()));
+            providers
+                .push(Box::new(vlz_cve_provider_nvd::NvdProvider::default()));
         }
     }
     #[cfg(feature = "github")]
     {
         if !providers.iter().any(|p| p.name() == "github") {
             vlz_cve_provider_github::register_github_decoder();
-            providers.push(Box::new(vlz_cve_provider_github::GitHubProvider::default()));
+            providers.push(Box::new(
+                vlz_cve_provider_github::GitHubProvider::default(),
+            ));
         }
     }
     #[cfg(feature = "sonatype")]
     {
         if !providers.iter().any(|p| p.name() == "sonatype") {
             vlz_cve_provider_sonatype::register_sonatype_decoder();
-            providers.push(Box::new(vlz_cve_provider_sonatype::SonatypeProvider::default()));
+            providers.push(Box::new(
+                vlz_cve_provider_sonatype::SonatypeProvider::default(),
+            ));
         }
     }
 }
@@ -185,7 +190,8 @@ pub fn ensure_default_integrity_checker() {
 // ---------------------------------------------------------------------
 
 pub fn finders() -> &'static Mutex<Vec<Box<dyn ManifestFinder>>> {
-    static FINDERS: OnceLock<Mutex<Vec<Box<dyn ManifestFinder>>>> = OnceLock::new();
+    static FINDERS: OnceLock<Mutex<Vec<Box<dyn ManifestFinder>>>> =
+        OnceLock::new();
     FINDERS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
@@ -195,27 +201,33 @@ pub fn parsers() -> &'static Mutex<Vec<Box<dyn Parser>>> {
 }
 
 pub fn resolvers() -> &'static Mutex<Vec<Box<dyn Resolver>>> {
-    static RESOLVERS: OnceLock<Mutex<Vec<Box<dyn Resolver>>>> = OnceLock::new();
+    static RESOLVERS: OnceLock<Mutex<Vec<Box<dyn Resolver>>>> =
+        OnceLock::new();
     RESOLVERS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
 pub fn providers() -> &'static Mutex<Vec<Box<dyn CveProvider>>> {
-    static PROVIDERS: OnceLock<Mutex<Vec<Box<dyn CveProvider>>>> = OnceLock::new();
+    static PROVIDERS: OnceLock<Mutex<Vec<Box<dyn CveProvider>>>> =
+        OnceLock::new();
     PROVIDERS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
 pub fn db_backends() -> &'static Mutex<Vec<Box<dyn DatabaseBackend>>> {
-    static DB_BACKENDS: OnceLock<Mutex<Vec<Box<dyn DatabaseBackend>>>> = OnceLock::new();
+    static DB_BACKENDS: OnceLock<Mutex<Vec<Box<dyn DatabaseBackend>>>> =
+        OnceLock::new();
     DB_BACKENDS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
 pub fn reporters() -> &'static Mutex<Vec<Box<dyn Reporter>>> {
-    static REPORTERS: OnceLock<Mutex<Vec<Box<dyn Reporter>>>> = OnceLock::new();
+    static REPORTERS: OnceLock<Mutex<Vec<Box<dyn Reporter>>>> =
+        OnceLock::new();
     REPORTERS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
 pub fn integrity_checkers() -> &'static Mutex<Vec<Box<dyn IntegrityChecker>>> {
-    static INTEGRITY_CHECKERS: OnceLock<Mutex<Vec<Box<dyn IntegrityChecker>>>> = OnceLock::new();
+    static INTEGRITY_CHECKERS: OnceLock<
+        Mutex<Vec<Box<dyn IntegrityChecker>>>,
+    > = OnceLock::new();
     INTEGRITY_CHECKERS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
@@ -291,7 +303,9 @@ mod tests {
         // 1) register(Plugin) pushes to the correct registry
         clear_finders();
         #[cfg(feature = "python")]
-        register(Plugin::ManifestFinder(Box::new(vlz_python::PythonManifestFinder::new())));
+        register(Plugin::ManifestFinder(Box::new(
+            vlz_python::PythonManifestFinder::new(),
+        )));
         #[cfg(not(feature = "python"))]
         {
             // When python is disabled, no finder to register; skip this assertion
@@ -301,13 +315,17 @@ mod tests {
 
         clear_parsers();
         #[cfg(feature = "python")]
-        register(Plugin::Parser(Box::new(vlz_python::RequirementsTxtParser::new())));
+        register(Plugin::Parser(Box::new(
+            vlz_python::RequirementsTxtParser::new(),
+        )));
         #[cfg(feature = "python")]
         assert_eq!(parsers().lock().unwrap().len(), 1);
 
         clear_resolvers();
         #[cfg(feature = "python")]
-        register(Plugin::Resolver(Box::new(vlz_python::DirectOnlyResolver::new())));
+        register(Plugin::Resolver(Box::new(
+            vlz_python::DirectOnlyResolver::new(),
+        )));
         #[cfg(feature = "python")]
         assert_eq!(resolvers().lock().unwrap().len(), 1);
 
@@ -320,7 +338,9 @@ mod tests {
         assert_eq!(reporters().lock().unwrap().len(), 1);
 
         clear_integrity_checkers();
-        register(Plugin::IntegrityChecker(Box::new(BackendDelegatingChecker::new())));
+        register(Plugin::IntegrityChecker(Box::new(
+            BackendDelegatingChecker::new(),
+        )));
         assert_eq!(integrity_checkers().lock().unwrap().len(), 1);
 
         #[cfg(feature = "redb")]
@@ -328,8 +348,8 @@ mod tests {
             clear_db_backends();
             let dir = tempfile::tempdir().unwrap();
             let path = dir.path().join("reg.redb");
-            let backend =
-                vlz_db_redb::RedbBackend::with_path(path, 3600).expect("RedbBackend::with_path");
+            let backend = vlz_db_redb::RedbBackend::with_path(path, 3600)
+                .expect("RedbBackend::with_path");
             register(Plugin::DatabaseBackend(Box::new(backend)));
             assert_eq!(db_backends().lock().unwrap().len(), 1);
         }
@@ -338,7 +358,11 @@ mod tests {
         #[cfg(any(feature = "python", feature = "rust"))]
         {
             let expected: usize =
-                if cfg!(all(feature = "python", feature = "rust")) { 2 } else { 1 };
+                if cfg!(all(feature = "python", feature = "rust")) {
+                    2
+                } else {
+                    1
+                };
 
             clear_finders();
             ensure_default_manifest_finder();
@@ -387,7 +411,8 @@ mod tests {
             clear_db_backends();
             let dir = tempfile::tempdir().unwrap();
             let path = dir.path().join("ensure.redb");
-            ensure_default_db_backend_with_path(path, 3600).expect("ensure_default_db_backend_with_path");
+            ensure_default_db_backend_with_path(path, 3600)
+                .expect("ensure_default_db_backend_with_path");
             assert!(!db_backends().lock().unwrap().is_empty());
         }
 

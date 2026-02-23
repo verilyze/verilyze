@@ -18,16 +18,10 @@ const PYTHON_MANIFEST_NAMES: &[&str] = &[
 
 /// Python manifest finder that discovers Python manifest files under a directory tree.
 /// When patterns are set (FR-006), file names are matched by regex in order; first match wins.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct PythonManifestFinder {
     /// When Some, use these regexes to match manifest file names; when None, use PYTHON_MANIFEST_NAMES.
     patterns: Option<Vec<regex::Regex>>,
-}
-
-impl Default for PythonManifestFinder {
-    fn default() -> Self {
-        Self { patterns: None }
-    }
 }
 
 impl PythonManifestFinder {
@@ -41,7 +35,10 @@ impl PythonManifestFinder {
     pub fn with_patterns(patterns: Vec<String>) -> Result<Self, FinderError> {
         let re: Result<Vec<_>, _> = patterns
             .into_iter()
-            .map(|s| regex::Regex::new(&s).map_err(|e| FinderError::Regex(e.to_string())))
+            .map(|s| {
+                regex::Regex::new(&s)
+                    .map_err(|e| FinderError::Regex(e.to_string()))
+            })
             .collect();
         Ok(Self {
             patterns: Some(re?),

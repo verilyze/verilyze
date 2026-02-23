@@ -8,7 +8,9 @@ use vlz_manifest_parser::ParserError;
 /// Supports PEP 621 [project].dependencies and [project].optional-dependencies
 /// and [tool.poetry.dependencies] for Poetry-style pyproject.toml.
 /// Public for fuzzing (NFR-020).
-pub fn parse_pyproject_toml(content: &str) -> Result<Vec<vlz_db::Package>, ParserError> {
+pub fn parse_pyproject_toml(
+    content: &str,
+) -> Result<Vec<vlz_db::Package>, ParserError> {
     let value: toml::Value = toml::from_str(content).map_err(|e| {
         ParserError::Parse(format!("pyproject.toml parse error: {}", e))
     })?;
@@ -17,25 +19,27 @@ pub fn parse_pyproject_toml(content: &str) -> Result<Vec<vlz_db::Package>, Parse
 
     // PEP 621: [project].dependencies
     if let Some(project) = value.get("project") {
-        if let Some(deps) = project.get("dependencies").and_then(|d| d.as_array()) {
+        if let Some(deps) =
+            project.get("dependencies").and_then(|d| d.as_array())
+        {
             for dep in deps {
-                if let Some(s) = dep.as_str() {
-                    if let Some(pkg) = parse_pep508_dependency(s) {
-                        packages.push(pkg);
-                    }
+                if let Some(s) = dep.as_str()
+                    && let Some(pkg) = parse_pep508_dependency(s)
+                {
+                    packages.push(pkg);
                 }
             }
         }
-        if let Some(opt) = project.get("optional-dependencies") {
-            if let Some(tbl) = opt.as_table() {
-                for deps in tbl.values() {
-                    if let Some(arr) = deps.as_array() {
-                        for dep in arr {
-                            if let Some(s) = dep.as_str() {
-                                if let Some(pkg) = parse_pep508_dependency(s) {
-                                    packages.push(pkg);
-                                }
-                            }
+        if let Some(opt) = project.get("optional-dependencies")
+            && let Some(tbl) = opt.as_table()
+        {
+            for deps in tbl.values() {
+                if let Some(arr) = deps.as_array() {
+                    for dep in arr {
+                        if let Some(s) = dep.as_str()
+                            && let Some(pkg) = parse_pep508_dependency(s)
+                        {
+                            packages.push(pkg);
                         }
                     }
                 }
@@ -44,35 +48,37 @@ pub fn parse_pyproject_toml(content: &str) -> Result<Vec<vlz_db::Package>, Parse
     }
 
     // Poetry: [tool.poetry.dependencies] - key is package name, value is version or table
-    if let Some(tool) = value.get("tool") {
-        if let Some(poetry) = tool.get("poetry") {
-            if let Some(deps) = poetry.get("dependencies").and_then(|d| d.as_table()) {
-                for (name, val) in deps {
-                    if name == "python" {
-                        continue;
-                    }
-                    if let Some(s) = val.as_str() {
-                        let version = extract_version_from_constraint(s);
-                        packages.push(vlz_db::Package {
-                            name: name.clone(),
-                            version,
-                            ecosystem: Some("PyPI".to_string()),
-                        });
-                    } else if let Some(tbl) = val.as_table() {
-                        if let Some(version) = tbl.get("version").and_then(|v| v.as_str()) {
-                            packages.push(vlz_db::Package {
-                                name: name.clone(),
-                                version: extract_version_from_constraint(version),
-                                ecosystem: Some("PyPI".to_string()),
-                            });
-                        } else {
-                            packages.push(vlz_db::Package {
-                                name: name.clone(),
-                                version: "any".to_string(),
-                                ecosystem: Some("PyPI".to_string()),
-                            });
-                        }
-                    }
+    if let Some(tool) = value.get("tool")
+        && let Some(poetry) = tool.get("poetry")
+        && let Some(deps) =
+            poetry.get("dependencies").and_then(|d| d.as_table())
+    {
+        for (name, val) in deps {
+            if name == "python" {
+                continue;
+            }
+            if let Some(s) = val.as_str() {
+                let version = extract_version_from_constraint(s);
+                packages.push(vlz_db::Package {
+                    name: name.clone(),
+                    version,
+                    ecosystem: Some("PyPI".to_string()),
+                });
+            } else if let Some(tbl) = val.as_table() {
+                if let Some(version) =
+                    tbl.get("version").and_then(|v| v.as_str())
+                {
+                    packages.push(vlz_db::Package {
+                        name: name.clone(),
+                        version: extract_version_from_constraint(version),
+                        ecosystem: Some("PyPI".to_string()),
+                    });
+                } else {
+                    packages.push(vlz_db::Package {
+                        name: name.clone(),
+                        version: "any".to_string(),
+                        ecosystem: Some("PyPI".to_string()),
+                    });
                 }
             }
         }
@@ -92,7 +98,13 @@ fn extract_version_from_constraint(s: &str) -> String {
     }
     for sep in ["==", ">=", "<=", "!=", ">", "<"] {
         if let Some((_, v)) = s.split_once(sep) {
-            return v.trim().split(',').next().unwrap_or("").trim().to_string();
+            return v
+                .trim()
+                .split(',')
+                .next()
+                .unwrap_or("")
+                .trim()
+                .to_string();
         }
     }
     s.to_string()
@@ -134,7 +146,8 @@ fn parse_name_version(spec: &str) -> Option<(String, String)> {
     }
     for sep in ["~=", ">=", "<=", "!=", ">", "<"] {
         if let Some((n, v)) = spec.split_once(sep) {
-            let version = v.trim().split(',').next().unwrap_or("").trim().to_string();
+            let version =
+                v.trim().split(',').next().unwrap_or("").trim().to_string();
             let version = if version.is_empty() {
                 "any".to_string()
             } else {
@@ -217,7 +230,8 @@ httpx = {version = ">=0.20"}
             packages.iter().map(|p| p.name.as_str()).collect();
         assert!(names.contains("requests"));
         assert!(names.contains("httpx"));
-        let pkg_requests = packages.iter().find(|p| p.name == "requests").unwrap();
+        let pkg_requests =
+            packages.iter().find(|p| p.name == "requests").unwrap();
         assert_eq!(pkg_requests.version, "2.28");
         let pkg_httpx = packages.iter().find(|p| p.name == "httpx").unwrap();
         assert_eq!(pkg_httpx.version, "0.20");

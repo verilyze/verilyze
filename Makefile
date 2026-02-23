@@ -20,6 +20,7 @@ VENV_TEST := $(MKFILE_DIR)/.venv-test
 .PHONY: setup setup-hooks check check-headers check-header-duplicates headers
 .PHONY: update-doc-diagrams check-doc-diagrams
 .PHONY: cargo-check cargo-test unit-tests test-scripts
+.PHONY: fmt fmt-check clippy
 .PHONY: lint-python lint-shell
 .PHONY: fuzz fuzz-changed fuzz-extended coverage coverage-quick
 .PHONY: clean distclean
@@ -48,6 +49,9 @@ help:
 	@echo "    make headers           - Add/update headers (mutates files)"
 	@echo "    make update-doc-diagrams - Embed Mermaid diagrams into README/CONTRIBUTING"
 	@echo "    make check-doc-diagrams  - Verify diagram content is in sync"
+	@echo "    make fmt-check      - Verify Rust formatting (cargo fmt --check)"
+	@echo "    make fmt           - Auto-format Rust code (cargo fmt)"
+	@echo "    make clippy        - Run Clippy lints (all-targets, all-features)"
 	@echo "    make lint-python   - black, pylint, mypy, bandit"
 	@echo "    make lint-shell    - ShellCheck (requires shellcheck)"
 	@echo ""
@@ -132,6 +136,18 @@ lint-python: $(VENV_LINT)/bin/black
 lint-shell:
 	shellcheck $(SCRIPTS_DIR)/*.sh
 
+# fmt-check: verify Rust formatting without changes (used by make check)
+fmt-check:
+	cd "$(MKFILE_DIR)" && cargo fmt --check
+
+# fmt: auto-format Rust code (run locally; CI uses fmt-check)
+fmt:
+	cd "$(MKFILE_DIR)" && cargo fmt
+
+# clippy: Rust linter; fail on all warnings (NFR-008)
+clippy:
+	cd "$(MKFILE_DIR)" && RUSTFLAGS="-Dwarnings" cargo clippy --all-targets --all-features
+
 # ---- Advanced (fuzz, coverage) ----
 # fuzz: AFL smoke test (NFR-020, SEC-017). Requires cargo-afl and AFL++.
 fuzz:
@@ -164,7 +180,7 @@ check-doc-diagrams:
 
 # ---- Check (full CI gate) ----
 # check: full pre-commit/CI gate (NFR-021, NFR-022, DOC-007)
-check: check-headers check-doc-diagrams cargo-check unit-tests lint-python lint-shell
+check: check-headers check-doc-diagrams cargo-check fmt-check clippy unit-tests lint-python lint-shell
 
 # ---- Clean ----
 clean:
