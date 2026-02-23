@@ -7,7 +7,8 @@ use std::process::{Command, Stdio};
 
 /// Path to the vlz binary (set by Cargo when running tests).
 fn vlz_exe() -> String {
-    std::env::var("CARGO_BIN_EXE_spd").expect("CARGO_BIN_EXE_spd must be set when running tests")
+    std::env::var("CARGO_BIN_EXE_spd")
+        .expect("CARGO_BIN_EXE_spd must be set when running tests")
 }
 
 fn vlz_exe_exists() -> bool {
@@ -334,11 +335,7 @@ fn config_invalid_file_exits_2() {
             .env("XDG_CONFIG_HOME", p)
             .output()
             .expect("run vlz");
-        assert_eq!(
-            out.status.code(),
-            Some(2),
-            "invalid config should exit 2"
-        );
+        assert_eq!(out.status.code(), Some(2), "invalid config should exit 2");
     });
 }
 

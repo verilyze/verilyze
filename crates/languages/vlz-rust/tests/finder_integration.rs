@@ -26,7 +26,10 @@ async fn find_cargo_toml_in_tree() {
     let finder = RustManifestFinder::new();
     let mut got = finder.find(&tmp).await.unwrap();
     got.sort();
-    let mut want = vec![tmp.join("Cargo.toml"), tmp.join("crates").join("foo").join("Cargo.toml")];
+    let mut want = vec![
+        tmp.join("Cargo.toml"),
+        tmp.join("crates").join("foo").join("Cargo.toml"),
+    ];
     want.sort();
     assert_eq!(got, want);
 
@@ -35,17 +38,20 @@ async fn find_cargo_toml_in_tree() {
 
 #[tokio::test]
 async fn with_patterns_only_matches_regex_fr006() {
-    let tmp = std::env::temp_dir().join("vlz_rust_finder_regex_integration_test");
+    let tmp =
+        std::env::temp_dir().join("vlz_rust_finder_regex_integration_test");
     let _ = fs::remove_dir_all(&tmp);
     fs::create_dir_all(tmp.join("sub")).unwrap();
     fs::File::create(tmp.join("Cargo.toml")).unwrap();
     fs::File::create(tmp.join("sub").join("Cargo.toml")).unwrap();
 
     let finder =
-        RustManifestFinder::with_patterns(vec![r"^Cargo\.toml$".to_string()]).unwrap();
+        RustManifestFinder::with_patterns(vec![r"^Cargo\.toml$".to_string()])
+            .unwrap();
     let mut got = finder.find(&tmp).await.unwrap();
     got.sort();
-    let mut want = vec![tmp.join("Cargo.toml"), tmp.join("sub").join("Cargo.toml")];
+    let mut want =
+        vec![tmp.join("Cargo.toml"), tmp.join("sub").join("Cargo.toml")];
     want.sort();
     assert_eq!(got, want);
 

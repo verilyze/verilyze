@@ -3,15 +3,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use async_trait::async_trait;
-use std::path::PathBuf;
+use std::path::Path;
 
 use vlz_manifest_parser::{DependencyGraph, Parser, ParserError};
 
 /// Parse Cargo.toml content into a list of packages from [dependencies],
 /// [dev-dependencies], and [build-dependencies]. Public for fuzzing (NFR-020).
-pub fn parse_cargo_toml(content: &str) -> Result<Vec<vlz_db::Package>, ParserError> {
-    let value: toml::Value = toml::from_str(content)
-        .map_err(|e| ParserError::Parse(format!("Cargo.toml parse error: {}", e)))?;
+pub fn parse_cargo_toml(
+    content: &str,
+) -> Result<Vec<vlz_db::Package>, ParserError> {
+    let value: toml::Value = toml::from_str(content).map_err(|e| {
+        ParserError::Parse(format!("Cargo.toml parse error: {}", e))
+    })?;
 
     let mut packages = Vec::new();
 
@@ -29,7 +32,10 @@ pub fn parse_cargo_toml(content: &str) -> Result<Vec<vlz_db::Package>, ParserErr
 }
 
 /// Parse a single dependency entry (string or table format).
-fn parse_dependency_entry(name: &str, val: &toml::Value) -> Option<vlz_db::Package> {
+fn parse_dependency_entry(
+    name: &str,
+    val: &toml::Value,
+) -> Option<vlz_db::Package> {
     if let Some(s) = val.as_str() {
         let version = extract_version_from_req(s);
         return Some(vlz_db::Package {
@@ -71,7 +77,13 @@ fn extract_version_from_req(req: &str) -> String {
     }
     for prefix in [">=", "<=", ">", "<", "~", "^"] {
         if let Some((_, v)) = req.split_once(prefix) {
-            let v = v.trim().trim_matches('"').split(',').next().unwrap_or("").trim();
+            let v = v
+                .trim()
+                .trim_matches('"')
+                .split(',')
+                .next()
+                .unwrap_or("")
+                .trim();
             return if v.is_empty() {
                 "any".to_string()
             } else {
@@ -98,28 +110,34 @@ impl CargoTomlParser {
 
 #[async_trait]
 impl Parser for CargoTomlParser {
-    async fn parse(&self, manifest: &PathBuf) -> Result<DependencyGraph, ParserError> {
+    async fn parse(
+        &self,
+        manifest: &Path,
+    ) -> Result<DependencyGraph, ParserError> {
         let content = std::fs::read_to_string(manifest)?;
-        let value: toml::Value = toml::from_str(&content)
-            .map_err(|e| ParserError::Parse(format!("Cargo.toml parse error: {}", e)))?;
+        let value: toml::Value = toml::from_str(&content).map_err(|e| {
+            ParserError::Parse(format!("Cargo.toml parse error: {}", e))
+        })?;
 
         let mut packages = parse_cargo_toml(&content)?;
 
-        if let Some(workspace) = value.get("workspace") {
-            if let Some(members) = workspace.get("members").and_then(|m| m.as_array()) {
-                let manifest_dir = manifest
-                    .parent()
-                    .ok_or_else(|| ParserError::Other("manifest has no parent".to_string()))?;
-                let member_paths = expand_workspace_members(manifest_dir, members);
-                for member_manifest in member_paths {
-                    if let Ok(c) = std::fs::read_to_string(&member_manifest) {
-                        if let Ok(member_packages) = parse_cargo_toml(&c) {
-                            for p in member_packages {
-                                if !packages.iter().any(|x| x.name == p.name && x.version == p.version)
-                                {
-                                    packages.push(p);
-                                }
-                            }
+        if let Some(workspace) = value.get("workspace")
+            && let Some(members) =
+                workspace.get("members").and_then(|m| m.as_array())
+        {
+            let manifest_dir = manifest.parent().ok_or_else(|| {
+                ParserError::Other("manifest has no parent".to_string())
+            })?;
+            let member_paths = expand_workspace_members(manifest_dir, members);
+            for member_manifest in member_paths {
+                if let Ok(c) = std::fs::read_to_string(&member_manifest)
+                    && let Ok(member_packages) = parse_cargo_toml(&c)
+                {
+                    for p in member_packages {
+                        if !packages.iter().any(|x| {
+                            x.name == p.name && x.version == p.version
+                        }) {
+                            packages.push(p);
                         }
                     }
                 }
@@ -128,7 +146,7 @@ impl Parser for CargoTomlParser {
 
         Ok(DependencyGraph {
             packages,
-            manifest_path: Some(manifest.clone()),
+            manifest_path: Some(manifest.to_path_buf()),
         })
     }
 }
@@ -146,7 +164,10 @@ fn expand_workspace_members(
             None => continue,
         };
         let pattern = manifest_dir.join(s);
-        if pattern.exists() && pattern.is_dir() && pattern.join("Cargo.toml").exists() {
+        if pattern.exists()
+            && pattern.is_dir()
+            && pattern.join("Cargo.toml").exists()
+        {
             result.push(pattern.join("Cargo.toml"));
         } else if s.contains('*') {
             let (prefix, _suffix) = s.split_once('*').unwrap_or((s, ""));
@@ -182,8 +203,16 @@ clap = ">= 4.0"
 "#;
         let packages = parse_cargo_toml(content).unwrap();
         assert_eq!(packages.len(), 3);
-        assert!(packages.iter().any(|p| p.name == "serde" && p.version == "1.0"));
-        assert!(packages.iter().any(|p| p.name == "tokio" && p.version == "1.0"));
+        assert!(
+            packages
+                .iter()
+                .any(|p| p.name == "serde" && p.version == "1.0")
+        );
+        assert!(
+            packages
+                .iter()
+                .any(|p| p.name == "tokio" && p.version == "1.0")
+        );
         assert!(packages.iter().any(|p| p.name == "clap"));
     }
 
@@ -227,9 +256,21 @@ tabled = { version = "1.0" }
 "#;
         let packages = parse_cargo_toml(content).unwrap();
         assert_eq!(packages.len(), 3);
-        assert!(packages.iter().any(|p| p.name == "local" && p.version == "any"));
-        assert!(packages.iter().any(|p| p.name == "gitdep" && p.version == "any"));
-        assert!(packages.iter().any(|p| p.name == "tabled" && p.version == "1.0"));
+        assert!(
+            packages
+                .iter()
+                .any(|p| p.name == "local" && p.version == "any")
+        );
+        assert!(
+            packages
+                .iter()
+                .any(|p| p.name == "gitdep" && p.version == "any")
+        );
+        assert!(
+            packages
+                .iter()
+                .any(|p| p.name == "tabled" && p.version == "1.0")
+        );
     }
 
     #[test]
@@ -273,7 +314,9 @@ no_version = {}
     #[tokio::test]
     async fn cargo_toml_parser_nonexistent_manifest_returns_error() {
         let parser = CargoTomlParser::new();
-        let result = parser.parse(&std::path::PathBuf::from("/nonexistent/path/Cargo.toml")).await;
+        let result = parser
+            .parse(&std::path::PathBuf::from("/nonexistent/path/Cargo.toml"))
+            .await;
         assert!(result.is_err());
     }
 

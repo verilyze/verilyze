@@ -59,16 +59,14 @@ impl Resolver for DirectOnlyResolver {
         &self,
         graph: &DependencyGraph,
     ) -> Result<Vec<vlz_db::Package>, ResolverError> {
-        if let Some(ref manifest_path) = graph.manifest_path {
-            if let Some(lock_path) = find_lock_file(manifest_path) {
-                if let Ok(content) = std::fs::read_to_string(&lock_path) {
-                    if let Ok(packages) = parse_lock_file(lock_path.as_path(), &content) {
-                        if !packages.is_empty() {
-                            return Ok(packages);
-                        }
-                    }
-                }
-            }
+        if let Some(ref manifest_path) = graph.manifest_path
+            && let Some(lock_path) = find_lock_file(manifest_path)
+            && let Ok(content) = std::fs::read_to_string(&lock_path)
+            && let Ok(packages) =
+                parse_lock_file(lock_path.as_path(), &content)
+            && !packages.is_empty()
+        {
+            return Ok(packages);
         }
         Ok(graph.packages.clone())
     }

@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use anyhow::{anyhow, Context, Result};
-use log::{error, info, LevelFilter};
+use anyhow::{Context, Result, anyhow};
+use log::{LevelFilter, error, info};
 use std::io::Write;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
@@ -21,10 +21,10 @@ pub fn write_all_to<W: Write>(w: &mut W, s: &str) -> std::io::Result<()> {
 /// True if the error chain contains an I/O BrokenPipe.
 pub fn is_broken_pipe(e: &anyhow::Error) -> bool {
     for cause in e.chain() {
-        if let Some(io) = cause.downcast_ref::<std::io::Error>() {
-            if io.kind() == std::io::ErrorKind::BrokenPipe {
-                return true;
-            }
+        if let Some(io) = cause.downcast_ref::<std::io::Error>()
+            && io.kind() == std::io::ErrorKind::BrokenPipe
+        {
+            return true;
         }
     }
     false
@@ -58,7 +58,10 @@ pub fn entry_key_matches_pattern(key: &str, pattern: &str) -> bool {
 }
 
 /// True if CVE meets min_score threshold (FR-014). When cvss_score is None, passes only if min_score <= 0.
-pub fn cve_meets_score_threshold(cvss_score: Option<f32>, min_score: f32) -> bool {
+pub fn cve_meets_score_threshold(
+    cvss_score: Option<f32>,
+    min_score: f32,
+) -> bool {
     cvss_score
         .map(|s| s >= min_score)
         .unwrap_or(min_score <= 0.0)
@@ -155,16 +158,20 @@ pub async fn run(args: Cli) -> Result<i32> {
     // -----------------------------------------------------------------
     #[cfg(feature = "redb")]
     {
-        if let Some(parent) = cache_path.parent() {
-            if !parent.exists() {
-                std::fs::create_dir_all(parent).context("Creating cache directory")?;
-            }
+        if let Some(parent) = cache_path.parent()
+            && !parent.exists()
+        {
+            std::fs::create_dir_all(parent)
+                .context("Creating cache directory")?;
         }
-        crate::registry::ensure_default_db_backend_with_path(cache_path, early_cfg.cache_ttl_secs)
-            .map_err(|e| {
-                error!("Failed to open cache database: {}", e);
-                anyhow!("Failed to open cache database: {}", e)
-            })?;
+        crate::registry::ensure_default_db_backend_with_path(
+            cache_path,
+            early_cfg.cache_ttl_secs,
+        )
+        .map_err(|e| {
+            error!("Failed to open cache database: {}", e);
+            anyhow!("Failed to open cache database: {}", e)
+        })?;
         if args.verbose > 0 {
             info!("Cache TTL: {} s", early_cfg.cache_ttl_secs);
         }
@@ -182,9 +189,12 @@ pub async fn run(args: Cli) -> Result<i32> {
             .expect("DB_BACKENDS lock poisoned");
         if backends.is_empty() {
             error!("No DatabaseBackend implementation was registered.");
-            return Err(anyhow!("No DatabaseBackend implementation was registered."));
+            return Err(anyhow!(
+                "No DatabaseBackend implementation was registered."
+            ));
         }
-        let backend: Box<dyn vlz_db::DatabaseBackend + Send + Sync + 'static> = backends.remove(0);
+        let backend: Box<dyn vlz_db::DatabaseBackend + Send + Sync + 'static> =
+            backends.remove(0);
         Arc::new(backend)
     };
 
@@ -259,7 +269,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                 db_backend,
             )
             .await?;
-            return Ok(code);
+            Ok(code)
         }
 
         Commands::List => {
@@ -275,16 +285,22 @@ pub async fn run(args: Cli) -> Result<i32> {
             for lang in languages {
                 write_stdout(&format!("{}\n", lang));
             }
-            return Ok(0);
+            Ok(0)
         }
 
         Commands::Config { list, set } => {
             if let Some(pair) = set {
-                let (key, value) = match crate::cli::parse_config_set_arg(pair.as_str()) {
+                let (key, value) = match crate::cli::parse_config_set_arg(
+                    pair.as_str(),
+                ) {
                     Some((k, v)) => (k, v),
                     None => {
-                        error!("Invalid --set argument; use KEY=VALUE (e.g. python.regex=\"^requirements\\.txt$\")");
-                        return Err(anyhow!("Invalid --set argument; use KEY=VALUE"));
+                        error!(
+                            "Invalid --set argument; use KEY=VALUE (e.g. python.regex=\"^requirements\\.txt$\")"
+                        );
+                        return Err(anyhow!(
+                            "Invalid --set argument; use KEY=VALUE"
+                        ));
                     }
                 };
                 if let Err(e) = crate::config::set_config_key(key, value) {
@@ -323,18 +339,30 @@ pub async fn run(args: Cli) -> Result<i32> {
                     None,
                 )
                 .unwrap_or_default();
-                write_stdout(&format!("parallel_queries = {}\n", cfg.parallel_queries));
-                write_stdout(&format!("cache_ttl_secs = {}\n", cfg.cache_ttl_secs));
+                write_stdout(&format!(
+                    "parallel_queries = {}\n",
+                    cfg.parallel_queries
+                ));
+                write_stdout(&format!(
+                    "cache_ttl_secs = {}\n",
+                    cfg.cache_ttl_secs
+                ));
                 write_stdout(&format!("min_score = {}\n", cfg.min_score));
                 write_stdout(&format!("min_count = {}\n", cfg.min_count));
-                write_stdout(&format!("backoff_base_ms = {}\n", cfg.backoff_base_ms));
-                write_stdout(&format!("backoff_max_ms = {}\n", cfg.backoff_max_ms));
+                write_stdout(&format!(
+                    "backoff_base_ms = {}\n",
+                    cfg.backoff_base_ms
+                ));
+                write_stdout(&format!(
+                    "backoff_max_ms = {}\n",
+                    cfg.backoff_max_ms
+                ));
                 write_stdout(&format!("max_retries = {}\n", cfg.max_retries));
                 for (lang, re) in &cfg.language_regexes {
                     write_stdout(&format!("{}.regex = {}\n", lang, re));
                 }
             }
-            return Ok(0);
+            Ok(0)
         }
 
         Commands::Db { sub, .. } => match sub {
@@ -345,7 +373,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                 for p in providers.iter() {
                     write_stdout(&format!("{}\n", p.name()));
                 }
-                return Ok(0);
+                Ok(0)
             }
             crate::cli::DbCommands::Stats => {
                 let stats = db_backend.stats().await?;
@@ -353,7 +381,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                     "Cache entries: {}, hits: {}, misses: {}\n",
                     stats.cached_entries, stats.hits, stats.misses
                 ));
-                return Ok(0);
+                Ok(0)
             }
             crate::cli::DbCommands::Verify => {
                 let checker = {
@@ -367,7 +395,9 @@ pub async fn run(args: Cli) -> Result<i32> {
                     }
                 };
                 if let Some(c) = checker {
-                    if let Err(e) = c.verify(db_backend.as_ref().as_ref()).await {
+                    if let Err(e) =
+                        c.verify(db_backend.as_ref().as_ref()).await
+                    {
                         error!("{}", e);
                         return Ok(1); // FR-033: exit 1 on verify failure
                     }
@@ -380,26 +410,34 @@ pub async fn run(args: Cli) -> Result<i32> {
                     return Ok(1); // FR-033: exit 1 on verify failure
                 }
                 write_stdout("Database integrity verified (SHA-256)\n"); // FR-033
-                return Ok(0);
+                Ok(0)
             }
             crate::cli::DbCommands::Migrate => {
                 write_stdout("Database migration completed (nothing to do)\n");
-                return Ok(0);
+                Ok(0)
             }
             crate::cli::DbCommands::Show { format, full } => {
                 let entries = db_backend.list_entries(full).await?;
                 if format.as_deref() == Some("json") {
-                    write_stdout(&serde_json::to_string_pretty(&entries).unwrap());
+                    write_stdout(
+                        &serde_json::to_string_pretty(&entries).unwrap(),
+                    );
                     write_stdout("\n");
                 } else {
                     for e in &entries {
                         write_stdout(&format!(
                             "{}  ttl={}s  added_at={}  cve_count={}  \
                              cve_ids={:?}\n",
-                            e.key, e.ttl_secs, e.added_at_secs, e.cve_count, e.cve_ids
+                            e.key,
+                            e.ttl_secs,
+                            e.added_at_secs,
+                            e.cve_count,
+                            e.cve_ids
                         ));
                         if let Some(ref raw) = e.raw_vulns {
-                            write_stdout(&serde_json::to_string_pretty(raw).unwrap());
+                            write_stdout(
+                                &serde_json::to_string_pretty(raw).unwrap(),
+                            );
                             write_stdout("\n");
                         }
                     }
@@ -407,7 +445,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                         write_stdout("(no cache entries)\n");
                     }
                 }
-                return Ok(0);
+                Ok(0)
             }
             crate::cli::DbCommands::SetTtl {
                 secs,
@@ -432,9 +470,15 @@ pub async fn run(args: Cli) -> Result<i32> {
                             .collect(),
                     )
                 } else if let Some(keys) = entries_arg {
-                    TtlSelector::Multiple(keys.split(',').map(|s| s.trim().to_string()).collect())
+                    TtlSelector::Multiple(
+                        keys.split(',')
+                            .map(|s| s.trim().to_string())
+                            .collect(),
+                    )
                 } else {
-                    error!("set-ttl requires one of: --entry KEY, --all, --pattern PATTERN, --entries KEY1,KEY2");
+                    error!(
+                        "set-ttl requires one of: --entry KEY, --all, --pattern PATTERN, --entries KEY1,KEY2"
+                    );
                     return Err(anyhow!(
                         "set-ttl requires one of: --entry, --all, --pattern, --entries"
                     ));
@@ -444,7 +488,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                     anyhow!(e)
                 })?;
                 write_stdout("TTL updated.\n");
-                return Ok(0);
+                Ok(0)
             }
         },
 
@@ -455,10 +499,11 @@ pub async fn run(args: Cli) -> Result<i32> {
                 .unwrap_or_else(crate::config::default_ignore_path);
             #[cfg(feature = "redb")]
             {
-                let fp_db = vlz_db_redb::RedbIgnoreDb::with_path(ignore_path).map_err(|e| {
-                    error!("Failed to open ignore database: {}", e);
-                    anyhow!("Failed to open ignore database: {}", e)
-                })?;
+                let fp_db = vlz_db_redb::RedbIgnoreDb::with_path(ignore_path)
+                    .map_err(|e| {
+                        error!("Failed to open ignore database: {}", e);
+                        anyhow!("Failed to open ignore database: {}", e)
+                    })?;
                 match sub {
                     FpCommands::Mark {
                         cve_id,
@@ -468,10 +513,13 @@ pub async fn run(args: Cli) -> Result<i32> {
                         fp_db
                             .mark(&cve_id, &comment, project_id.as_deref())
                             .map_err(|e| {
-                                error!("Failed to mark false positive: {}", e);
-                                anyhow!(e)
-                            })?;
-                        write_stdout(&format!("Marked {} as false positive\n", cve_id));
+                            error!("Failed to mark false positive: {}", e);
+                            anyhow!(e)
+                        })?;
+                        write_stdout(&format!(
+                            "Marked {} as false positive\n",
+                            cve_id
+                        ));
                     }
                     FpCommands::Unmark { cve_id } => {
                         fp_db.unmark(&cve_id).map_err(|e| {
@@ -481,7 +529,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                         write_stdout(&format!("Unmarked {}\n", cve_id));
                     }
                 }
-                return Ok(0);
+                Ok(0)
             }
             #[cfg(not(feature = "redb"))]
             {
@@ -495,12 +543,12 @@ pub async fn run(args: Cli) -> Result<i32> {
             write_stdout(
                 "vlz preload is a placeholder; cache is populated on demand during scan.\n",
             );
-            return Ok(0);
+            Ok(0)
         }
 
         Commands::Version => {
             write_stdout(&format!("verilyze {}\n", env!("CARGO_PKG_VERSION")));
-            return Ok(0);
+            Ok(0)
         }
     }
 }
@@ -520,7 +568,8 @@ async fn run_scan(
     // -----------------------------------------------------------------
     let root_path = match root {
         Some(p) => std::path::PathBuf::from(p),
-        None => std::env::current_dir().context("Unable to obtain current directory")?,
+        None => std::env::current_dir()
+            .context("Unable to obtain current directory")?,
     };
     info!("Scanning root: {}", root_path.display());
 
@@ -550,14 +599,20 @@ async fn run_scan(
             .iter()
             .map(|(_, r)| r.clone())
             .collect();
-        let first_lang = effective.language_regexes.first().map(|(l, _)| l.as_str());
+        let first_lang =
+            effective.language_regexes.first().map(|(l, _)| l.as_str());
         #[cfg(feature = "python")]
         if first_lang != Some("rust") {
-            match vlz_python::PythonManifestFinder::with_patterns(patterns.clone()) {
+            match vlz_python::PythonManifestFinder::with_patterns(
+                patterns.clone(),
+            ) {
                 Ok(f) => finders.push(Box::new(f)),
                 Err(e) => {
                     error!("Invalid language regex in config: {}", e);
-                    return Err(anyhow!("Invalid language regex in config: {}", e));
+                    return Err(anyhow!(
+                        "Invalid language regex in config: {}",
+                        e
+                    ));
                 }
             }
         }
@@ -567,14 +622,21 @@ async fn run_scan(
                 Ok(f) => finders.push(Box::new(f)),
                 Err(e) => {
                     error!("Invalid language regex in config: {}", e);
-                    return Err(anyhow!("Invalid language regex in config: {}", e));
+                    return Err(anyhow!(
+                        "Invalid language regex in config: {}",
+                        e
+                    ));
                 }
             }
         }
         #[cfg(not(any(feature = "python", feature = "rust")))]
         {
-            error!("Custom language regexes require a language plugin (e.g. python or rust feature)");
-            return Err(anyhow!("Custom language regexes require a language plugin"));
+            error!(
+                "Custom language regexes require a language plugin (e.g. python or rust feature)"
+            );
+            return Err(anyhow!(
+                "Custom language regexes require a language plugin"
+            ));
         }
         let mut p = crate::registry::parsers().lock().unwrap();
         let mut r = crate::registry::resolvers().lock().unwrap();
@@ -597,18 +659,20 @@ async fn run_scan(
     // b2) FR-024: if package manager required, check resolvers and exit 3 with hint if missing
     // -----------------------------------------------------------------
     if effective.package_manager_required {
-        for i in 0..n {
-            if !resolvers[i].package_manager_available() {
+        for r in resolvers.iter().take(n) {
+            if !r.package_manager_available() {
                 eprintln!(
                     "Required package manager not found on PATH. {}",
-                    resolvers[i].package_manager_hint()
+                    r.package_manager_hint()
                 );
                 return Ok(3);
             }
         }
     }
 
-    let provider_impl: Arc<Box<dyn vlz_cve_client::CveProvider + Send + Sync + 'static>> = {
+    let provider_impl: Arc<
+        Box<dyn vlz_cve_client::CveProvider + Send + Sync + 'static>,
+    > = {
         let mut prov = crate::registry::providers()
             .lock()
             .expect("PROVIDERS lock poisoned");
@@ -639,28 +703,30 @@ async fn run_scan(
             max_ms: effective.backoff_max_ms,
             max_retries: effective.max_retries,
         };
-        let wrapped = vlz_cve_client::RetryingCveProvider::new(inner, backoff_config);
+        let wrapped =
+            vlz_cve_client::RetryingCveProvider::new(inner, backoff_config);
         Arc::new(Box::new(wrapped))
     };
 
-    let reporter: Box<dyn vlz_report::Reporter> = if format.eq_ignore_ascii_case("json") {
-        Box::new(vlz_report::JsonReporter::new())
-    } else if format.eq_ignore_ascii_case("sarif") {
-        Box::new(vlz_report::SarifReporter::new())
-    } else if format.eq_ignore_ascii_case("cyclonedx") {
-        Box::new(vlz_report::CycloneDxReporter::new())
-    } else if format.eq_ignore_ascii_case("spdx") {
-        Box::new(vlz_report::SpdxReporter::new())
-    } else {
-        let mut r = crate::registry::reporters()
-            .lock()
-            .expect("REPORTERS lock poisoned");
-        if r.is_empty() {
-            error!("No Reporter plug-in registered");
-            return Err(anyhow!("No Reporter plug-in registered"));
-        }
-        r.remove(0)
-    };
+    let reporter: Box<dyn vlz_report::Reporter> =
+        if format.eq_ignore_ascii_case("json") {
+            Box::new(vlz_report::JsonReporter::new())
+        } else if format.eq_ignore_ascii_case("sarif") {
+            Box::new(vlz_report::SarifReporter::new())
+        } else if format.eq_ignore_ascii_case("cyclonedx") {
+            Box::new(vlz_report::CycloneDxReporter::new())
+        } else if format.eq_ignore_ascii_case("spdx") {
+            Box::new(vlz_report::SpdxReporter::new())
+        } else {
+            let mut r = crate::registry::reporters()
+                .lock()
+                .expect("REPORTERS lock poisoned");
+            if r.is_empty() {
+                error!("No Reporter plug-in registered");
+                return Err(anyhow!("No Reporter plug-in registered"));
+            }
+            r.remove(0)
+        };
 
     // -----------------------------------------------------------------
     // c) Adjust mode flags (offline / benchmark)
@@ -691,16 +757,19 @@ async fn run_scan(
                 .parse(&mf)
                 .await
                 .with_context(|| format!("Parsing manifest {:?}", mf))?;
-            let resolved = resolvers[i]
-                .resolve(&graph)
-                .await
-                .with_context(|| format!("Resolving dependencies for {:?}", mf))?;
+            let resolved =
+                resolvers[i].resolve(&graph).await.with_context(|| {
+                    format!("Resolving dependencies for {:?}", mf)
+                })?;
             all_packages.extend(resolved);
         }
     }
     info!("Discovered {} package entries", all_packages.len());
     let packages_to_check = deduplicate_packages(&all_packages);
-    info!("Checking {} unique packages for CVEs", packages_to_check.len());
+    info!(
+        "Checking {} unique packages for CVEs",
+        packages_to_check.len()
+    );
 
     // -----------------------------------------------------------------
     // f) For each package: try cache -> (optional) network -> store
@@ -729,15 +798,16 @@ async fn run_scan(
                 ));
             }
 
-            let fetched = prov
-                .as_ref()
-                .fetch(&pkg)
-                .await
-                .with_context(|| format!("Fetching CVEs for {}@{}", pkg.name, pkg.version))?;
+            let fetched =
+                prov.as_ref().fetch(&pkg).await.with_context(|| {
+                    format!("Fetching CVEs for {}@{}", pkg.name, pkg.version)
+                })?;
             db.as_ref()
                 .put(&pkg, prov.name(), &fetched.raw_vulns, None)
                 .await
-                .with_context(|| format!("Storing cache for {}@{}", pkg.name, pkg.version))?;
+                .with_context(|| {
+                    format!("Storing cache for {}@{}", pkg.name, pkg.version)
+                })?;
             Ok((pkg.clone(), fetched.records))
         };
 
@@ -772,12 +842,16 @@ async fn run_scan(
     }
     if offline_cache_miss {
         let _ = db_backend.stats().await;
-        eprintln!("CVE not found in cache, and unable to lookup CVE due to `--offline` argument.");
+        eprintln!(
+            "CVE not found in cache, and unable to lookup CVE due to `--offline` argument."
+        );
         return Ok(4);
     }
     if provider_fetch_failed {
         let _ = db_backend.stats().await;
-        eprintln!("Unable to fetch CVE data from provider. Run with -v for details.");
+        eprintln!(
+            "Unable to fetch CVE data from provider. Run with -v for details."
+        );
         return Ok(5);
     }
 
@@ -799,7 +873,8 @@ async fn run_scan(
         #[cfg(not(feature = "redb"))]
         std::collections::HashSet::new()
     };
-    let had_any_cves_before_fp_filter = findings.iter().map(|(_, r)| r.len()).sum::<usize>() > 0;
+    let had_any_cves_before_fp_filter =
+        findings.iter().map(|(_, r)| r.len()).sum::<usize>() > 0;
     let findings: Vec<(vlz_db::Package, Vec<vlz_db::CveRecord>)> = findings
         .into_iter()
         .map(|(pkg, recs)| {
@@ -823,7 +898,9 @@ async fn run_scan(
     let meeting_threshold: usize = findings
         .iter()
         .flat_map(|(_, recs)| recs.iter())
-        .filter(|cve| cve_meets_score_threshold(cve.cvss_score, effective.min_score))
+        .filter(|cve| {
+            cve_meets_score_threshold(cve.cvss_score, effective.min_score)
+        })
         .count();
     let exit_code = compute_scan_exit_code(
         meeting_threshold,
@@ -840,24 +917,26 @@ async fn run_scan(
     // i) Resolve severity (FR-013) and render the report (FR-007, FR-008, FR-009)
     // -----------------------------------------------------------------
     let severity_config = vlz_report::SeverityConfig::default();
-    let report_findings: Vec<(vlz_db::Package, Vec<(vlz_db::CveRecord, vlz_db::Severity)>)> =
-        findings
-            .into_iter()
-            .map(|(pkg, recs)| {
-                let with_severity: Vec<_> = recs
-                    .into_iter()
-                    .map(|cve| {
-                        let severity = vlz_report::resolve_severity(
-                            cve.cvss_score,
-                            cve.cvss_version,
-                            &severity_config,
-                        );
-                        (cve, severity)
-                    })
-                    .collect();
-                (pkg, with_severity)
-            })
-            .collect();
+    let report_findings: Vec<(
+        vlz_db::Package,
+        Vec<(vlz_db::CveRecord, vlz_db::Severity)>,
+    )> = findings
+        .into_iter()
+        .map(|(pkg, recs)| {
+            let with_severity: Vec<_> = recs
+                .into_iter()
+                .map(|cve| {
+                    let severity = vlz_report::resolve_severity(
+                        cve.cvss_score,
+                        cve.cvss_version,
+                        &severity_config,
+                    );
+                    (cve, severity)
+                })
+                .collect();
+            (pkg, with_severity)
+        })
+        .collect();
     let report_data = vlz_report::ReportData {
         findings: report_findings,
         all_packages: Some(packages_to_check),
@@ -909,7 +988,9 @@ async fn run_scan(
     // k) Benchmark mode handling (FR-029)
     // -----------------------------------------------------------------
     if effective.benchmark {
-        write_stdout("{{\"benchmark\":{{\"duration_ms\":0,\"cpu_percent\":0,\"mem_mb\":0}}}}");
+        write_stdout(
+            "{{\"benchmark\":{{\"duration_ms\":0,\"cpu_percent\":0,\"mem_mb\":0}}}}",
+        );
         write_stdout("\n");
     }
 
@@ -917,7 +998,7 @@ async fn run_scan(
     // l) Persist cache stats then return exit code
     // -----------------------------------------------------------------
     let _ = db_backend.stats().await;
-    Ok(exit_code.into())
+    Ok(exit_code)
 }
 
 #[cfg(test)]
@@ -978,7 +1059,10 @@ mod tests {
         let mut w = FlushFailsWriter;
         let r = write_all_to(&mut w, "x");
         assert!(r.is_err());
-        assert_eq!(r.unwrap_err().kind(), std::io::ErrorKind::PermissionDenied);
+        assert_eq!(
+            r.unwrap_err().kind(),
+            std::io::ErrorKind::PermissionDenied
+        );
     }
 
     #[test]
@@ -994,20 +1078,25 @@ mod tests {
     #[test]
     fn log_level_from_verbosity_count_two_or_more_is_trace() {
         assert_eq!(log_level_from_verbosity_count(2), log::LevelFilter::Trace);
-        assert_eq!(log_level_from_verbosity_count(100), log::LevelFilter::Trace);
+        assert_eq!(
+            log_level_from_verbosity_count(100),
+            log::LevelFilter::Trace
+        );
     }
 
     #[test]
     fn is_broken_pipe_detects_io_error() {
         let e: anyhow::Error =
-            std::io::Error::new(std::io::ErrorKind::BrokenPipe, "broken pipe").into();
+            std::io::Error::new(std::io::ErrorKind::BrokenPipe, "broken pipe")
+                .into();
         assert!(is_broken_pipe(&e));
     }
 
     #[test]
     fn is_broken_pipe_ignores_other_errors() {
         let e: anyhow::Error =
-            std::io::Error::new(std::io::ErrorKind::NotFound, "not found").into();
+            std::io::Error::new(std::io::ErrorKind::NotFound, "not found")
+                .into();
         assert!(!is_broken_pipe(&e));
     }
 
