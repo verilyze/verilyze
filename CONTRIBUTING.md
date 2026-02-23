@@ -137,6 +137,45 @@ runs fuzz first).
 | Fuzz changed only     | `make fuzz-changed`   |
 | Fuzz extended         | `make fuzz-extended`  |
 
+## Branching and merging
+
+We use trunk-based development with short-lived feature branches and a linear
+history. `main` is always buildable, tested, and releasable.
+
+**Workflow:**
+
+1. Create a branch from `main`:
+   `git checkout main && git pull && git checkout -b feature/xyz` (or
+   `fix/description` for bug fixes).
+2. Work and commit. Keep branches short-lived and focused.
+3. Before opening or updating a PR, rebase onto `main`:
+   `git fetch origin main && git rebase origin/main`
+4. Push: `git push --force-with-lease` (required after rebase).
+5. Merge into `main` is fast-forward only (no merge commits).
+
+**Branch protection (GitHub):** Configure branch protection for `main` to
+require PR reviews, passing CI, linear history, and disallow force-push to
+`main`. Use "Require linear history" so only rebased branches can merge.
+
+## Versioning and releases
+
+We use [Semantic Versioning](https://semver.org/) (SemVer). The binary
+version is in `crates/core/vlz/Cargo.toml`.
+
+**Pre-1.0 (0.x.y):** MINOR = new features (e.g. new plugin, new reporter);
+PATCH = bug fixes, documentation.
+
+**1.0.0 onward:** Standard SemVer (breaking = MAJOR, new feature = MINOR,
+fix = PATCH).
+
+**Release checklist:**
+
+1. Update `CHANGELOG.md` with changes since last release.
+2. Bump version in `crates/core/vlz/Cargo.toml` per SemVer.
+3. Merge to `main` and run `make check`.
+4. Create annotated tag: `git tag -a v0.1.0 -m "Release v0.1.0"`.
+5. Push tag: `git push origin v0.1.0`.
+
 ## Adding a new language plugin
 
 To add support for a new language (e.g., Java), you implement three traits
