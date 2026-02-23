@@ -153,6 +153,16 @@ history. `main` is always buildable, tested, and releasable.
 4. Push: `git push --force-with-lease` (required after rebase).
 5. Merge into `main` is fast-forward only (no merge commits).
 
+### Commit messages
+
+We use [Conventional Commits](https://www.conventionalcommits.org/). Format:
+
+- **Subject:** `<type>[optional scope]: <description>` (e.g.
+  `fix(parser): handle empty manifest`, `docs: add commit conventions`).
+- **Subject line length:** 50 characters or less.
+- **Body:** Optional for trivial changes, but required for any non-trivial
+  changes. When adding a body, wrap lines at 72 characters.
+
 **Branch protection (GitHub):** Configure branch protection for `main` to
 require PR reviews, passing CI, linear history, and disallow force-push to
 `main`. Use "Require linear history" so only rebased branches can merge.
