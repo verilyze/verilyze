@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# CI workflow: runs make check (headers, build, fmt-check, clippy, tests, lint).
+# CI workflow: runs make check (headers, build, fmt-check, clippy,
+# fuzz-changed, coverage-quick, tests, lint).
 
 name: CI
 
@@ -23,8 +24,17 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      - name: Install Rust nightly and cargo-llvm-cov
+        run: |
+          rustup toolchain install nightly
+          rustup component add llvm-tools --toolchain nightly
+          cargo install cargo-llvm-cov --locked
+
       - name: Install ShellCheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Install AFL++ (for fuzz-changed)
+        run: sudo apt-get install -y afl++
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
@@ -32,5 +42,5 @@ jobs:
       - name: Setup (bootstrap venvs)
         run: make setup
 
-      - name: Run check (headers, build, fmt, clippy, tests, lint)
+      - name: Run check (headers, build, fmt, clippy, fuzz-changed, coverage, lint)
         run: make check
