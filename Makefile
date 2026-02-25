@@ -17,7 +17,8 @@ VENV_REUSE := $(MKFILE_DIR)/.venv-reuse
 VENV_TEST := $(MKFILE_DIR)/.venv-test
 
 .PHONY: help all debug release
-.PHONY: setup setup-hooks check check-headers check-header-duplicates headers
+.PHONY: setup setup-hooks check check-fast check-slow
+.PHONY: check-headers check-header-duplicates headers
 .PHONY: update-doc-diagrams check-doc-diagrams
 .PHONY: cargo-check cargo-test unit-tests test-scripts
 .PHONY: fmt fmt-check clippy
@@ -42,6 +43,9 @@ help:
 	@echo ""
 	@echo "  Full CI check:"
 	@echo "    make check       - Headers, build, fmt, clippy, fuzz-changed, coverage-quick, lint"
+	@echo "    make -j check    - Same, faster (runs independent targets in parallel)"
+	@echo "    make check-fast  - Headers, build, fmt, clippy, lint only (~2-4 min)"
+	@echo "    make check-slow  - Fuzz-changed + coverage-quick only (~5-10+ min)"
 	@echo ""
 	@echo "  Lint:"
 	@echo "    make check-headers     - Verify REUSE headers (lint + no duplicates)"
@@ -179,15 +183,29 @@ check-doc-diagrams:
 	python3 $(SCRIPTS_DIR)/embed-diagrams.py --check README.md CONTRIBUTING.md
 
 # ---- Check (full CI gate) ----
+# check-fast: headers, build, fmt, clippy, lint (no coverage/fuzz; ~2-4 min)
+check-fast: setup \
+            check-headers \
+            check-doc-diagrams \
+            cargo-check fmt-check \
+            clippy \
+            lint-python \
+            lint-shell
+
+# check-slow: coverage and fuzz (~5-10+ min)
+check-slow: setup fuzz-changed coverage-quick
+
 # check: full pre-commit/CI gate (NFR-021, NFR-022, DOC-007)
-check: check-headers \
-         check-doc-diagrams \
-         cargo-check \
-         fmt-check clippy \
-         lint-python \
-         lint-shell \
-         fuzz-changed \
-         coverage-quick
+check: setup \
+       check-headers \
+       check-doc-diagrams \
+       cargo-check \
+       fmt-check \
+       clippy \
+       lint-python \
+       lint-shell \
+       fuzz-changed \
+       coverage-quick
 
 # ---- Clean ----
 clean:

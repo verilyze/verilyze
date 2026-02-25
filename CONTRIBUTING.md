@@ -109,7 +109,7 @@ After installing dependencies and cloning, run:
 
 ```sh
 make setup
-make check
+make -j check
 ```
 
 Run `make` or `make help` for a full list of targets. `make setup` bootstraps
@@ -121,21 +121,21 @@ runs fuzz first).
 
 ### Quick reference
 
-| Workflow              | Target                |
-|-----------------------|-----------------------|
-| List all targets      | `make` / `make help`  |
-| Bootstrap environment | `make setup`          |
-| Full CI check         | `make check`          |
-| Quick build           | `make debug`          |
-| Run tests             | `make unit-tests`     |
-| Format Rust code      | `make fmt`            |
-| Verify Rust format    | `make fmt-check`      |
-| Run Clippy lints      | `make clippy`         |
-| Coverage (with fuzz)  | `make coverage`       |
-| Coverage (skip fuzz)  | `make coverage-quick` |
-| Fuzz smoke test       | `make fuzz`           |
-| Fuzz changed only     | `make fuzz-changed`   |
-| Fuzz extended         | `make fuzz-extended`  |
+| Workflow              | Target                                             |
+|-----------------------|----------------------------------------------------|
+| List all targets      | `make` / `make help`                               |
+| Bootstrap environment | `make setup`                                       |
+| Full CI check         | `make check` (use `make -j check` for faster runs) |
+| Quick build           | `make debug`                                       |
+| Run tests             | `make unit-tests`                                  |
+| Format Rust code      | `make fmt`                                         |
+| Verify Rust format    | `make fmt-check`                                   |
+| Run Clippy lints      | `make clippy`                                      |
+| Coverage (with fuzz)  | `make coverage`                                    |
+| Coverage (skip fuzz)  | `make coverage-quick`                              |
+| Fuzz smoke test       | `make fuzz`                                        |
+| Fuzz changed only     | `make fuzz-changed`                                |
+| Fuzz extended         | `make fuzz-extended`                               |
 
 ## Branching and merging
 
@@ -410,7 +410,8 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
 
 - Run `make check` before submitting to verify headers, build, tests
   (`coverage-quick`), fuzz-changed (when relevant), and linters (fmt-check,
-  clippy, lint-python, lint-shell).
+  clippy, lint-python, lint-shell). Use `make -j check` for faster runs
+  (parallel execution).
 - Follow the [Rust Style Guide](https://doc.rust-lang.org/beta/style-guide/index.html).
 - The codebase uses `#![deny(unsafe_code)]`.
 - Run `make fmt` to auto-format Rust code; run `make clippy` to verify lints.
