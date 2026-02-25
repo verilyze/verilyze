@@ -408,9 +408,9 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
 
 ## Code style and checks
 
-- Run `make check` before submitting to verify headers, build, tests, and
-  linters (including `fmt-check`, `clippy`, `lint-python`, and `lint-shell`).
-  `make check` runs `fmt-check` and `clippy` automatically.
+- Run `make check` before submitting to verify headers, build, tests
+  (`coverage-quick`), fuzz-changed (when relevant), and linters (fmt-check,
+  clippy, lint-python, lint-shell).
 - Follow the [Rust Style Guide](https://doc.rust-lang.org/beta/style-guide/index.html).
 - The codebase uses `#![deny(unsafe_code)]`.
 - Run `make fmt` to auto-format Rust code; run `make clippy` to verify lints.

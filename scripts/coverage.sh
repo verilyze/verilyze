@@ -44,9 +44,6 @@ cargo +nightly llvm-cov clean --workspace 2>/dev/null || true
 # Exclude vlz-fuzz: it requires cargo afl build (AFL linker symbols).
 cargo +nightly build --workspace --exclude vlz-fuzz
 
-# Verify REUSE compliance (headers)
-./scripts/ensure-reuse.sh lint
-
 # Run all workspace tests (exclude vlz-fuzz; it uses AFL and is run via make fuzz).
 cargo +nightly test --workspace --exclude vlz-fuzz
 
