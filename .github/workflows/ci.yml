@@ -2,8 +2,9 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# CI workflow: runs make check (headers, build, fmt-check, clippy,
-# fuzz-changed, coverage-quick, tests, lint).
+# CI workflow: split into check-fast (headers, build, fmt, clippy, lint) and
+# check-slow (fuzz-changed, coverage-quick) for faster feedback on simple
+# changes.
 
 name: CI
 
@@ -14,7 +15,7 @@ on:
     branches: [main]
 
 jobs:
-  check:
+  check-fast:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,6 +24,23 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run check-fast (headers, build, fmt, clippy, lint)
+        run: make -j check-fast
+
+  check-slow:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Install Rust nightly and cargo-llvm-cov
         run: |
@@ -36,11 +54,11 @@ jobs:
       - name: Install AFL++ (for fuzz-changed)
         run: sudo apt-get install -y afl++
 
+      - name: Install cargo-afl
+        run: cargo install cargo-afl --locked
+
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Setup (bootstrap venvs)
-        run: make setup
-
-      - name: Run check (headers, build, fmt, clippy, fuzz-changed, coverage, lint)
-        run: make check
+      - name: Run check-slow (fuzz-changed, coverage-quick)
+        run: make -j check-slow
