@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis+git@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# CI workflow: runs make check (headers, build, fmt-check, clippy, tests, lint).
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Setup (bootstrap venvs)
+        run: make setup
+
+      - name: Run check (headers, build, fmt, clippy, tests, lint)
+        run: make check
