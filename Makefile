@@ -41,7 +41,7 @@ help:
 	@echo "    make unit-tests  - Run cargo test + script tests"
 	@echo ""
 	@echo "  Full CI check:"
-	@echo "    make check       - Headers, build, tests, lint (pre-commit gate)"
+	@echo "    make check       - Headers, build, fmt, clippy, fuzz-changed, coverage-quick, lint"
 	@echo ""
 	@echo "  Lint:"
 	@echo "    make check-headers     - Verify REUSE headers (lint + no duplicates)"
@@ -117,7 +117,7 @@ $(VENV_TEST)/bin/pytest:
 	python3 -m venv $(VENV_TEST)
 	$(VENV_TEST)/bin/pip install pytest pytest-cov
 
-test-scripts: $(VENV_TEST)/bin/pytest lint-shell
+test-scripts: $(VENV_TEST)/bin/pytest
 	@cd "$(MKFILE_DIR)" && $(VENV_TEST)/bin/python -m pytest tests/scripts/ -v
 
 unit-tests: cargo-test test-scripts
@@ -180,7 +180,14 @@ check-doc-diagrams:
 
 # ---- Check (full CI gate) ----
 # check: full pre-commit/CI gate (NFR-021, NFR-022, DOC-007)
-check: check-headers check-doc-diagrams cargo-check fmt-check clippy unit-tests lint-python lint-shell
+check: check-headers \
+         check-doc-diagrams \
+         cargo-check \
+         fmt-check clippy \
+         lint-python \
+         lint-shell \
+         fuzz-changed \
+         coverage-quick
 
 # ---- Clean ----
 clean:
