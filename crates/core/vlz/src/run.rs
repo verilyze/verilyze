@@ -752,15 +752,25 @@ async fn run_scan(
             manifests.len(),
             finders[i].language_name()
         );
-        for mf in manifests {
-            let graph = parsers[i]
-                .parse(&mf)
-                .await
-                .with_context(|| format!("Parsing manifest {:?}", mf))?;
-            let resolved =
-                resolvers[i].resolve(&graph).await.with_context(|| {
-                    format!("Resolving dependencies for {:?}", mf)
-                })?;
+        let parser = &parsers[i];
+        let resolver = &resolvers[i];
+        let tasks: Vec<_> = manifests
+            .into_iter()
+            .map(|mf| async move {
+                let graph = parser
+                    .parse(&mf)
+                    .await
+                    .with_context(|| format!("Parsing manifest {:?}", mf))?;
+                let resolved =
+                    resolver.resolve(&graph).await.with_context(|| {
+                        format!("Resolving dependencies for {:?}", mf)
+                    })?;
+                Ok::<_, anyhow::Error>(resolved)
+            })
+            .collect();
+        let results = futures::future::join_all(tasks).await;
+        for result in results {
+            let resolved = result?;
             all_packages.extend(resolved);
         }
     }

@@ -250,7 +250,6 @@ impl DatabaseBackend for RedbBackend {
         provider_id: &str,
     ) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
         vlz_cve_client::ensure_default_decoders();
-        let _ = self.purge_expired();
         let key = pkg_cache_key(pkg, provider_id);
         let read_txn =
             self.inner.db.begin_read().map_err(DatabaseError::wrap)?;
@@ -262,12 +261,6 @@ impl DatabaseBackend for RedbBackend {
                 Some(g) => g,
                 None => {
                     self.inner.misses.fetch_add(1, Ordering::Relaxed);
-                    persist_stats(
-                        self.inner.db.as_ref(),
-                        self.inner.hits.load(Ordering::Relaxed),
-                        self.inner.misses.load(Ordering::Relaxed),
-                        self.inner.ttl_secs,
-                    );
                     return Ok(None);
                 }
             };
@@ -276,12 +269,6 @@ impl DatabaseBackend for RedbBackend {
             Ok(s) => s,
             Err(_) => {
                 self.inner.misses.fetch_add(1, Ordering::Relaxed);
-                persist_stats(
-                    self.inner.db.as_ref(),
-                    self.inner.hits.load(Ordering::Relaxed),
-                    self.inner.misses.load(Ordering::Relaxed),
-                    self.inner.ttl_secs,
-                );
                 return Ok(None); // wrong schema or corrupt; treat as cache miss
             }
         };
@@ -292,22 +279,10 @@ impl DatabaseBackend for RedbBackend {
             .as_secs();
         if stored.expires_at_secs <= now_secs {
             self.inner.misses.fetch_add(1, Ordering::Relaxed);
-            persist_stats(
-                self.inner.db.as_ref(),
-                self.inner.hits.load(Ordering::Relaxed),
-                self.inner.misses.load(Ordering::Relaxed),
-                self.inner.ttl_secs,
-            );
             return Ok(None);
         }
         let records = decode_raw_vulns(&stored.provider_id, &stored.raw_vulns);
         self.inner.hits.fetch_add(1, Ordering::Relaxed);
-        persist_stats(
-            self.inner.db.as_ref(),
-            self.inner.hits.load(Ordering::Relaxed),
-            self.inner.misses.load(Ordering::Relaxed),
-            self.inner.ttl_secs,
-        );
         Ok(Some(records))
     }
 

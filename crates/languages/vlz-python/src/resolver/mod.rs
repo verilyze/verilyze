@@ -61,7 +61,7 @@ impl Resolver for DirectOnlyResolver {
     ) -> Result<Vec<vlz_db::Package>, ResolverError> {
         if let Some(ref manifest_path) = graph.manifest_path
             && let Some(lock_path) = find_lock_file(manifest_path)
-            && let Ok(content) = std::fs::read_to_string(&lock_path)
+            && let Ok(content) = tokio::fs::read_to_string(&lock_path).await
             && let Ok(packages) =
                 parse_lock_file(lock_path.as_path(), &content)
             && !packages.is_empty()

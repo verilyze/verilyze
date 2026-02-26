@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Mutex;
 
 use async_trait::async_trait;
 use vlz_manifest_parser::{DependencyGraph, Resolver, ResolverError};
@@ -52,13 +54,25 @@ pub fn parse_cargo_lock(
 }
 
 /// Resolver that prefers Cargo.lock, falls back to graph packages.
-#[derive(Debug, Default)]
-pub struct CargoResolver;
+/// Caches parsed Cargo.lock content to avoid re-reading when multiple
+/// manifests share the same lock file (e.g. workspace members).
+#[derive(Debug)]
+pub struct CargoResolver {
+    lock_cache: Mutex<HashMap<String, Vec<vlz_db::Package>>>,
+}
+
+impl Default for CargoResolver {
+    fn default() -> Self {
+        Self {
+            lock_cache: Mutex::new(HashMap::new()),
+        }
+    }
+}
 
 impl CargoResolver {
     /// Create a new Cargo resolver.
     pub fn new() -> Self {
-        Self
+        Self::default()
     }
 }
 
@@ -95,11 +109,23 @@ impl Resolver for CargoResolver {
     ) -> Result<Vec<vlz_db::Package>, ResolverError> {
         if let Some(ref manifest_path) = graph.manifest_path
             && let Some(lock_path) = find_lock_file(manifest_path)
-            && let Ok(content) = std::fs::read_to_string(&lock_path)
-            && let Ok(packages) = parse_cargo_lock(&content)
-            && !packages.is_empty()
         {
-            return Ok(packages);
+            let cache_key = lock_path.to_string_lossy().to_string();
+            if let Ok(cache) = self.lock_cache.lock()
+                && let Some(cached) = cache.get(&cache_key)
+                && !cached.is_empty()
+            {
+                return Ok(cached.clone());
+            }
+            if let Ok(content) = tokio::fs::read_to_string(&lock_path).await
+                && let Ok(packages) = parse_cargo_lock(&content)
+                && !packages.is_empty()
+            {
+                if let Ok(mut cache) = self.lock_cache.lock() {
+                    cache.insert(cache_key, packages.clone());
+                }
+                return Ok(packages);
+            }
         }
         Ok(graph.packages.clone())
     }
