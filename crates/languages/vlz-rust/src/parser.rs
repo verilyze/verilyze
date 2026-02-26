@@ -114,7 +114,7 @@ impl Parser for CargoTomlParser {
         &self,
         manifest: &Path,
     ) -> Result<DependencyGraph, ParserError> {
-        let content = std::fs::read_to_string(manifest)?;
+        let content = tokio::fs::read_to_string(manifest).await?;
         let value: toml::Value = toml::from_str(&content).map_err(|e| {
             ParserError::Parse(format!("Cargo.toml parse error: {}", e))
         })?;
@@ -130,7 +130,8 @@ impl Parser for CargoTomlParser {
             })?;
             let member_paths = expand_workspace_members(manifest_dir, members);
             for member_manifest in member_paths {
-                if let Ok(c) = std::fs::read_to_string(&member_manifest)
+                if let Ok(c) =
+                    tokio::fs::read_to_string(&member_manifest).await
                     && let Ok(member_packages) = parse_cargo_toml(&c)
                 {
                     for p in member_packages {

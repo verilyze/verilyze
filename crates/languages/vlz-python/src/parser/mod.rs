@@ -38,7 +38,7 @@ impl Parser for RequirementsTxtParser {
         let manifest_path = Some(manifest.to_path_buf());
 
         if name == "requirements.txt" {
-            let content = std::fs::read_to_string(manifest)?;
+            let content = tokio::fs::read_to_string(manifest).await?;
             let packages = parse_requirements_txt(&content)?;
             return Ok(DependencyGraph {
                 packages,
@@ -47,7 +47,7 @@ impl Parser for RequirementsTxtParser {
         }
 
         if name == "pyproject.toml" {
-            let content = std::fs::read_to_string(manifest)?;
+            let content = tokio::fs::read_to_string(manifest).await?;
             let packages = parse_pyproject_toml(&content)?;
             return Ok(DependencyGraph {
                 packages,
@@ -56,7 +56,7 @@ impl Parser for RequirementsTxtParser {
         }
 
         if name == "Pipfile" {
-            let content = std::fs::read_to_string(manifest)?;
+            let content = tokio::fs::read_to_string(manifest).await?;
             let packages = parse_pipfile(&content)?;
             return Ok(DependencyGraph {
                 packages,
@@ -65,7 +65,7 @@ impl Parser for RequirementsTxtParser {
         }
 
         if name == "setup.cfg" {
-            let content = std::fs::read_to_string(manifest)?;
+            let content = tokio::fs::read_to_string(manifest).await?;
             let packages = parse_setup_cfg(&content)?;
             return Ok(DependencyGraph {
                 packages,
