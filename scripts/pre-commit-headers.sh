@@ -23,7 +23,7 @@ DEFAULT_LICENSE="GPL-3.0-or-later"
 DEFAULT_COPYRIGHT="The verilyze contributors"
 EXTENSIONS="rs toml md mmd sh json"
 LITERAL_NAMES="Makefile"
-EXCLUDE_PATHS="tools/xtask Cargo.lock package-lock.json"
+EXCLUDE_PATHS="tools/xtask Cargo.lock"
 while IFS=: read -r key value; do
     case "$key" in
         license) DEFAULT_LICENSE="$value" ;;

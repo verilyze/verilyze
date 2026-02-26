@@ -14,12 +14,6 @@ precedence = "override"
 SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
-[[annotations]]
-path = "package-lock.json"
-precedence = "override"
-SPDX-FileCopyrightText = "The verilyze contributors"
-SPDX-License-Identifier = "GPL-3.0-or-later"
-
 # Config and data files
 [[annotations]]
 path = ".cursor/**"
