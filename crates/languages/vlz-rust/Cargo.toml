@@ -20,6 +20,7 @@ regex = "1"
 vlz-db = { path = "../../core/vlz-db" }
 vlz-manifest-finder = { path = "../../core/vlz-manifest-finder" }
 vlz-manifest-parser = { path = "../../core/vlz-manifest-parser" }
+tokio = { version = "1", features = ["fs"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }
