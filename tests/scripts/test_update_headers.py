@@ -489,7 +489,7 @@ class TestCollectFiles:
         }
         mock_result = MagicMock(
             returncode=0,
-            stdout="Cargo.lock\0package-lock.json\0",
+            stdout="Cargo.lock\0",
         )
         with patch("scripts.update_headers.run", return_value=mock_result):
             result = collect_files(tmp_path, config)
