@@ -21,7 +21,7 @@ default_license = "GPL-3.0-or-later"
 nontrivial_lines = 15
 extensions = ["py", "rs", "toml", "md", "mmd", "sh", "json"]
 literal_names = ["Makefile"]
-exclude_paths = ["Cargo.lock", "package-lock.json"]
+exclude_paths = ["Cargo.lock"]
 
 [tool.black]
 line-length = 79

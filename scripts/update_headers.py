@@ -46,7 +46,7 @@ _DEFAULTS: HeadersConfig = {
     "nontrivial_lines": 15,
     "extensions": ("py", "rs", "toml", "md", "mmd", "sh", "json"),
     "literal_names": ("Makefile",),
-    "exclude_paths": ("tools/xtask", "Cargo.lock", "package-lock.json"),
+    "exclude_paths": ("tools/xtask", "Cargo.lock"),
 }
 
 
@@ -133,7 +133,7 @@ def collect_files(repo_root: Path, config: HeadersConfig) -> list[str]:
         )
         if excluded:
             continue
-        if path in ("Cargo.lock", "package-lock.json"):
+        if path == "Cargo.lock":
             continue
         if any(path.endswith("." + ext) for ext in extensions):
             covered.append(path)
