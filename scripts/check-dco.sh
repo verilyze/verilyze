@@ -71,7 +71,7 @@ while read -r sha; do
         git log -1 --oneline "$sha" >&2
         FAILED=1
     fi
-done < <(git log --format=%H "$MERGE_BASE..$HEAD_SHA" 2>/dev/null || true)
+done < <(git log --no-merges --format=%H "$MERGE_BASE..$HEAD_SHA" 2>/dev/null || true)
 
 if [ "$FAILED" -eq 1 ]; then
     echo "" >&2
