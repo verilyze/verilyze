@@ -17,7 +17,7 @@ VENV_REUSE := $(MKFILE_DIR)/.venv-reuse
 VENV_TEST := $(MKFILE_DIR)/.venv-test
 
 .PHONY: help all debug release
-.PHONY: setup setup-hooks check check-fast check-slow
+.PHONY: setup setup-hooks check check-fast check-slow check-dco
 .PHONY: check-headers check-header-duplicates headers
 .PHONY: update-doc-diagrams check-doc-diagrams
 .PHONY: cargo-check cargo-test unit-tests test-scripts
@@ -34,7 +34,7 @@ help:
 	@echo ""
 	@echo "  Onboarding:"
 	@echo "    make setup       - Bootstrap Python venvs (.venv-lint, .venv-test)"
-	@echo "    make setup-hooks - Install git pre-commit hook (REUSE headers)"
+	@echo "    make setup-hooks - Install git hooks (REUSE headers, DCO signoff)"
 	@echo ""
 	@echo "  Quick iteration:"
 	@echo "    make cargo-check - Run cargo check"
@@ -46,6 +46,7 @@ help:
 	@echo "    make -j check    - Same, faster (runs independent targets in parallel)"
 	@echo "    make check-fast  - Headers, build, fmt, clippy, lint only (~2-4 min)"
 	@echo "    make check-slow  - Fuzz-changed + coverage-quick only (~5-10+ min)"
+	@echo "    make check-dco   - Verify commits have DCO signoff (before push)"
 	@echo ""
 	@echo "  Lint:"
 	@echo "    make check-headers     - Verify REUSE headers (lint + no duplicates)"
@@ -81,7 +82,7 @@ help:
 setup: $(VENV_LINT)/bin/black $(VENV_TEST)/bin/pytest
 	@echo "Dev environment ready. Run: make check"
 	@echo "Recommended:"
-	@echo "  make setup-hooks # git pre-commit (auto update file headers)"
+	@echo "  make setup-hooks # git hooks (REUSE headers, DCO signoff)"
 	@echo "  make fuzz # needs cargo-afl, AFL++"
 	@echo "  make coverage # runs fuzz first; needs cargo-llvm-cov"
 	@echo "  make coverage-quick # coverage without fuzz (faster)"
@@ -181,6 +182,10 @@ update-doc-diagrams:
 
 check-doc-diagrams:
 	python3 $(SCRIPTS_DIR)/embed-diagrams.py --check README.md CONTRIBUTING.md
+
+# check-dco: verify commits have Signed-off-by (DCO); for local use before push
+check-dco:
+	@cd "$(MKFILE_DIR)" && ./scripts/check-dco.sh
 
 # ---- Check (full CI gate) ----
 # check-fast: headers, build, fmt, clippy, lint (no coverage/fuzz; ~2-4 min)

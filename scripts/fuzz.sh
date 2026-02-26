@@ -107,7 +107,8 @@ elif "$DO_CHANGED"; then
         BASE_REF=$(git merge-base HEAD "origin/$ref" 2>/dev/null || true)
     fi
     [[ -z "$BASE_REF" ]] && BASE_REF=$(git merge-base HEAD origin/main 2>/dev/null || true)
-    [[ -z "$BASE_REF" ]] && BASE_REF="origin/main"
+    [[ -z "$BASE_REF" ]] && BASE_REF=$(git merge-base HEAD main 2>/dev/null || true)
+    [[ -z "$BASE_REF" ]] && BASE_REF="main"
 
     CHANGED_FILES=""
     if [[ -n "$BASE_REF" ]] && git rev-parse --verify "$BASE_REF" >/dev/null 2>&1; then

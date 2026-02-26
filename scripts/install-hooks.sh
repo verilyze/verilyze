@@ -4,8 +4,8 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# Install Git hooks: REUSE headers on new files, diagram embedding on .mmd changes.
-# Copies the pre-commit hook into .git/hooks/pre-commit.
+# Install Git hooks: REUSE headers on new files, diagram embedding on .mmd
+# changes, and DCO signoff verification on commit messages.
 #
 # Run from repository root: ./scripts/install-hooks.sh
 
@@ -20,13 +20,21 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 fi
 
 HOOK_DIR=".git/hooks"
-HOOK_FILE="$HOOK_DIR/pre-commit"
 
 mkdir -p "$HOOK_DIR"
-cat > "$HOOK_FILE" << 'HOOK'
+
+cat > "$HOOK_DIR/pre-commit" << 'HOOK'
 #!/bin/sh
 # Installed by scripts/install-hooks.sh - REUSE headers + diagram embedding
 cd "$(git rev-parse --show-toplevel)" && exec ./scripts/pre-commit.sh
 HOOK
-chmod +x "$HOOK_FILE"
-echo "Installed pre-commit hook: $HOOK_FILE"
+chmod +x "$HOOK_DIR/pre-commit"
+echo "Installed pre-commit hook: $HOOK_DIR/pre-commit"
+
+cat > "$HOOK_DIR/commit-msg" << 'HOOK'
+#!/bin/sh
+# Installed by scripts/install-hooks.sh - DCO signoff verification
+cd "$(git rev-parse --show-toplevel)" && exec ./scripts/commit-msg-dco.sh "$1"
+HOOK
+chmod +x "$HOOK_DIR/commit-msg"
+echo "Installed commit-msg hook: $HOOK_DIR/commit-msg"
