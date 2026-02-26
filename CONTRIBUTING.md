@@ -114,10 +114,10 @@ make -j check
 
 Run `make` or `make help` for a full list of targets. `make setup` bootstraps
 Python venvs; REUSE is auto-installed when `check-headers` runs. Optional:
-`make setup-hooks` for git pre-commit. For fuzz: AFL++ must be installed;
-cargo-afl is auto-installed. For coverage: rustup, cargo-llvm-cov, and nightly
-are auto-installed; AFL++ required only when `make coverage` runs (since it
-runs fuzz first).
+`make setup-hooks` for git hooks (REUSE headers, DCO signoff). For fuzz: AFL++
+must be installed; cargo-afl is auto-installed. For coverage: rustup,
+cargo-llvm-cov, and nightly are auto-installed; AFL++ required only when
+`make coverage` runs (since it runs fuzz first).
 
 ### Quick reference
 
@@ -162,6 +162,13 @@ We use [Conventional Commits](https://www.conventionalcommits.org/). Format:
 - **Subject line length:** 50 characters or less.
 - **Body:** Optional for trivial changes, but required for any non-trivial
   changes. When adding a body, wrap lines at 72 characters.
+- **DCO signoff:** All commits must include a `Signed-off-by` line attesting
+  to the [Developer Certificate of Origin](https://developercertificate.org/).
+  Use `git commit -s` to add it automatically. CI will reject PRs whose commits
+  lack a valid signoff.
+- **GPG signing (optional):** We encourage contributors to sign commits with
+  GPG for stronger authentication and auditability. See
+  [GitHub's guide to signing commits](https://docs.github.com/en/authentication/managing-commit-signature-verification).
 
 **Branch protection (GitHub):** Configure branch protection for `main` to
 require PR reviews, passing CI, linear history, and disallow force-push to
@@ -183,7 +190,7 @@ fix = PATCH).
 1. Update `CHANGELOG.md` with changes since last release.
 2. Bump version in `crates/core/vlz/Cargo.toml` per SemVer.
 3. Merge to `main` and run `make check`.
-4. Create annotated tag: `git tag -a v0.1.0 -m "Release v0.1.0"`.
+4. Create signed annotated tag: `git tag -s v0.1.0 -m "Release v0.1.0"`.
 5. Push tag: `git push origin v0.1.0`.
 
 ## Adding a new language plugin
@@ -379,9 +386,9 @@ copyright and license headers. Default license and copyright are defined in
   `reuse lint`)
 - **Add/update headers:** `make headers` (runs `scripts/update_headers.py`)
 - **Install Git hooks:** Run `make setup-hooks` or `./scripts/install-hooks.sh`
-  to add a pre-commit hook that inserts REUSE headers into newly created files,
-  using the Git author as the copyright holder. Requires `git config user.name`
-  and `user.email` to be set.
+  to add pre-commit (REUSE headers) and commit-msg (DCO signoff) hooks. The
+  pre-commit hook inserts headers using the Git author as the copyright holder.
+  Requires `git config user.name` and `user.email` to be set.
 - **Manual SPDX headers:** If you add SPDX headers by hand (e.g. when creating
   a new file before running `make headers`), include a trailing blank line after
   the header block. Use an actual empty line, not a commented blank line. This
