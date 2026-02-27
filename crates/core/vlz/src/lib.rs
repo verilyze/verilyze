@@ -48,7 +48,13 @@ where
         Ok(a) => a,
         Err(e) => {
             e.print().ok();
-            return 2;
+            // OP-012: --help and --version are informational; exit 0.
+            let code = match e.kind() {
+                clap::error::ErrorKind::DisplayHelp
+                | clap::error::ErrorKind::DisplayVersion => 0,
+                _ => 2,
+            };
+            return code;
         }
     };
     let verbose = args.verbose;

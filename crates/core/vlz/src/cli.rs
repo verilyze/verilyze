@@ -32,6 +32,10 @@ pub struct Cli {
     pub env_overrides: Vec<String>,
 }
 
+// The Scan variant is intentionally large (it carries all scan parameters).
+// Boxing fields would add heap indirection with no runtime benefit for a CLI struct
+// that is constructed exactly once per invocation.
+#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     /// Scan a directory tree for manifests and CVEs
@@ -108,6 +112,44 @@ pub enum Commands {
         /// Maximum retries for transient errors (default 5)
         #[arg(long, value_name = "N")]
         max_retries: Option<u32>,
+
+        // FR-013: per-CVSS-version severity threshold overrides
+        /// CVSS v2 critical severity minimum score (default 9.0)
+        #[arg(long, value_name = "SCORE")]
+        severity_v2_critical_min: Option<f32>,
+        /// CVSS v2 high severity minimum score (default 7.0)
+        #[arg(long, value_name = "SCORE")]
+        severity_v2_high_min: Option<f32>,
+        /// CVSS v2 medium severity minimum score (default 4.0)
+        #[arg(long, value_name = "SCORE")]
+        severity_v2_medium_min: Option<f32>,
+        /// CVSS v2 low severity minimum score (default 0.1)
+        #[arg(long, value_name = "SCORE")]
+        severity_v2_low_min: Option<f32>,
+        /// CVSS v3 critical severity minimum score (default 9.0)
+        #[arg(long, value_name = "SCORE")]
+        severity_v3_critical_min: Option<f32>,
+        /// CVSS v3 high severity minimum score (default 7.0)
+        #[arg(long, value_name = "SCORE")]
+        severity_v3_high_min: Option<f32>,
+        /// CVSS v3 medium severity minimum score (default 4.0)
+        #[arg(long, value_name = "SCORE")]
+        severity_v3_medium_min: Option<f32>,
+        /// CVSS v3 low severity minimum score (default 0.1)
+        #[arg(long, value_name = "SCORE")]
+        severity_v3_low_min: Option<f32>,
+        /// CVSS v4 critical severity minimum score (default 9.0)
+        #[arg(long, value_name = "SCORE")]
+        severity_v4_critical_min: Option<f32>,
+        /// CVSS v4 high severity minimum score (default 7.0)
+        #[arg(long, value_name = "SCORE")]
+        severity_v4_high_min: Option<f32>,
+        /// CVSS v4 medium severity minimum score (default 4.0)
+        #[arg(long, value_name = "SCORE")]
+        severity_v4_medium_min: Option<f32>,
+        /// CVSS v4 low severity minimum score (default 0.1)
+        #[arg(long, value_name = "SCORE")]
+        severity_v4_low_min: Option<f32>,
     },
 
     /// List registered language/plugin names
@@ -142,9 +184,6 @@ pub enum Commands {
 
     /// Pre-populate CVE cache from remote provider (placeholder)
     Preload,
-
-    /// Show version / license information
-    Version,
 }
 
 #[derive(Subcommand, Debug)]
@@ -224,9 +263,34 @@ mod tests {
     }
 
     #[test]
-    fn parse_version() {
-        let cli = parse(&["version"]);
-        assert!(matches!(cli.cmd, Commands::Version));
+    fn version_flag_output_contains_semver() {
+        // FR-002: --version must print "vlz <semver>". Clap derives the version
+        // from CARGO_PKG_VERSION. Verify it contains a dotted semver string.
+        use clap::CommandFactory as _;
+        let rendered = Cli::command().render_version();
+        assert!(
+            rendered.starts_with("vlz "),
+            "expected 'vlz <semver>' but got: {}",
+            rendered.trim_end()
+        );
+        // Semver contains at least one dot (e.g. "0.1.0").
+        let version_part = rendered.trim_start_matches("vlz ").trim_end();
+        assert!(
+            version_part.contains('.'),
+            "version does not look like semver: {}",
+            version_part
+        );
+    }
+
+    #[test]
+    fn version_subcommand_does_not_exist() {
+        // FR-002: the redundant `vlz version` subcommand should not exist;
+        // --version is the universal Unix convention (Rule of Parsimony).
+        let result = Cli::try_parse_from(["vlz", "version"]);
+        assert!(
+            result.is_err(),
+            "expected 'vlz version' to be an unknown subcommand"
+        );
     }
 
     #[test]
