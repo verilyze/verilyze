@@ -52,9 +52,15 @@ fn run_async(args: &[&str]) -> i32 {
 }
 
 #[test]
-fn run_version_exits_0() {
+fn run_version_subcommand_is_gone() {
+    // The `version` subcommand was removed (FR-002); `--version` is the only form.
+    // Verify that `vlz version` is no longer a recognised subcommand.
     let _ = env_logger::try_init();
-    with_temp_xdg(|| assert_eq!(run_async(&["version"]), 0));
+    let result = Cli::try_parse_from(["vlz", "version"]);
+    assert!(
+        result.is_err(),
+        "'vlz version' must be an unknown subcommand after FR-002 removal"
+    );
 }
 
 #[test]

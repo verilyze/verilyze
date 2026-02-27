@@ -53,8 +53,8 @@ run_cov_bin() {
   env XDG_CONFIG_HOME=/tmp/vlz-cov-cfg XDG_CACHE_HOME=/tmp/vlz-cov-cache \
     XDG_DATA_HOME=/tmp/vlz-cov-data cargo +nightly run --bin vlz -- "$@"
 }
-run_cov_bin version
-run_cov_bin -v version
+run_cov_bin --version
+run_cov_bin -v --version
 run_cov_bin list
 run_cov_bin config --list
 run_cov_bin db stats

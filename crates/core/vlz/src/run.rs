@@ -57,6 +57,15 @@ pub fn entry_key_matches_pattern(key: &str, pattern: &str) -> bool {
             .unwrap_or(false)
 }
 
+/// Return the CVE lookup result for benchmark mode: always empty, bypassing cache and network.
+/// FR-029: benchmark disables cache and network so that only the scan/parse/resolve pipeline
+/// is timed without I/O interference.
+pub fn benchmark_lookup_result(
+    pkg: &vlz_db::Package,
+) -> (vlz_db::Package, Vec<vlz_db::CveRecord>) {
+    (pkg.clone(), vec![])
+}
+
 /// True if CVE meets min_score threshold (FR-014). When cvss_score is None, passes only if min_score <= 0.
 pub fn cve_meets_score_threshold(
     cvss_score: Option<f32>,
@@ -142,6 +151,8 @@ pub async fn run(args: Cli) -> Result<i32> {
         None,
         None,
         None,
+        crate::config::env_severity_overrides(),
+        crate::config::SeverityOverrides::default(),
     )
     .map_err(|e| {
         error!("{}", e);
@@ -226,7 +237,33 @@ pub async fn run(args: Cli) -> Result<i32> {
             backoff_base: cli_backoff_base,
             backoff_max: cli_backoff_max,
             max_retries: cli_max_retries,
+            severity_v2_critical_min,
+            severity_v2_high_min,
+            severity_v2_medium_min,
+            severity_v2_low_min,
+            severity_v3_critical_min,
+            severity_v3_high_min,
+            severity_v3_medium_min,
+            severity_v3_low_min,
+            severity_v4_critical_min,
+            severity_v4_high_min,
+            severity_v4_medium_min,
+            severity_v4_low_min,
         } => {
+            let cli_severity = crate::config::SeverityOverrides {
+                v2_critical: severity_v2_critical_min,
+                v2_high: severity_v2_high_min,
+                v2_medium: severity_v2_medium_min,
+                v2_low: severity_v2_low_min,
+                v3_critical: severity_v3_critical_min,
+                v3_high: severity_v3_high_min,
+                v3_medium: severity_v3_medium_min,
+                v3_low: severity_v3_low_min,
+                v4_critical: severity_v4_critical_min,
+                v4_high: severity_v4_high_min,
+                v4_medium: severity_v4_medium_min,
+                v4_low: severity_v4_low_min,
+            };
             let effective = crate::config::load(
                 args.config.as_deref(),
                 crate::config::env_parallel(),
@@ -254,6 +291,8 @@ pub async fn run(args: Cli) -> Result<i32> {
                 cli_backoff_base,
                 cli_backoff_max,
                 cli_max_retries,
+                crate::config::env_severity_overrides(),
+                cli_severity,
             )
             .map_err(|e| {
                 error!("{}", e);
@@ -337,6 +376,8 @@ pub async fn run(args: Cli) -> Result<i32> {
                     None,
                     None,
                     None,
+                    crate::config::env_severity_overrides(),
+                    crate::config::SeverityOverrides::default(),
                 )
                 .unwrap_or_default();
                 write_stdout(&format!(
@@ -543,11 +584,6 @@ pub async fn run(args: Cli) -> Result<i32> {
             write_stdout(
                 "vlz preload is a placeholder; cache is populated on demand during scan.\n",
             );
-            Ok(0)
-        }
-
-        Commands::Version => {
-            write_stdout(&format!("verilyze {}\n", env!("CARGO_PKG_VERSION")));
             Ok(0)
         }
     }
@@ -788,6 +824,8 @@ async fn run_scan(
     let semaphore = Arc::new(Semaphore::new(effective_parallel));
     let mut handles = Vec::new();
 
+    let benchmark_mode = effective.benchmark;
+
     for pkg in &packages_to_check {
         let db = db_backend.clone();
         let prov = provider_impl.clone();
@@ -797,6 +835,12 @@ async fn run_scan(
 
         let fut = async move {
             let _guard = permit;
+
+            // FR-029: benchmark mode bypasses cache and network entirely so only the
+            // scan/parse/resolve pipeline is timed.
+            if benchmark_mode {
+                return Ok(benchmark_lookup_result(&pkg));
+            }
 
             if let Some(cached) = db.as_ref().get(&pkg, prov.name()).await? {
                 return Ok((pkg.clone(), cached));
@@ -926,7 +970,8 @@ async fn run_scan(
     // -----------------------------------------------------------------
     // i) Resolve severity (FR-013) and render the report (FR-007, FR-008, FR-009)
     // -----------------------------------------------------------------
-    let severity_config = vlz_report::SeverityConfig::default();
+    // FR-013: use configurable severity thresholds from effective config.
+    let severity_config = effective.severity.clone();
     let report_findings: Vec<(
         vlz_db::Package,
         Vec<(vlz_db::CveRecord, vlz_db::Severity)>,
@@ -1195,5 +1240,19 @@ mod tests {
     fn compute_scan_exit_code_trigger_custom() {
         assert_eq!(compute_scan_exit_code(1, 0, Some(99)), 99);
         assert_eq!(compute_scan_exit_code(2, 2, Some(1)), 1);
+    }
+
+    #[test]
+    fn benchmark_lookup_result_returns_empty_cves() {
+        // FR-029: benchmark mode skips cache and network; result is always empty.
+        let pkg = vlz_db::Package {
+            name: "mylib".to_string(),
+            version: "1.2.3".to_string(),
+            ecosystem: None,
+        };
+        let (out_pkg, cves) = benchmark_lookup_result(&pkg);
+        assert_eq!(out_pkg.name, pkg.name);
+        assert_eq!(out_pkg.version, pkg.version);
+        assert!(cves.is_empty());
     }
 }
