@@ -17,7 +17,8 @@ pub use requirements::parse_requirements_txt;
 pub use setup_cfg::parse_setup_cfg;
 
 /// Parser for Python manifest files (requirements.txt, pyproject.toml, etc.).
-/// Dispatches by manifest file name; returns empty graph for unsupported types.
+/// Dispatches by manifest file name; returns empty graph for unknown types
+/// (callers should only pass files found by the PythonManifestFinder).
 #[derive(Debug, Default)]
 pub struct RequirementsTxtParser;
 
@@ -86,9 +87,12 @@ mod tests {
     use std::path::PathBuf;
 
     #[tokio::test]
-    async fn unsupported_manifest_returns_empty_graph() {
+    async fn unknown_manifest_fallthrough_returns_empty_graph() {
+        // An unrecognised file name that somehow reaches the parser returns
+        // an empty graph (defensive fallthrough). The finder is responsible
+        // for only passing known manifest files; this covers the fallthrough.
         let parser = RequirementsTxtParser::new();
-        let path = PathBuf::from("/some/path/setup.py");
+        let path = PathBuf::from("/some/path/requirements.pip");
         let graph = parser.parse(&path).await.unwrap();
         assert!(graph.packages.is_empty());
         assert_eq!(graph.manifest_path.as_deref(), Some(path.as_path()));

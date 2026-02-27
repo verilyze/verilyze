@@ -5,7 +5,8 @@
 use std::path::PathBuf;
 
 use vlz::config::{
-    ConfigError, DEFAULT_PARALLEL_QUERIES, load, set_config_key,
+    ConfigError, DEFAULT_PARALLEL_QUERIES, SeverityOverrides, load,
+    set_config_key,
 };
 
 fn temp_config(content: &str) -> (tempfile::TempDir, PathBuf) {
@@ -47,6 +48,8 @@ fn load_cli_overrides_file_cfg007() {
         None,
         None,
         None,
+        SeverityOverrides::default(),
+        SeverityOverrides::default(),
     )
     .unwrap();
     assert_eq!(cfg.parallel_queries, 20);
@@ -83,6 +86,8 @@ fn load_env_overrides_file() {
         None,
         None,
         None,
+        SeverityOverrides::default(),
+        SeverityOverrides::default(),
     )
     .unwrap();
     assert_eq!(cfg.parallel_queries, 15);
@@ -119,6 +124,8 @@ fn load_invalid_toml_cfg001() {
         None,
         None,
         None,
+        SeverityOverrides::default(),
+        SeverityOverrides::default(),
     );
     assert!(r.is_err());
     assert!(matches!(r.unwrap_err(), ConfigError::InvalidToml { .. }));
@@ -155,6 +162,8 @@ fn load_unknown_key_returns_error_sec006() {
         None,
         None,
         None,
+        SeverityOverrides::default(),
+        SeverityOverrides::default(),
     );
     assert!(r.is_err());
     let e = r.unwrap_err();
@@ -195,6 +204,8 @@ fn load_user_config_populates_language_regexes() {
         None,
         None,
         None,
+        SeverityOverrides::default(),
+        SeverityOverrides::default(),
     )
     .unwrap();
     assert_eq!(cfg.language_regexes.len(), 1);
@@ -234,6 +245,8 @@ fn load_config_file_not_found_uses_defaults() {
         None,
         None,
         None,
+        SeverityOverrides::default(),
+        SeverityOverrides::default(),
     )
     .unwrap();
     assert_eq!(cfg.parallel_queries, DEFAULT_PARALLEL_QUERIES);
@@ -248,9 +261,34 @@ fn set_config_key_then_load_fr006() {
         let res = set_config_key("python.regex", "^requirements\\.txt$");
         assert!(res.is_ok());
         let cfg = load(
-            None, None, None, None, None, None, None, None, None, None, None,
-            None, None, None, None, None, false, false, None, None, None,
-            None, false, None, None, None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            SeverityOverrides::default(),
+            SeverityOverrides::default(),
         )
         .unwrap();
         assert_eq!(cfg.language_regexes.len(), 1);

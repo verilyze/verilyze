@@ -25,6 +25,25 @@ fn user_relative_path(path: &Path) -> String {
 /// Maximum allowed parallel queries (FR-012).
 pub const MAX_PARALLEL_QUERIES: usize = 50;
 
+/// Per-CVSS-version severity threshold overrides (FR-013).
+/// All fields are optional; when `None`, the corresponding default for that version is kept.
+/// Used to carry both env-var and CLI overrides into `load()`.
+#[derive(Debug, Clone, Default)]
+pub struct SeverityOverrides {
+    pub v2_critical: Option<f32>,
+    pub v2_high: Option<f32>,
+    pub v2_medium: Option<f32>,
+    pub v2_low: Option<f32>,
+    pub v3_critical: Option<f32>,
+    pub v3_high: Option<f32>,
+    pub v3_medium: Option<f32>,
+    pub v3_low: Option<f32>,
+    pub v4_critical: Option<f32>,
+    pub v4_high: Option<f32>,
+    pub v4_medium: Option<f32>,
+    pub v4_low: Option<f32>,
+}
+
 /// Default parallel queries.
 pub const DEFAULT_PARALLEL_QUERIES: usize = 10;
 
@@ -40,7 +59,7 @@ pub const DEFAULT_BACKOFF_MAX_MS: u64 = 30_000;
 /// Default max retries for transient errors (NFR-005, SEC-007).
 pub const DEFAULT_MAX_RETRIES: u32 = 5;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct EffectiveConfig {
     pub cache_db: Option<PathBuf>,
     pub ignore_db: Option<PathBuf>,
@@ -64,6 +83,32 @@ pub struct EffectiveConfig {
     /// Maximum retries for transient errors.
     pub max_retries: u32,
     pub config_file: Option<PathBuf>,
+    /// Configurable CVSS severity thresholds per version (FR-013).
+    pub severity: vlz_report::SeverityConfig,
+}
+
+impl Default for EffectiveConfig {
+    fn default() -> Self {
+        Self {
+            cache_db: None,
+            ignore_db: None,
+            parallel_queries: 0,
+            cache_ttl_secs: 0,
+            offline: false,
+            benchmark: false,
+            min_score: 0.0,
+            min_count: 0,
+            exit_code_on_cve: None,
+            fp_exit_code: None,
+            language_regexes: Vec::new(),
+            package_manager_required: false,
+            backoff_base_ms: 0,
+            backoff_max_ms: 0,
+            max_retries: 0,
+            config_file: None,
+            severity: vlz_report::SeverityConfig::default(),
+        }
+    }
 }
 
 /// Parsed config file. Unknown top-level keys (e.g. [python] for language regexes) are
@@ -217,8 +262,40 @@ fn apply_file_config_inner(
             }
         }
     }
+    // FR-013: parse [severity.v2], [severity.v3], [severity.v4] sections.
+    if let Ok(value) = toml::from_str::<toml::Value>(raw)
+        && let Some(t) = value.as_table()
+        && let Some(sev_val) = t.get("severity")
+        && let Some(sev) = sev_val.as_table()
+    {
+        apply_toml_severity_table(sev, "v2", &mut cfg.severity.v2);
+        apply_toml_severity_table(sev, "v3", &mut cfg.severity.v3);
+        apply_toml_severity_table(sev, "v4", &mut cfg.severity.v4);
+    }
     let _ = source;
     Ok(())
+}
+
+/// Apply TOML severity sub-table (e.g. `[severity.v3]`) to the given thresholds (FR-013).
+fn apply_toml_severity_table(
+    sev: &toml::Table,
+    version_key: &str,
+    thresholds: &mut vlz_report::SeverityThresholds,
+) {
+    if let Some(tbl) = sev.get(version_key).and_then(|v| v.as_table()) {
+        if let Some(v) = tbl.get("critical_min").and_then(|v| v.as_float()) {
+            thresholds.critical_min = v as f32;
+        }
+        if let Some(v) = tbl.get("high_min").and_then(|v| v.as_float()) {
+            thresholds.high_min = v as f32;
+        }
+        if let Some(v) = tbl.get("medium_min").and_then(|v| v.as_float()) {
+            thresholds.medium_min = v as f32;
+        }
+        if let Some(v) = tbl.get("low_min").and_then(|v| v.as_float()) {
+            thresholds.low_min = v as f32;
+        }
+    }
 }
 
 /// When true, also extract [lang].regex into language_regexes (only from user config).
@@ -390,6 +467,10 @@ pub fn load(
     cli_backoff_base_ms: Option<u64>,
     cli_backoff_max_ms: Option<u64>,
     cli_max_retries: Option<u32>,
+    // FR-013, CFG-005: severity threshold overrides from environment variables.
+    env_severity: SeverityOverrides,
+    // FR-013, CFG-006: severity threshold overrides from CLI flags; takes precedence over env.
+    cli_severity: SeverityOverrides,
 ) -> Result<EffectiveConfig, ConfigError> {
     let mut cfg = EffectiveConfig {
         parallel_queries: DEFAULT_PARALLEL_QUERIES,
@@ -502,6 +583,10 @@ pub fn load(
         });
     }
 
+    // FR-013: apply severity threshold overrides (env first, then CLI).
+    apply_severity_overrides(&mut cfg.severity, &env_severity);
+    apply_severity_overrides(&mut cfg.severity, &cli_severity);
+
     Ok(cfg)
 }
 
@@ -572,6 +657,54 @@ pub fn env_max_retries() -> Option<u32> {
         .and_then(|s| s.parse().ok())
 }
 
+/// Read all VLZ_SEVERITY_* env vars and return a `SeverityOverrides` (FR-013, CFG-005).
+pub fn env_severity_overrides() -> SeverityOverrides {
+    fn read_f32(name: &str) -> Option<f32> {
+        std::env::var(name).ok().and_then(|s| s.parse().ok())
+    }
+    SeverityOverrides {
+        v2_critical: read_f32("VLZ_SEVERITY_V2_CRITICAL_MIN"),
+        v2_high: read_f32("VLZ_SEVERITY_V2_HIGH_MIN"),
+        v2_medium: read_f32("VLZ_SEVERITY_V2_MEDIUM_MIN"),
+        v2_low: read_f32("VLZ_SEVERITY_V2_LOW_MIN"),
+        v3_critical: read_f32("VLZ_SEVERITY_V3_CRITICAL_MIN"),
+        v3_high: read_f32("VLZ_SEVERITY_V3_HIGH_MIN"),
+        v3_medium: read_f32("VLZ_SEVERITY_V3_MEDIUM_MIN"),
+        v3_low: read_f32("VLZ_SEVERITY_V3_LOW_MIN"),
+        v4_critical: read_f32("VLZ_SEVERITY_V4_CRITICAL_MIN"),
+        v4_high: read_f32("VLZ_SEVERITY_V4_HIGH_MIN"),
+        v4_medium: read_f32("VLZ_SEVERITY_V4_MEDIUM_MIN"),
+        v4_low: read_f32("VLZ_SEVERITY_V4_LOW_MIN"),
+    }
+}
+
+/// Apply a `SeverityOverrides` to a `SeverityConfig` (FR-013).
+/// Each `Some` value overwrites the corresponding threshold; `None` keeps the existing value.
+pub fn apply_severity_overrides(
+    config: &mut vlz_report::SeverityConfig,
+    overrides: &SeverityOverrides,
+) {
+    macro_rules! apply {
+        ($field:expr, $opt:expr) => {
+            if let Some(v) = $opt {
+                $field = v;
+            }
+        };
+    }
+    apply!(config.v2.critical_min, overrides.v2_critical);
+    apply!(config.v2.high_min, overrides.v2_high);
+    apply!(config.v2.medium_min, overrides.v2_medium);
+    apply!(config.v2.low_min, overrides.v2_low);
+    apply!(config.v3.critical_min, overrides.v3_critical);
+    apply!(config.v3.high_min, overrides.v3_high);
+    apply!(config.v3.medium_min, overrides.v3_medium);
+    apply!(config.v3.low_min, overrides.v3_low);
+    apply!(config.v4.critical_min, overrides.v4_critical);
+    apply!(config.v4.high_min, overrides.v4_high);
+    apply!(config.v4.medium_min, overrides.v4_medium);
+    apply!(config.v4.low_min, overrides.v4_low);
+}
+
 /// Set a config key (e.g. python.regex) in the user config file (FR-006).
 pub fn set_config_key(key: &str, value: &str) -> Result<(), ConfigError> {
     let path = user_config_path();
@@ -630,9 +763,34 @@ mod tests {
     #[test]
     fn load_defaults_when_no_files() {
         let cfg = load(
-            None, None, None, None, None, None, None, None, None, None, None,
-            None, None, None, None, None, false, false, None, None, None,
-            None, false, None, None, None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            Default::default(),
+            Default::default(),
         )
         .unwrap();
         assert_eq!(cfg.parallel_queries, DEFAULT_PARALLEL_QUERIES);
@@ -670,6 +828,8 @@ mod tests {
             None,
             None,
             None,
+            Default::default(),
+            Default::default(),
         );
         assert!(matches!(
             r,
@@ -837,6 +997,8 @@ mod tests {
                 None,
                 None,
                 None,
+                Default::default(),
+                Default::default(),
             );
             assert!(r.is_err());
             let err = r.unwrap_err();
@@ -879,6 +1041,8 @@ mod tests {
                 None,
                 None,
                 None,
+                Default::default(),
+                Default::default(),
             );
             assert!(r.is_err());
             let err = r.unwrap_err();
@@ -919,6 +1083,8 @@ mod tests {
                 None,
                 None,
                 None,
+                Default::default(),
+                Default::default(),
             );
             assert!(r.is_err());
             let err = r.unwrap_err();
@@ -974,6 +1140,8 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
+            Default::default(),
+            Default::default(),
         )
         .unwrap();
         assert_eq!(
@@ -1039,6 +1207,8 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
+            Default::default(),
+            Default::default(),
         )
         .unwrap();
         assert_eq!(cfg.parallel_queries, 3);
@@ -1074,6 +1244,8 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
+            Default::default(),
+            Default::default(),
         )
         .unwrap();
         assert_eq!(cfg.parallel_queries, 7);
@@ -1121,6 +1293,8 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
+            Default::default(),
+            Default::default(),
         )
         .unwrap();
         assert_eq!(cfg.parallel_queries, 8);
@@ -1178,6 +1352,8 @@ regex = "^req\\.txt$"
                     None,
                     None,
                     None,
+                    Default::default(),
+                    Default::default(),
                 )
                 .unwrap();
                 assert_eq!(cfg.backoff_base_ms, 200);
@@ -1216,6 +1392,8 @@ regex = "^req\\.txt$"
             Some(250),
             Some(15000),
             Some(6),
+            Default::default(),
+            Default::default(),
         )
         .unwrap();
         assert_eq!(cfg.backoff_base_ms, 250);
@@ -1257,9 +1435,34 @@ regex = "^req\\.txt$"
             ],
             || {
                 let cfg = load(
-                    None, None, None, None, None, None, None, None, None,
-                    None, None, None, None, None, None, None, false, false,
-                    None, None, None, None, false, None, None, None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    None,
+                    None,
+                    None,
+                    Default::default(),
+                    Default::default(),
                 )
                 .unwrap();
                 assert_eq!(cfg.parallel_queries, 10);
@@ -1281,9 +1484,34 @@ regex = "^req\\.txt$"
         temp_env::with_var("XDG_CONFIG_HOME", None::<&str>, || {
             temp_env::with_var("HOME", Some(home.to_str().unwrap()), || {
                 let cfg = load(
-                    None, None, None, None, None, None, None, None, None,
-                    None, None, None, None, None, None, None, false, false,
-                    None, None, None, None, false, None, None, None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    None,
+                    None,
+                    None,
+                    Default::default(),
+                    Default::default(),
                 )
                 .unwrap();
                 assert_eq!(cfg.parallel_queries, 42);
@@ -1395,5 +1623,168 @@ regex = "^req\\.txt$"
                 ));
             },
         );
+    }
+
+    // FR-013: severity threshold configuration tests
+
+    #[test]
+    fn severity_defaults_match_vlz_report_defaults() {
+        // EffectiveConfig.severity defaults must match SeverityConfig::default().
+        // Use an empty temp dir for XDG_CONFIG_HOME to avoid picking up the real user config.
+        let dir = tempfile::tempdir().unwrap();
+        temp_env::with_var(
+            "XDG_CONFIG_HOME",
+            Some(dir.path().to_str().unwrap()),
+            || {
+                let cfg = load_no_severity(None);
+                assert_eq!(cfg.severity.v3.critical_min, 9.0);
+                assert_eq!(cfg.severity.v3.high_min, 7.0);
+                assert_eq!(cfg.severity.v3.medium_min, 4.0);
+                assert_eq!(cfg.severity.v3.low_min, 0.1);
+            },
+        );
+    }
+
+    #[test]
+    fn severity_v3_critical_min_from_config_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_dir = dir.path().join("xdg").join("verilyze");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        std::fs::write(
+            config_dir.join("verilyze.conf"),
+            "[severity.v3]\ncritical_min = 8.5\n",
+        )
+        .unwrap();
+        temp_env::with_var(
+            "XDG_CONFIG_HOME",
+            Some(dir.path().join("xdg").to_str().unwrap()),
+            || {
+                let cfg = load_no_severity(None);
+                assert_eq!(cfg.severity.v3.critical_min, 8.5);
+                // other thresholds unchanged
+                assert_eq!(cfg.severity.v3.high_min, 7.0);
+            },
+        );
+    }
+
+    #[test]
+    fn severity_env_var_overrides_config_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_dir = dir.path().join("xdg").join("verilyze");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        std::fs::write(
+            config_dir.join("verilyze.conf"),
+            "[severity.v3]\ncritical_min = 8.5\n",
+        )
+        .unwrap();
+        temp_env::with_vars(
+            [
+                (
+                    "XDG_CONFIG_HOME",
+                    Some(dir.path().join("xdg").to_str().unwrap()),
+                ),
+                ("VLZ_SEVERITY_V3_CRITICAL_MIN", Some("8.0")),
+            ],
+            || {
+                let env_sev = env_severity_overrides();
+                let cfg = load_with_severity(
+                    None,
+                    env_sev,
+                    SeverityOverrides::default(),
+                );
+                assert_eq!(cfg.severity.v3.critical_min, 8.0);
+            },
+        );
+    }
+
+    #[test]
+    fn severity_cli_overrides_env_and_file() {
+        let dir = tempfile::tempdir().unwrap();
+        temp_env::with_vars(
+            [
+                ("XDG_CONFIG_HOME", Some(dir.path().to_str().unwrap())),
+                ("VLZ_SEVERITY_V3_HIGH_MIN", Some("6.5")),
+            ],
+            || {
+                let env_sev = env_severity_overrides();
+                let cli_sev = SeverityOverrides {
+                    v3_high: Some(6.0),
+                    ..Default::default()
+                };
+                let cfg = load_with_severity(None, env_sev, cli_sev);
+                assert_eq!(cfg.severity.v3.high_min, 6.0);
+            },
+        );
+    }
+
+    #[test]
+    fn severity_v2_v4_independently_configurable() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_dir = dir.path().join("xdg").join("verilyze");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        std::fs::write(
+            config_dir.join("verilyze.conf"),
+            "[severity.v2]\ncritical_min = 10.0\n[severity.v4]\nhigh_min = 6.5\n",
+        )
+        .unwrap();
+        temp_env::with_var(
+            "XDG_CONFIG_HOME",
+            Some(dir.path().join("xdg").to_str().unwrap()),
+            || {
+                let cfg = load_no_severity(None);
+                assert_eq!(cfg.severity.v2.critical_min, 10.0);
+                assert_eq!(cfg.severity.v4.high_min, 6.5);
+                // v3 unchanged
+                assert_eq!(cfg.severity.v3.critical_min, 9.0);
+            },
+        );
+    }
+
+    /// Helper: call load() with no env or CLI severity overrides.
+    fn load_no_severity(config_file: Option<&str>) -> EffectiveConfig {
+        load_with_severity(
+            config_file,
+            SeverityOverrides::default(),
+            SeverityOverrides::default(),
+        )
+    }
+
+    /// Helper: call load() with given severity overrides.
+    fn load_with_severity(
+        config_file: Option<&str>,
+        env_sev: SeverityOverrides,
+        cli_sev: SeverityOverrides,
+    ) -> EffectiveConfig {
+        load(
+            config_file,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            env_sev,
+            cli_sev,
+        )
+        .unwrap()
     }
 }

@@ -22,9 +22,14 @@ async fn find_manifests_in_tree() {
         .write_all(b"[project]\n")
         .unwrap();
     fs::File::create(tmp.join("not-a-manifest.txt")).unwrap();
+    // setup.py is deferred (FR-005 / Appendix A); it must NOT appear in results.
     fs::File::create(tmp.join("subdir").join("setup.py"))
         .unwrap()
         .write_all(b"from setuptools import setup\n")
+        .unwrap();
+    fs::File::create(tmp.join("subdir").join("setup.cfg"))
+        .unwrap()
+        .write_all(b"[metadata]\n")
         .unwrap();
 
     let finder = PythonManifestFinder::new();
@@ -33,7 +38,7 @@ async fn find_manifests_in_tree() {
     let mut want = vec![
         tmp.join("requirements.txt"),
         tmp.join("subdir").join("pyproject.toml"),
-        tmp.join("subdir").join("setup.py"),
+        tmp.join("subdir").join("setup.cfg"),
     ];
     want.sort();
     assert_eq!(got, want, "expected {:?}, got {:?}", want, got);
