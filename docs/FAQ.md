@@ -12,6 +12,87 @@ Common error messages and suggested remediation steps. See also
 
 ---
 
+## Commit signing
+
+### GPG: `gpg: signing failed: No secret key`
+
+**Cause:** The key ID in `git config user.signingkey` does not match any key
+in your GPG keyring, or the email on the key does not match `user.email`.
+
+**Remediation:** Run `gpg --list-secret-keys --keyid-format=long` to find
+your key ID, then `git config user.signingkey <KEY_ID>`. Ensure the email
+on the key matches `git config user.email`.
+
+### GPG: `gpg: signing failed: Inappropriate ioctl for device`
+
+**Cause:** GPG cannot open a pinentry dialog (common in SSH sessions or
+headless environments).
+
+**Remediation:** Add `export GPG_TTY=$(tty)` to your shell profile
+(e.g. `~/.bashrc`) and reload it.
+
+### GPG: Passphrase prompt not appearing
+
+**Cause:** The GPG agent is stuck or misconfigured.
+
+**Remediation:** Restart the agent: `gpgconf --kill gpg-agent`, then retry
+the commit.
+
+### SSH: `error: Load key ... No such file or directory`
+
+**Cause:** The path in `git config user.signingkey` does not point to a
+valid SSH key file.
+
+**Remediation:** Verify the path: `ls ~/.ssh/id_ed25519.pub` (or whichever
+key you use). Update with
+`git config user.signingkey ~/.ssh/id_ed25519.pub`.
+
+### SSH: `make check-signatures` fails with "key not in your keyring"
+
+**Cause:** The allowed signers file is missing or does not contain your
+public key. Strict mode requires local signature validation.
+
+**Remediation:** Create or update the allowed signers file:
+
+```sh
+echo "$(git config user.email) $(cat ~/.ssh/id_ed25519.pub)" \
+    >> ~/.ssh/allowed_signers
+git config gpg.ssh.allowedSignersFile ~/.ssh/allowed_signers
+```
+
+### Commits show "Unverified" on GitHub
+
+**Cause:** Your public key (GPG or SSH) is not uploaded to GitHub, or the
+email on the key does not match any verified email on your GitHub account.
+
+**Remediation:** Upload the key at GitHub > Settings > SSH and GPG keys. For
+SSH, add it as a **Signing key** (not just Authentication). Ensure the email
+on the key matches a verified email on your GitHub account.
+
+### `make check-signatures` fails with "no signature"
+
+**Cause:** The commit is unsigned. `commit.gpgsign` may not be enabled.
+
+**Remediation:** Enable signing: `git config commit.gpgsign true`. Amend
+the unsigned commit: `git commit --amend --no-edit -S`. See
+[CONTRIBUTING.md -- Commit signing setup](../CONTRIBUTING.md#commit-signing-setup).
+
+### `make check-signatures` fails with "BAD signature"
+
+**Cause:** The signature is corrupt or the commit data was altered after
+signing.
+
+**Remediation:** Amend and re-sign: `git commit --amend --no-edit -S`.
+
+### `make check-signatures` fails with "EXPIRED" or "REVOKED key"
+
+**Cause:** The signing key has expired or been revoked.
+
+**Remediation:** Renew or replace the key, then re-sign affected commits
+with `git rebase --exec 'git commit --amend --no-edit -S' <base>`.
+
+---
+
 ## Exit code 2 (Misconfiguration)
 
 ### Invalid TOML in configuration file
