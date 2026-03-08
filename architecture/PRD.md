@@ -109,13 +109,13 @@ DOC-002).
 
 | Business Goal | Requirement(s) |
 |---------------|----------------|
-| **Confidence in shipped code** | SEC-020 |
+| **Confidence in shipped code** | SEC-020, SEC-021 |
 | **Low operational overhead** | OP-017 |
 | **Regulatory compliance (SOC 2, ISO 27001, CMMC)** | |
 | **Developer productivity** | OP-017 |
 | **Future‑proof extensibility** | |
 | **Networked or air-gapped environment** | |
-| **Minimal attack surface** | NFR-019, MOD-004, SEC-016, SEC-019 |
+| **Minimal attack surface** | NFR-019, MOD-004, SEC-016, SEC-019, SEC-021 |
 | **Small binary & fast builds** | Purpose & Scope, NFR-019, MOD-004 |
 | **Design principles (Unix / SOLID)** | [Design principles](#design-principles), MOD-001, MOD-002, NFR-013, NFR-018, NFR-022, FR-007 |
 
@@ -217,6 +217,7 @@ DOC-002).
 | **SEC-018** | Coordinated vulnerability disclosure | A top-level SECURITY.md describes how to securely contact the maintainer(s) using GPG-encrypted email to disclose security vulnerabilities responsibly. The document shall also contain links to the threat model and to test results, including fuzz testing, and the latest `vlz scan` results. | A SECURITY.md file exists with guidance for those reporting vulnerabilities as well as information for users and links to the threat model and test results (including fuzzing and `vlz scan` results). |
 | **SEC-019** | Software bill of materials | When a change in the dependencies is detected, the CI/CD system shall produce an updated SBOM in both SPDX and CycloneDX formats. | An SBOM in both SPDX 3.0 and Cyclone DX 1.6 formats is available in the repository. |
 | **SEC-020** | Error output content | Error and diagnostic output written to stderr must not contain credentials, tokens, or other secrets (SEC-008). Paths shall use user-relative forms (e.g., `~`) where practical to minimize disclosure of sensitive directory structure. Plugin-provided and provider-derived error content shall be safe for terminal display (no unescaped control sequences or escape-code injection). | (1) Fuzzing or audit finds no credential or token strings in error output. (2) Paths in common error scenarios use `~` or relative forms where applicable. (3) Malformed provider responses or plugin errors do not cause terminal escape-sequence injection. |
+| **SEC-021** | SLSA Build Level 3 provenance | The CI/CD release pipeline shall generate **SLSA Build Level 3** provenance for the primary binary (`vlz`) and the container image. Provenance shall be produced by a hardened, isolated build platform (e.g., `slsa-framework/slsa-github-generator` on GitHub Actions) using keyless signing (Sigstore/Fulcio + Rekor transparency log). The provenance must be non-falsifiable (signed by the build platform, not by project maintainers or the build job). Provenance for distro packages (OP-013: RPM, DEB, ebuild, etc.) is a roadmap item, deferred until SLSA tooling matures for those build systems. This requirement complements existing supply-chain controls: reproducible builds (NFR-006), dependency auditing (SEC-016), SBOM generation (SEC-019), and dogfooding (SEC-015). **Phase:** Post-v1.0 for the primary binary and container image; distro packages deferred. | (1) The release workflow produces a signed SLSA v1.0 provenance attestation for the `vlz` binary and Docker image. (2) `slsa-verifier verify-artifact` succeeds against the published provenance. (3) Provenance is published alongside release artifacts (e.g., GitHub Release assets or OCI registry). (4) README or SECURITY.md documents how consumers verify provenance. |
 
 ---
 
@@ -337,20 +338,26 @@ security reviewers with no outstanding issues.
 | Malformed or malicious config | Strict validation, unknown keys cause exit 2 (SEC-006). |
 | Information disclosure via reports | Reports are written to user-specified or default paths; no unsanitized secrets. |
 | Credential exposure via env, log, or error | Env-only for credentials; never log or include in errors (SEC-020); fuzz/audit verifies no token strings in output. |
-| Supply-chain compromise of dependencies | License checks (SEC-012), `cargo audit` (SEC-016), dogfooding (SEC-015). |
+| Supply-chain compromise of dependencies | License checks (SEC-012), `cargo audit` (SEC-016), dogfooding (SEC-015), SLSA Build L3 provenance (SEC-021). |
+| Tampered or substituted release artifact | SLSA Build L3 provenance with keyless signing; consumers verify via `slsa-verifier` (SEC-021). |
 
 ### 11.5 Attack tree (ASCII)
 
 ```
-                    [Compromise vlz user outcome]
-                                    |
-        +-------------------+------+------+------+-------------------+
-        |                   |             |     |                   |
- [Tamper cache]    [Spoof CVE API]  [Malicious config] [Exfiltrate provider credentials]  [Compromise deps]
-        |                   |             |                         |                   |
-   (verify_integrity,   (TLS verify,  (strict parsing,    (env-only, no disk;   (cargo deny,
-    file perms)          cert chain)   exit 2)             no log/error disclosure; audit, SBOM)
-                                                        redact in verbose)
+                         [Compromise vlz user outcome]
+                                       |
+    +------------+------------+--------+--------+------------+------------------+
+    |            |            |                 |            |                  |
+[Tamper     [Spoof       [Malicious    [Exfiltrate    [Compromise    [Substitute
+ cache]      CVE API]     config]       provider       deps]          release
+    |            |            |          credentials]      |           artifact]
+    |            |            |                 |            |                  |
+(verify_     (TLS verify, (strict       (env-only,    (cargo deny,   (SLSA Build L3
+ integrity,   cert chain)  parsing,      no disk;       audit, SBOM,   provenance,
+ file perms)               exit 2)       no log/error   SLSA L3)       slsa-verifier)
+                                         disclosure;
+                                         redact in
+                                         verbose)
 ```
 
 ---
