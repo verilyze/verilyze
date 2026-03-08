@@ -4,9 +4,9 @@
 
 [package]
 name = "vlz-plugin-macro"
-version = "1.0.0"
-edition = "2024"
-license = "GPL-3.0-or-later"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
 description = "Procedural macro used by plug‑in crates to register themselves"
 publish = false
 

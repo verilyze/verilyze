@@ -4,9 +4,9 @@
 
 [package]
 name = "vlz-python"
-version = "1.0.0"
-edition = "2024"
-license = "GPL-3.0-or-later"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
 description = "Python language plugin for verilyze (manifest finder, parser, resolver)"
 publish = false
 

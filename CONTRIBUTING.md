@@ -176,8 +176,10 @@ require PR reviews, passing CI, linear history, and disallow force-push to
 
 ## Versioning and releases
 
-We use [Semantic Versioning](https://semver.org/) (SemVer). The binary
-version is in `crates/core/vlz/Cargo.toml`.
+We use [Semantic Versioning](https://semver.org/) (SemVer). All crates
+share a single workspace version defined in the root `Cargo.toml` under
+`[workspace.package]` (see PRD MOD-007). Individual crates inherit it
+with `version.workspace = true`.
 
 **Pre-1.0 (0.x.y):** MINOR = new features (e.g. new plugin, new reporter);
 PATCH = bug fixes, documentation.
@@ -188,7 +190,8 @@ fix = PATCH).
 **Release checklist:**
 
 1. Update `CHANGELOG.md` with changes since last release.
-2. Bump version in `crates/core/vlz/Cargo.toml` per SemVer.
+2. Bump `version` in the root `Cargo.toml` `[workspace.package]` section
+   per SemVer.
 3. Merge to `main` and run `make check`.
 4. Create signed annotated tag: `git tag -s v0.1.0 -m "Release v0.1.0"`.
 5. Push tag: `git push origin v0.1.0`.
