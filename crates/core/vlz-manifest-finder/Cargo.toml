@@ -4,9 +4,9 @@
 
 [package]
 name = "vlz-manifest-finder"
-version = "1.0.0"
-edition = "2024"
-license = "GPL-3.0-or-later"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
 description = "Trait and stub implementations for discovering manifest files"
 publish = false
 

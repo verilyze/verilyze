@@ -1775,7 +1775,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-cve-client"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "async-trait",
  "cvssrust",
@@ -1790,7 +1790,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-cve-provider-github"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "async-trait",
  "reqwest",
@@ -1805,7 +1805,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-cve-provider-nvd"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "async-trait",
  "reqwest",
@@ -1820,7 +1820,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-cve-provider-sonatype"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "async-trait",
  "base64",
@@ -1836,7 +1836,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-db"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "async-trait",
  "serde",
@@ -1847,7 +1847,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-db-redb"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "async-trait",
  "redb",
@@ -1872,7 +1872,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-integrity"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "async-trait",
  "serde_json",
@@ -1884,7 +1884,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-manifest-finder"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "async-trait",
  "thiserror",
@@ -1893,7 +1893,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-manifest-parser"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "async-trait",
  "thiserror",
@@ -1903,7 +1903,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-plugin-macro"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1912,7 +1912,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-python"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "async-trait",
  "regex",
@@ -1928,7 +1928,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-report"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "async-trait",
  "serde",
@@ -1940,7 +1940,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-rust"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "async-trait",
  "regex",

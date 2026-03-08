@@ -4,9 +4,9 @@
 
 [package]
 name = "vlz"
-version = "0.1.0"
-edition = "2024"
-license = "GPL-3.0-or-later"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
 description = "verilyze - fast, modular SCA command-line tool"
 publish = false               # internal binary, not published to crates.io
 
