@@ -32,10 +32,30 @@ jobs:
           GITHUB_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: ./scripts/check-dco.sh
 
+  check-signatures:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch
+        run: git fetch origin "${{ github.event.pull_request.base.ref }}"
+
+      - name: Check commit signatures (presence only)
+        env:
+          GITHUB_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          GITHUB_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: ./scripts/check-signatures.sh --presence-only
+
   check-fast:
     runs-on: ubuntu-latest
-    needs: [check-dco]
-    if: always() && (needs.check-dco.result == 'success' || needs.check-dco.result == 'skipped')
+    needs: [check-dco, check-signatures]
+    if: >-
+      always()
+      && (needs.check-dco.result == 'success' || needs.check-dco.result == 'skipped')
+      && (needs.check-signatures.result == 'success' || needs.check-signatures.result == 'skipped')
     steps:
       - uses: actions/checkout@v4
 

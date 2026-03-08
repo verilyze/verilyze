@@ -98,6 +98,7 @@ graph TD
 | ShellCheck       | Shell script linting                       | OS package manager            |
 | GNU Make (4.0+)  | Build orchestration                        | OS package manager            |
 | Git              | Contributing, hooks, fuzz change detection | OS package manager            |
+| GnuPG 2.x or SSH key | Commit signing (GPG or SSH; required) | OS package manager / `ssh-keygen` |
 
 **Recommended**
 
@@ -113,9 +114,11 @@ make -j check
 ```
 
 Run `make` or `make help` for a full list of targets. `make setup` bootstraps
-Python venvs; REUSE is auto-installed when `check-headers` runs. Optional:
-`make setup-hooks` for git hooks (REUSE headers, DCO signoff). For fuzz: AFL++
-must be installed; cargo-afl is auto-installed. For coverage: rustup,
+Python venvs; REUSE is auto-installed when `check-headers` runs. Recommended:
+`make setup-hooks` for git hooks (REUSE headers, DCO signoff, signature
+verification on push). Commit signing (GPG or SSH) must be configured
+separately -- see [Commit signing setup](#commit-signing-setup). For fuzz:
+AFL++ must be installed; cargo-afl is auto-installed. For coverage: rustup,
 cargo-llvm-cov, and nightly are auto-installed; AFL++ required only when
 `make coverage` runs (since it runs fuzz first).
 
@@ -136,11 +139,13 @@ cargo-llvm-cov, and nightly are auto-installed; AFL++ required only when
 | Fuzz smoke test       | `make fuzz`                                        |
 | Fuzz changed only     | `make fuzz-changed`                                |
 | Fuzz extended         | `make fuzz-extended`                               |
+| Check DCO signoff     | `make check-dco`                                   |
+| Check signatures      | `make check-signatures`                            |
 
 ## Branching and merging
 
-We use trunk-based development with short-lived feature branches and a linear
-history. `main` is always buildable, tested, and releasable.
+We use trunk-based development with short-lived feature branches and rebased
+branches. `main` is always buildable, tested, and releasable.
 
 **Workflow:**
 
@@ -151,7 +156,15 @@ history. `main` is always buildable, tested, and releasable.
 3. Before opening or updating a PR, rebase onto `main`:
    `git fetch origin main && git rebase origin/main`
 4. Push: `git push --force-with-lease` (required after rebase).
-5. Merge into `main` is fast-forward only (no merge commits).
+5. Merge via GitHub's "Create a merge commit" button. All PRs must be
+   rebased onto `main` before merging so the merge commit introduces no
+   divergence.
+
+We use merge commits instead of rebase-merge or squash-merge because GitHub's
+rebase-merge [strips GPG signatures](https://github.com/orgs/community/discussions/11639)
+from commits (leaving them unsigned), and squash-merge replaces them with
+GitHub's own signature. Merge commits preserve the original signed commits.
+Use `git log --first-parent` for a linear view of `main`.
 
 ### Commit messages
 
@@ -166,13 +179,99 @@ We use [Conventional Commits](https://www.conventionalcommits.org/). Format:
   to the [Developer Certificate of Origin](https://developercertificate.org/).
   Use `git commit -s` to add it automatically. CI will reject PRs whose commits
   lack a valid signoff.
-- **GPG signing (optional):** We encourage contributors to sign commits with
-  GPG for stronger authentication and auditability. See
-  [GitHub's guide to signing commits](https://docs.github.com/en/authentication/managing-commit-signature-verification).
+- **Commit signing (required):** All commits must be cryptographically
+  signed (GPG or SSH). Use `git config commit.gpgsign true` to enable
+  automatic signing. This is why squash and rebase merges are disabled --
+  both strip contributor signatures. See [Commit signing setup](#commit-signing-setup)
+  below for step-by-step instructions.
 
 **Branch protection (GitHub):** Configure branch protection for `main` to
-require PR reviews, passing CI, linear history, and disallow force-push to
-`main`. Use "Require linear history" so only rebased branches can merge.
+require PR reviews, passing CI, require signed commits, and disallow
+force-push to `main`. Under Settings > General > Pull Requests, enable only
+"Allow merge commits" and disable "Allow squash merging" and "Allow rebase
+merging" so that the only available merge method preserves signatures.
+
+### Commit signing setup
+
+All commits must be signed. Git supports two signing backends; both are
+equally accepted by the project's checks (`make check-signatures`, the
+pre-push hook, and CI). Choose whichever suits your workflow.
+
+**Option A: GPG signing**
+
+1. Generate a key (ed25519 recommended, or RSA 4096):
+
+   ```sh
+   gpg --full-generate-key
+   ```
+
+2. Find your key ID:
+
+   ```sh
+   gpg --list-secret-keys --keyid-format=long
+   ```
+
+   Look for the long hex ID after `sec ed25519/` (or `sec rsa4096/`).
+
+3. Configure Git:
+
+   ```sh
+   git config user.signingkey <KEY_ID>
+   git config commit.gpgsign true
+   git config tag.gpgsign true
+   ```
+
+4. Upload your public key to GitHub:
+
+   ```sh
+   gpg --armor --export <KEY_ID>
+   ```
+
+   Paste the output at GitHub > Settings > SSH and GPG keys > New GPG key.
+
+5. If you use SSH sessions or a headless environment, add to your shell
+   profile (e.g. `~/.bashrc`):
+
+   ```sh
+   export GPG_TTY=$(tty)
+   ```
+
+**Option B: SSH signing (Git 2.34+)**
+
+1. Use an existing SSH key or generate one:
+
+   ```sh
+   ssh-keygen -t ed25519
+   ```
+
+2. Configure Git:
+
+   ```sh
+   git config gpg.format ssh
+   git config user.signingkey ~/.ssh/id_ed25519.pub
+   git config commit.gpgsign true
+   git config tag.gpgsign true
+   ```
+
+3. Upload the public key to GitHub > Settings > SSH and GPG keys. Add it
+   as a **Signing key** (not just Authentication key).
+
+4. For local strict verification (`make check-signatures`) to validate
+   your own signatures, create an allowed signers file:
+
+   ```sh
+   echo "$(git config user.email) $(cat ~/.ssh/id_ed25519.pub)" \
+       >> ~/.ssh/allowed_signers
+   git config gpg.ssh.allowedSignersFile ~/.ssh/allowed_signers
+   ```
+
+**Verify your setup:** After committing, run `make check-signatures` to
+confirm your commits pass strict signature validation. The pre-push hook
+(installed via `make setup-hooks`) also runs this check automatically before
+each push.
+
+For full details, see
+[GitHub's guide to signing commits](https://docs.github.com/en/authentication/managing-commit-signature-verification).
 
 ## Versioning and releases
 
@@ -389,9 +488,11 @@ copyright and license headers. Default license and copyright are defined in
   `reuse lint`)
 - **Add/update headers:** `make headers` (runs `scripts/update_headers.py`)
 - **Install Git hooks:** Run `make setup-hooks` or `./scripts/install-hooks.sh`
-  to add pre-commit (REUSE headers) and commit-msg (DCO signoff) hooks. The
-  pre-commit hook inserts headers using the Git author as the copyright holder.
-  Requires `git config user.name` and `user.email` to be set.
+  to add pre-commit (REUSE headers), commit-msg (DCO signoff), and pre-push
+  (commit signature verification) hooks. The pre-commit hook inserts headers
+  using the Git author as the copyright holder. The pre-push hook runs
+  `check-signatures.sh` in strict mode before each push. Requires
+  `git config user.name` and `user.email` to be set.
 - **Manual SPDX headers:** If you add SPDX headers by hand (e.g. when creating
   a new file before running `make headers`), include a trailing blank line after
   the header block. Use an actual empty line, not a commented blank line. This
