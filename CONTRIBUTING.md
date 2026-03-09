@@ -130,6 +130,7 @@ cargo-llvm-cov, and nightly are auto-installed; AFL++ required only when
 | Bootstrap environment | `make setup`                                       |
 | Full CI check         | `make check` (use `make -j check` for faster runs) |
 | Quick build           | `make debug`                                       |
+| Release build         | `make release` (stripped binary, NFR-023)         |
 | Run tests             | `make unit-tests`                                  |
 | Format Rust code      | `make fmt`                                         |
 | Verify Rust format    | `make fmt-check`                                   |
@@ -287,6 +288,9 @@ PATCH = bug fixes, documentation.
 fix = PATCH).
 
 **Release checklist:**
+
+Release builds (`make release` or `cargo build --release`) produce binaries
+stripped of symbols (NFR-023) for security and smaller size.
 
 1. Update `CHANGELOG.md` with changes since last release.
 2. Bump `version` in the root `Cargo.toml` `[workspace.package]` section
