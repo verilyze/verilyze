@@ -23,4 +23,5 @@ vlz-manifest-parser = { path = "../../core/vlz-manifest-parser" }
 tokio = { version = "1", features = ["fs"] }
 
 [dev-dependencies]
+tempfile = "3"
 tokio = { version = "1", features = ["rt", "macros"] }

@@ -113,8 +113,8 @@ mod tests {
 
     #[tokio::test]
     async fn find_cargo_toml_in_tree() {
-        let tmp = std::env::temp_dir().join("vlz_rust_finder_test");
-        let _ = std::fs::remove_dir_all(&tmp);
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
         std::fs::create_dir_all(tmp.join("crates/foo")).unwrap();
         std::fs::File::create(tmp.join("Cargo.toml"))
             .unwrap()
@@ -127,7 +127,7 @@ mod tests {
         std::fs::File::create(tmp.join("other.txt")).unwrap();
 
         let finder = RustManifestFinder::new();
-        let mut got = finder.find(&tmp).await.unwrap();
+        let mut got = finder.find(tmp).await.unwrap();
         got.sort();
         let mut want = vec![
             tmp.join("Cargo.toml"),
@@ -135,14 +135,12 @@ mod tests {
         ];
         want.sort();
         assert_eq!(got, want);
-
-        let _ = std::fs::remove_dir_all(&tmp);
     }
 
     #[tokio::test]
     async fn with_patterns_only_root_cargo_toml() {
-        let tmp = std::env::temp_dir().join("vlz_rust_finder_regex_test");
-        let _ = std::fs::remove_dir_all(&tmp);
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
         std::fs::create_dir_all(tmp.join("sub")).unwrap();
         std::fs::File::create(tmp.join("Cargo.toml")).unwrap();
         std::fs::File::create(tmp.join("sub").join("Cargo.toml")).unwrap();
@@ -151,7 +149,7 @@ mod tests {
             "^Cargo\\.toml$".to_string(),
         ])
         .unwrap();
-        let mut got = finder.find(&tmp).await.unwrap();
+        let mut got = finder.find(tmp).await.unwrap();
         got.sort();
         let mut want =
             vec![tmp.join("Cargo.toml"), tmp.join("sub").join("Cargo.toml")];
@@ -162,9 +160,7 @@ mod tests {
             r"^Cargo\.toml$".to_string(),
         ])
         .unwrap();
-        let got = finder.find(&tmp).await.unwrap();
+        let got = finder.find(tmp).await.unwrap();
         assert!(!got.is_empty());
-
-        let _ = std::fs::remove_dir_all(&tmp);
     }
 }

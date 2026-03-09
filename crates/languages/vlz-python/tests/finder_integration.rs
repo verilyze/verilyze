@@ -10,8 +10,8 @@ use vlz_python::PythonManifestFinder;
 
 #[tokio::test]
 async fn find_manifests_in_tree() {
-    let tmp = std::env::temp_dir().join("vlz_python_finder_test");
-    let _ = fs::remove_dir_all(&tmp);
+    let dir = tempfile::tempdir().unwrap();
+    let tmp = dir.path();
     fs::create_dir_all(tmp.join("subdir")).unwrap();
     fs::File::create(tmp.join("requirements.txt"))
         .unwrap()
@@ -33,7 +33,7 @@ async fn find_manifests_in_tree() {
         .unwrap();
 
     let finder = PythonManifestFinder::new();
-    let mut got = finder.find(&tmp).await.unwrap();
+    let mut got = finder.find(tmp).await.unwrap();
     got.sort();
     let mut want = vec![
         tmp.join("requirements.txt"),
@@ -42,14 +42,12 @@ async fn find_manifests_in_tree() {
     ];
     want.sort();
     assert_eq!(got, want, "expected {:?}, got {:?}", want, got);
-
-    let _ = fs::remove_dir_all(&tmp);
 }
 
 #[tokio::test]
 async fn with_patterns_only_requirements_fr006() {
-    let tmp = std::env::temp_dir().join("vlz_python_finder_regex_test");
-    let _ = fs::remove_dir_all(&tmp);
+    let dir = tempfile::tempdir().unwrap();
+    let tmp = dir.path();
     fs::create_dir_all(tmp.join("sub")).unwrap();
     fs::File::create(tmp.join("requirements.txt")).unwrap();
     fs::File::create(tmp.join("sub").join("pyproject.toml")).unwrap();
@@ -57,8 +55,7 @@ async fn with_patterns_only_requirements_fr006() {
         r"^requirements\.txt$".to_string(),
     ])
     .unwrap();
-    let mut got = finder.find(&tmp).await.unwrap();
+    let mut got = finder.find(tmp).await.unwrap();
     got.sort();
     assert_eq!(got, vec![tmp.join("requirements.txt")]);
-    let _ = fs::remove_dir_all(&tmp);
 }

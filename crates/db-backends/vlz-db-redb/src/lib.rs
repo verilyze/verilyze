@@ -147,6 +147,7 @@ impl RedbBackend {
         path: PathBuf,
         ttl_secs: u64,
     ) -> Result<Self, DatabaseError> {
+        vlz_db::reject_world_writable_db(&path)?;
         let db = Database::create(path).map_err(DatabaseError::wrap)?;
         let db = Arc::new(db);
         let (hits, misses, _) = load_metadata(db.as_ref());
@@ -504,6 +505,7 @@ impl RedbIgnoreDb {
         {
             std::fs::create_dir_all(parent).map_err(DatabaseError::Io)?;
         }
+        vlz_db::reject_world_writable_db(&path)?;
         let db = Database::create(path).map_err(DatabaseError::wrap)?;
         Ok(Self { db: Arc::new(db) })
     }
@@ -703,12 +705,16 @@ mod tests {
         RedbBackend::with_database(db, ttl_secs).unwrap()
     }
 
-    fn temp_cache_path(name: &str) -> PathBuf {
-        std::env::temp_dir().join(format!("vlz_redb_test_{}.redb", name))
+    fn temp_cache_path(name: &str) -> (tempfile::TempDir, PathBuf) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(format!("vlz_redb_test_{}.redb", name));
+        (dir, path)
     }
 
-    fn temp_ignore_path(name: &str) -> PathBuf {
-        std::env::temp_dir().join(format!("vlz_ignore_test_{}.redb", name))
+    fn temp_ignore_path(name: &str) -> (tempfile::TempDir, PathBuf) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(format!("vlz_ignore_test_{}.redb", name));
+        (dir, path)
     }
 
     /// OSV-like vuln JSON that raw_vuln_to_cve_record can convert.
@@ -744,31 +750,26 @@ mod tests {
     /// is_marked for a CVE that was never marked returns Ok(false).
     #[tokio::test]
     async fn ignore_db_is_marked_returns_false_for_unmarked_cve() {
-        let path = temp_ignore_path("is_marked_unmarked");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_ignore_path("is_marked_unmarked");
         let db = RedbIgnoreDb::with_path(path.clone()).unwrap();
         db.mark("CVE-2023-OTHER", "create table", None).unwrap();
         assert!(!db.is_marked("CVE-9999-NEVER").unwrap());
-        let _ = std::fs::remove_file(&path);
     }
 
     /// unmark of a CVE that was never marked succeeds (no-op).
     #[tokio::test]
     async fn ignore_db_unmark_nonexistent_succeeds() {
-        let path = temp_ignore_path("unmark_nonexistent");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_ignore_path("unmark_nonexistent");
         let db = RedbIgnoreDb::with_path(path.clone()).unwrap();
         db.mark("CVE-2023-A", "create table", None).unwrap();
         db.unmark("CVE-9999-NEVER").unwrap();
         assert!(db.is_marked("CVE-2023-A").unwrap());
-        let _ = std::fs::remove_file(&path);
     }
 
     /// marked_ids returns multiple entries when several CVEs are marked.
     #[tokio::test]
     async fn ignore_db_marked_ids_multiple() {
-        let path = temp_ignore_path("marked_ids_multi");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_ignore_path("marked_ids_multi");
         let db = RedbIgnoreDb::with_path(path.clone()).unwrap();
         db.mark("CVE-2023-A", "a", None).unwrap();
         db.mark("CVE-2023-B", "b", None).unwrap();
@@ -778,14 +779,12 @@ mod tests {
         assert!(ids.contains("CVE-2023-A"));
         assert!(ids.contains("CVE-2023-B"));
         assert!(ids.contains("CVE-2023-C"));
-        let _ = std::fs::remove_file(&path);
     }
 
     /// put with ttl_override is stored and list_entries returns it (FR-035, OP-009).
     #[tokio::test]
     async fn put_with_ttl_override_stored_in_list_entries() {
-        let path = temp_cache_path("ttl_override_list");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("ttl_override_list");
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         let pkg = Package {
@@ -796,7 +795,6 @@ mod tests {
         let raw = vec![sample_raw_vuln()];
         backend.put(&pkg, "osv", &raw, Some(60)).await.unwrap();
         let entries = backend.list_entries(false).await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 1, "list_entries should return one entry");
         assert_eq!(entries[0].key, "foo::1.0::osv");
         assert_eq!(entries[0].ttl_secs, 60);
@@ -813,8 +811,7 @@ mod tests {
 
     #[tokio::test]
     async fn list_entries_returns_added_at_and_ttl() {
-        let path = temp_cache_path("list_added_ttl");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("list_added_ttl");
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         let pkg = Package {
@@ -827,7 +824,6 @@ mod tests {
             .await
             .unwrap();
         let entries = backend.list_entries(false).await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].ttl_secs, 120);
         assert!(entries[0].added_at_secs > 0);
@@ -835,8 +831,7 @@ mod tests {
 
     #[tokio::test]
     async fn set_ttl_all_updates_expiry() {
-        let path = temp_cache_path("set_ttl_all");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("set_ttl_all");
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         let pkg1 = Package {
@@ -859,15 +854,13 @@ mod tests {
             .unwrap();
         backend.set_ttl(TtlSelector::All, 120).await.unwrap();
         let entries = backend.list_entries(false).await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 2);
         assert!(entries.iter().all(|e| e.ttl_secs == 120));
     }
 
     #[tokio::test]
     async fn set_ttl_one_entry() {
-        let path = temp_cache_path("set_ttl_one");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("set_ttl_one");
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         let pkg1 = Package {
@@ -893,7 +886,6 @@ mod tests {
             .await
             .unwrap();
         let entries = backend.list_entries(false).await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 2);
         let a = entries.iter().find(|e| e.key == "a::1::osv").unwrap();
         let b = entries.iter().find(|e| e.key == "b::2::osv").unwrap();
@@ -903,8 +895,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_expired_entry_returns_none() {
-        let path = temp_cache_path("expired");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("expired");
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         let pkg = Package {
@@ -922,14 +913,12 @@ mod tests {
         );
         tokio::time::sleep(std::time::Duration::from_secs(4)).await;
         let got = backend.get(&pkg, "osv").await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert!(got.is_none());
     }
 
     #[tokio::test]
     async fn list_entries_full_includes_raw_vulns() {
-        let path = temp_cache_path("list_full");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("list_full");
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         let pkg = Package {
@@ -942,7 +931,6 @@ mod tests {
             .await
             .unwrap();
         let entries = backend.list_entries(true).await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 1);
         let raw = entries[0].raw_vulns.as_ref().unwrap();
         assert_eq!(raw.len(), 1);
@@ -995,8 +983,7 @@ mod tests {
 
     #[tokio::test]
     async fn verify_integrity_succeeds() {
-        let path = temp_cache_path("verify");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("verify");
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         backend
@@ -1013,7 +1000,6 @@ mod tests {
             .await
             .unwrap();
         backend.verify_integrity().await.unwrap();
-        let _ = std::fs::remove_file(&path);
     }
 
     /// verify_integrity on empty db (iter yields nothing).
@@ -1038,8 +1024,7 @@ mod tests {
     /// get with mixed vulns: one converts, one doesn't; filter_map yields subset.
     #[tokio::test]
     async fn get_mixed_vulns_filters_non_convertible() {
-        let path = temp_cache_path("mixed_vulns");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("mixed_vulns");
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         let vuln_ok = sample_raw_vuln();
@@ -1054,7 +1039,6 @@ mod tests {
             .await
             .unwrap();
         let got = backend.get(&pkg, "osv").await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert!(got.is_some());
         let recs = got.unwrap();
         assert_eq!(recs.len(), 1);
@@ -1064,8 +1048,7 @@ mod tests {
     /// set_ttl TtlSelector::One for nonexistent key is no-op (continue branch).
     #[tokio::test]
     async fn set_ttl_one_nonexistent_skipped() {
-        let path = temp_cache_path("set_ttl_one_nonexist");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("set_ttl_one_nonexist");
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         backend
@@ -1086,7 +1069,6 @@ mod tests {
             .await
             .unwrap();
         let entries = backend.list_entries(false).await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].ttl_secs, 3600);
     }
@@ -1094,19 +1076,16 @@ mod tests {
     /// RedbIgnoreDb clone shares underlying DB.
     #[tokio::test]
     async fn ignore_db_clone_shares_db() {
-        let path = temp_ignore_path("clone");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_ignore_path("clone");
         let db = RedbIgnoreDb::with_path(path.clone()).unwrap();
         db.mark("CVE-X", "test", None).unwrap();
         let clone = db.clone();
         assert!(clone.is_marked("CVE-X").unwrap());
-        let _ = std::fs::remove_file(&path);
     }
 
     #[tokio::test]
     async fn set_ttl_multiple_keys() {
-        let path = temp_cache_path("set_ttl_multi");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("set_ttl_multi");
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         let pkg1 = Package {
@@ -1138,7 +1117,6 @@ mod tests {
             .await
             .unwrap();
         let entries = backend.list_entries(false).await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 2);
         assert!(entries.iter().all(|e| e.ttl_secs == 99));
     }
@@ -1165,8 +1143,7 @@ mod tests {
 
     #[tokio::test]
     async fn set_ttl_empty_multiple_is_no_op() {
-        let path = temp_cache_path("set_ttl_empty");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("set_ttl_empty");
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         backend
@@ -1187,15 +1164,13 @@ mod tests {
             .await
             .unwrap();
         let entries = backend.list_entries(false).await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].ttl_secs, 3600);
     }
 
     #[tokio::test]
     async fn set_ttl_nonexistent_key_skipped() {
-        let path = temp_cache_path("set_ttl_nonexist");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("set_ttl_nonexist");
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         backend
@@ -1222,46 +1197,39 @@ mod tests {
             .await
             .unwrap();
         let entries = backend.list_entries(false).await.unwrap();
-        let _ = std::fs::remove_file(&path);
         let real = entries.iter().find(|e| e.key == "real::1::osv").unwrap();
         assert_eq!(real.ttl_secs, 50);
     }
 
     #[tokio::test]
     async fn redb_backend_default_works() {
-        let tmp = std::env::temp_dir().join("vlz_redb_test_default");
-        let _ = std::fs::create_dir_all(&tmp);
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
         let orig_cwd =
             std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-        let _ = std::env::set_current_dir(&tmp);
-        let cache_file = tmp.join("vlz-cache.redb");
-        let _ = std::fs::remove_file(&cache_file);
+        let _ = std::env::set_current_dir(tmp);
         let backend = RedbBackend::default();
         backend.init().await.unwrap();
         let stats = backend.stats().await.unwrap();
         assert!(stats.cache_ttl_secs.is_some());
         assert_eq!(stats.cache_ttl_secs.unwrap(), 5 * 24 * 60 * 60);
         let _ = std::env::set_current_dir(&orig_cwd);
-        let _ = std::fs::remove_file(&cache_file);
     }
 
     /// RedbBackend::new uses default path from cwd; explicit coverage.
     #[tokio::test]
     async fn redb_backend_new_explicit() {
-        let tmp = std::env::temp_dir().join("vlz_redb_test_new");
-        let _ = std::fs::create_dir_all(&tmp);
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
         let orig_cwd =
             std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-        let _ = std::env::set_current_dir(&tmp);
-        let cache_file = tmp.join("vlz-cache.redb");
-        let _ = std::fs::remove_file(&cache_file);
+        let _ = std::env::set_current_dir(tmp);
         let backend = RedbBackend::new(3600);
         backend.init().await.unwrap();
         let stats = backend.stats().await.unwrap();
         assert!(stats.cache_ttl_secs.is_some());
         assert_eq!(stats.cache_ttl_secs.unwrap(), 3600);
         let _ = std::env::set_current_dir(&orig_cwd);
-        let _ = std::fs::remove_file(&cache_file);
     }
 
     /// RedbBackend::new uses PathBuf::from(".") when current_dir() fails.
@@ -1284,8 +1252,7 @@ mod tests {
 
     #[tokio::test]
     async fn ttl_zero_clamped_to_one() {
-        let path = temp_cache_path("ttl_zero");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("ttl_zero");
         let backend = RedbBackend::with_path(path.clone(), 0).unwrap();
         backend.init().await.unwrap();
         let pkg = Package {
@@ -1298,26 +1265,23 @@ mod tests {
             .await
             .unwrap();
         let entries = backend.list_entries(false).await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 1);
         assert!(entries[0].ttl_secs >= 1);
     }
 
     #[tokio::test]
     async fn ignore_db_with_path_creates_parent_dir() {
-        let parent = std::env::temp_dir().join("vlz_redb_test_nested_subdir");
-        let _ = std::fs::remove_dir_all(&parent);
+        let dir = tempfile::tempdir().unwrap();
+        let parent = dir.path().join("nested_subdir");
         let path = parent.join("ignore.redb");
         let db = RedbIgnoreDb::with_path(path.clone()).unwrap();
         db.mark("CVE-2024-X", "test", None).unwrap();
         assert!(db.is_marked("CVE-2024-X").unwrap());
-        let _ = std::fs::remove_dir_all(&parent);
     }
 
     #[tokio::test]
     async fn get_corrupt_json_treats_as_miss() {
-        let path = temp_cache_path("corrupt_json");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("corrupt_json");
         {
             let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
             backend.init().await.unwrap();
@@ -1349,7 +1313,6 @@ mod tests {
         };
         let got = backend.get(&pkg, "osv").await.unwrap();
         let stats = backend.stats().await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert!(got.is_none());
         assert_eq!(stats.misses, 1);
     }
@@ -1357,8 +1320,7 @@ mod tests {
     /// Entry without added_at_secs/ttl_secs; normalize_stored_entry fills them.
     #[tokio::test]
     async fn get_old_format_entry_normalizes() {
-        let path = temp_cache_path("old_format");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("old_format");
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -1391,15 +1353,13 @@ mod tests {
             ecosystem: None,
         };
         let got = backend.get(&pkg, "osv").await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert!(got.is_some());
         assert_eq!(got.unwrap()[0].id, "CVE-2023-test");
     }
 
     #[tokio::test]
     async fn list_entries_skips_corrupt_entry() {
-        let path = temp_cache_path("list_corrupt");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("list_corrupt");
         {
             let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
             backend.init().await.unwrap();
@@ -1429,7 +1389,6 @@ mod tests {
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         let entries = backend.list_entries(false).await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].key, "good::1::osv");
     }
@@ -1438,8 +1397,7 @@ mod tests {
     /// skips corrupt via continue.
     #[tokio::test]
     async fn list_entries_full_skips_corrupt_includes_raw_for_valid() {
-        let path = temp_cache_path("list_full_corrupt");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("list_full_corrupt");
         {
             let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
             backend.init().await.unwrap();
@@ -1469,7 +1427,6 @@ mod tests {
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         let entries = backend.list_entries(true).await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].key, "valid::1::osv");
         let raw = entries[0].raw_vulns.as_ref().unwrap();
@@ -1482,8 +1439,7 @@ mod tests {
 
     #[tokio::test]
     async fn set_ttl_skips_corrupt_entry() {
-        let path = temp_cache_path("set_ttl_corrupt");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("set_ttl_corrupt");
         {
             let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
             backend.init().await.unwrap();
@@ -1514,15 +1470,13 @@ mod tests {
         backend.init().await.unwrap();
         backend.set_ttl(TtlSelector::All, 100).await.unwrap();
         let entries = backend.list_entries(false).await.unwrap();
-        let _ = std::fs::remove_file(&path);
         let valid = entries.iter().find(|e| e.key == "valid::1::osv").unwrap();
         assert_eq!(valid.ttl_secs, 100);
     }
 
     #[tokio::test]
     async fn purge_expired_skips_corrupt_entry() {
-        let path = temp_cache_path("purge_corrupt");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("purge_corrupt");
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -1557,7 +1511,6 @@ mod tests {
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         let entries = backend.list_entries(false).await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert!(
             entries.is_empty(),
             "expired and corrupt entries should be gone or skipped"
@@ -1567,8 +1520,7 @@ mod tests {
     /// purge_expired removes only expired entries; non-expired are kept.
     #[tokio::test]
     async fn purge_expired_removes_expired_keeps_valid() {
-        let path = temp_cache_path("purge_mixed");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("purge_mixed");
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -1613,20 +1565,17 @@ mod tests {
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         let entries = backend.list_entries(false).await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].key, "valid::1::osv");
     }
 
     #[tokio::test]
     async fn ignore_db_marked_ids_empty() {
-        let path = temp_ignore_path("marked_ids_empty");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_ignore_path("marked_ids_empty");
         let db = RedbIgnoreDb::with_path(path.clone()).unwrap();
         db.mark("dummy", "create table", None).unwrap();
         db.unmark("dummy").unwrap();
         let ids = db.marked_ids().unwrap();
-        let _ = std::fs::remove_file(&path);
         assert!(ids.is_empty());
     }
 
@@ -1635,6 +1584,60 @@ mod tests {
         let path = std::env::temp_dir();
         let result = RedbBackend::with_path(path, 3600);
         assert!(result.is_err());
+    }
+
+    /// SEC-014: with_path rejects world-writable existing cache file.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn with_path_rejects_world_writable_cache() {
+        use std::os::unix::fs::PermissionsExt;
+        let (_dir, path) = temp_cache_path("world_writable_cache");
+        std::fs::write(&path, "").unwrap();
+        std::fs::set_permissions(
+            &path,
+            std::fs::Permissions::from_mode(0o666),
+        )
+        .unwrap();
+        let result = RedbBackend::with_path(path.clone(), 3600);
+        let err = match result {
+            Err(e) => e,
+            Ok(_) => panic!("world-writable cache file should be rejected"),
+        };
+        assert!(
+            err.to_string().contains("world-writable"),
+            "error should mention world-writable"
+        );
+    }
+
+    /// SEC-014: with_path rejects world-writable existing ignore file.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn with_path_rejects_world_writable_ignore() {
+        use std::os::unix::fs::PermissionsExt;
+        let (_dir, path) = temp_ignore_path("world_writable_ignore");
+        std::fs::write(&path, "").unwrap();
+        std::fs::set_permissions(
+            &path,
+            std::fs::Permissions::from_mode(0o666),
+        )
+        .unwrap();
+        let result = RedbIgnoreDb::with_path(path.clone());
+        let err = match result {
+            Err(e) => e,
+            Ok(_) => panic!("world-writable ignore file should be rejected"),
+        };
+        assert!(
+            err.to_string().contains("world-writable"),
+            "error should mention world-writable"
+        );
+    }
+
+    /// SEC-014: with_path succeeds for non-world-writable or missing file.
+    #[tokio::test]
+    async fn with_path_succeeds_when_not_world_writable() {
+        let (_dir, path) = temp_cache_path("ok_perms");
+        let result = RedbBackend::with_path(path.clone(), 3600);
+        assert!(result.is_ok(), "missing file or ok perms should succeed");
     }
 
     /// with_path fails when parent directory does not exist.
@@ -1650,21 +1653,18 @@ mod tests {
     /// RedbIgnoreDb::with_path fails when parent exists as a file.
     #[tokio::test]
     async fn ignore_db_with_path_fails_when_parent_is_file() {
-        let parent = std::env::temp_dir().join("vlz_redb_test_parent_file");
-        let _ = std::fs::remove_file(&parent);
-        let _ = std::fs::remove_dir_all(&parent);
+        let dir = tempfile::tempdir().unwrap();
+        let parent = dir.path().join("parent_file");
         std::fs::write(&parent, "not a directory").unwrap();
         let path = parent.join("ignore.redb");
         let result = RedbIgnoreDb::with_path(path);
-        let _ = std::fs::remove_file(&parent);
         assert!(result.is_err());
     }
 
     /// RedbBackendInner Drop calls persist_stats on teardown.
     #[tokio::test]
     async fn backend_drop_persists_stats() {
-        let path = temp_cache_path("drop_persist");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("drop_persist");
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         let pkg = Package {
@@ -1682,7 +1682,6 @@ mod tests {
         std::mem::drop(backend);
         let backend2 = RedbBackend::with_path(path.clone(), 3600).unwrap();
         let stats_after = backend2.stats().await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert!(
             stats_after.hits >= 1,
             "Drop should have persisted stats for next instance"
@@ -1692,8 +1691,7 @@ mod tests {
     /// persist_stats_on_drop logic (same as RedbBackendInner::drop) exercised explicitly.
     #[tokio::test]
     async fn persist_stats_on_drop_explicit_call() {
-        let path = temp_cache_path("persist_on_drop");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("persist_on_drop");
         {
             let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
             backend.init().await.unwrap();
@@ -1711,15 +1709,13 @@ mod tests {
         }
         let backend2 = RedbBackend::with_path(path.clone(), 3600).unwrap();
         let stats = backend2.stats().await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert!(stats.hits >= 1);
     }
 
     /// load_metadata with valid metadata: hits, misses, cache_ttl_secs all parse.
     #[tokio::test]
     async fn load_metadata_valid_parse_uses_persisted_values() {
-        let path = temp_cache_path("valid_meta");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("valid_meta");
         let db = redb::Database::create(&path).unwrap();
         {
             let write_txn = db.begin_write().unwrap();
@@ -1740,7 +1736,6 @@ mod tests {
         }
         let backend = RedbBackend::with_database(db, 3600).unwrap();
         let stats = backend.stats().await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert_eq!(stats.hits, 5);
         assert_eq!(stats.misses, 3);
     }
@@ -1749,8 +1744,7 @@ mod tests {
     /// default to 0/None; backend initializes correctly.
     #[tokio::test]
     async fn load_metadata_invalid_parse_returns_defaults() {
-        let path = temp_cache_path("invalid_parse");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("invalid_parse");
         let db = redb::Database::create(&path).unwrap();
         {
             let write_txn = db.begin_write().unwrap();
@@ -1776,14 +1770,12 @@ mod tests {
             stats.misses, 0,
             "parse failure should default misses to 0"
         );
-        let _ = std::fs::remove_file(&path);
     }
 
     /// load_metadata with METADATA_TABLE empty (no keys) returns (0, 0, None).
     #[tokio::test]
     async fn load_metadata_empty_table_returns_defaults() {
-        let path = temp_cache_path("empty_meta");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("empty_meta");
         let db = redb::Database::create(&path).unwrap();
         {
             let write_txn = db.begin_write().unwrap();
@@ -1804,14 +1796,12 @@ mod tests {
         let stats = backend.stats().await.unwrap();
         assert_eq!(stats.hits, 0);
         assert_eq!(stats.misses, 0);
-        let _ = std::fs::remove_file(&path);
     }
 
     /// list_entries: raw_vulns where some lack "id" produce fewer cve_ids.
     #[tokio::test]
     async fn list_entries_vuln_without_id_omitted_from_cve_ids() {
-        let path = temp_cache_path("list_no_id");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("list_no_id");
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         let vuln_with_id = sample_raw_vuln();
@@ -1826,7 +1816,6 @@ mod tests {
             .await
             .unwrap();
         let entries = backend.list_entries(false).await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].cve_count, 2);
         assert_eq!(entries[0].cve_ids, vec!["CVE-2023-test"]);
@@ -1835,8 +1824,7 @@ mod tests {
     /// list_entries: vuln with "id" as non-string (e.g. number) omitted from cve_ids.
     #[tokio::test]
     async fn list_entries_vuln_id_non_string_omitted() {
-        let path = temp_cache_path("list_id_non_str");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("list_id_non_str");
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         let vuln_ok = sample_raw_vuln();
@@ -1852,7 +1840,6 @@ mod tests {
             .await
             .unwrap();
         let entries = backend.list_entries(false).await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].cve_ids, vec!["CVE-2023-test"]);
     }
@@ -1860,8 +1847,7 @@ mod tests {
     /// get with raw_vulns that all fail raw_vuln_to_cve_record returns Some(vec![]).
     #[tokio::test]
     async fn get_all_vulns_non_convertible_returns_empty_records() {
-        let path = temp_cache_path("all_non_conv");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("all_non_conv");
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         let vulns_no_id: Vec<serde_json::Value> = vec![
@@ -1875,7 +1861,6 @@ mod tests {
         };
         backend.put(&pkg, "osv", &vulns_no_id, None).await.unwrap();
         let got = backend.get(&pkg, "osv").await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert!(got.is_some());
         assert!(got.unwrap().is_empty());
     }
@@ -1883,8 +1868,7 @@ mod tests {
     /// normalize_stored_entry: entry with ttl_secs but no added_at_secs fills added.
     #[tokio::test]
     async fn list_entries_entry_missing_added_uses_ttl() {
-        let path = temp_cache_path("list_no_added");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("list_no_added");
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -1915,7 +1899,6 @@ mod tests {
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         let entries = backend.list_entries(false).await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].ttl_secs, 120);
         assert_eq!(entries[0].added_at_secs, expires.saturating_sub(120));
@@ -1924,8 +1907,7 @@ mod tests {
     /// normalize_stored_entry: entry with added_at_secs but no ttl_secs fills from default.
     #[tokio::test]
     async fn list_entries_entry_missing_ttl_uses_default() {
-        let path = temp_cache_path("list_no_ttl");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("list_no_ttl");
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -1956,7 +1938,6 @@ mod tests {
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         let entries = backend.list_entries(false).await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].ttl_secs, 3600);
     }
@@ -1984,8 +1965,7 @@ mod tests {
     /// get with empty raw_vulns returns Some(vec![]).
     #[tokio::test]
     async fn get_empty_raw_vulns_returns_empty_vec() {
-        let path = temp_cache_path("empty_vulns");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("empty_vulns");
         let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
         backend.init().await.unwrap();
         let pkg = Package {
@@ -1995,7 +1975,6 @@ mod tests {
         };
         backend.put(&pkg, "osv", &[], None).await.unwrap();
         let got = backend.get(&pkg, "osv").await.unwrap();
-        let _ = std::fs::remove_file(&path);
         assert!(got.is_some());
         assert!(got.unwrap().is_empty());
     }
@@ -2004,8 +1983,7 @@ mod tests {
     #[tokio::test]
     async fn load_metadata_and_persist_stats_fail_gracefully_without_metadata_table()
      {
-        let path = temp_cache_path("no_meta_table");
-        let _ = std::fs::remove_file(&path);
+        let (_dir, path) = temp_cache_path("no_meta_table");
         let db = redb::Database::create(&path).unwrap();
         {
             let write_txn = db.begin_write().unwrap();
@@ -2032,7 +2010,6 @@ mod tests {
         let got = backend.get(&pkg, "osv").await.unwrap();
         assert!(got.is_none());
         drop(backend);
-        let _ = std::fs::remove_file(&path);
     }
 
     /// load_metadata returns (0,0,None) when db.begin_read() fails (custom backend).

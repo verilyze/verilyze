@@ -323,8 +323,8 @@ no_version = {}
 
     #[tokio::test]
     async fn expand_workspace_members_explicit_path() {
-        let tmp = std::env::temp_dir().join("vlz_rust_expand_explicit");
-        let _ = std::fs::remove_dir_all(&tmp);
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
         std::fs::create_dir_all(tmp.join("packages/foo")).unwrap();
         std::fs::write(
             tmp.join("Cargo.toml"),
@@ -349,15 +349,13 @@ serde = "1.0"
         let graph = parser.parse(&tmp.join("Cargo.toml")).await.unwrap();
         assert_eq!(graph.packages.len(), 1);
         assert_eq!(graph.packages[0].name, "serde");
-
-        let _ = std::fs::remove_dir_all(&tmp);
     }
 
     #[tokio::test]
     async fn cargo_toml_parser_returns_graph() {
-        let tmp = std::env::temp_dir().join("vlz_rust_parser_test");
-        let _ = std::fs::remove_dir_all(&tmp);
-        std::fs::create_dir_all(&tmp).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::create_dir_all(tmp).unwrap();
         std::fs::write(
             tmp.join("Cargo.toml"),
             r#"[package]
@@ -375,14 +373,12 @@ serde = "1.0"
         assert_eq!(graph.packages.len(), 1);
         assert_eq!(graph.packages[0].name, "serde");
         assert_eq!(graph.packages[0].version, "1.0");
-
-        let _ = std::fs::remove_dir_all(&tmp);
     }
 
     #[tokio::test]
     async fn cargo_toml_parser_workspace_members() {
-        let tmp = std::env::temp_dir().join("vlz_rust_parser_workspace_test");
-        let _ = std::fs::remove_dir_all(&tmp);
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
         std::fs::create_dir_all(tmp.join("crates/foo")).unwrap();
         std::fs::create_dir_all(tmp.join("crates/bar")).unwrap();
 
@@ -421,7 +417,5 @@ tokio = "1.0"
         assert_eq!(graph.packages.len(), 2);
         assert!(graph.packages.iter().any(|p| p.name == "serde"));
         assert!(graph.packages.iter().any(|p| p.name == "tokio"));
-
-        let _ = std::fs::remove_dir_all(&tmp);
     }
 }

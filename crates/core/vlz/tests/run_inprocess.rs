@@ -393,6 +393,31 @@ fn run_cache_path_parent_created() {
     });
 }
 
+#[cfg(unix)]
+#[test]
+fn run_with_world_writable_cache_exits_2() {
+    use std::os::unix::fs::PermissionsExt;
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let cache_db = dir.path().join("worldwritable.redb");
+        std::fs::write(&cache_db, "").expect("write");
+        std::fs::set_permissions(
+            &cache_db,
+            std::fs::Permissions::from_mode(0o666),
+        )
+        .expect("chmod");
+        let cache_db_str = cache_db.to_string_lossy().into_owned();
+        temp_env::with_var("VLZ_CACHE_DB", Some(&cache_db_str), || {
+            let code = run_async(&["db", "stats"]);
+            assert_eq!(
+                code, 2,
+                "SEC-014: world-writable cache DB should exit 2"
+            );
+        });
+    });
+}
+
 #[test]
 fn run_scan_offline_exits_0() {
     let _ = env_logger::try_init();
