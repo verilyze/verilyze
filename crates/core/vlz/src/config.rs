@@ -1576,10 +1576,14 @@ regex = "^req\\.txt$"
             "XDG_RUNTIME_DIR",
             Some(path_str.as_os_str()),
             || {
-                temp_env::with_var("TMPDIR", Some("/tmp/other"), || {
-                    let p = secure_temp_base();
-                    assert_eq!(p, path_str);
-                });
+                temp_env::with_var(
+                    "TMPDIR",
+                    Some(path_str.as_os_str()),
+                    || {
+                        let p = secure_temp_base();
+                        assert_eq!(p, path_str);
+                    },
+                );
             },
         );
     }
