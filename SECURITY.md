@@ -53,6 +53,15 @@ and [COMPLIANCE.md](COMPLIANCE.md) for credential-handling controls.
   root maps controls to implementation (SOC 2 / ISO 27001 / CMMC); refer to the
   PRD (SEC-010, DOC-008) for requirements.
 
+## Regular expressions (ReDoS)
+
+User-configurable regex patterns (FR-006, e.g. `[python].regex`) are used for
+manifest discovery. SEC-022 requires that regex usage does not suffer from
+catastrophic backtracking. The project uses the Rust `regex` crate, which
+implements finite automata and guarantees linear-time matching. The dependency
+must remain at regex >= 1.5.5 (CVE-2022-24713 fix). When adding new regex
+usage, ensure the engine or validation satisfies SEC-022.
+
 ## Temporary file security
 
 - **Ephemeral temp creation:** The program uses the `tempfile` crate for
