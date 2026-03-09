@@ -53,6 +53,23 @@ and [COMPLIANCE.md](COMPLIANCE.md) for credential-handling controls.
   root maps controls to implementation (SOC 2 / ISO 27001 / CMMC); refer to the
   PRD (SEC-010, DOC-008) for requirements.
 
+## Temporary file security
+
+- **Ephemeral temp creation:** The program uses the `tempfile` crate for
+  atomic creation (mkstemp-style O_EXCL) and cryptographically random names,
+  mitigating symlink and predictable-name attacks (SEC-013).
+- **Ephemeral venvs (FR-023):** When the pip fallback resolver creates
+  ephemeral virtual environments, it prefers `XDG_RUNTIME_DIR` or `TMPDIR`
+  when set (per-user, not world-writable); otherwise falls back to
+  `std::env::temp_dir()`. Directories are created with `0o700` on Unix.
+- **SEC-014:** The program refuses to use cache or ignore DB files that are
+  world-writable. Using `--cache-db /tmp/foo.redb` or similar is allowed
+  but will fail with a clear error if the file exists with overly permissive
+  permissions.
+- **`/tmp` usage:** `/tmp` is acceptable when creation is secure (atomic
+  creation, random names). The program does not avoid `/tmp` entirely but
+  uses it only with these patterns.
+
 ## Test results and dogfooding (SEC-018)
 
 - **Fuzz testing:** AFL fuzz targets in `tests/fuzz/` cover config TOML, all
