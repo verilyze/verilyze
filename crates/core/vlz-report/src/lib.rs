@@ -343,7 +343,7 @@ impl Reporter for SarifReporter {
                 "tool": {
                     "driver": {
                         "name": "vlz",
-                        "informationUri": "https://github.com/your-org/verilyze",
+                        "informationUri": "https://github.com/tpost/verilyze",
                         "rules": rules
                     }
                 },
