@@ -116,7 +116,7 @@ DOC-002).
 | **Future‑proof extensibility** | |
 | **Networked or air-gapped environment** | |
 | **Minimal attack surface** | NFR-019, MOD-004, SEC-016, SEC-019, SEC-021 |
-| **Small binary & fast builds** | Purpose & Scope, NFR-019, MOD-004 |
+| **Small binary & fast builds** | Purpose & Scope, NFR-019, NFR-023, MOD-004 |
 | **Design principles (Unix / SOLID)** | [Design principles](#design-principles), MOD-001, MOD-002, NFR-013, NFR-018, NFR-022, FR-007 |
 
 ---
@@ -190,6 +190,7 @@ DOC-002).
 | **NFR-020** | Fuzz testing | The project shall support AFL-based fuzz testing of untrusted input paths. Fuzz targets shall cover (a) configuration file (TOML) parsing, (b) **each** manifest and lock file format that parses untrusted input (e.g., requirements.txt, pyproject.toml, Pipfile, pom.xml, package.json; see Appendix A), and (c) CLI argument value parsing (e.g., `config --set KEY=VALUE`). Fuzzing shall be integrable with cargo-llvm-cov for coverage measurement. A documented script or Makefile target shall run fuzz tests; CI may run a short fuzz smoke test (e.g., bounded run) to verify harnesses and absence of immediate crashes. When using `--changed`, fuzz testing is **skipped by default** if none of the mapped files (in `scripts/fuzz-targets.env`) have changed; smoke runs on changed code only when relevant changes exist; full smoke and extended fuzzing available on demand via `make fuzz` and `make fuzz-extended`. | `make fuzz` or `./scripts/fuzz.sh` runs AFL fuzz targets; `make fuzz-changed` runs only targets for changed code (skipped when no mapped files changed); `make fuzz-extended` runs all targets with extended timeout; `AFL_FUZZER_LOOPCOUNT=20 cargo afl fuzz` followed by `cargo llvm-cov report` produces coverage; SEC-017 (no crash on invalid input) is validated by fuzz runs. Adding a new manifest or lock file parser (per Appendix A) requires a corresponding fuzz target, seed corpus, and entry in `scripts/fuzz-targets.env` before merge. |
 | **NFR-021** | Script unit tests | Scripts in `scripts/` with substantial logic (e.g., Python) shall have unit tests. `make unit-tests` (and thus `make check`) shall run both `cargo test` and script tests. Script tests must pass for the check target to succeed. | `make unit-tests` runs `cargo test` and `make test-scripts`; `make test-scripts` runs `pytest tests/scripts/`; both must pass. |
 | **NFR-022** | Shell script style | Shell scripts in `scripts/` shall follow [Google's Shell Style Guide](https://google.github.io/styleguide/shellguide.html). Scripts must pass ShellCheck. Use Bash only; 2-space indentation; 80-character line length; quoted variables; `[[ ]]` for tests; `$(...)` for command substitution; error output to stderr. | `make lint-shell` (or `shellcheck scripts/*.sh`) passes with zero warnings. |
+| **NFR-023** | Stripped release binaries | Release binaries shall be stripped of symbols. Implemented via `strip = true` in the release profile. Rationale: security (reduced information disclosure), smaller binary size (Purpose & Scope), and alignment with packaging best practices (OP-013). | `cargo build --release` produces a binary with no symbols; `file target/release/vlz` reports "stripped" |
 
 ---
 

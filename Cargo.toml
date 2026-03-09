@@ -36,6 +36,10 @@ resolver = "2"
 [profile.dev]
 panic = "unwind"
 
+# Release profile: strip symbols for security and smaller binary (NFR-023).
+[profile.release]
+strip = true
+
 # ----------------------------------------------------------------
 # Shared workspace-wide metadata (optional but useful)
 # ----------------------------------------------------------------

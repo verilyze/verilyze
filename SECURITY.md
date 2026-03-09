@@ -96,6 +96,8 @@ usage, ensure the engine or validation satisfies SEC-022.
 
 - Run `vlz` with the minimum privileges needed (no set-UID; it runs as the
   invoking user).
+- Release binaries are stripped of symbols (NFR-023) to reduce
+  information disclosure and binary size.
 - Use `vlz db verify` to check integrity of cached data (SHA-256 by default).
 - Keep the tool and dependencies updated; run `vlz scan` on this repository
   (dogfooding, SEC-015) as part of your workflow.
