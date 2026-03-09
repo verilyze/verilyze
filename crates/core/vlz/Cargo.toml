@@ -55,8 +55,10 @@ vlz-db-redb = { path = "../../db-backends/vlz-db-redb", optional = true }
 # For mock implementations (feature = "testing")
 async-trait = { version = "0.1", optional = true }
 
-[dev-dependencies]
+# Secure temp file/dir creation (SEC-013, FR-023)
 tempfile = "3"
+
+[dev-dependencies]
 temp-env = "0.3"
 
 # Feature gating – matches MOD‑003

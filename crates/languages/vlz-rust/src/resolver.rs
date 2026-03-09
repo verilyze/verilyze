@@ -145,16 +145,14 @@ mod tests {
 
     #[test]
     fn find_lock_file_same_dir() {
-        let tmp = std::env::temp_dir().join("vlz_rust_resolver_lock_test");
-        let _ = std::fs::remove_dir_all(&tmp);
-        std::fs::create_dir_all(&tmp).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::create_dir_all(tmp).unwrap();
         std::fs::write(tmp.join("Cargo.toml"), "[package]\n").unwrap();
         std::fs::write(tmp.join("Cargo.lock"), "version = 3\n").unwrap();
 
         let found = find_lock_file(tmp.join("Cargo.toml").as_path());
         assert_eq!(found.as_deref(), Some(tmp.join("Cargo.lock").as_path()));
-
-        let _ = std::fs::remove_dir_all(&tmp);
     }
 
     #[test]
@@ -214,9 +212,9 @@ version = "1.0"
 
     #[tokio::test]
     async fn cargo_resolver_uses_lock_when_present() {
-        let tmp = std::env::temp_dir().join("vlz_rust_resolver_uses_lock");
-        let _ = std::fs::remove_dir_all(&tmp);
-        std::fs::create_dir_all(&tmp).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::create_dir_all(tmp).unwrap();
         std::fs::write(
             tmp.join("Cargo.toml"),
             r#"[package]
@@ -260,15 +258,13 @@ version = "1.0.2"
                 .any(|p| p.name == "serde" && p.version == "1.0.2")
         );
         assert!(resolved.iter().any(|p| p.name == "serde_derive"));
-
-        let _ = std::fs::remove_dir_all(&tmp);
     }
 
     #[tokio::test]
     async fn cargo_resolver_fallback_when_lock_empty() {
-        let tmp = std::env::temp_dir().join("vlz_rust_resolver_lock_empty");
-        let _ = std::fs::remove_dir_all(&tmp);
-        std::fs::create_dir_all(&tmp).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::create_dir_all(tmp).unwrap();
         std::fs::write(tmp.join("Cargo.toml"), "[package]\n").unwrap();
         std::fs::write(tmp.join("Cargo.lock"), "version = 3\n").unwrap();
 
@@ -284,14 +280,12 @@ version = "1.0.2"
         let resolved = resolver.resolve(&graph).await.unwrap();
         assert_eq!(resolved.len(), 1);
         assert_eq!(resolved[0].name, "serde");
-
-        let _ = std::fs::remove_dir_all(&tmp);
     }
 
     #[test]
     fn find_lock_file_parent_dir() {
-        let tmp = std::env::temp_dir().join("vlz_rust_resolver_lock_parent");
-        let _ = std::fs::remove_dir_all(&tmp);
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
         std::fs::create_dir_all(tmp.join("crates/foo")).unwrap();
         std::fs::write(tmp.join("Cargo.toml"), "[package]\n").unwrap();
         std::fs::write(tmp.join("Cargo.lock"), "version = 3\n").unwrap();
@@ -301,8 +295,6 @@ version = "1.0.2"
         let found =
             find_lock_file(tmp.join("crates/foo/Cargo.toml").as_path());
         assert_eq!(found.as_deref(), Some(tmp.join("Cargo.lock").as_path()));
-
-        let _ = std::fs::remove_dir_all(&tmp);
     }
 
     #[test]

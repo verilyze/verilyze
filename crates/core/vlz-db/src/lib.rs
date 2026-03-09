@@ -130,6 +130,35 @@ impl DatabaseError {
     }
 }
 
+/// SEC-014: Returns Err if the file at path exists and is world-writable.
+/// Call before opening a cache or ignore DB file. Group or other write bits
+/// (0o022) indicate world-writable.
+pub fn reject_world_writable_db(
+    path: &std::path::Path,
+) -> Result<(), DatabaseError> {
+    if !path.exists() {
+        return Ok(());
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let meta = std::fs::metadata(path).map_err(DatabaseError::Io)?;
+        let mode = meta.permissions().mode();
+        if (mode & 0o022) != 0 {
+            return Err(DatabaseError::Other(
+                "Database file cannot be opened or is world-writable. \
+                 Fix file permissions (e.g. chmod 0640) or use a different path."
+                    .into(),
+            ));
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+    }
+    Ok(())
+}
+
 /// Summary of a single cache entry (FR-035, OP-009).
 /// When `raw_vulns` is `Some`, the entry includes the full CVE payload (e.g.
 /// for `vlz db show --full`).
@@ -356,5 +385,48 @@ mod tests {
             .set_ttl(TtlSelector::Multiple(vec!["a".into(), "b".into()]), 3600)
             .await
             .unwrap_err();
+    }
+
+    #[test]
+    fn reject_world_writable_db_missing_file_ok() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("nonexistent.redb");
+        assert!(!path.exists());
+        assert!(super::reject_world_writable_db(&path).is_ok());
+    }
+
+    #[test]
+    fn reject_world_writable_db_safe_perms_ok() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("safe.redb");
+        std::fs::write(&path, "").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(
+                &path,
+                std::fs::Permissions::from_mode(0o640),
+            )
+            .unwrap();
+        }
+        assert!(super::reject_world_writable_db(&path).is_ok());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn reject_world_writable_db_world_writable_err() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("worldwritable.redb");
+        std::fs::write(&path, "").unwrap();
+        std::fs::set_permissions(
+            &path,
+            std::fs::Permissions::from_mode(0o666),
+        )
+        .unwrap();
+        let res = super::reject_world_writable_db(&path);
+        assert!(res.is_err());
+        let err = res.unwrap_err();
+        assert!(err.to_string().contains("world-writable"));
     }
 }

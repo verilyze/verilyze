@@ -33,15 +33,14 @@ mod tests {
 
     #[test]
     fn find_lock_file_pipfile_returns_pipfile_lock() {
-        let tmp = std::env::temp_dir().join("vlz_lock_discovery_test");
-        let _ = std::fs::remove_dir_all(&tmp);
-        std::fs::create_dir_all(&tmp).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::create_dir_all(tmp).unwrap();
         let pipfile = tmp.join("Pipfile");
         let pipfile_lock = tmp.join("Pipfile.lock");
         std::fs::write(&pipfile, "").unwrap();
         std::fs::write(&pipfile_lock, "{}").unwrap();
         let found = find_lock_file(pipfile.as_path());
         assert_eq!(found.as_deref(), Some(pipfile_lock.as_path()));
-        let _ = std::fs::remove_dir_all(&tmp);
     }
 }

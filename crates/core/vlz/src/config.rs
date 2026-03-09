@@ -437,6 +437,16 @@ fn data_home() -> PathBuf {
         })
 }
 
+/// Base directory for security-sensitive temporary data (e.g. ephemeral venvs).
+/// Prefers XDG_RUNTIME_DIR (per-user, not world-writable), then TMPDIR, then
+/// std::env::temp_dir(). Use with tempfile::tempdir_in() for atomic creation.
+pub fn secure_temp_base() -> PathBuf {
+    std::env::var_os("XDG_RUNTIME_DIR")
+        .or_else(|| std::env::var_os("TMPDIR"))
+        .map(PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir)
+}
+
 /// Build effective config: defaults, then system file, user file, -c file, env, CLI.
 /// Validates parallel_queries <= MAX_PARALLEL_QUERIES (FR-012).
 #[allow(clippy::too_many_arguments)]
@@ -1554,6 +1564,45 @@ regex = "^req\\.txt$"
             || {
                 let p = default_ignore_path();
                 assert!(p.to_string_lossy().contains(".local"));
+            },
+        );
+    }
+
+    #[test]
+    fn secure_temp_base_prefers_xdg_runtime_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let path_str = dir.path().to_path_buf();
+        temp_env::with_var(
+            "XDG_RUNTIME_DIR",
+            Some(path_str.as_os_str()),
+            || {
+                temp_env::with_var("TMPDIR", Some("/tmp/other"), || {
+                    let p = secure_temp_base();
+                    assert_eq!(p, path_str);
+                });
+            },
+        );
+    }
+
+    #[test]
+    fn secure_temp_base_falls_back_to_tmpdir_when_no_xdg_runtime() {
+        let dir = tempfile::tempdir().unwrap();
+        let path_str = dir.path().to_path_buf();
+        temp_env::with_var("XDG_RUNTIME_DIR", None::<&str>, || {
+            temp_env::with_var("TMPDIR", Some(path_str.as_os_str()), || {
+                let p = secure_temp_base();
+                assert_eq!(p, path_str);
+            });
+        });
+    }
+
+    #[test]
+    fn secure_temp_base_falls_back_to_temp_dir_when_no_xdg_or_tmpdir() {
+        temp_env::with_vars(
+            [("XDG_RUNTIME_DIR", None::<&str>), ("TMPDIR", None::<&str>)],
+            || {
+                let p = secure_temp_base();
+                assert!(!p.as_os_str().is_empty());
             },
         );
     }

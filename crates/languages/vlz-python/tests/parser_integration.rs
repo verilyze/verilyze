@@ -10,9 +10,9 @@ use vlz_python::RequirementsTxtParser;
 
 #[tokio::test]
 async fn parse_requirements_txt_file() {
-    let tmp = std::env::temp_dir().join("vlz_python_parser_test");
-    let _ = std::fs::remove_dir_all(&tmp);
-    std::fs::create_dir_all(&tmp).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let tmp = dir.path();
+    std::fs::create_dir_all(tmp).unwrap();
     let path = tmp.join("requirements.txt");
     std::fs::write(
         &path,
@@ -41,14 +41,13 @@ async fn parse_requirements_txt_file() {
     assert_eq!(graph.packages[3].version, "3.1");
     assert_eq!(graph.packages[4].version, "1.0");
     assert_eq!(graph.manifest_path.as_deref(), Some(path.as_path()));
-    let _ = std::fs::remove_dir_all(&tmp);
 }
 
 #[tokio::test]
 async fn parse_pyproject_toml_returns_packages_and_sets_manifest_path() {
-    let tmp = std::env::temp_dir().join("vlz_python_pyproject_test");
-    let _ = std::fs::remove_dir_all(&tmp);
-    std::fs::create_dir_all(&tmp).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let tmp = dir.path();
+    std::fs::create_dir_all(tmp).unwrap();
     let path = tmp.join("pyproject.toml");
     std::fs::write(
         &path,
@@ -60,7 +59,6 @@ async fn parse_pyproject_toml_returns_packages_and_sets_manifest_path() {
     let graph = parser.parse(&path).await.unwrap();
     assert_eq!(graph.packages.len(), 2);
     assert_eq!(graph.manifest_path.as_deref(), Some(path.as_path()));
-    let _ = std::fs::remove_dir_all(&tmp);
 }
 
 #[tokio::test]
@@ -83,9 +81,9 @@ async fn parse_nonexistent_requirements_txt_returns_error() {
 
 #[tokio::test]
 async fn resolve_uses_lock_file_when_present() {
-    let tmp = std::env::temp_dir().join("vlz_lock_resolve_test");
-    let _ = std::fs::remove_dir_all(&tmp);
-    std::fs::create_dir_all(&tmp).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let tmp = dir.path();
+    std::fs::create_dir_all(tmp).unwrap();
     let pyproject = tmp.join("pyproject.toml");
     let poetry_lock = tmp.join("poetry.lock");
     std::fs::write(
@@ -103,5 +101,4 @@ async fn resolve_uses_lock_file_when_present() {
     let graph = parser.parse(&pyproject).await.unwrap();
     let resolved = resolver.resolve(&graph).await.unwrap();
     assert_eq!(resolved.len(), 2);
-    let _ = std::fs::remove_dir_all(&tmp);
 }

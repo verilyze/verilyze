@@ -10,8 +10,8 @@ use vlz_rust::RustManifestFinder;
 
 #[tokio::test]
 async fn find_cargo_toml_in_tree() {
-    let tmp = std::env::temp_dir().join("vlz_rust_finder_integration_test");
-    let _ = fs::remove_dir_all(&tmp);
+    let dir = tempfile::tempdir().unwrap();
+    let tmp = dir.path();
     fs::create_dir_all(tmp.join("crates/foo")).unwrap();
     fs::File::create(tmp.join("Cargo.toml"))
         .unwrap()
@@ -24,7 +24,7 @@ async fn find_cargo_toml_in_tree() {
     fs::File::create(tmp.join("other.txt")).unwrap();
 
     let finder = RustManifestFinder::new();
-    let mut got = finder.find(&tmp).await.unwrap();
+    let mut got = finder.find(tmp).await.unwrap();
     got.sort();
     let mut want = vec![
         tmp.join("Cargo.toml"),
@@ -32,15 +32,12 @@ async fn find_cargo_toml_in_tree() {
     ];
     want.sort();
     assert_eq!(got, want);
-
-    let _ = fs::remove_dir_all(&tmp);
 }
 
 #[tokio::test]
 async fn with_patterns_only_matches_regex_fr006() {
-    let tmp =
-        std::env::temp_dir().join("vlz_rust_finder_regex_integration_test");
-    let _ = fs::remove_dir_all(&tmp);
+    let dir = tempfile::tempdir().unwrap();
+    let tmp = dir.path();
     fs::create_dir_all(tmp.join("sub")).unwrap();
     fs::File::create(tmp.join("Cargo.toml")).unwrap();
     fs::File::create(tmp.join("sub").join("Cargo.toml")).unwrap();
@@ -48,12 +45,10 @@ async fn with_patterns_only_matches_regex_fr006() {
     let finder =
         RustManifestFinder::with_patterns(vec![r"^Cargo\.toml$".to_string()])
             .unwrap();
-    let mut got = finder.find(&tmp).await.unwrap();
+    let mut got = finder.find(tmp).await.unwrap();
     got.sort();
     let mut want =
         vec![tmp.join("Cargo.toml"), tmp.join("sub").join("Cargo.toml")];
     want.sort();
     assert_eq!(got, want);
-
-    let _ = fs::remove_dir_all(&tmp);
 }

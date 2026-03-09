@@ -161,7 +161,9 @@ or path relative to the current directory.
 **Cause:** Cache or ignore DB file has overly permissive permissions.
 
 **Remediation:** Fix file permissions: directories `0755`, files `0644`. Remove
-world-writable bits. Do not use `0666` for DB files.
+world-writable bits. Do not use `0666` for DB files. Prefer XDG paths
+(`~/.cache/verilyze`, `~/.local/share/verilyze`) over `/tmp` for
+`--cache-db` and `--ignore-db`; `/tmp` is often world-writable.
 
 ---
 

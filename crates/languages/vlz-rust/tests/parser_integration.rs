@@ -7,9 +7,9 @@ use vlz_rust::CargoTomlParser;
 
 #[tokio::test]
 async fn parse_simple_cargo_toml() {
-    let tmp = std::env::temp_dir().join("vlz_rust_parser_integration_test");
-    let _ = std::fs::remove_dir_all(&tmp);
-    std::fs::create_dir_all(&tmp).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let tmp = dir.path();
+    std::fs::create_dir_all(tmp).unwrap();
     std::fs::write(
         tmp.join("Cargo.toml"),
         r#"[package]
@@ -28,6 +28,4 @@ tokio = { version = "1.0", features = ["rt"] }
     assert_eq!(graph.packages.len(), 2);
     assert!(graph.packages.iter().any(|p| p.name == "serde"));
     assert!(graph.packages.iter().any(|p| p.name == "tokio"));
-
-    let _ = std::fs::remove_dir_all(&tmp);
 }

@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#[allow(dead_code)]
+mod ephemeral_venv;
 mod lock_discovery;
 mod lock_parser;
 
