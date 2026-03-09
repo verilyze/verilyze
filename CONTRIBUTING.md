@@ -478,6 +478,9 @@ GPL-3.0 compatibility, (c) impact on `cargo tree` / build time. See
 [architecture/PRD.md](architecture/PRD.md) NFR-019, MOD-004, and the Minimal
 Dependencies design principle.
 
+- When using regex on untrusted patterns or input, satisfy SEC-022 (no
+  catastrophic backtracking).
+
 ## Copyright and licensing (REUSE)
 
 The project uses the [REUSE](https://reuse.software/) toolchain for SPDX
