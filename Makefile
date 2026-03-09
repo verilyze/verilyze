@@ -17,7 +17,7 @@ VENV_REUSE := $(MKFILE_DIR)/.venv-reuse
 VENV_TEST := $(MKFILE_DIR)/.venv-test
 
 .PHONY: help all debug release
-.PHONY: setup setup-hooks check check-fast check-slow check-dco
+.PHONY: setup setup-hooks check check-fast check-slow check-dco check-signatures
 .PHONY: check-headers check-header-duplicates headers
 .PHONY: update-doc-diagrams check-doc-diagrams
 .PHONY: cargo-check cargo-test unit-tests test-scripts
@@ -34,7 +34,7 @@ help:
 	@echo ""
 	@echo "  Onboarding:"
 	@echo "    make setup       - Bootstrap Python venvs (.venv-lint, .venv-test)"
-	@echo "    make setup-hooks - Install git hooks (REUSE headers, DCO signoff)"
+	@echo "    make setup-hooks - Install git hooks (REUSE headers, DCO signoff, signature check)"
 	@echo ""
 	@echo "  Quick iteration:"
 	@echo "    make cargo-check - Run cargo check"
@@ -47,6 +47,7 @@ help:
 	@echo "    make check-fast  - Headers, build, fmt, clippy, lint only (~2-4 min)"
 	@echo "    make check-slow  - Fuzz-changed + coverage-quick only (~5-10+ min)"
 	@echo "    make check-dco   - Verify commits have DCO signoff (before push)"
+	@echo "    make check-signatures - Verify commits are signed (before push)"
 	@echo ""
 	@echo "  Lint:"
 	@echo "    make check-headers     - Verify REUSE headers (lint + no duplicates)"
@@ -82,7 +83,7 @@ help:
 setup: $(VENV_LINT)/bin/black $(VENV_TEST)/bin/pytest
 	@echo "Dev environment ready. Run: make check"
 	@echo "Recommended:"
-	@echo "  make setup-hooks # git hooks (REUSE headers, DCO signoff)"
+	@echo "  make setup-hooks # git hooks (REUSE headers, DCO signoff, signature check)"
 	@echo "  make fuzz # needs cargo-afl, AFL++"
 	@echo "  make coverage # runs fuzz first; needs cargo-llvm-cov"
 	@echo "  make coverage-quick # coverage without fuzz (faster)"
@@ -186,6 +187,11 @@ check-doc-diagrams:
 # check-dco: verify commits have Signed-off-by (DCO); for local use before push
 check-dco:
 	@cd "$(MKFILE_DIR)" && ./scripts/check-dco.sh
+
+# check-signatures: verify commits are signed (GPG or SSH); for local use
+# before push. Uses strict mode (requires valid signature, not just presence).
+check-signatures:
+	@cd "$(MKFILE_DIR)" && ./scripts/check-signatures.sh
 
 # ---- Check (full CI gate) ----
 # check-fast: headers, build, fmt, clippy, lint (no coverage/fuzz; ~2-4 min)
