@@ -73,7 +73,8 @@ ERR=0
 cargo +nightly llvm-cov report --html --output-dir reports/rust \
   --fail-under-lines 85 --fail-under-functions 80 --fail-under-regions 85 \
   || ERR=1
-cargo +nightly llvm-cov report --cobertura --output-path reports/cobertura.xml \
+cargo +nightly llvm-cov report --cobertura --output-path \
+  reports/cobertura-rust.xml \
   --fail-under-lines 85 --fail-under-functions 80 --fail-under-regions 85 \
   || ERR=1
 
