@@ -160,6 +160,10 @@ pub enum Commands {
         #[arg(long)]
         list: bool,
 
+        /// Output verilyze.conf.example with effective values for this environment
+        #[arg(long)]
+        example: bool,
+
         /// Set a key (e.g. python.regex="^requirements\\.txt$")
         #[arg(long, value_name = "KEY=VALUE")]
         set: Option<String>,
@@ -349,10 +353,11 @@ mod tests {
     #[test]
     fn parse_config_list() {
         let cli = parse(&["config", "--list"]);
-        let Commands::Config { list, set } = &cli.cmd else {
+        let Commands::Config { list, example, set } = &cli.cmd else {
             panic!("expected config")
         };
         assert!(*list);
+        assert!(!*example);
         assert!(set.is_none());
     }
 

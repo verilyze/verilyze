@@ -14,6 +14,13 @@ precedence = "override"
 SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
+# Generated config example (machine-generated; no SPDX in file)
+[[annotations]]
+path = "verilyze.conf.example"
+precedence = "override"
+SPDX-FileCopyrightText = "The verilyze contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
 # Config and data files
 [[annotations]]
 path = ".cursor/**"

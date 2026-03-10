@@ -1,0 +1,58 @@
+.\" SPDX-FileCopyrightText: 2026 Travis Post <post.travis+git@gmail.com>
+.\"
+.\" SPDX-License-Identifier: GPL-3.0-or-later
+.\"
+.\" verilyze.conf(5) - verilyze configuration file
+.\"
+.Dd 2026-03-09
+.Dt VERILYZE.CONF 5
+.Os
+.Sh NAME
+.Nm verilyze.conf
+.Nd verilyze configuration file
+.Sh DESCRIPTION
+The
+.Nm
+file configures verilyze (vlz), a Software Composition Analysis tool for
+dependency vulnerabilities. The file is written in TOML format.
+.Pp
+Configuration is read from (lowest to highest precedence):
+.Bl -enum -compact
+.It
+System-wide:
+.Pa /etc/verilyze.conf
+.It
+Per-user:
+.Pa $XDG_CONFIG_HOME/verilyze/verilyze.conf
+(or
+.Pa ~/.config/verilyze/verilyze.conf
+if XDG_CONFIG_HOME is unset)
+.It
+User-specified:
+.Pa path
+given via
+.Fl c
+or
+.Fl -config
+.El
+.Pp
+Environment variables
+.Ev VLZ_*
+and CLI flags override any config file. See
+.Xr vlz 1
+for precedence details.
+.Sh OPTIONS
+{{OPTIONS_SECTION}}
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa /etc/verilyze.conf
+System-wide configuration (lowest precedence).
+.It Pa $XDG_CONFIG_HOME/verilyze/verilyze.conf
+Per-user configuration.
+.El
+.Sh SEE ALSO
+.Xr vlz 1 ,
+.Nm vlz config --list
+.Sh AUTHORS
+verilyze is developed by Travis Post and contributors.
+See the repository for the full list.

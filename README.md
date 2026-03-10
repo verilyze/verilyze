@@ -87,8 +87,8 @@ details.
 
 **Environment variables for optional CVE providers** (not stored in config):
 
-| Variable              | Provider   | Purpose                                         |
-|-----------------------|------------|-------------------------------------------------|
+| Variable             | Provider   | Purpose                                          |
+|----------------------|------------|--------------------------------------------------|
 | GITHUB_TOKEN         | GitHub     | Optional; higher rate limits (Actions sets this) |
 | VLZ_GITHUB_TOKEN     | GitHub     | Override for GITHUB_TOKEN                        |
 | VLZ_SONATYPE_EMAIL   | Sonatype   | Required for Sonatype OSS Index                  |
@@ -106,6 +106,7 @@ Run `vlz config --list` to print effective values.
 | `vlz scan [PATH]`            | Scan for manifests and CVEs; optional path (default: cwd)     |
 | `vlz list`                   | List registered language plugins                              |
 | `vlz config --list`          | Show effective configuration                                  |
+| `vlz config --example`       | Output verilyze.conf.example with effective values for this environment |
 | `vlz config --set KEY=VALUE` | Set a config key (e.g. `python.regex="^requirements\\.txt$"`) |
 | `vlz db list-providers`      | List CVE providers (e.g. osv, nvd, github, sonatype when built with respective features) |
 | `vlz db stats`               | Cache statistics                                              |
@@ -147,6 +148,7 @@ changed-code-only, or extended), see [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Documentation
 
+- **Configuration reference:** [docs/configuration.md](docs/configuration.md)
 - **Requirements and architecture:** [architecture/PRD.md](architecture/PRD.md)
 - **Execution flow:** [architecture/execution-flow.mmd](architecture/execution-flow.mmd)
 - **FAQ and troubleshooting:** [docs/FAQ.md](docs/FAQ.md)

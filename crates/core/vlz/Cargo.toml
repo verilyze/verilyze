@@ -58,6 +58,10 @@ async-trait = { version = "0.1", optional = true }
 # Secure temp file/dir creation (SEC-013, FR-023)
 tempfile = "3"
 
+[build-dependencies]
+serde = { version = "1.0", features = ["derive"] }
+toml = "1.0"
+
 [dev-dependencies]
 temp-env = "0.3"
 
