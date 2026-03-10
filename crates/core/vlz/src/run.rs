@@ -327,7 +327,43 @@ pub async fn run(args: Cli) -> Result<i32> {
             Ok(0)
         }
 
-        Commands::Config { list, set } => {
+        Commands::Config { list, example, set } => {
+            if example {
+                let cfg = crate::config::load(
+                    args.config.as_deref(),
+                    crate::config::env_parallel(),
+                    crate::config::env_cache_db(),
+                    crate::config::env_ignore_db(),
+                    crate::config::env_cache_ttl_secs(),
+                    crate::config::env_min_score(),
+                    crate::config::env_min_count(),
+                    crate::config::env_exit_code_on_cve(),
+                    crate::config::env_fp_exit_code(),
+                    crate::config::env_backoff_base_ms(),
+                    crate::config::env_backoff_max_ms(),
+                    crate::config::env_max_retries(),
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    None,
+                    None,
+                    None,
+                    crate::config::env_severity_overrides(),
+                    crate::config::SeverityOverrides::default(),
+                )
+                .unwrap_or_default();
+                let content = crate::config_example::generate_example(&cfg);
+                write_stdout(&content);
+                return Ok(0);
+            }
             if let Some(pair) = set {
                 let (key, value) = match crate::cli::parse_config_set_arg(
                     pair.as_str(),
@@ -380,6 +416,27 @@ pub async fn run(args: Cli) -> Result<i32> {
                     crate::config::SeverityOverrides::default(),
                 )
                 .unwrap_or_default();
+                // DOC-003: config --list shows effective values (what vlz actually uses).
+                let cache_db = cfg
+                    .cache_db
+                    .as_ref()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_else(|| {
+                        crate::config::default_cache_path()
+                            .display()
+                            .to_string()
+                    });
+                let ignore_db = cfg
+                    .ignore_db
+                    .as_ref()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_else(|| {
+                        crate::config::default_ignore_path()
+                            .display()
+                            .to_string()
+                    });
+                write_stdout(&format!("cache_db = {}\n", cache_db));
+                write_stdout(&format!("ignore_db = {}\n", ignore_db));
                 write_stdout(&format!(
                     "parallel_queries = {}\n",
                     cfg.parallel_queries
@@ -391,6 +448,14 @@ pub async fn run(args: Cli) -> Result<i32> {
                 write_stdout(&format!("min_score = {}\n", cfg.min_score));
                 write_stdout(&format!("min_count = {}\n", cfg.min_count));
                 write_stdout(&format!(
+                    "exit_code_on_cve = {}\n",
+                    cfg.exit_code_on_cve.unwrap_or(86)
+                ));
+                write_stdout(&format!(
+                    "fp_exit_code = {}\n",
+                    cfg.fp_exit_code.unwrap_or(0)
+                ));
+                write_stdout(&format!(
                     "backoff_base_ms = {}\n",
                     cfg.backoff_base_ms
                 ));
@@ -399,6 +464,54 @@ pub async fn run(args: Cli) -> Result<i32> {
                     cfg.backoff_max_ms
                 ));
                 write_stdout(&format!("max_retries = {}\n", cfg.max_retries));
+                write_stdout(&format!(
+                    "severity_v2_critical_min = {}\n",
+                    cfg.severity.v2.critical_min
+                ));
+                write_stdout(&format!(
+                    "severity_v2_high_min = {}\n",
+                    cfg.severity.v2.high_min
+                ));
+                write_stdout(&format!(
+                    "severity_v2_medium_min = {}\n",
+                    cfg.severity.v2.medium_min
+                ));
+                write_stdout(&format!(
+                    "severity_v2_low_min = {}\n",
+                    cfg.severity.v2.low_min
+                ));
+                write_stdout(&format!(
+                    "severity_v3_critical_min = {}\n",
+                    cfg.severity.v3.critical_min
+                ));
+                write_stdout(&format!(
+                    "severity_v3_high_min = {}\n",
+                    cfg.severity.v3.high_min
+                ));
+                write_stdout(&format!(
+                    "severity_v3_medium_min = {}\n",
+                    cfg.severity.v3.medium_min
+                ));
+                write_stdout(&format!(
+                    "severity_v3_low_min = {}\n",
+                    cfg.severity.v3.low_min
+                ));
+                write_stdout(&format!(
+                    "severity_v4_critical_min = {}\n",
+                    cfg.severity.v4.critical_min
+                ));
+                write_stdout(&format!(
+                    "severity_v4_high_min = {}\n",
+                    cfg.severity.v4.high_min
+                ));
+                write_stdout(&format!(
+                    "severity_v4_medium_min = {}\n",
+                    cfg.severity.v4.medium_min
+                ));
+                write_stdout(&format!(
+                    "severity_v4_low_min = {}\n",
+                    cfg.severity.v4.low_min
+                ));
                 for (lang, re) in &cfg.language_regexes {
                     write_stdout(&format!("{}.regex = {}\n", lang, re));
                 }

@@ -1,0 +1,129 @@
+.\" SPDX-FileCopyrightText: 2026 Travis Post <post.travis+git@gmail.com>
+.\"
+.\" SPDX-License-Identifier: GPL-3.0-or-later
+.\"
+.\" verilyze.conf(5) - verilyze configuration file
+.\"
+.Dd 2026-03-09
+.Dt VERILYZE.CONF 5
+.Os
+.Sh NAME
+.Nm verilyze.conf
+.Nd verilyze configuration file
+.Sh DESCRIPTION
+The
+.Nm
+file configures verilyze (vlz), a Software Composition Analysis tool for
+dependency vulnerabilities. The file is written in TOML format.
+.Pp
+Configuration is read from (lowest to highest precedence):
+.Bl -enum -compact
+.It
+System-wide:
+.Pa /etc/verilyze.conf
+.It
+Per-user:
+.Pa $XDG_CONFIG_HOME/verilyze/verilyze.conf
+(or
+.Pa ~/.config/verilyze/verilyze.conf
+if XDG_CONFIG_HOME is unset)
+.It
+User-specified:
+.Pa path
+given via
+.Fl c
+or
+.Fl -config
+.El
+.Pp
+Environment variables
+.Ev VLZ_*
+and CLI flags override any config file. See
+.Xr vlz 1
+for precedence details.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Va cache_db
+Path to CVE cache database (default: XDG_CACHE_HOME or /var/cache).
+Env: VLZ_CACHE_DB.
+CLI: --cache-db.
+
+.It Va ignore_db
+Path to false-positive (ignore) database (default: XDG_DATA_HOME or /var/lib).
+Env: VLZ_IGNORE_DB.
+CLI: --ignore-db.
+
+.It Va parallel_queries
+Max concurrent CVE queries (1-50).
+Default: 10.
+Env: VLZ_PARALLEL_QUERIES.
+CLI: --parallel.
+
+.It Va cache_ttl_secs
+Default cache TTL in seconds (5 days); only affects new entries.
+Default: 432000.
+Env: VLZ_CACHE_TTL_SECS.
+CLI: --cache-ttl-secs.
+
+.It Va min_score
+Minimum CVSS score to count toward exit code.
+Default: 0.
+Env: VLZ_MIN_SCORE.
+CLI: --min-score.
+
+.It Va min_count
+Minimum count of CVEs meeting min-score to trigger exit code (0 = any).
+Default: 0.
+Env: VLZ_MIN_COUNT.
+CLI: --min-count.
+
+.It Va exit_code_on_cve
+Exit code when CVEs meet threshold (default 86).
+Default: 86.
+Env: VLZ_EXIT_CODE_ON_CVE.
+CLI: --exit-code-on-cve.
+
+.It Va fp_exit_code
+Exit code when only false-positives are present (default 0).
+Default: 0.
+Env: VLZ_FP_EXIT_CODE.
+CLI: --fp-exit-code.
+
+.It Va backoff_base_ms
+Base delay in ms for retry backoff.
+Default: 100.
+Env: VLZ_BACKOFF_BASE_MS.
+CLI: --backoff-base.
+
+.It Va backoff_max_ms
+Maximum delay in ms for retry backoff.
+Default: 30000.
+Env: VLZ_BACKOFF_MAX_MS.
+CLI: --backoff-max.
+
+.It Va max_retries
+Maximum retries for transient errors.
+Default: 5.
+Env: VLZ_MAX_RETRIES.
+CLI: --max-retries.
+
+.It Sy [severity.v2] , Sy [severity.v3] , Sy [severity.v4]
+CVSS score thresholds: critical_min, high_min, medium_min, low_min.
+Defaults: 9.0, 7.0, 4.0, 0.1.
+
+.It Sy [lang].regex
+Per-language regex for manifest file names (e.g. [python], [rust]).
+.El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa /etc/verilyze.conf
+System-wide configuration (lowest precedence).
+.It Pa $XDG_CONFIG_HOME/verilyze/verilyze.conf
+Per-user configuration.
+.El
+.Sh SEE ALSO
+.Xr vlz 1 ,
+.Nm vlz config --list
+.Sh AUTHORS
+verilyze is developed by Travis Post and contributors.
+See the repository for the full list.

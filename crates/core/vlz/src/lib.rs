@@ -8,6 +8,7 @@ use clap::Parser;
 
 pub mod cli;
 pub mod config;
+pub mod config_example;
 pub mod registry;
 pub mod run;
 

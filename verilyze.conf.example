@@ -1,0 +1,64 @@
+# verilyze(1) configuration file
+# Copy to ~/.config/verilyze/verilyze.conf or /etc/verilyze.conf
+# Precedence: CLI > env (VLZ_*) > user config > system config
+#
+# Path to CVE cache database (default: XDG_CACHE_HOME or /var/cache)
+# cache_db = "/path/to/db.redb"
+
+# Path to false-positive (ignore) database (default: XDG_DATA_HOME or /var/lib)
+# ignore_db = "/path/to/db.redb"
+
+# Max concurrent CVE queries (1-50)
+# parallel_queries = 10
+
+# Default cache TTL in seconds (5 days); only affects new entries
+# cache_ttl_secs = 432000
+
+# Minimum CVSS score to count toward exit code
+# min_score = 0
+
+# Minimum count of CVEs meeting min-score to trigger exit code (0 = any)
+# min_count = 0
+
+# Exit code when CVEs meet threshold (default 86)
+# exit_code_on_cve = 86
+
+# Exit code when only false-positives are present (default 0)
+# fp_exit_code = 0
+
+# Base delay in ms for retry backoff
+# backoff_base_ms = 100
+
+# Maximum delay in ms for retry backoff
+# backoff_max_ms = 30000
+
+# Maximum retries for transient errors
+# max_retries = 5
+
+#
+# [severity.v2], [severity.v3], [severity.v4] (CVSS thresholds)
+# [severity.v2]
+# critical_min = 9
+# high_min = 7
+# medium_min = 4
+# low_min = 0.1
+#
+# [severity.v3]
+# critical_min = 9
+# high_min = 7
+# medium_min = 4
+# low_min = 0.1
+#
+# [severity.v4]
+# critical_min = 9
+# high_min = 7
+# medium_min = 4
+# low_min = 0.1
+#
+# Per-language manifest regex (FR-006)
+# [python]
+# regex = "^requirements\\.txt$"
+
+# [rust]
+# regex = "^Cargo\\.toml$"
+
