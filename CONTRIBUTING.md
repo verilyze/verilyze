@@ -295,9 +295,11 @@ stripped of symbols (NFR-023) for security and smaller size.
 1. Update `CHANGELOG.md` with changes since last release.
 2. Bump `version` in the root `Cargo.toml` `[workspace.package]` section
    per SemVer.
-3. Merge to `main` and run `make check`.
-4. Create signed annotated tag: `git tag -s v0.1.0 -m "Release v0.1.0"`.
-5. Push tag: `git push origin v0.1.0`.
+3. Run `make generate-packaging` to update APKBUILD and PKGBUILD with the
+   new version.
+4. Merge to `main` and run `make check`.
+5. Create signed annotated tag: `git tag -s v0.1.0 -m "Release v0.1.0"`.
+6. Push tag: `git push origin v0.1.0`.
 
 ## Adding a new language plugin
 
