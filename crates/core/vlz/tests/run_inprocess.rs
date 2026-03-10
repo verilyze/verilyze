@@ -37,7 +37,8 @@ fn ensure_registries_for_run() {
     {
         let cache_path = vlz::config::default_cache_path();
         let _ = vlz::registry::ensure_default_db_backend_with_path(
-            cache_path, 432000,
+            cache_path,
+            vlz::config::DEFAULT_CACHE_TTL_SECS,
         );
     }
 }
