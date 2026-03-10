@@ -50,12 +50,21 @@ docker run --rm -v "$(pwd)":/scan:z verilyze scan /scan
 
 For persistent CVE cache between runs, mount the host cache directory and pass
 `--cache-db` (required because the container runs as root and would otherwise
-use the privileged path `/var/cache/verilyze/`):
+use the privileged path `/var/cache/verilyze/`). Run as your user so cache
+files are owned by you, not root:
 
 ```bash
-docker run --rm -v "$(pwd)":/scan:z -v "$HOME/.cache/verilyze":/cache:z \
+# Create cache directory so it is owned by you (not root)
+mkdir -p ~/.cache/verilyze
+
+# Run as your user so cache files are owned by you, not root
+docker run --rm --user "$(id -u):$(id -g)" \
+  -v "$(pwd)":/scan:z -v "$HOME/.cache/verilyze":/cache:z \
   verilyze scan /scan --cache-db /cache/vlz-cache.redb
 ```
+
+Without `--user`, the container runs as root and cache files in
+`~/.cache/verilyze` will be owned by root on the host.
 
 ## Quick start
 

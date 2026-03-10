@@ -12,6 +12,21 @@ Common error messages and suggested remediation steps. See also
 
 ---
 
+## Docker
+
+### Docker cache files owned by root
+
+**Cause:** The container runs as root by default. When you mount
+`~/.cache/verilyze` for persistent cache, files created inside the
+container are owned by root on the host.
+
+**Remediation:** Use `--user "$(id -u):$(id -g)"` so the container runs
+as your user. Ensure the cache directory exists before the first run:
+`mkdir -p ~/.cache/verilyze`. See [README -- Running with
+Docker](../README.md#running-with-docker).
+
+---
+
 ## Commit signing
 
 ### GPG: `gpg: signing failed: No secret key`
