@@ -26,6 +26,37 @@ The default build includes the OSV CVE provider. The NVD provider is opt-in
 (reasons: NVD rate limits, binary size; see [docs/FAQ.md](docs/FAQ.md)). To
 include NVD: `cargo install vlz --features nvd`, then `vlz scan --provider nvd`.
 
+## Running with Docker
+
+Build the image from the repo root:
+
+```bash
+make docker
+# or: docker build -f packaging/docker/Dockerfile -t verilyze .
+```
+
+Scan a project by mounting it into the container:
+
+```bash
+docker run --rm -v "$(pwd)":/scan verilyze scan /scan
+```
+
+On SELinux systems (Fedora, RHEL, CentOS), add `:z` to the volume so the
+container can read the mounted files:
+
+```bash
+docker run --rm -v "$(pwd)":/scan:z verilyze scan /scan
+```
+
+For persistent CVE cache between runs, mount the host cache directory and pass
+`--cache-db` (required because the container runs as root and would otherwise
+use the privileged path `/var/cache/verilyze/`):
+
+```bash
+docker run --rm -v "$(pwd)":/scan:z -v "$HOME/.cache/verilyze":/cache:z \
+  verilyze scan /scan --cache-db /cache/vlz-cache.redb
+```
+
 ## Quick start
 
 ```bash

@@ -11,3 +11,10 @@
 /reports
 /target
 .tmp-empty-xdg
+
+# RPM build artifacts (created by rpmbuild)
+/packaging/rpm/BUILD/
+/packaging/rpm/BUILDROOT/
+/packaging/rpm/RPMS/
+/packaging/rpm/SRPMS/
+/packaging/rpm/SOURCES/*.tar.gz
