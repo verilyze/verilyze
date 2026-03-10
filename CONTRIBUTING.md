@@ -593,6 +593,26 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
 - In code comments and documentation, do not use em dashes or en dashes.
   Use `--` instead of em dashes, and `-` instead of en dashes.
 
+### DRY (Don't Repeat Yourself)
+
+Values reused across production and test code shall be defined in a single
+central location (PRD NFR-024):
+
+- **Configuration:** User-overridable values (parallel queries, TTL, paths,
+  etc.) belong in `config.rs` and the config system. Add new keys per
+  [Adding or updating configuration keys](#adding-or-updating-configuration-keys).
+- **Constants:** Fixed values shared by production and tests (defaults, limits,
+  filenames like `vlz-cache.redb`) should be `pub const` in the crate that owns
+  them. Example: `config.rs` defines `DEFAULT_PARALLEL_QUERIES`,
+  `DEFAULT_CACHE_TTL_SECS`; tests import these.
+- **Derivation:** When a value can be computed (e.g. `5 * 24 * 60 * 60` for
+  5 days), prefer deriving it or using a named constant over repeating the
+  literal.
+- **Per-crate constants:** Crate-specific values (e.g. `OSV_QUERY_URL` in
+  vlz-cve-client, `NVD_BASE_URL` in vlz-cve-provider-nvd) stay in that crate.
+  Cross-crate shared values live in the lowest common dependency (e.g. `vlz-db`
+  or `vlz` config).
+
 ### CLI output (stdout)
 
 In `vlz/src/main.rs`, use the `write_stdout()` helper for all user-facing
