@@ -79,3 +79,21 @@ sonatype = ["dep:vlz-cve-provider-sonatype"]
 testing = ["async-trait"]
 sqlite = []      # placeholder for a future SQLite backend
 mem = []         # placeholder for an in‑memory/mock backend
+
+# ---- Packaging metadata (OP-013) ----
+
+[package.metadata.deb]
+maintainer = "Travis Post <post.travis+git@gmail.com>"
+depends = "$auto"
+section = "utils"
+priority = "optional"
+conf-files = ["/etc/verilyze.conf"]
+assets = [
+    ["target/release/vlz", "/usr/bin/", "755"],
+    ["../../../verilyze.conf.example", "/etc/verilyze.conf", "644"],
+    ["../../../verilyze.conf.example", "/usr/share/doc/verilyze/verilyze.conf.example", "644"],
+    ["../../../man/verilyze.conf.5", "/usr/share/man/man5/", "644"],
+]
+
+[package.metadata.aur]
+depends = []

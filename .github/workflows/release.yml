@@ -1,0 +1,133 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis+git@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Release workflow: builds packages and Docker image on version tags.
+# Triggered by pushing a tag matching v*.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-binary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vlz-linux-x86_64
+          path: target/release/vlz
+
+  build-deb:
+    needs: build-binary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-deb
+        run: cargo install cargo-deb --locked
+
+      - name: Build .deb
+        run: make deb
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-package
+          path: target/debian/*.deb
+
+  build-rpm:
+    needs: build-binary
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: dnf install -y rpm-build rust cargo openssl-devel git make
+
+      - name: Build .rpm
+        run: make rpm
+
+      - name: Upload .rpm artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-package
+          path: packaging/rpm/RPMS/**/*.rpm
+
+  build-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -f packaging/docker/Dockerfile \
+            -t ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }} \
+            -t ghcr.io/${{ github.repository }}:latest .
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push Docker image
+        run: |
+          docker push ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
+          docker push ghcr.io/${{ github.repository }}:latest
+
+  create-release:
+    needs: [build-binary, build-deb, build-rpm, build-docker]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            release-artifacts/vlz-linux-x86_64/vlz
+            release-artifacts/deb-package/*.deb
+            release-artifacts/rpm-package/**/*.rpm
