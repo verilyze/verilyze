@@ -183,21 +183,25 @@ pub fn generate_example(cfg: &crate::config::EffectiveConfig) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::{
+        DEFAULT_BACKOFF_BASE_MS, DEFAULT_BACKOFF_MAX_MS,
+        DEFAULT_CACHE_TTL_SECS, DEFAULT_MAX_RETRIES, DEFAULT_PARALLEL_QUERIES,
+    };
     use std::path::PathBuf;
 
     fn minimal_config() -> crate::config::EffectiveConfig {
         crate::config::EffectiveConfig {
             cache_db: Some(PathBuf::from("/tmp/cache.redb")),
             ignore_db: Some(PathBuf::from("/tmp/ignore.redb")),
-            parallel_queries: 10,
-            cache_ttl_secs: 432000,
+            parallel_queries: DEFAULT_PARALLEL_QUERIES,
+            cache_ttl_secs: DEFAULT_CACHE_TTL_SECS,
             min_score: 0.0,
             min_count: 0,
             exit_code_on_cve: Some(86),
             fp_exit_code: Some(0),
-            backoff_base_ms: 100,
-            backoff_max_ms: 30_000,
-            max_retries: 5,
+            backoff_base_ms: DEFAULT_BACKOFF_BASE_MS,
+            backoff_max_ms: DEFAULT_BACKOFF_MAX_MS,
+            max_retries: DEFAULT_MAX_RETRIES,
             language_regexes: vec![
                 ("python".to_string(), "^requirements\\.txt$".to_string()),
                 ("rust".to_string(), "^Cargo\\.toml$".to_string()),
