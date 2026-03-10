@@ -25,6 +25,7 @@ VENV_TEST := $(MKFILE_DIR)/.venv-test
 .PHONY: lint-python lint-shell
 .PHONY: fuzz fuzz-changed fuzz-extended coverage coverage-quick
 .PHONY: generate-config-example check-config-docs
+.PHONY: deb rpm aur apk docker
 .PHONY: install clean distclean
 
 .DEFAULT_GOAL := help
@@ -70,6 +71,13 @@ help:
 	@echo "    make fuzz-extended - Fuzz all targets, extended timeout (30 min each)"
 	@echo "    make coverage     - Coverage report (runs fuzz first; needs cargo-llvm-cov)"
 	@echo "    make coverage-quick - Coverage without fuzz (faster dev iteration)"
+	@echo ""
+	@echo "  Packaging (OP-013):"
+	@echo "    make deb        - Build .deb package (needs cargo-deb)"
+	@echo "    make rpm        - Build .rpm package (needs rpmbuild)"
+	@echo "    make aur        - Build AUR tarball + PKGBUILD (needs cargo-aur)"
+	@echo "    make apk        - Build Alpine APK (needs abuild, Alpine env)"
+	@echo "    make docker     - Build Docker image (needs docker)"
 	@echo ""
 	@echo "  Clean:"
 	@echo "    make clean      - Remove build artifacts, reports"
@@ -254,6 +262,46 @@ install: release generate-config-example
 		echo "Note: could not install /etc/verilyze.conf (run as root or copy manually)"; \
 	fi
 
+# ---- Packaging (OP-013) ----
+# Read workspace version from root Cargo.toml for packaging.
+PKG_VERSION := $(shell cd "$(MKFILE_DIR)" && \
+  grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+PKG_NAME := verilyze
+RPM_TOPDIR := $(MKFILE_DIR)/packaging/rpm
+
+# deb: Build .deb via cargo-deb. Requires: cargo install cargo-deb
+deb: release
+	cd "$(MKFILE_DIR)" && cargo deb -p vlz --no-build
+
+# rpm: Build .rpm via rpmbuild. Requires: rpmbuild (rpm-build package).
+# Generates a source tarball from git, then runs rpmbuild with _topdir
+# pointing at packaging/rpm.
+rpm: release
+	@mkdir -p "$(RPM_TOPDIR)/SOURCES"
+	cd "$(MKFILE_DIR)" && git archive --format=tar.gz \
+	  --prefix=$(PKG_NAME)-$(PKG_VERSION)/ \
+	  -o "$(RPM_TOPDIR)/SOURCES/$(PKG_NAME)-$(PKG_VERSION).tar.gz" HEAD
+	rpmbuild -ba "$(RPM_TOPDIR)/SPECS/verilyze.spec" \
+	  --define "_topdir $(RPM_TOPDIR)" \
+	  --define "version $(PKG_VERSION)" \
+	  --nodeps
+
+# aur: Generate PKGBUILD + tarball via cargo-aur. Requires: cargo install cargo-aur
+aur:
+	cd "$(MKFILE_DIR)" && cargo aur
+
+# apk: Build Alpine APK. Requires Alpine build environment (abuild, alpine-sdk).
+# Run inside an Alpine container or chroot.
+apk:
+	cd "$(MKFILE_DIR)/packaging/alpine" && abuild checksum && abuild -r
+
+# docker: Build Docker image from scratch (FR-025, OP-013).
+docker:
+	cd "$(MKFILE_DIR)" && docker build \
+	  -f packaging/docker/Dockerfile \
+	  -t $(PKG_NAME):$(PKG_VERSION) \
+	  -t $(PKG_NAME):latest .
+
 # ---- Clean ----
 clean:
 	@cd "$(MKFILE_DIR)" && cargo clean
@@ -262,6 +310,9 @@ clean:
                                        -name "vlz-cache.redb" \) -delete
 	@find $(MKFILE_DIR) -type d -name "__pycache__" -exec rm -rf {} +
 	@rm -rfv $(MKFILE_DIR)/reports/ $(MKFILE_DIR)/.cache
+	@rm -rfv $(RPM_TOPDIR)/BUILD $(RPM_TOPDIR)/BUILDROOT \
+	         $(RPM_TOPDIR)/RPMS $(RPM_TOPDIR)/SRPMS \
+	         $(RPM_TOPDIR)/SOURCES/*.tar.gz
 
 distclean: clean
 	@rm -rfv $(MKFILE_DIR)/.mypy_cache $(MKFILE_DIR)/.tmp-empty-xdg $(VENV_LINT) $(VENV_REUSE) $(VENV_TEST)

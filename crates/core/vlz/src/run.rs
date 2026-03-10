@@ -116,11 +116,17 @@ fn deduplicate_packages(packages: &[vlz_db::Package]) -> Vec<vlz_db::Package> {
 /// Core entry point: runs the requested command and returns the exit code.
 /// Caller is responsible for initialising the logger and for calling `process::exit(code)`.
 pub async fn run(args: Cli) -> Result<i32> {
-    // Resolve CLI cache TTL from subcommand (only `vlz db` and `vlz scan` have it).
-    let cli_cache_ttl_secs = match &args.cmd {
-        Commands::Db { cache_ttl_secs, .. } => *cache_ttl_secs,
-        Commands::Scan { cache_ttl_secs, .. } => *cache_ttl_secs,
-        _ => None,
+    // Resolve CLI cache TTL and cache DB path from subcommand.
+    let (cli_cache_ttl_secs, cli_cache_db, cli_ignore_db) = match &args.cmd {
+        Commands::Db { cache_ttl_secs, .. } => (*cache_ttl_secs, None, None),
+        Commands::Scan {
+            cache_ttl_secs,
+            cache_db,
+            ignore_db,
+            ..
+        } => (*cache_ttl_secs, cache_db.clone(), ignore_db.clone()),
+        Commands::Fp { .. } => (None, None, None),
+        _ => (None, None, None),
     };
 
     // Load config from files + env + CLI for DB paths and TTL.
@@ -138,8 +144,8 @@ pub async fn run(args: Cli) -> Result<i32> {
         crate::config::env_backoff_max_ms(),
         crate::config::env_max_retries(),
         None,
-        None,
-        None,
+        cli_cache_db.as_deref(),
+        cli_ignore_db.as_deref(),
         cli_cache_ttl_secs,
         false,
         false,
