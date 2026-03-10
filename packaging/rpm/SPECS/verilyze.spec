@@ -4,9 +4,10 @@
 
 %global crate_name vlz
 %global pkg_name verilyze
+%{!?version:%global version 0.1.0}
 
 Name:           %{pkg_name}
-Version:        0.1.0
+Version:        %{version}
 Release:        1%{?dist}
 Summary:        Fast, modular Software Composition Analysis tool
 License:        GPL-3.0-or-later
