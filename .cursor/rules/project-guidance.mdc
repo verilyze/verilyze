@@ -11,8 +11,10 @@ Do not delete or modify the files in the `LICENSES` directory.
 
 Read and follow [AGENTS.md](AGENTS.md) for:
 - Primary references (PRD, CONTRIBUTING, architecture diagrams)
-- Conventions (TDD, SOLID, Unix philosophy, no unsafe code)
+- Conventions (TDD, SOLID, Unix philosophy, no unsafe code, DRY)
 - Quick links (exit codes, config precedence, adding plugins, etc.)
+
+**DRY:** Use constants or config for reused values; avoid hard-coding. See AGENTS.md.
 
 # TDD for AI Agents
 

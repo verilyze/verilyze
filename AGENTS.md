@@ -78,6 +78,10 @@ observable behavior.
 - **No duplicate copyright holders:** Do not add the same copyright owner twice.
   Use `.mailmap` to map alternate identities (e.g. different emails) to a single
   canonical form. See CONTRIBUTING "Copyright and licensing".
+- **DRY:** Avoid hard-coding values. Use constants (single `pub const` for shared
+  values), configuration (for user-overridable values), or programmatic
+  derivation. Tests must use the same constants as production. See PRD NFR-024,
+  CONTRIBUTING "DRY (Don't Repeat Yourself)".
 
 ## Quick links
 
@@ -92,3 +96,4 @@ observable behavior.
 | TDD workflow         | [CONTRIBUTING.md -- Test-driven development](CONTRIBUTING.md#test-driven-development-tdd) |
 | Security             | PRD section 6 (SEC-*), section 11 (Risk & Threat Model); [SECURITY.md](SECURITY.md); [COMPLIANCE.md](COMPLIANCE.md) |
 | Copyright duplicates | `make check-header-duplicates`; CONTRIBUTING "Copyright and licensing"; `.mailmap` |
+| DRY / constants      | PRD NFR-024; CONTRIBUTING "DRY (Don't Repeat Yourself)"                              |
