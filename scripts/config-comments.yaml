@@ -1,0 +1,164 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Metadata for config keys: description, type, env var, CLI flag.
+# Used by generate_config_example.py to produce verilyze.conf.example,
+# docs/configuration.md, and man/verilyze.conf.5.
+# Keys not in vlz config --list output use "default" for their value.
+
+cache_db:
+  description: "Path to CVE cache database (default: XDG_CACHE_HOME or /var/cache)"
+  type: string
+  env: VLZ_CACHE_DB
+  cli: "--cache-db"
+  default: ""
+
+ignore_db:
+  description: "Path to false-positive (ignore) database (default: XDG_DATA_HOME or /var/lib)"
+  type: string
+  env: VLZ_IGNORE_DB
+  cli: "--ignore-db"
+  default: ""
+
+parallel_queries:
+  description: "Max concurrent CVE queries (1-50)"
+  type: integer
+  env: VLZ_PARALLEL_QUERIES
+  cli: "--parallel"
+
+cache_ttl_secs:
+  description: "Default cache TTL in seconds (5 days); only affects new entries"
+  type: integer
+  env: VLZ_CACHE_TTL_SECS
+  cli: "--cache-ttl-secs"
+
+min_score:
+  description: "Minimum CVSS score to count toward exit code"
+  type: float
+  env: VLZ_MIN_SCORE
+  cli: "--min-score"
+
+min_count:
+  description: "Minimum count of CVEs meeting min-score to trigger exit code (0 = any)"
+  type: integer
+  env: VLZ_MIN_COUNT
+  cli: "--min-count"
+
+exit_code_on_cve:
+  description: "Exit code when CVEs meet threshold (default 86)"
+  type: integer
+  env: VLZ_EXIT_CODE_ON_CVE
+  cli: "--exit-code-on-cve"
+  default: "86"
+
+fp_exit_code:
+  description: "Exit code when only false-positives are present (default 0)"
+  type: integer
+  env: VLZ_FP_EXIT_CODE
+  cli: "--fp-exit-code"
+  default: "0"
+
+backoff_base_ms:
+  description: "Base delay in ms for retry backoff"
+  type: integer
+  env: VLZ_BACKOFF_BASE_MS
+  cli: "--backoff-base"
+
+backoff_max_ms:
+  description: "Maximum delay in ms for retry backoff"
+  type: integer
+  env: VLZ_BACKOFF_MAX_MS
+  cli: "--backoff-max"
+
+max_retries:
+  description: "Maximum retries for transient errors"
+  type: integer
+  env: VLZ_MAX_RETRIES
+  cli: "--max-retries"
+
+# Severity thresholds (FR-013). Per CVSS version: v2, v3, v4.
+# Each has critical_min, high_min, medium_min, low_min (float).
+severity_v2_critical_min:
+  description: "CVSS v2 minimum score for CRITICAL (default 9.0)"
+  type: float
+  env: VLZ_SEVERITY_V2_CRITICAL_MIN
+  default: "9.0"
+
+severity_v2_high_min:
+  description: "CVSS v2 minimum score for HIGH (default 7.0)"
+  type: float
+  env: VLZ_SEVERITY_V2_HIGH_MIN
+  default: "7.0"
+
+severity_v2_medium_min:
+  description: "CVSS v2 minimum score for MEDIUM (default 4.0)"
+  type: float
+  env: VLZ_SEVERITY_V2_MEDIUM_MIN
+  default: "4.0"
+
+severity_v2_low_min:
+  description: "CVSS v2 minimum score for LOW (default 0.1)"
+  type: float
+  env: VLZ_SEVERITY_V2_LOW_MIN
+  default: "0.1"
+
+severity_v3_critical_min:
+  description: "CVSS v3 minimum score for CRITICAL (default 9.0)"
+  type: float
+  env: VLZ_SEVERITY_V3_CRITICAL_MIN
+  default: "9.0"
+
+severity_v3_high_min:
+  description: "CVSS v3 minimum score for HIGH (default 7.0)"
+  type: float
+  env: VLZ_SEVERITY_V3_HIGH_MIN
+  default: "7.0"
+
+severity_v3_medium_min:
+  description: "CVSS v3 minimum score for MEDIUM (default 4.0)"
+  type: float
+  env: VLZ_SEVERITY_V3_MEDIUM_MIN
+  default: "4.0"
+
+severity_v3_low_min:
+  description: "CVSS v3 minimum score for LOW (default 0.1)"
+  type: float
+  env: VLZ_SEVERITY_V3_LOW_MIN
+  default: "0.1"
+
+severity_v4_critical_min:
+  description: "CVSS v4 minimum score for CRITICAL (default 9.0)"
+  type: float
+  env: VLZ_SEVERITY_V4_CRITICAL_MIN
+  default: "9.0"
+
+severity_v4_high_min:
+  description: "CVSS v4 minimum score for HIGH (default 7.0)"
+  type: float
+  env: VLZ_SEVERITY_V4_HIGH_MIN
+  default: "7.0"
+
+severity_v4_medium_min:
+  description: "CVSS v4 minimum score for MEDIUM (default 4.0)"
+  type: float
+  env: VLZ_SEVERITY_V4_MEDIUM_MIN
+  default: "4.0"
+
+severity_v4_low_min:
+  description: "CVSS v4 minimum score for LOW (default 0.1)"
+  type: float
+  env: VLZ_SEVERITY_V4_LOW_MIN
+  default: "0.1"
+
+# Per-language manifest regex (FR-006). Use [python], [rust], etc. with regex = "pattern".
+# config --list outputs lang.regex when set; these are example defaults.
+python.regex:
+  description: "Regex for Python manifest file names (e.g. requirements.txt, pyproject.toml)"
+  type: string
+  default: "^requirements\\.txt$"
+
+rust.regex:
+  description: "Regex for Rust manifest file names (Cargo.toml)"
+  type: string
+  default: "^Cargo\\.toml$"

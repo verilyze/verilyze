@@ -24,7 +24,8 @@ VENV_TEST := $(MKFILE_DIR)/.venv-test
 .PHONY: fmt fmt-check clippy
 .PHONY: lint-python lint-shell
 .PHONY: fuzz fuzz-changed fuzz-extended coverage coverage-quick
-.PHONY: clean distclean
+.PHONY: generate-config-example check-config-docs
+.PHONY: install clean distclean
 
 .DEFAULT_GOAL := help
 
@@ -55,6 +56,8 @@ help:
 	@echo "    make headers           - Add/update headers (mutates files)"
 	@echo "    make update-doc-diagrams - Embed Mermaid diagrams into README/CONTRIBUTING"
 	@echo "    make check-doc-diagrams  - Verify diagram content is in sync"
+	@echo "    make generate-config-example - Generate verilyze.conf.example, docs, man page"
+	@echo "    make check-config-docs   - Verify config docs are in sync"
 	@echo "    make fmt-check      - Verify Rust formatting (cargo fmt --check)"
 	@echo "    make fmt           - Auto-format Rust code (cargo fmt)"
 	@echo "    make clippy        - Run Clippy lints (all-targets, all-features)"
@@ -75,6 +78,7 @@ help:
 	@echo "  Other:"
 	@echo "    make all       - Build release-ready (debug build)"
 	@echo "    make release   - Build release binary"
+	@echo "    make install   - Install binary, config example, man page (PREFIX=/usr/local)"
 
 # ---- Setup & environment ----
 # Prepare dev environment: bootstrap Python venvs for lint and tests.
@@ -184,6 +188,14 @@ update-doc-diagrams:
 check-doc-diagrams:
 	python3 $(SCRIPTS_DIR)/embed-diagrams.py --check README.md CONTRIBUTING.md
 
+# generate-config-example: produce verilyze.conf.example, docs/configuration.md, man/verilyze.conf.5
+generate-config-example: debug
+	python3 $(SCRIPTS_DIR)/generate_config_example.py
+
+# check-config-docs: verify config docs are in sync (CI)
+check-config-docs: debug
+	python3 $(SCRIPTS_DIR)/generate_config_example.py --check
+
 # check-dco: verify commits have Signed-off-by (DCO); for local use before push
 check-dco:
 	@cd "$(MKFILE_DIR)" && ./scripts/check-dco.sh
@@ -198,6 +210,7 @@ check-signatures:
 check-fast: setup \
             check-headers \
             check-doc-diagrams \
+            check-config-docs \
             cargo-check fmt-check \
             clippy \
             lint-python \
@@ -210,6 +223,7 @@ check-slow: setup fuzz-changed coverage-quick
 check: setup \
        check-headers \
        check-doc-diagrams \
+       check-config-docs \
        cargo-check \
        fmt-check \
        clippy \
@@ -217,6 +231,28 @@ check: setup \
        lint-shell \
        fuzz-changed \
        coverage-quick
+
+# ---- Install ----
+# Optional: install binary, verilyze.conf.example, and man page.
+# PREFIX=/usr/local, DESTDIR= for staged installs.
+PREFIX ?= /usr/local
+BINDIR := $(PREFIX)/bin
+MANDIR := $(PREFIX)/share/man
+DOCDIR := $(PREFIX)/share/doc/verilyze
+
+install: release generate-config-example
+	install -d "$(DESTDIR)$(BINDIR)"
+	install -m 755 "$(MKFILE_DIR)/target/release/vlz" "$(DESTDIR)$(BINDIR)/vlz"
+	install -d "$(DESTDIR)$(DOCDIR)"
+	install -m 644 "$(MKFILE_DIR)/verilyze.conf.example" "$(DESTDIR)$(DOCDIR)/"
+	install -d "$(DESTDIR)$(MANDIR)/man5"
+	install -m 644 "$(MKFILE_DIR)/man/verilyze.conf.5" "$(DESTDIR)$(MANDIR)/man5/"
+	@if [ -z "$(DESTDIR)" ] && [ ! -f /etc/verilyze.conf ]; then \
+		echo "Installing /etc/verilyze.conf from example (file did not exist)"; \
+		install -d /etc 2>/dev/null || true; \
+		install -m 644 "$(MKFILE_DIR)/verilyze.conf.example" /etc/verilyze.conf 2>/dev/null || \
+		echo "Note: could not install /etc/verilyze.conf (run as root or copy manually)"; \
+	fi
 
 # ---- Clean ----
 clean:
@@ -228,7 +264,7 @@ clean:
 	@rm -rfv $(MKFILE_DIR)/reports/ $(MKFILE_DIR)/.cache
 
 distclean: clean
-	@rm -rfv $(MKFILE_DIR)/.mypy_cache $(VENV_LINT) $(VENV_REUSE) $(VENV_TEST)
+	@rm -rfv $(MKFILE_DIR)/.mypy_cache $(MKFILE_DIR)/.tmp-empty-xdg $(VENV_LINT) $(VENV_REUSE) $(VENV_TEST)
 
 # ---- Default build ----
 all: debug

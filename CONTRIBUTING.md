@@ -416,6 +416,36 @@ variables only; never store or log credentials. Error messages and
 (SEC-020). Add tests that assert error output does not contain credential
 strings (e.g. `assert!(!format!("{}", err).contains("secret"))`).
 
+## Adding or updating configuration keys
+
+Config docs are generated from a single source. When adding or changing a
+config key:
+
+**Source of truth:** `crates/core/vlz/src/config.rs` and
+`crates/core/vlz-report/src/lib.rs` define defaults.
+`vlz config --list` prints the canonical table.
+
+**Workflow:**
+
+1. Add the key to `config.rs` (and ensure `vlz config --list` includes it).
+2. Add an entry to `scripts/config-comments.yaml` with `description`, `type`,
+   `env`, `cli`, and `default` (if not in `config --list`).
+3. Run `make generate-config-example` to regenerate `verilyze.conf.example`,
+   `docs/configuration.md`, `man/verilyze.conf.5`.
+4. Commit the generated files.
+
+**Verification:** `make check-config-docs` (runs
+`generate_config_example.py --check`) fails if outputs are out of sync.
+CI runs this as part of `make check`.
+
+**Files:** `scripts/config-comments.yaml`, `docs/configuration.md.in`, and
+`man/verilyze.conf.5.in` are templates; the script fills placeholders from
+config data and `vlz config --list` output.
+
+**Future migration:** If config keys grow significantly, consider extracting a
+`vlz-config` crate to centralize schema, env vars, and CLI flags (see
+architecture/PRD.md DOC-003 and design notes on single source of truth).
+
 ## Feature gating (MOD-003)
 
 The `vlz` binary supports optional capabilities via Cargo features:

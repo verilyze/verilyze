@@ -81,13 +81,14 @@ observable behavior.
 
 ## Quick links
 
-| Topic              | Where to look                                            |
-|--------------------|----------------------------------------------------------|
-| Exit codes         | PRD FR-009, FR-010, FR-016; README “Exit codes”          |
-| Shell script style | CONTRIBUTING "Code style and checks"; PRD NFR-022        |
-| Config precedence  | PRD CFG-001--CFG-008; README “Configuration precedence”  |
-| Adding a plugin    | CONTRIBUTING "Adding a new language plugin"; PRD MOD-002 |
-| Commit messages    | CONTRIBUTING "Commit messages"                           |
-| TDD workflow       | [CONTRIBUTING.md -- Test-driven development](CONTRIBUTING.md#test-driven-development-tdd) |
-| Security           | PRD section 6 (SEC-*), section 11 (Risk & Threat Model); [SECURITY.md](SECURITY.md); [COMPLIANCE.md](COMPLIANCE.md) |
+| Topic                | Where to look                                            |
+|----------------------|----------------------------------------------------------|
+| Exit codes           | PRD FR-009, FR-010, FR-016; README “Exit codes”          |
+| Shell script style   | CONTRIBUTING "Code style and checks"; PRD NFR-022        |
+| Config precedence    | PRD CFG-001--CFG-008; README “Configuration precedence”  |
+| Adding a plugin      | CONTRIBUTING "Adding a new language plugin"; PRD MOD-002 |
+| Config documentation | CONTRIBUTING "Adding or updating configuration keys"; `make generate-config-example` |
+| Commit messages      | CONTRIBUTING "Commit messages"                           |
+| TDD workflow         | [CONTRIBUTING.md -- Test-driven development](CONTRIBUTING.md#test-driven-development-tdd) |
+| Security             | PRD section 6 (SEC-*), section 11 (Risk & Threat Model); [SECURITY.md](SECURITY.md); [COMPLIANCE.md](COMPLIANCE.md) |
 | Copyright duplicates | `make check-header-duplicates`; CONTRIBUTING "Copyright and licensing"; `.mailmap` |

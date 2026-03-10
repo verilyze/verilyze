@@ -297,6 +297,14 @@ DOC-002).
 | **DOC-012** | License & attribution | The repository uses the REUSE toolchain for license and attribution: license texts in `LICENSES/` (e.g. `GPL-3.0-or-later.txt`), SPDX headers in source files, and `reuse lint` for verification. Third-party dependency licenses are checked via `cargo deny check licenses`. Each file's SPDX headers must not list the same copyright holder more than once. Multiple identities for the same person are consolidated via `.mailmap`. Two people with the same name but different emails are distinct holders; only `.mailmap` can indicate they are the same person. See CONTRIBUTING.md for REUSE workflow. | `reuse lint` passes; `cargo deny check licenses` passes; `make check-header-duplicates` passes. |
 | **DOC-013** | Man pages | Install  `man` pages to the standard locations on Unix systems when using the program's package manager. Also make the man pages available via `vlz help` and `vlz help <subcommand>`. | `man vlz` shows the manual for verilyze. `vlz help` shows the same man page for verilyze. |
 
+**Config docs workflow (DOC-003):** Config docs (`verilyze.conf.example`,
+`docs/configuration.md`, `man/verilyze.conf.5`) are generated from
+`scripts/generate_config_example.py` using `vlz config --list` and
+`scripts/config-comments.yaml`. When adding a new config key: (1) add to
+`config.rs`, (2) add entry to `config-comments.yaml`, (3) run
+`make generate-config-example`, (4) commit generated files. CI runs
+`make check-config-docs` to verify outputs are in sync.
+
 ---
 
 ## <a name="risk-threat-model"></a>11. Risk & Threat Model

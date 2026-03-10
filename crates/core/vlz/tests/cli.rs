@@ -7,12 +7,12 @@ use std::process::{Command, Stdio};
 
 /// Path to the vlz binary (set by Cargo when running tests).
 fn vlz_exe() -> String {
-    std::env::var("CARGO_BIN_EXE_spd")
-        .expect("CARGO_BIN_EXE_spd must be set when running tests")
+    std::env::var("CARGO_BIN_EXE_vlz")
+        .expect("CARGO_BIN_EXE_vlz must be set when running tests")
 }
 
 fn vlz_exe_exists() -> bool {
-    std::env::var("CARGO_BIN_EXE_spd")
+    std::env::var("CARGO_BIN_EXE_vlz")
         .map(|p| Path::new(&p).exists())
         .unwrap_or(false)
 }
@@ -55,7 +55,7 @@ fn broken_pipe_version() {
     if !vlz_exe_exists() {
         return;
     }
-    assert_broken_pipe_exits_cleanly(&["version"]);
+    assert_broken_pipe_exits_cleanly(&["--version"]);
 }
 
 #[test]
@@ -112,6 +112,14 @@ fn broken_pipe_config_list() {
         return;
     }
     assert_broken_pipe_exits_cleanly(&["config", "--list"]);
+}
+
+#[test]
+fn broken_pipe_config_example() {
+    if !vlz_exe_exists() {
+        return;
+    }
+    assert_broken_pipe_exits_cleanly(&["config", "--example"]);
 }
 
 #[test]
@@ -315,6 +323,192 @@ fn config_list_succeeds() {
             out.status.success(),
             "stderr: {}",
             String::from_utf8_lossy(&out.stderr)
+        );
+    });
+}
+
+/// Parse `key = value` lines from config --list stdout. DOC-003: single source.
+fn parse_config_list_output(
+    stdout: &[u8],
+) -> std::collections::HashMap<String, String> {
+    let mut map = std::collections::HashMap::new();
+    for line in std::str::from_utf8(stdout).unwrap_or("").lines() {
+        if let Some((key, value)) = line.split_once(" = ") {
+            map.insert(key.trim().to_string(), value.trim().to_string());
+        }
+    }
+    map
+}
+
+/// DOC-003: config --list must include cache_db (effective path when unset).
+#[test]
+fn config_list_includes_cache_db() {
+    if !vlz_exe_exists() {
+        return;
+    }
+    with_isolated_env(|p| {
+        let out = Command::new(vlz_exe())
+            .args(["config", "--list"])
+            .env("XDG_CACHE_HOME", p)
+            .env("XDG_DATA_HOME", p)
+            .env("XDG_CONFIG_HOME", p)
+            .output()
+            .expect("run vlz config --list");
+        assert!(
+            out.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let cfg = parse_config_list_output(&out.stdout);
+        assert!(
+            cfg.contains_key("cache_db"),
+            "config --list must include cache_db"
+        );
+    });
+}
+
+/// DOC-003: config --list must include ignore_db (effective path when unset).
+#[test]
+fn config_list_includes_ignore_db() {
+    if !vlz_exe_exists() {
+        return;
+    }
+    with_isolated_env(|p| {
+        let out = Command::new(vlz_exe())
+            .args(["config", "--list"])
+            .env("XDG_CACHE_HOME", p)
+            .env("XDG_DATA_HOME", p)
+            .env("XDG_CONFIG_HOME", p)
+            .output()
+            .expect("run vlz config --list");
+        assert!(
+            out.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let cfg = parse_config_list_output(&out.stdout);
+        assert!(
+            cfg.contains_key("ignore_db"),
+            "config --list must include ignore_db"
+        );
+    });
+}
+
+/// DOC-003: config --list must include exit_code_on_cve (default 86).
+#[test]
+fn config_list_includes_exit_code_on_cve() {
+    if !vlz_exe_exists() {
+        return;
+    }
+    with_isolated_env(|p| {
+        let out = Command::new(vlz_exe())
+            .args(["config", "--list"])
+            .env("XDG_CACHE_HOME", p)
+            .env("XDG_DATA_HOME", p)
+            .env("XDG_CONFIG_HOME", p)
+            .output()
+            .expect("run vlz config --list");
+        assert!(
+            out.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let cfg = parse_config_list_output(&out.stdout);
+        assert!(
+            cfg.contains_key("exit_code_on_cve"),
+            "config --list must include exit_code_on_cve"
+        );
+        assert_eq!(
+            cfg.get("exit_code_on_cve").map(|s| s.as_str()),
+            Some("86")
+        );
+    });
+}
+
+/// DOC-003: config --list must include fp_exit_code (default 0).
+#[test]
+fn config_list_includes_fp_exit_code() {
+    if !vlz_exe_exists() {
+        return;
+    }
+    with_isolated_env(|p| {
+        let out = Command::new(vlz_exe())
+            .args(["config", "--list"])
+            .env("XDG_CACHE_HOME", p)
+            .env("XDG_DATA_HOME", p)
+            .env("XDG_CONFIG_HOME", p)
+            .output()
+            .expect("run vlz config --list");
+        assert!(
+            out.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let cfg = parse_config_list_output(&out.stdout);
+        assert!(
+            cfg.contains_key("fp_exit_code"),
+            "config --list must include fp_exit_code"
+        );
+        assert_eq!(cfg.get("fp_exit_code").map(|s| s.as_str()), Some("0"));
+    });
+}
+
+/// DOC-003: config --list must include all 12 severity thresholds (9.0, 7.0, 4.0, 0.1).
+#[test]
+fn config_list_includes_severity_thresholds() {
+    if !vlz_exe_exists() {
+        return;
+    }
+    with_isolated_env(|p| {
+        let out = Command::new(vlz_exe())
+            .args(["config", "--list"])
+            .env("XDG_CACHE_HOME", p)
+            .env("XDG_DATA_HOME", p)
+            .env("XDG_CONFIG_HOME", p)
+            .output()
+            .expect("run vlz config --list");
+        assert!(
+            out.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let cfg = parse_config_list_output(&out.stdout);
+        let severity_keys = [
+            "severity_v2_critical_min",
+            "severity_v2_high_min",
+            "severity_v2_medium_min",
+            "severity_v2_low_min",
+            "severity_v3_critical_min",
+            "severity_v3_high_min",
+            "severity_v3_medium_min",
+            "severity_v3_low_min",
+            "severity_v4_critical_min",
+            "severity_v4_high_min",
+            "severity_v4_medium_min",
+            "severity_v4_low_min",
+        ];
+        for key in &severity_keys {
+            assert!(
+                cfg.contains_key(*key),
+                "config --list must include {}",
+                key
+            );
+        }
+        assert_eq!(
+            cfg.get("severity_v2_critical_min").map(|s| s.as_str()),
+            Some("9")
+        );
+        assert_eq!(
+            cfg.get("severity_v2_high_min").map(|s| s.as_str()),
+            Some("7")
+        );
+        assert_eq!(
+            cfg.get("severity_v2_medium_min").map(|s| s.as_str()),
+            Some("4")
+        );
+        assert_eq!(
+            cfg.get("severity_v2_low_min").map(|s| s.as_str()),
+            Some("0.1")
         );
     });
 }

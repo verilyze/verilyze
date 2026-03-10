@@ -23,6 +23,9 @@ extensions = ["py", "rs", "toml", "md", "mmd", "sh", "json"]
 literal_names = ["Makefile"]
 exclude_paths = ["Cargo.lock"]
 
+[tool.verilyze]
+line-length = 79
+
 [tool.black]
 line-length = 79
 target-version = ["py311"]
