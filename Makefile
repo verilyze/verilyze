@@ -25,6 +25,7 @@ VENV_TEST := $(MKFILE_DIR)/.venv-test
 .PHONY: lint-python lint-shell
 .PHONY: fuzz fuzz-changed fuzz-extended coverage coverage-quick
 .PHONY: generate-config-example check-config-docs
+.PHONY: generate-packaging check-packaging
 .PHONY: deb rpm aur apk docker
 .PHONY: install clean distclean
 
@@ -59,6 +60,8 @@ help:
 	@echo "    make check-doc-diagrams  - Verify diagram content is in sync"
 	@echo "    make generate-config-example - Generate verilyze.conf.example, docs, man page"
 	@echo "    make check-config-docs   - Verify config docs are in sync"
+	@echo "    make generate-packaging  - Update packaging specs with version from Cargo.toml"
+	@echo "    make check-packaging     - Verify packaging versions are in sync"
 	@echo "    make fmt-check      - Verify Rust formatting (cargo fmt --check)"
 	@echo "    make fmt           - Auto-format Rust code (cargo fmt)"
 	@echo "    make clippy        - Run Clippy lints (all-targets, all-features)"
@@ -204,6 +207,15 @@ generate-config-example: debug
 check-config-docs: debug
 	python3 $(SCRIPTS_DIR)/generate_config_example.py --check
 
+# generate-packaging: Update APKBUILD and PKGBUILD with version from Cargo.toml.
+# Run after bumping version; required before make apk.
+generate-packaging:
+	python3 $(SCRIPTS_DIR)/generate_packaging_versions.py
+
+# check-packaging: Verify packaging spec versions match Cargo.toml.
+check-packaging:
+	python3 $(SCRIPTS_DIR)/generate_packaging_versions.py --check
+
 # check-dco: verify commits have Signed-off-by (DCO); for local use before push
 check-dco:
 	@cd "$(MKFILE_DIR)" && ./scripts/check-dco.sh
@@ -219,6 +231,7 @@ check-fast: setup \
             check-headers \
             check-doc-diagrams \
             check-config-docs \
+            check-packaging \
             cargo-check fmt-check \
             clippy \
             lint-python \
@@ -232,6 +245,7 @@ check: setup \
        check-headers \
        check-doc-diagrams \
        check-config-docs \
+       check-packaging \
        cargo-check \
        fmt-check \
        clippy \
@@ -265,7 +279,7 @@ install: release generate-config-example
 # ---- Packaging (OP-013) ----
 # Read workspace version from root Cargo.toml for packaging.
 PKG_VERSION := $(shell cd "$(MKFILE_DIR)" && \
-  grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+  grep -E '^\s*version\s*=' Cargo.toml | head -1 | sed 's/.*"\([^"]*\)".*/\1/')
 PKG_NAME := verilyze
 RPM_TOPDIR := $(MKFILE_DIR)/packaging/rpm
 
@@ -291,8 +305,8 @@ aur:
 	cd "$(MKFILE_DIR)" && cargo aur
 
 # apk: Build Alpine APK. Requires Alpine build environment (abuild, alpine-sdk).
-# Run inside an Alpine container or chroot.
-apk:
+# Run inside an Alpine container or chroot. Regenerates packaging versions first.
+apk: generate-packaging
 	cd "$(MKFILE_DIR)/packaging/alpine" && abuild checksum && abuild -r
 
 # docker: Build Docker image from scratch (FR-025, OP-013).
