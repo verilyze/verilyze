@@ -26,6 +26,30 @@ The default build includes the OSV CVE provider. The NVD provider is opt-in
 (reasons: NVD rate limits, binary size; see [docs/FAQ.md](docs/FAQ.md)). To
 include NVD: `cargo install vlz --features nvd`, then `vlz scan --provider nvd`.
 
+## Shell completion
+
+Shell completions for Bash, Zsh, and Fish are installed by default when using
+package managers (deb, rpm, apk, pkg, ebuild). For `cargo install` or manual
+builds, generate and source them:
+
+**Bash:**
+```bash
+vlz generate-completions bash | sudo tee /usr/share/bash-completion/completions/vlz > /dev/null
+# or for current user:
+vlz generate-completions bash > ~/.local/share/bash-completion/completions/vlz
+```
+
+**Zsh:**
+```bash
+vlz generate-completions zsh > "${fpath[1]}/_vlz"
+# or: vlz generate-completions zsh > ~/.zsh/site-functions/_vlz
+```
+
+**Fish:**
+```bash
+vlz generate-completions fish > ~/.config/fish/completions/vlz.fish
+```
+
 ## Running with Docker
 
 Build the image from the repo root:
@@ -156,6 +180,7 @@ Run `vlz config --list` to print effective values.
 | `vlz db migrate`             | Run migrations                                                |
 | `vlz fp mark CVE-ID [--comment ...]` | Mark CVE as false positive                            |
 | `vlz fp unmark CVE-ID`       | Remove false-positive marking                                 |
+| `vlz generate-completions SHELL` | Generate shell completion script (bash, zsh, fish)      |
 | `vlz --version`              | Print version                                                 |
 
 **Scan options (examples):** `--format plain|json|sarif|cyclonedx|spdx`,

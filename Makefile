@@ -25,6 +25,7 @@ VENV_TEST := $(MKFILE_DIR)/.venv-test
 .PHONY: lint-python lint-shell
 .PHONY: fuzz fuzz-changed fuzz-extended coverage coverage-quick
 .PHONY: generate-config-example check-config-docs
+.PHONY: generate-completions completions completions-release check-completions
 .PHONY: generate-packaging check-packaging
 .PHONY: deb rpm aur apk docker
 .PHONY: install clean distclean
@@ -60,6 +61,8 @@ help:
 	@echo "    make check-doc-diagrams  - Verify diagram content is in sync"
 	@echo "    make generate-config-example - Generate verilyze.conf.example, docs, man page"
 	@echo "    make check-config-docs   - Verify config docs are in sync"
+	@echo "    make generate-completions - Generate shell completions (bash, zsh, fish)"
+	@echo "    make check-completions   - Verify completions are in sync"
 	@echo "    make generate-packaging  - Update packaging specs with version from Cargo.toml"
 	@echo "    make check-packaging     - Verify packaging versions are in sync"
 	@echo "    make fmt-check      - Verify Rust formatting (cargo fmt --check)"
@@ -123,11 +126,40 @@ headers:
 cargo-check:
 	cd "$(MKFILE_DIR)" && cargo check
 
+# Binary path: use cargo metadata to respect CARGO_TARGET_DIR.
+VLZ_DEBUG := $(shell cd "$(MKFILE_DIR)" && cargo metadata --no-deps --format-version 1 2>/dev/null | \
+  sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p' | head -1)/debug/vlz
+VLZ_RELEASE := $(shell cd "$(MKFILE_DIR)" && cargo metadata --no-deps --format-version 1 2>/dev/null | \
+  sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p' | head -1)/release/vlz
+
+# Implicit rule: when completions need the binary, build it.
+$(VLZ_DEBUG):
+	cd "$(MKFILE_DIR)" && cargo build -p vlz
+
 debug: check-headers
 	cd "$(MKFILE_DIR)" && cargo build
+	$(MAKE) -C "$(MKFILE_DIR)" -f "$(MKFILE_DIR)/Makefile" completions
 
 release: check-headers
 	cd "$(MKFILE_DIR)" && cargo build --release
+
+# ---- Shell completions (FR-028) ----
+# Incremental: only regenerate when binary is newer than completion files.
+# Uses scripts/generate_completions.sh (DRY: same script used by packaging).
+completions: completions/vlz.bash completions/_vlz completions/vlz.fish
+
+completions/vlz.bash completions/_vlz completions/vlz.fish: $(VLZ_DEBUG)
+	cd "$(MKFILE_DIR)" && $(SCRIPTS_DIR)/generate_completions.sh "$(VLZ_DEBUG)"
+
+generate-completions: completions
+
+# Completions from release binary; used by packaging targets (deb, etc.).
+completions-release: release
+	cd "$(MKFILE_DIR)" && $(SCRIPTS_DIR)/generate_completions.sh "$(VLZ_RELEASE)"
+
+check-completions: debug
+	@cd "$(MKFILE_DIR)" && git diff --exit-code completions/ || \
+		(echo "Completions out of sync; run make generate-completions and commit." && exit 1)
 
 # ---- Tests ----
 cargo-test:
@@ -232,6 +264,7 @@ check-fast: setup \
             check-doc-diagrams \
             check-config-docs \
             check-packaging \
+            check-completions \
             cargo-check fmt-check \
             clippy \
             lint-python \
@@ -246,6 +279,7 @@ check: setup \
        check-doc-diagrams \
        check-config-docs \
        check-packaging \
+       check-completions \
        cargo-check \
        fmt-check \
        clippy \
@@ -262,7 +296,11 @@ BINDIR := $(PREFIX)/bin
 MANDIR := $(PREFIX)/share/man
 DOCDIR := $(PREFIX)/share/doc/verilyze
 
-install: release generate-config-example
+BASH_COMPLETION_DIR := $(PREFIX)/share/bash-completion/completions
+ZSH_SITE_FUNCTIONS := $(PREFIX)/share/zsh/site-functions
+FISH_VENDOR_COMPLETIONS := $(PREFIX)/share/fish/vendor_completions.d
+
+install: release generate-config-example completions
 	install -d "$(DESTDIR)$(BINDIR)"
 	install -m 755 "$(MKFILE_DIR)/target/release/vlz" "$(DESTDIR)$(BINDIR)/vlz"
 	install -d "$(DESTDIR)$(DOCDIR)"
@@ -271,6 +309,12 @@ install: release generate-config-example
 	install -d "$(DESTDIR)$(MANDIR)/man5"
 	install -m 644 "$(MKFILE_DIR)/man/vlz.1" "$(DESTDIR)$(MANDIR)/man1/"
 	install -m 644 "$(MKFILE_DIR)/man/verilyze.conf.5" "$(DESTDIR)$(MANDIR)/man5/"
+	install -d "$(DESTDIR)$(BASH_COMPLETION_DIR)"
+	install -m 644 "$(MKFILE_DIR)/completions/vlz.bash" "$(DESTDIR)$(BASH_COMPLETION_DIR)/vlz"
+	install -d "$(DESTDIR)$(ZSH_SITE_FUNCTIONS)"
+	install -m 644 "$(MKFILE_DIR)/completions/_vlz" "$(DESTDIR)$(ZSH_SITE_FUNCTIONS)/"
+	install -d "$(DESTDIR)$(FISH_VENDOR_COMPLETIONS)"
+	install -m 644 "$(MKFILE_DIR)/completions/vlz.fish" "$(DESTDIR)$(FISH_VENDOR_COMPLETIONS)/"
 	@if [ -z "$(DESTDIR)" ] && [ ! -f /etc/verilyze.conf ]; then \
 		echo "Installing /etc/verilyze.conf from example (file did not exist)"; \
 		install -d /etc 2>/dev/null || true; \
@@ -286,12 +330,12 @@ PKG_NAME := verilyze
 RPM_TOPDIR := $(MKFILE_DIR)/packaging/rpm
 
 # deb: Build .deb via cargo-deb. Requires: cargo install cargo-deb
-deb: release
+deb: completions-release
 	cd "$(MKFILE_DIR)" && cargo deb -p vlz --no-build
 
 # rpm: Build .rpm via rpmbuild. Requires: rpmbuild (rpm-build package).
-# Generates a source tarball from git, then runs rpmbuild with _topdir
-# pointing at packaging/rpm.
+# Generates a source tarball from git (committed state only). Commit all
+# changes before running make rpm.
 rpm: release
 	@mkdir -p "$(RPM_TOPDIR)/SOURCES"
 	cd "$(MKFILE_DIR)" && git archive --format=tar.gz \

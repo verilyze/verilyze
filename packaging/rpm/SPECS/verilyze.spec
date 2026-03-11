@@ -34,7 +34,12 @@ accurate, modular, and CI-friendly.
 %autosetup -n %{pkg_name}-%{version}
 
 %build
+export CARGO_TARGET_DIR="$PWD/target"
 cargo build --release --locked
+mkdir -p completions
+./target/release/%{crate_name} generate-completions bash > completions/vlz.bash
+./target/release/%{crate_name} generate-completions zsh > completions/_vlz
+./target/release/%{crate_name} generate-completions fish > completions/vlz.fish
 
 %install
 install -D -m 0755 target/release/%{crate_name} \
@@ -52,6 +57,13 @@ install -D -m 0644 man/vlz.1 \
 install -D -m 0644 man/verilyze.conf.5 \
     %{buildroot}%{_mandir}/man5/verilyze.conf.5
 
+install -D -m 0644 completions/vlz.bash \
+    %{buildroot}%{_datadir}/bash-completion/completions/vlz
+install -D -m 0644 completions/_vlz \
+    %{buildroot}%{_datadir}/zsh/site-functions/_vlz
+install -D -m 0644 completions/vlz.fish \
+    %{buildroot}%{_datadir}/fish/vendor_completions.d/vlz.fish
+
 %files
 %license LICENSES/GPL-3.0-or-later.txt
 %doc README.md
@@ -60,5 +72,8 @@ install -D -m 0644 man/verilyze.conf.5 \
 %{_docdir}/%{pkg_name}/verilyze.conf.example
 %{_mandir}/man1/vlz.1*
 %{_mandir}/man5/verilyze.conf.5*
+%{_datadir}/bash-completion/completions/vlz
+%{_datadir}/zsh/site-functions/_vlz
+%{_datadir}/fish/vendor_completions.d/vlz.fish
 
 %changelog
