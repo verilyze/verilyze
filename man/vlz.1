@@ -1,0 +1,216 @@
+.\" SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+.\"
+.\" SPDX-License-Identifier: GPL-3.0-or-later
+.\"
+.\" vlz(1) - verilyze SCA command-line tool
+.\"
+.Dd 2026-03-10
+.Dt VLZ 1
+.Os
+.Sh NAME
+.Nm vlz
+.Nd verilyze Software Composition Analysis command-line tool
+.Sh SYNOPSIS
+.Nm
+.Op Fl v
+.Op Fl c Ar path
+.Ar subcommand
+.Op Ar options
+.Op Ar args
+.Sh DESCRIPTION
+.Nm
+is a fast, modular Software Composition Analysis (SCA) tool for dependency
+vulnerabilities. It scans a directory tree for manifest files (e.g. Python
+requirements.txt, pyproject.toml; Rust Cargo.toml), parses dependencies,
+resolves transitive versions via lock files or package managers, queries CVE
+providers (default: OSV.dev), and reports vulnerabilities.
+.Pp
+Configuration precedence (highest to lowest): CLI flags, environment variables
+.Ev VLZ_* ,
+user config file, system config. See
+.Xr verilyze.conf 5
+for config file format.
+.Sh GLOBAL OPTIONS
+.Bl -tag -width Ds
+.It Fl c Ar path , Fl -config Ar path
+Override configuration file location.
+.It Fl v , Fl -verbose
+Increase verbosity (repeat for more detail).
+.El
+.Sh SUBCOMMANDS
+.Bl -tag -width Ds
+.It Nm scan
+.Op Ar path
+Scan directory tree for manifests and CVEs. Default root is current directory.
+.Bl -tag -width Ds
+.It Fl -format Ar fmt
+Output format: plain, json, sarif, cyclonedx, spdx (default: plain).
+.It Fl -summary-file Ar type:path
+Generate additional files (e.g. html:/tmp/out.html,cyclonedx:/tmp/sbom.json).
+.It Fl -provider Ar name
+Force CVE provider (osv, nvd, github, sonatype when built with features).
+.It Fl -parallel Ar N
+Parallel query limit (default 10, max 50).
+.It Fl -cache-db Ar path
+Override cache database path.
+.It Fl -ignore-db Ar path
+Override false-positive database path.
+.It Fl -cache-ttl-secs Ar secs
+Default TTL for new cache entries (default: 432000 = 5 days).
+.It Fl -offline
+Disable network; exit 4 if CVE lookup needed.
+.It Fl -benchmark
+Benchmark mode (no cache, no network, parallel=1).
+.It Fl -min-score Ar score
+Minimum CVSS score to count toward exit code (default: 0).
+.It Fl -min-count Ar N
+Minimum CVE count meeting min-score to trigger exit (0 = any).
+.It Fl -exit-code-on-cve Ar code
+Exit code when CVEs meet threshold (default: 86).
+.It Fl -fp-exit-code Ar code
+Exit code when only false-positives present (default: 0).
+.It Fl -package-manager-required
+Require package manager on PATH; exit 3 with hint if missing.
+.It Fl -backoff-base Ar ms
+Base delay in ms for retry backoff (default: 100).
+.It Fl -backoff-max Ar ms
+Maximum delay in ms for retry backoff (default: 30000).
+.It Fl -max-retries Ar N
+Maximum retries for transient errors (default: 5).
+.It Fl -severity-v2-critical-min Ar score
+.It Fl -severity-v2-high-min Ar score
+.It Fl -severity-v2-medium-min Ar score
+.It Fl -severity-v2-low-min Ar score
+.It Fl -severity-v3-critical-min Ar score
+.It Fl -severity-v3-high-min Ar score
+.It Fl -severity-v3-medium-min Ar score
+.It Fl -severity-v3-low-min Ar score
+.It Fl -severity-v4-critical-min Ar score
+.It Fl -severity-v4-high-min Ar score
+.It Fl -severity-v4-medium-min Ar score
+.It Fl -severity-v4-low-min Ar score
+CVSS severity thresholds (defaults: 9.0, 7.0, 4.0, 0.1).
+.El
+.It Nm list
+List registered language plugin names.
+.It Nm config
+Show or set configuration.
+.Bl -tag -width Ds
+.It Fl -list
+Show effective configuration.
+.It Fl -example
+Output verilyze.conf.example with effective values.
+.It Fl -set Ar key=value
+Set a key (e.g. python.regex="^requirements\\.txt$").
+.El
+.It Nm db
+Database subcommands.
+.Bl -tag -width Ds
+.It Nm list-providers
+List supported CVE providers.
+.It Nm stats
+Cache statistics.
+.It Nm verify
+Verify database integrity (SHA-256).
+.It Nm migrate
+Run database migrations.
+.It Nm show
+.Op Fl -format Ar fmt
+.Op Fl -full
+Display cache entries (key, TTL, added-at, CVE summary or full payload).
+.It Nm set-ttl Ar secs
+.Op Fl -entry Ar key
+.Op Fl -all
+.Op Fl -pattern Ar pattern
+.Op Fl -entries Ar keys
+Update TTL for existing cache entries.
+.El
+.It Nm fp
+False-positive markings.
+.Bl -tag -width Ds
+.It Nm mark Ar CVE-ID
+.Op Fl -comment Ar text
+.Op Fl -project-id Ar id
+Mark CVE as false positive.
+.It Nm unmark Ar CVE-ID
+Remove false-positive marking.
+.El
+.It Nm preload
+Placeholder; cache is populated on demand during scan.
+.El
+.Sh EXIT CODES
+.Bl -tag -width Ds
+.It 0
+Success: analysis completed; no CVEs or only false-positives (per fp-exit-code).
+.It 1
+Panic or internal error.
+.It 2
+Misconfiguration (unknown key, invalid value, etc.).
+.It 3
+Missing required package manager.
+.It 4
+CVE lookup needed but
+.Fl -offline
+was used.
+.It 5
+CVE provider fetch failed (network, API error, auth, etc.).
+.It 86
+One or more CVEs meet threshold (overridable via
+.Fl -exit-code-on-cve ) .
+.El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa /etc/verilyze.conf
+System-wide configuration (lowest precedence).
+.It Pa $XDG_CONFIG_HOME/verilyze/verilyze.conf
+Per-user configuration (or
+.Pa ~/.config/verilyze/verilyze.conf
+if XDG_CONFIG_HOME unset).
+.It Pa $XDG_CACHE_HOME/verilyze/vlz-cache.redb
+CVE cache (non-privileged; or
+.Pa ~/.cache/verilyze/vlz-cache.redb ) .
+.It Pa /var/cache/verilyze/vlz-cache.redb
+CVE cache (privileged install).
+.It Pa $XDG_DATA_HOME/verilyze/vlz-ignore.redb
+False-positive database (non-privileged; or
+.Pa ~/.local/share/verilyze/vlz-ignore.redb ) .
+.It Pa /var/lib/verilyze/vlz-ignore.redb
+False-positive database (privileged install).
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev VLZ_CACHE_DB
+Override cache database path.
+.It Ev VLZ_IGNORE_DB
+Override false-positive database path.
+.It Ev VLZ_PARALLEL_QUERIES
+Max concurrent CVE queries (1-50).
+.It Ev VLZ_CACHE_TTL_SECS
+Default cache TTL in seconds.
+.It Ev VLZ_MIN_SCORE
+Minimum CVSS score to count toward exit.
+.It Ev VLZ_MIN_COUNT
+Minimum CVE count to trigger exit.
+.It Ev VLZ_EXIT_CODE_ON_CVE
+Exit code when CVEs meet threshold.
+.It Ev VLZ_FP_EXIT_CODE
+Exit code when only false-positives present.
+.It Ev VLZ_BACKOFF_BASE_MS
+Base delay in ms for retry backoff.
+.It Ev VLZ_BACKOFF_MAX_MS
+Maximum delay in ms for retry backoff.
+.It Ev VLZ_MAX_RETRIES
+Maximum retries for transient errors.
+.It Ev GITHUB_TOKEN
+.It Ev VLZ_GITHUB_TOKEN
+Optional; higher rate limits for GitHub Advisory provider.
+.It Ev VLZ_SONATYPE_EMAIL
+.It Ev VLZ_SONATYPE_TOKEN
+Required for Sonatype OSS Index provider.
+.El
+.Sh SEE ALSO
+.Xr verilyze.conf 5 ,
+.Nm vlz config --list
+.Sh AUTHORS
+verilyze is developed by Travis Post and contributors.
+See the repository for the full list.

@@ -47,6 +47,9 @@ package() {
   install -Dm644 verilyze.conf.example \
     "$pkgdir/usr/share/doc/$pkgname/verilyze.conf.example"
 
+  install -Dm644 man/vlz.1 \
+    "$pkgdir/usr/share/man/man1/vlz.1"
+
   install -Dm644 man/verilyze.conf.5 \
     "$pkgdir/usr/share/man/man5/verilyze.conf.5"
 
