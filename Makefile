@@ -267,7 +267,9 @@ install: release generate-config-example
 	install -m 755 "$(MKFILE_DIR)/target/release/vlz" "$(DESTDIR)$(BINDIR)/vlz"
 	install -d "$(DESTDIR)$(DOCDIR)"
 	install -m 644 "$(MKFILE_DIR)/verilyze.conf.example" "$(DESTDIR)$(DOCDIR)/"
+	install -d "$(DESTDIR)$(MANDIR)/man1"
 	install -d "$(DESTDIR)$(MANDIR)/man5"
+	install -m 644 "$(MKFILE_DIR)/man/vlz.1" "$(DESTDIR)$(MANDIR)/man1/"
 	install -m 644 "$(MKFILE_DIR)/man/verilyze.conf.5" "$(DESTDIR)$(MANDIR)/man5/"
 	@if [ -z "$(DESTDIR)" ] && [ ! -f /etc/verilyze.conf ]; then \
 		echo "Installing /etc/verilyze.conf from example (file did not exist)"; \
