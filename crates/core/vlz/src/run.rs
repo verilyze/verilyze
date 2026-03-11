@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use anyhow::{Context, Result, anyhow};
+use clap::CommandFactory as _;
 use log::{LevelFilter, error, info};
 use std::io::Write;
 use std::sync::Arc;
@@ -116,6 +117,18 @@ fn deduplicate_packages(packages: &[vlz_db::Package]) -> Vec<vlz_db::Package> {
 /// Core entry point: runs the requested command and returns the exit code.
 /// Caller is responsible for initialising the logger and for calling `process::exit(code)`.
 pub async fn run(args: Cli) -> Result<i32> {
+    // FR-028: generate-completions needs no config or DB; handle early.
+    if let Commands::GenerateCompletions { shell } = &args.cmd {
+        let mut cmd = Cli::command();
+        clap_complete::generate(
+            *shell,
+            &mut cmd,
+            "vlz",
+            &mut std::io::stdout(),
+        );
+        return Ok(0);
+    }
+
     // Resolve CLI cache TTL and cache DB path from subcommand.
     let (cli_cache_ttl_secs, cli_cache_db, cli_ignore_db) = match &args.cmd {
         Commands::Db { cache_ttl_secs, .. } => (*cache_ttl_secs, None, None),
@@ -704,6 +717,11 @@ pub async fn run(args: Cli) -> Result<i32> {
                 "vlz preload is a placeholder; cache is populated on demand during scan.\n",
             );
             Ok(0)
+        }
+
+        Commands::GenerateCompletions { .. } => {
+            // Handled at start of run(); unreachable here
+            unreachable!("generate-completions returns early")
         }
     }
 }

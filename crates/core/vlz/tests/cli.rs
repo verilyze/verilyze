@@ -554,3 +554,97 @@ fn config_invalid_file_verbose_logs_to_stderr() {
         assert!(!stderr.is_empty(), "verbose error should log to stderr");
     });
 }
+
+// FR-028: shell completion generation
+#[test]
+fn generate_completions_bash_produces_valid_script() {
+    if !vlz_exe_exists() {
+        return;
+    }
+    with_isolated_env(|p| {
+        let out = Command::new(vlz_exe())
+            .args(["generate-completions", "bash"])
+            .env("XDG_CACHE_HOME", p)
+            .env("XDG_DATA_HOME", p)
+            .env("XDG_CONFIG_HOME", p)
+            .output()
+            .expect("run vlz");
+        assert_eq!(out.status.code(), Some(0), "generate-completions bash");
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        assert!(
+            !stdout.is_empty(),
+            "bash completion script must not be empty"
+        );
+        assert!(stdout.contains("vlz"), "script must contain vlz");
+        assert!(
+            stdout.contains("scan"),
+            "script must contain scan subcommand"
+        );
+        assert!(
+            stdout.contains("list"),
+            "script must contain list subcommand"
+        );
+    });
+}
+
+#[test]
+fn generate_completions_zsh_produces_valid_script() {
+    if !vlz_exe_exists() {
+        return;
+    }
+    with_isolated_env(|p| {
+        let out = Command::new(vlz_exe())
+            .args(["generate-completions", "zsh"])
+            .env("XDG_CACHE_HOME", p)
+            .env("XDG_DATA_HOME", p)
+            .env("XDG_CONFIG_HOME", p)
+            .output()
+            .expect("run vlz");
+        assert_eq!(out.status.code(), Some(0), "generate-completions zsh");
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        assert!(
+            !stdout.is_empty(),
+            "zsh completion script must not be empty"
+        );
+        assert!(stdout.contains("vlz"), "script must contain vlz");
+        assert!(
+            stdout.contains("scan"),
+            "script must contain scan subcommand"
+        );
+        assert!(
+            stdout.contains("list"),
+            "script must contain list subcommand"
+        );
+    });
+}
+
+#[test]
+fn generate_completions_fish_produces_valid_script() {
+    if !vlz_exe_exists() {
+        return;
+    }
+    with_isolated_env(|p| {
+        let out = Command::new(vlz_exe())
+            .args(["generate-completions", "fish"])
+            .env("XDG_CACHE_HOME", p)
+            .env("XDG_DATA_HOME", p)
+            .env("XDG_CONFIG_HOME", p)
+            .output()
+            .expect("run vlz");
+        assert_eq!(out.status.code(), Some(0), "generate-completions fish");
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        assert!(
+            !stdout.is_empty(),
+            "fish completion script must not be empty"
+        );
+        assert!(stdout.contains("vlz"), "script must contain vlz");
+        assert!(
+            stdout.contains("scan"),
+            "script must contain scan subcommand"
+        );
+        assert!(
+            stdout.contains("list"),
+            "script must contain list subcommand"
+        );
+    });
+}

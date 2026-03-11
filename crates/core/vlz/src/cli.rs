@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use clap::value_parser;
 use clap::{Parser as ClapParser, Subcommand};
+use clap_complete::Shell;
 
 /// Parse KEY=VALUE for `config --set`. Returns None if key is empty or no `=` present.
 pub fn parse_config_set_arg(pair: &str) -> Option<(&str, &str)> {
@@ -188,6 +190,13 @@ pub enum Commands {
 
     /// Pre-populate CVE cache from remote provider (placeholder)
     Preload,
+
+    /// Generate shell completion scripts
+    GenerateCompletions {
+        /// Shell (bash, zsh, fish)
+        #[arg(value_name = "SHELL", value_parser = value_parser!(Shell))]
+        shell: Shell,
+    },
 }
 
 #[derive(Subcommand, Debug)]

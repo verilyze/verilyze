@@ -434,7 +434,9 @@ config key:
    `env`, `cli`, and `default` (if not in `config --list`).
 3. Run `make generate-config-example` to regenerate `verilyze.conf.example`,
    `docs/configuration.md`, `man/verilyze.conf.5`.
-4. Commit the generated files.
+4. When changing the CLI (subcommands, options), run `make generate-completions`
+   to regenerate shell completions (bash, zsh, fish) in `completions/`.
+5. Commit the generated files.
 
 **Verification:** `make check-config-docs` (runs
 `generate_config_example.py --check`) fails if outputs are out of sync.

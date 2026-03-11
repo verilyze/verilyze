@@ -135,6 +135,10 @@ Mark CVE as false positive.
 .It Nm unmark Ar CVE-ID
 Remove false-positive marking.
 .El
+.It Nm generate-completions Ar shell
+Generate shell completion script. Supported shells: bash, zsh, fish.
+Output to stdout; redirect to the appropriate location for your shell.
+.El
 .It Nm preload
 Placeholder; cache is populated on demand during scan.
 .El

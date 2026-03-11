@@ -27,6 +27,7 @@ build() {
   export RUSTUP_TOOLCHAIN=stable
   export CARGO_TARGET_DIR=target
   cargo build --frozen --release
+  ./scripts/generate_completions.sh ./target/release/vlz
 }
 
 check() {
@@ -52,6 +53,13 @@ package() {
 
   install -Dm644 man/verilyze.conf.5 \
     "$pkgdir/usr/share/man/man5/verilyze.conf.5"
+
+  install -Dm644 completions/vlz.bash \
+    "$pkgdir/usr/share/bash-completion/completions/vlz"
+  install -Dm644 completions/_vlz \
+    "$pkgdir/usr/share/zsh/site-functions/_vlz"
+  install -Dm644 completions/vlz.fish \
+    "$pkgdir/usr/share/fish/vendor_completions.d/vlz.fish"
 
   install -Dm644 LICENSES/GPL-3.0-or-later.txt \
     "$pkgdir/usr/share/licenses/$pkgname/LICENSE"

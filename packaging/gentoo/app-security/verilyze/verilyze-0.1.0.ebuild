@@ -35,6 +35,7 @@ BDEPEND="virtual/rust"
 
 src_compile() {
 	cargo_src_compile
+	./scripts/generate_completions.sh ./target/release/vlz
 }
 
 src_install() {
@@ -46,6 +47,13 @@ src_install() {
 	dodoc verilyze.conf.example
 
 	doman man/vlz.1 man/verilyze.conf.5
+
+	insinto /usr/share/bash-completion/completions
+	newins completions/vlz.bash vlz
+	insinto /usr/share/zsh/site-functions
+	doins completions/_vlz
+	insinto /usr/share/fish/vendor_completions.d
+	doins completions/vlz.fish
 }
 
 src_test() {

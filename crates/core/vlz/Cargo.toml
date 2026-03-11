@@ -21,6 +21,7 @@ path = "src/main.rs"
 [dependencies]
 # Core utilities
 clap = { version = "4.5", features = ["derive"] }
+clap_complete = "4.5"
 tokio = { version = "1.38", features = ["full"] }
 log = "0.4"
 env_logger = "0.11"
@@ -94,6 +95,9 @@ assets = [
     ["../../../verilyze.conf.example", "/usr/share/doc/verilyze/verilyze.conf.example", "644"],
     ["../../../man/vlz.1", "/usr/share/man/man1/", "644"],
     ["../../../man/verilyze.conf.5", "/usr/share/man/man5/", "644"],
+    ["../../../completions/vlz.bash", "/usr/share/bash-completion/completions/vlz", "644"],
+    ["../../../completions/_vlz", "/usr/share/zsh/site-functions/_vlz", "644"],
+    ["../../../completions/vlz.fish", "/usr/share/fish/vendor_completions.d/vlz.fish", "644"],
 ]
 
 [package.metadata.aur]
