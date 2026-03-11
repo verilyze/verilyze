@@ -92,6 +92,7 @@ assets = [
     ["target/release/vlz", "/usr/bin/", "755"],
     ["../../../verilyze.conf.example", "/etc/verilyze.conf", "644"],
     ["../../../verilyze.conf.example", "/usr/share/doc/verilyze/verilyze.conf.example", "644"],
+    ["../../../man/vlz.1", "/usr/share/man/man1/", "644"],
     ["../../../man/verilyze.conf.5", "/usr/share/man/man5/", "644"],
 ]
 

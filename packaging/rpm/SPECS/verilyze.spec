@@ -46,6 +46,9 @@ install -D -m 0644 verilyze.conf.example \
 install -D -m 0644 verilyze.conf.example \
     %{buildroot}%{_docdir}/%{pkg_name}/verilyze.conf.example
 
+install -D -m 0644 man/vlz.1 \
+    %{buildroot}%{_mandir}/man1/vlz.1
+
 install -D -m 0644 man/verilyze.conf.5 \
     %{buildroot}%{_mandir}/man5/verilyze.conf.5
 
@@ -55,6 +58,7 @@ install -D -m 0644 man/verilyze.conf.5 \
 %{_bindir}/%{crate_name}
 %config(noreplace) %{_sysconfdir}/verilyze.conf
 %{_docdir}/%{pkg_name}/verilyze.conf.example
+%{_mandir}/man1/vlz.1*
 %{_mandir}/man5/verilyze.conf.5*
 
 %changelog

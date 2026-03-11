@@ -45,7 +45,7 @@ src_install() {
 
 	dodoc verilyze.conf.example
 
-	doman man/verilyze.conf.5
+	doman man/vlz.1 man/verilyze.conf.5
 }
 
 src_test() {
