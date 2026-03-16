@@ -151,7 +151,8 @@ completions: completions/vlz.bash completions/_vlz completions/vlz.fish
 completions/vlz.bash completions/_vlz completions/vlz.fish: $(VLZ_DEBUG)
 	cd "$(MKFILE_DIR)" && $(SCRIPTS_DIR)/generate_completions.sh "$(VLZ_DEBUG)"
 
-generate-completions: completions
+generate-completions: $(VLZ_DEBUG)
+	cd "$(MKFILE_DIR)" && $(SCRIPTS_DIR)/generate_completions.sh "$(VLZ_DEBUG)"
 
 # Completions from release binary; used by packaging targets (deb, etc.).
 completions-release: release
