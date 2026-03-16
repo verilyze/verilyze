@@ -4,6 +4,7 @@
 
 use std::path::Path;
 use std::process::{Command, Stdio};
+use vlz::cli::DOCS_ONLINE_URL;
 
 /// Path to the vlz binary (set by Cargo when running tests).
 fn vlz_exe() -> String {
@@ -242,6 +243,45 @@ fn broken_pipe_fp_unmark() {
             "fp unmark should exit 0 on broken pipe"
         );
     });
+}
+
+/// MOD-009: vlz help exits 2 with error when built without docs; exits 0 when built with docs.
+#[test]
+fn help_subcommand_respects_docs_feature() {
+    if !vlz_exe_exists() {
+        return;
+    }
+    let out = Command::new(vlz_exe())
+        .args(["help"])
+        .output()
+        .expect("run vlz help");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    if out.status.code() == Some(2) {
+        assert!(
+            stderr.contains("built without documentation")
+                || stderr.contains("without documentation"),
+            "expected MOD-009 error when docs disabled, stderr: {}",
+            stderr
+        );
+        assert!(
+            stderr.contains("cargo build") || stderr.contains(DOCS_ONLINE_URL),
+            "expected rebuild hint or URL, stderr: {}",
+            stderr
+        );
+    } else {
+        assert!(
+            out.status.success(),
+            "vlz help should exit 0 when docs enabled, got {}; stderr: {}",
+            out.status,
+            stderr
+        );
+        assert!(
+            stdout.contains("vlz") || stdout.contains("verilyze"),
+            "man page should mention vlz or verilyze, stdout: {}",
+            stdout
+        );
+    }
 }
 
 #[test]

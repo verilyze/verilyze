@@ -35,8 +35,8 @@ complete -c vlz -n "__fish_vlz_needs_command" -f -a "config" -d 'Show or set con
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "db" -d 'Database sub‑commands (stats, verify, migrate, list-providers, …)'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "fp" -d 'False-positive markings'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "preload" -d 'Pre-populate CVE cache from remote provider (placeholder)'
+complete -c vlz -n "__fish_vlz_needs_command" -f -a "help" -d 'Show manual page'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "generate-completions" -d 'Generate shell completion scripts'
-complete -c vlz -n "__fish_vlz_needs_command" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l format -d 'Output format (plain, json, sarif, cyclonedx, spdx)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l summary-file -d 'Generate additional files: e.g. html:/tmp/out.html,cyclonedx:/tmp/sbom.json' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l provider -d 'Force a particular CVE provider' -r
@@ -75,16 +75,15 @@ complete -c vlz -n "__fish_vlz_using_subcommand config" -s c -l config -d 'Overr
 complete -c vlz -n "__fish_vlz_using_subcommand config" -l list
 complete -c vlz -n "__fish_vlz_using_subcommand config" -l example -d 'Output verilyze.conf.example with effective values for this environment'
 complete -c vlz -n "__fish_vlz_using_subcommand config" -s h -l help -d 'Print help'
-complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl help" -l cache-ttl-secs -d 'Default TTL in seconds when opening the cache (default: 432000 = 5 days). Does not change existing entries; use `vlz db set-ttl` to update those' -r
-complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl help" -s c -l config -d 'Override configuration file location' -r
-complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl help" -s h -l help -d 'Print help'
-complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl help" -f -a "stats"
-complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl help" -f -a "verify"
-complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl help" -f -a "migrate"
-complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl help" -f -a "list-providers" -d 'List supported CVE providers'
-complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl help" -f -a "show" -d 'Display cache entries with TTL and added timestamp'
-complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl help" -f -a "set-ttl" -d 'Update TTL for existing cache entries'
-complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -l cache-ttl-secs -d 'Default TTL in seconds when opening the cache (default: 432000 = 5 days). Does not change existing entries; use `vlz db set-ttl` to update those' -r
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -s c -l config -d 'Override configuration file location' -r
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -s h -l help -d 'Print help'
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -f -a "stats"
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -f -a "verify"
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -f -a "migrate"
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -f -a "list-providers" -d 'List supported CVE providers'
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -f -a "show" -d 'Display cache entries with TTL and added timestamp'
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -f -a "set-ttl" -d 'Update TTL for existing cache entries'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from stats" -s c -l config -d 'Override configuration file location' -r
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from stats" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from verify" -s c -l config -d 'Override configuration file location' -r
@@ -103,44 +102,19 @@ complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_f
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from set-ttl" -s c -l config -d 'Override configuration file location' -r
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from set-ttl" -l all -d 'Update all entries'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from set-ttl" -s h -l help -d 'Print help'
-complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from help" -f -a "stats"
-complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from help" -f -a "verify"
-complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from help" -f -a "migrate"
-complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from help" -f -a "list-providers" -d 'List supported CVE providers'
-complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from help" -f -a "show" -d 'Display cache entries with TTL and added timestamp'
-complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from help" -f -a "set-ttl" -d 'Update TTL for existing cache entries'
-complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
-complete -c vlz -n "__fish_vlz_using_subcommand fp; and not __fish_seen_subcommand_from mark unmark help" -s c -l config -d 'Override configuration file location' -r
-complete -c vlz -n "__fish_vlz_using_subcommand fp; and not __fish_seen_subcommand_from mark unmark help" -s h -l help -d 'Print help'
-complete -c vlz -n "__fish_vlz_using_subcommand fp; and not __fish_seen_subcommand_from mark unmark help" -f -a "mark" -d 'Mark a CVE as false positive'
-complete -c vlz -n "__fish_vlz_using_subcommand fp; and not __fish_seen_subcommand_from mark unmark help" -f -a "unmark" -d 'Remove false-positive marking for a CVE'
-complete -c vlz -n "__fish_vlz_using_subcommand fp; and not __fish_seen_subcommand_from mark unmark help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c vlz -n "__fish_vlz_using_subcommand fp; and not __fish_seen_subcommand_from mark unmark" -s c -l config -d 'Override configuration file location' -r
+complete -c vlz -n "__fish_vlz_using_subcommand fp; and not __fish_seen_subcommand_from mark unmark" -s h -l help -d 'Print help'
+complete -c vlz -n "__fish_vlz_using_subcommand fp; and not __fish_seen_subcommand_from mark unmark" -f -a "mark" -d 'Mark a CVE as false positive'
+complete -c vlz -n "__fish_vlz_using_subcommand fp; and not __fish_seen_subcommand_from mark unmark" -f -a "unmark" -d 'Remove false-positive marking for a CVE'
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from mark" -l comment -d 'Optional comment' -r
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from mark" -l project-id -d 'Optional project scope' -r
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from mark" -s c -l config -d 'Override configuration file location' -r
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from mark" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from unmark" -s c -l config -d 'Override configuration file location' -r
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from unmark" -s h -l help -d 'Print help'
-complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from help" -f -a "mark" -d 'Mark a CVE as false positive'
-complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from help" -f -a "unmark" -d 'Remove false-positive marking for a CVE'
-complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
 complete -c vlz -n "__fish_vlz_using_subcommand preload" -s c -l config -d 'Override configuration file location' -r
 complete -c vlz -n "__fish_vlz_using_subcommand preload" -s h -l help -d 'Print help'
+complete -c vlz -n "__fish_vlz_using_subcommand help" -s c -l config -d 'Override configuration file location' -r
+complete -c vlz -n "__fish_vlz_using_subcommand help" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand generate-completions" -s c -l config -d 'Override configuration file location' -r
 complete -c vlz -n "__fish_vlz_using_subcommand generate-completions" -s h -l help -d 'Print help'
-complete -c vlz -n "__fish_vlz_using_subcommand help; and not __fish_seen_subcommand_from scan list config db fp preload generate-completions help" -f -a "scan" -d 'Scan a directory tree for manifests and CVEs'
-complete -c vlz -n "__fish_vlz_using_subcommand help; and not __fish_seen_subcommand_from scan list config db fp preload generate-completions help" -f -a "list" -d 'List registered language/plugin names'
-complete -c vlz -n "__fish_vlz_using_subcommand help; and not __fish_seen_subcommand_from scan list config db fp preload generate-completions help" -f -a "config" -d 'Show or set configuration values'
-complete -c vlz -n "__fish_vlz_using_subcommand help; and not __fish_seen_subcommand_from scan list config db fp preload generate-completions help" -f -a "db" -d 'Database sub‑commands (stats, verify, migrate, list-providers, …)'
-complete -c vlz -n "__fish_vlz_using_subcommand help; and not __fish_seen_subcommand_from scan list config db fp preload generate-completions help" -f -a "fp" -d 'False-positive markings'
-complete -c vlz -n "__fish_vlz_using_subcommand help; and not __fish_seen_subcommand_from scan list config db fp preload generate-completions help" -f -a "preload" -d 'Pre-populate CVE cache from remote provider (placeholder)'
-complete -c vlz -n "__fish_vlz_using_subcommand help; and not __fish_seen_subcommand_from scan list config db fp preload generate-completions help" -f -a "generate-completions" -d 'Generate shell completion scripts'
-complete -c vlz -n "__fish_vlz_using_subcommand help; and not __fish_seen_subcommand_from scan list config db fp preload generate-completions help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
-complete -c vlz -n "__fish_vlz_using_subcommand help; and __fish_seen_subcommand_from db" -f -a "stats"
-complete -c vlz -n "__fish_vlz_using_subcommand help; and __fish_seen_subcommand_from db" -f -a "verify"
-complete -c vlz -n "__fish_vlz_using_subcommand help; and __fish_seen_subcommand_from db" -f -a "migrate"
-complete -c vlz -n "__fish_vlz_using_subcommand help; and __fish_seen_subcommand_from db" -f -a "list-providers" -d 'List supported CVE providers'
-complete -c vlz -n "__fish_vlz_using_subcommand help; and __fish_seen_subcommand_from db" -f -a "show" -d 'Display cache entries with TTL and added timestamp'
-complete -c vlz -n "__fish_vlz_using_subcommand help; and __fish_seen_subcommand_from db" -f -a "set-ttl" -d 'Update TTL for existing cache entries'
-complete -c vlz -n "__fish_vlz_using_subcommand help; and __fish_seen_subcommand_from fp" -f -a "mark" -d 'Mark a CVE as false positive'
-complete -c vlz -n "__fish_vlz_using_subcommand help; and __fish_seen_subcommand_from fp" -f -a "unmark" -d 'Remove false-positive marking for a CVE'
