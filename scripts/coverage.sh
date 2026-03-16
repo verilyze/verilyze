@@ -45,7 +45,7 @@ cargo +nightly llvm-cov clean --workspace 2>/dev/null || true
 cargo +nightly build --workspace --exclude vlz-fuzz
 
 # Run all workspace tests (exclude vlz-fuzz; it uses AFL and is run via make fuzz).
-cargo +nightly test --workspace --exclude vlz-fuzz
+cargo +nightly test --workspace --exclude vlz-fuzz --features vlz/testing
 
 # Run the vlz binary to capture main.rs and run() coverage (binary is not a
 # test target). Use isolated XDG dirs so we do not touch user config or cache.

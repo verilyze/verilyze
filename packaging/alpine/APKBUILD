@@ -19,7 +19,7 @@ build() {
 }
 
 check() {
-  cargo test --release --locked
+  cargo test --release --locked --features vlz/testing
 }
 
 package() {

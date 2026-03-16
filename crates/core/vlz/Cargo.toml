@@ -68,7 +68,7 @@ temp-env = "0.3"
 
 # Feature gating – matches MOD‑003
 [features]
-default = ["redb", "python", "rust", "testing"]
+default = ["redb", "python", "rust"]
 redb = ["vlz-db-redb"]
 python = ["vlz-python"]
 rust = ["vlz-rust"]
