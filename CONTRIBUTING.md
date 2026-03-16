@@ -454,8 +454,9 @@ architecture/PRD.md DOC-003 and design notes on single source of truth).
 
 The `vlz` binary supports optional capabilities via Cargo features:
 
-- **default** = `["redb", "python", "rust", "testing"]` -- full build with
-  Python and Rust support, RedB backend.
+- **default** = `["redb", "python", "rust"]` -- full build with Python and Rust
+  support, RedB backend. Release builds omit the `testing` feature for a
+  smaller binary.
 - **redb** -- RedB database backend for CVE cache and false-positive DB.
 - **python** -- Python language plugin (`vlz-python` crate).
 - **rust** -- Rust language plugin (`vlz-rust` crate).
@@ -464,6 +465,9 @@ The `vlz` binary supports optional capabilities via Cargo features:
   opt-in.
 - **sonatype** -- Sonatype OSS Index CVE provider (`vlz-cve-provider-sonatype`
   crate); opt-in.
+- **testing** -- Mocks and registry clear helpers for integration tests. Opt-in;
+  use `--features vlz/testing` when running `cargo test` directly. `make
+  unit-tests` and `make coverage` enable it automatically.
 - **sqlite**, **mem** -- placeholders for future backends.
 
 NVD is opt-in because: (1) NVD enforces 5 requests per 30-second window for
@@ -628,7 +632,9 @@ Stderr can stay as `eprintln!` or `log::error!`.
 ## Running tests and coverage
 
 - **Run tests:** `make unit-tests` runs both `cargo test` and
-  `make test-scripts`. To test only Rust: `cargo test`. To test a single crate
+  `make test-scripts`. To test only Rust: `cargo test --features vlz/testing`.
+  The `vlz/testing` feature enables mocks and registry helpers for integration
+  tests; release builds omit it for a smaller binary. To test a single crate
   (see MOD-005): `cargo test -p <crate>` (e.g. `cargo test -p vlz-cve-client`).
 - **Generate coverage (cargo-llvm-cov, XML for CI):** Use **cargo-llvm-cov**
   with the **nightly** toolchain so all workspace crates appear in the report.

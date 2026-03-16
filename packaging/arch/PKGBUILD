@@ -33,7 +33,7 @@ build() {
 check() {
   cd "$pkgname-$pkgver"
   export RUSTUP_TOOLCHAIN=stable
-  cargo test --frozen --release
+  cargo test --frozen --release --features vlz/testing
 }
 
 package() {

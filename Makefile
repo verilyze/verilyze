@@ -163,7 +163,7 @@ check-completions: debug
 
 # ---- Tests ----
 cargo-test:
-	cd "$(MKFILE_DIR)" && cargo test
+	cd "$(MKFILE_DIR)" && cargo test --features vlz/testing
 
 # Bootstrap .venv-test with pytest and pytest-cov (NFR-021)
 $(VENV_TEST)/bin/pytest:
