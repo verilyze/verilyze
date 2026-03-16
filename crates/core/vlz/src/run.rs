@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use anyhow::{Context, Result, anyhow};
+#[cfg(feature = "completions")]
 use clap::CommandFactory as _;
 use log::{LevelFilter, error, info};
 use std::io::Write;
@@ -118,6 +119,7 @@ fn deduplicate_packages(packages: &[vlz_db::Package]) -> Vec<vlz_db::Package> {
 /// Caller is responsible for initialising the logger and for calling `process::exit(code)`.
 pub async fn run(args: Cli) -> Result<i32> {
     // FR-028: generate-completions needs no config or DB; handle early.
+    #[cfg(feature = "completions")]
     if let Commands::GenerateCompletions { shell } = &args.cmd {
         let mut cmd = Cli::command();
         clap_complete::generate(
@@ -719,6 +721,7 @@ pub async fn run(args: Cli) -> Result<i32> {
             Ok(0)
         }
 
+        #[cfg(feature = "completions")]
         Commands::GenerateCompletions { .. } => {
             // Handled at start of run(); unreachable here
             unreachable!("generate-completions returns early")

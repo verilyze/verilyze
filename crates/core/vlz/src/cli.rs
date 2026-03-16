@@ -2,8 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#[cfg(feature = "completions")]
 use clap::value_parser;
 use clap::{Parser as ClapParser, Subcommand};
+#[cfg(feature = "completions")]
 use clap_complete::Shell;
 
 /// Parse KEY=VALUE for `config --set`. Returns None if key is empty or no `=` present.
@@ -192,6 +194,7 @@ pub enum Commands {
     Preload,
 
     /// Generate shell completion scripts
+    #[cfg(feature = "completions")]
     GenerateCompletions {
         /// Shell (bash, zsh, fish)
         #[arg(value_name = "SHELL", value_parser = value_parser!(Shell))]

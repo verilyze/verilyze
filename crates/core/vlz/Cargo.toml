@@ -21,7 +21,7 @@ path = "src/main.rs"
 [dependencies]
 # Core utilities
 clap = { version = "4.5", features = ["derive"] }
-clap_complete = "4.5"
+clap_complete = { version = "4.5", optional = true }
 tokio = { version = "1.38", features = ["full"] }
 log = "0.4"
 env_logger = "0.11"
@@ -68,7 +68,10 @@ temp-env = "0.3"
 
 # Feature gating – matches MOD‑003
 [features]
-default = ["redb", "python", "rust"]
+runtime = ["redb", "python", "rust"]
+default = ["runtime", "completions"]
+completions = ["dep:clap_complete"]
+docker = ["runtime"]
 redb = ["vlz-db-redb"]
 python = ["vlz-python"]
 rust = ["vlz-rust"]
