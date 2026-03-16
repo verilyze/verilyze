@@ -72,6 +72,8 @@ pub struct EffectiveConfig {
     pub exit_code_on_cve: Option<u8>,
     /// Exit code when only false-positives are present (FR-016; default 0).
     pub fp_exit_code: Option<u8>,
+    /// Project ID for false-positive scoping (FR-015); when set, only FPs marked for this project or globally apply.
+    pub project_id: Option<String>,
     /// Per-language manifest regex patterns (FR-006); order = first match wins.
     pub language_regexes: Vec<(String, String)>,
     /// If true, exit 3 with hint when required package manager (e.g. pip) is not on PATH (FR-024).
@@ -100,6 +102,7 @@ impl Default for EffectiveConfig {
             min_count: 0,
             exit_code_on_cve: None,
             fp_exit_code: None,
+            project_id: None,
             language_regexes: Vec::new(),
             package_manager_required: false,
             backoff_base_ms: 0,
@@ -131,6 +134,8 @@ struct FileConfig {
     exit_code_on_cve: Option<u8>,
     #[serde(rename = "fp_exit_code")]
     fp_exit_code: Option<u8>,
+    #[serde(rename = "project_id")]
+    project_id: Option<String>,
     #[serde(rename = "backoff_base_ms")]
     backoff_base_ms: Option<u64>,
     #[serde(rename = "backoff_max_ms")]
@@ -168,6 +173,7 @@ const KNOWN_FILE_CONFIG_KEYS: &[&str] = &[
     "min_count",
     "exit_code_on_cve",
     "fp_exit_code",
+    "project_id",
     "backoff_base_ms",
     "backoff_max_ms",
     "max_retries",
@@ -238,6 +244,9 @@ fn apply_file_config_inner(
     }
     if let Some(c) = parsed.fp_exit_code {
         cfg.fp_exit_code = Some(c);
+    }
+    if let Some(id) = parsed.project_id {
+        cfg.project_id = Some(id);
     }
     if let Some(n) = parsed.backoff_base_ms {
         cfg.backoff_base_ms = n;
@@ -460,6 +469,7 @@ pub fn load(
     env_min_count: Option<usize>,
     env_exit_code_on_cve: Option<u8>,
     env_fp_exit_code: Option<u8>,
+    env_project_id: Option<String>,
     env_backoff_base_ms: Option<u64>,
     env_backoff_max_ms: Option<u64>,
     env_max_retries: Option<u32>,
@@ -473,6 +483,7 @@ pub fn load(
     cli_min_count: Option<usize>,
     cli_exit_code_on_cve: Option<u8>,
     cli_fp_exit_code: Option<u8>,
+    cli_project_id: Option<String>,
     cli_package_manager_required: bool,
     cli_backoff_base_ms: Option<u64>,
     cli_backoff_max_ms: Option<u64>,
@@ -538,6 +549,9 @@ pub fn load(
     if let Some(c) = env_fp_exit_code {
         cfg.fp_exit_code = Some(c);
     }
+    if let Some(id) = env_project_id {
+        cfg.project_id = Some(id);
+    }
     if let Some(n) = env_backoff_base_ms {
         cfg.backoff_base_ms = n;
     }
@@ -574,6 +588,9 @@ pub fn load(
     }
     if let Some(c) = cli_fp_exit_code {
         cfg.fp_exit_code = Some(c);
+    }
+    if let Some(id) = cli_project_id {
+        cfg.project_id = Some(id);
     }
     cfg.package_manager_required = cli_package_manager_required;
     if let Some(n) = cli_backoff_base_ms {
@@ -644,6 +661,11 @@ pub fn env_fp_exit_code() -> Option<u8> {
     std::env::var("VLZ_FP_EXIT_CODE")
         .ok()
         .and_then(|s| s.parse().ok())
+}
+
+/// Read VLZ_PROJECT_ID (FR-015, CFG-005); scopes false-positive filtering.
+pub fn env_project_id() -> Option<String> {
+    std::env::var("VLZ_PROJECT_ID").ok()
 }
 
 /// Read VLZ_BACKOFF_BASE_MS (OP-010, CFG-005).
@@ -789,8 +811,10 @@ mod tests {
             None,
             None,
             None,
+            None,
             false,
             false,
+            None,
             None,
             None,
             None,
@@ -824,12 +848,14 @@ mod tests {
             None,
             None,
             None,
+            None,
             Some(51),
             None,
             None,
             None,
             false,
             false,
+            None,
             None,
             None,
             None,
@@ -997,8 +1023,10 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
                 false,
                 false,
+                None,
                 None,
                 None,
                 None,
@@ -1041,8 +1069,10 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
                 false,
                 false,
+                None,
                 None,
                 None,
                 None,
@@ -1083,8 +1113,10 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
                 false,
                 false,
+                None,
                 None,
                 None,
                 None,
@@ -1140,8 +1172,10 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
+            None,
             false,
             false,
+            None,
             None,
             None,
             None,
@@ -1207,8 +1241,10 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
+            None,
             false,
             false,
+            None,
             None,
             None,
             None,
@@ -1244,8 +1280,10 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
+            None,
             false,
             false,
+            None,
             None,
             None,
             None,
@@ -1289,6 +1327,7 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
+            None,
             Some(8),
             Some("/cli/cache.redb"),
             Some("/cli/ignore.redb"),
@@ -1299,6 +1338,7 @@ regex = "^req\\.txt$"
             Some(6),
             Some(88),
             Some(2),
+            Some("myproj".to_string()),
             true,
             None,
             None,
@@ -1323,6 +1363,7 @@ regex = "^req\\.txt$"
         assert_eq!(cfg.min_count, 6);
         assert_eq!(cfg.exit_code_on_cve, Some(88));
         assert_eq!(cfg.fp_exit_code, Some(2));
+        assert_eq!(cfg.project_id, Some("myproj".to_string()));
         assert!(cfg.package_manager_required);
     }
 
@@ -1345,6 +1386,7 @@ regex = "^req\\.txt$"
                     env_min_count(),
                     env_exit_code_on_cve(),
                     env_fp_exit_code(),
+                    env_project_id(),
                     env_backoff_base_ms(),
                     env_backoff_max_ms(),
                     env_max_retries(),
@@ -1354,6 +1396,7 @@ regex = "^req\\.txt$"
                     None,
                     false,
                     false,
+                    None,
                     None,
                     None,
                     None,
@@ -1385,6 +1428,7 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
+            None, // env_project_id
             Some(150),
             Some(8000),
             Some(4),
@@ -1394,6 +1438,7 @@ regex = "^req\\.txt$"
             None,
             false,
             false,
+            None,
             None,
             None,
             None,
@@ -1461,8 +1506,10 @@ regex = "^req\\.txt$"
                     None,
                     None,
                     None,
+                    None,
                     false,
                     false,
+                    None,
                     None,
                     None,
                     None,
@@ -1510,8 +1557,10 @@ regex = "^req\\.txt$"
                     None,
                     None,
                     None,
+                    None,
                     false,
                     false,
+                    None,
                     None,
                     None,
                     None,
@@ -1825,8 +1874,10 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
+            None,
             false,
             false,
+            None,
             None,
             None,
             None,

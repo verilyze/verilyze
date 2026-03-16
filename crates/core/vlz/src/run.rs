@@ -180,18 +180,27 @@ pub async fn run(args: Cli) -> Result<i32> {
         return run_help(subcommand.as_deref());
     }
 
-    // Resolve CLI cache TTL and cache DB path from subcommand.
-    let (cli_cache_ttl_secs, cli_cache_db, cli_ignore_db) = match &args.cmd {
-        Commands::Db { cache_ttl_secs, .. } => (*cache_ttl_secs, None, None),
-        Commands::Scan {
-            cache_ttl_secs,
-            cache_db,
-            ignore_db,
-            ..
-        } => (*cache_ttl_secs, cache_db.clone(), ignore_db.clone()),
-        Commands::Fp { .. } => (None, None, None),
-        _ => (None, None, None),
-    };
+    // Resolve CLI cache TTL, cache DB path, and project_id from subcommand.
+    let (cli_cache_ttl_secs, cli_cache_db, cli_ignore_db, cli_project_id) =
+        match &args.cmd {
+            Commands::Db { cache_ttl_secs, .. } => {
+                (*cache_ttl_secs, None, None, None)
+            }
+            Commands::Scan {
+                cache_ttl_secs,
+                cache_db,
+                ignore_db,
+                project_id,
+                ..
+            } => (
+                *cache_ttl_secs,
+                cache_db.clone(),
+                ignore_db.clone(),
+                project_id.clone(),
+            ),
+            Commands::Fp { .. } => (None, None, None, None),
+            _ => (None, None, None, None),
+        };
 
     // Load config from files + env + CLI for DB paths and TTL.
     let early_cfg = crate::config::load(
@@ -204,6 +213,7 @@ pub async fn run(args: Cli) -> Result<i32> {
         crate::config::env_min_count(),
         crate::config::env_exit_code_on_cve(),
         crate::config::env_fp_exit_code(),
+        crate::config::env_project_id(),
         crate::config::env_backoff_base_ms(),
         crate::config::env_backoff_max_ms(),
         crate::config::env_max_retries(),
@@ -217,6 +227,7 @@ pub async fn run(args: Cli) -> Result<i32> {
         None,
         None,
         None,
+        cli_project_id,
         false,
         None,
         None,
@@ -303,6 +314,7 @@ pub async fn run(args: Cli) -> Result<i32> {
             min_count: cli_min_count,
             exit_code_on_cve: cli_exit_code_on_cve,
             fp_exit_code: cli_fp_exit_code,
+            project_id: cli_project_id,
             package_manager_required,
             backoff_base: cli_backoff_base,
             backoff_max: cli_backoff_max,
@@ -344,6 +356,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                 crate::config::env_min_count(),
                 crate::config::env_exit_code_on_cve(),
                 crate::config::env_fp_exit_code(),
+                crate::config::env_project_id(),
                 crate::config::env_backoff_base_ms(),
                 crate::config::env_backoff_max_ms(),
                 crate::config::env_max_retries(),
@@ -357,6 +370,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                 cli_min_count,
                 cli_exit_code_on_cve,
                 cli_fp_exit_code,
+                cli_project_id,
                 package_manager_required,
                 cli_backoff_base,
                 cli_backoff_max,
@@ -409,6 +423,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                     crate::config::env_min_count(),
                     crate::config::env_exit_code_on_cve(),
                     crate::config::env_fp_exit_code(),
+                    crate::config::env_project_id(),
                     crate::config::env_backoff_base_ms(),
                     crate::config::env_backoff_max_ms(),
                     crate::config::env_max_retries(),
@@ -418,6 +433,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                     None,
                     false,
                     false,
+                    None,
                     None,
                     None,
                     None,
@@ -465,6 +481,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                     crate::config::env_min_count(),
                     crate::config::env_exit_code_on_cve(),
                     crate::config::env_fp_exit_code(),
+                    crate::config::env_project_id(),
                     crate::config::env_backoff_base_ms(),
                     crate::config::env_backoff_max_ms(),
                     crate::config::env_max_retries(),
@@ -474,6 +491,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                     None,
                     false,
                     false,
+                    None,
                     None,
                     None,
                     None,
@@ -525,6 +543,8 @@ pub async fn run(args: Cli) -> Result<i32> {
                     "fp_exit_code = {}\n",
                     cfg.fp_exit_code.unwrap_or(0)
                 ));
+                let project_id = cfg.project_id.as_deref().unwrap_or("");
+                write_stdout(&format!("project_id = {}\n", project_id));
                 write_stdout(&format!(
                     "backoff_base_ms = {}\n",
                     cfg.backoff_base_ms
@@ -1115,7 +1135,10 @@ async fn run_scan(
                 .unwrap_or_else(crate::config::default_ignore_path);
             vlz_db_redb::RedbIgnoreDb::with_path(ignore_path)
                 .ok()
-                .and_then(|db| db.marked_ids().ok())
+                .and_then(|db| {
+                    let ignore_db: &dyn vlz_db::IgnoreDb = &db;
+                    ignore_db.marked_ids(effective.project_id.as_deref()).ok()
+                })
                 .unwrap_or_default()
         }
         #[cfg(not(feature = "redb"))]

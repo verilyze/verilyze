@@ -105,6 +105,10 @@ pub enum Commands {
         #[arg(long, value_name = "CODE")]
         fp_exit_code: Option<u8>,
 
+        /// Project ID for false-positive scoping (FR-015); only FPs for this project or global apply
+        #[arg(long, value_name = "ID")]
+        project_id: Option<String>,
+
         /// Require package manager on PATH; exit 3 with hint if missing
         #[arg(long)]
         package_manager_required: bool,

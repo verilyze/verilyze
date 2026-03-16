@@ -173,9 +173,13 @@ async fn redb_ignore_db_mark_unmark_fr015() {
     db.mark("CVE-2023-1234", "vendor bug", Some("proj1"))
         .unwrap();
     assert!(db.is_marked("CVE-2023-1234").unwrap());
-    let ids = db.marked_ids().unwrap();
+    let ids = db.marked_ids(Some("proj1")).unwrap();
     assert!(ids.contains("CVE-2023-1234"));
+    assert!(
+        db.marked_ids(None).unwrap().is_empty(),
+        "scoped FP not in global"
+    );
     db.unmark("CVE-2023-1234").unwrap();
     assert!(!db.is_marked("CVE-2023-1234").unwrap());
-    assert!(db.marked_ids().unwrap().is_empty());
+    assert!(db.marked_ids(Some("proj1")).unwrap().is_empty());
 }
