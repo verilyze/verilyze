@@ -6,7 +6,7 @@ use clap::Parser;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use vlz::cli::Cli;
-use vlz::mocks::CountingCveProvider;
+use vlz::mocks::{CountingCveProvider, CveReturningProvider};
 use vlz_db::{DatabaseBackend, Package};
 
 fn with_temp_xdg<F, R>(f: F) -> R
@@ -633,6 +633,62 @@ fn run_scan_format_sarif_exits_0() {
             ]),
             0
         );
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_json_includes_manifest_paths() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join("requirements.txt"), "pkg==1.0\n")
+            .expect("write");
+        let out_path = dir.path().join("report.json");
+        let root = dir.path().to_str().unwrap();
+
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            CveReturningProvider::new(),
+        )));
+
+        let code = run_async(&[
+            "scan",
+            root,
+            "--format",
+            "json",
+            "--summary-file",
+            &format!("json:{}", out_path.display()),
+            "--provider",
+            "cve_returning",
+        ]);
+        assert_eq!(code, 86, "CVE found so exit 86");
+
+        let content = std::fs::read_to_string(&out_path).expect("read report");
+        let parsed: serde_json::Value =
+            serde_json::from_str(&content).expect("parse json");
+        let findings = parsed
+            .get("findings")
+            .expect("findings key")
+            .as_array()
+            .expect("findings array");
+        assert!(!findings.is_empty(), "should have at least one finding");
+        for finding in findings {
+            let manifest_paths = finding
+                .get("manifest_paths")
+                .expect("manifest_paths key in finding");
+            let paths =
+                manifest_paths.as_array().expect("manifest_paths array");
+            assert!(
+                !paths.is_empty(),
+                "each finding must have at least one manifest path"
+            );
+            assert_eq!(
+                paths[0].as_str().unwrap(),
+                "requirements.txt",
+                "manifest path should be requirements.txt (relative to scan root)"
+            );
+        }
     });
 }
 

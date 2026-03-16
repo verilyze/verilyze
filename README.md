@@ -125,6 +125,10 @@ flowchart LR
     CVE --> Report[Report results]
 ```
 
+Reports include the manifest file path(s) for each vulnerable package, so you can
+see which manifest(s) introduce each CVE when scanning directories with many
+nested manifests (e.g. monorepos).
+
 ## Configuration precedence
 
 Options are resolved in precedence order; each source overrides the ones below:

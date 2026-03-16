@@ -109,6 +109,41 @@ impl CveProvider for CountingCveProvider {
     }
 }
 
+/// CVE provider that returns one CVE per package. Used to test report output
+/// (e.g. manifest_paths in findings).
+#[derive(Debug, Default)]
+pub struct CveReturningProvider;
+
+impl CveReturningProvider {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[async_trait]
+impl CveProvider for CveReturningProvider {
+    fn name(&self) -> &'static str {
+        "cve_returning"
+    }
+
+    async fn fetch(
+        &self,
+        _pkg: &Package,
+    ) -> Result<FetchedCves, ProviderError> {
+        let record = CveRecord {
+            id: "CVE-2024-TEST".to_string(),
+            cvss_score: Some(7.5),
+            cvss_version: Some(vlz_db::CvssVersion::V3),
+            description: "Test CVE for manifest_paths".to_string(),
+            reachable: None,
+        };
+        Ok(FetchedCves {
+            raw_vulns: vec![serde_json::json!({"id": record.id})],
+            records: vec![record],
+        })
+    }
+}
+
 /// Database backend where verify_integrity and set_ttl fail. Covers 335-336,
 /// 407-409.
 #[derive(Debug, Default)]

@@ -11,9 +11,38 @@ pub const VLZ_REPOSITORY_URL: &str = "https://github.com/tpost/verilyze";
 
 use serde::Serialize;
 use std::io::Write;
+use std::path::PathBuf;
 use vlz_db::{CveRecord, CvssVersion, Package, Severity};
 
 const DESCRIPTION_MAX_LEN: usize = 60;
+
+/// Format manifest paths for display. When root_path is provided, makes paths relative.
+fn format_manifest_paths(
+    paths: &[PathBuf],
+    root_path: Option<&std::path::Path>,
+) -> String {
+    if paths.is_empty() {
+        return "-".to_string();
+    }
+    let formatted: Vec<String> = paths
+        .iter()
+        .map(|p| {
+            let p = p.as_path();
+            if let Some(root) = root_path {
+                p.strip_prefix(root)
+                    .map(|r| r.to_string_lossy().into_owned())
+                    .unwrap_or_else(|_| p.to_string_lossy().into_owned())
+            } else {
+                p.to_string_lossy().into_owned()
+            }
+        })
+        .collect();
+    if formatted.len() <= 2 {
+        formatted.join(", ")
+    } else {
+        format!("{} (+{} more)", formatted[0], formatted.len() - 1)
+    }
+}
 
 /// Thresholds for mapping a CVSS score to a severity label (FR-013). Defaults per version.
 #[derive(Debug, Clone)]
@@ -85,14 +114,26 @@ pub enum ReportError {
     Other(String),
 }
 
+/// A single finding: a vulnerable package with its manifest path(s) and CVEs.
+#[derive(Debug, Clone)]
+pub struct Finding {
+    pub package: Package,
+    /// Manifest file path(s) that introduce this package. Sorted and deduplicated.
+    pub manifest_paths: Vec<PathBuf>,
+    pub cves: Vec<(CveRecord, Severity)>,
+}
+
 /// Simple data structure handed to the reporter. Each CVE has a pre-resolved severity (FR-013).
 /// FR-015a: project_id is included when the scan was run with --project-id (or config/env).
 pub struct ReportData {
-    pub findings: Vec<(Package, Vec<(CveRecord, Severity)>)>,
+    pub findings: Vec<Finding>,
     /// All resolved packages (for SBOM formats). When Some, SBOM reporters list all components.
     pub all_packages: Option<Vec<Package>>,
     /// Project ID for audit trail (FR-015a). Present when scan used --project-id or equivalent.
     pub project_id: Option<String>,
+    /// Scan root for path normalization (relative paths in reports). When Some, paths are
+    /// made relative to this root when possible.
+    pub root_path: Option<PathBuf>,
 }
 
 #[async_trait]
@@ -148,10 +189,17 @@ impl Reporter for DefaultReporter {
             writeln!(w, "No vulnerabilities found.")?;
             return Ok(());
         }
-        writeln!(w, "Package | Version | CVE ID | Severity | Description")?;
-        writeln!(w, "{}", "-".repeat(80))?;
-        for (pkg, recs) in &data.findings {
-            for (cve, severity) in recs {
+        writeln!(
+            w,
+            "Package | Version | CVE ID | Severity | Manifest(s) | Description"
+        )?;
+        writeln!(w, "{}", "-".repeat(100))?;
+        for finding in &data.findings {
+            let manifests_display = format_manifest_paths(
+                &finding.manifest_paths,
+                data.root_path.as_deref(),
+            );
+            for (cve, severity) in &finding.cves {
                 let severity_display = severity.as_str();
                 let mut chars = cve.description.chars();
                 let truncated: String =
@@ -165,11 +213,12 @@ impl Reporter for DefaultReporter {
                 };
                 writeln!(
                     w,
-                    "{} | {} | {} | {} | {}",
-                    pkg.name,
-                    pkg.version,
+                    "{} | {} | {} | {} | {} | {}",
+                    finding.package.name,
+                    finding.package.version,
                     cve.id,
                     severity_display,
+                    manifests_display,
                     desc_display
                 )?;
             }
@@ -191,7 +240,23 @@ struct JsonReport<'a> {
 #[derive(Serialize)]
 struct JsonFinding<'a> {
     package: &'a Package,
+    #[serde(serialize_with = "serialize_manifest_paths")]
+    manifest_paths: &'a [PathBuf],
     cves: Vec<JsonCveWithSeverity<'a>>,
+}
+
+fn serialize_manifest_paths<S>(
+    paths: &[PathBuf],
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let strs: Vec<String> = paths
+        .iter()
+        .map(|p| p.to_string_lossy().into_owned())
+        .collect();
+    strs.serialize(serializer)
 }
 
 #[derive(Serialize)]
@@ -224,9 +289,11 @@ impl Reporter for JsonReporter {
             findings: data
                 .findings
                 .iter()
-                .map(|(package, recs)| JsonFinding {
-                    package,
-                    cves: recs
+                .map(|f| JsonFinding {
+                    package: &f.package,
+                    manifest_paths: &f.manifest_paths,
+                    cves: f
+                        .cves
                         .iter()
                         .map(|(cve, severity)| JsonCveWithSeverity {
                             cve,
@@ -277,18 +344,23 @@ impl Reporter for HtmlReporter {
         } else {
             writeln!(
                 w,
-                "<table border=\"1\"><thead><tr><th>Package</th><th>Version</th><th>CVE ID</th><th>Severity</th><th>Description</th></tr></thead><tbody>"
+                "<table border=\"1\"><thead><tr><th>Package</th><th>Version</th><th>CVE ID</th><th>Severity</th><th>Manifest(s)</th><th>Description</th></tr></thead><tbody>"
             )?;
-            for (pkg, recs) in &data.findings {
-                for (cve, severity) in recs {
+            for finding in &data.findings {
+                let manifests_display = format_manifest_paths(
+                    &finding.manifest_paths,
+                    data.root_path.as_deref(),
+                );
+                for (cve, severity) in &finding.cves {
                     let desc_escaped = html_escape(&cve.description);
                     writeln!(
                         w,
-                        "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
-                        html_escape(&pkg.name),
-                        html_escape(&pkg.version),
+                        "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                        html_escape(&finding.package.name),
+                        html_escape(&finding.package.version),
                         html_escape(&cve.id),
                         severity.as_str(),
+                        html_escape(&manifests_display),
                         desc_escaped
                     )?;
                 }
@@ -328,25 +400,57 @@ impl Reporter for SarifReporter {
         let results: Vec<serde_json::Value> = data
             .findings
             .iter()
-            .flat_map(|(pkg, recs)| {
-                recs.iter().map(|(cve, severity)| {
-                    serde_json::json!({
+            .flat_map(|finding| {
+                finding.cves.iter().map(|(cve, severity)| {
+                    let manifest_uris: Vec<String> = finding
+                        .manifest_paths
+                        .iter()
+                        .map(|p| {
+                            let p = p.as_path();
+                            if let Some(root) = data.root_path.as_deref() {
+                                p.strip_prefix(root)
+                                    .map(|r| r.to_string_lossy().into_owned())
+                                    .unwrap_or_else(|_| {
+                                        p.to_string_lossy().into_owned()
+                                    })
+                            } else {
+                                p.to_string_lossy().into_owned()
+                            }
+                        })
+                        .collect();
+                    let locations: Vec<serde_json::Value> = manifest_uris
+                        .iter()
+                        .map(|uri| {
+                            serde_json::json!({
+                                "physicalLocation": {
+                                    "artifactLocation": { "uri": uri }
+                                }
+                            })
+                        })
+                        .collect();
+                    let mut result = serde_json::json!({
                         "ruleId": cve.id,
                         "level": severity_level_sarif(severity),
                         "message": { "text": cve.description },
                         "properties": {
-                            "package": pkg.name,
-                            "version": pkg.version,
-                            "severity": severity.as_str()
+                            "package": finding.package.name,
+                            "version": finding.package.version,
+                            "severity": severity.as_str(),
+                            "manifest_paths": manifest_uris
                         }
-                    })
+                    });
+                    if !locations.is_empty() {
+                        result["locations"] =
+                            serde_json::Value::Array(locations);
+                    }
+                    result
                 })
             })
             .collect();
         let rules: Vec<serde_json::Value> = data
             .findings
             .iter()
-            .flat_map(|(_, recs)| recs.iter().map(|(cve, _)| cve.id.clone()))
+            .flat_map(|f| f.cves.iter().map(|(cve, _)| cve.id.clone()))
             .collect::<std::collections::HashSet<_>>()
             .into_iter()
             .map(|id| {
@@ -460,7 +564,7 @@ impl Reporter for CycloneDxReporter {
             .as_ref()
             .map(|v| v.iter().collect())
             .unwrap_or_else(|| {
-                data.findings.iter().map(|(p, _)| p).collect::<Vec<_>>()
+                data.findings.iter().map(|f| &f.package).collect::<Vec<_>>()
             });
         let components: Vec<serde_json::Value> = packages
             .iter()
@@ -478,13 +582,19 @@ impl Reporter for CycloneDxReporter {
         let vulnerabilities: Vec<serde_json::Value> = data
             .findings
             .iter()
-            .flat_map(|(pkg, recs)| {
-                recs.iter().map(|(cve, severity)| {
-                    let bom_ref = purl_pypi(&pkg.name, &pkg.version);
+            .flat_map(|finding| {
+                finding.cves.iter().map(|(cve, severity)| {
+                    let bom_ref = purl_pypi(&finding.package.name, &finding.package.version);
+                    let manifest_paths: Vec<String> = finding
+                        .manifest_paths
+                        .iter()
+                        .map(|p| p.to_string_lossy().into_owned())
+                        .collect();
                     let mut vuln = serde_json::json!({
                         "id": cve.id,
                         "description": cve.description,
-                        "affects": [{ "ref": bom_ref }]
+                        "affects": [{ "ref": bom_ref }],
+                        "properties": [{ "name": "vlz:manifest_paths", "value": manifest_paths.join("; ") }]
                     });
                     if let Some(score) = cve.cvss_score {
                         let method = match cve.cvss_version {
@@ -576,7 +686,7 @@ impl Reporter for SpdxReporter {
             .as_ref()
             .map(|v| v.iter().collect())
             .unwrap_or_else(|| {
-                data.findings.iter().map(|(p, _)| p).collect::<Vec<_>>()
+                data.findings.iter().map(|f| &f.package).collect::<Vec<_>>()
             });
         let pkg_elements: Vec<serde_json::Value> = packages
             .iter()
@@ -594,8 +704,8 @@ impl Reporter for SpdxReporter {
         let vuln_elements: Vec<serde_json::Value> = data
             .findings
             .iter()
-            .flat_map(|(_pkg, recs)| {
-                recs.iter().map(|(cve, _)| {
+            .flat_map(|finding| {
+                finding.cves.iter().map(|(cve, _)| {
                     let vuln_id = spdx_id_vuln(&cve.id);
                     serde_json::json!({
                         "@type": "Vulnerability",
@@ -614,14 +724,28 @@ impl Reporter for SpdxReporter {
         let relationships: Vec<serde_json::Value> = data
             .findings
             .iter()
-            .flat_map(|(pkg, recs)| {
-                recs.iter().map(|(cve, _)| {
-                    serde_json::json!({
+            .flat_map(|finding| {
+                finding.cves.iter().map(|(cve, _)| {
+                    let mut rel = serde_json::json!({
                         "@type": "Relationship",
                         "relationshipType": "hasAssociatedVulnerability",
-                        "from": spdx_id_pkg(&pkg.name, &pkg.version),
+                        "from": spdx_id_pkg(&finding.package.name, &finding.package.version),
                         "to": [spdx_id_vuln(&cve.id)]
-                    })
+                    });
+                    if !finding.manifest_paths.is_empty() {
+                        let paths: Vec<String> = finding
+                            .manifest_paths
+                            .iter()
+                            .map(|p| p.to_string_lossy().into_owned())
+                            .collect();
+                        rel["annotations"] = serde_json::json!([{
+                            "annotationType": "review",
+                            "annotator": { "annotatorType": "tool", "name": "vlz" },
+                            "annotationDate": format_timestamp_rfc3339(),
+                            "comment": format!("Manifest(s): {}", paths.join("; "))
+                        }]);
+                    }
+                    rel
                 })
             })
             .collect();
@@ -716,6 +840,7 @@ mod tests {
             findings: vec![],
             all_packages: None,
             project_id: None,
+            root_path: None,
         }
     }
 
@@ -733,9 +858,14 @@ mod tests {
             reachable: None,
         };
         ReportData {
-            findings: vec![(pkg, vec![(cve, Severity::High)])],
+            findings: vec![Finding {
+                package: pkg,
+                manifest_paths: vec![PathBuf::from("Cargo.toml")],
+                cves: vec![(cve, Severity::High)],
+            }],
             all_packages: None,
             project_id: None,
+            root_path: None,
         }
     }
 
@@ -758,9 +888,14 @@ mod tests {
             reachable: None,
         };
         ReportData {
-            findings: vec![(pkg_foo.clone(), vec![(cve, Severity::High)])],
+            findings: vec![Finding {
+                package: pkg_foo.clone(),
+                manifest_paths: vec![PathBuf::from("Cargo.toml")],
+                cves: vec![(cve, Severity::High)],
+            }],
             all_packages: Some(vec![pkg_foo, pkg_bar]),
             project_id: None,
+            root_path: None,
         }
     }
 
@@ -788,6 +923,8 @@ mod tests {
         assert!(out.contains("foo"));
         assert!(out.contains("CVE-2023-1234"));
         assert!(out.contains("HIGH"));
+        assert!(out.contains("Manifest(s)"));
+        assert!(out.contains("Cargo.toml"));
     }
 
     #[tokio::test]
@@ -830,6 +967,13 @@ mod tests {
         );
         let cves = findings[0].get("cves").unwrap().as_array().unwrap();
         assert_eq!(cves[0].get("severity").unwrap(), "HIGH");
+        let manifest_paths = findings[0]
+            .get("manifest_paths")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        assert_eq!(manifest_paths.len(), 1);
+        assert_eq!(manifest_paths[0], "Cargo.toml");
     }
 
     #[tokio::test]
@@ -889,9 +1033,14 @@ mod tests {
             reachable: None,
         };
         let data = ReportData {
-            findings: vec![(pkg, vec![(cve, Severity::Medium)])],
+            findings: vec![Finding {
+                package: pkg,
+                manifest_paths: vec![PathBuf::from("pyproject.toml")],
+                cves: vec![(cve, Severity::Medium)],
+            }],
             all_packages: None,
             project_id: None,
+            root_path: None,
         };
         let mut buf = Vec::new();
         HtmlReporter::new()
@@ -979,6 +1128,7 @@ mod tests {
             findings: vec![],
             all_packages: Some(vec![]),
             project_id: None,
+            root_path: None,
         };
         let mut buf = Vec::new();
         CycloneDxReporter::new()
@@ -1067,6 +1217,7 @@ mod tests {
             findings: vec![],
             all_packages: Some(vec![]),
             project_id: None,
+            root_path: None,
         };
         let mut buf = Vec::new();
         SpdxReporter::new()
