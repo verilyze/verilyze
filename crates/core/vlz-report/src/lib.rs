@@ -5,6 +5,10 @@
 #![deny(unsafe_code)]
 
 use async_trait::async_trait;
+
+/// Project repository URL; used in SARIF informationUri and elsewhere (DRY).
+pub const VLZ_REPOSITORY_URL: &str = "https://github.com/tpost/verilyze";
+
 use serde::Serialize;
 use std::io::Write;
 use vlz_db::{CveRecord, CvssVersion, Package, Severity};
@@ -82,10 +86,13 @@ pub enum ReportError {
 }
 
 /// Simple data structure handed to the reporter. Each CVE has a pre-resolved severity (FR-013).
+/// FR-015a: project_id is included when the scan was run with --project-id (or config/env).
 pub struct ReportData {
     pub findings: Vec<(Package, Vec<(CveRecord, Severity)>)>,
     /// All resolved packages (for SBOM formats). When Some, SBOM reporters list all components.
     pub all_packages: Option<Vec<Package>>,
+    /// Project ID for audit trail (FR-015a). Present when scan used --project-id or equivalent.
+    pub project_id: Option<String>,
 }
 
 #[async_trait]
@@ -134,6 +141,9 @@ impl Reporter for DefaultReporter {
         data: &ReportData,
         w: &mut (dyn std::io::Write + Send),
     ) -> Result<(), ReportError> {
+        if let Some(ref pid) = data.project_id {
+            writeln!(w, "Project: {}", pid)?;
+        }
         if data.findings.is_empty() {
             writeln!(w, "No vulnerabilities found.")?;
             return Ok(());
@@ -170,8 +180,11 @@ impl Reporter for DefaultReporter {
 }
 
 /// JSON report shape: findings array of { package, cves } with severity per CVE.
+/// FR-015a: project_id included when scan used --project-id.
 #[derive(Serialize)]
 struct JsonReport<'a> {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    project_id: Option<&'a str>,
     findings: Vec<JsonFinding<'a>>,
 }
 
@@ -207,6 +220,7 @@ impl Reporter for JsonReporter {
         w: &mut (dyn std::io::Write + Send),
     ) -> Result<(), ReportError> {
         let report = JsonReport {
+            project_id: data.project_id.as_deref(),
             findings: data
                 .findings
                 .iter()
@@ -251,6 +265,13 @@ impl Reporter for HtmlReporter {
             "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>vlz report</title></head><body>"
         )?;
         writeln!(w, "<h1>Vulnerability report</h1>")?;
+        if let Some(ref pid) = data.project_id {
+            writeln!(
+                w,
+                "<p><strong>Project:</strong> {}</p>",
+                html_escape(pid)
+            )?;
+        }
         if data.findings.is_empty() {
             writeln!(w, "<p>No vulnerabilities found.</p>")?;
         } else {
@@ -336,19 +357,23 @@ impl Reporter for SarifReporter {
                 })
             })
             .collect();
+        let mut run_obj = serde_json::json!({
+            "tool": {
+                "driver": {
+                    "name": "vlz",
+                    "informationUri": VLZ_REPOSITORY_URL,
+                    "rules": rules
+                }
+            },
+            "results": results
+        });
+        if let Some(ref pid) = data.project_id {
+            run_obj["properties"] = serde_json::json!({ "project_id": pid });
+        }
         let sarif = serde_json::json!({
             "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
             "version": "2.1.0",
-            "runs": [{
-                "tool": {
-                    "driver": {
-                        "name": "vlz",
-                        "informationUri": "https://github.com/tpost/verilyze",
-                        "rules": rules
-                    }
-                },
-                "results": results
-            }]
+            "runs": [run_obj]
         });
         let s = serde_json::to_string_pretty(&sarif)?;
         writeln!(w, "{}", s).map_err(ReportError::Io)?;
@@ -490,14 +515,21 @@ impl Reporter for CycloneDxReporter {
                 })
             })
             .collect();
+        let mut metadata = serde_json::json!({
+            "timestamp": format_timestamp_rfc3339(),
+            "tools": [{ "name": "vlz", "vendor": "verilyze" }]
+        });
+        if let Some(ref pid) = data.project_id {
+            metadata["properties"] = serde_json::json!([{
+                "name": "vlz:project_id",
+                "value": pid
+            }]);
+        }
         let bom = serde_json::json!({
             "bomFormat": "CycloneDX",
             "specVersion": "1.6",
             "version": 1,
-            "metadata": {
-                "timestamp": format_timestamp_rfc3339(),
-                "tools": [{ "name": "vlz", "vendor": "verilyze" }]
-            },
+            "metadata": metadata,
             "components": components,
             "vulnerabilities": vulnerabilities
         });
@@ -602,7 +634,7 @@ impl Reporter for SpdxReporter {
                 .unwrap()
                 .as_secs()
         );
-        let spdx = serde_json::json!({
+        let mut spdx = serde_json::json!({
             "@context": "https://spdx.org/rdf/3.0.1/spdx-context.jsonld",
             "@type": "SpdxDocument",
             "spdxId": doc_id,
@@ -614,6 +646,9 @@ impl Reporter for SpdxReporter {
             "element": elements,
             "relationship": relationships
         });
+        if let Some(ref pid) = data.project_id {
+            spdx["projectId"] = serde_json::json!(pid);
+        }
         let s = serde_json::to_string_pretty(&spdx)?;
         writeln!(w, "{}", s).map_err(ReportError::Io)?;
         w.flush()?;
@@ -680,6 +715,7 @@ mod tests {
         ReportData {
             findings: vec![],
             all_packages: None,
+            project_id: None,
         }
     }
 
@@ -699,6 +735,7 @@ mod tests {
         ReportData {
             findings: vec![(pkg, vec![(cve, Severity::High)])],
             all_packages: None,
+            project_id: None,
         }
     }
 
@@ -723,6 +760,7 @@ mod tests {
         ReportData {
             findings: vec![(pkg_foo.clone(), vec![(cve, Severity::High)])],
             all_packages: Some(vec![pkg_foo, pkg_bar]),
+            project_id: None,
         }
     }
 
@@ -795,6 +833,48 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn json_reporter_includes_project_id_when_provided_fr015a() {
+        let mut data = sample_report_data_one_finding();
+        data.project_id = Some("myproj".to_string());
+        let mut buf = Vec::new();
+        JsonReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let out = String::from_utf8(buf).unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(out.trim()).unwrap();
+        assert_eq!(parsed.get("project_id").unwrap(), "myproj");
+    }
+
+    #[tokio::test]
+    async fn json_reporter_omits_project_id_when_not_provided_fr015a() {
+        let data = sample_report_data_one_finding();
+        let mut buf = Vec::new();
+        JsonReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let out = String::from_utf8(buf).unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(out.trim()).unwrap();
+        assert!(parsed.get("project_id").is_none());
+    }
+
+    #[tokio::test]
+    async fn default_reporter_includes_project_id_when_provided_fr015a() {
+        let mut data = sample_report_data_empty();
+        data.project_id = Some("myproj".to_string());
+        let mut buf = Vec::new();
+        DefaultReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let out = String::from_utf8(buf).unwrap();
+        assert!(out.contains("Project: myproj"));
+    }
+
+    #[tokio::test]
     async fn html_reporter_contains_table_and_escapes() {
         let pkg = Package {
             name: "pkg".to_string(),
@@ -811,6 +891,7 @@ mod tests {
         let data = ReportData {
             findings: vec![(pkg, vec![(cve, Severity::Medium)])],
             all_packages: None,
+            project_id: None,
         };
         let mut buf = Vec::new();
         HtmlReporter::new()
@@ -897,6 +978,7 @@ mod tests {
         let data = ReportData {
             findings: vec![],
             all_packages: Some(vec![]),
+            project_id: None,
         };
         let mut buf = Vec::new();
         CycloneDxReporter::new()
@@ -984,6 +1066,7 @@ mod tests {
         let data = ReportData {
             findings: vec![],
             all_packages: Some(vec![]),
+            project_id: None,
         };
         let mut buf = Vec::new();
         SpdxReporter::new()

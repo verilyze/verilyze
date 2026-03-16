@@ -178,16 +178,23 @@ Run `vlz config --list` to print effective values.
 | `vlz db set-ttl SECS [--entry KEY] [--all] [--pattern PATTERN] [--entries KEYS]` | Update TTL for existing cache entries |
 | `vlz db verify`              | Verify database integrity (SHA-256)                           |
 | `vlz db migrate`             | Run migrations                                                |
-| `vlz fp mark CVE-ID [--comment ...]` | Mark CVE as false positive                            |
+| `vlz fp mark CVE-ID [--comment ...] [--project-id ID]` | Mark CVE as false positive (optional project scope) |
 | `vlz fp unmark CVE-ID`       | Remove false-positive marking                                 |
 | `vlz generate-completions SHELL` | Generate shell completion script (bash, zsh, fish)      |
 | `vlz --version`              | Print version                                                 |
 
 **Scan options (examples):** `--format plain|json|sarif|cyclonedx|spdx`,
 `--summary-file html:path,cyclonedx:sbom.json,spdx:sbom.spdx.json`,
-`--provider osv|nvd|github|sonatype`, `--parallel N`, `--cache-ttl-secs SECS`, `--offline`,
-`--benchmark`, `--min-score`, `--min-count`, `--exit-code-on-cve`,
-`--fp-exit-code`, `--cache-db`, `--ignore-db`.
+`--provider osv|nvd|github|sonatype`, `--parallel N`, `--project-id ID`,
+`--cache-ttl-secs SECS`, `--offline`, `--benchmark`, `--min-score`, `--min-count`,
+`--exit-code-on-cve`, `--fp-exit-code`, `--cache-db`, `--ignore-db`.
+
+### Project-scoped false-positives
+
+For project-scoped false-positives: (1) run `vlz fp mark CVE-ID --project-id X` to
+add a scoped FP; (2) run `vlz scan --project-id X` when scanning that project. Both
+commands must use the same project_id for the FP to apply. When scanning without
+`--project-id`, only global FPs (marked without `--project-id`) apply.
 
 ## Exit codes
 
