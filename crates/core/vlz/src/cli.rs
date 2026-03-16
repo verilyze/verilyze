@@ -18,7 +18,7 @@ pub fn parse_config_set_arg(pair: &str) -> Option<(&str, &str)> {
 }
 
 /// MOD-009: URL for documentation when built without docs feature.
-pub const DOCS_ONLINE_URL: &str = "https://github.com/tpost/verilyze";
+pub use vlz_report::VLZ_REPOSITORY_URL as DOCS_ONLINE_URL;
 
 #[derive(ClapParser, Debug)]
 #[command(name = "vlz", version, author, about = "verilyze -- fast SCA")]

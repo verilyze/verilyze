@@ -1212,6 +1212,7 @@ async fn run_scan(
     let report_data = vlz_report::ReportData {
         findings: report_findings,
         all_packages: Some(packages_to_check),
+        project_id: effective.project_id.clone(),
     };
     reporter
         .render(&report_data)
