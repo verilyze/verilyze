@@ -991,7 +991,10 @@ async fn run_scan(
     // -----------------------------------------------------------------
     // d) Scan phase - find manifest files, parse, resolve (per language triplet)
     // -----------------------------------------------------------------
-    let mut all_packages = Vec::new();
+    let mut all_packages_with_manifests: Vec<(
+        vlz_db::Package,
+        std::path::PathBuf,
+    )> = Vec::new();
     for i in 0..n {
         let manifests = finders[i]
             .find(&root_path)
@@ -1015,16 +1018,37 @@ async fn run_scan(
                     resolver.resolve(&graph).await.with_context(|| {
                         format!("Resolving dependencies for {:?}", mf)
                     })?;
-                Ok::<_, anyhow::Error>(resolved)
+                Ok::<_, anyhow::Error>((resolved, mf))
             })
             .collect();
         let results = futures::future::join_all(tasks).await;
         for result in results {
-            let resolved = result?;
-            all_packages.extend(resolved);
+            let (resolved, manifest_path) = result?;
+            for pkg in resolved {
+                all_packages_with_manifests.push((pkg, manifest_path.clone()));
+            }
         }
     }
-    info!("Discovered {} package entries", all_packages.len());
+    info!(
+        "Discovered {} package entries",
+        all_packages_with_manifests.len()
+    );
+
+    // Build package -> manifest paths map (deduplicate paths per package).
+    let mut pkg_to_manifests: std::collections::HashMap<
+        vlz_db::Package,
+        std::collections::HashSet<std::path::PathBuf>,
+    > = std::collections::HashMap::new();
+    for (pkg, path) in &all_packages_with_manifests {
+        pkg_to_manifests
+            .entry(pkg.clone())
+            .or_default()
+            .insert(path.clone());
+    }
+    let all_packages: Vec<vlz_db::Package> = all_packages_with_manifests
+        .iter()
+        .map(|(p, _)| p.clone())
+        .collect();
     let packages_to_check = deduplicate_packages(&all_packages);
     info!(
         "Checking {} unique packages for CVEs",
@@ -1189,10 +1213,7 @@ async fn run_scan(
     // -----------------------------------------------------------------
     // FR-013: use configurable severity thresholds from effective config.
     let severity_config = effective.severity.clone();
-    let report_findings: Vec<(
-        vlz_db::Package,
-        Vec<(vlz_db::CveRecord, vlz_db::Severity)>,
-    )> = findings
+    let report_findings: Vec<vlz_report::Finding> = findings
         .into_iter()
         .map(|(pkg, recs)| {
             let with_severity: Vec<_> = recs
@@ -1206,13 +1227,31 @@ async fn run_scan(
                     (cve, severity)
                 })
                 .collect();
-            (pkg, with_severity)
+            let mut manifest_paths: Vec<std::path::PathBuf> = pkg_to_manifests
+                .get(&pkg)
+                .map(|s| {
+                    s.iter()
+                        .map(|p| {
+                            p.strip_prefix(&root_path)
+                                .map(|r| r.to_path_buf())
+                                .unwrap_or_else(|_| p.clone())
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            manifest_paths.sort();
+            vlz_report::Finding {
+                package: pkg,
+                manifest_paths,
+                cves: with_severity,
+            }
         })
         .collect();
     let report_data = vlz_report::ReportData {
         findings: report_findings,
         all_packages: Some(packages_to_check),
         project_id: effective.project_id.clone(),
+        root_path: Some(root_path.clone()),
     };
     reporter
         .render(&report_data)
