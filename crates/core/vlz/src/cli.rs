@@ -17,8 +17,12 @@ pub fn parse_config_set_arg(pair: &str) -> Option<(&str, &str)> {
     }
 }
 
+/// MOD-009: URL for documentation when built without docs feature.
+pub const DOCS_ONLINE_URL: &str = "https://github.com/tpost/verilyze";
+
 #[derive(ClapParser, Debug)]
 #[command(name = "vlz", version, author, about = "verilyze -- fast SCA")]
+#[command(disable_help_subcommand = true)]
 pub struct Cli {
     #[command(subcommand)]
     pub cmd: Commands,
@@ -192,6 +196,12 @@ pub enum Commands {
 
     /// Pre-populate CVE cache from remote provider (placeholder)
     Preload,
+
+    /// Show manual page
+    Help {
+        #[arg(value_name = "SUBCOMMAND")]
+        subcommand: Option<String>,
+    },
 
     /// Generate shell completion scripts
     #[cfg(feature = "completions")]
@@ -429,5 +439,23 @@ mod tests {
         assert_eq!(parse_config_set_arg(""), None);
         assert_eq!(parse_config_set_arg("=value"), None);
         assert_eq!(parse_config_set_arg("key"), None);
+    }
+
+    #[test]
+    fn parse_help_subcommand() {
+        let cli = parse(&["help"]);
+        let Commands::Help { subcommand } = &cli.cmd else {
+            panic!("expected help")
+        };
+        assert!(subcommand.is_none());
+    }
+
+    #[test]
+    fn parse_help_subcommand_with_arg() {
+        let cli = parse(&["help", "scan"]);
+        let Commands::Help { subcommand } = &cli.cmd else {
+            panic!("expected help")
+        };
+        assert_eq!(subcommand.as_deref(), Some("scan"));
     }
 }

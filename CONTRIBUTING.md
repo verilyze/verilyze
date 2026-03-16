@@ -457,11 +457,14 @@ The `vlz` binary supports optional capabilities via Cargo features:
 - **runtime** = `["redb", "python", "rust"]` -- single source of truth for scan
   capabilities. When adding a new language or default backend, add it here so
   both default and Docker builds pick it up automatically.
-- **default** = `["runtime", "completions"]` -- full build with runtime
-  capabilities plus shell completion generation. Release builds omit the
-  `testing` feature for a smaller binary.
+- **default** = `["runtime", "completions", "docs"]` -- full build with runtime
+  capabilities plus shell completion generation and man page via `vlz help`.
+  Release builds omit the `testing` feature for a smaller binary.
 - **completions** -- `vlz generate-completions` subcommand (bash, zsh, fish);
   pulls in `clap_complete`. Omitted from Docker image to reduce binary size.
+- **docs** -- Man page via `vlz help` and `vlz help <subcommand>` (MOD-009,
+  DOC-013). When omitted, `vlz help` exits 2 with a message to rebuild or find
+  docs online. Omitted in minimal build for smaller binary.
 - **docker** = `["runtime"]` -- runtime only, no completions. Use for the Docker
   image (OP-013, FR-025). The Dockerfile uses `--no-default-features
   --features docker`; when adding new languages or backends, update only
@@ -521,9 +524,11 @@ Build with GitHub and Sonatype CVE providers:
 cargo build --features github,sonatype
 ```
 
-A minimal build omits language plugins and the RedB backend; `vlz list` will
-output nothing, and `vlz scan` will fail with "No ManifestFinder plug‑in
-registered". See [architecture/PRD.md](architecture/PRD.md) MOD-003.
+A minimal build omits language plugins, the RedB backend, and man page
+documentation; `vlz list` will output nothing, `vlz scan` will fail with "No
+ManifestFinder plug‑in registered", and `vlz help` will exit 2 with a message
+to rebuild with docs or find documentation online. See [architecture/PRD.md]
+(architecture/PRD.md) MOD-003, MOD-009.
 
 ## Adding dependencies
 

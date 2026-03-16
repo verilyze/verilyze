@@ -115,6 +115,50 @@ fn deduplicate_packages(packages: &[vlz_db::Package]) -> Vec<vlz_db::Package> {
         .collect()
 }
 
+/// MOD-009, DOC-013: Show man page via `vlz help` or `vlz help <subcommand>`.
+/// When docs feature is disabled, prints error and returns 2.
+fn run_help(_subcommand: Option<&str>) -> Result<i32> {
+    #[cfg(not(feature = "docs"))]
+    {
+        eprintln!(
+            "Error: vlz was built without documentation. To rebuild with \
+             documentation, run `cargo build`, or find the documentation online \
+             at {}.",
+            crate::cli::DOCS_ONLINE_URL
+        );
+        return Ok(2);
+    }
+
+    #[cfg(feature = "docs")]
+    {
+        const MAN_VLZ: &str = include_str!("../../../../man/vlz.1");
+        let mut tmp = tempfile::Builder::new()
+            .suffix(".1")
+            .tempfile()
+            .context("Creating temp file for man page")?;
+        std::io::Write::write_all(&mut tmp, MAN_VLZ.as_bytes())
+            .context("Writing man page to temp file")?;
+        tmp.as_file().sync_all().context("Syncing temp file")?;
+        let path = tmp.path();
+        let status = std::process::Command::new("man")
+            .args(["-l", path.to_str().unwrap_or_default()])
+            .status();
+        match status {
+            Ok(s) if s.success() => Ok(0),
+            Ok(s) => Ok(s.code().unwrap_or(1)),
+            Err(e) => {
+                eprintln!(
+                    "Error: could not run 'man' to display documentation: {}. \
+                     Try 'man vlz' if installed via package manager, or see {}.",
+                    e,
+                    crate::cli::DOCS_ONLINE_URL
+                );
+                Ok(2)
+            }
+        }
+    }
+}
+
 /// Core entry point: runs the requested command and returns the exit code.
 /// Caller is responsible for initialising the logger and for calling `process::exit(code)`.
 pub async fn run(args: Cli) -> Result<i32> {
@@ -129,6 +173,11 @@ pub async fn run(args: Cli) -> Result<i32> {
             &mut std::io::stdout(),
         );
         return Ok(0);
+    }
+
+    // MOD-009, DOC-013: help shows man page; handle early (no config or DB).
+    if let Commands::Help { subcommand } = &args.cmd {
+        return run_help(subcommand.as_deref());
     }
 
     // Resolve CLI cache TTL and cache DB path from subcommand.
@@ -719,6 +768,11 @@ pub async fn run(args: Cli) -> Result<i32> {
                 "vlz preload is a placeholder; cache is populated on demand during scan.\n",
             );
             Ok(0)
+        }
+
+        Commands::Help { .. } => {
+            // Handled at start of run(); unreachable here
+            unreachable!("help returns early")
         }
 
         #[cfg(feature = "completions")]
