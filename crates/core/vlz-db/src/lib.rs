@@ -130,6 +130,33 @@ impl DatabaseError {
     }
 }
 
+/// Trait for false-positive (ignore) database backends (FR-015).
+/// Any backend (RedB, SQLite, etc.) must implement this contract so that
+/// project_id-scoped filtering works consistently across implementations.
+pub trait IgnoreDb: Send + Sync {
+    /// Mark a CVE as false positive.
+    fn mark(
+        &self,
+        cve_id: &str,
+        comment: &str,
+        project_id: Option<&str>,
+    ) -> Result<(), DatabaseError>;
+
+    /// Remove a false-positive marking.
+    fn unmark(&self, cve_id: &str) -> Result<(), DatabaseError>;
+
+    /// Return true if the CVE is marked as false positive.
+    fn is_marked(&self, cve_id: &str) -> Result<bool, DatabaseError>;
+
+    /// Return CVE IDs marked as false positive for the given project.
+    /// When `project_id` is None, returns only global FPs (entries with no project_id).
+    /// When `project_id` is Some(x), returns global FPs plus FPs scoped to project x.
+    fn marked_ids(
+        &self,
+        project_id: Option<&str>,
+    ) -> Result<std::collections::HashSet<String>, DatabaseError>;
+}
+
 /// SEC-014: Returns Err if the file at path exists and is world-writable.
 /// Call before opening a cache or ignore DB file. Group or other write bits
 /// (0o022) indicate world-writable.
@@ -385,6 +412,76 @@ mod tests {
             .set_ttl(TtlSelector::Multiple(vec!["a".into(), "b".into()]), 3600)
             .await
             .unwrap_err();
+    }
+
+    /// Mock IgnoreDb for testing trait consumers (e.g. scan FP filtering).
+    #[derive(Default)]
+    struct MockIgnoreDb {
+        entries: std::sync::RwLock<
+            std::collections::HashMap<String, (String, Option<String>)>,
+        >,
+    }
+
+    impl super::IgnoreDb for MockIgnoreDb {
+        fn mark(
+            &self,
+            cve_id: &str,
+            comment: &str,
+            project_id: Option<&str>,
+        ) -> Result<(), DatabaseError> {
+            self.entries.write().unwrap().insert(
+                cve_id.to_string(),
+                (comment.to_string(), project_id.map(String::from)),
+            );
+            Ok(())
+        }
+
+        fn unmark(&self, cve_id: &str) -> Result<(), DatabaseError> {
+            self.entries.write().unwrap().remove(cve_id);
+            Ok(())
+        }
+
+        fn is_marked(&self, cve_id: &str) -> Result<bool, DatabaseError> {
+            Ok(self.entries.read().unwrap().contains_key(cve_id))
+        }
+
+        fn marked_ids(
+            &self,
+            project_id: Option<&str>,
+        ) -> Result<std::collections::HashSet<String>, DatabaseError> {
+            let guard = self.entries.read().unwrap();
+            let set: std::collections::HashSet<String> = guard
+                .iter()
+                .filter(|(_, (_, pid))| match (pid, project_id) {
+                    (None, _) => true,
+                    (Some(p), Some(sp)) => p == sp,
+                    (Some(_), None) => false,
+                })
+                .map(|(k, _)| k.clone())
+                .collect();
+            Ok(set)
+        }
+    }
+
+    #[test]
+    fn ignore_db_trait_marked_ids_global_only_when_no_project() {
+        let db = MockIgnoreDb::default();
+        db.mark("CVE-A", "a", None).unwrap();
+        db.mark("CVE-B", "b", Some("proj1")).unwrap();
+        let ids = db.marked_ids(None).unwrap();
+        assert_eq!(ids.len(), 1);
+        assert!(ids.contains("CVE-A"));
+    }
+
+    #[test]
+    fn ignore_db_trait_marked_ids_includes_global_and_scoped() {
+        let db = MockIgnoreDb::default();
+        db.mark("CVE-GLOBAL", "g", None).unwrap();
+        db.mark("CVE-PROJ", "p", Some("myproj")).unwrap();
+        let ids = db.marked_ids(Some("myproj")).unwrap();
+        assert_eq!(ids.len(), 2);
+        assert!(ids.contains("CVE-GLOBAL"));
+        assert!(ids.contains("CVE-PROJ"));
     }
 
     #[test]

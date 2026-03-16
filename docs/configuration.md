@@ -42,6 +42,7 @@ flowchart TD
 | min_count | integer | 0 | `VLZ_MIN_COUNT` | `--min-count` |
 | exit_code_on_cve | integer | 86 | `VLZ_EXIT_CODE_ON_CVE` | `--exit-code-on-cve` |
 | fp_exit_code | integer | 0 | `VLZ_FP_EXIT_CODE` | `--fp-exit-code` |
+| project_id | string |  | `VLZ_PROJECT_ID` | `--project-id` |
 | backoff_base_ms | integer | 100 | `VLZ_BACKOFF_BASE_MS` | `--backoff-base` |
 | backoff_max_ms | integer | 30000 | `VLZ_BACKOFF_MAX_MS` | `--backoff-max` |
 | max_retries | integer | 5 | `VLZ_MAX_RETRIES` | `--max-retries` |

@@ -121,6 +121,10 @@ pub fn generate_example(cfg: &crate::config::EffectiveConfig) -> String {
             cfg.exit_code_on_cve.unwrap_or(86).to_string(),
         ),
         ("fp_exit_code", cfg.fp_exit_code.unwrap_or(0).to_string()),
+        (
+            "project_id",
+            cfg.project_id.as_deref().unwrap_or("").to_string(),
+        ),
         ("backoff_base_ms", cfg.backoff_base_ms.to_string()),
         ("backoff_max_ms", cfg.backoff_max_ms.to_string()),
         ("max_retries", cfg.max_retries.to_string()),

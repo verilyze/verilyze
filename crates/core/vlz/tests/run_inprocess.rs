@@ -290,6 +290,68 @@ fn run_scan_fp_exit_code_when_all_cves_marked_fp() {
     });
 }
 
+#[cfg(feature = "redb")]
+#[test]
+fn run_scan_project_id_scopes_fp_filtering() {
+    let _ = env_logger::try_init();
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::write(dir.path().join("requirements.txt"), "test-pkg==1.0\n")
+        .expect("write");
+    let root = dir.path().to_str().unwrap();
+    let p = dir.path().to_string_lossy().into_owned();
+    temp_env::with_var("XDG_CACHE_HOME", Some(p.as_str()), || {
+        temp_env::with_var("XDG_DATA_HOME", Some(p.as_str()), || {
+            temp_env::with_var("XDG_CONFIG_HOME", Some(p.as_str()), || {
+                let path = vlz::config::default_cache_path();
+                let ignore_path = vlz::config::default_ignore_path();
+                if let Some(parent) = path.parent() {
+                    std::fs::create_dir_all(parent).ok();
+                }
+                if let Some(parent) = ignore_path.parent() {
+                    std::fs::create_dir_all(parent).ok();
+                }
+                let backend = vlz_db_redb::RedbBackend::with_path(path, 3600)
+                    .expect("create backend");
+                let rt = tokio::runtime::Runtime::new().expect("runtime");
+                rt.block_on(async {
+                    backend.init().await.expect("init");
+                    let pkg = vlz_db::Package {
+                        name: "test-pkg".to_string(),
+                        version: "1.0".to_string(),
+                        ..Default::default()
+                    };
+                    let raw = vec![serde_json::json!({
+                        "id": "CVE-2024-SCOPED",
+                        "summary": "scoped fp test"
+                    })];
+                    backend.put(&pkg, "osv", &raw, None).await.expect("put");
+                });
+                drop(backend);
+                let fp_db = vlz_db_redb::RedbIgnoreDb::with_path(ignore_path)
+                    .expect("open ignore db");
+                fp_db
+                    .mark("CVE-2024-SCOPED", "proj1 only", Some("proj1"))
+                    .expect("mark");
+                drop(fp_db);
+                ensure_registries_for_run();
+                assert_eq!(
+                    run_async(&[
+                        "scan",
+                        root,
+                        "--offline",
+                        "--project-id",
+                        "proj1",
+                        "--fp-exit-code",
+                        "77",
+                    ]),
+                    77,
+                    "scan with project-id proj1: scoped FP applies, exit fp_exit_code"
+                );
+            })
+        })
+    });
+}
+
 #[test]
 fn run_db_show_format_json_exits_0() {
     let _ = env_logger::try_init();

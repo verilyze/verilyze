@@ -59,6 +59,13 @@ fp_exit_code:
   cli: "--fp-exit-code"
   default: "0"
 
+project_id:
+  description: "Project ID for false-positive scoping (FR-015); only FPs for this project or global apply"
+  type: string
+  env: VLZ_PROJECT_ID
+  cli: "--project-id"
+  default: ""
+
 backoff_base_ms:
   description: "Base delay in ms for retry backoff"
   type: integer

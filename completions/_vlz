@@ -46,6 +46,7 @@ _arguments "${_arguments_options[@]}" : \
 '--min-count=[Minimum count of CVEs meeting min-score to trigger CVE exit code (0 = any)]:N:_default' \
 '--exit-code-on-cve=[Exit code when CVEs meet threshold (default 86)]:CODE:_default' \
 '--fp-exit-code=[Exit code when only false-positives are present (default 0)]:CODE:_default' \
+'--project-id=[Project ID for false-positive scoping (FR-015); only FPs for this project or global apply]:ID:_default' \
 '--backoff-base=[Base delay in ms for retry backoff (default 100)]:MS:_default' \
 '--backoff-max=[Maximum delay in ms for retry backoff (default 30000)]:MS:_default' \
 '--max-retries=[Maximum retries for transient errors (default 5)]:N:_default' \

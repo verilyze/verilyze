@@ -497,6 +497,32 @@ pub struct RedbIgnoreDb {
     db: Arc<Database>,
 }
 
+impl vlz_db::IgnoreDb for RedbIgnoreDb {
+    fn mark(
+        &self,
+        cve_id: &str,
+        comment: &str,
+        project_id: Option<&str>,
+    ) -> Result<(), DatabaseError> {
+        self.mark(cve_id, comment, project_id)
+    }
+
+    fn unmark(&self, cve_id: &str) -> Result<(), DatabaseError> {
+        self.unmark(cve_id)
+    }
+
+    fn is_marked(&self, cve_id: &str) -> Result<bool, DatabaseError> {
+        self.is_marked(cve_id)
+    }
+
+    fn marked_ids(
+        &self,
+        project_id: Option<&str>,
+    ) -> Result<std::collections::HashSet<String>, DatabaseError> {
+        self.marked_ids(project_id)
+    }
+}
+
 impl RedbIgnoreDb {
     /// Open or create the ignore DB at `path`.
     pub fn with_path(path: PathBuf) -> Result<Self, DatabaseError> {
@@ -571,9 +597,12 @@ impl RedbIgnoreDb {
         Ok(table.get(cve_id).map_err(DatabaseError::wrap)?.is_some())
     }
 
-    /// Return the set of all CVE IDs marked as false positive (for filtering in scan).
+    /// Return CVE IDs marked as false positive for the given project (for filtering in scan).
+    /// When `project_id` is None (scan has no project), returns only global FPs (entries with no project_id).
+    /// When `project_id` is Some(x), returns global FPs plus FPs scoped to project x.
     pub fn marked_ids(
         &self,
+        project_id: Option<&str>,
     ) -> Result<std::collections::HashSet<String>, DatabaseError> {
         let read_txn = self.db.begin_read().map_err(DatabaseError::wrap)?;
         let table = read_txn
@@ -583,8 +612,15 @@ impl RedbIgnoreDb {
             .iter()
             .map_err(DatabaseError::wrap)?
             .filter_map(|e| {
-                let (k, _) = e.ok()?;
-                Some(k.value().to_string())
+                let (k, v) = e.ok()?;
+                let cve_id = k.value().to_string();
+                let entry: FpEntry = serde_json::from_str(v.value()).ok()?;
+                let matches = match (&entry.project_id, project_id) {
+                    (None, _) => true, // Global FP applies to all scans
+                    (Some(pid), Some(scan_pid)) => pid == scan_pid,
+                    (Some(_), None) => false, // Scoped FP does not apply when no project
+                };
+                if matches { Some(cve_id) } else { None }
             })
             .collect();
         Ok(set)
@@ -766,7 +802,7 @@ mod tests {
         assert!(db.is_marked("CVE-2023-A").unwrap());
     }
 
-    /// marked_ids returns multiple entries when several CVEs are marked.
+    /// marked_ids returns multiple entries when several CVEs are marked (global).
     #[tokio::test]
     async fn ignore_db_marked_ids_multiple() {
         let (_dir, path) = temp_ignore_path("marked_ids_multi");
@@ -774,11 +810,60 @@ mod tests {
         db.mark("CVE-2023-A", "a", None).unwrap();
         db.mark("CVE-2023-B", "b", None).unwrap();
         db.mark("CVE-2023-C", "c", None).unwrap();
-        let ids = db.marked_ids().unwrap();
+        let ids = db.marked_ids(None).unwrap();
         assert_eq!(ids.len(), 3);
         assert!(ids.contains("CVE-2023-A"));
         assert!(ids.contains("CVE-2023-B"));
         assert!(ids.contains("CVE-2023-C"));
+    }
+
+    /// marked_ids filters by project_id: global FPs apply to all; scoped only to matching project.
+    #[tokio::test]
+    async fn ignore_db_marked_ids_project_scoping() {
+        let (_dir, path) = temp_ignore_path("marked_ids_project");
+        let db = RedbIgnoreDb::with_path(path.clone()).unwrap();
+        db.mark("CVE-GLOBAL", "global", None).unwrap();
+        db.mark("CVE-PROJ1", "proj1 only", Some("proj1")).unwrap();
+        db.mark("CVE-PROJ2", "proj2 only", Some("proj2")).unwrap();
+        let global = db.marked_ids(None).unwrap();
+        assert_eq!(global.len(), 1);
+        assert!(global.contains("CVE-GLOBAL"));
+        let proj1 = db.marked_ids(Some("proj1")).unwrap();
+        assert_eq!(proj1.len(), 2);
+        assert!(proj1.contains("CVE-GLOBAL"));
+        assert!(proj1.contains("CVE-PROJ1"));
+        let proj2 = db.marked_ids(Some("proj2")).unwrap();
+        assert_eq!(proj2.len(), 2);
+        assert!(proj2.contains("CVE-GLOBAL"));
+        assert!(proj2.contains("CVE-PROJ2"));
+    }
+
+    /// marked_ids with empty string project_id matches only global and entries with project_id "".
+    #[tokio::test]
+    async fn ignore_db_marked_ids_empty_project_id() {
+        let (_dir, path) = temp_ignore_path("marked_ids_empty_pid");
+        let db = RedbIgnoreDb::with_path(path.clone()).unwrap();
+        db.mark("CVE-GLOBAL", "g", None).unwrap();
+        db.mark("CVE-EMPTY", "e", Some("")).unwrap();
+        db.mark("CVE-X", "x", Some("proj")).unwrap();
+        let empty = db.marked_ids(Some("")).unwrap();
+        assert_eq!(empty.len(), 2);
+        assert!(empty.contains("CVE-GLOBAL"));
+        assert!(empty.contains("CVE-EMPTY"));
+    }
+
+    /// marked_ids via IgnoreDb trait (backend-agnostic).
+    #[tokio::test]
+    async fn ignore_db_trait_marked_ids_project_scoping() {
+        let (_dir, path) = temp_ignore_path("trait_marked_ids");
+        let db = RedbIgnoreDb::with_path(path.clone()).unwrap();
+        db.mark("CVE-A", "a", None).unwrap();
+        db.mark("CVE-B", "b", Some("p1")).unwrap();
+        let ignore_db: &dyn vlz_db::IgnoreDb = &db;
+        let ids = ignore_db.marked_ids(Some("p1")).unwrap();
+        assert_eq!(ids.len(), 2);
+        assert!(ids.contains("CVE-A"));
+        assert!(ids.contains("CVE-B"));
     }
 
     /// put with ttl_override is stored and list_entries returns it (FR-035, OP-009).
@@ -1575,7 +1660,7 @@ mod tests {
         let db = RedbIgnoreDb::with_path(path.clone()).unwrap();
         db.mark("dummy", "create table", None).unwrap();
         db.unmark("dummy").unwrap();
-        let ids = db.marked_ids().unwrap();
+        let ids = db.marked_ids(None).unwrap();
         assert!(ids.is_empty());
     }
 
@@ -2207,7 +2292,7 @@ mod tests {
                 .expect("create should succeed");
             let ignore_db = RedbIgnoreDb::with_database(db);
             ignore_db.mark("CVE-2023-X", "test", None).unwrap();
-            let res = ignore_db.marked_ids();
+            let res = ignore_db.marked_ids(None);
             if let Err(e) = res {
                 let err_msg = e.to_string();
                 assert!(

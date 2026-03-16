@@ -48,6 +48,7 @@ complete -c vlz -n "__fish_vlz_using_subcommand scan" -l min-score -d 'Minimum C
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l min-count -d 'Minimum count of CVEs meeting min-score to trigger CVE exit code (0 = any)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l exit-code-on-cve -d 'Exit code when CVEs meet threshold (default 86)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l fp-exit-code -d 'Exit code when only false-positives are present (default 0)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l project-id -d 'Project ID for false-positive scoping (FR-015); only FPs for this project or global apply' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l backoff-base -d 'Base delay in ms for retry backoff (default 100)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l backoff-max -d 'Maximum delay in ms for retry backoff (default 30000)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l max-retries -d 'Maximum retries for transient errors (default 5)' -r

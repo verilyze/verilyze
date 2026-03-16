@@ -26,6 +26,10 @@
 # Exit code when only false-positives are present (default 0)
 # fp_exit_code = 0
 
+# Project ID for false-positive scoping (FR-015); only FPs for this project or
+# global apply
+# project_id = 
+
 # Base delay in ms for retry backoff
 # backoff_base_ms = 100
 
