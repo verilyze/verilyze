@@ -556,6 +556,7 @@ fn config_invalid_file_verbose_logs_to_stderr() {
 }
 
 // FR-028: shell completion generation
+#[cfg(feature = "completions")]
 #[test]
 fn generate_completions_bash_produces_valid_script() {
     if !vlz_exe_exists() {
@@ -587,6 +588,7 @@ fn generate_completions_bash_produces_valid_script() {
     });
 }
 
+#[cfg(feature = "completions")]
 #[test]
 fn generate_completions_zsh_produces_valid_script() {
     if !vlz_exe_exists() {
@@ -618,6 +620,7 @@ fn generate_completions_zsh_produces_valid_script() {
     });
 }
 
+#[cfg(feature = "completions")]
 #[test]
 fn generate_completions_fish_produces_valid_script() {
     if !vlz_exe_exists() {

@@ -454,9 +454,18 @@ architecture/PRD.md DOC-003 and design notes on single source of truth).
 
 The `vlz` binary supports optional capabilities via Cargo features:
 
-- **default** = `["redb", "python", "rust"]` -- full build with Python and Rust
-  support, RedB backend. Release builds omit the `testing` feature for a
-  smaller binary.
+- **runtime** = `["redb", "python", "rust"]` -- single source of truth for scan
+  capabilities. When adding a new language or default backend, add it here so
+  both default and Docker builds pick it up automatically.
+- **default** = `["runtime", "completions"]` -- full build with runtime
+  capabilities plus shell completion generation. Release builds omit the
+  `testing` feature for a smaller binary.
+- **completions** -- `vlz generate-completions` subcommand (bash, zsh, fish);
+  pulls in `clap_complete`. Omitted from Docker image to reduce binary size.
+- **docker** = `["runtime"]` -- runtime only, no completions. Use for the Docker
+  image (OP-013, FR-025). The Dockerfile uses `--no-default-features
+  --features docker`; when adding new languages or backends, update only
+  `runtime` in Cargo.toml, not the Dockerfile.
 - **redb** -- RedB database backend for CVE cache and false-positive DB.
 - **python** -- Python language plugin (`vlz-python` crate).
 - **rust** -- Rust language plugin (`vlz-rust` crate).
@@ -492,6 +501,12 @@ Build with only Java (when `vlz-java` exists) and no Python/Rust:
 
 ```sh
 cargo build --no-default-features --features java
+```
+
+Build for **Docker** (runtime only, no completions; smaller image):
+
+```sh
+cargo build --release --no-default-features --features docker
 ```
 
 Build with NVD CVE provider in addition to defaults:
