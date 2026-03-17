@@ -60,6 +60,9 @@
 # low_min = 0.1
 #
 # Per-language manifest regex (FR-006)
+# [go]
+# regex = "^go\\.mod$"
+
 # [python]
 # regex = "^requirements\\.txt$"
 

@@ -94,7 +94,7 @@ Without `--user`, the container runs as root and cache files in
 
 ```bash
 # Scan current directory for manifests (Python: requirements.txt, pyproject.toml;
-# Rust: Cargo.toml) and check for CVEs
+# Rust: Cargo.toml; Go: go.mod) and check for CVEs
 vlz scan
 
 # Scan a specific path
@@ -102,6 +102,9 @@ vlz scan /path/to/project
 
 # Scan a Rust project
 vlz scan /path/to/rust/crate
+
+# Scan a Go module
+vlz scan /path/to/go/module
 
 # JSON output
 vlz scan --format json

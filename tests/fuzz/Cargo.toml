@@ -13,6 +13,7 @@ afl = "0.17"
 vlz = { path = "../../crates/core/vlz" }
 vlz-python = { path = "../../crates/languages/vlz-python" }
 vlz-rust = { path = "../../crates/languages/vlz-rust" }
+vlz-go = { path = "../../crates/languages/vlz-go" }
 
 [[bin]]
 name = "fuzz_config_toml"
@@ -53,3 +54,7 @@ path = "fuzz_targets/cargo_toml.rs"
 [[bin]]
 name = "fuzz_cargo_lock"
 path = "fuzz_targets/cargo_lock.rs"
+
+[[bin]]
+name = "fuzz_go_mod"
+path = "fuzz_targets/go_mod.rs"

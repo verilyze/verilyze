@@ -361,7 +361,8 @@ def generate_man_options(
     lines.append("")
     lines.append(".It Sy [lang].regex")
     lines.append(
-        "Per-language regex for manifest file names (e.g. [python], [rust])."
+        "Per-language regex for manifest file names (e.g. [python], [rust], "
+        "[go])."
     )
     lines.append(".El")
 

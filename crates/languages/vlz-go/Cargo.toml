@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[package]
+name = "vlz-go"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Go language plugin for verilyze (manifest finder, parser, resolver)"
+publish = false
+
+[dependencies]
+async-trait = "0.1"
+thiserror = "2.0"
+regex = ">=1.5.5"  # CVE-2022-24713 fix (SEC-022)
+vlz-db = { path = "../../core/vlz-db" }
+vlz-manifest-finder = { path = "../../core/vlz-manifest-finder" }
+vlz-manifest-parser = { path = "../../core/vlz-manifest-parser" }
+tokio = { version = "1", features = ["fs"] }
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { version = "1", features = ["rt", "macros"] }

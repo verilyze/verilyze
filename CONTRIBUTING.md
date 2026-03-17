@@ -305,7 +305,9 @@ stripped of symbols (NFR-023) for security and smaller size.
 
 To add support for a new language (e.g., Java), you implement three traits
 (`ManifestFinder`, `Parser`, `Resolver`), register them via a macro, and gate
-the crate behind a Cargo feature. Formal trait contracts (method signatures,
+the crate behind a Cargo feature. Before implementing a parser, check whether
+the manifest format is compatible with an existing parser (e.g. TOML, JSON);
+see PRD NFR-025 for parser selection guidance. Formal trait contracts (method signatures,
 error types) are in [architecture/PRD.md](architecture/PRD.md) MOD-002 and
 FR-020. The diagrams below illustrate the model.
 
@@ -454,7 +456,7 @@ architecture/PRD.md DOC-003 and design notes on single source of truth).
 
 The `vlz` binary supports optional capabilities via Cargo features:
 
-- **runtime** = `["redb", "python", "rust"]` -- single source of truth for scan
+- **runtime** = `["redb", "python", "rust", "go"]` -- single source of truth for scan
   capabilities. When adding a new language or default backend, add it here so
   both default and Docker builds pick it up automatically.
 - **default** = `["runtime", "completions", "docs"]` -- full build with runtime

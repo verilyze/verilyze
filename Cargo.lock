@@ -1803,6 +1803,7 @@ dependencies = [
  "vlz-cve-provider-sonatype",
  "vlz-db",
  "vlz-db-redb",
+ "vlz-go",
  "vlz-integrity",
  "vlz-manifest-finder",
  "vlz-manifest-parser",
@@ -1906,8 +1907,23 @@ version = "0.1.0"
 dependencies = [
  "afl",
  "vlz",
+ "vlz-go",
  "vlz-python",
  "vlz-rust",
+]
+
+[[package]]
+name = "vlz-go"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "regex",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "vlz-db",
+ "vlz-manifest-finder",
+ "vlz-manifest-parser",
 ]
 
 [[package]]
