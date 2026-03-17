@@ -62,7 +62,7 @@ LOW, UNKNOWN). Configurable per CVSS version (v2, v3, v4) via
 ## Per-language manifest regex (FR-006)
 
 Override which files are treated as manifests per language. Use
-`[python]`, `[rust]`, etc. with a `regex` key:
+`[python]`, `[rust]`, `[go]`, etc. with a `regex` key:
 
 ```toml
 [python]
@@ -70,6 +70,9 @@ regex = "^requirements\\.txt$"
 
 [rust]
 regex = "^Cargo\\.toml$"
+
+[go]
+regex = "^go\\.mod$"
 ```
 
 Use `vlz config --set python.regex="^requirements\\.txt$"` to set via CLI.

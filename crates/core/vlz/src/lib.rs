@@ -81,7 +81,9 @@ mod tests {
     #[tokio::test]
     #[allow(clippy::await_holding_lock)]
     async fn run_main_unknown_provider_returns_2() {
-        let _guard = crate::registry::registry_test_mutex().lock().unwrap();
+        let _guard = crate::registry::registry_test_mutex()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let code = run_main_from_args([
             "vlz",
             "scan",

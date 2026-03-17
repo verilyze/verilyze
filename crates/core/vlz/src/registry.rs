@@ -96,6 +96,10 @@ pub fn ensure_default_manifest_finder() {
     if !f.iter().any(|x| x.language_name() == "rust") {
         f.push(Box::new(vlz_rust::RustManifestFinder::new()));
     }
+    #[cfg(feature = "go")]
+    if !f.iter().any(|x| x.language_name() == "go") {
+        f.push(Box::new(vlz_go::GoManifestFinder::new()));
+    }
 }
 
 /// Ensures language parsers are registered (Python and/or Rust when features enabled).
@@ -117,6 +121,18 @@ pub fn ensure_default_parser() {
             p.push(Box::new(vlz_rust::CargoTomlParser::new()));
         }
     }
+    #[cfg(feature = "go")]
+    {
+        let expected: usize =
+            [cfg!(feature = "python"), cfg!(feature = "rust")]
+                .into_iter()
+                .filter(|b| *b)
+                .count()
+                + 1;
+        if p.len() < expected {
+            p.push(Box::new(vlz_go::GoModParser::new()));
+        }
+    }
 }
 
 /// Ensures language resolvers are registered (Python and/or Rust when features enabled).
@@ -129,6 +145,13 @@ pub fn ensure_default_resolver() {
     #[cfg(feature = "rust")]
     if !r.iter().any(|x| x.package_manager_hint().contains("cargo")) {
         r.push(Box::new(vlz_rust::CargoResolver::new()));
+    }
+    #[cfg(feature = "go")]
+    if !r
+        .iter()
+        .any(|x| x.package_manager_hint().contains("golang"))
+    {
+        r.push(Box::new(vlz_go::GoResolver::new()));
     }
 }
 
@@ -299,7 +322,9 @@ mod tests {
     /// global-state races when tests run in parallel.
     #[test]
     fn test_registry_register_and_ensure_defaults() {
-        let _guard = registry_test_mutex().lock().unwrap();
+        let _guard = registry_test_mutex()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         // 1) register(Plugin) pushes to the correct registry
         clear_finders();
         #[cfg(feature = "python")]
@@ -355,14 +380,16 @@ mod tests {
         }
 
         // 2) ensure_default_* when empty add one per language; second call is idempotent
-        #[cfg(any(feature = "python", feature = "rust"))]
+        #[cfg(any(feature = "python", feature = "rust", feature = "go"))]
         {
-            let expected: usize =
-                if cfg!(all(feature = "python", feature = "rust")) {
-                    2
-                } else {
-                    1
-                };
+            let expected: usize = [
+                cfg!(feature = "python"),
+                cfg!(feature = "rust"),
+                cfg!(feature = "go"),
+            ]
+            .into_iter()
+            .filter(|b| *b)
+            .count();
 
             clear_finders();
             ensure_default_manifest_finder();

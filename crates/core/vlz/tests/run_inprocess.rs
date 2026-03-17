@@ -26,7 +26,9 @@ where
 }
 
 fn ensure_registries_for_run() {
-    let _guard = vlz::registry::registry_test_mutex().lock().unwrap();
+    let _guard = vlz::registry::registry_test_mutex()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     vlz::registry::ensure_default_manifest_finder();
     vlz::registry::ensure_default_parser();
     vlz::registry::ensure_default_resolver();
@@ -44,7 +46,9 @@ fn ensure_registries_for_run() {
 }
 
 fn run_async(args: &[&str]) -> i32 {
-    let _guard = vlz::registry::registry_test_mutex().lock().unwrap();
+    let _guard = vlz::registry::registry_test_mutex()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     let mut v = vec!["vlz"];
     v.extend(args.iter().copied());
     let args = Cli::parse_from(v);

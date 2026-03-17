@@ -852,7 +852,7 @@ async fn run_scan(
         let first_lang =
             effective.language_regexes.first().map(|(l, _)| l.as_str());
         #[cfg(feature = "python")]
-        if first_lang != Some("rust") {
+        if first_lang != Some("rust") && first_lang != Some("go") {
             match vlz_python::PythonManifestFinder::with_patterns(
                 patterns.clone(),
             ) {
@@ -867,8 +867,11 @@ async fn run_scan(
             }
         }
         #[cfg(feature = "rust")]
-        if first_lang == Some("rust") || finders.is_empty() {
-            match vlz_rust::RustManifestFinder::with_patterns(patterns) {
+        if first_lang == Some("rust")
+            || (finders.is_empty() && first_lang != Some("go"))
+        {
+            match vlz_rust::RustManifestFinder::with_patterns(patterns.clone())
+            {
                 Ok(f) => finders.push(Box::new(f)),
                 Err(e) => {
                     error!("Invalid language regex in config: {}", e);
@@ -879,10 +882,27 @@ async fn run_scan(
                 }
             }
         }
-        #[cfg(not(any(feature = "python", feature = "rust")))]
+        #[cfg(feature = "go")]
+        if first_lang == Some("go") || finders.is_empty() {
+            match vlz_go::GoManifestFinder::with_patterns(patterns) {
+                Ok(f) => finders.push(Box::new(f)),
+                Err(e) => {
+                    error!("Invalid language regex in config: {}", e);
+                    return Err(anyhow!(
+                        "Invalid language regex in config: {}",
+                        e
+                    ));
+                }
+            }
+        }
+        #[cfg(not(any(
+            feature = "python",
+            feature = "rust",
+            feature = "go"
+        )))]
         {
             error!(
-                "Custom language regexes require a language plugin (e.g. python or rust feature)"
+                "Custom language regexes require a language plugin (e.g. python, rust, or go feature)"
             );
             return Err(anyhow!(
                 "Custom language regexes require a language plugin"

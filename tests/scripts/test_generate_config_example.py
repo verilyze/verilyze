@@ -372,16 +372,19 @@ class TestGenerateExampleConf:
         assert "8.5" in result
         assert "# [severity.v2]" in result
 
-    def test_contains_python_rust_regex(self) -> None:
+    def test_contains_python_rust_go_regex(self) -> None:
         comments = {
             "python.regex": {"default": "^requirements\\.txt$"},
             "rust.regex": {"default": "^Cargo\\.toml$"},
+            "go.regex": {"default": "^go\\.mod$"},
         }
         result = generate_config_example.generate_example_conf({}, comments)
         assert "[python]" in result
         assert "[rust]" in result
+        assert "[go]" in result
         assert "requirements" in result
         assert "Cargo" in result
+        assert r"go\.mod" in result
 
     def test_languages_derived_from_config_not_hardcoded(self) -> None:
         """Language list comes from config_list/comments, not hard-coded."""

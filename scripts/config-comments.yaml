@@ -158,7 +158,7 @@ severity_v4_low_min:
   env: VLZ_SEVERITY_V4_LOW_MIN
   default: "0.1"
 
-# Per-language manifest regex (FR-006). Use [python], [rust], etc. with regex = "pattern".
+# Per-language manifest regex (FR-006). Use [python], [rust], [go], etc. with regex = "pattern".
 # config --list outputs lang.regex when set; these are example defaults.
 python.regex:
   description: "Regex for Python manifest file names (e.g. requirements.txt, pyproject.toml)"
@@ -169,3 +169,8 @@ rust.regex:
   description: "Regex for Rust manifest file names (Cargo.toml)"
   type: string
   default: "^Cargo\\.toml$"
+
+go.regex:
+  description: "Regex for Go manifest file names (go.mod)"
+  type: string
+  default: "^go\\.mod$"
