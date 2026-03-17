@@ -59,6 +59,12 @@ precedence = "override"
 SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
+[[annotations]]
+path = "deny.toml"
+precedence = "override"
+SPDX-FileCopyrightText = "The verilyze contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
 # Generated/cache files (pytest, coverage)
 [[annotations]]
 path = "**/__pycache__/**"
