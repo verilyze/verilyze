@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y musl-tools && \
 WORKDIR /build
 COPY . .
 
+# THIRD-PARTY-LICENSES is committed (default-features variant; superset of docker deps).
 RUN cargo build --release --locked --no-default-features --features docker \
     --target x86_64-unknown-linux-musl && \
     strip target/x86_64-unknown-linux-musl/release/vlz
@@ -24,5 +25,7 @@ FROM scratch
 
 COPY --from=builder /build/target/x86_64-unknown-linux-musl/release/vlz /vlz
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /build/LICENSES/GPL-3.0-or-later.txt /LICENSE
+COPY --from=builder /build/THIRD-PARTY-LICENSES /THIRD-PARTY-LICENSES
 
 ENTRYPOINT ["/vlz"]

@@ -19,7 +19,7 @@ SRC_URI="https://github.com/tpost/verilyze/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 SRC_URI+=" $(cargo_crate_uris)"
 
 LICENSE="GPL-3.0-or-later"
-# Include all dependency licenses here; audit with cargo-license.
+# Include all dependency licenses here; audit with cargo-about.
 LICENSE+=" Apache-2.0 MIT"
 SLOT="0"
 KEYWORDS="~amd64"
@@ -36,6 +36,7 @@ BDEPEND="virtual/rust"
 src_compile() {
 	cargo_src_compile
 	./scripts/generate_completions.sh ./target/release/vlz
+	# THIRD-PARTY-LICENSES is committed; see make generate-third-party-licenses
 }
 
 src_install() {
@@ -54,6 +55,10 @@ src_install() {
 	doins completions/_vlz
 	insinto /usr/share/fish/vendor_completions.d
 	doins completions/vlz.fish
+
+	insinto /usr/share/licenses/${PN}
+	doins LICENSES/GPL-3.0-or-later.txt
+	doins THIRD-PARTY-LICENSES
 }
 
 src_test() {

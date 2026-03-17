@@ -40,6 +40,7 @@ mkdir -p completions
 ./target/release/%{crate_name} generate-completions bash > completions/vlz.bash
 ./target/release/%{crate_name} generate-completions zsh > completions/_vlz
 ./target/release/%{crate_name} generate-completions fish > completions/vlz.fish
+# THIRD-PARTY-LICENSES is committed; see make generate-third-party-licenses
 
 %install
 install -D -m 0755 target/release/%{crate_name} \
@@ -66,6 +67,7 @@ install -D -m 0644 completions/vlz.fish \
 
 %files
 %license LICENSES/GPL-3.0-or-later.txt
+%license THIRD-PARTY-LICENSES
 %doc README.md
 %{_bindir}/%{crate_name}
 %config(noreplace) %{_sysconfdir}/verilyze.conf
