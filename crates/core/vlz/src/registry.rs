@@ -4,7 +4,7 @@
 
 use std::sync::{Mutex, OnceLock};
 
-use vlz_cve_client::{CveProvider, OsvProvider};
+use vlz_cve_client::{CveProvider, OsvProvider, OSV_QUERY_URL};
 use vlz_db::DatabaseBackend;
 use vlz_integrity::{BackendDelegatingChecker, IntegrityChecker};
 use vlz_manifest_finder::ManifestFinder;
@@ -158,18 +158,29 @@ pub fn ensure_default_resolver() {
 /// Ensures at least one CVE provider is registered (default OSV.dev provider).
 /// Call this at startup so the default provider is used when no plugin has registered one.
 /// When the `nvd` feature is enabled, also registers the NVD provider.
-pub fn ensure_default_cve_provider() {
+pub fn ensure_default_cve_provider(cfg: &crate::config::EffectiveConfig) {
     vlz_cve_client::ensure_default_decoders();
     let mut providers = providers().lock().unwrap();
+    let c = cfg.provider_http_connect_timeout_secs;
+    let r = cfg.provider_http_request_timeout_secs;
     if providers.is_empty() {
-        providers.push(Box::new(OsvProvider::default()));
+        providers.push(Box::new(
+            OsvProvider::with_base_url_timeouts(OSV_QUERY_URL, c, r)
+                .expect("OsvProvider HTTP client"),
+        ));
     }
     #[cfg(feature = "nvd")]
     {
         if !providers.iter().any(|p| p.name() == "nvd") {
             vlz_cve_provider_nvd::register_nvd_decoder();
-            providers
-                .push(Box::new(vlz_cve_provider_nvd::NvdProvider::default()));
+            providers.push(Box::new(
+                vlz_cve_provider_nvd::NvdProvider::with_base_url_timeouts(
+                    vlz_cve_provider_nvd::NVD_DEFAULT_BASE_URL,
+                    c,
+                    r,
+                )
+                .expect("NvdProvider HTTP client"),
+            ));
         }
     }
     #[cfg(feature = "github")]
@@ -177,7 +188,12 @@ pub fn ensure_default_cve_provider() {
         if !providers.iter().any(|p| p.name() == "github") {
             vlz_cve_provider_github::register_github_decoder();
             providers.push(Box::new(
-                vlz_cve_provider_github::GitHubProvider::default(),
+                vlz_cve_provider_github::GitHubProvider::with_base_url_timeouts(
+                    vlz_cve_provider_github::GITHUB_DEFAULT_ADVISORIES_URL,
+                    c,
+                    r,
+                )
+                .expect("GitHubProvider HTTP client"),
             ));
         }
     }
@@ -186,7 +202,12 @@ pub fn ensure_default_cve_provider() {
         if !providers.iter().any(|p| p.name() == "sonatype") {
             vlz_cve_provider_sonatype::register_sonatype_decoder();
             providers.push(Box::new(
-                vlz_cve_provider_sonatype::SonatypeProvider::default(),
+                vlz_cve_provider_sonatype::SonatypeProvider::with_base_url_timeouts(
+                    vlz_cve_provider_sonatype::OSSINDEX_DEFAULT_BASE_URL,
+                    c,
+                    r,
+                )
+                .expect("SonatypeProvider HTTP client"),
             ));
         }
     }
@@ -411,13 +432,18 @@ mod tests {
         }
 
         clear_providers();
-        ensure_default_cve_provider();
+        let mut cve_cfg = crate::config::EffectiveConfig::default();
+        cve_cfg.provider_http_connect_timeout_secs =
+            vlz_cve_client::DEFAULT_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS;
+        cve_cfg.provider_http_request_timeout_secs =
+            vlz_cve_client::DEFAULT_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS;
+        ensure_default_cve_provider(&cve_cfg);
         let expected_providers = 1
             + if cfg!(feature = "nvd") { 1 } else { 0 }
             + if cfg!(feature = "github") { 1 } else { 0 }
             + if cfg!(feature = "sonatype") { 1 } else { 0 };
         assert_eq!(providers().lock().unwrap().len(), expected_providers);
-        ensure_default_cve_provider();
+        ensure_default_cve_provider(&cve_cfg);
         assert_eq!(providers().lock().unwrap().len(), expected_providers);
 
         clear_reporters();

@@ -24,6 +24,43 @@ Please include:
 
 We will acknowledge receipt and work with you on a fix and disclosure timeline.
 
+## TLS and HTTPS (CVE providers)
+
+Outbound HTTPS to CVE data sources (OSV, NVD, GitHub Advisory, Sonatype OSS Index)
+uses **reqwest** with **rustls** (via hyper-rustls). Trust anchors follow the
+**webpki** / Mozilla root program style (bundled root store, e.g. webpki-root-certs
+class crates). The **ring** crate supplies rustls **cryptographic primitives** only;
+**rustls** implements the TLS **protocol**. This is not the same as shipping
+**BoringSSL** or **OpenSSL** as the application TLS stack; **OpenSSL is not linked**
+into the default binary, which supports static musl builds (FR-025).
+
+- **Protocol:** CVE provider HTTP clients set **minimum and maximum TLS to 1.3**
+  (`reqwest` `tls_version_min` / `tls_version_max`). Only TLS 1.3 is offered in the
+  handshake. Upstream crates may still compile TLS 1.2 code paths for the rustls
+  stack; those paths are not used for these connections. If an enterprise TLS
+  inspection proxy or path supports **only TLS 1.2**, HTTPS fetches may fail until
+  the path supports TLS 1.3 or the policy is changed deliberately in code.
+- **Cipher suites (TLS 1.3):** The process default **rustls** `CryptoProvider` limits
+  client-offered suites to **`TLS_AES_256_GCM_SHA384`** and
+  **`TLS_AES_128_GCM_SHA256`** (NIST SP 800-52 Rev. 2 §3.3.1.2). **`TLS_CHACHA20_POLY1305_SHA256`**
+  is **not** offered. **CCM** suites from that NIST subsection are not enabled in this
+  **ring** configuration (not implemented in the default rustls *ring* provider set
+  used here). This is **not** a FIPS 140 validation claim; see below.
+- **Verification:** Server certificates and hostnames are **always validated**. There
+  is **no** CLI switch to disable TLS verification (SEC-002, NFR-004, OP-010).
+- **Timeouts:** CVE provider HTTP clients use connect and total request timeouts
+  (defaults in `vlz-cve-client` as `DEFAULT_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS`
+  and `DEFAULT_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS`) to limit hung connections and
+  slow responses. Users can tune them via config file keys
+  **provider_http_connect_timeout_secs** / **provider_http_request_timeout_secs**,
+  env **VLZ_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS** /
+  **VLZ_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS**, and scan-only flags
+  **--provider-http-connect-timeout-secs** /
+  **--provider-http-request-timeout-secs** (OP-010, CFG-005, CFG-006).
+- **Licensing:** Third-party licenses must remain compatible with **GPL-3.0-or-later**;
+  CI runs `cargo deny check licenses` (SEC-012). See [docs/LICENSING.md](docs/LICENSING.md).
+  **TLS crypto** for CVE providers is **rustls** with the ***ring* crypto provider** only.
+
 ## Optional provider credentials
 
 GitHub Advisory and Sonatype OSS Index CVE providers support optional or

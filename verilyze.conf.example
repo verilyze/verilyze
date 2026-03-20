@@ -39,6 +39,12 @@
 # Maximum retries for transient errors
 # max_retries = 5
 
+# CVE provider HTTPS connect timeout in seconds (default 15)
+# provider_http_connect_timeout_secs = 15
+
+# CVE provider HTTPS total request timeout in seconds (default 120)
+# provider_http_request_timeout_secs = 120
+
 #
 # [severity.v2], [severity.v3], [severity.v4] (CVSS thresholds)
 # [severity.v2]

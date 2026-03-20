@@ -202,6 +202,19 @@ pub async fn run(args: Cli) -> Result<i32> {
             _ => (None, None, None, None),
         };
 
+    let (cli_provider_http_connect_timeout_secs, cli_provider_http_request_timeout_secs) =
+        match &args.cmd {
+            Commands::Scan {
+                provider_http_connect_timeout_secs,
+                provider_http_request_timeout_secs,
+                ..
+            } => (
+                *provider_http_connect_timeout_secs,
+                *provider_http_request_timeout_secs,
+            ),
+            _ => (None, None),
+        };
+
     // Load config from files + env + CLI for DB paths and TTL.
     let early_cfg = crate::config::load(
         args.config.as_deref(),
@@ -217,6 +230,8 @@ pub async fn run(args: Cli) -> Result<i32> {
         crate::config::env_backoff_base_ms(),
         crate::config::env_backoff_max_ms(),
         crate::config::env_max_retries(),
+        crate::config::env_provider_http_connect_timeout_secs(),
+        crate::config::env_provider_http_request_timeout_secs(),
         None,
         cli_cache_db.as_deref(),
         cli_ignore_db.as_deref(),
@@ -232,6 +247,8 @@ pub async fn run(args: Cli) -> Result<i32> {
         None,
         None,
         None,
+        cli_provider_http_connect_timeout_secs,
+        cli_provider_http_request_timeout_secs,
         crate::config::env_severity_overrides(),
         crate::config::SeverityOverrides::default(),
     )
@@ -271,7 +288,7 @@ pub async fn run(args: Cli) -> Result<i32> {
     crate::registry::ensure_default_manifest_finder();
     crate::registry::ensure_default_parser();
     crate::registry::ensure_default_resolver();
-    crate::registry::ensure_default_cve_provider();
+    crate::registry::ensure_default_cve_provider(&early_cfg);
     crate::registry::ensure_default_reporter();
     crate::registry::ensure_default_integrity_checker();
 
@@ -319,6 +336,8 @@ pub async fn run(args: Cli) -> Result<i32> {
             backoff_base: cli_backoff_base,
             backoff_max: cli_backoff_max,
             max_retries: cli_max_retries,
+            provider_http_connect_timeout_secs: cli_provider_http_connect_scan,
+            provider_http_request_timeout_secs: cli_provider_http_request_scan,
             severity_v2_critical_min,
             severity_v2_high_min,
             severity_v2_medium_min,
@@ -360,6 +379,8 @@ pub async fn run(args: Cli) -> Result<i32> {
                 crate::config::env_backoff_base_ms(),
                 crate::config::env_backoff_max_ms(),
                 crate::config::env_max_retries(),
+                crate::config::env_provider_http_connect_timeout_secs(),
+                crate::config::env_provider_http_request_timeout_secs(),
                 cli_parallel,
                 cli_cache_db.as_deref(),
                 cli_ignore_db.as_deref(),
@@ -375,6 +396,8 @@ pub async fn run(args: Cli) -> Result<i32> {
                 cli_backoff_base,
                 cli_backoff_max,
                 cli_max_retries,
+                cli_provider_http_connect_scan,
+                cli_provider_http_request_scan,
                 crate::config::env_severity_overrides(),
                 cli_severity,
             )
@@ -427,6 +450,8 @@ pub async fn run(args: Cli) -> Result<i32> {
                     crate::config::env_backoff_base_ms(),
                     crate::config::env_backoff_max_ms(),
                     crate::config::env_max_retries(),
+                    crate::config::env_provider_http_connect_timeout_secs(),
+                    crate::config::env_provider_http_request_timeout_secs(),
                     None,
                     None,
                     None,
@@ -439,6 +464,8 @@ pub async fn run(args: Cli) -> Result<i32> {
                     None,
                     None,
                     false,
+                    None,
+                    None,
                     None,
                     None,
                     None,
@@ -485,6 +512,8 @@ pub async fn run(args: Cli) -> Result<i32> {
                     crate::config::env_backoff_base_ms(),
                     crate::config::env_backoff_max_ms(),
                     crate::config::env_max_retries(),
+                    crate::config::env_provider_http_connect_timeout_secs(),
+                    crate::config::env_provider_http_request_timeout_secs(),
                     None,
                     None,
                     None,
@@ -497,6 +526,8 @@ pub async fn run(args: Cli) -> Result<i32> {
                     None,
                     None,
                     false,
+                    None,
+                    None,
                     None,
                     None,
                     None,
@@ -554,6 +585,14 @@ pub async fn run(args: Cli) -> Result<i32> {
                     cfg.backoff_max_ms
                 ));
                 write_stdout(&format!("max_retries = {}\n", cfg.max_retries));
+                write_stdout(&format!(
+                    "provider_http_connect_timeout_secs = {}\n",
+                    cfg.provider_http_connect_timeout_secs
+                ));
+                write_stdout(&format!(
+                    "provider_http_request_timeout_secs = {}\n",
+                    cfg.provider_http_request_timeout_secs
+                ));
                 write_stdout(&format!(
                     "severity_v2_critical_min = {}\n",
                     cfg.severity.v2.critical_min

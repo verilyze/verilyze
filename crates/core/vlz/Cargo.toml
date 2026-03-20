@@ -65,7 +65,15 @@ serde = { version = "1.0", features = ["derive"] }
 toml = "1.0"
 
 [dev-dependencies]
+async-trait = "0.1"
 temp-env = "0.3"
+
+# Integration tests that need `mocks` / registry clear helpers: `vlz` is built as a
+# normal dependency, so `cfg(test)` is false; enable `--features testing` (see Makefile
+# `unit-tests` target).
+[[test]]
+name = "run_inprocess"
+required-features = ["testing"]
 
 # Feature gating – matches MOD‑003, MOD‑009
 [features]

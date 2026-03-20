@@ -3,7 +3,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use std::path::{Path, PathBuf};
+
 use thiserror::Error;
+pub use vlz_cve_client::{
+    DEFAULT_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS,
+    DEFAULT_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS,
+};
 
 /// Format path for error output using ~ for home when applicable (NFR-018, SEC-020).
 fn user_relative_path(path: &Path) -> String {
@@ -59,6 +64,12 @@ pub const DEFAULT_BACKOFF_MAX_MS: u64 = 30_000;
 /// Default max retries for transient errors (NFR-005, SEC-007).
 pub const DEFAULT_MAX_RETRIES: u32 = 5;
 
+/// Maximum CVE provider HTTPS connect timeout in seconds (CFG-008).
+pub const MAX_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS: u64 = 3600;
+
+/// Maximum CVE provider HTTPS total request timeout in seconds (CFG-008).
+pub const MAX_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS: u64 = 86_400;
+
 #[derive(Debug, Clone)]
 pub struct EffectiveConfig {
     pub cache_db: Option<PathBuf>,
@@ -84,6 +95,10 @@ pub struct EffectiveConfig {
     pub backoff_max_ms: u64,
     /// Maximum retries for transient errors.
     pub max_retries: u32,
+    /// CVE provider HTTPS connect timeout in seconds (OP-010, CFG-005).
+    pub provider_http_connect_timeout_secs: u64,
+    /// CVE provider HTTPS total request timeout in seconds (OP-010).
+    pub provider_http_request_timeout_secs: u64,
     pub config_file: Option<PathBuf>,
     /// Configurable CVSS severity thresholds per version (FR-013).
     pub severity: vlz_report::SeverityConfig,
@@ -108,6 +123,8 @@ impl Default for EffectiveConfig {
             backoff_base_ms: 0,
             backoff_max_ms: 0,
             max_retries: 0,
+            provider_http_connect_timeout_secs: 0,
+            provider_http_request_timeout_secs: 0,
             config_file: None,
             severity: vlz_report::SeverityConfig::default(),
         }
@@ -142,6 +159,10 @@ struct FileConfig {
     backoff_max_ms: Option<u64>,
     #[serde(rename = "max_retries")]
     max_retries: Option<u32>,
+    #[serde(rename = "provider_http_connect_timeout_secs")]
+    provider_http_connect_timeout_secs: Option<u64>,
+    #[serde(rename = "provider_http_request_timeout_secs")]
+    provider_http_request_timeout_secs: Option<u64>,
 }
 
 #[derive(Error, Debug)]
@@ -158,6 +179,9 @@ pub enum ConfigError {
 
     #[error("Parallel queries must be at most {max}; got {value}")]
     ParallelTooHigh { value: usize, max: usize },
+
+    #[error("Invalid CVE provider HTTP timeouts: {message}")]
+    InvalidProviderHttpTimeouts { message: String },
 
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
@@ -177,6 +201,8 @@ const KNOWN_FILE_CONFIG_KEYS: &[&str] = &[
     "backoff_base_ms",
     "backoff_max_ms",
     "max_retries",
+    "provider_http_connect_timeout_secs",
+    "provider_http_request_timeout_secs",
 ];
 
 /// Parse and validate raw TOML config content (SEC-006). Used for fuzzing (NFR-020).
@@ -256,6 +282,12 @@ fn apply_file_config_inner(
     }
     if let Some(n) = parsed.max_retries {
         cfg.max_retries = n;
+    }
+    if let Some(n) = parsed.provider_http_connect_timeout_secs {
+        cfg.provider_http_connect_timeout_secs = n;
+    }
+    if let Some(n) = parsed.provider_http_request_timeout_secs {
+        cfg.provider_http_request_timeout_secs = n;
     }
     if extract_language_regexes {
         cfg.language_regexes.clear();
@@ -456,6 +488,53 @@ pub fn secure_temp_base() -> PathBuf {
         .unwrap_or_else(std::env::temp_dir)
 }
 
+fn validate_provider_http_timeouts(
+    connect_secs: u64,
+    request_secs: u64,
+) -> Result<(), ConfigError> {
+    if connect_secs < 1 {
+        return Err(ConfigError::InvalidProviderHttpTimeouts {
+            message: format!(
+                "provider_http_connect_timeout_secs must be at least 1; got {}",
+                connect_secs
+            ),
+        });
+    }
+    if request_secs < 1 {
+        return Err(ConfigError::InvalidProviderHttpTimeouts {
+            message: format!(
+                "provider_http_request_timeout_secs must be at least 1; got {}",
+                request_secs
+            ),
+        });
+    }
+    if connect_secs > MAX_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS {
+        return Err(ConfigError::InvalidProviderHttpTimeouts {
+            message: format!(
+                "provider_http_connect_timeout_secs must be at most {}; got {}",
+                MAX_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS, connect_secs
+            ),
+        });
+    }
+    if request_secs > MAX_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS {
+        return Err(ConfigError::InvalidProviderHttpTimeouts {
+            message: format!(
+                "provider_http_request_timeout_secs must be at most {}; got {}",
+                MAX_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS, request_secs
+            ),
+        });
+    }
+    if request_secs < connect_secs {
+        return Err(ConfigError::InvalidProviderHttpTimeouts {
+            message: format!(
+                "provider_http_request_timeout_secs ({}) must be >= provider_http_connect_timeout_secs ({})",
+                request_secs, connect_secs
+            ),
+        });
+    }
+    Ok(())
+}
+
 /// Build effective config: defaults, then system file, user file, -c file, env, CLI.
 /// Validates parallel_queries <= MAX_PARALLEL_QUERIES (FR-012).
 #[allow(clippy::too_many_arguments)]
@@ -473,6 +552,8 @@ pub fn load(
     env_backoff_base_ms: Option<u64>,
     env_backoff_max_ms: Option<u64>,
     env_max_retries: Option<u32>,
+    env_provider_http_connect_timeout_secs: Option<u64>,
+    env_provider_http_request_timeout_secs: Option<u64>,
     cli_parallel: Option<usize>,
     cli_cache_db: Option<&str>,
     cli_ignore_db: Option<&str>,
@@ -488,6 +569,8 @@ pub fn load(
     cli_backoff_base_ms: Option<u64>,
     cli_backoff_max_ms: Option<u64>,
     cli_max_retries: Option<u32>,
+    cli_provider_http_connect_timeout_secs: Option<u64>,
+    cli_provider_http_request_timeout_secs: Option<u64>,
     // FR-013, CFG-005: severity threshold overrides from environment variables.
     env_severity: SeverityOverrides,
     // FR-013, CFG-006: severity threshold overrides from CLI flags; takes precedence over env.
@@ -499,6 +582,8 @@ pub fn load(
         backoff_base_ms: DEFAULT_BACKOFF_BASE_MS,
         backoff_max_ms: DEFAULT_BACKOFF_MAX_MS,
         max_retries: DEFAULT_MAX_RETRIES,
+        provider_http_connect_timeout_secs: DEFAULT_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS,
+        provider_http_request_timeout_secs: DEFAULT_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS,
         ..Default::default()
     };
 
@@ -561,6 +646,12 @@ pub fn load(
     if let Some(n) = env_max_retries {
         cfg.max_retries = n;
     }
+    if let Some(n) = env_provider_http_connect_timeout_secs {
+        cfg.provider_http_connect_timeout_secs = n;
+    }
+    if let Some(n) = env_provider_http_request_timeout_secs {
+        cfg.provider_http_request_timeout_secs = n;
+    }
 
     // 5) CLI
     if let Some(n) = cli_parallel {
@@ -602,6 +693,17 @@ pub fn load(
     if let Some(n) = cli_max_retries {
         cfg.max_retries = n;
     }
+    if let Some(n) = cli_provider_http_connect_timeout_secs {
+        cfg.provider_http_connect_timeout_secs = n;
+    }
+    if let Some(n) = cli_provider_http_request_timeout_secs {
+        cfg.provider_http_request_timeout_secs = n;
+    }
+
+    validate_provider_http_timeouts(
+        cfg.provider_http_connect_timeout_secs,
+        cfg.provider_http_request_timeout_secs,
+    )?;
 
     if cfg.parallel_queries > MAX_PARALLEL_QUERIES {
         return Err(ConfigError::ParallelTooHigh {
@@ -685,6 +787,20 @@ pub fn env_backoff_max_ms() -> Option<u64> {
 /// Read VLZ_MAX_RETRIES (OP-010, CFG-005).
 pub fn env_max_retries() -> Option<u32> {
     std::env::var("VLZ_MAX_RETRIES")
+        .ok()
+        .and_then(|s| s.parse().ok())
+}
+
+/// Read `VLZ_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS` (OP-010, CFG-005).
+pub fn env_provider_http_connect_timeout_secs() -> Option<u64> {
+    std::env::var("VLZ_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+}
+
+/// Read `VLZ_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS` (OP-010, CFG-005).
+pub fn env_provider_http_request_timeout_secs() -> Option<u64> {
+    std::env::var("VLZ_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS")
         .ok()
         .and_then(|s| s.parse().ok())
 }
@@ -812,14 +928,18 @@ mod tests {
             None,
             None,
             None,
-            false,
-            false,
-            None,
-            None,
-            None,
             None,
             None,
             false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
             None,
             None,
             None,
@@ -831,11 +951,21 @@ mod tests {
         assert_eq!(cfg.cache_ttl_secs, DEFAULT_CACHE_TTL_SECS);
         assert_eq!(cfg.backoff_base_ms, DEFAULT_BACKOFF_BASE_MS);
         assert_eq!(cfg.max_retries, DEFAULT_MAX_RETRIES);
+        assert_eq!(
+            cfg.provider_http_connect_timeout_secs,
+            DEFAULT_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS
+        );
+        assert_eq!(
+            cfg.provider_http_request_timeout_secs,
+            DEFAULT_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS
+        );
     }
 
     #[test]
     fn load_parallel_too_high_fr012() {
         let r = load(
+            None,
+            None,
             None,
             None,
             None,
@@ -861,6 +991,8 @@ mod tests {
             None,
             None,
             false,
+            None,
+            None,
             None,
             None,
             None,
@@ -1024,14 +1156,18 @@ mod tests {
                 None,
                 None,
                 None,
-                false,
-                false,
-                None,
-                None,
-                None,
                 None,
                 None,
                 false,
+                false,
+                None,
+                None,
+                None,
+                None,
+                None,
+                false,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -1070,14 +1206,18 @@ mod tests {
                 None,
                 None,
                 None,
-                false,
-                false,
-                None,
-                None,
-                None,
                 None,
                 None,
                 false,
+                false,
+                None,
+                None,
+                None,
+                None,
+                None,
+                false,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -1114,14 +1254,18 @@ mod tests {
                 None,
                 None,
                 None,
-                false,
-                false,
-                None,
-                None,
-                None,
                 None,
                 None,
                 false,
+                false,
+                None,
+                None,
+                None,
+                None,
+                None,
+                false,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -1173,14 +1317,18 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
-            false,
-            false,
-            None,
-            None,
-            None,
             None,
             None,
             false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
             None,
             None,
             None,
@@ -1242,14 +1390,18 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
-            false,
-            false,
-            None,
-            None,
-            None,
             None,
             None,
             false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
             None,
             None,
             None,
@@ -1281,14 +1433,18 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
-            false,
-            false,
-            None,
-            None,
-            None,
             None,
             None,
             false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
             None,
             None,
             None,
@@ -1328,6 +1484,8 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
+            None,
+            None,
             Some(8),
             Some("/cli/cache.redb"),
             Some("/cli/ignore.redb"),
@@ -1340,6 +1498,8 @@ regex = "^req\\.txt$"
             Some(2),
             Some("myproj".to_string()),
             true,
+            None,
+            None,
             None,
             None,
             None,
@@ -1394,14 +1554,18 @@ regex = "^req\\.txt$"
                     None,
                     None,
                     None,
-                    false,
-                    false,
-                    None,
-                    None,
-                    None,
                     None,
                     None,
                     false,
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    None,
+                    None,
                     None,
                     None,
                     None,
@@ -1436,6 +1600,8 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
+            None,
+            None,
             false,
             false,
             None,
@@ -1447,6 +1613,8 @@ regex = "^req\\.txt$"
             Some(250),
             Some(15000),
             Some(6),
+            None,
+            None,
             Default::default(),
             Default::default(),
         )
@@ -1454,6 +1622,275 @@ regex = "^req\\.txt$"
         assert_eq!(cfg.backoff_base_ms, 250);
         assert_eq!(cfg.backoff_max_ms, 15000);
         assert_eq!(cfg.max_retries, 6);
+    }
+
+    #[test]
+    fn load_provider_http_from_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vlz.conf");
+        std::fs::write(
+            &path,
+            "provider_http_connect_timeout_secs = 25\nprovider_http_request_timeout_secs = 90\n",
+        )
+        .unwrap();
+        let path_str = path.to_string_lossy().into_owned();
+        let cfg = load(
+            Some(path_str.as_str()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Default::default(),
+            Default::default(),
+        )
+        .unwrap();
+        assert_eq!(cfg.provider_http_connect_timeout_secs, 25);
+        assert_eq!(cfg.provider_http_request_timeout_secs, 90);
+    }
+
+    #[test]
+    fn load_provider_http_env_overrides_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vlz.conf");
+        std::fs::write(
+            &path,
+            "provider_http_connect_timeout_secs = 10\nprovider_http_request_timeout_secs = 200\n",
+        )
+        .unwrap();
+        let path_str = path.to_string_lossy().into_owned();
+        temp_env::with_vars(
+            [
+                (
+                    "VLZ_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS",
+                    Some("44"),
+                ),
+                (
+                    "VLZ_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS",
+                    Some("300"),
+                ),
+            ],
+            || {
+                let cfg = load(
+                    Some(path_str.as_str()),
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    env_provider_http_connect_timeout_secs(),
+                    env_provider_http_request_timeout_secs(),
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    Default::default(),
+                    Default::default(),
+                )
+                .unwrap();
+                assert_eq!(cfg.provider_http_connect_timeout_secs, 44);
+                assert_eq!(cfg.provider_http_request_timeout_secs, 300);
+            },
+        );
+    }
+
+    #[test]
+    fn load_provider_http_cli_overrides_file_and_env() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vlz.conf");
+        std::fs::write(
+            &path,
+            "provider_http_connect_timeout_secs = 10\nprovider_http_request_timeout_secs = 100\n",
+        )
+        .unwrap();
+        let path_str = path.to_string_lossy().into_owned();
+        temp_env::with_vars(
+            [
+                (
+                    "VLZ_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS",
+                    Some("30"),
+                ),
+                (
+                    "VLZ_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS",
+                    Some("150"),
+                ),
+            ],
+            || {
+                let cfg = load(
+                    Some(path_str.as_str()),
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    env_provider_http_connect_timeout_secs(),
+                    env_provider_http_request_timeout_secs(),
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    None,
+                    None,
+                    None,
+                    Some(50),
+                    Some(250),
+                    Default::default(),
+                    Default::default(),
+                )
+                .unwrap();
+                assert_eq!(cfg.provider_http_connect_timeout_secs, 50);
+                assert_eq!(cfg.provider_http_request_timeout_secs, 250);
+            },
+        );
+    }
+
+    #[test]
+    fn load_provider_http_zero_connect_fails_cfg008() {
+        let r = load(
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            Some(0),
+            Some(60),
+            Default::default(),
+            Default::default(),
+        );
+        assert!(matches!(
+            r,
+            Err(ConfigError::InvalidProviderHttpTimeouts { .. })
+        ));
+    }
+
+    #[test]
+    fn load_provider_http_request_below_connect_fails_cfg008() {
+        let r = load(
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            Some(120),
+            Some(30),
+            Default::default(),
+            Default::default(),
+        );
+        assert!(matches!(
+            r,
+            Err(ConfigError::InvalidProviderHttpTimeouts { .. })
+        ));
     }
 
     #[test]
@@ -1507,14 +1944,18 @@ regex = "^req\\.txt$"
                     None,
                     None,
                     None,
-                    false,
-                    false,
-                    None,
-                    None,
-                    None,
                     None,
                     None,
                     false,
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    None,
+                    None,
                     None,
                     None,
                     None,
@@ -1558,14 +1999,18 @@ regex = "^req\\.txt$"
                     None,
                     None,
                     None,
-                    false,
-                    false,
-                    None,
-                    None,
-                    None,
                     None,
                     None,
                     false,
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    None,
+                    None,
                     None,
                     None,
                     None,
@@ -1875,14 +2320,18 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
-            false,
-            false,
-            None,
-            None,
-            None,
             None,
             None,
             false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
             None,
             None,
             None,

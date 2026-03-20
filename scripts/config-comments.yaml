@@ -84,6 +84,20 @@ max_retries:
   env: VLZ_MAX_RETRIES
   cli: "--max-retries"
 
+provider_http_connect_timeout_secs:
+  description: "CVE provider HTTPS connect timeout in seconds (default 15)"
+  type: integer
+  env: VLZ_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS
+  cli: "--provider-http-connect-timeout-secs"
+  default: "15"
+
+provider_http_request_timeout_secs:
+  description: "CVE provider HTTPS total request timeout in seconds (default 120)"
+  type: integer
+  env: VLZ_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS
+  cli: "--provider-http-request-timeout-secs"
+  default: "120"
+
 # Severity thresholds (FR-013). Per CVSS version: v2, v3, v4.
 # Each has critical_min, high_min, medium_min, low_min (float).
 severity_v2_critical_min:

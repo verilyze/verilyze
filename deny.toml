@@ -118,7 +118,7 @@ exceptions = [
 # The package spec the clarification applies to
 #crate = "ring"
 # The SPDX expression for the license requirements of the crate
-#expression = "MIT AND ISC AND OpenSSL"
+#expression = "..." # must match upstream crate LICENSE / SPDX
 # One or more files in the crate's source used as the "source of truth" for
 # the license expression. If the contents match, the clarification will be used
 # when running the license check, otherwise the clarification will be ignored
