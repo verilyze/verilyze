@@ -32,7 +32,14 @@ fn ensure_registries_for_run() {
     vlz::registry::ensure_default_manifest_finder();
     vlz::registry::ensure_default_parser();
     vlz::registry::ensure_default_resolver();
-    vlz::registry::ensure_default_cve_provider();
+    let cfg = vlz::config::EffectiveConfig {
+        provider_http_connect_timeout_secs:
+            vlz::config::DEFAULT_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS,
+        provider_http_request_timeout_secs:
+            vlz::config::DEFAULT_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS,
+        ..Default::default()
+    };
+    vlz::registry::ensure_default_cve_provider(&cfg);
     vlz::registry::ensure_default_reporter();
     vlz::registry::ensure_default_integrity_checker();
     #[cfg(feature = "redb")]

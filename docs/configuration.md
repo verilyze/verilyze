@@ -46,6 +46,9 @@ flowchart TD
 | backoff_base_ms | integer | 100 | `VLZ_BACKOFF_BASE_MS` | `--backoff-base` |
 | backoff_max_ms | integer | 30000 | `VLZ_BACKOFF_MAX_MS` | `--backoff-max` |
 | max_retries | integer | 5 | `VLZ_MAX_RETRIES` | `--max-retries` |
+| provider_http_connect_timeout_secs | integer | 15 | `VLZ_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS` | `--provider-http-connect-timeout-secs` |
+| provider_http_request_timeout_secs | integer | 120 | `VLZ_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS` | `--provider-http-request-timeout-secs` |
+| tls_crl_bundle | string |  | `VLZ_TLS_CRL_BUNDLE` | `--tls-crl-bundle` |
 
 ## Severity thresholds (FR-013)
 

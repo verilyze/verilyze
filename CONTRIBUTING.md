@@ -99,6 +99,7 @@ graph TD
 | GNU Make (4.0+)  | Build orchestration                        | OS package manager            |
 | Git              | Contributing, hooks, fuzz change detection | OS package manager            |
 | GnuPG 2.x or SSH key | Commit signing (GPG or SSH; required) | OS package manager / `ssh-keygen` |
+| cargo-deny           | `make deny-check` / `make check` (NFR-009, SEC-012) | `cargo install cargo-deny --locked --version 0.18.6` (same pin as `.github/workflows/ci.yml`) |
 
 **Recommended**
 
@@ -135,6 +136,7 @@ cargo-llvm-cov, and nightly are auto-installed; AFL++ required only when
 | Format Rust code      | `make fmt`                                         |
 | Verify Rust format    | `make fmt-check`                                   |
 | Run Clippy lints      | `make clippy`                                      |
+| Dependency policy     | `make deny-check` (`cargo deny check`)             |
 | Coverage (with fuzz)  | `make coverage`                                    |
 | Coverage (skip fuzz)  | `make coverage-quick`                              |
 | Fuzz smoke test       | `make fuzz`                                        |
@@ -514,6 +516,10 @@ Build for **Docker** (runtime only, no completions; smaller image):
 cargo build --release --no-default-features --features docker
 ```
 
+`make docker` sends the repository root as the build context. The root
+`.dockerignore` excludes `target/`, `.git/`, and other local artifacts so the
+context stays small (large contexts can fail or slow the build).
+
 Build with NVD CVE provider in addition to defaults:
 
 ```sh
@@ -594,8 +600,9 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
 ## Code style and checks
 
 - Run `make check` before submitting to verify headers, build, tests
-  (`coverage-quick`), fuzz-changed (when relevant), and linters (fmt-check,
-  clippy, lint-python, lint-shell). Use `make -j check` for faster runs
+  (`coverage-quick`), fuzz-changed (when relevant), dependency policy
+  (`deny-check`, `cargo deny check`), and linters (fmt-check, clippy,
+  lint-python, lint-shell). Use `make -j check` for faster runs
   (parallel execution).
 - Follow the [Rust Style Guide](https://doc.rust-lang.org/beta/style-guide/index.html).
 - The codebase uses `#![deny(unsafe_code)]`.
@@ -701,6 +708,12 @@ trigger an LLVM llvm-cov crash (SIGSEGV) when the report includes the
 proc-macro crate. Until that toolchain bug is resolved, coverage reports show
 line, function, and region metrics; branch threshold (70%) remains the target
 when branch coverage is re-enabled.
+
+**Linker:** `./scripts/coverage.sh` uses the default Rust linker (usually LLD).
+If the coverage link step fails with LLD (e.g. invalid symbol index with
+`instrument-coverage`), set **`VLZ_COVERAGE_USE_BFD=1`** to append
+`-fuse-ld=bfd` on Linux when `ld.bfd` is available. Do not enable this if GNU
+`ld.bfd` crashes (e.g. bus error); in that case stay on the default linker.
 
 ### Script testing (NFR-021)
 

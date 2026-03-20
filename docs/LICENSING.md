@@ -16,6 +16,14 @@ the LICENSE TEXTS section. Every dependency is listed in the COMPONENTS
 section with its license expression. Deduplication avoids repeating the same
 license text many times.
 
+## cargo-deny allow list vs GPL compatibility
+
+`deny.toml` `[licenses] allow` and per-crate **exceptions** mean **automated
+`cargo deny check licenses`** accepts the dependency’s declared SPDX here. That
+is **not** a legal conclusion that combining that dependency with
+**GPL-3.0-or-later** code is always permissible. Use organizational legal review
+where it matters, as noted in **SECURITY.md**.
+
 ## Single source of truth: deny.toml
 
 The project uses `deny.toml` as the canonical source for allowed licenses.

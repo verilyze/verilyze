@@ -24,6 +24,58 @@ Please include:
 
 We will acknowledge receipt and work with you on a fix and disclosure timeline.
 
+## TLS and HTTPS (CVE providers)
+
+Outbound HTTPS to CVE data sources (OSV, NVD, GitHub Advisory, Sonatype OSS Index)
+uses **reqwest** with **rustls** (via hyper-rustls). Trust anchors follow the
+**webpki** / Mozilla root program style (bundled root store, e.g. webpki-root-certs
+class crates). The **ring** crate supplies rustls **cryptographic primitives** only;
+**rustls** implements the TLS **protocol**. This is not the same as shipping
+**BoringSSL** or **OpenSSL** as the application TLS stack; **OpenSSL is not linked**
+into the default binary, which supports static musl builds (FR-025).
+
+- **Protocol:** CVE provider HTTP clients set **minimum and maximum TLS to 1.3**
+  (`reqwest` `tls_version_min` / `tls_version_max`). Only TLS 1.3 is offered in the
+  handshake. Upstream crates may still compile TLS 1.2 code paths for the rustls
+  stack; those paths are not used for these connections. If an enterprise TLS
+  inspection proxy or path supports **only TLS 1.2**, HTTPS fetches may fail until
+  the path supports TLS 1.3 or the policy is changed deliberately in code.
+- **Cipher suites (TLS 1.3):** The process default **rustls** `CryptoProvider` limits
+  client-offered suites to **`TLS_AES_256_GCM_SHA384`** and
+  **`TLS_AES_128_GCM_SHA256`** (NIST SP 800-52 Rev. 2 §3.3.1.2). **`TLS_CHACHA20_POLY1305_SHA256`**
+  is **not** offered. **CCM** suites from that NIST subsection are not enabled in this
+  **ring** configuration (not implemented in the default rustls *ring* provider set
+  used here). This is **not** a FIPS 140 validation claim; see below.
+- **Verification:** Server certificates and hostnames are **always validated**. There
+  is **no** CLI switch to disable TLS verification (SEC-002, NFR-004, OP-010).
+- **Revocation (SEC-021):** **Windows** and **macOS** use **rustls-platform-verifier**, which
+  delegates trust and revocation checks to the OS where applicable. **Linux** uses a **webpki**
+  verifier path by default **without** automatic CRL fetching from issuer CDP URLs in this
+  release. Operators who need CRL enforcement on Linux MAY set **tls_crl_bundle** (TOML),
+  **VLZ_TLS_CRL_BUNDLE**, or **--tls-crl-bundle** to a PEM file of CRLs; the client then builds
+  trust from the **OS PEM trust store** (`rustls-native-certs`) and checks the supplied CRLs
+  with **rustls** / **webpki** (`reqwest` `tls_certs_only` + `tls_crls_only`). This is **not**
+  a substitute for organizational PKI policy: CRLs MUST cover issuing CAs for every CVE
+  provider endpoint you use, MUST be kept **fresh**, and stale CRLs cause false positives
+  (valid servers rejected). **Non-goals for phase 1:** automatic fetch of CDP or OCSP URIs,
+  caching policies for fetched revocation objects, and uniform cross-OS behavior when the
+  Linux CRL path is enabled (other platforms still ignore the CRL file and use the platform
+  verifier).
+- **Timeouts:** CVE provider HTTP clients use connect and total request timeouts
+  (defaults in `vlz-cve-client` as `DEFAULT_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS`
+  and `DEFAULT_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS`) to limit hung connections and
+  slow responses. Users can tune them via config file keys
+  **provider_http_connect_timeout_secs** / **provider_http_request_timeout_secs**,
+  env **VLZ_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS** /
+  **VLZ_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS**, and scan-only flags
+  **--provider-http-connect-timeout-secs** /
+  **--provider-http-request-timeout-secs** (OP-010, CFG-005, CFG-006).
+- **Licensing and dependency policy:** Third-party licenses must remain compatible
+  with **GPL-3.0-or-later**; CI runs `make check-fast`, which includes
+  `cargo deny check` via `deny-check` (NFR-009, SEC-012). See
+  [docs/LICENSING.md](docs/LICENSING.md).
+  **TLS crypto** for CVE providers is **rustls** with the ***ring* crypto provider** only.
+
 ## Optional provider credentials
 
 GitHub Advisory and Sonatype OSS Index CVE providers support optional or

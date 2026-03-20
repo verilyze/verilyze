@@ -39,6 +39,16 @@
 # Maximum retries for transient errors
 # max_retries = 5
 
+# CVE provider HTTPS connect timeout in seconds (default 15)
+# provider_http_connect_timeout_secs = 15
+
+# CVE provider HTTPS total request timeout in seconds (default 120)
+# provider_http_request_timeout_secs = 120
+
+# Optional PEM CRL bundle path for Linux CVE provider TLS (SEC-021); empty
+# disables
+# tls_crl_bundle = 
+
 #
 # [severity.v2], [severity.v3], [severity.v4] (CVSS thresholds)
 # [severity.v2]

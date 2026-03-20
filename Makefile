@@ -15,6 +15,8 @@ LINT_PYTHON_SCRIPT := $(SCRIPTS_DIR)/lint-python.sh
 VENV_LINT := $(MKFILE_DIR)/.venv-lint
 VENV_REUSE := $(MKFILE_DIR)/.venv-reuse
 VENV_TEST := $(MKFILE_DIR)/.venv-test
+# Override for CI or a pinned binary (NFR-009, SEC-012).
+CARGO_DENY ?= cargo deny
 
 .PHONY: help all debug release
 .PHONY: setup setup-hooks check check-fast check-slow check-dco check-signatures
@@ -27,7 +29,7 @@ VENV_TEST := $(MKFILE_DIR)/.venv-test
 .PHONY: generate-config-example check-config-docs
 .PHONY: generate-completions completions completions-release check-completions
 .PHONY: generate-packaging check-packaging
-.PHONY: sync-license-config check-license-config
+.PHONY: sync-license-config check-license-config deny-check
 .PHONY: generate-third-party-licenses generate-third-party-licenses-docker
 .PHONY: check-third-party-licenses
 .PHONY: deb rpm aur apk docker
@@ -49,9 +51,9 @@ help:
 	@echo "    make unit-tests  - Run cargo test + script tests"
 	@echo ""
 	@echo "  Full CI check:"
-	@echo "    make check       - Headers, build, fmt, clippy, fuzz-changed, coverage-quick, lint"
+	@echo "    make check       - Headers, build, fmt, clippy, cargo-deny, fuzz-changed, coverage-quick, lint"
 	@echo "    make -j check    - Same, faster (runs independent targets in parallel)"
-	@echo "    make check-fast  - Headers, build, fmt, clippy, lint only (~2-4 min)"
+	@echo "    make check-fast  - Headers, build, fmt, clippy, cargo-deny, lint only (~2-4 min)"
 	@echo "    make check-slow  - Fuzz-changed + coverage-quick only (~5-10+ min)"
 	@echo "    make check-dco   - Verify commits have DCO signoff (before push)"
 	@echo "    make check-signatures - Verify commits are signed (before push)"
@@ -70,6 +72,7 @@ help:
 	@echo "    make check-packaging     - Verify packaging versions are in sync"
 	@echo "    make sync-license-config - Sync deny.toml [licenses] allow to about.toml accepted"
 	@echo "    make check-license-config - Verify about.toml accepted matches deny.toml"
+	@echo "    make deny-check       - cargo deny check (licenses, advisories, bans, sources)"
 	@echo "    make generate-third-party-licenses - Generate THIRD-PARTY-LICENSES for packaging"
 	@echo "    make check-third-party-licenses - Verify THIRD-PARTY-LICENSES is up to date"
 	@echo "    make fmt-check      - Verify Rust formatting (cargo fmt --check)"
@@ -264,6 +267,10 @@ sync-license-config:
 check-license-config:
 	cd "$(MKFILE_DIR)" && python3 $(SCRIPTS_DIR)/sync_license_config.py --check
 
+# deny-check: dependency policy via deny.toml (NFR-009, SEC-012).
+deny-check:
+	cd "$(MKFILE_DIR)" && $(CARGO_DENY) check
+
 # generate-third-party-licenses: Produce THIRD-PARTY-LICENSES for Docker and packages.
 # Syncs license config first, then runs cargo-about.
 # Uses cargo-about (cargo install cargo-about). For Docker build use --no-default-features
@@ -293,7 +300,7 @@ check-signatures:
 	@cd "$(MKFILE_DIR)" && ./scripts/check-signatures.sh
 
 # ---- Check (full CI gate) ----
-# check-fast: headers, build, fmt, clippy, lint (no coverage/fuzz; ~2-4 min)
+# check-fast: headers, build, fmt, clippy, cargo-deny, lint (no coverage/fuzz; ~2-4 min)
 check-fast: setup \
             check-headers \
             check-doc-diagrams \
@@ -301,6 +308,7 @@ check-fast: setup \
             check-packaging \
             check-completions \
             check-license-config \
+            deny-check \
             cargo-check fmt-check \
             clippy \
             lint-python \
@@ -317,6 +325,7 @@ check: setup \
        check-packaging \
        check-completions \
        check-license-config \
+       deny-check \
        check-third-party-licenses \
        cargo-check \
        fmt-check \

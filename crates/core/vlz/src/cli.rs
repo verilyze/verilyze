@@ -125,6 +125,18 @@ pub enum Commands {
         #[arg(long, value_name = "N")]
         max_retries: Option<u32>,
 
+        /// CVE provider HTTPS connect timeout in seconds (default 15)
+        #[arg(long, value_name = "SECS")]
+        provider_http_connect_timeout_secs: Option<u64>,
+
+        /// CVE provider HTTPS total request timeout in seconds (default 120)
+        #[arg(long, value_name = "SECS")]
+        provider_http_request_timeout_secs: Option<u64>,
+
+        /// PEM file of CRLs for optional Linux TLS certificate revocation (SEC-021)
+        #[arg(long, value_name = "PATH")]
+        tls_crl_bundle: Option<String>,
+
         // FR-013: per-CVSS-version severity threshold overrides
         /// CVSS v2 critical severity minimum score (default 9.0)
         #[arg(long, value_name = "SCORE")]
@@ -356,6 +368,36 @@ mod tests {
         assert_eq!(*backoff_base, Some(200));
         assert_eq!(*backoff_max, Some(10000));
         assert_eq!(*max_retries, Some(3));
+    }
+
+    #[test]
+    fn parse_scan_provider_http_timeouts() {
+        let cli = parse(&[
+            "scan",
+            "--provider-http-connect-timeout-secs",
+            "30",
+            "--provider-http-request-timeout-secs",
+            "240",
+        ]);
+        let Commands::Scan {
+            provider_http_connect_timeout_secs,
+            provider_http_request_timeout_secs,
+            ..
+        } = &cli.cmd
+        else {
+            panic!("expected scan")
+        };
+        assert_eq!(*provider_http_connect_timeout_secs, Some(30));
+        assert_eq!(*provider_http_request_timeout_secs, Some(240));
+    }
+
+    #[test]
+    fn parse_scan_tls_crl_bundle() {
+        let cli = parse(&["scan", "--tls-crl-bundle", "/etc/pki/ca-crl.pem"]);
+        let Commands::Scan { tls_crl_bundle, .. } = &cli.cmd else {
+            panic!("expected scan")
+        };
+        assert_eq!(tls_crl_bundle.as_deref(), Some("/etc/pki/ca-crl.pem"));
     }
 
     #[test]

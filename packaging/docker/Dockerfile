@@ -4,6 +4,7 @@
 
 # Multi-stage build: static musl binary -> scratch image (FR-025, OP-013).
 # Usage: docker build -f packaging/docker/Dockerfile -t verilyze .
+# Context must stay small: root `.dockerignore` excludes `target/` and `.git/`.
 
 # --- Stage 1: Build ---
 FROM rust:slim AS builder

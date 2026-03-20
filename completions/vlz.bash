@@ -459,7 +459,7 @@ _vlz() {
             return 0
             ;;
         vlz__scan)
-            opts="-c -h --format --summary-file --provider --parallel --cache-db --ignore-db --cache-ttl-secs --offline --benchmark --min-score --min-count --exit-code-on-cve --fp-exit-code --project-id --package-manager-required --backoff-base --backoff-max --max-retries --severity-v2-critical-min --severity-v2-high-min --severity-v2-medium-min --severity-v2-low-min --severity-v3-critical-min --severity-v3-high-min --severity-v3-medium-min --severity-v3-low-min --severity-v4-critical-min --severity-v4-high-min --severity-v4-medium-min --severity-v4-low-min --config --help [PATH]"
+            opts="-c -h --format --summary-file --provider --parallel --cache-db --ignore-db --cache-ttl-secs --offline --benchmark --min-score --min-count --exit-code-on-cve --fp-exit-code --project-id --package-manager-required --backoff-base --backoff-max --max-retries --provider-http-connect-timeout-secs --provider-http-request-timeout-secs --tls-crl-bundle --severity-v2-critical-min --severity-v2-high-min --severity-v2-medium-min --severity-v2-low-min --severity-v3-critical-min --severity-v3-high-min --severity-v3-medium-min --severity-v3-low-min --severity-v4-critical-min --severity-v4-high-min --severity-v4-medium-min --severity-v4-low-min --config --help [PATH]"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -522,6 +522,18 @@ _vlz() {
                     return 0
                     ;;
                 --max-retries)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --provider-http-connect-timeout-secs)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --provider-http-request-timeout-secs)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --tls-crl-bundle)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

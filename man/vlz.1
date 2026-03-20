@@ -77,6 +77,10 @@ Base delay in ms for retry backoff (default: 100).
 Maximum delay in ms for retry backoff (default: 30000).
 .It Fl -max-retries Ar N
 Maximum retries for transient errors (default: 5).
+.It Fl -provider-http-connect-timeout-secs Ar secs
+CVE provider HTTPS connect timeout in seconds (default: 15).
+.It Fl -provider-http-request-timeout-secs Ar secs
+CVE provider HTTPS total request timeout in seconds (default: 120).
 .It Fl -severity-v2-critical-min Ar score
 .It Fl -severity-v2-high-min Ar score
 .It Fl -severity-v2-medium-min Ar score
@@ -205,6 +209,10 @@ Base delay in ms for retry backoff.
 Maximum delay in ms for retry backoff.
 .It Ev VLZ_MAX_RETRIES
 Maximum retries for transient errors.
+.It Ev VLZ_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS
+CVE provider HTTPS connect timeout in seconds.
+.It Ev VLZ_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS
+CVE provider HTTPS total request timeout in seconds.
 .It Ev GITHUB_TOKEN
 .It Ev VLZ_GITHUB_TOKEN
 Optional; higher rate limits for GitHub Advisory provider.
