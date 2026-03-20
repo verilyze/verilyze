@@ -70,8 +70,10 @@ into the default binary, which supports static musl builds (FR-025).
   **VLZ_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS**, and scan-only flags
   **--provider-http-connect-timeout-secs** /
   **--provider-http-request-timeout-secs** (OP-010, CFG-005, CFG-006).
-- **Licensing:** Third-party licenses must remain compatible with **GPL-3.0-or-later**;
-  CI runs `cargo deny check licenses` (SEC-012). See [docs/LICENSING.md](docs/LICENSING.md).
+- **Licensing and dependency policy:** Third-party licenses must remain compatible
+  with **GPL-3.0-or-later**; CI runs `make check-fast`, which includes
+  `cargo deny check` via `deny-check` (NFR-009, SEC-012). See
+  [docs/LICENSING.md](docs/LICENSING.md).
   **TLS crypto** for CVE providers is **rustls** with the ***ring* crypto provider** only.
 
 ## Optional provider credentials

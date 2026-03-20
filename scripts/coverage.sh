@@ -32,9 +32,14 @@ mkdir -p reports/rust
 # shellcheck source=/dev/null
 source <(cargo +nightly llvm-cov show-env --sh)
 
-# Workaround: rust-lld has known issues with instrument-coverage (e.g. "invalid symbol index").
-# Use GNU ld (bfd) on Linux when available. See rust-lang/rust#79555, rust-lang/rust#128938.
-if [[ "$(uname -s)" == "Linux" ]] && command -v ld.bfd &>/dev/null; then
+# Optional: GNU ld (bfd) for instrument-coverage when rust-lld fails (e.g. invalid
+# symbol index; rust-lang/rust#79555, rust-lang/rust#128938). Off by default: rustc
+# already passes -fuse-ld=lld; adding bfd as well can confuse the linker or trigger
+# bfd crashes (e.g. collect2 bus error) on some Linux toolchains.
+# Set VLZ_COVERAGE_USE_BFD=1 if your coverage build fails with lld.
+if [[ "${VLZ_COVERAGE_USE_BFD:-}" == "1" ]] \
+  && [[ "$(uname -s)" == "Linux" ]] \
+  && command -v ld.bfd &>/dev/null; then
   export RUSTFLAGS="${RUSTFLAGS} -C link-arg=-fuse-ld=bfd"
 fi
 

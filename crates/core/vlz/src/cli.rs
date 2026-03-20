@@ -393,22 +393,11 @@ mod tests {
 
     #[test]
     fn parse_scan_tls_crl_bundle() {
-        let cli = parse(&[
-            "scan",
-            "--tls-crl-bundle",
-            "/etc/pki/ca-crl.pem",
-        ]);
-        let Commands::Scan {
-            tls_crl_bundle,
-            ..
-        } = &cli.cmd
-        else {
+        let cli = parse(&["scan", "--tls-crl-bundle", "/etc/pki/ca-crl.pem"]);
+        let Commands::Scan { tls_crl_bundle, .. } = &cli.cmd else {
             panic!("expected scan")
         };
-        assert_eq!(
-            tls_crl_bundle.as_deref(),
-            Some("/etc/pki/ca-crl.pem")
-        );
+        assert_eq!(tls_crl_bundle.as_deref(), Some("/etc/pki/ca-crl.pem"));
     }
 
     #[test]
