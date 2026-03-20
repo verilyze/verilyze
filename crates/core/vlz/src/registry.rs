@@ -4,7 +4,7 @@
 
 use std::sync::{Mutex, OnceLock};
 
-use vlz_cve_client::{CveProvider, OsvProvider, OSV_QUERY_URL};
+use vlz_cve_client::{CveProvider, OSV_QUERY_URL, OsvProvider};
 use vlz_db::DatabaseBackend;
 use vlz_integrity::{BackendDelegatingChecker, IntegrityChecker};
 use vlz_manifest_finder::ManifestFinder;
@@ -163,9 +163,10 @@ pub fn ensure_default_cve_provider(cfg: &crate::config::EffectiveConfig) {
     let mut providers = providers().lock().unwrap();
     let c = cfg.provider_http_connect_timeout_secs;
     let r = cfg.provider_http_request_timeout_secs;
+    let crl = cfg.tls_crl_bundle.as_deref();
     if providers.is_empty() {
         providers.push(Box::new(
-            OsvProvider::with_base_url_timeouts(OSV_QUERY_URL, c, r)
+            OsvProvider::with_base_url_timeouts(OSV_QUERY_URL, c, r, crl)
                 .expect("OsvProvider HTTP client"),
         ));
     }
@@ -178,6 +179,7 @@ pub fn ensure_default_cve_provider(cfg: &crate::config::EffectiveConfig) {
                     vlz_cve_provider_nvd::NVD_DEFAULT_BASE_URL,
                     c,
                     r,
+                    crl,
                 )
                 .expect("NvdProvider HTTP client"),
             ));
@@ -192,6 +194,7 @@ pub fn ensure_default_cve_provider(cfg: &crate::config::EffectiveConfig) {
                     vlz_cve_provider_github::GITHUB_DEFAULT_ADVISORIES_URL,
                     c,
                     r,
+                    crl,
                 )
                 .expect("GitHubProvider HTTP client"),
             ));
@@ -206,6 +209,7 @@ pub fn ensure_default_cve_provider(cfg: &crate::config::EffectiveConfig) {
                     vlz_cve_provider_sonatype::OSSINDEX_DEFAULT_BASE_URL,
                     c,
                     r,
+                    crl,
                 )
                 .expect("SonatypeProvider HTTP client"),
             ));
@@ -432,11 +436,13 @@ mod tests {
         }
 
         clear_providers();
-        let mut cve_cfg = crate::config::EffectiveConfig::default();
-        cve_cfg.provider_http_connect_timeout_secs =
-            vlz_cve_client::DEFAULT_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS;
-        cve_cfg.provider_http_request_timeout_secs =
-            vlz_cve_client::DEFAULT_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS;
+        let cve_cfg = crate::config::EffectiveConfig {
+            provider_http_connect_timeout_secs:
+                vlz_cve_client::DEFAULT_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS,
+            provider_http_request_timeout_secs:
+                vlz_cve_client::DEFAULT_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS,
+            ..Default::default()
+        };
         ensure_default_cve_provider(&cve_cfg);
         let expected_providers = 1
             + if cfg!(feature = "nvd") { 1 } else { 0 }

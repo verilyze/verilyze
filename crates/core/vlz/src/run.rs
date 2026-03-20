@@ -202,18 +202,23 @@ pub async fn run(args: Cli) -> Result<i32> {
             _ => (None, None, None, None),
         };
 
-    let (cli_provider_http_connect_timeout_secs, cli_provider_http_request_timeout_secs) =
-        match &args.cmd {
-            Commands::Scan {
-                provider_http_connect_timeout_secs,
-                provider_http_request_timeout_secs,
-                ..
-            } => (
-                *provider_http_connect_timeout_secs,
-                *provider_http_request_timeout_secs,
-            ),
-            _ => (None, None),
-        };
+    let (
+        cli_provider_http_connect_timeout_secs,
+        cli_provider_http_request_timeout_secs,
+        cli_tls_crl_bundle,
+    ) = match &args.cmd {
+        Commands::Scan {
+            provider_http_connect_timeout_secs,
+            provider_http_request_timeout_secs,
+            tls_crl_bundle,
+            ..
+        } => (
+            *provider_http_connect_timeout_secs,
+            *provider_http_request_timeout_secs,
+            tls_crl_bundle.clone(),
+        ),
+        _ => (None, None, None),
+    };
 
     // Load config from files + env + CLI for DB paths and TTL.
     let early_cfg = crate::config::load(
@@ -232,6 +237,7 @@ pub async fn run(args: Cli) -> Result<i32> {
         crate::config::env_max_retries(),
         crate::config::env_provider_http_connect_timeout_secs(),
         crate::config::env_provider_http_request_timeout_secs(),
+        crate::config::env_tls_crl_bundle(),
         None,
         cli_cache_db.as_deref(),
         cli_ignore_db.as_deref(),
@@ -249,6 +255,7 @@ pub async fn run(args: Cli) -> Result<i32> {
         None,
         cli_provider_http_connect_timeout_secs,
         cli_provider_http_request_timeout_secs,
+        cli_tls_crl_bundle,
         crate::config::env_severity_overrides(),
         crate::config::SeverityOverrides::default(),
     )
@@ -338,6 +345,7 @@ pub async fn run(args: Cli) -> Result<i32> {
             max_retries: cli_max_retries,
             provider_http_connect_timeout_secs: cli_provider_http_connect_scan,
             provider_http_request_timeout_secs: cli_provider_http_request_scan,
+            tls_crl_bundle: cli_tls_crl_bundle_scan,
             severity_v2_critical_min,
             severity_v2_high_min,
             severity_v2_medium_min,
@@ -381,6 +389,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                 crate::config::env_max_retries(),
                 crate::config::env_provider_http_connect_timeout_secs(),
                 crate::config::env_provider_http_request_timeout_secs(),
+                crate::config::env_tls_crl_bundle(),
                 cli_parallel,
                 cli_cache_db.as_deref(),
                 cli_ignore_db.as_deref(),
@@ -398,6 +407,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                 cli_max_retries,
                 cli_provider_http_connect_scan,
                 cli_provider_http_request_scan,
+                cli_tls_crl_bundle_scan,
                 crate::config::env_severity_overrides(),
                 cli_severity,
             )
@@ -452,6 +462,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                     crate::config::env_max_retries(),
                     crate::config::env_provider_http_connect_timeout_secs(),
                     crate::config::env_provider_http_request_timeout_secs(),
+                    crate::config::env_tls_crl_bundle(),
                     None,
                     None,
                     None,
@@ -464,6 +475,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                     None,
                     None,
                     false,
+                    None,
                     None,
                     None,
                     None,
@@ -514,6 +526,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                     crate::config::env_max_retries(),
                     crate::config::env_provider_http_connect_timeout_secs(),
                     crate::config::env_provider_http_request_timeout_secs(),
+                    crate::config::env_tls_crl_bundle(),
                     None,
                     None,
                     None,
@@ -526,6 +539,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                     None,
                     None,
                     false,
+                    None,
                     None,
                     None,
                     None,
@@ -593,6 +607,12 @@ pub async fn run(args: Cli) -> Result<i32> {
                     "provider_http_request_timeout_secs = {}\n",
                     cfg.provider_http_request_timeout_secs
                 ));
+                let tls_crl = cfg
+                    .tls_crl_bundle
+                    .as_ref()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_default();
+                write_stdout(&format!("tls_crl_bundle = {}\n", tls_crl));
                 write_stdout(&format!(
                     "severity_v2_critical_min = {}\n",
                     cfg.severity.v2.critical_min

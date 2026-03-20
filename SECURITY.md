@@ -48,6 +48,19 @@ into the default binary, which supports static musl builds (FR-025).
   used here). This is **not** a FIPS 140 validation claim; see below.
 - **Verification:** Server certificates and hostnames are **always validated**. There
   is **no** CLI switch to disable TLS verification (SEC-002, NFR-004, OP-010).
+- **Revocation (SEC-021):** **Windows** and **macOS** use **rustls-platform-verifier**, which
+  delegates trust and revocation checks to the OS where applicable. **Linux** uses a **webpki**
+  verifier path by default **without** automatic CRL fetching from issuer CDP URLs in this
+  release. Operators who need CRL enforcement on Linux MAY set **tls_crl_bundle** (TOML),
+  **VLZ_TLS_CRL_BUNDLE**, or **--tls-crl-bundle** to a PEM file of CRLs; the client then builds
+  trust from the **OS PEM trust store** (`rustls-native-certs`) and checks the supplied CRLs
+  with **rustls** / **webpki** (`reqwest` `tls_certs_only` + `tls_crls_only`). This is **not**
+  a substitute for organizational PKI policy: CRLs MUST cover issuing CAs for every CVE
+  provider endpoint you use, MUST be kept **fresh**, and stale CRLs cause false positives
+  (valid servers rejected). **Non-goals for phase 1:** automatic fetch of CDP or OCSP URIs,
+  caching policies for fetched revocation objects, and uniform cross-OS behavior when the
+  Linux CRL path is enabled (other platforms still ignore the CRL file and use the platform
+  verifier).
 - **Timeouts:** CVE provider HTTP clients use connect and total request timeouts
   (defaults in `vlz-cve-client` as `DEFAULT_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS`
   and `DEFAULT_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS`) to limit hung connections and

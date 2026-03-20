@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use thiserror::Error;
@@ -99,6 +100,8 @@ pub struct EffectiveConfig {
     pub provider_http_connect_timeout_secs: u64,
     /// CVE provider HTTPS total request timeout in seconds (OP-010).
     pub provider_http_request_timeout_secs: u64,
+    /// PEM file of CRLs for Linux TLS revocation checking (SEC-021); `None` = default verifier.
+    pub tls_crl_bundle: Option<PathBuf>,
     pub config_file: Option<PathBuf>,
     /// Configurable CVSS severity thresholds per version (FR-013).
     pub severity: vlz_report::SeverityConfig,
@@ -125,6 +128,7 @@ impl Default for EffectiveConfig {
             max_retries: 0,
             provider_http_connect_timeout_secs: 0,
             provider_http_request_timeout_secs: 0,
+            tls_crl_bundle: None,
             config_file: None,
             severity: vlz_report::SeverityConfig::default(),
         }
@@ -163,6 +167,8 @@ struct FileConfig {
     provider_http_connect_timeout_secs: Option<u64>,
     #[serde(rename = "provider_http_request_timeout_secs")]
     provider_http_request_timeout_secs: Option<u64>,
+    #[serde(rename = "tls_crl_bundle")]
+    tls_crl_bundle: Option<String>,
 }
 
 #[derive(Error, Debug)]
@@ -182,6 +188,9 @@ pub enum ConfigError {
 
     #[error("Invalid CVE provider HTTP timeouts: {message}")]
     InvalidProviderHttpTimeouts { message: String },
+
+    #[error("Invalid TLS CRL bundle path: {message}")]
+    InvalidTlsCrlBundle { message: String },
 
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
@@ -203,6 +212,7 @@ const KNOWN_FILE_CONFIG_KEYS: &[&str] = &[
     "max_retries",
     "provider_http_connect_timeout_secs",
     "provider_http_request_timeout_secs",
+    "tls_crl_bundle",
 ];
 
 /// Parse and validate raw TOML config content (SEC-006). Used for fuzzing (NFR-020).
@@ -288,6 +298,9 @@ fn apply_file_config_inner(
     }
     if let Some(n) = parsed.provider_http_request_timeout_secs {
         cfg.provider_http_request_timeout_secs = n;
+    }
+    if let Some(p) = parsed.tls_crl_bundle {
+        cfg.tls_crl_bundle = Some(PathBuf::from(p));
     }
     if extract_language_regexes {
         cfg.language_regexes.clear();
@@ -535,6 +548,33 @@ fn validate_provider_http_timeouts(
     Ok(())
 }
 
+fn validate_tls_crl_bundle_readable(path: &Path) -> Result<(), ConfigError> {
+    let meta =
+        std::fs::metadata(path).map_err(|e| ConfigError::InvalidTlsCrlBundle {
+            message: format!("{}: {}", user_relative_path(path), e),
+        })?;
+    if !meta.is_file() {
+        return Err(ConfigError::InvalidTlsCrlBundle {
+            message: format!(
+                "{} is not a regular file",
+                user_relative_path(path)
+            ),
+        });
+    }
+    let mut f = std::fs::File::open(path).map_err(|e| {
+        ConfigError::InvalidTlsCrlBundle {
+            message: format!("{}: {}", user_relative_path(path), e),
+        }
+    })?;
+    let mut buf = [0_u8; 1];
+    f.read_exact(&mut buf).map_err(|e| {
+        ConfigError::InvalidTlsCrlBundle {
+            message: format!("{}: {}", user_relative_path(path), e),
+        }
+    })?;
+    Ok(())
+}
+
 /// Build effective config: defaults, then system file, user file, -c file, env, CLI.
 /// Validates parallel_queries <= MAX_PARALLEL_QUERIES (FR-012).
 #[allow(clippy::too_many_arguments)]
@@ -554,6 +594,7 @@ pub fn load(
     env_max_retries: Option<u32>,
     env_provider_http_connect_timeout_secs: Option<u64>,
     env_provider_http_request_timeout_secs: Option<u64>,
+    env_tls_crl_bundle: Option<PathBuf>,
     cli_parallel: Option<usize>,
     cli_cache_db: Option<&str>,
     cli_ignore_db: Option<&str>,
@@ -571,6 +612,7 @@ pub fn load(
     cli_max_retries: Option<u32>,
     cli_provider_http_connect_timeout_secs: Option<u64>,
     cli_provider_http_request_timeout_secs: Option<u64>,
+    cli_tls_crl_bundle: Option<String>,
     // FR-013, CFG-005: severity threshold overrides from environment variables.
     env_severity: SeverityOverrides,
     // FR-013, CFG-006: severity threshold overrides from CLI flags; takes precedence over env.
@@ -582,8 +624,10 @@ pub fn load(
         backoff_base_ms: DEFAULT_BACKOFF_BASE_MS,
         backoff_max_ms: DEFAULT_BACKOFF_MAX_MS,
         max_retries: DEFAULT_MAX_RETRIES,
-        provider_http_connect_timeout_secs: DEFAULT_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS,
-        provider_http_request_timeout_secs: DEFAULT_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS,
+        provider_http_connect_timeout_secs:
+            DEFAULT_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS,
+        provider_http_request_timeout_secs:
+            DEFAULT_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS,
         ..Default::default()
     };
 
@@ -652,6 +696,9 @@ pub fn load(
     if let Some(n) = env_provider_http_request_timeout_secs {
         cfg.provider_http_request_timeout_secs = n;
     }
+    if let Some(p) = env_tls_crl_bundle {
+        cfg.tls_crl_bundle = Some(p);
+    }
 
     // 5) CLI
     if let Some(n) = cli_parallel {
@@ -699,11 +746,18 @@ pub fn load(
     if let Some(n) = cli_provider_http_request_timeout_secs {
         cfg.provider_http_request_timeout_secs = n;
     }
+    if let Some(p) = cli_tls_crl_bundle {
+        cfg.tls_crl_bundle = Some(PathBuf::from(p));
+    }
 
     validate_provider_http_timeouts(
         cfg.provider_http_connect_timeout_secs,
         cfg.provider_http_request_timeout_secs,
     )?;
+
+    if let Some(ref p) = cfg.tls_crl_bundle {
+        validate_tls_crl_bundle_readable(p)?;
+    }
 
     if cfg.parallel_queries > MAX_PARALLEL_QUERIES {
         return Err(ConfigError::ParallelTooHigh {
@@ -803,6 +857,11 @@ pub fn env_provider_http_request_timeout_secs() -> Option<u64> {
     std::env::var("VLZ_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS")
         .ok()
         .and_then(|s| s.parse().ok())
+}
+
+/// Read `VLZ_TLS_CRL_BUNDLE` (SEC-021, CFG-005): PEM CRL bundle path (Linux only).
+pub fn env_tls_crl_bundle() -> Option<PathBuf> {
+    std::env::var_os("VLZ_TLS_CRL_BUNDLE").map(PathBuf::from)
 }
 
 /// Read all VLZ_SEVERITY_* env vars and return a `SeverityOverrides` (FR-013, CFG-005).
@@ -930,14 +989,16 @@ mod tests {
             None,
             None,
             None,
-            false,
-            false,
-            None,
-            None,
-            None,
-            None,
             None,
             false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
             None,
             None,
             None,
@@ -962,8 +1023,60 @@ mod tests {
     }
 
     #[test]
+    fn load_rejects_missing_tls_crl_bundle_sec021() {
+        let dir = tempfile::tempdir().unwrap();
+        let conf = dir.path().join("verilyze.conf");
+        std::fs::write(
+            &conf,
+            "tls_crl_bundle = \"/no/such/crl-bundle.pem\"\n",
+        )
+        .unwrap();
+        let path_str = conf.to_string_lossy().into_owned();
+        let r = load(
+            Some(path_str.as_str()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Default::default(),
+            Default::default(),
+        );
+        assert!(matches!(r, Err(ConfigError::InvalidTlsCrlBundle { .. })));
+    }
+
+    #[test]
     fn load_parallel_too_high_fr012() {
         let r = load(
+            None,
             None,
             None,
             None,
@@ -991,6 +1104,7 @@ mod tests {
             None,
             None,
             false,
+            None,
             None,
             None,
             None,
@@ -1139,41 +1253,43 @@ mod tests {
         temp_env::with_var("HOME", Some(path_str.as_str()), || {
             std::fs::write(f.path(), "invalid {{{").unwrap();
             let r = load(
-                Some(f.path().to_str().unwrap()),
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                false,
-                false,
-                None,
-                None,
-                None,
-                None,
-                None,
-                false,
-                None,
-                None,
-                None,
-                None,
-                None,
-                Default::default(),
-                Default::default(),
-            );
+            Some(f.path().to_str().unwrap()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Default::default(),
+            Default::default()
+        );
             assert!(r.is_err());
             let err = r.unwrap_err();
             assert!(err.to_string().contains("~"));
@@ -1189,41 +1305,43 @@ mod tests {
         let home_str = dir.path().to_string_lossy().into_owned();
         temp_env::with_var("HOME", Some(home_str.as_str()), || {
             let r = load(
-                Some(config_path.to_str().unwrap()),
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                false,
-                false,
-                None,
-                None,
-                None,
-                None,
-                None,
-                false,
-                None,
-                None,
-                None,
-                None,
-                None,
-                Default::default(),
-                Default::default(),
-            );
+            Some(config_path.to_str().unwrap()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Default::default(),
+            Default::default()
+        );
             assert!(r.is_err());
             let err = r.unwrap_err();
             assert!(err.to_string().contains("~/"));
@@ -1237,41 +1355,43 @@ mod tests {
         std::fs::write(&config_path, "invalid {{{").unwrap();
         temp_env::with_var("HOME", None::<&str>, || {
             let r = load(
-                Some(config_path.to_str().unwrap()),
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                false,
-                false,
-                None,
-                None,
-                None,
-                None,
-                None,
-                false,
-                None,
-                None,
-                None,
-                None,
-                None,
-                Default::default(),
-                Default::default(),
-            );
+            Some(config_path.to_str().unwrap()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Default::default(),
+            Default::default()
+        );
             assert!(r.is_err());
             let err = r.unwrap_err();
             assert!(err.to_string().contains(config_path.to_str().unwrap()));
@@ -1319,21 +1439,23 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
-            false,
-            false,
-            None,
-            None,
-            None,
-            None,
             None,
             false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
             None,
             None,
             None,
             None,
             None,
             Default::default(),
-            Default::default(),
+            Default::default()
         )
         .unwrap();
         assert_eq!(
@@ -1392,21 +1514,23 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
-            false,
-            false,
-            None,
-            None,
-            None,
-            None,
             None,
             false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
             None,
             None,
             None,
             None,
             None,
             Default::default(),
-            Default::default(),
+            Default::default()
         )
         .unwrap();
         assert_eq!(cfg.parallel_queries, 3);
@@ -1435,21 +1559,23 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
-            false,
-            false,
-            None,
-            None,
-            None,
-            None,
             None,
             false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
             None,
             None,
             None,
             None,
             None,
             Default::default(),
-            Default::default(),
+            Default::default()
         )
         .unwrap();
         assert_eq!(cfg.parallel_queries, 7);
@@ -1486,6 +1612,7 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
+            None,
             Some(8),
             Some("/cli/cache.redb"),
             Some("/cli/ignore.redb"),
@@ -1503,8 +1630,9 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
+            None,
             Default::default(),
-            Default::default(),
+            Default::default()
         )
         .unwrap();
         assert_eq!(cfg.parallel_queries, 8);
@@ -1537,41 +1665,43 @@ regex = "^req\\.txt$"
             ],
             || {
                 let cfg = load(
-                    None,
-                    env_parallel(),
-                    env_cache_db(),
-                    env_ignore_db(),
-                    env_cache_ttl_secs(),
-                    env_min_score(),
-                    env_min_count(),
-                    env_exit_code_on_cve(),
-                    env_fp_exit_code(),
-                    env_project_id(),
-                    env_backoff_base_ms(),
-                    env_backoff_max_ms(),
-                    env_max_retries(),
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    false,
-                    false,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    false,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    Default::default(),
-                    Default::default(),
-                )
+            None,
+            env_parallel(),
+            env_cache_db(),
+            env_ignore_db(),
+            env_cache_ttl_secs(),
+            env_min_score(),
+            env_min_count(),
+            env_exit_code_on_cve(),
+            env_fp_exit_code(),
+            env_project_id(),
+            env_backoff_base_ms(),
+            env_backoff_max_ms(),
+            env_max_retries(),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Default::default(),
+            Default::default()
+        )
                 .unwrap();
                 assert_eq!(cfg.backoff_base_ms, 200);
                 assert_eq!(cfg.backoff_max_ms, 10000);
@@ -1592,10 +1722,12 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
-            None, // env_project_id
+            None,
+            // env_project_id
             Some(150),
             Some(8000),
             Some(4),
+            None,
             None,
             None,
             None,
@@ -1615,8 +1747,9 @@ regex = "^req\\.txt$"
             Some(6),
             None,
             None,
+            None,
             Default::default(),
-            Default::default(),
+            Default::default()
         )
         .unwrap();
         assert_eq!(cfg.backoff_base_ms, 250);
@@ -1654,21 +1787,23 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
-            false,
-            false,
-            None,
-            None,
-            None,
-            None,
             None,
             false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
             None,
             None,
             None,
             None,
             None,
             Default::default(),
-            Default::default(),
+            Default::default()
         )
         .unwrap();
         assert_eq!(cfg.provider_http_connect_timeout_secs, 25);
@@ -1687,52 +1822,48 @@ regex = "^req\\.txt$"
         let path_str = path.to_string_lossy().into_owned();
         temp_env::with_vars(
             [
-                (
-                    "VLZ_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS",
-                    Some("44"),
-                ),
-                (
-                    "VLZ_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS",
-                    Some("300"),
-                ),
+                ("VLZ_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS", Some("44")),
+                ("VLZ_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS", Some("300")),
             ],
             || {
                 let cfg = load(
-                    Some(path_str.as_str()),
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    env_provider_http_connect_timeout_secs(),
-                    env_provider_http_request_timeout_secs(),
-                    None,
-                    None,
-                    None,
-                    None,
-                    false,
-                    false,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    false,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    Default::default(),
-                    Default::default(),
-                )
+            Some(path_str.as_str()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            env_provider_http_connect_timeout_secs(),
+            env_provider_http_request_timeout_secs(),
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Default::default(),
+            Default::default()
+        )
                 .unwrap();
                 assert_eq!(cfg.provider_http_connect_timeout_secs, 44);
                 assert_eq!(cfg.provider_http_request_timeout_secs, 300);
@@ -1752,52 +1883,48 @@ regex = "^req\\.txt$"
         let path_str = path.to_string_lossy().into_owned();
         temp_env::with_vars(
             [
-                (
-                    "VLZ_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS",
-                    Some("30"),
-                ),
-                (
-                    "VLZ_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS",
-                    Some("150"),
-                ),
+                ("VLZ_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS", Some("30")),
+                ("VLZ_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS", Some("150")),
             ],
             || {
                 let cfg = load(
-                    Some(path_str.as_str()),
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    env_provider_http_connect_timeout_secs(),
-                    env_provider_http_request_timeout_secs(),
-                    None,
-                    None,
-                    None,
-                    None,
-                    false,
-                    false,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    false,
-                    None,
-                    None,
-                    None,
-                    Some(50),
-                    Some(250),
-                    Default::default(),
-                    Default::default(),
-                )
+            Some(path_str.as_str()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            env_provider_http_connect_timeout_secs(),
+            env_provider_http_request_timeout_secs(),
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            Some(50),
+            Some(250),
+            None,
+            Default::default(),
+            Default::default()
+        )
                 .unwrap();
                 assert_eq!(cfg.provider_http_connect_timeout_secs, 50);
                 assert_eq!(cfg.provider_http_request_timeout_secs, 250);
@@ -1808,6 +1935,7 @@ regex = "^req\\.txt$"
     #[test]
     fn load_provider_http_zero_connect_fails_cfg008() {
         let r = load(
+            None,
             None,
             None,
             None,
@@ -1840,8 +1968,9 @@ regex = "^req\\.txt$"
             None,
             Some(0),
             Some(60),
+            None,
             Default::default(),
-            Default::default(),
+            Default::default()
         );
         assert!(matches!(
             r,
@@ -1852,6 +1981,7 @@ regex = "^req\\.txt$"
     #[test]
     fn load_provider_http_request_below_connect_fails_cfg008() {
         let r = load(
+            None,
             None,
             None,
             None,
@@ -1884,8 +2014,9 @@ regex = "^req\\.txt$"
             None,
             Some(120),
             Some(30),
+            None,
             Default::default(),
-            Default::default(),
+            Default::default()
         );
         assert!(matches!(
             r,
@@ -1927,41 +2058,43 @@ regex = "^req\\.txt$"
             ],
             || {
                 let cfg = load(
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    false,
-                    false,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    false,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    Default::default(),
-                    Default::default(),
-                )
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Default::default(),
+            Default::default()
+        )
                 .unwrap();
                 assert_eq!(cfg.parallel_queries, 10);
             },
@@ -1982,41 +2115,43 @@ regex = "^req\\.txt$"
         temp_env::with_var("XDG_CONFIG_HOME", None::<&str>, || {
             temp_env::with_var("HOME", Some(home.to_str().unwrap()), || {
                 let cfg = load(
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    false,
-                    false,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    false,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    Default::default(),
-                    Default::default(),
-                )
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Default::default(),
+            Default::default()
+        )
                 .unwrap();
                 assert_eq!(cfg.parallel_queries, 42);
             });
@@ -2322,14 +2457,16 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
-            false,
-            false,
-            None,
-            None,
-            None,
-            None,
             None,
             false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
             None,
             None,
             None,

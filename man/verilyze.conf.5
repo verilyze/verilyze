@@ -124,6 +124,11 @@ Default: 120.
 Env: VLZ_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS.
 CLI: --provider-http-request-timeout-secs.
 
+.It Va tls_crl_bundle
+Optional PEM CRL bundle path for Linux CVE provider TLS (SEC-021); empty disables.
+Env: VLZ_TLS_CRL_BUNDLE.
+CLI: --tls-crl-bundle.
+
 .It Sy [severity.v2] , Sy [severity.v3] , Sy [severity.v4]
 CVSS score thresholds: critical_min, high_min, medium_min, low_min.
 Defaults: 9.0, 7.0, 4.0, 0.1.

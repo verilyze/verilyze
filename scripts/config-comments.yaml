@@ -98,6 +98,13 @@ provider_http_request_timeout_secs:
   cli: "--provider-http-request-timeout-secs"
   default: "120"
 
+tls_crl_bundle:
+  description: "Optional PEM CRL bundle path for Linux CVE provider TLS (SEC-021); empty disables"
+  type: string
+  env: VLZ_TLS_CRL_BUNDLE
+  cli: "--tls-crl-bundle"
+  default: ""
+
 # Severity thresholds (FR-013). Per CVSS version: v2, v3, v4.
 # Each has critical_min, high_min, medium_min, low_min (float).
 severity_v2_critical_min:

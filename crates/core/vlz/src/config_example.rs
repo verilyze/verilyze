@@ -128,6 +128,21 @@ pub fn generate_example(cfg: &crate::config::EffectiveConfig) -> String {
         ("backoff_base_ms", cfg.backoff_base_ms.to_string()),
         ("backoff_max_ms", cfg.backoff_max_ms.to_string()),
         ("max_retries", cfg.max_retries.to_string()),
+        (
+            "provider_http_connect_timeout_secs",
+            cfg.provider_http_connect_timeout_secs.to_string(),
+        ),
+        (
+            "provider_http_request_timeout_secs",
+            cfg.provider_http_request_timeout_secs.to_string(),
+        ),
+        (
+            "tls_crl_bundle",
+            cfg.tls_crl_bundle
+                .as_ref()
+                .map(|p| p.display().to_string())
+                .unwrap_or_default(),
+        ),
     ];
 
     for (key, value) in scalar_entries {
@@ -135,7 +150,10 @@ pub fn generate_example(cfg: &crate::config::EffectiveConfig) -> String {
         for comment_line in wrap_comment(desc, LINE_LENGTH) {
             lines.push(comment_line);
         }
-        let val_display = if key == "cache_db" || key == "ignore_db" {
+        let val_display = if key == "cache_db"
+            || key == "ignore_db"
+            || key == "tls_crl_bundle"
+        {
             format!("\"{}\"", value)
         } else {
             value
