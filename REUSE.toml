@@ -21,6 +21,13 @@ precedence = "override"
 SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
+# Generated third-party license listing (cargo-about output; no SPDX in file)
+[[annotations]]
+path = "THIRD-PARTY-LICENSES"
+precedence = "override"
+SPDX-FileCopyrightText = "The verilyze contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
 # Generated shell completions (clap_complete output; no SPDX in file)
 [[annotations]]
 path = "completions/*"
@@ -57,6 +64,19 @@ SPDX-License-Identifier = "GPL-3.0-or-later"
 path = "tests/fuzz/corpus/**"
 precedence = "override"
 SPDX-FileCopyrightText = "The verilyze contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
+path = "deny.toml"
+precedence = "override"
+SPDX-FileCopyrightText = "The verilyze contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# Handlebars template (SPDX in {{! }} comment; REUSE override for consistency)
+[[annotations]]
+path = "about.hbs"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Travis Post <post.travis@gmail.com>"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
 # Generated/cache files (pytest, coverage)

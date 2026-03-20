@@ -6,6 +6,7 @@
 
 #[tokio::main]
 async fn main() {
+    vlz_cve_client::ensure_crypto_provider();
     let code = vlz::run_main().await;
     std::process::exit(code);
 }

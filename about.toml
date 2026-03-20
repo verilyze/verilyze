@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# cargo-about configuration for THIRD-PARTY-LICENSES generation.
+# Run: cargo about generate -o THIRD-PARTY-LICENSES --fail -c about.toml about.hbs
+
+accepted = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-3-Clause",
+    "CDLA-Permissive-2.0",
+    "GPL-3.0-or-later",
+    "ISC",
+    "MIT",
+    "Unicode-3.0",
+]
+
+ignore-dev-dependencies = true
+ignore-build-dependencies = true
+
+# Exclude workspace crates (vlz-db, vlz-manifest-finder, etc.) from output
+# so the file lists only third-party dependencies.
+private = { ignore = true }
+
+# Known problematic crates with multi-license or non-standard packaging
+workarounds = [
+    "ring",
+    "rustls",
+]

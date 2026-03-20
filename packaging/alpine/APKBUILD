@@ -16,6 +16,7 @@ source="$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz"
 build() {
   cargo build --release --locked
   ./scripts/generate_completions.sh ./target/release/vlz
+  # THIRD-PARTY-LICENSES is committed; see make generate-third-party-licenses
 }
 
 check() {
@@ -44,6 +45,11 @@ package() {
     "$pkgdir"/usr/share/zsh/site-functions/_vlz
   install -Dm644 completions/vlz.fish \
     "$pkgdir"/usr/share/fish/vendor_completions.d/vlz.fish
+
+  install -Dm644 LICENSES/GPL-3.0-or-later.txt \
+    "$pkgdir"/usr/share/licenses/"$pkgname"/LICENSE
+  install -Dm644 THIRD-PARTY-LICENSES \
+    "$pkgdir"/usr/share/licenses/"$pkgname"/THIRD-PARTY-LICENSES
 }
 
 sha512sums=""

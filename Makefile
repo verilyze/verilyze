@@ -27,6 +27,9 @@ VENV_TEST := $(MKFILE_DIR)/.venv-test
 .PHONY: generate-config-example check-config-docs
 .PHONY: generate-completions completions completions-release check-completions
 .PHONY: generate-packaging check-packaging
+.PHONY: sync-license-config check-license-config
+.PHONY: generate-third-party-licenses generate-third-party-licenses-docker
+.PHONY: check-third-party-licenses
 .PHONY: deb rpm aur apk docker
 .PHONY: install clean distclean
 
@@ -65,6 +68,10 @@ help:
 	@echo "    make check-completions   - Verify completions are in sync"
 	@echo "    make generate-packaging  - Update packaging specs with version from Cargo.toml"
 	@echo "    make check-packaging     - Verify packaging versions are in sync"
+	@echo "    make sync-license-config - Sync deny.toml [licenses] allow to about.toml accepted"
+	@echo "    make check-license-config - Verify about.toml accepted matches deny.toml"
+	@echo "    make generate-third-party-licenses - Generate THIRD-PARTY-LICENSES for packaging"
+	@echo "    make check-third-party-licenses - Verify THIRD-PARTY-LICENSES is up to date"
 	@echo "    make fmt-check      - Verify Rust formatting (cargo fmt --check)"
 	@echo "    make fmt           - Auto-format Rust code (cargo fmt)"
 	@echo "    make clippy        - Run Clippy lints (all-targets, all-features)"
@@ -249,6 +256,33 @@ generate-packaging:
 check-packaging:
 	python3 $(SCRIPTS_DIR)/generate_packaging_versions.py --check
 
+# sync-license-config: Copy deny.toml [licenses] allow to about.toml accepted.
+sync-license-config:
+	cd "$(MKFILE_DIR)" && python3 $(SCRIPTS_DIR)/sync_license_config.py
+
+# check-license-config: Fail if about.toml accepted is out of sync with deny.toml.
+check-license-config:
+	cd "$(MKFILE_DIR)" && python3 $(SCRIPTS_DIR)/sync_license_config.py --check
+
+# generate-third-party-licenses: Produce THIRD-PARTY-LICENSES for Docker and packages.
+# Syncs license config first, then runs cargo-about.
+# Uses cargo-about (cargo install cargo-about). For Docker build use --no-default-features
+# --features docker; for default build omit those flags.
+generate-third-party-licenses: sync-license-config
+	cd "$(MKFILE_DIR)" && cargo about generate -o THIRD-PARTY-LICENSES --fail \
+		-c about.toml -m crates/core/vlz/Cargo.toml about.hbs
+
+generate-third-party-licenses-docker: sync-license-config
+	cd "$(MKFILE_DIR)" && cargo about generate -o THIRD-PARTY-LICENSES --fail \
+		-c about.toml -m crates/core/vlz/Cargo.toml --no-default-features --features docker about.hbs
+
+# check-third-party-licenses: Regenerate THIRD-PARTY-LICENSES and fail if it differs from committed.
+check-third-party-licenses: sync-license-config
+	cd "$(MKFILE_DIR)" && cargo about generate -o THIRD-PARTY-LICENSES --fail \
+		-c about.toml -m crates/core/vlz/Cargo.toml about.hbs
+	@cd "$(MKFILE_DIR)" && git diff --exit-code THIRD-PARTY-LICENSES || \
+		(echo "THIRD-PARTY-LICENSES is out of sync. Run: make generate-third-party-licenses" && exit 1)
+
 # check-dco: verify commits have Signed-off-by (DCO); for local use before push
 check-dco:
 	@cd "$(MKFILE_DIR)" && ./scripts/check-dco.sh
@@ -266,6 +300,7 @@ check-fast: setup \
             check-config-docs \
             check-packaging \
             check-completions \
+            check-license-config \
             cargo-check fmt-check \
             clippy \
             lint-python \
@@ -281,6 +316,8 @@ check: setup \
        check-config-docs \
        check-packaging \
        check-completions \
+       check-license-config \
+       check-third-party-licenses \
        cargo-check \
        fmt-check \
        clippy \

@@ -1,0 +1,25 @@
+{{! SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com> }}
+{{! SPDX-License-Identifier: GPL-3.0-or-later }}
+Third-Party Licenses for verilyze
+=================================
+
+This file lists third-party crate licenses used by verilyze.
+The verilyze project itself is licensed under GPL-3.0-or-later.
+
+COMPONENTS
+----------
+{{#each licenses}}
+{{#each used_by}}
+- {{crate.name}} v{{crate.version}} ({{crate.license}})
+{{/each}}
+{{/each}}
+
+LICENSE TEXTS
+-------------
+
+{{#each licenses}}
+--- {{id}} ---
+
+{{text}}
+
+{{/each}}

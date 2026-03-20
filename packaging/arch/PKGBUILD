@@ -28,6 +28,7 @@ build() {
   export CARGO_TARGET_DIR=target
   cargo build --frozen --release
   ./scripts/generate_completions.sh ./target/release/vlz
+  # THIRD-PARTY-LICENSES is committed; see make generate-third-party-licenses
 }
 
 check() {
@@ -63,4 +64,6 @@ package() {
 
   install -Dm644 LICENSES/GPL-3.0-or-later.txt \
     "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 THIRD-PARTY-LICENSES \
+    "$pkgdir/usr/share/licenses/$pkgname/THIRD-PARTY-LICENSES"
 }

@@ -551,6 +551,13 @@ The project uses the [REUSE](https://reuse.software/) toolchain for SPDX
 copyright and license headers. Default license and copyright are defined in
 `pyproject.toml` under `[tool.vlz-headers]`.
 
+- **Third-party licenses:** See [docs/LICENSING.md](docs/LICENSING.md) for
+  licenses vs components, sync workflow, and check targets. THIRD-PARTY-LICENSES
+  is committed; run `make generate-third-party-licenses` when dependencies
+  change (requires `cargo install cargo-about`). `make sync-license-config`
+  copies deny.toml [licenses] allow to about.toml; it runs automatically
+  before license generation. `make check-third-party-licenses` verifies the
+  committed file is up to date.
 - **Check headers:** `make check-headers` (runs `check-header-duplicates` and
   `reuse lint`)
 - **Add/update headers:** `make headers` (runs `scripts/update_headers.py`)
