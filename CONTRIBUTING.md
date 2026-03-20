@@ -514,6 +514,10 @@ Build for **Docker** (runtime only, no completions; smaller image):
 cargo build --release --no-default-features --features docker
 ```
 
+`make docker` sends the repository root as the build context. The root
+`.dockerignore` excludes `target/`, `.git/`, and other local artifacts so the
+context stays small (large contexts can fail or slow the build).
+
 Build with NVD CVE provider in addition to defaults:
 
 ```sh

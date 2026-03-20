@@ -55,6 +55,12 @@ SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
 [[annotations]]
+path = ".dockerignore"
+precedence = "override"
+SPDX-FileCopyrightText = "The verilyze contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
 path = "TODO.md"
 precedence = "override"
 SPDX-FileCopyrightText = "The verilyze contributors"

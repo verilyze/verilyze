@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Cargo build outputs (often multi-GB). The image compiles inside the container.
+/target
+**/target
+
+# Not needed for `cargo build --locked`
+.git
+.github
+
+# Local caches and tooling (see .gitignore)
+**/*.profraw
+**/*.pyc
+**/__pycache__
+**/vlz-cache.redb
+.cache
+.coverage
+.mypy_cache
+.venv
+.venv-*
+.tmp-empty-xdg
+coverage
+reports
+
+# RPM build tree (large artifacts when present)
+packaging/rpm/BUILD
+packaging/rpm/BUILDROOT
+packaging/rpm/RPMS
+packaging/rpm/SRPMS
+packaging/rpm/SOURCES/*.tar.gz
+
+# IDE (not required for the builder)
+.cursor
+
+# AFL / fuzz output if present locally
+tests/fuzz/out
+**/afl-out
