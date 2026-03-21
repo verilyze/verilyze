@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# clap_complete generates bash completion that assigns COMPREPLY using command
+# substitution and word splitting on compgen output. That triggers ShellCheck
+# SC2207; it is intentional and matches common bash-completion practice. This
+# file applies only to scripts checked from completions/ (ShellCheck discovers
+# .shellcheckrc in the script directory first).
+
+disable=SC2207

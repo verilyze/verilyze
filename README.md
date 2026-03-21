@@ -72,23 +72,36 @@ container can read the mounted files:
 docker run --rm -v "$(pwd)":/scan:z verilyze scan /scan
 ```
 
-For persistent CVE cache between runs, mount the host cache directory and pass
-`--cache-db` (required because the container runs as root and would otherwise
-use the privileged path `/var/cache/verilyze/`). Run as your user so cache
-files are owned by you, not root:
+The image runs as UID **1000** with a writable home at **`/home/verilyze`** (see
+[`packaging/docker/Dockerfile`](packaging/docker/Dockerfile)). Default cache
+and ignore DB paths live under that tree and are **ephemeral** unless you
+persist them with a volume or `--cache-db` / `VLZ_CACHE_DB`.
+
+To reuse the CVE cache on the host, either mount your cache directory over the
+default location:
 
 ```bash
-# Create cache directory so it is owned by you (not root)
 mkdir -p ~/.cache/verilyze
+docker run --rm \
+  -v "$(pwd)":/scan:z \
+  -v "$HOME/.cache/verilyze":/home/verilyze/.cache/verilyze:z \
+  verilyze scan /scan
+```
 
-# Run as your user so cache files are owned by you, not root
-docker run --rm --user "$(id -u):$(id -g)" \
-  -v "$(pwd)":/scan:z -v "$HOME/.cache/verilyze":/cache:z \
+or mount a host directory and point the cache file explicitly:
+
+```bash
+mkdir -p ~/.cache/verilyze
+docker run --rm \
+  -v "$(pwd)":/scan:z \
+  -v "$HOME/.cache/verilyze":/cache:z \
   verilyze scan /scan --cache-db /cache/vlz-cache.redb
 ```
 
-Without `--user`, the container runs as root and cache files in
-`~/.cache/verilyze` will be owned by root on the host.
+Use `--user "$(id -u):$(id -g)"` when you need the process UID/GID to match the
+host (for example, writing to a bind-mounted path where host ownership matters).
+The in-image user is still UID 1000; matching the host avoids permission
+mismatches on those mounts.
 
 ## Quick start
 

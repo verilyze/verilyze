@@ -198,7 +198,7 @@ lint-python: $(VENV_LINT)/bin/black
 
 # lint-shell: ShellCheck (NFR-022). Requires shellcheck.
 lint-shell:
-	shellcheck $(SCRIPTS_DIR)/*.sh
+	shellcheck $(SCRIPTS_DIR)/*.sh "$(MKFILE_DIR)/completions/vlz.bash"
 
 # fmt-check: verify Rust formatting without changes (used by make check)
 fmt-check:
