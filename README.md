@@ -13,6 +13,8 @@ vulnerabilities. Written in Rust.
 [LICENSES/GPL-3.0-or-later.txt](LICENSES/GPL-3.0-or-later.txt) for the full
 text.
 
+[![Super-linter nightly](https://github.com/tpost/verilyze/actions/workflows/super-linter-nightly.yml/badge.svg)](https://github.com/tpost/verilyze/actions/workflows/super-linter-nightly.yml)
+
 ## Installation
 
 ```bash

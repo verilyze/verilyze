@@ -2,7 +2,15 @@
   "$schema": "https://biomejs.dev/schemas/2.4.8/schema.json",
   "root": true,
   "files": {
-    "includes": ["**", "!!**/target", "!!**/.git"]
+    "includes": [
+      "**",
+      "!!**/target",
+      "!!**/.git",
+      "!!**/.venv",
+      "!!**/.venv-*",
+      "!!**/.mypy_cache",
+      "!!**/site-packages"
+    ]
   },
   "formatter": {
     "indentStyle": "space",

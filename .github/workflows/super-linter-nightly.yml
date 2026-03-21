@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Nightly full-repo super-linter (slim). README badge points at this workflow.
+
+name: Super-linter nightly
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  super-linter-full:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Run super-linter (full tree)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_ALL_CODEBASE: true
+          DEFAULT_BRANCH: main
+          SAVE_SUPER_LINTER_OUTPUT: true
+          SAVE_SUPER_LINTER_SUMMARY: true
+        run: ./scripts/super-linter.sh
+
+      - name: Upload super-linter logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: super-linter-nightly-logs
+          path: |
+            super-linter.log
+            super-linter-summary.md

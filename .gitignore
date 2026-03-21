@@ -12,6 +12,10 @@
 /target
 .tmp-empty-xdg
 
+# super-linter local artifacts (SAVE_SUPER_LINTER_*)
+/super-linter.log
+/super-linter-summary.md
+
 # RPM build artifacts (created by rpmbuild)
 /packaging/rpm/BUILD/
 /packaging/rpm/BUILDROOT/

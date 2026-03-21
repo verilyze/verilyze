@@ -372,7 +372,7 @@ flowchart LR
    no crash on malformed input (SEC-017). Create
    `tests/fuzz/fuzz_targets/<format>.rs` (e.g. `fuzz_pyproject_toml.rs`) and
    add seed corpus under `tests/fuzz/corpus/<format>/`. Update
-   `scripts/fuzz-targets.env` (add one mapping line:
+   `scripts/fuzz-targets.map` (add one mapping line:
    `target_name=crates/languages/vlz-java/src/...`), `scripts/fuzz.sh`, and
    `tests/fuzz/Cargo.toml` to include the new target.
 
@@ -625,15 +625,24 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   `[ ]`; quote variables (`"${var}"`); use `local` in functions; send error
   messages to stderr (`>&2`). The style guide is authoritative; this is a
   concise summary.
-- **Super-linter:** If you run [super-linter](https://github.com/super-linter/super-linter)
-  against this tree, set `FILTER_REGEX_EXCLUDE` so build trees are skipped, for
-  example `(^|/)(target/|\.git/)`, so JSON and other checks do not walk
-  `target/**`. Bash completion under `completions/` is installed mode `644` and
-  sourced, not executed; either set `BASH_EXEC_IGNORE_LIBRARIES=true` (skips the
-  executable-bit check for extensioned shell files without a shebang, which
-  matches `completions/vlz.bash`) or exclude those paths from the BASH_EXEC
-  linter. Optional: use root [`biome.json`](biome.json) for JSON formatting and
-  ignore patterns aligned with the same exclusions.
+- **Super-linter:** CI runs the [super-linter](https://github.com/super-linter/super-linter)
+  **slim** image in two modes: **incremental** (push/PR to `main`,
+  `VALIDATE_ALL_CODEBASE=false`, workflow `super-linter.yml`) and **nightly full
+  scan** (`VALIDATE_ALL_CODEBASE=true`, workflow `super-linter-nightly.yml`).
+  The README badge reflects the **nightly** workflow (last full-tree run).
+  Locally: `make super-linter` (incremental) or `make super-linter-full` (full
+  tree); both call [`scripts/super-linter.sh`](scripts/super-linter.sh) and
+  require Docker. The script sets `FILTER_REGEX_EXCLUDE` so `target/`, `.git/`,
+  `completions/` (ShellCheck is already `make lint-shell` with
+  `completions/.shellcheckrc`), Python venvs (`.venv*/`), `.mypy_cache/`, and
+  `site-packages/` are skipped. It sets `BASH_EXEC_IGNORE_LIBRARIES=true`,
+  disables Rust/Python/Markdown/shfmt/BASH validators duplicated by
+  `make check-fast`, and defaults to image `ghcr.io/super-linter/super-linter:slim-latest`
+  (override with `SUPER_LINTER_IMAGE`). Related repo files: [`biome.json`](biome.json),
+  [`.codespellrc`](.codespellrc), [`.jscpd.json`](.jscpd.json),
+  [`.gitleaks.toml`](.gitleaks.toml) (run `gitleaks detect` locally; super-linter
+  disables Gitleaks in-container because it does not apply this config reliably),
+  [`.hadolint.yaml`](.hadolint.yaml), [`.yamllint`](.yamllint).
 - **Mermaid diagrams:** To view them in Cursor/VS Code, install the
   **Markdown Preview Mermaid Support** extension (or accept the workspace
   recommendation). Follow Mermaid diagram guidelines: no explicit colors or
@@ -752,7 +761,7 @@ If the coverage link step fails with LLD (e.g. invalid symbol index with
     none of the mapped files have changed (exit 0).
   - **Extended:** `make fuzz-extended` or `./scripts/fuzz.sh --extended` runs
     all targets with 30 min timeout each. Use for nightly or deep verification.
-- **Mapping:** `scripts/fuzz-targets.env` maps each target to source paths.
+- **Mapping:** `scripts/fuzz-targets.map` maps each target to source paths.
   Add one mapping entry when adding a new fuzz target.
 - **FUZZ_TIMEOUT:** Overrides per-target timeout (seconds). When unset: 30
   (smoke) or 1800 (extended).

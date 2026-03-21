@@ -9,6 +9,7 @@
 # --- Stage 1: Build ---
 FROM rust:slim AS builder
 
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends musl-tools \
     && rustup target add x86_64-unknown-linux-musl \
     && rm -rf /var/lib/apt/lists/* \
@@ -37,4 +38,7 @@ COPY --from=builder --chown=1000:1000 /vlz-docker-home /home/verilyze
 
 ENV HOME=/home/verilyze
 USER 1000
+# FR-002: --version exits 0; satisfies Checkov CKV_DOCKER_2 / Trivy DS-0026 (OP-013).
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD ["/vlz", "--version"]
 ENTRYPOINT ["/vlz"]

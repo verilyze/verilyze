@@ -13,8 +13,7 @@ on:
       - "v*"
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -22,8 +21,13 @@ env:
 jobs:
   build-binary:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -43,8 +47,13 @@ jobs:
   build-deb:
     needs: build-binary
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -67,10 +76,15 @@ jobs:
   build-rpm:
     needs: build-binary
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
     container:
       image: fedora:latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Install build tools
         run: dnf install -y rpm-build rust cargo openssl-devel git make
@@ -86,8 +100,14 @@ jobs:
 
   build-docker:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+      packages: write
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Extract version from tag
         id: version
@@ -115,8 +135,13 @@ jobs:
   create-release:
     needs: [build-binary, build-deb, build-rpm, build-docker]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Download all artifacts
         uses: actions/download-artifact@v8

@@ -24,7 +24,7 @@ CARGO_DENY ?= cargo deny
 .PHONY: update-doc-diagrams check-doc-diagrams
 .PHONY: cargo-check cargo-test unit-tests test-scripts
 .PHONY: fmt fmt-check clippy
-.PHONY: lint-python lint-shell
+.PHONY: lint-python lint-shell super-linter super-linter-full
 .PHONY: fuzz fuzz-changed fuzz-extended coverage coverage-quick
 .PHONY: generate-config-example check-config-docs
 .PHONY: generate-completions completions completions-release check-completions
@@ -80,6 +80,8 @@ help:
 	@echo "    make clippy        - Run Clippy lints (all-targets, all-features)"
 	@echo "    make lint-python   - black, pylint, mypy, bandit"
 	@echo "    make lint-shell    - ShellCheck (requires shellcheck)"
+	@echo "    make super-linter  - super-linter slim (Docker; incremental)"
+	@echo "    make super-linter-full - super-linter slim full tree (like nightly CI)"
 	@echo ""
 	@echo "  Advanced (slower):"
 	@echo "    make fuzz         - AFL fuzz smoke test (needs cargo-afl, AFL++)"
@@ -199,6 +201,14 @@ lint-python: $(VENV_LINT)/bin/black
 # lint-shell: ShellCheck (NFR-022). Requires shellcheck.
 lint-shell:
 	shellcheck $(SCRIPTS_DIR)/*.sh "$(MKFILE_DIR)/completions/vlz.bash"
+
+# super-linter: Docker slim image; VALIDATE_ALL_CODEBASE=false (changed files only).
+super-linter:
+	cd "$(MKFILE_DIR)" && VALIDATE_ALL_CODEBASE=false $(SCRIPTS_DIR)/super-linter.sh
+
+# super-linter-full: full tree scan (parity with scheduled GitHub workflow).
+super-linter-full:
+	cd "$(MKFILE_DIR)" && VALIDATE_ALL_CODEBASE=true $(SCRIPTS_DIR)/super-linter.sh
 
 # fmt-check: verify Rust formatting without changes (used by make check)
 fmt-check:

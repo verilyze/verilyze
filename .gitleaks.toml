@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+title = "verilyze"
+
+[extend]
+useDefault = true
+
+# Global allowlist (gitleaks v8): path regexes match detected file paths.
+[allowlist]
+description = "TLS test fixture PEM (SEC-021); not a production secret"
+paths = [
+  '''.*tests/fixtures/tls_crl/server\.key''',
+]
