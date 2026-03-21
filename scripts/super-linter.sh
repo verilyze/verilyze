@@ -8,16 +8,25 @@
 # Used by make super-linter / super-linter-full and GitHub Actions.
 #
 # Env (optional):
-#   SUPER_LINTER_IMAGE   default ghcr.io/super-linter/super-linter:slim-latest
+#   SUPER_LINTER_IMAGE   override pinned digest below
 #   VALIDATE_ALL_CODEBASE  true | false (default false)
 #   DEFAULT_BRANCH       default main
 #   GITHUB_TOKEN         optional; passed through when set
+#   SUPPRESS_POSSUM      optional; default true (super-linter possum banner)
 #   SAVE_SUPER_LINTER_OUTPUT, SAVE_SUPER_LINTER_SUMMARY  optional artifact logs
+#
+# Default image is a pinned linux/amd64 digest (not :slim-latest) so bundled Biome
+# and other linter versions do not drift on every CI pull. Bump periodically:
+#   docker buildx imagetools inspect ghcr.io/super-linter/super-linter:slim-latest \
+#     --format '{{range .Manifest.Manifests}}{{if eq .Platform.OS "linux"}}{{if eq .Platform.Architecture "amd64"}}{{.Digest}}{{end}}{{end}}{{end}}'
+#   update DEFAULT_SUPER_LINTER_IMAGE below, then run: make super-linter-full
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-IMAGE="${SUPER_LINTER_IMAGE:-ghcr.io/super-linter/super-linter:slim-latest}"
+SL_SHA="sha256:3290d75ee542bb2aa8f401e465717a34c6459bc614c023a9491334a2c53e6961"
+DEFAULT_SUPER_LINTER_IMAGE="ghcr.io/super-linter/super-linter@${SL_SHA}"
+IMAGE="${SUPER_LINTER_IMAGE:-$DEFAULT_SUPER_LINTER_IMAGE}"
 ALL_CODEBASE="${VALIDATE_ALL_CODEBASE:-false}"
 DEFAULT_BRANCH="${DEFAULT_BRANCH:-main}"
 
@@ -29,11 +38,19 @@ FILTER_REGEX_EXCLUDE='(^|/)(target/|\.git/|completions/|\.venv[^/]*/|\.mypy_cach
 # make check-fast (or not part of the project gate). isort is off because lint-python
 # uses black/pylint/mypy/bandit only, not isort. Markdown linters are off to avoid a
 # second policy layer until aligned with CONTRIBUTING.
-# Zizmor/JSCPD/Gitleaks: pragmatically off in-container (see CONTRIBUTING super-linter).
+# ESLint and Prettier (including JSON/JSONC/YAML Prettier) are off; Biome handles the
+# file types listed in biome.json (JSON, JSONC, CSS, JS/TS/JSX/TSX, GraphQL) and avoids
+# duplicate warnings vs ESLint/Prettier.
+# Stylelint (VALIDATE_CSS) and CSS Prettier are off; Biome owns CSS when present (see
+# biome.json).
+# Zizmor, JSCPD, Gitleaks: off in-container (see CONTRIBUTING.md, Super-linter).
 DOCKER_ARGS=(
   --rm
-  -e LINTER_RULES_PATH=/tmp/lint
+  # Relative to GITHUB_WORKSPACE (/tmp/lint mount). `.` normalizes to repo root so
+  # trivy.yaml, biome.json, .yamllint, etc. are found (not /tmp/lint/tmp/lint/...).
+  -e LINTER_RULES_PATH=.
   -e RUN_LOCAL=true
+  -e SUPPRESS_POSSUM="${SUPPRESS_POSSUM:-true}"
   -e DEFAULT_BRANCH="$DEFAULT_BRANCH"
   -e IGNORE_GITIGNORED_FILES=true
   -e VALIDATE_ALL_CODEBASE="$ALL_CODEBASE"
@@ -44,6 +61,24 @@ DOCKER_ARGS=(
   -e VALIDATE_GITHUB_ACTIONS_ZIZMOR=false
   -e VALIDATE_JSCPD=false
   -e VALIDATE_GITLEAKS=false
+  -e VALIDATE_CSS=false
+  -e VALIDATE_CSS_PRETTIER=false
+  -e VALIDATE_GRAPHQL_PRETTIER=false
+  -e VALIDATE_HTML_PRETTIER=false
+  -e VALIDATE_JAVASCRIPT_ES=false
+  -e VALIDATE_JAVASCRIPT_PRETTIER=false
+  -e VALIDATE_JSON=false
+  -e VALIDATE_JSON_PRETTIER=false
+  -e VALIDATE_JSONC=false
+  -e VALIDATE_JSONC_PRETTIER=false
+  -e VALIDATE_JSX=false
+  -e VALIDATE_JSX_PRETTIER=false
+  -e VALIDATE_TSX=false
+  -e VALIDATE_TYPESCRIPT_ES=false
+  -e VALIDATE_TYPESCRIPT_PRETTIER=false
+  -e VALIDATE_VUE=false
+  -e VALIDATE_VUE_PRETTIER=false
+  -e VALIDATE_YAML_PRETTIER=false
   -e VALIDATE_RUST_2015=false
   -e VALIDATE_RUST_2018=false
   -e VALIDATE_RUST_2021=false

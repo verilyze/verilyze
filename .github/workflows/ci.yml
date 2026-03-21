@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-#
+
+---
 # CI workflow: split into check-fast (headers, build, fmt, clippy, cargo-deny,
 # lint) and check-slow (fuzz-changed, coverage-quick) for faster feedback on
 # simple changes.
@@ -59,8 +60,10 @@ jobs:
     needs: [check-dco, check-signatures]
     if: >-
       (success() || failure())
-      && (needs.check-dco.result == 'success' || needs.check-dco.result == 'skipped')
-      && (needs.check-signatures.result == 'success' || needs.check-signatures.result == 'skipped')
+      && (needs.check-dco.result == 'success'
+          || needs.check-dco.result == 'skipped')
+      && (needs.check-signatures.result == 'success'
+          || needs.check-signatures.result == 'skipped')
     steps:
       - uses: actions/checkout@v6
         with:
@@ -89,8 +92,10 @@ jobs:
     needs: [check-dco, check-signatures]
     if: >-
       (success() || failure())
-      && (needs.check-dco.result == 'success' || needs.check-dco.result == 'skipped')
-      && (needs.check-signatures.result == 'success' || needs.check-signatures.result == 'skipped')
+      && (needs.check-dco.result == 'success'
+          || needs.check-dco.result == 'skipped')
+      && (needs.check-signatures.result == 'success'
+          || needs.check-signatures.result == 'skipped')
     steps:
       - uses: actions/checkout@v6
         with:

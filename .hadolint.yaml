@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+---
 # musl-tools version pins vary with rust:slim base; single package install.
 ignored:
   - DL3008

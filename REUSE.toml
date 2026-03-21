@@ -111,6 +111,13 @@ precedence = "override"
 SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
+# commitlint for super-linter (JSON; no SPDX in file)
+[[annotations]]
+path = ".commitlintrc.json"
+precedence = "override"
+SPDX-FileCopyrightText = "The verilyze contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
 # Handlebars template (SPDX in {{! }} comment; REUSE override for consistency)
 [[annotations]]
 path = "about.hbs"

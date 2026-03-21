@@ -1,20 +1,48 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.8/schema.json",
   "root": true,
   "files": {
     "includes": [
-      "**",
+      "**/*.json",
+      "**/*.jsonc",
+      "**/*.css",
+      "**/*.js",
+      "**/*.mjs",
+      "**/*.cjs",
+      "**/*.jsx",
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.graphql",
       "!!**/target",
       "!!**/.git",
       "!!**/.venv",
       "!!**/.venv-*",
       "!!**/.mypy_cache",
-      "!!**/site-packages"
+      "!!**/site-packages",
+      "!!**/reports",
+      "!!**/node_modules"
     ]
   },
   "formatter": {
     "indentStyle": "space",
     "indentWidth": 2
+  },
+  "javascript": {
+    "formatter": {
+      "indentStyle": "space",
+      "indentWidth": 2
+    }
+  },
+  "css": {
+    "formatter": {
+      "indentStyle": "space",
+      "indentWidth": 2
+    }
+  },
+  "graphql": {
+    "formatter": {
+      "indentStyle": "space",
+      "indentWidth": 2
+    }
   },
   "json": {
     "formatter": {

@@ -1,21 +1,25 @@
 # SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-#
+
+---
 # Metadata for config keys: description, type, env var, CLI flag.
 # Used by generate_config_example.py to produce verilyze.conf.example,
 # docs/configuration.md, and man/verilyze.conf.5.
 # Keys not in vlz config --list output use "default" for their value.
 
 cache_db:
-  description: "Path to CVE cache database (default: XDG_CACHE_HOME or /var/cache)"
+  description: >-
+    Path to CVE cache database (default: XDG_CACHE_HOME or /var/cache)
   type: string
   env: VLZ_CACHE_DB
   cli: "--cache-db"
   default: ""
 
 ignore_db:
-  description: "Path to false-positive (ignore) database (default: XDG_DATA_HOME or /var/lib)"
+  description: >-
+    Path to false-positive (ignore) database (default: XDG_DATA_HOME or
+    /var/lib)
   type: string
   env: VLZ_IGNORE_DB
   cli: "--ignore-db"
@@ -40,7 +44,8 @@ min_score:
   cli: "--min-score"
 
 min_count:
-  description: "Minimum count of CVEs meeting min-score to trigger exit code (0 = any)"
+  description: >-
+    Minimum count of CVEs meeting min-score to trigger exit code (0 = any)
   type: integer
   env: VLZ_MIN_COUNT
   cli: "--min-count"
@@ -60,7 +65,9 @@ fp_exit_code:
   default: "0"
 
 project_id:
-  description: "Project ID for false-positive scoping (FR-015); only FPs for this project or global apply"
+  description: >-
+    Project ID for false-positive scoping (FR-015); only FPs for this project
+    or global apply
   type: string
   env: VLZ_PROJECT_ID
   cli: "--project-id"
@@ -92,14 +99,17 @@ provider_http_connect_timeout_secs:
   default: "15"
 
 provider_http_request_timeout_secs:
-  description: "CVE provider HTTPS total request timeout in seconds (default 120)"
+  description: >-
+    CVE provider HTTPS total request timeout in seconds (default 120)
   type: integer
   env: VLZ_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS
   cli: "--provider-http-request-timeout-secs"
   default: "120"
 
 tls_crl_bundle:
-  description: "Optional PEM CRL bundle path for Linux CVE provider TLS (SEC-021); empty disables"
+  description: >-
+    Optional PEM CRL bundle path for Linux CVE provider TLS (SEC-021);
+    empty disables
   type: string
   env: VLZ_TLS_CRL_BUNDLE
   cli: "--tls-crl-bundle"
@@ -179,10 +189,12 @@ severity_v4_low_min:
   env: VLZ_SEVERITY_V4_LOW_MIN
   default: "0.1"
 
-# Per-language manifest regex (FR-006). Use [python], [rust], [go], etc. with regex = "pattern".
-# config --list outputs lang.regex when set; these are example defaults.
+# Per-language manifest regex (FR-006). Use [python], [rust], [go], etc. with
+# regex = "pattern". config --list outputs lang.regex when set; these are
+# example defaults.
 python.regex:
-  description: "Regex for Python manifest file names (e.g. requirements.txt, pyproject.toml)"
+  description: >-
+    Regex for Python manifest file names (e.g. requirements.txt, pyproject.toml)
   type: string
   default: "^requirements\\.txt$"
 

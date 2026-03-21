@@ -194,6 +194,14 @@ force-push to `main`. Under Settings > General > Pull Requests, enable only
 "Allow merge commits" and disable "Allow squash merging" and "Allow rebase
 merging" so that the only available merge method preserves signatures.
 
+**Super-linter / commitlint:** [`.commitlintrc.json`](.commitlintrc.json) extends
+`@commitlint/config-conventional` (bundled in the super-linter image). With
+`defaultIgnores: true`, merge commits such as GitHub’s `Merge pull request …`
+and `Merge branch …` are skipped so only normal commits are checked against
+Conventional Commits. Subject length in commitlint follows the conventional
+preset (stricter than the 50-character guideline above); the 50-character rule
+remains the project convention for authors.
+
 ### Commit signing setup
 
 All commits must be signed. Git supports two signing backends; both are
@@ -632,17 +640,49 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   The README badge reflects the **nightly** workflow (last full-tree run).
   Locally: `make super-linter` (incremental) or `make super-linter-full` (full
   tree); both call [`scripts/super-linter.sh`](scripts/super-linter.sh) and
-  require Docker. The script sets `FILTER_REGEX_EXCLUDE` so `target/`, `.git/`,
-  `completions/` (ShellCheck is already `make lint-shell` with
-  `completions/.shellcheckrc`), Python venvs (`.venv*/`), `.mypy_cache/`, and
-  `site-packages/` are skipped. It sets `BASH_EXEC_IGNORE_LIBRARIES=true`,
-  disables Rust/Python/Markdown/shfmt/BASH validators duplicated by
-  `make check-fast`, and defaults to image `ghcr.io/super-linter/super-linter:slim-latest`
-  (override with `SUPER_LINTER_IMAGE`). Related repo files: [`biome.json`](biome.json),
-  [`.codespellrc`](.codespellrc), [`.jscpd.json`](.jscpd.json),
-  [`.gitleaks.toml`](.gitleaks.toml) (run `gitleaks detect` locally; super-linter
-  disables Gitleaks in-container because it does not apply this config reliably),
-  [`.hadolint.yaml`](.hadolint.yaml), [`.yamllint`](.yamllint).
+  require Docker. Workflows pass `GITHUB_TOKEN` and set
+  `SAVE_SUPER_LINTER_OUTPUT` / `SAVE_SUPER_LINTER_SUMMARY` so logs upload on
+  failure. The script sets `IGNORE_GITIGNORED_FILES=true` and
+  `FILTER_REGEX_EXCLUDE` so `target/`, `.git/`, `completions/` (ShellCheck is
+  already `make lint-shell` with `completions/.shellcheckrc`), Python venvs
+  (`.venv*/`), `.mypy_cache/`, and `site-packages/` are skipped. It sets
+  `LINTER_RULES_PATH` to `.` so configs at the repository root apply (the
+  default would be `.github/linters`; the workspace mount is `/tmp/lint`). It
+  sets `BASH_EXEC_IGNORE_LIBRARIES=true`. **Canonical policy:** every
+  `VALIDATE_*=false` toggle lives in
+  [`scripts/super-linter.sh`](scripts/super-linter.sh); other linters follow
+  super-linter defaults unless that script disables them.
+  Summary: validators duplicated by `make check-fast` are off (Rust editions and
+  Clippy; Python black, pylint, mypy, and related super-linter Python tools
+  including Ruff, Flake8, and isort, since `lint-python` uses black, pylint,
+  mypy, and bandit only; shell shfmt and BASH; Markdown and Markdown Prettier;
+  natural language). ESLint, TypeScript/JavaScript/Vue/JSX linters, and
+  Prettier-family formatters (including JSON, JSONC, YAML, GraphQL, and HTML
+  Prettier) are off; [`biome.json`](biome.json) covers **JSON, JSONC, CSS,
+  JavaScript, TypeScript, JSX, TSX, and GraphQL** (via `files.includes`).
+  **CSS Stylelint** (`VALIDATE_CSS`) and **CSS Prettier** stay off so Biome is the
+  only tool on those paths. **YAML** is not handled by Biome; YAML in CI follows
+  super-linter defaults with [`.yamllint`](.yamllint) at the repo root (YAML
+  Prettier remains off). **Zizmor** (`VALIDATE_GITHUB_ACTIONS_ZIZMOR`),
+  **JSCPD**, and **Gitleaks** are off in the container (Zizmor and JSCPD are off
+  for practical reasons; Gitleaks does not apply [`.gitleaks.toml`](.gitleaks.toml)
+  reliably there). Run
+  `gitleaks detect` locally for secrets scanning. The script defaults to a
+  **pinned** slim image digest (linux/amd64, not `:slim-latest`, so linter
+  versions stay stable until maintainers bump the digest). Override with
+  `SUPER_LINTER_IMAGE` if needed. To upgrade: resolve a new digest from
+  `ghcr.io/super-linter/super-linter:slim-latest` (see comment in
+  `super-linter.sh`), update `DEFAULT_SUPER_LINTER_IMAGE`, run
+  `make super-linter-full`, fix any new findings, then merge.
+  [`biome.json`](biome.json) intentionally has **no** `$schema` URL so the Biome
+  CLI in super-linter does not fail on schema-version mismatch when the image is
+  bumped; use the Biome editor extension for IDE validation. Related repo files:
+  [`biome.json`](biome.json), [`trivy.yaml`](trivy.yaml) (Trivy `db.no-progress`
+  for quieter vulnerability DB downloads in the container),
+  [`.codespellrc`](.codespellrc), [`.jscpd.json`](.jscpd.json) (local or future use;
+  super-linter JSCPD is off), [`.gitleaks.toml`](.gitleaks.toml),
+  [`.hadolint.yaml`](.hadolint.yaml), [`.yamllint`](.yamllint),
+  [`.commitlintrc.json`](.commitlintrc.json).
 - **Mermaid diagrams:** To view them in Cursor/VS Code, install the
   **Markdown Preview Mermaid Support** extension (or accept the workspace
   recommendation). Follow Mermaid diagram guidelines: no explicit colors or
