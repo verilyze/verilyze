@@ -28,14 +28,18 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # persist-credentials: false leaves origin without a token; fetch needs auth.
+      # persist-credentials: false removes the token from origin.
+      # Fetch needs auth to read the base branch.
+      # yamllint disable rule:line-length
       - name: Fetch base branch
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git fetch origin "${{ github.event.pull_request.base.ref }}"
-          git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git remote set-url origin \
+            "https://github.com/${GITHUB_REPOSITORY}.git"
+      # yamllint enable rule:line-length
 
       - name: Check DCO
         env:
@@ -52,14 +56,18 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # persist-credentials: false leaves origin without a token; fetch needs auth.
+      # persist-credentials: false removes the token from origin.
+      # Fetch needs auth to read the base branch.
+      # yamllint disable rule:line-length
       - name: Fetch base branch
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git fetch origin "${{ github.event.pull_request.base.ref }}"
-          git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git remote set-url origin \
+            "https://github.com/${GITHUB_REPOSITORY}.git"
+      # yamllint enable rule:line-length
 
       - name: Check commit signatures (presence only)
         env:
