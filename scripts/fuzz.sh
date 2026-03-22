@@ -26,7 +26,8 @@ set -e
 cd "$(dirname "$0")/.." || exit 1
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-FUZZ_TARGETS_ENV="${FUZZ_TARGETS_ENV:-$SCRIPT_DIR/fuzz-targets.env}"
+# FUZZ_TARGETS_FILE: path to target-to-path map (FUZZ_TARGETS_ENV is a legacy alias).
+FUZZ_TARGETS_FILE="${FUZZ_TARGETS_FILE:-${FUZZ_TARGETS_ENV:-$SCRIPT_DIR/fuzz-targets.map}}"
 FUZZ_OUT="${FUZZ_OUT:-/tmp/vlz-fuzz-out}"
 
 DO_COVERAGE=false
@@ -80,7 +81,7 @@ fi
 export RUSTFLAGS="${RUSTFLAGS} -C panic=unwind"
 cargo afl build -p vlz-fuzz
 
-# Load target-to-path mapping from fuzz-targets.env.
+# Load target-to-path mapping from fuzz-targets.map.
 # Format: target_name=path (one per line; # for comments)
 # bin = fuzz_${target_name}, corpus = tests/fuzz/corpus/${target_name}
 get_all_targets() {
@@ -92,7 +93,7 @@ get_all_targets() {
         if [[ "$line" == *=* ]]; then
             echo "${line%%=*}"
         fi
-    done < "$FUZZ_TARGETS_ENV"
+    done < "$FUZZ_TARGETS_FILE"
 }
 
 # Resolve which targets to run.
@@ -156,7 +157,7 @@ elif "$DO_CHANGED"; then
                         break
                     fi
                 done
-            done < "$FUZZ_TARGETS_ENV"
+            done < "$FUZZ_TARGETS_FILE"
             if [[ -z "$matched" ]]; then
                 echo "No mapped files changed; skipping fuzz (exit 0)." >&2
                 if "$DO_COVERAGE"; then

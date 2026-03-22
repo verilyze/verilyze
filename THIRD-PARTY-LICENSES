@@ -160,7 +160,7 @@ COMPONENTS
 - webpki-root-certs v1.0.6 (CDLA-Permissive-2.0)
 - untrusted v0.9.0 (ISC)
 - ring v0.17.14 (Apache-2.0 AND ISC)
-- rustls-webpki v0.103.9 (ISC)
+- rustls-webpki v0.103.10 (ISC)
 - mio v1.1.1 (MIT)
 - hyper v1.8.1 (MIT)
 - schannel v0.1.29 (MIT)

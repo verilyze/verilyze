@@ -71,11 +71,11 @@
 #
 # Per-language manifest regex (FR-006)
 # [go]
-# regex = "^go\\.mod$"
+# regex = "^go\.mod$"
 
 # [python]
-# regex = "^requirements\\.txt$"
+# regex = "^requirements\.txt$"
 
 # [rust]
-# regex = "^Cargo\\.toml$"
+# regex = "^Cargo\.toml$"
 

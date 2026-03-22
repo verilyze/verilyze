@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-#
+
+---
 # CI workflow: split into check-fast (headers, build, fmt, clippy, cargo-deny,
 # lint) and check-slow (fuzz-changed, coverage-quick) for faster feedback on
 # simple changes.
@@ -14,6 +15,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   check-dco:
     runs-on: ubuntu-latest
@@ -22,9 +26,20 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
+      # persist-credentials: false removes the token from origin.
+      # Fetch needs auth to read the base branch.
+      # yamllint disable rule:line-length
       - name: Fetch base branch
-        run: git fetch origin "${{ github.event.pull_request.base.ref }}"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch origin "${{ github.event.pull_request.base.ref }}"
+          git remote set-url origin \
+            "https://github.com/${GITHUB_REPOSITORY}.git"
+      # yamllint enable rule:line-length
 
       - name: Check DCO
         env:
@@ -39,9 +54,20 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
+      # persist-credentials: false removes the token from origin.
+      # Fetch needs auth to read the base branch.
+      # yamllint disable rule:line-length
       - name: Fetch base branch
-        run: git fetch origin "${{ github.event.pull_request.base.ref }}"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch origin "${{ github.event.pull_request.base.ref }}"
+          git remote set-url origin \
+            "https://github.com/${GITHUB_REPOSITORY}.git"
+      # yamllint enable rule:line-length
 
       - name: Check commit signatures (presence only)
         env:
@@ -54,10 +80,14 @@ jobs:
     needs: [check-dco, check-signatures]
     if: >-
       (success() || failure())
-      && (needs.check-dco.result == 'success' || needs.check-dco.result == 'skipped')
-      && (needs.check-signatures.result == 'success' || needs.check-signatures.result == 'skipped')
+      && (needs.check-dco.result == 'success'
+          || needs.check-dco.result == 'skipped')
+      && (needs.check-signatures.result == 'success'
+          || needs.check-signatures.result == 'skipped')
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -82,10 +112,14 @@ jobs:
     needs: [check-dco, check-signatures]
     if: >-
       (success() || failure())
-      && (needs.check-dco.result == 'success' || needs.check-dco.result == 'skipped')
-      && (needs.check-signatures.result == 'success' || needs.check-signatures.result == 'skipped')
+      && (needs.check-dco.result == 'success'
+          || needs.check-dco.result == 'skipped')
+      && (needs.check-signatures.result == 'success'
+          || needs.check-signatures.result == 'skipped')
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable

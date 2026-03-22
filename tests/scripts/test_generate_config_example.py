@@ -39,62 +39,86 @@ class TestParseConfigComments:
     """Tests for parse_config_comments."""
 
     def test_parses_top_level_keys(self, tmp_path: Path) -> None:
-        yaml = tmp_path / "config.yaml"
-        yaml.write_text(
-            "parallel_queries:\n"
-            "  description: \"Max queries\"\n"
-            "  type: integer\n",
+        path = tmp_path / "config.toml"
+        path.write_text(
+            '[parallel_queries]\n'
+            'description = "Max queries"\n'
+            'type = "integer"\n',
             encoding="utf-8",
         )
-        result = generate_config_example.parse_config_comments(yaml)
+        result = generate_config_example.parse_config_comments(path)
         assert "parallel_queries" in result
         assert result["parallel_queries"]["description"] == "Max queries"
         assert result["parallel_queries"]["type"] == "integer"
 
     def test_parses_nested_fields(self, tmp_path: Path) -> None:
-        yaml = tmp_path / "config.yaml"
-        yaml.write_text(
-            "cache_ttl_secs:\n"
-            "  description: \"TTL\"\n"
-            "  type: integer\n"
-            "  env: VLZ_CACHE_TTL_SECS\n"
-            "  cli: \"--cache-ttl-secs\"\n"
-            "  default: \"432000\"\n",
+        path = tmp_path / "config.toml"
+        path.write_text(
+            '[cache_ttl_secs]\n'
+            'description = "TTL"\n'
+            'type = "integer"\n'
+            'env = "VLZ_CACHE_TTL_SECS"\n'
+            'cli = "--cache-ttl-secs"\n'
+            'default = "432000"\n',
             encoding="utf-8",
         )
-        result = generate_config_example.parse_config_comments(yaml)
+        result = generate_config_example.parse_config_comments(path)
         assert result["cache_ttl_secs"]["env"] == "VLZ_CACHE_TTL_SECS"
         assert result["cache_ttl_secs"]["cli"] == "--cache-ttl-secs"
         assert result["cache_ttl_secs"]["default"] == "432000"
 
     def test_skips_comments_and_blank_lines(self, tmp_path: Path) -> None:
-        yaml = tmp_path / "config.yaml"
-        yaml.write_text(
+        path = tmp_path / "config.toml"
+        path.write_text(
             "# comment\n"
             "\n"
-            "key1:\n"
-            "  desc: \"one\"\n"
+            "[key1]\n"
+            'description = "one"\n'
             "# another\n"
-            "  type: string\n",
+            'type = "string"\n',
             encoding="utf-8",
         )
-        result = generate_config_example.parse_config_comments(yaml)
+        result = generate_config_example.parse_config_comments(path)
         assert "key1" in result
-        assert result["key1"]["desc"] == "one"
+        assert result["key1"]["description"] == "one"
         assert result["key1"]["type"] == "string"
 
-    def test_handles_multi_key_yaml(self, tmp_path: Path) -> None:
-        yaml = tmp_path / "config.yaml"
-        yaml.write_text(
-            "a:\n  x: 1\n"
-            "b:\n  x: 2\n"
-            "c:\n  x: 3\n",
+    def test_handles_multi_key_toml(self, tmp_path: Path) -> None:
+        path = tmp_path / "config.toml"
+        path.write_text(
+            "[a]\n"
+            "x = 1\n"
+            "[b]\n"
+            "x = 2\n"
+            "[c]\n"
+            "x = 3\n",
             encoding="utf-8",
         )
-        result = generate_config_example.parse_config_comments(yaml)
+        result = generate_config_example.parse_config_comments(path)
         assert result["a"]["x"] == "1"
         assert result["b"]["x"] == "2"
         assert result["c"]["x"] == "3"
+
+    def test_parses_multiline_string_description(self, tmp_path: Path) -> None:
+        """TOML multiline strings preserve body text for descriptions."""
+        path = tmp_path / "config.toml"
+        path.write_text(
+            '[cache_db]\n'
+            'description = """\n'
+            "Path to CVE cache database (default: XDG_CACHE_HOME or\n"
+            "/var/cache)\n"
+            '"""\n'
+            'type = "string"\n'
+            'env = "VLZ_CACHE_DB"\n',
+            encoding="utf-8",
+        )
+        result = generate_config_example.parse_config_comments(path)
+        desc = result["cache_db"]["description"]
+        assert "Path to CVE cache database" in desc
+        assert "XDG_CACHE_HOME" in desc
+        assert "/var/cache" in desc
+        assert result["cache_db"]["type"] == "string"
+        assert result["cache_db"]["env"] == "VLZ_CACHE_DB"
 
 
 class TestRunConfigList:
@@ -519,8 +543,8 @@ class TestMain:
         (tmp_path / "scripts").mkdir()
         (tmp_path / "docs").mkdir()
         (tmp_path / "man").mkdir()
-        (tmp_path / "scripts" / "config-comments.yaml").write_text(
-            "key:\n  desc: x\n", encoding="utf-8"
+        (tmp_path / "scripts" / "config-comments.toml").write_text(
+            '[key]\nkey = "x"\n', encoding="utf-8"
         )
         (tmp_path / "man" / "verilyze.conf.5.in").write_text(
             "{{OPTIONS_SECTION}}", encoding="utf-8"
@@ -538,8 +562,8 @@ class TestMain:
         (tmp_path / "scripts").mkdir()
         (tmp_path / "docs").mkdir()
         (tmp_path / "man").mkdir()
-        (tmp_path / "scripts" / "config-comments.yaml").write_text(
-            "key:\n  desc: x\n", encoding="utf-8"
+        (tmp_path / "scripts" / "config-comments.toml").write_text(
+            '[key]\nkey = "x"\n', encoding="utf-8"
         )
         (tmp_path / "docs" / "configuration.md.in").write_text(
             "{{CONFIG_TABLE}} {{SEVERITY_SECTION}}", encoding="utf-8"
@@ -596,7 +620,7 @@ class TestMain:
         self._setup_fixture(tmp_path)
         config_list = {"parallel_queries": "10", "cache_ttl_secs": "432000"}
         comments = generate_config_example.parse_config_comments(
-            tmp_path / "scripts" / "config-comments.yaml"
+            tmp_path / "scripts" / "config-comments.toml"
         )
         rows = generate_config_example.build_config_data(config_list, comments)
         example = generate_config_example.generate_example_conf(
@@ -658,23 +682,25 @@ class TestMain:
         assert (tmp_path / "man" / "verilyze.conf.5").exists()
 
     def _setup_fixture(self, tmp_path: Path) -> None:
-        """Create minimal config-comments.yaml and templates."""
+        """Create minimal config-comments.toml and templates."""
         (tmp_path / "scripts").mkdir(parents=True)
         (tmp_path / "docs").mkdir(parents=True)
         (tmp_path / "man").mkdir(parents=True)
-        (tmp_path / "scripts" / "config-comments.yaml").write_text(
-            "parallel_queries:\n"
-            "  description: \"Max queries\"\n"
-            "  type: integer\n"
-            "  env: VLZ_PARALLEL_QUERIES\n"
-            "  cli: \"--parallel\"\n"
-            "cache_ttl_secs:\n"
-            "  description: \"TTL\"\n"
-            "  type: integer\n"
-            "  env: VLZ_CACHE_TTL_SECS\n"
-            "  cli: \"--cache-ttl-secs\"\n"
-            "severity_v3_critical_min:\n"
-            "  default: \"9.0\"\n",
+        (tmp_path / "scripts" / "config-comments.toml").write_text(
+            '[parallel_queries]\n'
+            'description = "Max queries"\n'
+            'type = "integer"\n'
+            'env = "VLZ_PARALLEL_QUERIES"\n'
+            'cli = "--parallel"\n'
+            "\n"
+            '[cache_ttl_secs]\n'
+            'description = "TTL"\n'
+            'type = "integer"\n'
+            'env = "VLZ_CACHE_TTL_SECS"\n'
+            'cli = "--cache-ttl-secs"\n'
+            "\n"
+            '[severity_v3_critical_min]\n'
+            'default = "9.0"\n',
             encoding="utf-8",
         )
         (tmp_path / "docs" / "configuration.md.in").write_text(

@@ -28,6 +28,13 @@ precedence = "override"
 SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
+# ShellCheck config for completions/ (authored; SPDX in file)
+[[annotations]]
+path = "completions/.shellcheckrc"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Travis Post <post.travis@gmail.com>"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
 # Generated shell completions (clap_complete output; no SPDX in file)
 [[annotations]]
 path = "completions/*"
@@ -93,6 +100,20 @@ SPDX-License-Identifier = "GPL-3.0-or-later"
 
 [[annotations]]
 path = "deny.toml"
+precedence = "override"
+SPDX-FileCopyrightText = "The verilyze contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# Biome formatter config (JSON; no SPDX in file)
+[[annotations]]
+path = "biome.json"
+precedence = "override"
+SPDX-FileCopyrightText = "The verilyze contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# commitlint for super-linter (JSON; no SPDX in file)
+[[annotations]]
+path = ".commitlintrc.json"
 precedence = "override"
 SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"

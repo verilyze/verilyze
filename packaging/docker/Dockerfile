@@ -9,9 +9,14 @@
 # --- Stage 1: Build ---
 FROM rust:slim AS builder
 
-RUN apt-get update && apt-get install -y musl-tools && \
-    rustup target add x86_64-unknown-linux-musl && \
-    rm -rf /var/lib/apt/lists/*
+# hadolint ignore=DL3008
+RUN apt-get update && apt-get install -y --no-install-recommends musl-tools \
+    && rustup target add x86_64-unknown-linux-musl \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /vlz-docker-home/.cache /vlz-docker-home/.local/share \
+    && chown -R 1000:1000 /vlz-docker-home \
+    && echo "verilyze:x:1000:1000:verilyze:/home/verilyze:" > /etc/passwd
+
 
 WORKDIR /build
 COPY . .
@@ -25,8 +30,15 @@ RUN cargo build --release --locked --no-default-features --features docker \
 FROM scratch
 
 COPY --from=builder /build/target/x86_64-unknown-linux-musl/release/vlz /vlz
+COPY --from=builder /etc/passwd /etc/
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /build/LICENSES/GPL-3.0-or-later.txt /LICENSE
 COPY --from=builder /build/THIRD-PARTY-LICENSES /THIRD-PARTY-LICENSES
+COPY --from=builder --chown=1000:1000 /vlz-docker-home /home/verilyze
 
+ENV HOME=/home/verilyze
+USER 1000
+# FR-002: --version exits 0; satisfies Checkov CKV_DOCKER_2 / Trivy DS-0026 (OP-013).
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD ["/vlz", "--version"]
 ENTRYPOINT ["/vlz"]

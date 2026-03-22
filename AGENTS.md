@@ -98,3 +98,4 @@ observable behavior.
 | Copyright duplicates | `make check-header-duplicates`; CONTRIBUTING "Copyright and licensing"; `.mailmap` |
 | DRY / constants      | PRD NFR-024; CONTRIBUTING "DRY (Don't Repeat Yourself)"                              |
 | Parser selection     | PRD NFR-025 (manifest format compatibility, use existing vs in-house)               |
+| Super-linter         | CONTRIBUTING "Code style and checks" (Super-linter bullet; Biome file globs in [biome.json](biome.json)) |
