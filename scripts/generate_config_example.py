@@ -5,7 +5,7 @@
 
 """
 Generate verilyze.conf.example, docs/configuration.md, and man/verilyze.conf.5
-from vlz config --list output and config-comments.yaml.
+from vlz config --list output and config-comments.toml.
 
 Single source of truth: config.rs defines defaults; this script produces
 documentation. Run from repository root:
@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import re
 import subprocess  # nosec B404
 import sys
 import textwrap
@@ -63,27 +62,41 @@ def get_repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-def parse_config_comments(yaml_path: Path) -> dict[str, dict[str, str]]:
+def _stringify_toml_value(value: object) -> str:
+    """Normalize TOML leaf values to strings for table and man output."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
+def parse_config_comments(toml_path: Path) -> dict[str, dict[str, str]]:
     """
-    Parse config-comments.yaml (simple YAML subset).
+    Parse config-comments.toml with stdlib tomllib.
+
     Returns dict of key -> {description, type, env, cli, default?}.
     """
+    with toml_path.open("rb") as f:
+        data = tomllib.load(f)
+    if not isinstance(data, dict):
+        return {}
+
     result: dict[str, dict[str, str]] = {}
-    current_key: str | None = None
-
-    for line in yaml_path.read_text(encoding="utf-8").splitlines():
-        if line.startswith("#") or not line.strip():
+    for top_key, nested in data.items():
+        key = str(top_key)
+        if nested is None or not isinstance(nested, dict):
+            result[key] = {}
             continue
-        # Top-level key (no leading space)
-        if re.match(r"^[a-zA-Z0-9_.]+:", line) and not line.startswith(" "):
-            current_key = line.split(":")[0].strip()
-            result[current_key] = {}
-        elif current_key and line.startswith("  ") and ":" in line:
-            k, v = line.split(":", 1)
-            k = k.strip()
-            v = v.strip().strip('"')
-            result[current_key][k] = v
-
+        row: dict[str, str] = {}
+        for k, v in nested.items():
+            sk = str(k)
+            raw = _stringify_toml_value(v)
+            if sk == "description":
+                row[sk] = " ".join(raw.split())
+            else:
+                row[sk] = raw
+        result[key] = row
     return result
 
 
@@ -411,7 +424,7 @@ def main() -> int:  # pylint: disable=too-many-locals
     args = parser.parse_args()
 
     repo_root = get_repo_root()
-    manifest_path = repo_root / "scripts" / "config-comments.yaml"
+    manifest_path = repo_root / "scripts" / "config-comments.toml"
     template_md = repo_root / "docs" / "configuration.md.in"
     template_man = repo_root / "man" / "verilyze.conf.5.in"
 

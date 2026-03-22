@@ -253,12 +253,13 @@ check-doc-diagrams:
 	python3 $(SCRIPTS_DIR)/embed-diagrams.py --check README.md CONTRIBUTING.md
 
 # generate-config-example: produce verilyze.conf.example, docs/configuration.md, man/verilyze.conf.5
-generate-config-example: debug
-	python3 $(SCRIPTS_DIR)/generate_config_example.py
+# Uses .venv-test for pytest (generate_config_example uses stdlib tomllib).
+generate-config-example: debug $(VENV_TEST)/bin/pytest
+	$(VENV_TEST)/bin/python $(SCRIPTS_DIR)/generate_config_example.py
 
 # check-config-docs: verify config docs are in sync (CI)
-check-config-docs: debug
-	python3 $(SCRIPTS_DIR)/generate_config_example.py --check
+check-config-docs: debug $(VENV_TEST)/bin/pytest
+	$(VENV_TEST)/bin/python $(SCRIPTS_DIR)/generate_config_example.py --check
 
 # generate-packaging: Update APKBUILD and PKGBUILD with version from Cargo.toml.
 # Run after bumping version; required before make apk.

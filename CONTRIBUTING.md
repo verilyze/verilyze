@@ -442,7 +442,7 @@ config key:
 **Workflow:**
 
 1. Add the key to `config.rs` (and ensure `vlz config --list` includes it).
-2. Add an entry to `scripts/config-comments.yaml` with `description`, `type`,
+2. Add an entry to `scripts/config-comments.toml` with `description`, `type`,
    `env`, `cli`, and `default` (if not in `config --list`).
 3. Run `make generate-config-example` to regenerate `verilyze.conf.example`,
    `docs/configuration.md`, `man/verilyze.conf.5`.
@@ -454,7 +454,7 @@ config key:
 `generate_config_example.py --check`) fails if outputs are out of sync.
 CI runs this as part of `make check`.
 
-**Files:** `scripts/config-comments.yaml`, `docs/configuration.md.in`, and
+**Files:** `scripts/config-comments.toml`, `docs/configuration.md.in`, and
 `man/verilyze.conf.5.in` are templates; the script fills placeholders from
 config data and `vlz config --list` output.
 

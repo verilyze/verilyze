@@ -305,8 +305,8 @@ DOC-002).
 **Config docs workflow (DOC-003):** Config docs (`verilyze.conf.example`,
 `docs/configuration.md`, `man/verilyze.conf.5`) are generated from
 `scripts/generate_config_example.py` using `vlz config --list` and
-`scripts/config-comments.yaml`. When adding a new config key: (1) add to
-`config.rs`, (2) add entry to `config-comments.yaml`, (3) run
+`scripts/config-comments.toml`. When adding a new config key: (1) add to
+`config.rs`, (2) add entry to `config-comments.toml`, (3) run
 `make generate-config-example`, (4) commit generated files. CI runs
 `make check-config-docs` to verify outputs are in sync.
 

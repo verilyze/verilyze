@@ -3,14 +3,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Generate verilyze.conf.example content at runtime with effective values.
-//! Descriptions are parsed from config-comments.yaml embedded at compile time.
+//! Descriptions are parsed from config-comments.toml embedded at compile time.
 
 include!(concat!(env!("OUT_DIR"), "/constants.rs"));
 
 use std::collections::HashMap;
 
 const CONFIG_COMMENTS: &str =
-    include_str!("../../../../scripts/config-comments.yaml");
+    include_str!("../../../../scripts/config-comments.toml");
 
 /// Wrap text into comment lines, each prefixed with "# " and at most `width` chars.
 /// Returns empty vec for empty or whitespace-only text.
@@ -43,38 +43,25 @@ pub(crate) fn wrap_comment(text: &str, width: usize) -> Vec<String> {
     result
 }
 
-/// Parse config-comments.yaml (simple subset) to extract key -> description.
-fn parse_descriptions(yaml: &str) -> HashMap<String, String> {
+/// Parse config-comments.toml to extract key -> description.
+fn parse_descriptions(raw: &str) -> HashMap<String, String> {
     let mut result = HashMap::new();
-    let mut current_key: Option<String> = None;
-
-    for line in yaml.lines() {
-        let trimmed = line.trim_end();
-        if trimmed.is_empty() || trimmed.starts_with('#') {
+    let Ok(mapping) = toml::from_str::<toml::Table>(raw) else {
+        return result;
+    };
+    for (key, v) in mapping {
+        let Some(nested) = v.as_table() else {
             continue;
-        }
-        if trimmed.starts_with("  ") {
-            if let Some(key) = &current_key
-                && let Some(rest) = trimmed.strip_prefix("  description:")
-            {
-                let val = rest
-                    .trim()
-                    .trim_matches('"')
-                    .trim_matches('\'')
-                    .to_string();
-                if !val.is_empty() {
-                    result.insert(key.clone(), val);
-                }
-            }
-        } else if let Some(idx) = trimmed.find(':') {
-            let key = trimmed[..idx].trim();
-            if !key.is_empty()
-                && key
-                    .chars()
-                    .all(|c| c.is_alphanumeric() || c == '_' || c == '.')
-            {
-                current_key = Some(key.to_string());
-            }
+        };
+        let Some(desc_val) = nested.get("description") else {
+            continue;
+        };
+        let Some(text) = desc_val.as_str() else {
+            continue;
+        };
+        let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        if !text.is_empty() {
+            result.insert(key.clone(), text);
         }
     }
     result
@@ -211,6 +198,13 @@ mod tests {
     };
     use std::path::PathBuf;
 
+    #[test]
+    fn embedded_config_comments_toml_parses() {
+        toml::from_str::<toml::Table>(CONFIG_COMMENTS).expect(
+            "config-comments.toml embedded at compile time must parse",
+        );
+    }
+
     fn minimal_config() -> crate::config::EffectiveConfig {
         crate::config::EffectiveConfig {
             cache_db: Some(PathBuf::from("/tmp/cache.redb")),
@@ -316,5 +310,31 @@ mod tests {
             );
             assert!(line.starts_with("# "));
         }
+    }
+
+    #[test]
+    fn parse_descriptions_multiline_string() {
+        let toml = r#"
+[cache_db]
+description = """
+Path to CVE cache database (default: XDG_CACHE_HOME or
+/var/cache)
+"""
+type = "string"
+"#;
+        let map = super::parse_descriptions(toml);
+        let desc = map.get("cache_db").expect("cache_db key");
+        assert!(
+            desc.contains("Path to CVE cache database"),
+            "unexpected description: {desc:?}"
+        );
+        assert!(
+            desc.contains("XDG_CACHE_HOME"),
+            "unexpected description: {desc:?}"
+        );
+        assert!(
+            desc.contains("/var/cache"),
+            "unexpected description: {desc:?}"
+        );
     }
 }

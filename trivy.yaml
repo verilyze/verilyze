@@ -2,7 +2,10 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# Super-linter passes --config to this file when it lives at the workspace root
-# (LINTER_RULES_PATH `.` in scripts/super-linter.sh). Suppresses DB download progress.
+---
+# Super-linter passes `--config` to this file when it lives at the workspace
+# root (LINTER_RULES_PATH `.` in scripts/super-linter.sh). Suppresses DB
+# download progress.
+
 db:
   no-progress: true
