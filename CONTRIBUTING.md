@@ -635,8 +635,9 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   concise summary.
 - **Super-linter:** CI runs the [super-linter](https://github.com/super-linter/super-linter)
   **slim** image in two modes: **incremental** (push/PR to `main`,
-  `VALIDATE_ALL_CODEBASE=false`, workflow `super-linter.yml`) and **nightly full
-  scan** (`VALIDATE_ALL_CODEBASE=true`, workflow `super-linter-nightly.yml`).
+  `VALIDATE_ALL_CODEBASE=false`, job `super-linter` in workflow `ci.yml`) and
+  **nightly full scan** (`VALIDATE_ALL_CODEBASE=true`, workflow
+  `super-linter-nightly.yml`).
   The README badge reflects the **nightly** workflow (last full-tree run).
   Locally: `make super-linter` (incremental) or `make super-linter-full` (full
   tree); both call [`scripts/super-linter.sh`](scripts/super-linter.sh) and
