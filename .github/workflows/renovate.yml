@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+---
+# Scheduled Renovate: dockerfile + custom regex (see renovate.json).
+# Uses a GitHub App installation token (short-lived), not a user PAT.
+
+name: Renovate
+
+on:
+  schedule:
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  renovate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create installation token for Renovate
+        id: renovate-token
+        uses: actions/create-github-app-token@v3.0.0
+        with:
+          app-id: ${{ secrets.RENOVATE_APP_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: renovatebot/github-action@v46.1.5
+        with:
+          configurationFile: renovate.json
+          token: ${{ steps.renovate-token.outputs.token }}

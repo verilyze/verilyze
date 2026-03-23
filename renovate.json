@@ -1,0 +1,33 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "enabledManagers": ["dockerfile", "custom.regex"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Super-linter slim digest in scripts/super-linter.sh (track slim-latest digest)",
+      "managerFilePatterns": ["^scripts/super-linter\\.sh$"],
+      "matchStrings": ["SL_SHA=\"(?<currentDigest>sha256:[a-f0-9]+)\""],
+      "datasourceTemplate": "docker",
+      "packageNameTemplate": "ghcr.io/super-linter/super-linter",
+      "versioningTemplate": "docker",
+      "currentValueTemplate": "slim-latest"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Super-linter image: digest-only grouped PRs",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["ghcr.io/super-linter/super-linter"],
+      "matchUpdateTypes": ["digest"],
+      "groupName": "super-linter-slim-digest"
+    },
+    {
+      "description": "Packaging Docker: Rust builder base image",
+      "matchManagers": ["dockerfile"],
+      "matchFileNames": ["packaging/docker/Dockerfile"],
+      "matchPackageNames": ["rust"],
+      "groupName": "packaging-docker-rust-slim"
+    }
+  ]
+}

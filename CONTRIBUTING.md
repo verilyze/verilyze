@@ -670,9 +670,28 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   `gitleaks detect` locally for secrets scanning. The script defaults to a
   **pinned** slim image digest (linux/amd64, not `:slim-latest`, so linter
   versions stay stable until maintainers bump the digest). Override with
-  `SUPER_LINTER_IMAGE` if needed. To upgrade: resolve a new digest from
+  `SUPER_LINTER_IMAGE` if needed. **Renovate** ([`renovate.json`](renovate.json))
+  uses a **regex** custom manager to open PRs when the digest for
+  `ghcr.io/super-linter/super-linter:slim-latest` changes; the scheduled workflow
+  is [`.github/workflows/renovate.yml`](.github/workflows/renovate.yml).
+  **GitHub App (not a PAT):** Create a
+  [GitHub App](https://docs.github.com/en/apps/creating-github-apps/about-creating-github-apps),
+  install it on this repository (or org with repo access), and add secrets
+  **`RENOVATE_APP_ID`** (numeric App ID) and **`RENOVATE_APP_PRIVATE_KEY`**
+  (full PEM from *Generate a private key*). Grant at least **Contents**,
+  **Issues**, and **Pull requests** (read and write). For parity with
+  [Renovate's GitHub App guidance](https://docs.renovatebot.com/modules/platform/github/#running-as-a-github-app),
+  also enable **Checks**, **Commit statuses**, **Workflows** (read and write),
+  **Dependabot alerts** (read), **Members** (read), **Metadata** (read), and
+  **Administration** (read) on the app. The workflow uses
+  [actions/create-github-app-token](https://github.com/actions/create-github-app-token)
+  to mint a **short-lived installation token** for
+  [renovatebot/github-action](https://github.com/renovatebot/github-action),
+  which avoids a long-lived personal access token tied to a user account.
+  After merging a digest PR, run `make super-linter-full` and fix any new
+  findings. **Manual upgrade:** resolve a new digest from
   `ghcr.io/super-linter/super-linter:slim-latest` (see comment in
-  `super-linter.sh`), update `DEFAULT_SUPER_LINTER_IMAGE`, run
+  `super-linter.sh`), update `SL_SHA` / `DEFAULT_SUPER_LINTER_IMAGE`, run
   `make super-linter-full`, fix any new findings, then merge.
   [`biome.json`](biome.json) intentionally has **no** `$schema` URL so the Biome
   CLI in super-linter does not fail on schema-version mismatch when the image is
