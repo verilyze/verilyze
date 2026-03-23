@@ -12,8 +12,8 @@ EAPI=8
 inherit cargo
 
 DESCRIPTION="Fast, modular Software Composition Analysis tool"
-HOMEPAGE="https://github.com/tpost/verilyze"
-SRC_URI="https://github.com/tpost/verilyze/archive/v${PV}.tar.gz -> ${P}.tar.gz"
+HOMEPAGE="https://github.com/verilyze/verilyze"
+SRC_URI="https://github.com/verilyze/verilyze/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 # Regenerate with: pycargoebuild -i ${P}.tar.gz
 # or: cargo-ebuild ebuild
 SRC_URI+=" $(cargo_crate_uris)"
