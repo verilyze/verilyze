@@ -688,6 +688,9 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   to mint a **short-lived installation token** for
   [renovatebot/github-action](https://github.com/renovatebot/github-action),
   which avoids a long-lived personal access token tied to a user account.
+  The job sets **`RENOVATE_REPOSITORIES`** to **`${{ github.repository }}`**
+  so Renovate targets the current repo; without it, the run logs *No
+  repositories found* and does nothing.
   After merging a digest PR, run `make super-linter-full` and fix any new
   findings. **Manual upgrade:** resolve a new digest from
   `ghcr.io/super-linter/super-linter:slim-latest` (see comment in
