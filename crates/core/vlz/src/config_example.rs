@@ -67,6 +67,30 @@ fn parse_descriptions(raw: &str) -> HashMap<String, String> {
     result
 }
 
+/// Look up a severity threshold for example output. Unknown `version` / `field` return `0.0`
+/// so the default match arm stays testable and documented.
+fn severity_threshold_for_example(
+    cfg: &crate::config::EffectiveConfig,
+    version: &str,
+    field: &str,
+) -> f32 {
+    match (version, field) {
+        ("v2", "critical_min") => cfg.severity.v2.critical_min,
+        ("v2", "high_min") => cfg.severity.v2.high_min,
+        ("v2", "medium_min") => cfg.severity.v2.medium_min,
+        ("v2", "low_min") => cfg.severity.v2.low_min,
+        ("v3", "critical_min") => cfg.severity.v3.critical_min,
+        ("v3", "high_min") => cfg.severity.v3.high_min,
+        ("v3", "medium_min") => cfg.severity.v3.medium_min,
+        ("v3", "low_min") => cfg.severity.v3.low_min,
+        ("v4", "critical_min") => cfg.severity.v4.critical_min,
+        ("v4", "high_min") => cfg.severity.v4.high_min,
+        ("v4", "medium_min") => cfg.severity.v4.medium_min,
+        ("v4", "low_min") => cfg.severity.v4.low_min,
+        _ => 0.0,
+    }
+}
+
 /// Generate verilyze.conf.example content with effective config values.
 pub fn generate_example(cfg: &crate::config::EffectiveConfig) -> String {
     let descriptions = parse_descriptions(CONFIG_COMMENTS);
@@ -158,21 +182,7 @@ pub fn generate_example(cfg: &crate::config::EffectiveConfig) -> String {
         lines.push(format!("# [severity.{}]", v));
         for t in ["critical_min", "high_min", "medium_min", "low_min"] {
             let _key = format!("severity_{}_{}", v, t);
-            let val = match (v, t) {
-                ("v2", "critical_min") => cfg.severity.v2.critical_min,
-                ("v2", "high_min") => cfg.severity.v2.high_min,
-                ("v2", "medium_min") => cfg.severity.v2.medium_min,
-                ("v2", "low_min") => cfg.severity.v2.low_min,
-                ("v3", "critical_min") => cfg.severity.v3.critical_min,
-                ("v3", "high_min") => cfg.severity.v3.high_min,
-                ("v3", "medium_min") => cfg.severity.v3.medium_min,
-                ("v3", "low_min") => cfg.severity.v3.low_min,
-                ("v4", "critical_min") => cfg.severity.v4.critical_min,
-                ("v4", "high_min") => cfg.severity.v4.high_min,
-                ("v4", "medium_min") => cfg.severity.v4.medium_min,
-                ("v4", "low_min") => cfg.severity.v4.low_min,
-                _ => 0.0,
-            };
+            let val = severity_threshold_for_example(cfg, v, t);
             lines.push(format!("# {} = {}", t, val));
         }
         lines.push("#".to_string());
@@ -336,5 +346,229 @@ type = "string"
             desc.contains("/var/cache"),
             "unexpected description: {desc:?}"
         );
+    }
+
+    #[test]
+    fn parse_descriptions_invalid_toml_returns_empty() {
+        let map = super::parse_descriptions("not toml {{{");
+        assert!(map.is_empty());
+    }
+
+    #[test]
+    fn parse_descriptions_skips_non_table_top_level_value() {
+        let raw = r#"
+plain = "not a table"
+[cache_db]
+description = "ok"
+"#;
+        let map = super::parse_descriptions(raw);
+        assert!(!map.contains_key("plain"));
+        assert_eq!(map.get("cache_db").map(String::as_str), Some("ok"));
+    }
+
+    #[test]
+    fn parse_descriptions_skips_table_without_description() {
+        let raw = r#"
+[cache_db]
+type = "string"
+"#;
+        let map = super::parse_descriptions(raw);
+        assert!(!map.contains_key("cache_db"));
+    }
+
+    #[test]
+    fn parse_descriptions_skips_non_string_description() {
+        let raw = r#"
+[cache_db]
+description = 42
+"#;
+        let map = super::parse_descriptions(raw);
+        assert!(!map.contains_key("cache_db"));
+    }
+
+    #[test]
+    fn parse_descriptions_skips_whitespace_only_description() {
+        let raw = r#"
+[cache_db]
+description = "   \n  "
+"#;
+        let map = super::parse_descriptions(raw);
+        assert!(!map.contains_key("cache_db"));
+    }
+
+    #[test]
+    fn wrap_comment_whitespace_only_returns_empty() {
+        let result = super::wrap_comment("   \t", super::LINE_LENGTH);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn wrap_comment_long_token_without_spaces_splits_at_width() {
+        let width = 14;
+        let token = "a".repeat(30);
+        let result = super::wrap_comment(&token, width);
+        assert!(
+            result.len() >= 3,
+            "expected multiple lines for long token, got {:?}",
+            result
+        );
+        for line in &result {
+            assert!(
+                line.len() <= width,
+                "line {:?} exceeds width {}",
+                line,
+                width
+            );
+            assert!(line.starts_with("# "));
+        }
+        let joined: String = result
+            .iter()
+            .map(|l| l.strip_prefix("# ").unwrap_or(l.as_str()))
+            .collect::<String>();
+        assert_eq!(joined, token);
+    }
+
+    fn example_config_default_paths() -> crate::config::EffectiveConfig {
+        crate::config::EffectiveConfig {
+            cache_db: None,
+            ignore_db: None,
+            parallel_queries: DEFAULT_PARALLEL_QUERIES,
+            cache_ttl_secs: DEFAULT_CACHE_TTL_SECS,
+            min_score: 0.0,
+            min_count: 0,
+            exit_code_on_cve: None,
+            fp_exit_code: None,
+            project_id: None,
+            tls_crl_bundle: None,
+            language_regexes: vec![],
+            backoff_base_ms: DEFAULT_BACKOFF_BASE_MS,
+            backoff_max_ms: DEFAULT_BACKOFF_MAX_MS,
+            max_retries: DEFAULT_MAX_RETRIES,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn generate_example_uses_default_paths_when_db_options_none() {
+        let cfg = example_config_default_paths();
+        let out = generate_example(&cfg);
+        let cache_line = format!(
+            "# cache_db = \"{}\"",
+            crate::config::default_cache_path().display()
+        );
+        let ignore_line = format!(
+            "# ignore_db = \"{}\"",
+            crate::config::default_ignore_path().display()
+        );
+        assert!(
+            out.contains(&cache_line),
+            "expected default cache path line in output"
+        );
+        assert!(
+            out.contains(&ignore_line),
+            "expected default ignore path line in output"
+        );
+    }
+
+    #[test]
+    fn generate_example_optional_scalars_use_defaults_when_none() {
+        let cfg = example_config_default_paths();
+        let out = generate_example(&cfg);
+        assert!(out.contains("# exit_code_on_cve = 86"));
+        assert!(out.contains("# fp_exit_code = 0"));
+        assert!(out.contains("# project_id = "));
+    }
+
+    #[test]
+    fn generate_example_tls_crl_bundle_none_shows_quoted_empty() {
+        let cfg = example_config_default_paths();
+        let out = generate_example(&cfg);
+        assert!(out.contains("# tls_crl_bundle = \"\""));
+    }
+
+    #[test]
+    fn generate_example_tls_crl_bundle_some_shows_quoted_path() {
+        let mut cfg = example_config_default_paths();
+        cfg.tls_crl_bundle = Some(PathBuf::from("/tmp/crl.pem"));
+        let out = generate_example(&cfg);
+        assert!(out.contains("# tls_crl_bundle = \"/tmp/crl.pem\""));
+    }
+
+    #[test]
+    fn generate_example_empty_language_regexes_omits_language_sections() {
+        let cfg = example_config_default_paths();
+        let out = generate_example(&cfg);
+        assert!(out.contains("# Per-language manifest regex (FR-006)"));
+        assert!(
+            !out.contains("\n# [python]\n"),
+            "unexpected language block when language_regexes is empty"
+        );
+    }
+
+    #[test]
+    fn severity_threshold_for_example_known_keys_match_config() {
+        let cfg = minimal_config();
+        assert_eq!(
+            super::severity_threshold_for_example(&cfg, "v2", "critical_min"),
+            cfg.severity.v2.critical_min
+        );
+        assert_eq!(
+            super::severity_threshold_for_example(&cfg, "v4", "low_min"),
+            cfg.severity.v4.low_min
+        );
+    }
+
+    #[test]
+    fn severity_threshold_for_example_unknown_version_or_field_returns_zero() {
+        let cfg = minimal_config();
+        assert_eq!(
+            super::severity_threshold_for_example(&cfg, "v9", "critical_min"),
+            0.0
+        );
+        assert_eq!(
+            super::severity_threshold_for_example(&cfg, "v2", "not_a_field"),
+            0.0
+        );
+        assert_eq!(
+            super::severity_threshold_for_example(&cfg, "vx", "high_min"),
+            0.0
+        );
+    }
+
+    #[test]
+    fn wrap_comment_last_segment_fits_without_extra_break() {
+        let width = 12;
+        let prefix = "# ";
+        let content_width = width - prefix.len();
+        let tail = "end";
+        let text = format!("{} {}", "a".repeat(content_width), tail);
+        let result = super::wrap_comment(&text, width);
+        assert!(
+            result
+                .iter()
+                .any(|l| l
+                    == &format!("{}{}", prefix, "a".repeat(content_width))),
+            "expected full-width chunk, got {:?}",
+            result
+        );
+        assert!(result.iter().any(|l| l == &format!("{}{}", prefix, tail)));
+    }
+
+    #[test]
+    fn generate_example_project_id_some_is_unquoted_in_value_line() {
+        let mut cfg = example_config_default_paths();
+        cfg.project_id = Some("my-project".to_string());
+        let out = generate_example(&cfg);
+        assert!(out.contains("# project_id = my-project"));
+    }
+
+    #[test]
+    fn generate_example_single_language_regex_section() {
+        let mut cfg = example_config_default_paths();
+        cfg.language_regexes =
+            vec![("go".to_string(), "^go\\.mod$".to_string())];
+        let out = generate_example(&cfg);
+        assert!(out.contains("\n# [go]\n"));
+        assert!(out.contains(r#"# regex = "^go\.mod$""#));
     }
 }
