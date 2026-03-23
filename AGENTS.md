@@ -64,8 +64,8 @@ observable behavior.
 - Follow SOLID and the Unix philosophy as stated in the PRD (design principles).
 - The codebase uses `#![deny(unsafe_code)]`; no new `unsafe` or
   `#[allow(unsafe_code)]` without explicit justification and approval.
-- When changing behavior or CLI, align with the PRD and update README or
-  CONTRIBUTING if user- or contributor-facing.
+- When changing behavior or CLI, align with the PRD and update README,
+  [INSTALL.md](INSTALL.md), or CONTRIBUTING if user- or contributor-facing.
 - Do not delete or modify the files in the `LICENSES` directory.
 - **Dashes:** Do not use em dashes or en dashes in code comments or
   documentation. Use `--` instead of em dashes, and `-` instead of en dashes.
@@ -87,6 +87,7 @@ observable behavior.
 
 | Topic                | Where to look                                            |
 |----------------------|----------------------------------------------------------|
+| Install / build      | [INSTALL.md](INSTALL.md); README “Quick start”           |
 | Exit codes           | PRD FR-009, FR-010, FR-016; README “Exit codes”          |
 | Shell script style   | CONTRIBUTING "Code style and checks"; PRD NFR-022        |
 | Config precedence    | PRD CFG-001--CFG-008; README “Configuration precedence”  |
