@@ -62,3 +62,12 @@ def test_renovate_workflow_uses_github_app_token() -> None:
     assert "RENOVATE_APP_PRIVATE_KEY" in workflow
     assert "steps.renovate-token.outputs.token" in workflow.replace(" ", "")
     assert "github.token" not in workflow
+
+
+def test_renovate_workflow_sets_repository_target() -> None:
+    """Renovate must receive RENOVATE_REPOSITORIES or it logs No repositories found."""
+    workflow = (_ROOT / ".github" / "workflows" / "renovate.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "RENOVATE_REPOSITORIES" in workflow
+    assert "github.repository" in workflow

@@ -7,7 +7,7 @@
 use async_trait::async_trait;
 
 /// Project repository URL; used in SARIF informationUri and elsewhere (DRY).
-pub const VLZ_REPOSITORY_URL: &str = "https://github.com/tpost/verilyze";
+pub const VLZ_REPOSITORY_URL: &str = "https://github.com/verilyze/verilyze";
 
 use serde::Serialize;
 use std::io::Write;
