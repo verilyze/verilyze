@@ -118,6 +118,13 @@ precedence = "override"
 SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
+# Renovate config (JSON; no SPDX in file)
+[[annotations]]
+path = "renovate.json"
+precedence = "override"
+SPDX-FileCopyrightText = "The verilyze contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
 # Handlebars template (SPDX in {{! }} comment; REUSE override for consistency)
 [[annotations]]
 path = "about.hbs"
