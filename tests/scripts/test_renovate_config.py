@@ -59,6 +59,13 @@ def test_renovate_extends_pin_github_action_digests() -> None:
     assert "helpers:pinGitHubActionDigests" in extends
 
 
+def test_renovate_extends_git_sign_off_for_dco() -> None:
+    """Renovate must add Signed-off-by so PRs pass scripts/check-dco.sh in CI."""
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    extends = data.get("extends", [])
+    assert ":gitSignOff" in extends
+
+
 def test_renovate_package_rule_groups_github_actions_minor_patch() -> None:
     data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
     rules = data.get("packageRules", [])

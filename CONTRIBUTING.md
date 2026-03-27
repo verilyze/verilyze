@@ -685,7 +685,10 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   (`helpers:pinGitHubActionDigests`). **Minor** and **patch** action updates are
   grouped into **one** PR; **major** upgrades stay in **separate** PRs.
   Dockerfile base images still follow the `dockerfile` rules in
-  [`renovate.json`](renovate.json).
+  [`renovate.json`](renovate.json). The config extends **`:gitSignOff`** so
+  each Renovate commit includes **`Signed-off-by:`** in the message body, which
+  satisfies [`scripts/check-dco.sh`](scripts/check-dco.sh) and the **check-dco**
+  CI job (same expectation as `git commit -s` for humans).
   **GitHub App (not a PAT):** Create a
   [GitHub App](https://docs.github.com/en/apps/creating-github-apps/about-creating-github-apps),
   install it on this repository (or org with repo access), and add secrets
