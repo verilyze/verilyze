@@ -676,9 +676,16 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   **pinned** slim image digest (linux/amd64, not `:slim-latest`, so linter
   versions stay stable until maintainers bump the digest). Override with
   `SUPER_LINTER_IMAGE` if needed. **Renovate** ([`renovate.json`](renovate.json))
-  uses a **regex** custom manager to open PRs when the digest for
-  `ghcr.io/super-linter/super-linter:slim-latest` changes; the scheduled workflow
-  is [`.github/workflows/renovate.yml`](.github/workflows/renovate.yml).
+  runs on the schedule in
+  [`.github/workflows/renovate.yml`](.github/workflows/renovate.yml). It uses
+  a **regex** custom manager to open PRs when the digest for
+  `ghcr.io/super-linter/super-linter:slim-latest` changes. It also manages
+  **GitHub Actions** under `.github/workflows/`: `uses:` lines are pinned to
+  immutable commit SHAs with the release tag in a trailing YAML comment
+  (`helpers:pinGitHubActionDigests`). **Minor** and **patch** action updates are
+  grouped into **one** PR; **major** upgrades stay in **separate** PRs.
+  Dockerfile base images still follow the `dockerfile` rules in
+  [`renovate.json`](renovate.json).
   **GitHub App (not a PAT):** Create a
   [GitHub App](https://docs.github.com/en/apps/creating-github-apps/about-creating-github-apps),
   install it on this repository (or org with repo access), and add secrets

@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Tests for renovate.json (super-linter digest regex, scoped managers)."""
+"""Tests for renovate.json (super-linter digest, GitHub Actions, scoped managers)."""
 
 import json
 import re
@@ -45,11 +45,37 @@ def test_super_linter_script_sl_sha_matches_digest_line_regex() -> None:
     ), "SL_SHA must be a single pinned digest line for Renovate regex manager"
 
 
-def test_enabled_managers_scope_dockerfile_and_custom_regex() -> None:
+def test_enabled_managers_include_dockerfile_custom_regex_github_actions() -> None:
     data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
     em = data.get("enabledManagers", [])
     assert "dockerfile" in em
     assert "custom.regex" in em
+    assert "github-actions" in em
+
+
+def test_renovate_extends_pin_github_action_digests() -> None:
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    extends = data.get("extends", [])
+    assert "helpers:pinGitHubActionDigests" in extends
+
+
+def test_renovate_package_rule_groups_github_actions_minor_patch() -> None:
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    rules = data.get("packageRules", [])
+    match = next(
+        (
+            r
+            for r in rules
+            if r.get("groupName") == "github-actions-minor-patch"
+            and r.get("matchManagers") == ["github-actions"]
+            and r.get("matchUpdateTypes") == ["minor", "patch"]
+        ),
+        None,
+    )
+    assert match is not None, (
+        "packageRules must group github-actions minor and patch updates "
+        "under groupName github-actions-minor-patch"
+    )
 
 
 def test_renovate_workflow_uses_github_app_token() -> None:
