@@ -15,122 +15,52 @@ text.
 
 [![Super-linter nightly](https://github.com/verilyze/verilyze/actions/workflows/super-linter-nightly.yml/badge.svg)](https://github.com/verilyze/verilyze/actions/workflows/super-linter-nightly.yml)
 
-## Installation
+## Prerequisites
 
-```bash
-cargo install vlz
-```
-
-- **Privileged:** binary goes to `/usr/local/bin/` (or equivalent).
-- **Non-privileged:** binary goes to `$HOME/.cargo/bin/`.
-
-The default build includes the OSV CVE provider. The NVD provider is opt-in
-(reasons: NVD rate limits, binary size; see [docs/FAQ.md](docs/FAQ.md)). To
-include NVD: `cargo install vlz --features nvd`, then `vlz scan --provider nvd`.
-
-## Shell completion
-
-Shell completions for Bash, Zsh, and Fish are installed by default when using
-package managers (deb, rpm, apk, pkg, ebuild). For `cargo install` or manual
-builds, generate and source them:
-
-**Bash:**
-```bash
-vlz generate-completions bash | sudo tee /usr/share/bash-completion/completions/vlz > /dev/null
-# or for current user:
-vlz generate-completions bash > ~/.local/share/bash-completion/completions/vlz
-```
-
-**Zsh:**
-```bash
-vlz generate-completions zsh > "${fpath[1]}/_vlz"
-# or: vlz generate-completions zsh > ~/.zsh/site-functions/_vlz
-```
-
-**Fish:**
-```bash
-vlz generate-completions fish > ~/.config/fish/completions/vlz.fish
-```
-
-## Running with Docker
-
-Build the image from the repo root:
-
-```bash
-make docker
-# or: docker build -f packaging/docker/Dockerfile -t verilyze .
-```
-
-Scan a project by mounting it into the container:
-
-```bash
-docker run --rm -v "$(pwd)":/scan verilyze scan /scan
-```
-
-On SELinux systems (Fedora, RHEL, CentOS), add `:z` to the volume so the
-container can read the mounted files:
-
-```bash
-docker run --rm -v "$(pwd)":/scan:z verilyze scan /scan
-```
-
-The image runs as UID **1000** with a writable home at **`/home/verilyze`** (see
-[`packaging/docker/Dockerfile`](packaging/docker/Dockerfile)). Default cache
-and ignore DB paths live under that tree and are **ephemeral** unless you
-persist them with a volume or `--cache-db` / `VLZ_CACHE_DB`.
-
-To reuse the CVE cache on the host, either mount your cache directory over the
-default location:
-
-```bash
-mkdir -p ~/.cache/verilyze
-docker run --rm \
-  -v "$(pwd)":/scan:z \
-  -v "$HOME/.cache/verilyze":/home/verilyze/.cache/verilyze:z \
-  verilyze scan /scan
-```
-
-or mount a host directory and point the cache file explicitly:
-
-```bash
-mkdir -p ~/.cache/verilyze
-docker run --rm \
-  -v "$(pwd)":/scan:z \
-  -v "$HOME/.cache/verilyze":/cache:z \
-  verilyze scan /scan --cache-db /cache/vlz-cache.redb
-```
-
-Use `--user "$(id -u):$(id -g)"` when you need the process UID/GID to match the
-host (for example, writing to a bind-mounted path where host ownership matters).
-The in-image user is still UID 1000; matching the host avoids permission
-mismatches on those mounts.
+- **Rust and Cargo** on your PATH ([rustup](https://rustup.rs/) recommended).
+- **GNU Make 4+** for the recommended build path below.
+- **Network access** for the default CVE provider (OSV.dev) unless you use
+  `--offline` with a warm local cache (see [docs/FAQ.md](docs/FAQ.md)).
 
 ## Quick start
+
+From a clone of this repository:
+
+```bash
+make release
+# Binary: target/release/vlz
+```
+
+Run scans with the built binary (adjust the path if you use `CARGO_TARGET_DIR`):
 
 ```bash
 # Scan current directory for manifests (Python: requirements.txt, pyproject.toml;
 # Rust: Cargo.toml; Go: go.mod) and check for CVEs
-vlz scan
+./target/release/vlz scan
 
 # Scan a specific path
-vlz scan /path/to/project
+./target/release/vlz scan /path/to/project
 
 # Scan a Rust project
-vlz scan /path/to/rust/crate
+./target/release/vlz scan /path/to/rust/crate
 
 # Scan a Go module
-vlz scan /path/to/go/module
+./target/release/vlz scan /path/to/go/module
 
 # JSON output
-vlz scan --format json
+./target/release/vlz scan --format json
 
 # SBOM output (CycloneDX 1.6, SPDX 3.0)
-vlz scan --format cyclonedx
-vlz scan -s cyclonedx:sbom.cdx.json,spdx:sbom.spdx.json
+./target/release/vlz scan --format cyclonedx
+./target/release/vlz scan -s cyclonedx:sbom.cdx.json,spdx:sbom.spdx.json
 
 # List registered language plugins
-vlz list
+./target/release/vlz list
 ```
+
+After `make install` or `cargo install --path ...`, use `vlz` on your PATH
+instead of `./target/release/vlz`. Other install and packaging options:
+[INSTALL.md](INSTALL.md).
 
 ## How it works
 
@@ -147,6 +77,29 @@ Reports include the manifest file path(s) for each vulnerable package, so you ca
 see which manifest(s) introduce each CVE when scanning directories with many
 nested manifests (e.g. monorepos).
 
+**Reachability:** Per [architecture/PRD.md](architecture/PRD.md) FR-032, reports
+may eventually attach a per-CVE reachability flag. Current releases leave that
+field unset or omit it until analysis is implemented; severity and CVE listing
+still follow the documented behavior.
+
+## Installation
+
+Pre-built binaries, crates.io packages, public container images, and published
+distro packages are **not available yet**. Typical approaches:
+
+- **Local build:** `make release`, then run `target/release/vlz` (see Quick start).
+- **System install:** `make install` with optional `PREFIX` / `DESTDIR`.
+- **Packages:** build `.deb`, `.rpm`, AUR artifacts, or Alpine APKs via Makefile
+  targets; build a **local** OCI image with `make docker`.
+
+Full commands, Docker usage, optional providers, and shell completion:
+[INSTALL.md](INSTALL.md).
+
+## Shell completion
+
+Completions are installed with **`make install`**, or generate them with
+`vlz generate-completions` (see [INSTALL.md](INSTALL.md#shell-completion)).
+
 ## Configuration precedence
 
 Options are resolved in precedence order; each source overrides the ones below:
@@ -158,18 +111,14 @@ Options are resolved in precedence order; each source overrides the ones below:
    `$XDG_CONFIG_HOME/verilyze/verilyze.conf`)
 4. **System config** (`/etc/verilyze.conf`) -- lowest precedence
 
-See [architecture/PRD.md](architecture/PRD.md) (CFG-001 - CFG-008) for full
-details.
+**Cache TTL:** Changing **cache_ttl_secs** (via config, env, or CLI) only affects
+**new** cache entries; existing entries keep their stored expiry until they
+expire or are purged. See [docs/configuration.md](docs/configuration.md) and
+`vlz db set-ttl` for adjusting existing entries.
 
-| Key              | Default         | Env var                | CLI flag         |
-|------------------|-----------------|------------------------|------------------|
-| cache_ttl_secs   | 432000 (5 days) | VLZ_CACHE_TTL_SECS     | --cache-ttl-secs |
-| parallel_queries | 10              | VLZ_PARALLEL_QUERIES   | --parallel       |
-| min_score        | 0               | VLZ_MIN_SCORE          | --min-score      |
-| min_count        | 0               | VLZ_MIN_COUNT          | --min-count      |
-| backoff_base_ms  | 100             | VLZ_BACKOFF_BASE_MS    | --backoff-base   |
-| backoff_max_ms   | 30000           | VLZ_BACKOFF_MAX_MS     | --backoff-max    |
-| max_retries      | 5               | VLZ_MAX_RETRIES        | --max-retries    |
+See [architecture/PRD.md](architecture/PRD.md) (CFG-001 - CFG-008) and the full
+key table in [docs/configuration.md](docs/configuration.md). Run
+`vlz config --list` for effective values.
 
 **Environment variables for optional CVE providers** (not stored in config):
 
@@ -180,12 +129,14 @@ details.
 | VLZ_SONATYPE_EMAIL   | Sonatype   | Required for Sonatype OSS Index                  |
 | VLZ_SONATYPE_TOKEN   | Sonatype   | Required for Sonatype OSS Index                  |
 
-Changing **cache_ttl_secs** only affects new cache entries; existing entries
-keep their stored expiry until they expire or are purged.
-
-Run `vlz config --list` to print effective values.
-
 ## CLI reference (summary)
+
+**Help and manuals:** `vlz --help` prints a short usage summary from clap.
+**`vlz help`** opens the full manual by running `man` on the embedded **`vlz.1`**
+(when built with the default `docs` feature; otherwise it exits 2 with a hint).
+**`vlz help [SUBCOMMAND]`** accepts an optional subcommand name; today it shows
+the same main manual as `vlz help`. After **`make install`**, **`man vlz`**
+uses the installed man page. Source: [man/vlz.1](man/vlz.1).
 
 | Subcommand                   | Description                                                   |
 |------------------------------|---------------------------------------------------------------|
@@ -203,6 +154,7 @@ Run `vlz config --list` to print effective values.
 | `vlz fp mark CVE-ID [--comment ...] [--project-id ID]` | Mark CVE as false positive (optional project scope) |
 | `vlz fp unmark CVE-ID`       | Remove false-positive marking                                 |
 | `vlz generate-completions SHELL` | Generate shell completion script (bash, zsh, fish)      |
+| `vlz help [SUBCOMMAND]`      | Show full manual (`vlz.1`) via `man`; subcommand optional   |
 | `vlz --version`              | Print version                                                 |
 
 **Scan options (examples):** `--format plain|json|sarif|cyclonedx|spdx`,
@@ -234,17 +186,19 @@ false-negatives in CI.
 | 5    | CVE provider fetch failed (network, API error, auth, etc.)                      |
 | 86   | One or more CVEs meet threshold (overridable via `--exit-code-on-cve`)          |
 
-## Testing
+## For contributors
 
 Run `make check` for the standard pre-commit gate. For fuzz testing (smoke,
 changed-code-only, or extended), see [CONTRIBUTING.md](CONTRIBUTING.md)
-(Fuzz testing § NFR-020).
+(Fuzz testing, NFR-020).
 
 ## Documentation
 
+- **Installation and packaging:** [INSTALL.md](INSTALL.md)
 - **Configuration reference:** [docs/configuration.md](docs/configuration.md)
 - **Requirements and architecture:** [architecture/PRD.md](architecture/PRD.md)
 - **Execution flow:** [architecture/execution-flow.mmd](architecture/execution-flow.mmd)
 - **FAQ and troubleshooting:** [docs/FAQ.md](docs/FAQ.md)
 - **Contributing:** [CONTRIBUTING.md](CONTRIBUTING.md)
+- **Guidance for AI agents:** [AGENTS.md](AGENTS.md)
 - **Security:** [SECURITY.md](SECURITY.md)

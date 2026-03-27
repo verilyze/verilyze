@@ -114,6 +114,9 @@ make setup
 make -j check
 ```
 
+End-user install options (release binary, `make install`, packages, Docker):
+see [INSTALL.md](INSTALL.md).
+
 Run `make` or `make help` for a full list of targets. `make setup` bootstraps
 Python venvs; REUSE is auto-installed when `check-headers` runs. Recommended:
 `make setup-hooks` for git hooks (REUSE headers, DCO signoff, signature
@@ -474,7 +477,8 @@ The `vlz` binary supports optional capabilities via Cargo features:
   Release builds omit the `testing` feature for a smaller binary.
 - **completions** -- `vlz generate-completions` subcommand (bash, zsh, fish);
   pulls in `clap_complete`. Omitted from Docker image to reduce binary size.
-- **docs** -- Man page via `vlz help` and `vlz help <subcommand>` (MOD-009,
+- **docs** -- Man page via **`vlz help`** (runs `man` on embedded `vlz.1`); optional
+  `vlz help [SUBCOMMAND]` is accepted and currently shows the same manual (MOD-009,
   DOC-013). When omitted, `vlz help` exits 2 with a message to rebuild or find
   docs online. Omitted in minimal build for smaller binary.
 - **docker** = `["runtime"]` -- runtime only, no completions. Use for the Docker
