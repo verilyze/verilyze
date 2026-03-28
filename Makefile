@@ -224,15 +224,17 @@ clippy:
 
 # ---- Advanced (fuzz, coverage) ----
 # fuzz: AFL smoke test (NFR-020, SEC-017). Requires cargo-afl and AFL++.
-fuzz:
+# Depends on debug so make -j check does not run cargo-afl's AFL++ bootstrap in
+# parallel with the main workspace cargo build (make clean install can fail).
+fuzz: debug
 	$(FUZZ_SCRIPT)
 
 # fuzz-changed: run only targets whose mapped files changed; skip if none.
-fuzz-changed:
+fuzz-changed: debug
 	$(FUZZ_SCRIPT) --changed
 
 # fuzz-extended: run all targets with extended timeout (FUZZ_TIMEOUT=1800 by default).
-fuzz-extended:
+fuzz-extended: debug
 	$(FUZZ_SCRIPT) --extended
 
 # coverage: Rust + script coverage; runs fuzz first (cargo-llvm-cov + AFL, NFR-012, NFR-020)

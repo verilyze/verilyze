@@ -59,5 +59,6 @@ def test_check_fast_target_includes_deny_check() -> None:
     block = _extract_prerequisite_block(text, "check-fast")
     tokens = block.replace("\\", " ").split()
     assert "deny-check" in tokens, (
-        "make check-fast must depend on deny-check (CI runs check-fast)"
+        "make check-fast must depend on deny-check (quick local gate; CI runs "
+        "make -j check)"
     )
