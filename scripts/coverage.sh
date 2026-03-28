@@ -16,11 +16,10 @@ cd "$(dirname "$0")/.." || exit 1
 RUST_REPORT="reports/rust/html/index.html"
 PYTHON_REPORT="reports/python/index.html"
 
-# Ensure cargo-llvm-cov and nightly are available
+# Ensure cargo-llvm-cov and llvm-tools (default/stable toolchain) are available
 command -v cargo-llvm-cov >/dev/null 2>&1 || cargo install cargo-llvm-cov \
   --locked
-rustup toolchain install nightly 2>/dev/null || true
-rustup component add llvm-tools --toolchain nightly 2>/dev/null || true
+rustup component add llvm-tools 2>/dev/null || true
 
 rm -rf reports
 rm -f .coverage
@@ -30,7 +29,7 @@ mkdir -p reports/rust
 
 # Set env for instrumentation; use normal cargo commands per cargo-llvm-cov docs
 # shellcheck source=/dev/null
-source <(cargo +nightly llvm-cov show-env --sh)
+source <(cargo llvm-cov show-env --sh)
 
 # Optional: GNU ld (bfd) for instrument-coverage when rust-lld fails (e.g. invalid
 # symbol index; rust-lang/rust#79555, rust-lang/rust#128938). Off by default: rustc
@@ -43,20 +42,20 @@ if [[ "${VLZ_COVERAGE_USE_BFD:-}" == "1" ]] \
   export RUSTFLAGS="${RUSTFLAGS} -C link-arg=-fuse-ld=bfd"
 fi
 
-cargo +nightly llvm-cov clean --workspace 2>/dev/null || true
+cargo llvm-cov clean --workspace 2>/dev/null || true
 
 # Build workspace with instrumentation (per show-env docs, use normal cargo).
 # Exclude vlz-fuzz: it requires cargo afl build (AFL linker symbols).
-cargo +nightly build --workspace --exclude vlz-fuzz
+cargo build --workspace --exclude vlz-fuzz
 
 # Run all workspace tests (exclude vlz-fuzz; it uses AFL and is run via make fuzz).
-cargo +nightly test --workspace --exclude vlz-fuzz --features vlz/testing
+cargo test --workspace --exclude vlz-fuzz --features vlz/testing
 
 # Run the vlz binary to capture main.rs and run() coverage (binary is not a
 # test target). Use isolated XDG dirs so we do not touch user config or cache.
 run_cov_bin() {
   env XDG_CONFIG_HOME=/tmp/vlz-cov-cfg XDG_CACHE_HOME=/tmp/vlz-cov-cache \
-    XDG_DATA_HOME=/tmp/vlz-cov-data cargo +nightly run --bin vlz -- "$@"
+    XDG_DATA_HOME=/tmp/vlz-cov-data cargo run --bin vlz -- "$@"
 }
 run_cov_bin --version
 run_cov_bin -v --version
@@ -75,10 +74,10 @@ run_cov_bin scan /tmp/vlz-cov-scan --offline --provider nonexistentprovider \
 # Generate Rust reports (NFR-017: fail if coverage below threshold)
 # Use || true so script continues to Python coverage even when Rust fails
 ERR=0
-cargo +nightly llvm-cov report --html --output-dir reports/rust \
+cargo llvm-cov report --html --output-dir reports/rust \
   --fail-under-lines 85 --fail-under-functions 80 --fail-under-regions 85 \
   || ERR=1
-cargo +nightly llvm-cov report --cobertura --output-path \
+cargo llvm-cov report --cobertura --output-path \
   reports/cobertura-rust.xml \
   --fail-under-lines 85 --fail-under-functions 80 --fail-under-regions 85 \
   || ERR=1
