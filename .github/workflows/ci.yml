@@ -114,10 +114,9 @@ jobs:
             ${{ runner.os }}-python-venvs-
 
       - name: Install Rust
-        env:
-          toolchain: stable
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
         with:
+          toolchain: stable
           components: rustfmt, clippy
 
       - name: Install Rust nightly (llvm-tools for cargo-llvm-cov)
