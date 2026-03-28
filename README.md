@@ -21,6 +21,9 @@ text.
 - **GNU Make 4+** for the recommended build path below.
 - **Network access** for the default CVE provider (OSV.dev) unless you use
   `--offline` with a warm local cache (see [docs/FAQ.md](docs/FAQ.md)).
+- **HTTP/HTTPS proxy** (optional): CVE fetches honor **HTTP_PROXY** /
+  **HTTPS_PROXY** / **NO_PROXY** (and lowercase forms); see
+  [INSTALL.md](INSTALL.md) (OP-018).
 
 ## Quick start
 

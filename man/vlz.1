@@ -30,6 +30,12 @@ Configuration precedence (highest to lowest): CLI flags, environment variables
 user config file, system config. See
 .Xr verilyze.conf 5
 for config file format.
+.Pp
+CVE provider HTTP and HTTPS traffic honors proxy-related process environment
+variables (not
+.Ev VLZ_*
+): see
+.Sx ENVIRONMENT .
 .Sh GLOBAL OPTIONS
 .Bl -tag -width Ds
 .It Fl c Ar path , Fl -config Ar path
@@ -186,7 +192,21 @@ False-positive database (non-privileged; or
 False-positive database (privileged install).
 .El
 .Sh ENVIRONMENT
+CVE provider clients use these standard variables when set (curl-style: for
+each pair, uppercase is checked before lowercase; if both forms of a pair are
+set and differ after leading or trailing ASCII space or tab is trimmed,
+.Nm
+prints a single stderr warning per run and uses the uppercase value).
+SOCKS URLs are not supported.
 .Bl -tag -width Ds
+.It Ev ALL_PROXY , Ev all_proxy
+Default proxy when a scheme-specific proxy is unset.
+.It Ev HTTP_PROXY , Ev http_proxy
+Proxy URL for HTTP requests.
+.It Ev HTTPS_PROXY , Ev https_proxy
+Proxy URL for HTTPS requests (CVE providers use HTTPS).
+.It Ev NO_PROXY , Ev no_proxy
+Comma-separated hosts, domains, or CIDRs that bypass the proxy.
 .It Ev VLZ_CACHE_DB
 Override cache database path.
 .It Ev VLZ_IGNORE_DB

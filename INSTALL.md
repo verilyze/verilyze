@@ -72,6 +72,36 @@ cargo build --release -p vlz
 This skips the Makefile’s `check-headers` step. Prefer `make release` for a
 normal clone workflow.
 
+## HTTP proxy for CVE providers (OP-018)
+
+Online CVE provider traffic uses the same industry-standard variables as many
+other tools (curl-style rules via the bundled HTTP stack):
+
+- **ALL_PROXY** / **all_proxy** -- default proxy when a scheme-specific
+  variable is unset.
+- **HTTP_PROXY** / **http_proxy** -- proxy for `http:` URLs.
+- **HTTPS_PROXY** / **https_proxy** -- proxy for `https:` URLs (CVE providers
+  use HTTPS).
+- **NO_PROXY** / **no_proxy** -- comma-separated hosts, domains, or CIDRs that
+  bypass the proxy. Suffix matching applies (for example, `example.com` matches
+  `api.example.com`).
+
+When **both** the uppercase and lowercase form of a pair are set and the values
+differ (after trimming spaces and tabs at each end), `vlz` prints **one**
+warning per run to **stderr**, names the pair, and states that the **uppercase**
+value wins for this program. Values are never printed (they may contain proxy
+credentials). Keep both forms identical if your environment defines both, so
+other tools agree with `vlz`.
+
+On **macOS** and **Windows**, **system** HTTP proxy settings are used when the
+variables above leave a scheme without a proxy. On **Linux**, only these
+environment variables apply for this mechanism. **SOCKS** URLs in these
+variables are not supported in this release.
+
+TLS verification for HTTPS stays on (SEC-002). Corporate TLS inspection may
+require trusting your organization’s CA in the OS store; see
+[SECURITY.md](SECURITY.md).
+
 ## Optional CVE providers (NVD)
 
 The default build includes OSV. For NVD:
