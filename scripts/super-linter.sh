@@ -38,7 +38,7 @@ DEFAULT_BRANCH="${DEFAULT_BRANCH:-main}"
 FILTER_REGEX_EXCLUDE='(^|/)(target/|\.git/|completions/|\.venv[^/]*/|\.mypy_cache/|site-packages/)'
 
 # Validator toggles: Rust/Python/shell/markdown/natural-language off when covered by
-# make check-fast (or not part of the project gate). isort is off because lint-python
+# make -j check (or not part of the project gate). isort is off because lint-python
 # uses black/pylint/mypy/bandit only, not isort. Markdown linters are off to avoid a
 # second policy layer until aligned with CONTRIBUTING.
 # ESLint and Prettier (including JSON/JSONC/YAML Prettier) are off; Biome handles the

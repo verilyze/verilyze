@@ -637,6 +637,10 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   `[ ]`; quote variables (`"${var}"`); use `local` in functions; send error
   messages to stderr (`>&2`). The style guide is authoritative; this is a
   concise summary.
+- **GitHub Actions (`ci.yml`):** Job `check` runs `make -j check` (full Makefile
+  gate: headers, `cargo deny`, third-party license file check, fmt, Clippy,
+  Python and shell lint, fuzz-changed, coverage-quick; same as local
+  `make -j check`). PRs also run DCO and commit signature jobs before `check`.
 - **Super-linter:** CI runs the [super-linter](https://github.com/super-linter/super-linter)
   **slim** image in two modes: **incremental** (push/PR to `main`,
   `VALIDATE_ALL_CODEBASE=false`, job `super-linter` in workflow `ci.yml`) and
@@ -657,7 +661,7 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   `VALIDATE_*=false` toggle lives in
   [`scripts/super-linter.sh`](scripts/super-linter.sh); other linters follow
   super-linter defaults unless that script disables them.
-  Summary: validators duplicated by `make check-fast` are off (Rust editions and
+  Summary: validators duplicated by `make -j check` are off (Rust editions and
   Clippy; Python black, pylint, mypy, and related super-linter Python tools
   including Ruff, Flake8, and isort, since `lint-python` uses black, pylint,
   mypy, and bandit only; shell shfmt and BASH; Markdown and Markdown Prettier;
