@@ -689,7 +689,12 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   runs on the schedule in
   [`.github/workflows/renovate.yml`](.github/workflows/renovate.yml). It uses
   a **regex** custom manager to open PRs when the digest for
-  `ghcr.io/super-linter/super-linter:slim-latest` changes. It also manages
+  `ghcr.io/super-linter/super-linter:slim-latest` changes. Another set of
+  **regex** rules tracks **crates.io** versions for
+  `cargo-llvm-cov`, `cargo-deny`, `cargo-afl`, and `cargo-about` pinned in the
+  `taiki-e/install-action` `tool:` line in
+  [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (**minor** and **patch**
+  bumps are grouped into one PR). It also manages
   **GitHub Actions** under `.github/workflows/`: `uses:` lines are pinned to
   immutable commit SHAs with the release tag in a trailing YAML comment
   (`helpers:pinGitHubActionDigests`). **Minor** and **patch** action updates are
