@@ -133,7 +133,7 @@ jobs:
       # Run rust-cache before cargo install. It restores ~/.cargo/bin and
       # target/ from prior runs (registry, git, target, bin).
       - name: Cache Cargo
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        uses: Swatinem/rust-cache@f51f967e158417aafa338a1e46ab22095f07aa01
 
       - name: Install cargo-llvm-cov
         run: cargo install cargo-llvm-cov --locked
