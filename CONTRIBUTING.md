@@ -122,9 +122,10 @@ Python venvs; REUSE is auto-installed when `check-headers` runs. Recommended:
 `make setup-hooks` for git hooks (REUSE headers, DCO signoff, signature
 verification on push). Commit signing (GPG or SSH) must be configured
 separately -- see [Commit signing setup](#commit-signing-setup). For fuzz:
-AFL++ must be installed; cargo-afl is auto-installed. For coverage: rustup,
-cargo-llvm-cov, and nightly are auto-installed; AFL++ required only when
-`make coverage` runs (since it runs fuzz first).
+AFL++ must be installed; cargo-afl is auto-installed. For coverage: use stable
+Rust with `rustup component add llvm-tools` (CI installs this on stable);
+`cargo install cargo-llvm-cov --locked` when the tool is missing. AFL++ is
+required only when `make coverage` runs (it runs fuzz first).
 
 ### Quick reference
 
@@ -776,12 +777,10 @@ Stderr can stay as `eprintln!` or `log::error!`.
   The `vlz/testing` feature enables mocks and registry helpers for integration
   tests; release builds omit it for a smaller binary. To test a single crate
   (see MOD-005): `cargo test -p <crate>` (e.g. `cargo test -p vlz-cve-client`).
-- **Generate coverage (cargo-llvm-cov, XML for CI):** Use **cargo-llvm-cov**
-  with the **nightly** toolchain so all workspace crates appear in the report.
+- **Generate coverage (cargo-llvm-cov, XML for CI):** Use `cargo-llvm-cov` on
+  the stable toolchain (default `rustup` toolchain) so instrumentation matches CI.
   1. Install cargo-llvm-cov: `cargo install cargo-llvm-cov --locked`
-  2. Install the nightly toolchain and LLVM tools:
-     `rustup toolchain install nightly` and
-     `rustup component add llvm-tools --toolchain nightly`
+  2. Add LLVM tools to stable: `rustup component add llvm-tools`
   3. Run coverage from the repo root:
      - **Full run (CI):** `make coverage` -- runs fuzz first (cargo-llvm-cov +
        AFL improves metrics; NFR-012, NFR-020), then coverage. Slower (~90s+
