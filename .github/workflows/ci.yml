@@ -119,18 +119,15 @@ jobs:
           toolchain: stable
           components: rustfmt, clippy
 
-      - name: Install Rust nightly (llvm-tools for cargo-llvm-cov)
-        run: |
-          rustup toolchain install nightly
-          rustup component add llvm-tools --toolchain nightly
-
       - name: Install ShellCheck and AFL++
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck afl++
 
-      # Run rust-cache before cargo install. It restores ~/.cargo/bin and
-      # target/ from prior runs (registry, git, target, bin).
+      # rust-cache hashes every installed toolchain for the restore key.
+      # Nightly moves daily; if it is installed before this step, the key
+      # churns and restores miss. Restore with stable only, then add
+      # nightly for coverage below.
       - name: Cache Cargo
         uses: Swatinem/rust-cache@f51f967e158417aafa338a1e46ab22095f07aa01
 
@@ -146,6 +143,11 @@ jobs:
 
       - name: Install cargo-about
         run: cargo install cargo-about --locked
+
+      - name: Install Rust nightly (llvm-tools for cargo-llvm-cov)
+        run: |
+          rustup toolchain install nightly
+          rustup component add llvm-tools --toolchain nightly
 
       - name: Run make -j check (full Makefile gate)
         run: make -j check
