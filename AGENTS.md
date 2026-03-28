@@ -91,6 +91,7 @@ observable behavior.
 | Exit codes           | PRD FR-009, FR-010, FR-016; README “Exit codes”          |
 | Shell script style   | CONTRIBUTING "Code style and checks"; PRD NFR-022        |
 | Config precedence    | PRD CFG-001--CFG-008; README “Configuration precedence”  |
+| HTTP proxy (CVE)     | PRD OP-018; [INSTALL.md](INSTALL.md); `man vlz` ENVIRONMENT |
 | Adding a plugin      | CONTRIBUTING "Adding a new language plugin"; PRD MOD-002 |
 | Config documentation | CONTRIBUTING "Adding or updating configuration keys"; `make generate-config-example` |
 | Commit messages      | CONTRIBUTING "Commit messages"                           |
