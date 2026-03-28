@@ -642,6 +642,11 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   gate: headers, `cargo deny`, third-party license file check, fmt, Clippy,
   Python and shell lint, fuzz-changed, coverage-quick; same as local
   `make -j check`). PRs also run DCO and commit signature jobs before `check`.
+  The workflow caches apt `.deb` archives for `shellcheck` and `afl++` (see
+  comments in `ci.yml`) and installs `cargo-llvm-cov`, `cargo-deny`,
+  `cargo-afl`, and `cargo-about` with [taiki-e/install-action](https://github.com/taiki-e/install-action)
+  at a pinned action SHA and tool versions listed there (`cargo-deny` matches
+  the Quick setup pin below).
 - **Super-linter:** CI runs the [super-linter](https://github.com/super-linter/super-linter)
   **slim** image in two modes: **incremental** (push/PR to `main`,
   `VALIDATE_ALL_CODEBASE=false`, job `super-linter` in workflow `ci.yml`) and
@@ -800,10 +805,10 @@ Stderr can stay as `eprintln!` or `log::error!`.
        region; scripts >= 85% line. The coverage run **exits 1** when
        below these thresholds.
 - **CI:** The Cobertura XML files (`reports/cobertura.xml`,
-  `reports/cobertura-python.xml`) are consumed by common CI systems; see
-  [taiki-e/cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov) or
-  [taiki-e/install-action](https://github.com/taiki-e/install-action) for
-  GitHub Actions.
+  `reports/cobertura-python.xml`) are consumed by common CI systems. GitHub
+  Actions uses [taiki-e/install-action](https://github.com/taiki-e/install-action)
+  for these Rust CLI tools in `.github/workflows/ci.yml`; see also
+  [taiki-e/cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov).
 
 **[!NOTE]** Branch coverage is currently **disabled** in the default coverage
 run (line, function, and region coverage only). Enabling `--branch` can
