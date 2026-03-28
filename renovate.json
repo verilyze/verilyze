@@ -16,6 +16,42 @@
       "packageNameTemplate": "ghcr.io/super-linter/super-linter",
       "versioningTemplate": "docker",
       "currentValueTemplate": "slim-latest"
+    },
+    {
+      "customType": "regex",
+      "description": "CI taiki-e/install-action: cargo-llvm-cov (ci.yml tool: line)",
+      "managerFilePatterns": ["^\\.github/workflows/ci\\.yml$"],
+      "matchStrings": ["cargo-llvm-cov@(?<currentValue>[^,\\s]+)"],
+      "datasourceTemplate": "crate",
+      "depNameTemplate": "cargo-llvm-cov",
+      "versioningTemplate": "cargo"
+    },
+    {
+      "customType": "regex",
+      "description": "CI taiki-e/install-action: cargo-deny (ci.yml tool: line)",
+      "managerFilePatterns": ["^\\.github/workflows/ci\\.yml$"],
+      "matchStrings": ["cargo-deny@(?<currentValue>[^,\\s]+)"],
+      "datasourceTemplate": "crate",
+      "depNameTemplate": "cargo-deny",
+      "versioningTemplate": "cargo"
+    },
+    {
+      "customType": "regex",
+      "description": "CI taiki-e/install-action: cargo-afl (ci.yml tool: line)",
+      "managerFilePatterns": ["^\\.github/workflows/ci\\.yml$"],
+      "matchStrings": ["cargo-afl@(?<currentValue>[^,\\s]+)"],
+      "datasourceTemplate": "crate",
+      "depNameTemplate": "cargo-afl",
+      "versioningTemplate": "cargo"
+    },
+    {
+      "customType": "regex",
+      "description": "CI taiki-e/install-action: cargo-about (ci.yml tool: line)",
+      "managerFilePatterns": ["^\\.github/workflows/ci\\.yml$"],
+      "matchStrings": ["cargo-about@(?<currentValue>[^,\\s]+)"],
+      "datasourceTemplate": "crate",
+      "depNameTemplate": "cargo-about",
+      "versioningTemplate": "cargo"
     }
   ],
   "packageRules": [
@@ -31,6 +67,20 @@
       "matchPackageNames": ["ghcr.io/super-linter/super-linter"],
       "matchUpdateTypes": ["digest"],
       "groupName": "super-linter-slim-digest"
+    },
+    {
+      "description": "CI cargo tools (taiki-e/install-action): minor/patch in one PR",
+      "matchManagers": ["custom.regex"],
+      "matchDatasources": ["crate"],
+      "matchFileNames": [".github/workflows/ci.yml"],
+      "matchPackageNames": [
+        "cargo-llvm-cov",
+        "cargo-deny",
+        "cargo-afl",
+        "cargo-about"
+      ],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "ci-cargo-install-tools-minor-patch"
     },
     {
       "description": "Packaging Docker: Rust builder base image",
