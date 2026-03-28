@@ -58,6 +58,9 @@ command -v cargo-afl >/dev/null 2>&1 || cargo install cargo-afl
 
 # AFL++ must be installed; cargo afl build will fail with a clear error if not.
 
+# Build AFL LLVM plugins for this rustc once per toolchain (cargo-afl 0.15+).
+cargo afl config --build
+
 # Allow fuzz to run on typical dev systems without root tuning:
 # - AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: core_pattern pipes to external utility
 # - AFL_SKIP_CPUFREQ: on-demand/powersave CPU governor (some performance drop)
