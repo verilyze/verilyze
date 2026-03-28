@@ -850,7 +850,10 @@ If the coverage link step fails with LLD (e.g. invalid symbol index with
   exits 1 when crashes are found. Crash paths written to
   `reports/fuzz-crashes.txt`.
 - **Prerequisites:** [cargo-afl](https://github.com/rust-fuzz/afl.rs) and
-  [AFL++](https://github.com/AFLplusplus/AFLplusplus).
+  [AFL++](https://github.com/AFLplusplus/AFLplusplus). The first fuzz run clones
+  and builds AFL++ under the XDG data dir via cargo-afl; on Debian/Ubuntu you
+  typically need **build-essential**, **llvm-dev**, **clang**, and **git**
+  so `make clean install` in that tree succeeds.
 - **Targets:** `fuzz_config_toml`, `fuzz_requirements_txt`,
   `fuzz_parse_config_set_arg`. Seed corpus in `tests/fuzz/corpus/`.
 - **Coverage:** `./scripts/fuzz.sh --coverage` integrates with cargo-llvm-cov
