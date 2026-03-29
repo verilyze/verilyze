@@ -113,22 +113,14 @@ jobs:
             Linux-python-${{ steps.python.outputs.python-version }}-venvs-
             ${{ runner.os }}-python-venvs-
 
-      # Channel must match rust-toolchain.toml (single source for local + CI).
-      # dtolnay/rust-toolchain requires an explicit toolchain input; it does not
-      # infer rust-toolchain.toml when `with:` is omitted.
-      - name: Read rust-toolchain.toml channel
-        id: rustc_pin
+      # ubuntu-latest ships rustup (see zizmor superfluous-actions: prefer rustup
+      # over dtolnay/rust-toolchain). First rustc/cargo in this repo provisions
+      # channel and components from rust-toolchain.toml.
+      - name: Install Rust (rust-toolchain.toml)
         run: |
-          _ch="$(grep -E '^channel[[:space:]]*=' rust-toolchain.toml | head -1 \
-            | sed -E 's/^channel[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/')"
-          test -n "${_ch}"
-          echo "channel=${_ch}" >> "${GITHUB_OUTPUT}"
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master  # zizmor: ignore[superfluous-actions]
-        with:
-          toolchain: ${{ steps.rustc_pin.outputs.channel }}
-          components: rustfmt, clippy, llvm-tools
+          set -euo pipefail
+          rustc -vV
+          cargo -V
 
       # Key: VERSION_ID/CODENAME fingerprint (stable across trivial image edits)
       # plus workflow hash so apt package list changes invalidate the cache.
@@ -166,7 +158,7 @@ jobs:
           sudo chown -R "$(id -u)":"$(id -g)" "${_apt_arch}"
 
       # rust-cache hashes every installed toolchain for the restore key.
-      # Install the full stable toolchain (including llvm-tools for coverage)
+      # Install the pinned toolchain (rust-toolchain.toml, including llvm-tools)
       # before this step so restores stay aligned with the check job.
       - name: Cache Cargo
         id: rust_cache

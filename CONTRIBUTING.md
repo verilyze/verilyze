@@ -647,8 +647,9 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   `cargo-afl`, and `cargo-about` with [taiki-e/install-action](https://github.com/taiki-e/install-action)
   at a pinned action SHA and tool versions listed there (`cargo-deny` matches
   the Quick setup pin below). Rust for `check` is pinned in
-  [`rust-toolchain.toml`](rust-toolchain.toml) (CI reads that `channel` into the
-  `dtolnay/rust-toolchain` step so the pin stays a single source of truth); Cargo
+  [`rust-toolchain.toml`](rust-toolchain.toml); CI and release workflows use the
+  host `rustup` (no `dtolnay/rust-toolchain` action) so the first `rustc` / `cargo`
+  in the repo root provisions that channel and its components. Cargo
   cache keys stay stable. [Swatinem/rust-cache](https://github.com/Swatinem/rust-cache) restores
   registry, git, and `target/` data. **Fork PRs** and new branches may miss an
   exact cache key until `main` or that ref has saved a cache; changing
