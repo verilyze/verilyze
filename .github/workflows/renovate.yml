@@ -3,8 +3,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 ---
-# Scheduled Renovate: Dockerfile, super-linter digest (regex), GitHub Actions
-# (commit SHA + tag comment; minor/patch grouped in one PR). See renovate.json.
+# Scheduled Renovate: Dockerfile, super-linter digest (regex), rust-toolchain.toml
+# channel (regex + rust-lang/rust tags), GitHub Actions (commit SHA + tag comment;
+# minor/patch grouped in one PR). See renovate.json.
 # Uses a GitHub App installation token (short-lived), not a user PAT.
 
 name: Renovate

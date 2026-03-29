@@ -708,7 +708,10 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   `cargo-llvm-cov`, `cargo-deny`, `cargo-afl`, and `cargo-about` pinned in the
   `taiki-e/install-action` `tool:` line in
   [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (**minor** and **patch**
-  bumps are grouped into one PR). It also manages
+  bumps are grouped into one PR). A **regex** rule tracks the stable
+  **channel** in [`rust-toolchain.toml`](rust-toolchain.toml) using the
+  **github-tags** datasource for `rust-lang/rust` (**minor** and **patch**
+  bumps are grouped into one PR; **major** upgrades stay separate). It also manages
   **GitHub Actions** under `.github/workflows/`: `uses:` lines are pinned to
   immutable commit SHAs with the release tag in a trailing YAML comment
   (`helpers:pinGitHubActionDigests`). **Minor** and **patch** action updates are

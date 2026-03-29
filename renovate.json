@@ -52,6 +52,18 @@
       "datasourceTemplate": "crate",
       "depNameTemplate": "cargo-about",
       "versioningTemplate": "cargo"
+    },
+    {
+      "customType": "regex",
+      "description": "rust-toolchain.toml stable channel (rust-lang/rust release tags)",
+      "managerFilePatterns": ["/^rust-toolchain\\.toml$/"],
+      "matchStrings": [
+        "channel\\s*=\\s*\"(?<currentValue>\\d+\\.\\d+\\.\\d+)\""
+      ],
+      "datasourceTemplate": "github-tags",
+      "packageNameTemplate": "rust-lang/rust",
+      "depNameTemplate": "rust-lang/rust",
+      "versioningTemplate": "semver"
     }
   ],
   "packageRules": [
@@ -81,6 +93,15 @@
       ],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "ci-cargo-install-tools-minor-patch"
+    },
+    {
+      "description": "rust-toolchain.toml: stable channel minor/patch in one PR",
+      "matchManagers": ["custom.regex"],
+      "matchDatasources": ["github-tags"],
+      "matchFileNames": ["rust-toolchain.toml"],
+      "matchPackageNames": ["rust-lang/rust"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "rust-toolchain-channel-minor-patch"
     },
     {
       "description": "Packaging Docker: Rust builder base image",
