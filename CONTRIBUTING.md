@@ -646,7 +646,16 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   comments in `ci.yml`) and installs `cargo-llvm-cov`, `cargo-deny`,
   `cargo-afl`, and `cargo-about` with [taiki-e/install-action](https://github.com/taiki-e/install-action)
   at a pinned action SHA and tool versions listed there (`cargo-deny` matches
-  the Quick setup pin below).
+  the Quick setup pin below). Rust for `check` is pinned in
+  [`rust-toolchain.toml`](rust-toolchain.toml); CI and release workflows use the
+  host `rustup` (no `dtolnay/rust-toolchain` action) so the first `rustc` / `cargo`
+  in the repo root provisions that channel and its components. Cargo
+  cache keys stay stable. [Swatinem/rust-cache](https://github.com/Swatinem/rust-cache) restores
+  registry, git, and `target/` data. **Fork PRs** and new branches may miss an
+  exact cache key until `main` or that ref has saved a cache; changing
+  `Cargo.lock` always changes the key (partial restores can still speed up
+  compiles). The workflow logs `Rust cache exact key hit: true|false` after
+  restore.
 - **Super-linter:** CI runs the [super-linter](https://github.com/super-linter/super-linter)
   **slim** image in two modes: **incremental** (push/PR to `main`,
   `VALIDATE_ALL_CODEBASE=false`, job `super-linter` in workflow `ci.yml`) and

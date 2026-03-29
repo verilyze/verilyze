@@ -113,11 +113,14 @@ jobs:
             Linux-python-${{ steps.python.outputs.python-version }}-venvs-
             ${{ runner.os }}-python-venvs-
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master  # zizmor: ignore[superfluous-actions]
-        with:
-          toolchain: stable
-          components: rustfmt, clippy, llvm-tools
+      # ubuntu-latest ships rustup (see zizmor superfluous-actions: prefer rustup
+      # over dtolnay/rust-toolchain). First rustc/cargo in this repo provisions
+      # channel and components from rust-toolchain.toml.
+      - name: Install Rust (rust-toolchain.toml)
+        run: |
+          set -euo pipefail
+          rustc -vV
+          cargo -V
 
       # Key: VERSION_ID/CODENAME fingerprint (stable across trivial image edits)
       # plus workflow hash so apt package list changes invalidate the cache.
@@ -155,10 +158,20 @@ jobs:
           sudo chown -R "$(id -u)":"$(id -g)" "${_apt_arch}"
 
       # rust-cache hashes every installed toolchain for the restore key.
-      # Install the full stable toolchain (including llvm-tools for coverage)
+      # Install the pinned toolchain (rust-toolchain.toml, including llvm-tools)
       # before this step so restores stay aligned with the check job.
       - name: Cache Cargo
+        id: rust_cache
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          cache-workspace-crates: true
+          cache-on-failure: true
+
+      - name: Report Rust cache restore
+        run: |
+          echo "Rust cache exact key hit: ${RUST_CACHE_HIT}"
+        env:
+          RUST_CACHE_HIT: ${{ steps.rust_cache.outputs.cache-hit }}
 
       # Versions: deny matches CONTRIBUTING Quick setup; others pinned for CI.
       - name: Install cargo tooling (llvm-cov, deny, afl, about)
