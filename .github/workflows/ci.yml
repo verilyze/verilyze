@@ -149,7 +149,7 @@ jobs:
           _apt_arch="${RUNNER_TEMP}/apt-archives"
           mkdir -p "${_apt_arch}"
           sudo apt-get update
-          sudo apt-get install -y \
+          sudo apt-get install -y --no-install-recommends \
             -o Dir::Cache::archives="${_apt_arch}" \
             shellcheck afl++
           # Cache only *.deb: drop lock, partial/, and any other apt metadata.
