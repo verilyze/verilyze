@@ -10,7 +10,7 @@
     {
       "customType": "regex",
       "description": "Super-linter slim digest in scripts/super-linter.sh (track slim-latest digest)",
-      "managerFilePatterns": ["^scripts/super-linter\\.sh$"],
+      "managerFilePatterns": ["/^scripts\\/super-linter\\.sh$/"],
       "matchStrings": ["SL_SHA=\"(?<currentDigest>sha256:[a-f0-9]+)\""],
       "datasourceTemplate": "docker",
       "packageNameTemplate": "ghcr.io/super-linter/super-linter",
@@ -20,7 +20,7 @@
     {
       "customType": "regex",
       "description": "CI taiki-e/install-action: cargo-llvm-cov (ci.yml tool: line)",
-      "managerFilePatterns": ["^\\.github/workflows/ci\\.yml$"],
+      "managerFilePatterns": ["/^\\.github\\/workflows\\/ci\\.yml$/"],
       "matchStrings": ["cargo-llvm-cov@(?<currentValue>[^,\\s]+)"],
       "datasourceTemplate": "crate",
       "depNameTemplate": "cargo-llvm-cov",
@@ -29,7 +29,7 @@
     {
       "customType": "regex",
       "description": "CI taiki-e/install-action: cargo-deny (ci.yml tool: line)",
-      "managerFilePatterns": ["^\\.github/workflows/ci\\.yml$"],
+      "managerFilePatterns": ["/^\\.github\\/workflows\\/ci\\.yml$/"],
       "matchStrings": ["cargo-deny@(?<currentValue>[^,\\s]+)"],
       "datasourceTemplate": "crate",
       "depNameTemplate": "cargo-deny",
@@ -38,7 +38,7 @@
     {
       "customType": "regex",
       "description": "CI taiki-e/install-action: cargo-afl (ci.yml tool: line)",
-      "managerFilePatterns": ["^\\.github/workflows/ci\\.yml$"],
+      "managerFilePatterns": ["/^\\.github\\/workflows\\/ci\\.yml$/"],
       "matchStrings": ["cargo-afl@(?<currentValue>[^,\\s]+)"],
       "datasourceTemplate": "crate",
       "depNameTemplate": "cargo-afl",
@@ -47,7 +47,7 @@
     {
       "customType": "regex",
       "description": "CI taiki-e/install-action: cargo-about (ci.yml tool: line)",
-      "managerFilePatterns": ["^\\.github/workflows/ci\\.yml$"],
+      "managerFilePatterns": ["/^\\.github\\/workflows\\/ci\\.yml$/"],
       "matchStrings": ["cargo-about@(?<currentValue>[^,\\s]+)"],
       "datasourceTemplate": "crate",
       "depNameTemplate": "cargo-about",
