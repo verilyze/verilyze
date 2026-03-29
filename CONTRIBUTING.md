@@ -660,10 +660,14 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   failure. The script sets `IGNORE_GITIGNORED_FILES=true` and
   `FILTER_REGEX_EXCLUDE` so `target/`, `.git/`, `completions/` (ShellCheck is
   already `make lint-shell` with `completions/.shellcheckrc`), Python venvs
-  (`.venv*/`), `.mypy_cache/`, and `site-packages/` are skipped. It sets
+  (`.venv*/`), `.mypy_cache/`, `site-packages/`, and `super-linter-output/`
+  (artifact tree when `SAVE_SUPER_LINTER_*` is on) are skipped. It sets
   `LINTER_RULES_PATH` to `.` so configs at the repository root apply (the
   default would be `.github/linters`; the workspace mount is `/tmp/lint`). It
-  sets `BASH_EXEC_IGNORE_LIBRARIES=true`. **Canonical policy:** every
+  sets `YAML_CONFIG_FILE=.yamllint` so yamllint uses the repo
+  [`.yamllint`](.yamllint) (GitHub Actions-friendly `truthy`/`comments` and
+  longer lines for pinned `uses:` plus Zizmor ignore comments). It sets
+  `BASH_EXEC_IGNORE_LIBRARIES=true`. **Canonical policy:** every
   `VALIDATE_*=false` toggle lives in
   [`scripts/super-linter.sh`](scripts/super-linter.sh); other linters follow
   super-linter defaults unless that script disables them.
@@ -678,11 +682,12 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   **CSS Stylelint** (`VALIDATE_CSS`) and **CSS Prettier** stay off so Biome is the
   only tool on those paths. **YAML** is not handled by Biome; YAML in CI follows
   super-linter defaults with [`.yamllint`](.yamllint) at the repo root (YAML
-  Prettier remains off). **Zizmor** (`VALIDATE_GITHUB_ACTIONS_ZIZMOR`),
-  **JSCPD**, and **Gitleaks** are off in the container (Zizmor and JSCPD are off
-  for practical reasons; Gitleaks does not apply [`.gitleaks.toml`](.gitleaks.toml)
-  reliably there). Run
-  `gitleaks detect` locally for secrets scanning. The script defaults to a
+  Prettier remains off). **Gitleaks** and **Zizmor** run with super-linter
+  defaults ([`.gitleaks.toml`](.gitleaks.toml) is honored with
+  `LINTER_RULES_PATH=.`). A few workflow lines use `# zizmor: ignore[...]`
+  where maintainers chose pinned actions over script-only equivalents (see
+  Zizmor docs). **JSCPD** stays off. You may still run `gitleaks detect` locally
+  before push for faster feedback. The script defaults to a
   **pinned** slim image digest (linux/amd64, not `:slim-latest`, so linter
   versions stay stable until maintainers bump the digest). Override with
   `SUPER_LINTER_IMAGE` if needed. **Renovate** ([`renovate.json`](renovate.json))

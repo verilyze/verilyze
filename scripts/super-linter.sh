@@ -14,6 +14,7 @@
 #   GITHUB_TOKEN         optional; passed through when set
 #   SUPPRESS_POSSUM      optional; default true (super-linter possum banner)
 #   SAVE_SUPER_LINTER_OUTPUT, SAVE_SUPER_LINTER_SUMMARY  optional artifact logs
+# (set in DOCKER_ARGS): LINTER_RULES_PATH, YAML_CONFIG_FILE, FILTER_REGEX_EXCLUDE
 #
 # Default image is a pinned linux/amd64 digest (not :slim-latest) so bundled Biome
 # and other linter versions do not drift on every CI pull. Renovate bumps SL_SHA
@@ -35,7 +36,7 @@ DEFAULT_BRANCH="${DEFAULT_BRANCH:-main}"
 
 # Match CONTRIBUTING: skip build trees, venvs, completions (ShellCheck via make
 # lint-shell + completions/.shellcheckrc), and site-packages.
-FILTER_REGEX_EXCLUDE='(^|/)(target/|\.git/|completions/|\.venv[^/]*/|\.mypy_cache/|site-packages/)'
+FILTER_REGEX_EXCLUDE='(^|/)(target/|\.git/|completions/|\.venv[^/]*/|\.mypy_cache/|site-packages/|super-linter-output/)'
 
 # Validator toggles: Rust/Python/shell/markdown/natural-language off when covered by
 # make -j check (or not part of the project gate). isort is off because lint-python
@@ -46,12 +47,14 @@ FILTER_REGEX_EXCLUDE='(^|/)(target/|\.git/|completions/|\.venv[^/]*/|\.mypy_cach
 # duplicate warnings vs ESLint/Prettier.
 # Stylelint (VALIDATE_CSS) and CSS Prettier are off; Biome owns CSS when present (see
 # biome.json).
-# Zizmor, JSCPD, Gitleaks: off in-container (see CONTRIBUTING.md, Super-linter).
+# JSCPD stays off (see CONTRIBUTING.md, Super-linter). Gitleaks and Zizmor use
+# super-linter defaults with LINTER_RULES_PATH=. so root configs apply.
 DOCKER_ARGS=(
   --rm
   # Relative to GITHUB_WORKSPACE (/tmp/lint mount). `.` normalizes to repo root so
   # trivy.yaml, biome.json, .yamllint, etc. are found (not /tmp/lint/tmp/lint/...).
   -e LINTER_RULES_PATH=.
+  -e YAML_CONFIG_FILE=.yamllint
   -e RUN_LOCAL=true
   -e SUPPRESS_POSSUM="${SUPPRESS_POSSUM:-true}"
   -e DEFAULT_BRANCH="$DEFAULT_BRANCH"
@@ -61,9 +64,7 @@ DOCKER_ARGS=(
   -e BASH_EXEC_IGNORE_LIBRARIES=true
   -e SAVE_SUPER_LINTER_OUTPUT="${SAVE_SUPER_LINTER_OUTPUT:-false}"
   -e SAVE_SUPER_LINTER_SUMMARY="${SAVE_SUPER_LINTER_SUMMARY:-false}"
-  -e VALIDATE_GITHUB_ACTIONS_ZIZMOR=false
   -e VALIDATE_JSCPD=false
-  -e VALIDATE_GITLEAKS=false
   -e VALIDATE_CSS=false
   -e VALIDATE_CSS_PRETTIER=false
   -e VALIDATE_GRAPHQL_PRETTIER=false

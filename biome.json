@@ -19,7 +19,8 @@
       "!!**/.mypy_cache",
       "!!**/site-packages",
       "!!**/reports",
-      "!!**/node_modules"
+      "!!**/node_modules",
+      "!!**/super-linter-output"
     ]
   },
   "formatter": {

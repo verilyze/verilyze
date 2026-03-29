@@ -36,7 +36,7 @@ jobs:
           _auth="$(printf 'https://x-access-token:%s@github.com/%s.git' \
             "${GITHUB_TOKEN}" "${GITHUB_REPOSITORY}")"
           git remote set-url origin "${_auth}"
-          git fetch origin "${{ github.event.pull_request.base.ref }}"
+          git fetch origin "${GITHUB_BASE_REF}"
           git remote set-url origin \
             "https://github.com/${GITHUB_REPOSITORY}.git"
 
@@ -64,7 +64,7 @@ jobs:
           _auth="$(printf 'https://x-access-token:%s@github.com/%s.git' \
             "${GITHUB_TOKEN}" "${GITHUB_REPOSITORY}")"
           git remote set-url origin "${_auth}"
-          git fetch origin "${{ github.event.pull_request.base.ref }}"
+          git fetch origin "${GITHUB_BASE_REF}"
           git remote set-url origin \
             "https://github.com/${GITHUB_REPOSITORY}.git"
 
@@ -114,7 +114,7 @@ jobs:
             ${{ runner.os }}-python-venvs-
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master  # zizmor: ignore[superfluous-actions]
         with:
           toolchain: stable
           components: rustfmt, clippy, llvm-tools
