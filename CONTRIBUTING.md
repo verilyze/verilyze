@@ -91,15 +91,15 @@ graph TD
 
 **Required (install before `make check`)**
 
-| Dependency       | Purpose                                    | Install                       |
-| ---------------- | ------------------------------------------ | ----------------------------- |
-| Rust, Cargo      | Build and test                             | [rustup](https://rustup.rs/)  |
-| Python 3 (≥3.11) | Scripts, linters, tests                    | OS package manager            |
-| ShellCheck       | Shell script linting                       | OS package manager            |
-| GNU Make (4.0+)  | Build orchestration                        | OS package manager            |
-| Git              | Contributing, hooks, fuzz change detection | OS package manager            |
-| GnuPG 2.x or SSH key | Commit signing (GPG or SSH; required) | OS package manager / `ssh-keygen` |
-| cargo-deny           | `make deny-check` / `make check` (NFR-009, SEC-012) | `cargo install cargo-deny --locked --version 0.18.6` (same pin as `.github/workflows/ci.yml`) |
+| Dependency        | Purpose                                    | Install                       |
+| ----------------- | ------------------------------------------ | ----------------------------- |
+| Rust, Cargo       | Build and test                             | [rustup](https://rustup.rs/)  |
+| Python 3 (≥3.11)  | Scripts, linters, tests                    | OS package manager            |
+| ShellCheck        | Shell script linting                       | OS package manager            |
+| GNU Make (4.0+)   | Build orchestration                        | OS package manager            |
+| Git               | Contributing, hooks, fuzz change detection | OS package manager            |
+| GnuPG 2.x/SSH key | Commit signing (GPG or SSH; required)      | OS package manager            |
+| cargo-deny        | `make deny-check` / `make check`           | `cargo install cargo-deny --locked |
 
 **Recommended**
 
@@ -135,7 +135,7 @@ required only when `make coverage` runs (it runs fuzz first).
 | Bootstrap environment | `make setup`                                       |
 | Full CI check         | `make check` (use `make -j check` for faster runs) |
 | Quick build           | `make debug`                                       |
-| Release build         | `make release` (stripped binary, NFR-023)         |
+| Release build         | `make release` (stripped binary, NFR-023)          |
 | Run tests             | `make unit-tests`                                  |
 | Format Rust code      | `make fmt`                                         |
 | Verify Rust format    | `make fmt-check`                                   |
