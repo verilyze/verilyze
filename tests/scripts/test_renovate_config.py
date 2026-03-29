@@ -18,6 +18,18 @@ def test_renovate_json_exists_and_parses() -> None:
     assert data.get("$schema")
 
 
+def test_renovate_regex_managers_use_delimited_file_patterns() -> None:
+    """Renovate treats managerFilePatterns as globs unless wrapped in /.../."""
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    for mgr in data.get("customManagers", []):
+        if mgr.get("customType") != "regex":
+            continue
+        for pat in mgr.get("managerFilePatterns", []):
+            assert pat.startswith("/") and pat.endswith("/"), (
+                f"pattern must be /.../ regex form so paths match: {pat!r}"
+            )
+
+
 def test_renovate_super_linter_regex_manager() -> None:
     data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
     managers = data.get("customManagers", [])
