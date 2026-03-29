@@ -119,12 +119,13 @@ jobs:
           toolchain: stable
           components: rustfmt, clippy, llvm-tools
 
-      # Key includes /etc/os-release hash so new runner images refresh the
-      # cache (avoid stale .deb sets). Path: Dir::Cache::archives via apt -o.
+      # Key: VERSION_ID/CODENAME fingerprint (stable across trivial image edits)
+      # plus workflow hash so apt package list changes invalidate the cache.
+      # Path: Dir::Cache::archives via apt -o.
       - name: Apt archives cache fingerprint
         id: apt_ci
         run: |
-          echo "os_sig=$(sha256sum /etc/os-release | cut -d' ' -f1)" \
+          echo "os_sig=$(grep -E '^(VERSION_ID|VERSION_CODENAME)=' /etc/os-release | sha256sum | cut -d' ' -f1)" \
             >> "$GITHUB_OUTPUT"
 
       - name: Cache apt archives (shellcheck, afl++)
@@ -133,7 +134,8 @@ jobs:
           path: ${{ runner.temp }}/apt-archives
           key: >-
             ${{ runner.os }}-apt-archives-shellcheck-afl++-${{
-            steps.apt_ci.outputs.os_sig }}
+            steps.apt_ci.outputs.os_sig }}-${{
+            hashFiles('.github/workflows/ci.yml') }}
           restore-keys: |
             ${{ runner.os }}-apt-archives-shellcheck-afl++-
 
@@ -147,6 +149,10 @@ jobs:
           sudo apt-get install -y \
             -o Dir::Cache::archives="${_apt_arch}" \
             shellcheck afl++
+          # Cache only *.deb: drop lock, partial/, and any other apt metadata.
+          sudo find "${_apt_arch}" -mindepth 1 -maxdepth 1 \
+            ! -name '*.deb' -exec rm -rf {} +
+          sudo chown -R "$(id -u)":"$(id -g)" "${_apt_arch}"
 
       # rust-cache hashes every installed toolchain for the restore key.
       # Install the full stable toolchain (including llvm-tools for coverage)
