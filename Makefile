@@ -17,6 +17,9 @@ VENV_REUSE := $(MKFILE_DIR)/.venv-reuse
 VENV_TEST := $(MKFILE_DIR)/.venv-test
 # Override for CI or a pinned binary (NFR-009, SEC-012).
 CARGO_DENY ?= cargo deny
+# clean targets use +stable so a broken rust-toolchain.toml install cannot block
+# removing target/ and coverage data (cargo clean does not need the pin).
+CARGO_FOR_CLEAN ?= cargo +stable
 
 .PHONY: help all debug release
 .PHONY: setup setup-hooks check check-fast check-slow check-dco check-signatures
@@ -424,8 +427,8 @@ docker:
 
 # ---- Clean ----
 clean:
-	@cd "$(MKFILE_DIR)" && cargo clean
-	@cd "$(MKFILE_DIR)" && cargo llvm-cov clean --workspace 2>/dev/null || true
+	@cd "$(MKFILE_DIR)" && $(CARGO_FOR_CLEAN) clean
+	@cd "$(MKFILE_DIR)" && $(CARGO_FOR_CLEAN) llvm-cov clean --workspace 2>/dev/null || true
 	@find $(MKFILE_DIR) -type f \( -name "*.profraw" -o \
                                        -name "vlz-cache.redb" \) -delete
 	@find $(MKFILE_DIR) -type d -name "__pycache__" -exec rm -rf {} +

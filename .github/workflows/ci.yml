@@ -113,10 +113,21 @@ jobs:
             Linux-python-${{ steps.python.outputs.python-version }}-venvs-
             ${{ runner.os }}-python-venvs-
 
+      # Channel must match rust-toolchain.toml (single source for local + CI).
+      # dtolnay/rust-toolchain requires an explicit toolchain input; it does not
+      # infer rust-toolchain.toml when `with:` is omitted.
+      - name: Read rust-toolchain.toml channel
+        id: rustc_pin
+        run: |
+          _ch="$(grep -E '^channel[[:space:]]*=' rust-toolchain.toml | head -1 \
+            | sed -E 's/^channel[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/')"
+          test -n "${_ch}"
+          echo "channel=${_ch}" >> "${GITHUB_OUTPUT}"
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master  # zizmor: ignore[superfluous-actions]
         with:
-          toolchain: stable
+          toolchain: ${{ steps.rustc_pin.outputs.channel }}
           components: rustfmt, clippy, llvm-tools
 
       # Key: VERSION_ID/CODENAME fingerprint (stable across trivial image edits)
@@ -158,7 +169,17 @@ jobs:
       # Install the full stable toolchain (including llvm-tools for coverage)
       # before this step so restores stay aligned with the check job.
       - name: Cache Cargo
+        id: rust_cache
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          cache-workspace-crates: true
+          cache-on-failure: true
+
+      - name: Report Rust cache restore
+        run: |
+          echo "Rust cache exact key hit: ${RUST_CACHE_HIT}"
+        env:
+          RUST_CACHE_HIT: ${{ steps.rust_cache.outputs.cache-hit }}
 
       # Versions: deny matches CONTRIBUTING Quick setup; others pinned for CI.
       - name: Install cargo tooling (llvm-cov, deny, afl, about)

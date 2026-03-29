@@ -30,10 +30,9 @@ jobs:
         with:
           persist-credentials: false
 
+      # Toolchain from repo root rust-toolchain.toml (pin matches CI).
       - name: Install Rust
         uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # stable  # zizmor: ignore[superfluous-actions]
-        with:
-          toolchain: stable
 
       - name: Build release binary
         run: cargo build --release --locked
@@ -55,10 +54,9 @@ jobs:
         with:
           persist-credentials: false
 
+      # Toolchain from repo root rust-toolchain.toml (pin matches CI).
       - name: Install Rust
         uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # stable  # zizmor: ignore[superfluous-actions]
-        with:
-          toolchain: stable
 
       - name: Install cargo-deb
         run: cargo install cargo-deb --locked
