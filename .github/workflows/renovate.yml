@@ -25,12 +25,13 @@ jobs:
         id: renovate-token
         uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0
         with:
-          app-id: ${{ secrets.RENOVATE_APP_ID }}
-          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.RENOVATE_APP_ID }}  # zizmor: ignore[secrets-outside-env]
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}  # zizmor: ignore[secrets-outside-env]
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - uses: renovatebot/github-action@68a3ea99af6ad249940b5a9fdf44fc6d7f14378b # v46.1.6
         with:

@@ -15,6 +15,7 @@
 # super-linter local artifacts (SAVE_SUPER_LINTER_*)
 /super-linter.log
 /super-linter-summary.md
+/super-linter-output/
 
 # RPM build artifacts (created by rpmbuild)
 /packaging/rpm/BUILD/
