@@ -96,9 +96,12 @@ jobs:
         with:
           python-version: "3.14"
 
-      # Pip packages: Makefile / ensure-reuse. Cache miss if no prior save
-      # (exact key or restore-keys). Fork PRs cannot read base repo caches.
+      # Pip packages: Makefile / ensure-reuse. Exact key miss is normal when
+      # inputs change; PRs can still restore from default-branch caches per
+      # GitHub cache rules. Broad restore key must prefix-match saved keys:
+      # {runner.os}-python-{version}-venvs-{hash} starts with {runner.os}-python-.
       - name: Cache Python venvs
+        id: python_venvs_cache
         uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
           path: |
@@ -110,8 +113,8 @@ jobs:
             steps.python.outputs.python-version, hashFiles('Makefile',
             'pyproject.toml', 'scripts/ensure-reuse.sh')) }}
           restore-keys: |
-            Linux-python-${{ steps.python.outputs.python-version }}-venvs-
-            ${{ runner.os }}-python-venvs-
+            ${{ runner.os }}-python-${{ steps.python.outputs.python-version }}-venvs-
+            ${{ runner.os }}-python-
 
       # ubuntu-latest ships rustup (see zizmor superfluous-actions: prefer rustup
       # over dtolnay/rust-toolchain). First rustc/cargo in this repo provisions
@@ -132,6 +135,7 @@ jobs:
             >> "$GITHUB_OUTPUT"
 
       - name: Cache apt archives (shellcheck, afl++)
+        id: apt_archives_cache
         uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
           path: ${{ runner.temp }}/apt-archives
@@ -157,7 +161,14 @@ jobs:
             ! -name '*.deb' -exec rm -rf {} +
           sudo chown -R "$(id -u)":"$(id -g)" "${_apt_arch}"
 
-      # rust-cache hashes every installed toolchain for the restore key.
+      # rust-cache: default key hashes rustc -vV (per rustup toolchain),
+      # CARGO*/RUST*/CC*/etc. env vars, and Cargo.lock / manifests. That keeps
+      # cache aligned with the real compiler; do not disable
+      # add-rust-environment-hash-key without understanding stale-cache risk.
+      # steps.rust_cache.outputs.cache-hit is true only for a full key match;
+      # prefix restores may still help registry/git but clear target/ (see
+      # Swatinem/rust-cache restore.ts). Full keys print under "Cache
+      # Configuration" in this step's log.
       # Install the pinned toolchain (rust-toolchain.toml, including llvm-tools)
       # before this step so restores stay aligned with the check job.
       - name: Cache Cargo
@@ -167,11 +178,24 @@ jobs:
           cache-workspace-crates: true
           cache-on-failure: true
 
-      - name: Report Rust cache restore
+      # actions/cache sets outputs.cache-hit to the string true only on an exact
+      # key match; otherwise the output is often omitted (empty), not false.
+      - name: Report CI cache diagnostics
         run: |
-          echo "Rust cache exact key hit: ${RUST_CACHE_HIT}"
+          echo "Rust cache exact key hit: ${RUST_CACHE_HIT:-false}"
+          echo "Python venvs cache exact key hit: ${PYTHON_VENVS_CACHE_HIT:-false}"
+          echo "Apt archives cache exact key hit: ${APT_ARCHIVES_CACHE_HIT:-false}"
+          echo "Python venv key inputs: runner_os=${RUNNER_OS_VALUE} python_version=${PYTHON_VERSION} venv_inputs_hash=${VENV_INPUTS_HASH}"
+          echo "Apt key input: os_sig=${APT_OS_SIG}"
+          echo "For full Rust cache and restore keys, expand the prior step log group: Cache Configuration."
         env:
           RUST_CACHE_HIT: ${{ steps.rust_cache.outputs.cache-hit }}
+          PYTHON_VENVS_CACHE_HIT: ${{ steps.python_venvs_cache.outputs.cache-hit }}
+          APT_ARCHIVES_CACHE_HIT: ${{ steps.apt_archives_cache.outputs.cache-hit }}
+          PYTHON_VERSION: ${{ steps.python.outputs.python-version }}
+          VENV_INPUTS_HASH: ${{ hashFiles('Makefile', 'pyproject.toml', 'scripts/ensure-reuse.sh') }}
+          APT_OS_SIG: ${{ steps.apt_ci.outputs.os_sig }}
+          RUNNER_OS_VALUE: ${{ runner.os }}
 
       # Versions: deny matches CONTRIBUTING Quick setup; others pinned for CI.
       - name: Install cargo tooling (llvm-cov, deny, afl, about)
