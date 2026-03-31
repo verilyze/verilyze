@@ -13,7 +13,10 @@ vulnerabilities. Written in Rust.
 [LICENSES/GPL-3.0-or-later.txt](LICENSES/GPL-3.0-or-later.txt) for the full
 text.
 
-[![Super-linter nightly](https://github.com/verilyze/verilyze/actions/workflows/super-linter-nightly.yml/badge.svg)](https://github.com/verilyze/verilyze/actions/workflows/super-linter-nightly.yml)
+[![CI](https://github.com/verilyze/verilyze/actions/workflows/ci.yml/badge.svg)](https://github.com/verilyze/verilyze/actions/workflows/ci.yml)
+[![Rust coverage](https://raw.githubusercontent.com/verilyze/verilyze/badges/coverage-rust.svg)](https://github.com/verilyze/verilyze/actions/workflows/ci.yml)
+[![Python coverage](https://raw.githubusercontent.com/verilyze/verilyze/badges/coverage-python.svg)](https://github.com/verilyze/verilyze/actions/workflows/ci.yml)
+[![Super-linter](https://github.com/verilyze/verilyze/actions/workflows/super-linter-nightly.yml/badge.svg)](https://github.com/verilyze/verilyze/actions/workflows/super-linter-nightly.yml)
 
 ## Prerequisites
 
