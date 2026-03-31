@@ -280,63 +280,6 @@ jobs:
           recreate: true
           path: code-coverage-results.md
 
-  coverage-badges:
-    runs-on: ubuntu-latest
-    needs: check
-    if: >-
-      success()
-      && github.event_name == 'push'
-      && github.ref == 'refs/heads/main'
-    permissions:
-      contents: write
-      actions: read
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-
-      - name: Download Cobertura artifacts
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
-        with:
-          name: cobertura-xml
-
-      - name: Normalize Cobertura XML under reports/
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -f reports/cobertura-rust.xml && -f reports/cobertura-python.xml ]]; then
-            exit 0
-          fi
-          rust=$(find . -path './.git' -prune -o -name cobertura-rust.xml -type f -print -quit)
-          py=$(find . -path './.git' -prune -o -name cobertura-python.xml -type f -print -quit)
-          if [[ -z "${rust:-}" || -z "${py:-}" ]]; then
-            echo 'Cobertura XML not found after artifact download' >&2
-            find . -path './.git' -prune -o -type f -print >&2
-            exit 1
-          fi
-          mkdir -p reports
-          cp -f "$rust" "$py" reports/
-
-      # Orphan refs/heads/badges must exist (one-time maintainer setup). Badge
-      # steps use the GitHub API (github-token), not git push, so checkout keeps
-      # persist-credentials: false (zizmor artipacked).
-
-      - name: Rust coverage badge
-        uses: action-badges/cobertura-coverage-xml-badges@21fdeb7963506afb66c5f9c6501a8fff95d14499 # v0.4.1
-        with:
-          file-name: coverage-rust.svg
-          badge-branch: badges
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          coverage-file-name: ./reports/cobertura-rust.xml
-
-      - name: Python coverage badge
-        uses: action-badges/cobertura-coverage-xml-badges@21fdeb7963506afb66c5f9c6501a8fff95d14499 # v0.4.1
-        with:
-          file-name: coverage-python.svg
-          badge-branch: badges
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          coverage-file-name: ./reports/cobertura-python.xml
-
   super-linter:
     runs-on: ubuntu-latest
     needs: [check-dco, check-signatures]
