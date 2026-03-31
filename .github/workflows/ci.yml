@@ -14,13 +14,15 @@ on:
   pull_request:
     branches: [main]
 
-permissions:
-  contents: read
+# Job-scoped tokens (Checkov CKV2_GHA_1; avoid workflow_run for zizmor).
+permissions: {}
 
 jobs:
   check-dco:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -49,6 +51,8 @@ jobs:
   check-signatures:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -77,6 +81,9 @@ jobs:
   check:
     runs-on: ubuntu-latest
     needs: [check-dco, check-signatures]
+    permissions:
+      contents: read
+      actions: write
     if: >-
       (success() || failure())
       && (needs.check-dco.result == 'success'
@@ -207,9 +214,135 @@ jobs:
       - name: Run make -j check (full Makefile gate)
         run: make -j check
 
+      - name: Upload Cobertura XML reports
+        if: success()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: cobertura-xml
+          path: |
+            reports/cobertura-rust.xml
+            reports/cobertura-python.xml
+          if-no-files-found: error
+
+  coverage-pr-comment:
+    runs-on: ubuntu-latest
+    needs: check
+    if: >-
+      success()
+      && github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: read
+    steps:
+      - name: Download Cobertura artifacts
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: cobertura-xml
+
+      # CodeCoverageSummary globs from the container workspace; ensure XML paths
+      # match reports/ even if the artifact extracts with an extra directory level.
+      - name: Normalize Cobertura XML under reports/
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f reports/cobertura-rust.xml && -f reports/cobertura-python.xml ]]; then
+            exit 0
+          fi
+          rust=$(find . -path './.git' -prune -o -name cobertura-rust.xml -type f -print -quit)
+          py=$(find . -path './.git' -prune -o -name cobertura-python.xml -type f -print -quit)
+          if [[ -z "${rust:-}" || -z "${py:-}" ]]; then
+            echo 'Cobertura XML not found after artifact download' >&2
+            find . -path './.git' -prune -o -type f -print >&2
+            exit 1
+          fi
+          mkdir -p reports
+          cp -f "$rust" "$py" reports/
+
+      - name: Coverage summary (Cobertura)
+        uses: irongut/CodeCoverageSummary@51cc3a756ddcd398d447c044c02cb6aa83fdae95 # v1.3.0
+        with:
+          filename: '**/cobertura-rust.xml,**/cobertura-python.xml'
+          badge: true
+          fail_below_min: false
+          format: markdown
+          hide_branch_rate: true
+          hide_complexity: true
+          indicators: true
+          output: file
+          thresholds: '85 90'
+
+      - name: Post coverage summary on PR
+        uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # v2.9.4
+        with:
+          header: cobertura-summary
+          recreate: true
+          path: code-coverage-results.md
+
+  coverage-badges:
+    runs-on: ubuntu-latest
+    needs: check
+    if: >-
+      success()
+      && github.event_name == 'push'
+      && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Download Cobertura artifacts
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: cobertura-xml
+
+      - name: Normalize Cobertura XML under reports/
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f reports/cobertura-rust.xml && -f reports/cobertura-python.xml ]]; then
+            exit 0
+          fi
+          rust=$(find . -path './.git' -prune -o -name cobertura-rust.xml -type f -print -quit)
+          py=$(find . -path './.git' -prune -o -name cobertura-python.xml -type f -print -quit)
+          if [[ -z "${rust:-}" || -z "${py:-}" ]]; then
+            echo 'Cobertura XML not found after artifact download' >&2
+            find . -path './.git' -prune -o -type f -print >&2
+            exit 1
+          fi
+          mkdir -p reports
+          cp -f "$rust" "$py" reports/
+
+      - name: Ensure badges orphan branch exists
+        uses: action-badges/create-orphan-branch@ad8308a8dded1b6a359b067044b6d2b9bc81d810 # v0.1.1
+        with:
+          branch-name: badges
+
+      - name: Rust coverage badge
+        uses: action-badges/cobertura-coverage-xml-badges@21fdeb7963506afb66c5f9c6501a8fff95d14499 # v0.4.1
+        with:
+          file-name: coverage-rust.svg
+          badge-branch: badges
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          coverage-file-name: ./reports/cobertura-rust.xml
+
+      - name: Python coverage badge
+        uses: action-badges/cobertura-coverage-xml-badges@21fdeb7963506afb66c5f9c6501a8fff95d14499 # v0.4.1
+        with:
+          file-name: coverage-python.svg
+          badge-branch: badges
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          coverage-file-name: ./reports/cobertura-python.xml
+
   super-linter:
     runs-on: ubuntu-latest
     needs: [check-dco, check-signatures]
+    permissions:
+      contents: read
     if: >-
       (success() || failure())
       && (needs.check-dco.result == 'success'

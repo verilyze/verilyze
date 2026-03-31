@@ -821,16 +821,26 @@ Stderr can stay as `eprintln!` or `log::error!`.
        binary invocation, so the xtask binary is covered without depending on
        `cargo llvm-cov run`.
      - Reports: `reports/rust/html/index.html` (Rust HTML),
-       `reports/cobertura.xml` (Rust Cobertura), `reports/python/index.html`
+       `reports/cobertura-rust.xml` (Rust Cobertura), `reports/python/index.html`
        (Python HTML), `reports/cobertura-python.xml` (Python Cobertura).
      - Thresholds (NFR-012, NFR-017): Rust >= 85% line, >= 80% function, >= 85%
        region; scripts >= 85% line. The coverage run **exits 1** when
        below these thresholds.
-- **CI:** The Cobertura XML files (`reports/cobertura.xml`,
-  `reports/cobertura-python.xml`) are consumed by common CI systems. GitHub
-  Actions uses [taiki-e/install-action](https://github.com/taiki-e/install-action)
+- **CI:** The Cobertura XML files (`reports/cobertura-rust.xml`,
+  `reports/cobertura-python.xml`) are uploaded from GitHub Actions and used for
+  PR coverage summaries and README badges (orphan `badges` branch; jobs in
+  [`.github/workflows/ci.yml`](.github/workflows/ci.yml) after `check`).
+  GitHub Actions uses
+  [taiki-e/install-action](https://github.com/taiki-e/install-action)
   for these Rust CLI tools in `.github/workflows/ci.yml`; see also
   [taiki-e/cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov).
+- **PR coverage comments:** On pull requests where the head branch lives in
+  the **same** repository (not from a fork), job `coverage-pr-comment` in
+  `ci.yml` posts a sticky comment with Rust and Python line-coverage summaries
+  (Cobertura). Fork PRs skip that job because the head repo is not the base
+  repo.
+  Comments show **current** coverage for the PR head, not a diff versus
+  `main`.
 
 **[!NOTE]** Branch coverage is currently **disabled** in the default coverage
 run (line, function, and region coverage only). Enabling `--branch` can
@@ -879,7 +889,11 @@ If the coverage link step fails with LLD (e.g. invalid symbol index with
   [AFL++](https://github.com/AFLplusplus/AFLplusplus). The first fuzz run clones
   and builds AFL++ under the XDG data dir via cargo-afl; on Debian/Ubuntu you
   typically need **build-essential**, **llvm-dev**, **clang**, and **git**
-  so `make clean install` in that tree succeeds.
+  so `make clean install` in that tree succeeds. When you change the default
+  `rustc` (e.g. `rustup update`), `./scripts/fuzz.sh` reruns `cargo afl config --build`
+  as needed and stores `rustc -vV` in `rustc-stamp-for-afl` next to the AFL++
+  clone under `$XDG_DATA_HOME/afl.rs` (or `~/.local/share/afl.rs`). For unusual
+  failures you can still run `cargo afl config --build` or `--build --force` by hand.
 - **Targets:** `fuzz_config_toml`, `fuzz_requirements_txt`,
   `fuzz_parse_config_set_arg`. Seed corpus in `tests/fuzz/corpus/`.
 - **Coverage:** `./scripts/fuzz.sh --coverage` integrates with cargo-llvm-cov

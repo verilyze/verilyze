@@ -53,28 +53,64 @@ else
     TIMEOUT_SEC=30
 fi
 
+# Preserve args for error hints (functions below would otherwise see empty $*).
+FUZZ_SH_INVOCATION="$*"
+
 # Ensure cargo-afl is available
 command -v cargo-afl >/dev/null 2>&1 || cargo install cargo-afl
 
 # AFL++ must be installed; cargo afl build will fail with a clear error if not.
 
-# Bootstrap AFL++ source and the LLVM runtime for this rustc when needed
-# (cargo-afl 0.15+). The crates.io cargo-afl-common crate has no bundled
-# AFLplusplus tree; plain config --build copies from that path and fails.
-# --update clones from GitHub into the XDG data dir. Skip when the clone
-# already exists: config --build errors with already built on repeat runs.
-_afl_pp="${XDG_DATA_HOME:-$HOME/.local/share}/afl.rs/AFLplusplus"
-if [[ ! -e "$_afl_pp/.git" ]]; then
-    _afl_verbose=()
-    if [[ "${GITHUB_ACTIONS:-}" == "true" ]] || [[ "${VLZ_AFL_VERBOSE:-}" == "1" ]]; then
-        _afl_verbose=(--verbose)
+# Bootstrap AFL++ source and the LLVM runtime for this rustc (cargo-afl 0.15+).
+# The crates.io cargo-afl-common crate has no bundled AFLplusplus tree;
+# --build --update clones into the XDG data dir when the clone is missing.
+# After rustup, the LLVM runtime must match the current rustc. We store rustc -vV
+# in a stamp under the same afl.rs dir so we run config --build only when it changes,
+# not on every fuzz run. Plain --build may fail when AFL was already built; then we
+# try --force (see cargo-afl afl config --help).
+
+_afl_rs_data="${XDG_DATA_HOME:-$HOME/.local/share}/afl.rs"
+_afl_pp="${_afl_rs_data}/AFLplusplus"
+_rustc_stamp="${_afl_rs_data}/rustc-stamp-for-afl"
+
+_afl_verbose=()
+if [[ "${GITHUB_ACTIONS:-}" == "true" ]] || [[ "${VLZ_AFL_VERBOSE:-}" == "1" ]]; then
+    _afl_verbose=(--verbose)
+fi
+
+_write_rustc_stamp() {
+    mkdir -p "$_afl_rs_data"
+    rustc -vV > "$_rustc_stamp"
+}
+
+_report_afl_config_failed() {
+    echo "cargo afl config failed (AFL++ under ${_afl_pp})." >&2
+    echo "Retry with: VLZ_AFL_VERBOSE=1 ./scripts/fuzz.sh ${FUZZ_SH_INVOCATION}" >&2
+    echo "Debian/Ubuntu packages often required: build-essential llvm-dev clang git" >&2
+}
+
+_ensure_afl_runtime_matches_rustc() {
+    if [[ -f "$_rustc_stamp" ]] && cmp -s <(rustc -vV) "$_rustc_stamp"; then
+        return 0
     fi
+
+    if ! cargo afl config --build "${_afl_verbose[@]}"; then
+        if ! cargo afl config --build --force "${_afl_verbose[@]}"; then
+            _report_afl_config_failed
+            exit 1
+        fi
+    fi
+    _write_rustc_stamp
+}
+
+if [[ ! -e "$_afl_pp/.git" ]]; then
     if ! cargo afl config --build --update "${_afl_verbose[@]}"; then
-        echo "cargo afl config failed (AFL++ make clean install in ${_afl_pp})." >&2
-        echo "Retry with: VLZ_AFL_VERBOSE=1 ./scripts/fuzz.sh $*" >&2
-        echo "Debian/Ubuntu packages often required: build-essential llvm-dev clang git" >&2
+        _report_afl_config_failed
         exit 1
     fi
+    _write_rustc_stamp
+else
+    _ensure_afl_runtime_matches_rustc
 fi
 
 # Allow fuzz to run on typical dev systems without root tuning:
