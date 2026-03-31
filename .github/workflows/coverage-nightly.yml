@@ -1,0 +1,126 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+---
+# Nightly full coverage (fuzz + Cobertura); publish SVG badges to the wiki.
+
+name: Coverage nightly
+
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  coverage-wiki-badges:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        id: python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.14"
+
+      - name: Cache Python venvs
+        id: python_venvs_cache
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            .venv-lint
+            .venv-test
+            .venv-reuse
+          key: >-
+            ${{ format('{0}-python-{1}-venvs-{2}', runner.os,
+            steps.python.outputs.python-version, hashFiles('Makefile',
+            'pyproject.toml', 'scripts/ensure-reuse.sh')) }}
+          restore-keys: |
+            ${{ runner.os }}-python-${{ steps.python.outputs.python-version }}-venvs-
+            ${{ runner.os }}-python-
+
+      - name: Install Rust (rust-toolchain.toml)
+        run: |
+          set -euo pipefail
+          rustc -vV
+          cargo -V
+
+      - name: Apt archives cache fingerprint
+        id: apt_ci
+        run: |
+          echo "os_sig=$(grep -E '^(VERSION_ID|VERSION_CODENAME)=' /etc/os-release | sha256sum | cut -d' ' -f1)" \
+            >> "$GITHUB_OUTPUT"
+
+      - name: Cache apt archives (shellcheck, afl++)
+        id: apt_archives_cache
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ${{ runner.temp }}/apt-archives
+          key: >-
+            ${{ runner.os }}-apt-archives-shellcheck-afl++-${{
+            steps.apt_ci.outputs.os_sig }}-${{
+            hashFiles('.github/workflows/ci.yml', '.github/workflows/coverage-nightly.yml')
+            }}
+          restore-keys: |
+            ${{ runner.os }}-apt-archives-shellcheck-afl++-
+
+      - name: Install ShellCheck and AFL++
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          _apt_arch="${RUNNER_TEMP}/apt-archives"
+          mkdir -p "${_apt_arch}"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            -o Dir::Cache::archives="${_apt_arch}" \
+            shellcheck afl++
+          sudo find "${_apt_arch}" -mindepth 1 -maxdepth 1 \
+            ! -name '*.deb' -exec rm -rf {} +
+          sudo chown -R "$(id -u)":"$(id -g)" "${_apt_arch}"
+
+      - name: Cache Cargo
+        id: rust_cache
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          cache-workspace-crates: true
+          cache-on-failure: true
+
+      - name: Install cargo tooling (llvm-cov, deny, afl, about)
+        uses: taiki-e/install-action@e9e8e031bcd90cdbe8ac6bb1d376f8596e587fbf # v2.70.2
+        with:
+          tool: >-
+            cargo-llvm-cov@0.8.5,cargo-deny@0.19.0,cargo-afl@0.17.1,cargo-about@0.8.4
+
+      - name: Run make -j coverage (fuzz + Cobertura)
+        run: make -j coverage
+
+      - name: Generate coverage badge SVGs
+        run: |
+          set -euo pipefail
+          python3 scripts/cobertura_line_badge_svg.py --label rust \
+            -i reports/cobertura-rust.xml -o coverage-rust.svg
+          python3 scripts/cobertura_line_badge_svg.py --label python \
+            -i reports/cobertura-python.xml -o coverage-python.svg
+
+      - name: Push badges to wiki
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COVERAGE_BADGE_REPO_ROOT: ${{ github.workspace }}
+        run: ./scripts/push-coverage-badges-wiki.sh
+
+      - name: Upload Cobertura on failure
+        if: failure()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: coverage-nightly-cobertura
+          path: |
+            reports/cobertura-rust.xml
+            reports/cobertura-python.xml
+          if-no-files-found: ignore

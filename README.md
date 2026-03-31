@@ -14,8 +14,8 @@ vulnerabilities. Written in Rust.
 text.
 
 [![CI](https://github.com/verilyze/verilyze/actions/workflows/ci.yml/badge.svg)](https://github.com/verilyze/verilyze/actions/workflows/ci.yml)
-[![Rust coverage](https://raw.githubusercontent.com/verilyze/verilyze/badges/coverage-rust.svg)](https://github.com/verilyze/verilyze/actions/workflows/ci.yml)
-[![Python coverage](https://raw.githubusercontent.com/verilyze/verilyze/badges/coverage-python.svg)](https://github.com/verilyze/verilyze/actions/workflows/ci.yml)
+[![Rust coverage](https://raw.githubusercontent.com/wiki/verilyze/verilyze/coverage-rust.svg)](https://github.com/verilyze/verilyze/actions/workflows/coverage-nightly.yml)
+[![Python coverage](https://raw.githubusercontent.com/wiki/verilyze/verilyze/coverage-python.svg)](https://github.com/verilyze/verilyze/actions/workflows/coverage-nightly.yml)
 [![Super-linter](https://github.com/verilyze/verilyze/actions/workflows/super-linter-nightly.yml/badge.svg)](https://github.com/verilyze/verilyze/actions/workflows/super-linter-nightly.yml)
 
 ## Prerequisites
