@@ -828,8 +828,10 @@ Stderr can stay as `eprintln!` or `log::error!`.
        below these thresholds.
 - **CI:** The Cobertura XML files (`reports/cobertura-rust.xml`,
   `reports/cobertura-python.xml`) are uploaded from GitHub Actions and used for
-  PR coverage summaries and README badges (orphan `badges` branch; jobs in
-  [`.github/workflows/ci.yml`](.github/workflows/ci.yml) after `check`).
+  PR coverage summaries and README badges (orphan `badges` branch, created once
+  with placeholder SVGs; job `coverage-badges` in
+  [`.github/workflows/ci.yml`](.github/workflows/ci.yml) updates them after
+  `check`).
   GitHub Actions uses
   [taiki-e/install-action](https://github.com/taiki-e/install-action)
   for these Rust CLI tools in `.github/workflows/ci.yml`; see also
