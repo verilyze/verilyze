@@ -42,7 +42,8 @@ jobs:
           key: >-
             ${{ format('{0}-python-{1}-venvs-{2}', runner.os,
             steps.python.outputs.python-version, hashFiles('Makefile',
-            'pyproject.toml', 'scripts/ensure-reuse.sh')) }}
+            'pyproject.toml', 'scripts/ensure-reuse.sh',
+            'scripts/requirements-reuse.txt')) }}
           restore-keys: |
             ${{ runner.os }}-python-${{ steps.python.outputs.python-version }}-venvs-
             ${{ runner.os }}-python-

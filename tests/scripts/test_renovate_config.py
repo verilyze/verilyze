@@ -63,6 +63,7 @@ def test_enabled_managers_include_dockerfile_custom_regex_github_actions() -> No
     assert "dockerfile" in em
     assert "custom.regex" in em
     assert "github-actions" in em
+    assert "pip_requirements" in em
 
 
 def test_renovate_extends_pin_github_action_digests() -> None:
@@ -76,6 +77,25 @@ def test_renovate_extends_git_sign_off_for_dco() -> None:
     data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
     extends = data.get("extends", [])
     assert ":gitSignOff" in extends
+
+
+def test_renovate_package_rule_groups_reuse_lockfile() -> None:
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    rules = data.get("packageRules", [])
+    match = next(
+        (
+            r
+            for r in rules
+            if r.get("groupName") == "reuse-tooling-pip"
+            and r.get("matchManagers") == ["pip_requirements"]
+            and r.get("matchFileNames") == ["scripts/requirements-reuse.txt"]
+        ),
+        None,
+    )
+    assert match is not None, (
+        "packageRules must group scripts/requirements-reuse.txt "
+        "under reuse-tooling-pip"
+    )
 
 
 def test_renovate_package_rule_groups_github_actions_minor_patch() -> None:

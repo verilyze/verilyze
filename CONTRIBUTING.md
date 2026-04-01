@@ -596,9 +596,13 @@ copyright and license headers. Default license and copyright are defined in
 
 REUSE is auto-installed when missing: `scripts/ensure-reuse.sh` tries (in
 order) `reuse` in PATH, `.venv/bin/reuse` if present, then creates
-`.venv-reuse` and installs via pip. Your `.venv` is never created or modified.
-You can also install manually: `pipx install reuse` or
-`python3 -m venv .venv && .venv/bin/pip install reuse`.
+`.venv-reuse` and runs `pip install --require-hashes -r scripts/requirements-reuse.txt`,
+then `pipx run` with `--spec` taken from that lockfile. Your `.venv` is never
+created or modified. The lockfile is maintained for hash pinning (OpenSSF
+Scorecard) and Renovate (`pip_requirements`); regenerate locally with
+`pip-compile --generate-hashes scripts/requirements-reuse.in -o scripts/requirements-reuse.txt`
+(needs **pip-tools**). You can also install manually: `pipx install reuse` or
+`python3 -m venv .venv && .venv/bin/pip install --require-hashes -r scripts/requirements-reuse.txt`.
 
 The `update_headers.py` script derives copyright from git history and applies
 the *nontrivial change* threshold (~15 lines per author per file). See

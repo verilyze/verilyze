@@ -5,7 +5,12 @@
     "helpers:pinGitHubActionDigests",
     ":gitSignOff"
   ],
-  "enabledManagers": ["dockerfile", "custom.regex", "github-actions"],
+  "enabledManagers": [
+    "dockerfile",
+    "custom.regex",
+    "github-actions",
+    "pip_requirements"
+  ],
   "customManagers": [
     {
       "customType": "regex",
@@ -109,6 +114,12 @@
       "matchFileNames": ["packaging/docker/Dockerfile"],
       "matchPackageNames": ["rust"],
       "groupName": "packaging-docker-rust-slim"
+    },
+    {
+      "description": "REUSE tooling: hash-pinned pip lockfile (ensure-reuse.sh)",
+      "matchManagers": ["pip_requirements"],
+      "matchFileNames": ["scripts/requirements-reuse.txt"],
+      "groupName": "reuse-tooling-pip"
     }
   ]
 }

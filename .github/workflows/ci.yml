@@ -120,7 +120,8 @@ jobs:
           key: >-
             ${{ format('{0}-python-{1}-venvs-{2}', runner.os,
             steps.python.outputs.python-version, hashFiles('Makefile',
-            'pyproject.toml', 'scripts/ensure-reuse.sh')) }}
+            'pyproject.toml', 'scripts/ensure-reuse.sh',
+            'scripts/requirements-reuse.txt')) }}
           restore-keys: |
             ${{ runner.os }}-python-${{ steps.python.outputs.python-version }}-venvs-
             ${{ runner.os }}-python-
@@ -202,7 +203,7 @@ jobs:
           PYTHON_VENVS_CACHE_HIT: ${{ steps.python_venvs_cache.outputs.cache-hit }}
           APT_ARCHIVES_CACHE_HIT: ${{ steps.apt_archives_cache.outputs.cache-hit }}
           PYTHON_VERSION: ${{ steps.python.outputs.python-version }}
-          VENV_INPUTS_HASH: ${{ hashFiles('Makefile', 'pyproject.toml', 'scripts/ensure-reuse.sh') }}
+          VENV_INPUTS_HASH: ${{ hashFiles('Makefile', 'pyproject.toml', 'scripts/ensure-reuse.sh', 'scripts/requirements-reuse.txt') }}
           APT_OS_SIG: ${{ steps.apt_ci.outputs.os_sig }}
           RUNNER_OS_VALUE: ${{ runner.os }}
 
