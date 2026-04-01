@@ -22,6 +22,7 @@ env:
 jobs:
   build-binary:
     runs-on: ubuntu-latest
+    # actions: write -- upload-artifact uses the Actions artifacts API.
     permissions:
       contents: read
       actions: write
@@ -49,6 +50,7 @@ jobs:
   build-deb:
     needs: build-binary
     runs-on: ubuntu-latest
+    # actions: write -- upload-artifact uses the Actions artifacts API.
     permissions:
       contents: read
       actions: write
@@ -78,6 +80,7 @@ jobs:
   build-rpm:
     needs: build-binary
     runs-on: ubuntu-latest
+    # actions: write -- upload-artifact uses the Actions artifacts API.
     permissions:
       contents: read
       actions: write
@@ -102,6 +105,7 @@ jobs:
 
   build-docker:
     runs-on: ubuntu-latest
+    # packages: write for docker push to ghcr.io with GITHUB_TOKEN.
     permissions:
       contents: read
       actions: write
@@ -143,6 +147,7 @@ jobs:
   create-release:
     needs: [build-binary, build-deb, build-rpm, build-docker]
     runs-on: ubuntu-latest
+    # contents: write -- GitHub Release and asset upload; actions: read -- download-artifact.
     permissions:
       contents: write
       actions: read
