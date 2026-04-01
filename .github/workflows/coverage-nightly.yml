@@ -104,9 +104,9 @@ jobs:
       - name: Generate coverage badge SVGs
         run: |
           set -euo pipefail
-          python3 scripts/cobertura_line_badge_svg.py --label rust \
+          python3 scripts/cobertura_line_badge_svg.py --label "rust cov" \
             -i reports/cobertura-rust.xml -o coverage-rust.svg
-          python3 scripts/cobertura_line_badge_svg.py --label python \
+          python3 scripts/cobertura_line_badge_svg.py --label "python cov" \
             -i reports/cobertura-python.xml -o coverage-python.svg
 
       - name: Push badges to wiki

@@ -60,14 +60,15 @@ class TestBadgeColor:
 
 class TestRenderBadgeSvg:
     def test_contains_label_and_percent(self) -> None:
-        svg = cobertura_line_badge_svg.render_badge_svg("rust", 85.33)
-        assert "rust" in svg
+        svg = cobertura_line_badge_svg.render_badge_svg("rust cov", 85.33)
+        assert "rust cov" in svg
         assert "85.33" in svg or "85.3" in svg
         assert "xmlns=" in svg
 
     def test_accessibility_title(self) -> None:
-        svg = cobertura_line_badge_svg.render_badge_svg("python", 100.0)
-        assert "python" in svg.lower() or "coverage" in svg.lower()
+        svg = cobertura_line_badge_svg.render_badge_svg("python cov", 100.0)
+        assert "python cov" in svg.lower()
+        assert "coverage" in svg.lower()
 
 
 class TestWriteBadgeFromCobertura:
@@ -76,7 +77,7 @@ class TestWriteBadgeFromCobertura:
         c.write_text(MIN_COBERTURA, encoding="utf-8")
         out = tmp_path / "out.svg"
         cobertura_line_badge_svg.write_badge_from_cobertura(
-            c, "rust", out
+            c, "rust cov", out
         )
         text = out.read_text(encoding="utf-8")
         assert "<svg" in text
