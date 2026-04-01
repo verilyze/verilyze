@@ -656,6 +656,12 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   `Cargo.lock` always changes the key (partial restores can still speed up
   compiles). The workflow logs `Rust cache exact key hit: true|false` after
   restore.
+- **OpenSSF Scorecard (`scorecards.yml`):** Nightly and
+  **workflow_dispatch**; runs [OSSF Scorecard](https://github.com/ossf/scorecard-action)
+  with SARIF uploaded to GitHub Code Scanning and **publish_results** for the
+  README badge on [api.scorecard.dev](https://api.scorecard.dev). Uses the
+  default **GITHUB_TOKEN** only (no PAT). See
+  [`.github/workflows/scorecards.yml`](.github/workflows/scorecards.yml).
 - **Super-linter:** CI runs the [super-linter](https://github.com/super-linter/super-linter)
   **slim** image in two modes: **incremental** (push/PR to `main`,
   `VALIDATE_ALL_CODEBASE=false`, job `super-linter` in workflow `ci.yml`) and

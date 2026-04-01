@@ -17,6 +17,7 @@ text.
 [![Rust coverage](https://raw.githubusercontent.com/wiki/verilyze/verilyze/coverage-rust.svg)](https://github.com/verilyze/verilyze/actions/workflows/coverage-nightly.yml)
 [![Python coverage](https://raw.githubusercontent.com/wiki/verilyze/verilyze/coverage-python.svg)](https://github.com/verilyze/verilyze/actions/workflows/coverage-nightly.yml)
 [![Super-linter](https://github.com/verilyze/verilyze/actions/workflows/super-linter-nightly.yml/badge.svg)](https://github.com/verilyze/verilyze/actions/workflows/super-linter-nightly.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/verilyze/verilyze/badge)](https://scorecard.dev/viewer/?uri=github.com/verilyze/verilyze)
 
 ## Prerequisites
 
