@@ -81,6 +81,8 @@ jobs:
   check:
     runs-on: ubuntu-latest
     needs: [check-dco, check-signatures]
+    # actions: write -- saving Actions cache entries (actions/cache, rust-cache)
+    # requires the Actions cache API; see GitHub token permissions for workflows.
     permissions:
       contents: read
       actions: write
