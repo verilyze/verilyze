@@ -5,7 +5,7 @@
 ---
 # Nightly full-repo super-linter (slim). README badge points at this workflow.
 
-name: Super-linter nightly
+name: super-linter
 
 on:
   schedule:
