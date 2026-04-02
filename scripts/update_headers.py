@@ -12,6 +12,7 @@ Uses git history and the 15-line "nontrivial change" threshold
 Run from repository root: python scripts/update_headers.py
 """
 
+import fnmatch
 import hashlib
 import os
 import re
@@ -44,7 +45,17 @@ _DEFAULTS: HeadersConfig = {
     "default_copyright": "The verilyze contributors",
     "default_license": "GPL-3.0-or-later",
     "nontrivial_lines": 15,
-    "extensions": ("py", "rs", "toml", "md", "mmd", "sh", "json"),
+    "extensions": (
+        "py",
+        "rs",
+        "toml",
+        "md",
+        "mmd",
+        "sh",
+        "json",
+        "yml",
+        "yaml",
+    ),
     "literal_names": ("Makefile",),
     "exclude_paths": ("tools/xtask", "Cargo.lock"),
 }
@@ -53,6 +64,82 @@ _DEFAULTS: HeadersConfig = {
 def get_repo_root() -> Path:
     """Return repository root (parent of scripts/)."""
     return Path(__file__).resolve().parent.parent
+
+
+def _normalize_reuse_path(path: str) -> str:
+    """Use forward slashes; drop redundant slashes (git ls-files style)."""
+    return "/".join(p for p in path.replace("\\", "/").split("/") if p != "")
+
+
+def _segment_match(path_segment: str, pattern_segment: str) -> bool:
+    """Match one path segment; * is a single-segment wildcard."""
+    if pattern_segment == "*":
+        return True
+    return fnmatch.fnmatchcase(path_segment, pattern_segment)
+
+
+def _match_path_parts(path_parts: list[str], pat_parts: list[str]) -> bool:
+    """
+    Match split path against REUSE-style glob segments (** spans directories).
+    """
+
+    # pylint: disable=too-many-return-statements
+    def rec(pi: int, pj: int) -> bool:
+        if pj == len(pat_parts):
+            return pi == len(path_parts)
+        pat = pat_parts[pj]
+        if pat == "**":
+            if pj == len(pat_parts) - 1:
+                return True
+            for k in range(pi, len(path_parts) + 1):
+                if rec(k, pj + 1):
+                    return True
+            return False
+        if pi >= len(path_parts):
+            return False
+        if not _segment_match(path_parts[pi], pat):
+            return False
+        return rec(pi + 1, pj + 1)
+
+    return rec(0, 0)
+
+
+def _path_matches_reuse_glob(relative_path: str, pattern: str) -> bool:
+    """
+    Return True if relative_path matches a REUSE.toml [[annotations]] path.
+
+    Semantics follow common **/* glob usage (segment-wise *; ** spans /).
+    """
+    rel = _normalize_reuse_path(relative_path)
+    pat = _normalize_reuse_path(pattern)
+    if not pat:
+        return rel == ""
+    path_parts = rel.split("/") if rel else []
+    pat_parts = pat.split("/")
+    return _match_path_parts(path_parts, pat_parts)
+
+
+def load_reuse_annotation_globs(repo_root: Path) -> tuple[str, ...]:
+    """Load path globs from REUSE.toml [[annotations]] entries."""
+    path = repo_root / "REUSE.toml"
+    if not path.exists():
+        return ()
+    try:
+        with path.open("rb") as f:
+            data = tomllib.load(f)
+    except (OSError, ValueError):
+        return ()
+    anns = data.get("annotations")
+    if not isinstance(anns, list):
+        return ()
+    globs: list[str] = []
+    for item in anns:
+        if not isinstance(item, dict):
+            continue
+        p = item.get("path")
+        if isinstance(p, str) and p:
+            globs.append(p)
+    return tuple(globs)
 
 
 def load_config(repo_root: Path) -> HeadersConfig:
@@ -125,6 +212,7 @@ def collect_files(repo_root: Path, config: HeadersConfig) -> list[str]:
     exclude_paths = config["exclude_paths"]
     extensions = config["extensions"]
     literal_names = config["literal_names"]
+    reuse_globs = load_reuse_annotation_globs(repo_root)
     paths = [p for p in result.stdout.strip("\0").split("\0") if p]
     covered: list[str] = []
     for path in paths:
@@ -132,6 +220,8 @@ def collect_files(repo_root: Path, config: HeadersConfig) -> list[str]:
             path == ex or path.startswith(ex + "/") for ex in exclude_paths
         )
         if excluded:
+            continue
+        if any(_path_matches_reuse_glob(path, g) for g in reuse_globs):
             continue
         if path == "Cargo.lock":
             continue

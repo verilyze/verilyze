@@ -17,8 +17,10 @@ from scripts.update_headers import (
     _extract_file_identifiers,
     _extract_identifier,
     _parse_git_log_numstat,
+    _path_matches_reuse_glob,
     annotate_file,
     collect_files,
+    load_reuse_annotation_globs,
     get_nontrivial_authors,
     get_repo_root,
     get_reuse_cmd,
@@ -71,10 +73,7 @@ class TestParseGitLogNumstat:
         assert result == ["2023-2024 Carol <carol@x>"]
 
     def test_multiple_authors(self) -> None:
-        log = (
-            "Alice <a@x>\n2024\n25\t0\tx.py\n"
-            "Bob <b@x>\n2024\n30\t0\ty.py"
-        )
+        log = "Alice <a@x>\n2024\n25\t0\tx.py\n" "Bob <b@x>\n2024\n30\t0\ty.py"
         result = _parse_git_log_numstat(log, 15)
         assert set(result) == {"2024 Alice <a@x>", "2024 Bob <b@x>"}
 
@@ -114,6 +113,8 @@ class TestLoadConfig:
         assert result["default_copyright"] == "The verilyze contributors"
         assert result["nontrivial_lines"] == 15
         assert "py" in result["extensions"]
+        assert "yml" in result["extensions"]
+        assert "yaml" in result["extensions"]
 
     def test_pyproject_overrides(self, tmp_path: Path) -> None:
         pyproject = tmp_path / "pyproject.toml"
@@ -164,9 +165,12 @@ class TestHeadersMatch:
             "literal_names": (),
             "exclude_paths": (),
         }
-        assert headers_match(
-            tmp_path, "test.py", ["2024 Alice <alice@x>"], config
-        ) is True
+        assert (
+            headers_match(
+                tmp_path, "test.py", ["2024 Alice <alice@x>"], config
+            )
+            is True
+        )
 
     def test_missing_license_returns_false(self, tmp_path: Path) -> None:
         f = tmp_path / "test.py"
@@ -182,9 +186,12 @@ class TestHeadersMatch:
             "literal_names": (),
             "exclude_paths": (),
         }
-        assert headers_match(
-            tmp_path, "test.py", ["2024 Alice <alice@x>"], config
-        ) is False
+        assert (
+            headers_match(
+                tmp_path, "test.py", ["2024 Alice <alice@x>"], config
+            )
+            is False
+        )
 
     def test_missing_copyright_returns_false(self, tmp_path: Path) -> None:
         f = tmp_path / "test.py"
@@ -214,9 +221,7 @@ class TestHeadersMatch:
             "literal_names": (),
             "exclude_paths": (),
         }
-        assert (
-            headers_match(tmp_path, "nonexistent.py", [], config) is False
-        )
+        assert headers_match(tmp_path, "nonexistent.py", [], config) is False
 
     def test_uses_dot_license_file_when_present(self, tmp_path: Path) -> None:
         f = tmp_path / "test.mmd"
@@ -235,9 +240,10 @@ class TestHeadersMatch:
             "literal_names": (),
             "exclude_paths": (),
         }
-        assert headers_match(
-            tmp_path, "test.mmd", ["2024 Alice <a@x>"], config
-        ) is True
+        assert (
+            headers_match(tmp_path, "test.mmd", ["2024 Alice <a@x>"], config)
+            is True
+        )
 
 
 class TestGetRepoRoot:
@@ -261,11 +267,11 @@ class TestGetNontrivialAuthors:
             "literal_names": (),
             "exclude_paths": (),
         }
-        mock_result = MagicMock(returncode=0, stdout="Alice <a@x>\n2024\n20\t0\tfoo.py")
+        mock_result = MagicMock(
+            returncode=0, stdout="Alice <a@x>\n2024\n20\t0\tfoo.py"
+        )
         with patch("scripts.update_headers.run", return_value=mock_result):
-            result = get_nontrivial_authors(
-                tmp_path, "foo.py", None, config
-            )
+            result = get_nontrivial_authors(tmp_path, "foo.py", None, config)
         assert result == ["2024 Alice <a@x>"]
 
     def test_returns_empty_on_git_failure(self, tmp_path: Path) -> None:
@@ -279,9 +285,7 @@ class TestGetNontrivialAuthors:
         }
         mock_result = MagicMock(returncode=1, stdout="")
         with patch("scripts.update_headers.run", return_value=mock_result):
-            result = get_nontrivial_authors(
-                tmp_path, "foo.py", None, config
-            )
+            result = get_nontrivial_authors(tmp_path, "foo.py", None, config)
         assert result == []
 
     def test_writes_cache_after_git_log(self, tmp_path: Path) -> None:
@@ -345,7 +349,9 @@ class TestGetNontrivialAuthors:
             stdout="Canonical <canonical@x>\n2024\n20\t0\tfoo.py",
         )
 
-        with patch("scripts.update_headers.run", return_value=log_result) as mock:
+        with patch(
+            "scripts.update_headers.run", return_value=log_result
+        ) as mock:
             get_nontrivial_authors(tmp_path, "foo.py", None, config)
             mock.assert_called_once()
             cmd = mock.call_args[0][0]
@@ -455,8 +461,123 @@ class TestResolveAuthors:
         assert "The verilyze contributors" in result[0]
 
 
+class TestPathMatchesReuseGlob:
+    """Tests for _path_matches_reuse_glob (REUSE.toml path globs)."""
+
+    def test_exact_file(self) -> None:
+        assert _path_matches_reuse_glob("biome.json", "biome.json") is True
+        assert _path_matches_reuse_glob("other.json", "biome.json") is False
+
+    def test_single_star_one_segment(self) -> None:
+        assert (
+            _path_matches_reuse_glob("completions/vlz.bash", "completions/*")
+            is True
+        )
+        assert (
+            _path_matches_reuse_glob("completions/a/b.sh", "completions/*")
+            is False
+        )
+
+    def test_double_star_suffix(self) -> None:
+        assert _path_matches_reuse_glob(".cursor/foo", ".cursor/**") is True
+        assert _path_matches_reuse_glob(".cursor", ".cursor/**") is True
+        assert _path_matches_reuse_glob(".cursor/a/b", ".cursor/**") is True
+        assert _path_matches_reuse_glob(".git/foo", ".cursor/**") is False
+
+    def test_double_star_prefix_and_suffix(self) -> None:
+        assert (
+            _path_matches_reuse_glob("pkg/__pycache__/x", "**/__pycache__/**")
+            is True
+        )
+        assert (
+            _path_matches_reuse_glob("__pycache__/y.py", "**/__pycache__/**")
+            is True
+        )
+        assert (
+            _path_matches_reuse_glob(
+                "tests/fuzz/corpus/a", "tests/fuzz/corpus/**"
+            )
+            is True
+        )
+
+    def test_tls_crl_glob(self) -> None:
+        p = "crates/core/vlz-cve-client/tests/fixtures/tls_crl/ca.pem"
+        pat = "crates/core/vlz-cve-client/tests/fixtures/tls_crl/*.pem"
+        assert _path_matches_reuse_glob(p, pat) is True
+        assert (
+            _path_matches_reuse_glob(p.replace(".pem", ".crt"), pat) is False
+        )
+
+    def test_normalizes_backslash(self) -> None:
+        assert _path_matches_reuse_glob(r"a\b\foo.py", "a/b/foo.py") is True
+
+    def test_empty_pattern_only_matches_empty_path(self) -> None:
+        assert _path_matches_reuse_glob("", "") is True
+        assert _path_matches_reuse_glob("a", "") is False
+
+    def test_middle_double_star_requires_suffix(self) -> None:
+        assert _path_matches_reuse_glob("a/c", "a/**/b") is False
+
+    def test_rejects_path_shorter_than_pattern(self) -> None:
+        assert _path_matches_reuse_glob("a", "a/b") is False
+
+
+class TestLoadReuseAnnotationGlobs:
+    """Tests for load_reuse_annotation_globs."""
+
+    def test_missing_file_returns_empty(self, tmp_path: Path) -> None:
+        assert load_reuse_annotation_globs(tmp_path) == ()
+
+    def test_invalid_toml_returns_empty(self, tmp_path: Path) -> None:
+        (tmp_path / "REUSE.toml").write_text("not toml", encoding="utf-8")
+        assert load_reuse_annotation_globs(tmp_path) == ()
+
+    def test_annotations_not_list_returns_empty(self, tmp_path: Path) -> None:
+        (tmp_path / "REUSE.toml").write_text(
+            'version = 1\nannotations = "bad"\n',
+            encoding="utf-8",
+        )
+        assert load_reuse_annotation_globs(tmp_path) == ()
+
+    def test_skips_non_dict_annotation_entries(self, tmp_path: Path) -> None:
+        (tmp_path / "REUSE.toml").write_text("version = 1\n", encoding="utf-8")
+        with patch(
+            "scripts.update_headers.tomllib.load",
+            return_value={"annotations": [42, {"path": "keep"}]},
+        ):
+            assert load_reuse_annotation_globs(tmp_path) == ("keep",)
+
+
 class TestCollectFiles:
     """Tests for collect_files."""
+
+    def test_skips_paths_matching_reuse_toml_annotations(
+        self, tmp_path: Path
+    ) -> None:
+        """Paths declared in REUSE.toml [[annotations]] are not header targets."""
+        (tmp_path / "REUSE.toml").write_text(
+            "version = 1\n"
+            "[[annotations]]\n"
+            'path = "biome.json"\n'
+            'SPDX-License-Identifier = "GPL-3.0-or-later"\n',
+            encoding="utf-8",
+        )
+        config: update_headers.HeadersConfig = {
+            "default_copyright": "x",
+            "default_license": "GPL-3.0-or-later",
+            "nontrivial_lines": 15,
+            "extensions": ("json", "py"),
+            "literal_names": (),
+            "exclude_paths": (),
+        }
+        mock_result = MagicMock(
+            returncode=0,
+            stdout="biome.json\0src/main.py\0",
+        )
+        with patch("scripts.update_headers.run", return_value=mock_result):
+            result = collect_files(tmp_path, config)
+        assert "src/main.py" in result
+        assert "biome.json" not in result
 
     def test_returns_covered_files(self, tmp_path: Path) -> None:
         config: update_headers.HeadersConfig = {
@@ -587,14 +708,16 @@ class TestProcessOneFile:
             "literal_names": (),
             "exclude_paths": (),
         }
-        mock_result = MagicMock(returncode=0, stdout="Alice <a@x>\n2024\n20\t0\tmatch.py")
+        mock_result = MagicMock(
+            returncode=0, stdout="Alice <a@x>\n2024\n20\t0\tmatch.py"
+        )
         with patch("scripts.update_headers.run", return_value=mock_result):
-            result = process_one_file(
-                tmp_path, "match.py", None, config
-            )
+            result = process_one_file(tmp_path, "match.py", None, config)
         assert result is None
 
-    def test_returns_annotated_when_reuse_succeeds(self, tmp_path: Path) -> None:
+    def test_returns_annotated_when_reuse_succeeds(
+        self, tmp_path: Path
+    ) -> None:
         f = tmp_path / "new.py"
         f.write_text("print(1)\n", encoding="utf-8")
         config: update_headers.HeadersConfig = {
@@ -605,15 +728,15 @@ class TestProcessOneFile:
             "literal_names": (),
             "exclude_paths": (),
         }
-        mock_run = MagicMock(return_value=MagicMock(returncode=0, stdout="", stderr=""))
+        mock_run = MagicMock(
+            return_value=MagicMock(returncode=0, stdout="", stderr="")
+        )
         with patch("scripts.update_headers.run", mock_run):
             with patch(
                 "scripts.update_headers.get_reuse_cmd",
                 return_value=Path("/bin/echo"),
             ):
-                result = process_one_file(
-                    tmp_path, "new.py", None, config
-                )
+                result = process_one_file(tmp_path, "new.py", None, config)
         assert result == "Annotated: new.py"
 
 
@@ -638,7 +761,9 @@ class TestMainPrintConfig:
     def test_main_full_run_updated_count(self, tmp_path: Path) -> None:
         """Run main with mocked deps to cover ThreadPoolExecutor and print."""
         (tmp_path / "scripts").mkdir()
-        (tmp_path / "scripts" / "ensure-reuse.sh").write_text("#!/bin/sh\nexit 0\n")
+        (tmp_path / "scripts" / "ensure-reuse.sh").write_text(
+            "#!/bin/sh\nexit 0\n"
+        )
         (tmp_path / "LICENSES").mkdir()
         with patch("sys.argv", ["update_headers.py"]):
             with patch(
@@ -656,7 +781,9 @@ class TestMainPrintConfig:
     def test_main_downloads_license_when_missing(self, tmp_path: Path) -> None:
         """Run main when LICENSES dir does not exist; covers download path."""
         (tmp_path / "scripts").mkdir()
-        (tmp_path / "scripts" / "ensure-reuse.sh").write_text("#!/bin/sh\nexit 0\n")
+        (tmp_path / "scripts" / "ensure-reuse.sh").write_text(
+            "#!/bin/sh\nexit 0\n"
+        )
         assert not (tmp_path / "LICENSES").exists()
         with patch("sys.argv", ["update_headers.py"]):
             with patch(
@@ -681,7 +808,9 @@ class TestMainPrintConfig:
     ) -> None:
         """Run main with one file that gets annotated; covers print(result) path."""
         (tmp_path / "scripts").mkdir()
-        (tmp_path / "scripts" / "ensure-reuse.sh").write_text("#!/bin/sh\nexit 0\n")
+        (tmp_path / "scripts" / "ensure-reuse.sh").write_text(
+            "#!/bin/sh\nexit 0\n"
+        )
         (tmp_path / "LICENSES").mkdir()
         with patch("sys.argv", ["update_headers.py"]):
             with patch(
@@ -706,7 +835,9 @@ class TestMainPrintConfig:
 class TestCoveredFilesExcludePaths:
     """Tests for collect_files exclude_paths behavior."""
 
-    def test_excludes_path_starting_with_exclude_prefix(self, tmp_path: Path) -> None:
+    def test_excludes_path_starting_with_exclude_prefix(
+        self, tmp_path: Path
+    ) -> None:
         config: update_headers.HeadersConfig = {
             "default_copyright": "x",
             "default_license": "GPL-3.0-or-later",
@@ -738,7 +869,9 @@ class TestHeadersMatchReadError:
             "literal_names": (),
             "exclude_paths": (),
         }
-        with patch.object(Path, "read_text", side_effect=OSError("read failed")):
+        with patch.object(
+            Path, "read_text", side_effect=OSError("read failed")
+        ):
             assert (
                 headers_match(tmp_path, "bad.py", ["2024 A <a@x>"], config)
                 is False
@@ -770,7 +903,9 @@ class TestAnnotateFileForceDotLicense:
                 )
         assert ok is True
 
-    def test_returns_true_when_force_dot_license_succeeds(self, tmp_path: Path) -> None:
+    def test_returns_true_when_force_dot_license_succeeds(
+        self, tmp_path: Path
+    ) -> None:
         f = tmp_path / "test.mmd"
         f.write_text("graph\n", encoding="utf-8")
         config: update_headers.HeadersConfig = {
@@ -809,9 +944,7 @@ class TestProcessOneFileEdgeCases:
             "literal_names": (),
             "exclude_paths": (),
         }
-        result = process_one_file(
-            tmp_path, "nonexistent.py", None, config
-        )
+        result = process_one_file(tmp_path, "nonexistent.py", None, config)
         assert result is None
 
     def test_returns_none_when_annotate_fails(self, tmp_path: Path) -> None:
@@ -825,12 +958,16 @@ class TestProcessOneFileEdgeCases:
             "literal_names": (),
             "exclude_paths": (),
         }
-        with patch("scripts.update_headers.run", return_value=MagicMock(returncode=1)):
+        with patch(
+            "scripts.update_headers.run", return_value=MagicMock(returncode=1)
+        ):
             with patch(
                 "scripts.update_headers.get_reuse_cmd",
                 return_value=Path("/bin/echo"),
             ):
-                result = process_one_file(tmp_path, "noheader.py", None, config)
+                result = process_one_file(
+                    tmp_path, "noheader.py", None, config
+                )
         assert result is None
 
 
@@ -874,7 +1011,15 @@ class TestGetNontrivialAuthorsCacheErrors:
         rev_result = MagicMock(returncode=0, stdout="abc123")
         digest = hashlib.sha256(b"abc123:foo.py").hexdigest()
         (cache_dir / digest).write_text("x")
-        with patch("scripts.update_headers.run", side_effect=[rev_result, MagicMock(returncode=0, stdout="Alice <a@x>\n2024\n20\t0\tfoo.py")]):
+        with patch(
+            "scripts.update_headers.run",
+            side_effect=[
+                rev_result,
+                MagicMock(
+                    returncode=0, stdout="Alice <a@x>\n2024\n20\t0\tfoo.py"
+                ),
+            ],
+        ):
             with patch.object(Path, "read_text", side_effect=OSError):
                 result = get_nontrivial_authors(
                     tmp_path, "foo.py", cache_dir, config
@@ -892,7 +1037,9 @@ class TestGetNontrivialAuthorsCacheErrors:
         }
         cache_dir = tmp_path / ".cache"
         rev_result = MagicMock(returncode=0, stdout="abc123")
-        log_result = MagicMock(returncode=0, stdout="Alice <a@x>\n2024\n20\t0\tfoo.py")
+        log_result = MagicMock(
+            returncode=0, stdout="Alice <a@x>\n2024\n20\t0\tfoo.py"
+        )
         with patch(
             "scripts.update_headers.run",
             side_effect=[rev_result, log_result],
@@ -902,5 +1049,6 @@ class TestGetNontrivialAuthorsCacheErrors:
                     tmp_path, "foo.py", cache_dir, config
                 )
         assert result == ["2024 Alice <a@x>"]
+
 
 # REUSE-IgnoreEnd

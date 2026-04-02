@@ -22,7 +22,7 @@ addopts = "-v"
 default_copyright = "The verilyze contributors"
 default_license = "GPL-3.0-or-later"
 nontrivial_lines = 15
-extensions = ["py", "rs", "toml", "md", "mmd", "sh", "json"]
+extensions = ["py", "rs", "toml", "md", "mmd", "sh", "json", "yml", "yaml"]
 literal_names = ["Makefile"]
 exclude_paths = ["Cargo.lock"]
 
