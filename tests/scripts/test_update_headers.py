@@ -7,6 +7,7 @@
 """Unit tests for scripts/update_headers.py (NFR-021)."""
 
 import hashlib
+from functools import lru_cache
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -14,8 +15,10 @@ import pytest
 
 from scripts import update_headers
 from scripts.update_headers import (
+    email_matches_bot_markers,
     _extract_file_identifiers,
     _extract_identifier,
+    _filter_non_bot_copyright_entries,
     _parse_git_log_numstat,
     _path_matches_reuse_glob,
     annotate_file,
@@ -30,6 +33,34 @@ from scripts.update_headers import (
     resolve_authors,
     run,
 )
+
+
+@lru_cache(maxsize=1)
+def project_bot_email_markers() -> tuple[str, ...]:
+    """Markers from repo root pyproject [tool.vlz-headers]."""
+    return load_config(get_repo_root())["bot_email_markers"]
+
+
+def _primary_bot_marker() -> str:
+    """First configured marker for synthetic bot emails in tests."""
+    markers = project_bot_email_markers()
+    assert markers, "pyproject bot_email_markers must be non-empty"
+    return markers[0]
+
+
+def _write_minimal_pyproject_with_bot_markers(
+    path: Path,
+    markers: tuple[str, ...] | None = None,
+) -> None:
+    """Minimal [tool.vlz-headers] for tmp_path repos (mirrors root markers)."""
+    use = markers if markers is not None else project_bot_email_markers()
+    lines = ["[tool.vlz-headers]", "bot_email_markers = ["]
+    lines.extend(
+        f'  "{m}"' + ("," if i < len(use) - 1 else "")
+        for i, m in enumerate(use)
+    )
+    lines.append("]")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 class TestExtractIdentifier:
@@ -48,19 +79,63 @@ class TestExtractIdentifier:
         assert _extract_identifier("") == ""
 
 
+class TestEmailMatchesBotMarkers:
+    """Tests for email_matches_bot_markers and bot filtering helpers."""
+
+    def test_substring_case_insensitive(self) -> None:
+        marker = _primary_bot_marker()
+        assert (
+            email_matches_bot_markers(
+                f"49699333+dependabot{marker}@users.noreply.github.com",
+                project_bot_email_markers(),
+            )
+            is True
+        )
+        assert (
+            email_matches_bot_markers(
+                "49699333+DEPENDABOT"
+                + marker.upper()
+                + "@users.noreply.github.com",
+                project_bot_email_markers(),
+            )
+            is True
+        )
+        assert (
+            email_matches_bot_markers("alice@x", project_bot_email_markers())
+            is False
+        )
+
+    def test_empty_markers_never_matches(self) -> None:
+        assert (
+            email_matches_bot_markers(
+                f"x{_primary_bot_marker()}@y",
+                (),
+            )
+            is False
+        )
+
+    def test_filter_non_bot_entries(self) -> None:
+        m = _primary_bot_marker()
+        raw = ["2024 A <a@x>", f"2024 B <b{m}@y>"]
+        assert _filter_non_bot_copyright_entries(
+            raw,
+            project_bot_email_markers(),
+        ) == ["2024 A <a@x>"]
+
+
 class TestParseGitLogNumstat:
     """Tests for _parse_git_log_numstat."""
 
     def test_author_above_threshold(self) -> None:
         # Author A: 20 lines (>=15)
         log = "Alice <alice@x>\n2024\n20\t5\tfoo.py"
-        result = _parse_git_log_numstat(log, 15)
+        result = _parse_git_log_numstat(log, 15, project_bot_email_markers())
         assert result == ["2024 Alice <alice@x>"]
 
     def test_author_below_threshold_excluded(self) -> None:
         # Author B: 5 lines (<15)
         log = "Bob <bob@x>\n2024\n5\t2\tbar.py"
-        result = _parse_git_log_numstat(log, 15)
+        result = _parse_git_log_numstat(log, 15, project_bot_email_markers())
         assert result == []
 
     def test_author_multiple_years(self) -> None:
@@ -69,16 +144,48 @@ class TestParseGitLogNumstat:
             "Carol <carol@x>\n2023\n10\t0\tfoo.py\n"
             "Carol <carol@x>\n2024\n20\t0\tfoo.py"
         )
-        result = _parse_git_log_numstat(log, 15)
+        result = _parse_git_log_numstat(log, 15, project_bot_email_markers())
         assert result == ["2023-2024 Carol <carol@x>"]
 
     def test_multiple_authors(self) -> None:
-        log = "Alice <a@x>\n2024\n25\t0\tx.py\n" "Bob <b@x>\n2024\n30\t0\ty.py"
-        result = _parse_git_log_numstat(log, 15)
+        log = (
+            "Alice <a@x>\n2024\n25\t0\tx.py\n"
+            "Bob <b@x>\n2024\n30\t0\ty.py"
+        )
+        result = _parse_git_log_numstat(log, 15, project_bot_email_markers())
         assert set(result) == {"2024 Alice <a@x>", "2024 Bob <b@x>"}
 
     def test_empty_log(self) -> None:
-        assert _parse_git_log_numstat("", 15) == []
+        assert _parse_git_log_numstat("", 15, project_bot_email_markers()) == []
+
+    def test_bot_above_threshold_excluded(self) -> None:
+        m = _primary_bot_marker()
+        log = (
+            f"Dependabot <49699333+dependabot{m}"
+            "@users.noreply.github.com>\n"
+            "2024\n20\t0\tfoo.py"
+        )
+        result = _parse_git_log_numstat(log, 15, project_bot_email_markers())
+        assert result == []
+
+    def test_human_and_bot_over_threshold_only_human(self) -> None:
+        m = _primary_bot_marker()
+        log = (
+            f"Dependabot <d{m}@x>\n2024\n20\t0\ta.py\n"
+            "Alice <alice@x>\n2024\n20\t0\tb.py"
+        )
+        result = _parse_git_log_numstat(log, 15, project_bot_email_markers())
+        assert result == ["2024 Alice <alice@x>"]
+
+    def test_custom_marker_excludes_matching_email(self) -> None:
+        log = "Svc <svc@corp.internal>\n2024\n20\t0\tf.py"
+        assert _parse_git_log_numstat(log, 15, ("internal",)) == []
+
+    def test_empty_markers_includes_bot_contributor(self) -> None:
+        m = _primary_bot_marker()
+        log = f"Bot <b{m}@x>\n2024\n20\t0\tf.py"
+        result = _parse_git_log_numstat(log, 15, ())
+        assert result == [f"2024 Bot <b{m}@x>"]
 
 
 class TestExtractFileIdentifiers:
@@ -115,6 +222,24 @@ class TestLoadConfig:
         assert "py" in result["extensions"]
         assert "yml" in result["extensions"]
         assert "yaml" in result["extensions"]
+        # No pyproject: must match module defaults, not the checkout's TOML.
+        default_markers = (
+            update_headers._DEFAULT_BOT_EMAIL_MARKERS
+        )  # pylint: disable=protected-access
+        assert result["bot_email_markers"] == default_markers
+
+    def test_pyproject_bot_email_markers(self, tmp_path: Path) -> None:
+        combined = (*project_bot_email_markers(), "internal")
+        pyproject = tmp_path / "pyproject.toml"
+        lines = ["[tool.vlz-headers]", "bot_email_markers = ["]
+        lines.extend(
+            f'  "{m}"' + ("," if i < len(combined) - 1 else "")
+            for i, m in enumerate(combined)
+        )
+        lines.append("]")
+        pyproject.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        result = load_config(tmp_path)
+        assert result["bot_email_markers"] == combined
 
     def test_pyproject_overrides(self, tmp_path: Path) -> None:
         pyproject = tmp_path / "pyproject.toml"
@@ -164,6 +289,7 @@ class TestHeadersMatch:
             "extensions": ("py",),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         assert (
             headers_match(
@@ -185,6 +311,7 @@ class TestHeadersMatch:
             "extensions": ("py",),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         assert (
             headers_match(
@@ -206,6 +333,7 @@ class TestHeadersMatch:
             "extensions": ("py",),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         assert (
             headers_match(tmp_path, "test.py", ["2024 Alice <a@x>"], config)
@@ -220,6 +348,7 @@ class TestHeadersMatch:
             "extensions": ("py",),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         assert headers_match(tmp_path, "nonexistent.py", [], config) is False
 
@@ -239,6 +368,7 @@ class TestHeadersMatch:
             "extensions": ("mmd",),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         assert (
             headers_match(tmp_path, "test.mmd", ["2024 Alice <a@x>"], config)
@@ -266,6 +396,7 @@ class TestGetNontrivialAuthors:
             "extensions": (),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         mock_result = MagicMock(
             returncode=0, stdout="Alice <a@x>\n2024\n20\t0\tfoo.py"
@@ -273,6 +404,23 @@ class TestGetNontrivialAuthors:
         with patch("scripts.update_headers.run", return_value=mock_result):
             result = get_nontrivial_authors(tmp_path, "foo.py", None, config)
         assert result == ["2024 Alice <a@x>"]
+
+    def test_excludes_bot_from_nontrivial_authors(self, tmp_path: Path) -> None:
+        config: update_headers.HeadersConfig = {
+            "default_copyright": "x",
+            "default_license": "GPL-3.0-or-later",
+            "nontrivial_lines": 15,
+            "extensions": (),
+            "literal_names": (),
+            "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
+        }
+        m = _primary_bot_marker()
+        log = f"Bot <b{m}@x>\n2024\n20\t0\tfoo.py"
+        mock_result = MagicMock(returncode=0, stdout=log)
+        with patch("scripts.update_headers.run", return_value=mock_result):
+            result = get_nontrivial_authors(tmp_path, "foo.py", None, config)
+        assert result == []
 
     def test_returns_empty_on_git_failure(self, tmp_path: Path) -> None:
         config: update_headers.HeadersConfig = {
@@ -282,6 +430,7 @@ class TestGetNontrivialAuthors:
             "extensions": (),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         mock_result = MagicMock(returncode=1, stdout="")
         with patch("scripts.update_headers.run", return_value=mock_result):
@@ -296,6 +445,7 @@ class TestGetNontrivialAuthors:
             "extensions": (),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         cache_dir = tmp_path / ".cache"
         rev_result = MagicMock(returncode=0, stdout="abc123")
@@ -322,6 +472,7 @@ class TestGetNontrivialAuthors:
             "extensions": (),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         cache_dir = tmp_path / ".cache"
         cache_dir.mkdir()
@@ -334,6 +485,30 @@ class TestGetNontrivialAuthors:
             )
         assert result == ["2023 Cached <cached@x>"]
 
+    def test_cache_read_filters_bot_lines(self, tmp_path: Path) -> None:
+        config: update_headers.HeadersConfig = {
+            "default_copyright": "x",
+            "default_license": "GPL-3.0-or-later",
+            "nontrivial_lines": 15,
+            "extensions": (),
+            "literal_names": (),
+            "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
+        }
+        cache_dir = tmp_path / ".cache"
+        cache_dir.mkdir()
+        rev_result = MagicMock(returncode=0, stdout="abc123")
+        digest = hashlib.sha256(b"abc123:foo.py").hexdigest()
+        mb = _primary_bot_marker()
+        (cache_dir / digest).write_text(
+            f"2024 Bot <b{mb}@x>\n2023 Human <h@x>\n"
+        )
+        with patch("scripts.update_headers.run", return_value=rev_result):
+            result = get_nontrivial_authors(
+                tmp_path, "foo.py", cache_dir, config
+            )
+        assert result == ["2023 Human <h@x>"]
+
     def test_git_log_includes_use_mailmap(self, tmp_path: Path) -> None:
         """get_nontrivial_authors passes --use-mailmap to git log (DOC-013)."""
         config: update_headers.HeadersConfig = {
@@ -343,6 +518,7 @@ class TestGetNontrivialAuthors:
             "extensions": (),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         log_result = MagicMock(
             returncode=0,
@@ -381,6 +557,7 @@ class TestResolveAuthors:
             "extensions": (),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         result = resolve_authors(tmp_path, "x.py", ["2024 A <a@x>"], config)
         assert result == ["2024 A <a@x>"]
@@ -393,6 +570,7 @@ class TestResolveAuthors:
             "extensions": (),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         mock_result = MagicMock(returncode=0, stdout="2023 First <first@x>")
         with patch("scripts.update_headers.run", return_value=mock_result):
@@ -407,6 +585,7 @@ class TestResolveAuthors:
             "extensions": (),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         first_fail = MagicMock(returncode=1, stdout="")
         second_ok = MagicMock(returncode=0, stdout="2024 Recent <recent@x>")
@@ -428,6 +607,7 @@ class TestResolveAuthors:
             "extensions": (),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         mock_result = MagicMock(returncode=0, stdout="2023 First <first@x>")
         with patch(
@@ -453,9 +633,103 @@ class TestResolveAuthors:
             "extensions": (),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         mock_result = MagicMock(returncode=1, stdout="")
         with patch("scripts.update_headers.run", return_value=mock_result):
+            result = resolve_authors(tmp_path, "x.py", [], config)
+        assert len(result) == 1
+        assert "The verilyze contributors" in result[0]
+
+    def test_raw_authors_bot_only_triggers_git_fallback(
+        self, tmp_path: Path
+    ) -> None:
+        config: update_headers.HeadersConfig = {
+            "default_copyright": "x",
+            "default_license": "GPL-3.0-or-later",
+            "nontrivial_lines": 15,
+            "extensions": (),
+            "literal_names": (),
+            "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
+        }
+        mock_result = MagicMock(
+            returncode=0, stdout="2024 Human <human@x>"
+        )
+        with patch("scripts.update_headers.run", return_value=mock_result):
+            mx = _primary_bot_marker()
+            result = resolve_authors(
+                tmp_path,
+                "x.py",
+                [f"2024 Bot <b{mx}@y>"],
+                config,
+            )
+        assert result == ["2024 Human <human@x>"]
+
+    def test_raw_authors_mixed_drops_bots(self, tmp_path: Path) -> None:
+        config: update_headers.HeadersConfig = {
+            "default_copyright": "x",
+            "default_license": "GPL-3.0-or-later",
+            "nontrivial_lines": 15,
+            "extensions": (),
+            "literal_names": (),
+            "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
+        }
+        my = _primary_bot_marker()
+        result = resolve_authors(
+            tmp_path,
+            "x.py",
+            [f"2024 Bot <b{my}@y>", "2024 Alice <a@x>"],
+            config,
+        )
+        assert result == ["2024 Alice <a@x>"]
+
+    def test_git_oldest_skips_leading_bot_commit(self, tmp_path: Path) -> None:
+        config: update_headers.HeadersConfig = {
+            "default_copyright": "x",
+            "default_license": "GPL-3.0-or-later",
+            "nontrivial_lines": 15,
+            "extensions": (),
+            "literal_names": (),
+            "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
+        }
+        mk = _primary_bot_marker()
+        mock_result = MagicMock(
+            returncode=0,
+            stdout=(
+                f"2023 Bot <b{mk}@y>\n"
+                "2024 Human <h@x>\n"
+            ),
+        )
+        with patch("scripts.update_headers.run", return_value=mock_result):
+            result = resolve_authors(tmp_path, "x.py", [], config)
+        assert result == ["2024 Human <h@x>"]
+
+    def test_all_git_authors_are_bots_use_default_copyright(
+        self, tmp_path: Path
+    ) -> None:
+        config: update_headers.HeadersConfig = {
+            "default_copyright": "The verilyze contributors",
+            "default_license": "GPL-3.0-or-later",
+            "nontrivial_lines": 15,
+            "extensions": (),
+            "literal_names": (),
+            "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
+        }
+        m1 = _primary_bot_marker()
+        bot_only = MagicMock(
+            returncode=0,
+            stdout=(
+                f"2024 Bot1 <a{m1}@x>\n2023 Bot2 <b{m1}@y>\n"
+            ),
+        )
+        with patch(
+            "scripts.update_headers.run",
+            side_effect=[bot_only, bot_only],
+        ):
             result = resolve_authors(tmp_path, "x.py", [], config)
         assert len(result) == 1
         assert "The verilyze contributors" in result[0]
@@ -569,6 +843,7 @@ class TestCollectFiles:
             "extensions": ("json", "py"),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         mock_result = MagicMock(
             returncode=0,
@@ -587,6 +862,7 @@ class TestCollectFiles:
             "extensions": ("py", "rs"),
             "literal_names": ("Makefile",),
             "exclude_paths": ("vendor",),
+            "bot_email_markers": project_bot_email_markers(),
         }
         mock_result = MagicMock(
             returncode=0,
@@ -607,6 +883,7 @@ class TestCollectFiles:
             "extensions": ("lock",),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         mock_result = MagicMock(
             returncode=0,
@@ -624,6 +901,7 @@ class TestCollectFiles:
             "extensions": ("py",),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         mock_result = MagicMock(returncode=1, stdout="")
         with patch("scripts.update_headers.run", return_value=mock_result):
@@ -652,6 +930,7 @@ class TestAnnotateFile:
             "extensions": (),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         mock_result = MagicMock(returncode=0, stdout="", stderr="")
         with patch("scripts.update_headers.run", return_value=mock_result):
@@ -676,6 +955,7 @@ class TestAnnotateFile:
             "extensions": (),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         fail_result = MagicMock(returncode=1, stdout="", stderr="reuse failed")
         with patch("scripts.update_headers.run", return_value=fail_result):
@@ -707,6 +987,7 @@ class TestProcessOneFile:
             "extensions": ("py",),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         mock_result = MagicMock(
             returncode=0, stdout="Alice <a@x>\n2024\n20\t0\tmatch.py"
@@ -727,6 +1008,7 @@ class TestProcessOneFile:
             "extensions": ("py",),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         mock_run = MagicMock(
             return_value=MagicMock(returncode=0, stdout="", stderr="")
@@ -746,6 +1028,59 @@ class TestMainPrintConfig:
     def test_print_config_returns_zero(self) -> None:
         with patch("sys.argv", ["update_headers.py", "--print-config"]):
             exit_code = update_headers.main()
+        assert exit_code == 0
+
+    def test_is_bot_email_exit_zero_when_bot(self, tmp_path: Path) -> None:
+        pyproject = tmp_path / "pyproject.toml"
+        _write_minimal_pyproject_with_bot_markers(pyproject)
+        marker = _primary_bot_marker()
+        bot_email = f"49699333+dependabot{marker}@users.noreply.github.com"
+        with patch(
+            "sys.argv",
+            ["update_headers.py", "--is-bot-email", bot_email],
+        ):
+            with patch(
+                "scripts.update_headers.get_repo_root",
+                return_value=tmp_path,
+            ):
+                assert update_headers.main() == 0
+
+    def test_is_bot_email_exit_one_when_human(self, tmp_path: Path) -> None:
+        pyproject = tmp_path / "pyproject.toml"
+        _write_minimal_pyproject_with_bot_markers(pyproject)
+        with patch(
+            "sys.argv",
+            ["update_headers.py", "--is-bot-email", "human@example.com"],
+        ):
+            with patch(
+                "scripts.update_headers.get_repo_root",
+                return_value=tmp_path,
+            ):
+                assert update_headers.main() == 1
+
+    def test_main_rejects_unknown_argument(self) -> None:
+        with patch("sys.argv", ["update_headers.py", "--not-a-flag"]):
+            assert update_headers.main() == 2
+
+    def test_main_rejects_is_bot_email_without_value(self) -> None:
+        with patch("sys.argv", ["update_headers.py", "--is-bot-email"]):
+            assert update_headers.main() == 2
+
+    def test_main_rejects_print_config_with_is_bot_email(self) -> None:
+        with patch(
+            "sys.argv",
+            [
+                "update_headers.py",
+                "--print-config",
+                "--is-bot-email",
+                "a@b",
+            ],
+        ):
+            assert update_headers.main() == 2
+
+    def test_main_accepts_argv_without_sys_argv(self) -> None:
+        """Callers may pass argv explicitly (sys.argv[1:] style)."""
+        exit_code = update_headers.main(["--print-config"])
         assert exit_code == 0
 
     def test_returns_one_when_ensure_reuse_not_found(self) -> None:
@@ -845,6 +1180,7 @@ class TestCoveredFilesExcludePaths:
             "extensions": ("py",),
             "literal_names": (),
             "exclude_paths": ("vendor",),
+            "bot_email_markers": project_bot_email_markers(),
         }
         mock_result = MagicMock(
             returncode=0,
@@ -868,6 +1204,7 @@ class TestHeadersMatchReadError:
             "extensions": ("py",),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         with patch.object(
             Path, "read_text", side_effect=OSError("read failed")
@@ -891,6 +1228,7 @@ class TestAnnotateFileForceDotLicense:
             "extensions": (),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         mock_ok = MagicMock(returncode=0, stdout="", stderr="")
         with patch("scripts.update_headers.run", return_value=mock_ok):
@@ -915,6 +1253,7 @@ class TestAnnotateFileForceDotLicense:
             "extensions": (),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         first_fail = MagicMock(returncode=1, stdout="", stderr="")
         second_ok = MagicMock(returncode=0, stdout="", stderr="")
@@ -943,6 +1282,7 @@ class TestProcessOneFileEdgeCases:
             "extensions": ("py",),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         result = process_one_file(tmp_path, "nonexistent.py", None, config)
         assert result is None
@@ -957,6 +1297,7 @@ class TestProcessOneFileEdgeCases:
             "extensions": ("py",),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         with patch(
             "scripts.update_headers.run", return_value=MagicMock(returncode=1)
@@ -976,12 +1317,12 @@ class TestParseGitLogNumstatEdgeCases:
 
     def test_non_digit_add_uses_zero(self) -> None:
         log = "Alice <a@x>\n2024\nabc\t5\tfoo.py"
-        result = _parse_git_log_numstat(log, 15)
+        result = _parse_git_log_numstat(log, 15, project_bot_email_markers())
         assert result == []
 
     def test_author_with_year_unknown_firstyear(self) -> None:
         log = "Alice <a@x>\n2024\n20\t0\tfoo.py"
-        result = _parse_git_log_numstat(log, 15)
+        result = _parse_git_log_numstat(log, 15, project_bot_email_markers())
         assert result == ["2024 Alice <a@x>"]
 
 
@@ -1005,6 +1346,7 @@ class TestGetNontrivialAuthorsCacheErrors:
             "extensions": (),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         cache_dir = tmp_path / ".cache"
         cache_dir.mkdir()
@@ -1034,6 +1376,7 @@ class TestGetNontrivialAuthorsCacheErrors:
             "extensions": (),
             "literal_names": (),
             "exclude_paths": (),
+            "bot_email_markers": project_bot_email_markers(),
         }
         cache_dir = tmp_path / ".cache"
         rev_result = MagicMock(returncode=0, stdout="abc123")
