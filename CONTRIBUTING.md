@@ -581,7 +581,10 @@ copyright and license headers. Default license and copyright are defined in
   committed file is up to date.
 - **Check headers:** `make check-headers` (runs `check-header-duplicates` and
   `reuse lint`)
-- **Add/update headers:** `make headers` (runs `scripts/update_headers.py`)
+- **Add/update headers:** `make headers` (runs `scripts/update_headers.py`).
+  Files matched by a `path` in `REUSE.toml` under `[[annotations]]` are not
+  passed to `reuse annotate`, consistent with `reuse lint` (license for those
+  paths is declared only in `REUSE.toml`).
 - **Install Git hooks:** Run `make setup-hooks` or `./scripts/install-hooks.sh`
   to add pre-commit (REUSE headers), commit-msg (DCO signoff), and pre-push
   (commit signature verification) hooks. The pre-commit hook inserts headers
