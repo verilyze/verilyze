@@ -9,9 +9,10 @@ Add REUSE-compliant copyright and license headers to covered text files.
 Uses git history and the 15-line "nontrivial change" threshold
 (see docs/NONTRIVIAL-CHANGE.md).
 
-Run from repository root: python scripts/update_headers.py
+Run from repository root: python scripts/update_headers.py [--print-config]
 """
 
+import argparse
 import fnmatch
 import hashlib
 import os
@@ -27,6 +28,8 @@ from typing import Any, TypedDict
 # Internal defaults (not in pyproject.toml)
 _CONFIG_MAX_WORKERS: int = 8
 _CONFIG_CACHE_DIR: str = ".cache/update-headers"
+_GIT_LOG_FALLBACK_MAX_COMMITS: int = 50
+_DEFAULT_BOT_EMAIL_MARKERS: tuple[str, ...] = ("[bot]",)
 
 
 class HeadersConfig(TypedDict):
@@ -38,6 +41,7 @@ class HeadersConfig(TypedDict):
     extensions: tuple[str, ...]
     literal_names: tuple[str, ...]
     exclude_paths: tuple[str, ...]
+    bot_email_markers: tuple[str, ...]
 
 
 # Defaults when pyproject.toml keys are missing
@@ -58,6 +62,7 @@ _DEFAULTS: HeadersConfig = {
     ),
     "literal_names": ("Makefile",),
     "exclude_paths": ("tools/xtask", "Cargo.lock"),
+    "bot_email_markers": _DEFAULT_BOT_EMAIL_MARKERS,
 }
 
 
@@ -146,7 +151,8 @@ def load_config(repo_root: Path) -> HeadersConfig:
     """
     Load [tool.vlz-headers] from pyproject.toml. Returns dict with keys:
     default_copyright, default_license, nontrivial_lines, extensions,
-    literal_names, exclude_paths. Uses _DEFAULTS for missing keys.
+    literal_names, exclude_paths, bot_email_markers. Uses _DEFAULTS for
+    missing keys.
     """
     cfg: HeadersConfig = {
         "default_copyright": _DEFAULTS["default_copyright"],
@@ -155,6 +161,7 @@ def load_config(repo_root: Path) -> HeadersConfig:
         "extensions": _DEFAULTS["extensions"],
         "literal_names": _DEFAULTS["literal_names"],
         "exclude_paths": _DEFAULTS["exclude_paths"],
+        "bot_email_markers": _DEFAULTS["bot_email_markers"],
     }
     path = repo_root / "pyproject.toml"
     if not path.exists():
@@ -179,6 +186,13 @@ def load_config(repo_root: Path) -> HeadersConfig:
         for key in ("extensions", "literal_names", "exclude_paths"):
             if key in section and isinstance(section[key], list):
                 cfg[key] = tuple(str(x) for x in section[key])
+        if "bot_email_markers" in section and isinstance(
+            section["bot_email_markers"], list
+        ):
+            raw_markers = [
+                str(x) for x in section["bot_email_markers"] if str(x)
+            ]
+            cfg["bot_email_markers"] = tuple(raw_markers)
     except (OSError, ValueError):
         pass
     return cfg
@@ -233,6 +247,79 @@ def collect_files(repo_root: Path, config: HeadersConfig) -> list[str]:
     return covered
 
 
+def email_matches_bot_markers(email: str, markers: tuple[str, ...]) -> bool:
+    """True if email contains a marker substring (case-insensitive)."""
+    if not email or not markers:
+        return False
+    elower = email.lower()
+    return any(m.lower() in elower for m in markers if m)
+
+
+def _extract_email_from_identifier(ident: str) -> str:
+    """Return email from 'Name <email>' or '' if not parseable."""
+    start = ident.rfind("<")
+    end = ident.rfind(">")
+    if 0 <= start < end:
+        return ident[start + 1 : end].strip()
+    return ""
+
+
+def _is_bot_spdx_holder(entry: str, markers: tuple[str, ...]) -> bool:
+    """True if SPDX-style entry's author email matches a bot marker."""
+    ident = _extract_identifier(entry)
+    return email_matches_bot_markers(
+        _extract_email_from_identifier(ident),
+        markers,
+    )
+
+
+def _filter_non_bot_copyright_entries(
+    entries: list[str],
+    markers: tuple[str, ...],
+) -> list[str]:
+    """Drop copyright lines whose email matches bot markers."""
+    return [e for e in entries if not _is_bot_spdx_holder(e, markers)]
+
+
+def _first_non_bot_git_author(
+    repo_root: Path,
+    file_path: str,
+    config: HeadersConfig,
+    *,
+    reverse: bool,
+) -> str | None:
+    """
+    Walk up to _GIT_LOG_FALLBACK_MAX_COMMITS commits; return first line
+    'YEAR Name <email>' that is not a bot, or None.
+    """
+    markers = config["bot_email_markers"]
+    cmd: list[str] = [
+        "git",
+        "log",
+        "--use-mailmap",
+    ]
+    if reverse:
+        cmd.append("--reverse")
+    cmd.extend(
+        [
+            f"--max-count={_GIT_LOG_FALLBACK_MAX_COMMITS}",
+            "--format=%ad %aN <%aE>",
+            "--date=format:%Y",
+            "--follow",
+            "--",
+            file_path,
+        ]
+    )
+    result = run(cmd, cwd=repo_root)
+    if result.returncode != 0 or not result.stdout.strip():
+        return None
+    for line in result.stdout.splitlines():
+        candidate = line.strip()
+        if candidate and not _is_bot_spdx_holder(candidate, markers):
+            return candidate
+    return None
+
+
 def get_nontrivial_authors(
     repo_root: Path,
     file_path: str,
@@ -255,7 +342,11 @@ def get_nontrivial_authors(
                 cache_file = cache_dir / digest
                 if cache_file.exists():
                     lines = cache_file.read_text().strip().splitlines()
-                    return [ln.strip() for ln in lines if ln.strip()]
+                    cached = [ln.strip() for ln in lines if ln.strip()]
+                    return _filter_non_bot_copyright_entries(
+                        cached,
+                        config["bot_email_markers"],
+                    )
         except OSError:
             pass
 
@@ -279,6 +370,7 @@ def get_nontrivial_authors(
     authors = _parse_git_log_numstat(
         result.stdout,
         config["nontrivial_lines"],
+        config["bot_email_markers"],
     )
     if cache_dir and head:
         try:
@@ -292,11 +384,15 @@ def get_nontrivial_authors(
     return authors
 
 
-def _parse_git_log_numstat(log_output: str, threshold: int) -> list[str]:
+def _parse_git_log_numstat(
+    log_output: str,
+    threshold: int,
+    markers: tuple[str, ...],
+) -> list[str]:
     """
     Parse git log --numstat output into "YEAR Author <email>" lines.
 
-    Same logic as the original awk script.
+    Same logic as the original awk script; then drop bot markers (emails).
     """
     # pylint: disable=too-many-locals
     add: dict[str, int] = {}
@@ -333,7 +429,7 @@ def _parse_git_log_numstat(log_output: str, threshold: int) -> list[str]:
             ly = lastyear.get(author_key) or "?"
             yrange = fy if fy == ly else f"{fy}-{ly}"
             out.append(f"{yrange} {author_key}")
-    return out
+    return _filter_non_bot_copyright_entries(out, markers)
 
 
 def resolve_authors(
@@ -343,45 +439,31 @@ def resolve_authors(
     config: HeadersConfig,
 ) -> list[str]:
     """
-    Resolve effective authors when get_nontrivial_authors returns empty.
+    Resolve effective authors when get_nontrivial_authors returns empty
+    or only bot identities.
 
-    Fallbacks: first commit author, then most recent author,
-    then default copyright.
+    Fallbacks: oldest human author in recent history, then newest human
+    author, then default copyright.
     """
-    if raw_authors:
-        return raw_authors
-    result = run(
-        [
-            "git",
-            "log",
-            "--use-mailmap",
-            "--reverse",
-            "-1",
-            "--format=%ad %aN <%aE>",
-            "--date=format:%Y",
-            "--follow",
-            "--",
-            file_path,
-        ],
-        cwd=repo_root,
+    filtered = _filter_non_bot_copyright_entries(
+        raw_authors,
+        config["bot_email_markers"],
     )
-    if result.returncode == 0 and result.stdout.strip():
-        return [result.stdout.strip()]
-    result = run(
-        [
-            "git",
-            "log",
-            "--use-mailmap",
-            "-1",
-            "--format=%ad %aN <%aE>",
-            "--date=format:%Y",
-            "--",
-            file_path,
-        ],
-        cwd=repo_root,
+    if filtered:
+        return filtered
+
+    first_human = _first_non_bot_git_author(
+        repo_root, file_path, config, reverse=True
     )
-    if result.returncode == 0 and result.stdout.strip():
-        return [result.stdout.strip()]
+    if first_human:
+        return [first_human]
+
+    recent_human = _first_non_bot_git_author(
+        repo_root, file_path, config, reverse=False
+    )
+    if recent_human:
+        return [recent_human]
+
     year = datetime.now().year
     return [f"{year} {config['default_copyright']}"]
 
@@ -529,14 +611,39 @@ def _print_config(config: HeadersConfig) -> None:
     print(f"exclude_paths:{excl_str}")
 
 
-def main() -> int:
-    """Main entry point."""
-    repo_root = get_repo_root()
-    if len(sys.argv) == 2 and sys.argv[1] == "--print-config":
-        config = load_config(repo_root)
-        _print_config(config)
-        return 0
+def _build_arg_parser() -> argparse.ArgumentParser:
+    """CLI for direct runs and for tooling (pre-commit, Make)."""
+    parser = argparse.ArgumentParser(
+        prog="update_headers.py",
+        description=(
+            "Add or refresh REUSE SPDX headers on covered files using git "
+            "history (see docs/NONTRIVIAL-CHANGE.md)."
+        ),
+        exit_on_error=False,
+    )
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
+        "--print-config",
+        action="store_true",
+        help=(
+            "Print license, default copyright, and path patterns as key:value "
+            "lines for shells; then exit."
+        ),
+    )
+    mode.add_argument(
+        "--is-bot-email",
+        dest="bot_email",
+        metavar="EMAIL",
+        help=(
+            "Exit 0 if EMAIL matches configured bot_email_markers, else 1. "
+            "Used by scripts/pre-commit-headers.sh."
+        ),
+    )
+    return parser
 
+
+def _run_full_header_pass(repo_root: Path) -> int:
+    """Default mode: ensure REUSE deps and annotate all covered files."""
     os.chdir(repo_root)
     config = load_config(repo_root)
 
@@ -577,6 +684,37 @@ def main() -> int:
 
     print(f"Updated {updated} file(s).")
     return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    """
+    Main entry point.
+
+    argv: if None, uses sys.argv[1:] (script name is never included).
+    """
+    repo_root = get_repo_root()
+    parser = _build_arg_parser()
+    try:
+        args = parser.parse_args(argv)
+    except argparse.ArgumentError as err:
+        print(str(err), file=sys.stderr)
+        return 2
+
+    if args.print_config:
+        config = load_config(repo_root)
+        _print_config(config)
+        return 0
+
+    if args.bot_email is not None:
+        config = load_config(repo_root)
+        if email_matches_bot_markers(
+            args.bot_email,
+            config["bot_email_markers"],
+        ):
+            return 0
+        return 1
+
+    return _run_full_header_pass(repo_root)
 
 
 if __name__ == "__main__":

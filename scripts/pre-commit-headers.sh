@@ -40,14 +40,25 @@ if ! [ -d "LICENSES" ]; then
     $REUSE_CMD download "$DEFAULT_LICENSE" >/dev/null 2>&1 || true
 fi
 
-# Determine author for copyright (matches Git's precedence: env vars > config)
+# Determine author for copyright (matches Git's precedence: env vars > config).
+# Bot emails (see [tool.vlz-headers] bot_email_markers) use default_copyright.
 if [ -n "${GIT_AUTHOR_NAME:-}" ] && [ -n "${GIT_AUTHOR_EMAIL:-}" ]; then
-    copyright="${GIT_AUTHOR_NAME} <${GIT_AUTHOR_EMAIL}>"
+    if python3 scripts/update_headers.py --is-bot-email "${GIT_AUTHOR_EMAIL}" \
+        2>/dev/null; then
+        copyright="$DEFAULT_COPYRIGHT"
+    else
+        copyright="${GIT_AUTHOR_NAME} <${GIT_AUTHOR_EMAIL}>"
+    fi
 else
     user_name=$(git config user.name 2>/dev/null || true)
     user_email=$(git config user.email 2>/dev/null || true)
     if [ -n "$user_name" ] && [ -n "$user_email" ]; then
-        copyright="$user_name <$user_email>"
+        if python3 scripts/update_headers.py --is-bot-email "${user_email}" \
+            2>/dev/null; then
+            copyright="$DEFAULT_COPYRIGHT"
+        else
+            copyright="$user_name <$user_email>"
+        fi
     elif [ -n "$DEFAULT_COPYRIGHT" ]; then
         copyright="$DEFAULT_COPYRIGHT"
     else

@@ -21,6 +21,8 @@ addopts = "-v"
 [tool.vlz-headers]
 default_copyright = "The verilyze contributors"
 default_license = "GPL-3.0-or-later"
+# Emails containing any of these substrings (case-insensitive) are not SPDX holders.
+bot_email_markers = ["[bot]"]
 nontrivial_lines = 15
 extensions = ["py", "rs", "toml", "md", "mmd", "sh", "json", "yml", "yaml"]
 literal_names = ["Makefile"]
