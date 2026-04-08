@@ -3,16 +3,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 ---
-# Scheduled Renovate: Dockerfile, super-linter digest (regex), rust-toolchain.toml
-# channel (regex + rust-lang/rust tags), GitHub Actions (commit SHA + tag comment;
-# minor/patch grouped in one PR). See renovate.json.
-# Uses a GitHub App installation token (short-lived), not a user PAT.
+# Scheduled Renovate: twice weekly (Mon/Thu 05:00 UTC). Dockerfile, super-linter
+# digest (regex), rust-toolchain.toml channel (regex + rust-lang/rust tags),
+# GitHub Actions (commit SHA + tag comment; minor/patch grouped in one PR).
+# See renovate.json. Uses a GitHub App installation token (short-lived), not PAT.
 
 name: Renovate
 
 on:
   schedule:
     - cron: "0 5 * * 1"
+    - cron: "0 5 * * 4"
   workflow_dispatch:
 
 permissions:

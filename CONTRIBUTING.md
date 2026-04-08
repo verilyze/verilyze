@@ -713,7 +713,7 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   **pinned** slim image digest (linux/amd64, not `:slim-latest`, so linter
   versions stay stable until maintainers bump the digest). Override with
   `SUPER_LINTER_IMAGE` if needed. **Renovate** ([`renovate.json`](renovate.json))
-  runs on the schedule in
+  runs **twice weekly** (Monday and Thursday, **05:00 UTC**) per
   [`.github/workflows/renovate.yml`](.github/workflows/renovate.yml). It uses
   a **regex** custom manager to open PRs when the digest for
   `ghcr.io/super-linter/super-linter:slim-latest` changes. Another set of
@@ -734,6 +734,16 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   each Renovate commit includes **`Signed-off-by:`** in the message body, which
   satisfies [`scripts/check-dco.sh`](scripts/check-dco.sh) and the **check-dco**
   CI job (same expectation as `git commit -s` for humans).
+  **`rebaseWhen`** is **`behind-base-branch`** so Renovate rebases open PR
+  branches when **`main`** moves, reducing stale branches. **`platformAutomerge`**
+  is **enabled** with **`automerge`** for **non-major** update types only
+  (**minor**, **patch**, **digest**, **pin**); **major** PRs need a manual merge.
+  For GitHub to merge automatically after CI, turn on **Allow auto-merge** in
+  **Settings → General → Pull requests**, and use **branch protection** (or
+  rulesets) on **`main`** so **required status checks** must pass before merge.
+  **`prConcurrentLimit`** caps how many Renovate PRs may be open at once.
+  Optional **merge queue** on **`main`** can serialize merges; configure it in
+  GitHub alongside required checks.
   **GitHub App (not a PAT):** Create a
   [GitHub App](https://docs.github.com/en/apps/creating-github-apps/about-creating-github-apps),
   install it on this repository (or org with repo access), and add secrets

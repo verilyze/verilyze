@@ -5,6 +5,9 @@
     "helpers:pinGitHubActionDigests",
     ":gitSignOff"
   ],
+  "rebaseWhen": "behind-base-branch",
+  "platformAutomerge": true,
+  "prConcurrentLimit": 3,
   "enabledManagers": [
     "dockerfile",
     "custom.regex",
@@ -120,6 +123,16 @@
       "matchManagers": ["pip_requirements"],
       "matchFileNames": ["scripts/requirements-reuse.txt"],
       "groupName": "reuse-tooling-pip"
+    },
+    {
+      "description": "Enable GitHub platform auto-merge after CI for non-major updates",
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin"],
+      "automerge": true
+    },
+    {
+      "description": "Major updates require manual review and merge",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
     }
   ]
 }
