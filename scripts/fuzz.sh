@@ -26,6 +26,7 @@ set -e
 cd "$(dirname "$0")/.." || exit 1
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 # FUZZ_TARGETS_FILE: path to target-to-path map (FUZZ_TARGETS_ENV is a legacy alias).
 FUZZ_TARGETS_FILE="${FUZZ_TARGETS_FILE:-${FUZZ_TARGETS_ENV:-$SCRIPT_DIR/fuzz-targets.map}}"
 FUZZ_OUT="${FUZZ_OUT:-/tmp/vlz-fuzz-out}"
@@ -133,7 +134,21 @@ fi
 
 # Build fuzz targets with AFL instrumentation.
 # -C panic=unwind required so catch_unwind can convert toml parser panics to errors (SEC-017).
+if ! "$DO_COVERAGE"; then
+    # Plain AFL: do not inherit cargo-llvm-cov show-env (mixing instrument-coverage with
+    # cargo afl can SIGILL proc-macros or corrupt target/ when RUSTFLAGS leak in).
+    if [[ "${RUSTFLAGS:-}" == *instrument-coverage* ]] \
+        || [[ "${RUSTFLAGS:-}" == *sanitizer-coverage* ]]; then
+        echo "warning: clearing RUSTFLAGS that look like cargo-llvm-cov for AFL build" >&2
+        RUSTFLAGS=""
+    fi
+fi
 export RUSTFLAGS="${RUSTFLAGS} -C panic=unwind"
+# x86_64: portable CPU level avoids SIGILL in proc-macros when AFL uses sanitizer
+# coverage with rustc -C target-cpu=native on some shared runners.
+if [[ "$(uname -m)" == "x86_64" ]] && [[ -z "${VLZ_FUZZ_SKIP_TARGET_CPU:-}" ]]; then
+    export RUSTFLAGS="${RUSTFLAGS} -C target-cpu=x86-64-v2"
+fi
 cargo afl build -p vlz-fuzz
 
 # Load target-to-path mapping from fuzz-targets.map.
