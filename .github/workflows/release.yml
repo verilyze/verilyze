@@ -161,10 +161,26 @@ jobs:
         with:
           path: release-artifacts
 
+      - name: Extract version from tag
+        id: ver
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build release notes from CHANGELOG.md
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          ./scripts/extract-changelog-for-release.sh "$VERSION" > release-body.md
+          if [ ! -s release-body.md ]; then
+            echo "::error::Release notes empty; add a curated ## [$VERSION] section to CHANGELOG.md before tagging."
+            exit 1
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1  # zizmor: ignore[superfluous-actions]
         with:
-          generate_release_notes: true
+          generate_release_notes: false
+          body_path: release-body.md
           files: |
             release-artifacts/vlz-linux-x86_64/vlz
             release-artifacts/deb-package/*.deb

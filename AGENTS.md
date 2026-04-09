@@ -97,6 +97,7 @@ observable behavior.
 | Commit messages      | CONTRIBUTING "Commit messages"                           |
 | TDD workflow         | [CONTRIBUTING.md -- Test-driven development](CONTRIBUTING.md#test-driven-development-tdd) |
 | Security             | PRD section 6 (SEC-*), section 11 (Risk & Threat Model); [SECURITY.md](SECURITY.md); [COMPLIANCE.md](COMPLIANCE.md) |
+| OpenSSF Best Practices | [bestpractices.dev](https://www.bestpractices.dev/en/projects/12361) |
 | Copyright duplicates | `make check-header-duplicates`; CONTRIBUTING "Copyright and licensing"; `.mailmap` |
 | DRY / constants      | PRD NFR-024; CONTRIBUTING "DRY (Don't Repeat Yourself)"                              |
 | Parser selection     | PRD NFR-025 (manifest format compatibility, use existing vs in-house)               |
