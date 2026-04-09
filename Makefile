@@ -28,7 +28,7 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: cargo-check cargo-test unit-tests test-scripts
 .PHONY: fmt fmt-check clippy
 .PHONY: lint-python lint-shell super-linter super-linter-full
-.PHONY: fuzz fuzz-changed fuzz-extended coverage coverage-quick
+.PHONY: fuzz fuzz-changed fuzz-extended fuzz-then-coverage coverage coverage-quick
 .PHONY: generate-config-example check-config-docs
 .PHONY: generate-completions completions completions-release check-completions
 .PHONY: generate-packaging check-packaging
@@ -249,6 +249,12 @@ coverage: setup fuzz
 coverage-quick: setup
 	$(COVERAGE_SCRIPT)
 
+# fuzz-then-coverage: run fuzz-changed before coverage-quick. make -j check must not
+# run cargo afl and cargo llvm-cov in parallel (shared target/; mixed RUSTFLAGS; rustc SIGILL).
+fuzz-then-coverage:
+	$(MAKE) fuzz-changed
+	$(MAKE) coverage-quick
+
 # ---- Doc diagrams ----
 # Embed Mermaid diagrams from architecture/*.mmd into README and CONTRIBUTING
 update-doc-diagrams:
@@ -331,7 +337,7 @@ check-fast: setup \
             lint-shell
 
 # check-slow: coverage and fuzz (~5-10+ min)
-check-slow: setup fuzz-changed coverage-quick
+check-slow: setup fuzz-then-coverage
 
 # check: full pre-commit/CI gate (NFR-021, NFR-022, DOC-007)
 check: setup \
@@ -348,8 +354,7 @@ check: setup \
        clippy \
        lint-python \
        lint-shell \
-       fuzz-changed \
-       coverage-quick
+       fuzz-then-coverage
 
 # ---- Install ----
 # Optional: install binary, verilyze.conf.example, and man page.
