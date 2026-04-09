@@ -79,6 +79,54 @@ def test_renovate_extends_git_sign_off_for_dco() -> None:
     assert ":gitSignOff" in extends
 
 
+def test_renovate_rebase_when_behind_base_branch() -> None:
+    """Keep PR branches rebased when main moves (staleness reduction)."""
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    assert data.get("rebaseWhen") == "behind-base-branch"
+
+
+def test_renovate_platform_automerge_uses_github_native_merge() -> None:
+    """Use GitHub auto-merge after required checks; pairs with repo branch settings."""
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    assert data.get("platformAutomerge") is True
+
+
+def test_renovate_pr_concurrent_limit() -> None:
+    """Cap open Renovate PRs to reduce parallel stale branches."""
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    assert data.get("prConcurrentLimit") == 3
+
+
+def test_renovate_automerge_non_major_via_package_rules() -> None:
+    """Automerge safe update types only; majors need manual merge."""
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    rules = data.get("packageRules", [])
+    merge_on = next(
+        (
+            r
+            for r in rules
+            if r.get("description", "").startswith("Enable GitHub platform auto-merge")
+            and r.get("automerge") is True
+        ),
+        None,
+    )
+    assert merge_on is not None
+    types = merge_on.get("matchUpdateTypes", [])
+    assert "major" not in types
+    assert "minor" in types and "patch" in types
+    major_off = next(
+        (
+            r
+            for r in rules
+            if r.get("description", "").startswith("Major updates require manual")
+            and r.get("automerge") is False
+        ),
+        None,
+    )
+    assert major_off is not None
+    assert major_off.get("matchUpdateTypes") == ["major"]
+
+
 def test_renovate_package_rule_groups_reuse_lockfile() -> None:
     data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
     rules = data.get("packageRules", [])
@@ -136,3 +184,13 @@ def test_renovate_workflow_sets_repository_target() -> None:
     )
     assert "RENOVATE_REPOSITORIES" in workflow
     assert "github.repository" in workflow
+
+
+def test_renovate_workflow_scheduled_twice_weekly() -> None:
+    """Scheduled Renovate runs twice per week at 05:00 UTC (Monday and Thursday)."""
+    workflow = (_ROOT / ".github" / "workflows" / "renovate.yml").read_text(
+        encoding="utf-8"
+    )
+    assert workflow.count("cron:") == 2
+    assert 'cron: "0 5 * * 1"' in workflow
+    assert 'cron: "0 5 * * 4"' in workflow
