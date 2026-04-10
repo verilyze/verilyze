@@ -193,6 +193,13 @@ false-negatives in CI.
 | 5    | CVE provider fetch failed (network, API error, auth, etc.)                      |
 | 86   | One or more CVEs meet threshold (overridable via `--exit-code-on-cve`)          |
 
+## Bug reports and feedback
+
+Report bugs, regressions, or feature ideas via
+**[GitHub Issues](https://github.com/verilyze/verilyze/issues)** so they stay
+searchable and linkable. For **security vulnerabilities**, use the process in
+[SECURITY.md](SECURITY.md) (private report), not a public issue.
+
 ## For contributors
 
 Run `make check` for the standard pre-commit gate. For fuzz testing (smoke,
@@ -209,3 +216,5 @@ changed-code-only, or extended), see [CONTRIBUTING.md](CONTRIBUTING.md)
 - **Contributing:** [CONTRIBUTING.md](CONTRIBUTING.md)
 - **Guidance for AI agents:** [AGENTS.md](AGENTS.md)
 - **Security:** [SECURITY.md](SECURITY.md)
+- **Changelog:** [CHANGELOG.md](CHANGELOG.md)
+- **OpenSSF Best Practices:** [bestpractices.dev project entry](https://www.bestpractices.dev/en/projects/12361)

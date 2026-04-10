@@ -24,6 +24,21 @@ Please include:
 
 We will acknowledge receipt and work with you on a fix and disclosure timeline.
 
+## Maintainer response expectations
+
+These expectations support the
+[OpenSSF Best Practices](https://bestpractices.dev/en/criteria/0) criteria
+`vulnerability_report_response` and healthy interaction with reporters.
+
+- **Security reports:** Maintainers aim to send an **initial response** (not
+  necessarily a fix) within **14 days** of a good-faith private report.
+- **Public bug reports (GitHub Issues):** Maintainers aim to **acknowledge** a
+  majority of new issues so reporters know the report was seen; follow-up may
+  take longer depending on capacity.
+
+If you report a security issue and receive no reply within 14 days, consider a
+polite follow-up on the same private channel.
+
 ## TLS and HTTPS (CVE providers)
 
 Outbound HTTPS to CVE data sources (OSV, NVD, GitHub Advisory, Sonatype OSS Index)
