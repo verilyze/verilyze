@@ -912,23 +912,26 @@ pub fn apply_severity_overrides(
     apply!(config.v4.low_min, overrides.v4_low);
 }
 
-/// Set a config key (e.g. python.regex) in the user config file (FR-006).
-pub fn set_config_key(key: &str, value: &str) -> Result<(), ConfigError> {
-    let path = user_config_path();
+/// Set a config key (e.g. python.regex) in the given config file path (FR-006).
+fn set_config_key_in_path(
+    path: &Path,
+    key: &str,
+    value: &str,
+) -> Result<(), ConfigError> {
     if let Some(parent) = path.parent()
         && !parent.exists()
     {
         std::fs::create_dir_all(parent)?;
     }
-    let raw = load_file_opt(&path)?.unwrap_or_else(String::new);
+    let raw = load_file_opt(path)?.unwrap_or_else(String::new);
     // toml 1.0: Value::FromStr parses single values; use Table for documents.
     let mut root: toml::Table = if raw.trim().is_empty() {
         toml::Table::new()
     } else {
         toml::from_str(&raw).map_err(|e: toml::de::Error| {
             ConfigError::InvalidToml {
-                path: path.clone(),
-                path_display: user_relative_path(&path),
+                path: path.to_path_buf(),
+                path_display: user_relative_path(path),
                 message: e.to_string(),
             }
         })?
@@ -954,13 +957,19 @@ pub fn set_config_key(key: &str, value: &str) -> Result<(), ConfigError> {
     inner.insert(sub_key.to_string(), toml::Value::String(value.to_string()));
     let out = toml::to_string_pretty(&root).map_err(|e| {
         ConfigError::InvalidToml {
-            path: path.clone(),
-            path_display: user_relative_path(&path),
+            path: path.to_path_buf(),
+            path_display: user_relative_path(path),
             message: e.to_string(),
         }
     })?;
-    std::fs::write(&path, out)?;
+    std::fs::write(path, out)?;
     Ok(())
+}
+
+/// Set a config key (e.g. python.regex) in the user config file (FR-006).
+pub fn set_config_key(key: &str, value: &str) -> Result<(), ConfigError> {
+    let path = user_config_path();
+    set_config_key_in_path(&path, key, value)
 }
 
 #[cfg(test)]
@@ -2254,18 +2263,11 @@ regex = "^req\\.txt$"
     #[test]
     fn set_config_key_invalid_existing_toml_returns_error() {
         let dir = tempfile::tempdir().unwrap();
-        let config_dir = dir.path().join("xdg").join("verilyze");
-        std::fs::create_dir_all(&config_dir).unwrap();
-        std::fs::write(config_dir.join("verilyze.conf"), "invalid toml {{{")
-            .unwrap();
-        temp_env::with_var(
-            "XDG_CONFIG_HOME",
-            Some(dir.path().join("xdg").to_str().unwrap()),
-            || {
-                let r = set_config_key("python.regex", "x");
-                assert!(r.is_err());
-            },
-        );
+        let config_path = dir.path().join("verilyze.conf");
+        std::fs::write(&config_path, "invalid toml {{{").unwrap();
+        let r = set_config_key_in_path(&config_path, "python.regex", "x");
+        assert!(r.is_err());
+        assert!(matches!(r.unwrap_err(), ConfigError::InvalidToml { .. }));
     }
 
     #[test]

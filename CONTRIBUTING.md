@@ -306,7 +306,11 @@ fix = PATCH).
 Release builds (`make release` or `cargo build --release`) produce binaries
 stripped of symbols (NFR-023) for security and smaller size.
 
-1. Update `CHANGELOG.md` with changes since last release.
+1. Update [CHANGELOG.md](CHANGELOG.md): add a curated `## [X.Y.Z]` section
+   matching the new tag (without `v`). The Release workflow uses
+   [scripts/extract-changelog-for-release.sh](scripts/extract-changelog-for-release.sh)
+   to populate the GitHub Release body; it **fails** if that section is
+   missing (OpenSSF Best Practices `release_notes`).
 2. Bump `version` in the root `Cargo.toml` `[workspace.package]` section
    per SemVer.
 3. Run `make generate-packaging` to update APKBUILD and PKGBUILD with the
@@ -314,6 +318,8 @@ stripped of symbols (NFR-023) for security and smaller size.
 4. Merge to `main` and run `make check`.
 5. Create signed annotated tag: `git tag -s v0.1.0 -m "Release v0.1.0"`.
 6. Push tag: `git push origin v0.1.0`.
+
+**Verify locally (optional):** `./scripts/extract-changelog-for-release.sh X.Y.Z > /tmp/notes.md`
 
 ## Adding a new language plugin
 
@@ -986,6 +992,14 @@ read AGENTS.md or include one of the prompts below in your request.
 - **Step 5:**: At this point, if mocking is required, implement it now and
   confirm code coverage thresholds are met.
 - **Step 6:** Commit the implementation when satisfied.
+
+### OpenSSF Best Practices (`test_policy` / `tests_are_added`)
+
+The **test policy** for new behavior is the TDD workflow above. Merge requests
+that add or change substantive behavior should include **automated tests** when
+practical. When filing the OpenSSF Best Practices (passing) questionnaire, use
+recent merged pull requests as evidence that tests accompanied major changes.
+Project entry: [bestpractices.dev](https://www.bestpractices.dev/en/projects/12361).
 
 ## Requirements
 
