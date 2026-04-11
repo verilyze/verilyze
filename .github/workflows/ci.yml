@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 ---
-# CI workflow: check-dco / check-signatures (PRs only), then job check
+# CI workflow: check-dco / check-signatures (PR + merge queue), then job check
 # (make -j check) and incremental super-linter when deps allow.
 
 name: CI
@@ -13,6 +13,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  merge_group:
+    types: [checks_requested]
 
 # Job-scoped tokens (Checkov CKV2_GHA_1; avoid workflow_run for zizmor).
 permissions: {}
@@ -20,7 +22,9 @@ permissions: {}
 jobs:
   check-dco:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: >-
+      github.event_name == 'pull_request'
+      || github.event_name == 'merge_group'
     permissions:
       contents: read
     steps:
@@ -32,6 +36,7 @@ jobs:
       # persist-credentials: false removes the token from origin.
       # Fetch needs auth to read the base branch.
       - name: Fetch base branch
+        if: github.event_name == 'pull_request'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
@@ -42,15 +47,25 @@ jobs:
           git remote set-url origin \
             "https://github.com/${GITHUB_REPOSITORY}.git"
 
-      - name: Check DCO
+      - name: Check DCO (pull request)
+        if: github.event_name == 'pull_request'
         env:
           GITHUB_BASE_REF: ${{ github.event.pull_request.base.ref }}
           GITHUB_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: ./scripts/check-dco.sh
 
+      - name: Check DCO (merge group)
+        if: github.event_name == 'merge_group'
+        env:
+          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          MERGE_GROUP_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
+        run: ./scripts/check-dco.sh "$MERGE_GROUP_BASE_SHA" "$MERGE_GROUP_HEAD_SHA"
+
   check-signatures:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: >-
+      github.event_name == 'pull_request'
+      || github.event_name == 'merge_group'
     permissions:
       contents: read
     steps:
@@ -62,6 +77,7 @@ jobs:
       # persist-credentials: false removes the token from origin.
       # Fetch needs auth to read the base branch.
       - name: Fetch base branch
+        if: github.event_name == 'pull_request'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
@@ -72,11 +88,21 @@ jobs:
           git remote set-url origin \
             "https://github.com/${GITHUB_REPOSITORY}.git"
 
-      - name: Check commit signatures (presence only)
+      - name: Check commit signatures (presence only) (pull request)
+        if: github.event_name == 'pull_request'
         env:
           GITHUB_BASE_REF: ${{ github.event.pull_request.base.ref }}
           GITHUB_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: ./scripts/check-signatures.sh --presence-only
+
+      - name: Check commit signatures (presence only) (merge group)
+        if: github.event_name == 'merge_group'
+        env:
+          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          MERGE_GROUP_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
+        run: >-
+          ./scripts/check-signatures.sh --presence-only "$MERGE_GROUP_BASE_SHA"
+          "$MERGE_GROUP_HEAD_SHA"
 
   check:
     runs-on: ubuntu-latest
