@@ -20,13 +20,22 @@ if [[ $# -lt 1 ]]; then
   usage
 fi
 
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/ci-input-validate.sh
+. "${script_dir}/lib/ci-input-validate.sh"
+
 version="$1"
+version=$(vlz_trim_ascii_ws "$version")
+vlz_require_release_semver "$version"
+_rc=$?
+if [[ "${_rc}" -ne 0 ]]; then
+  exit "${_rc}"
+fi
 rel_changelog="CHANGELOG.md"
 if [[ $# -ge 2 ]]; then
   rel_changelog="$2"
 fi
 
-script_dir="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "${script_dir}/.." && pwd)"
 changelog="${rel_changelog}"
 if [[ "${changelog}" != /* ]]; then

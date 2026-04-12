@@ -116,6 +116,11 @@ and [COMPLIANCE.md](COMPLIANCE.md) for credential-handling controls.
   [architecture/PRD.md -- Risk & Threat Model (section 11)](architecture/PRD.md#risk-threat-model)
   and SEC-001 in the PRD.
 - Security requirements (SEC-*), TLS, integrity checks, and least-privilege are described in the PRD.
+- **CI script inputs (merge queue and release):** PRD **OP-019**. Shell scripts
+  `scripts/check-dco.sh`, `scripts/check-signatures.sh`, and
+  `scripts/extract-changelog-for-release.sh` apply allow-listed validation for
+  values supplied from GitHub Actions in those flows; shared logic lives under
+  `scripts/lib/`.
 - **Compliance checklist:** [COMPLIANCE.md](COMPLIANCE.md) in the repository
   root maps controls to implementation (SOC 2 / ISO 27001 / CMMC); refer to the
   PRD (SEC-010, DOC-008) for requirements.
