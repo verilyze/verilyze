@@ -235,7 +235,7 @@ jobs:
 
       # Versions: deny matches CONTRIBUTING Quick setup; others pinned for CI.
       - name: Install cargo tooling (llvm-cov, deny, afl, about)
-        uses: taiki-e/install-action@b8be7f5e140177087325943c4a8e169d01c59b3d # v2.75.3
+        uses: taiki-e/install-action@0abfcd587b70a713fdaa7fb502c885e2112acb15 # v2.75.7
         with:
           tool: >-
             cargo-llvm-cov@0.8.5,cargo-deny@0.19.0,cargo-afl@0.17.1,cargo-about@0.8.4
@@ -245,7 +245,7 @@ jobs:
 
       - name: Upload Cobertura XML reports
         if: success()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: cobertura-xml
           path: |
@@ -303,7 +303,7 @@ jobs:
           thresholds: '85 90'
 
       - name: Post coverage summary on PR
-        uses: marocchino/sticky-pull-request-comment@d4d6b0936434b21bc8345ad45a440c5f7d2c40ff # v3.0.3
+        uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0 # v3.0.4
         with:
           header: cobertura-summary
           recreate: true
@@ -337,7 +337,7 @@ jobs:
 
       - name: Upload super-linter logs on failure
         if: failure()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: super-linter-logs
           path: |
