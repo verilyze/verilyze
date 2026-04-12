@@ -11,8 +11,11 @@
 #   ./scripts/check-dco.sh [base_ref] [head_ref]
 #
 # If base_ref and head_ref are omitted, uses GITHUB_BASE_REF and GITHUB_HEAD_REF
-# (or origin/main, else main, and HEAD for local use). For explicit SHA range:
-#   ./scripts/check-dco.sh <base_sha> <head_sha>
+# (or origin/main, else main, and HEAD for local use). For two positional args:
+#   ./scripts/check-dco.sh <base_ref> <head_ref>
+# On GitHub merge queue (GITHUB_EVENT_NAME=merge_group), base and head must each
+# be a full 40-character lowercase hex SHA-1 after trim and lower-case. Elsewhere,
+# any ref accepted by git rev-parse is allowed.
 #
 # See https://developercertificate.org/
 
@@ -20,6 +23,9 @@ set -e
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
+
+# shellcheck source=lib/ci-input-validate.sh
+. "${REPO_ROOT}/scripts/lib/ci-input-validate.sh"
 
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     echo "Error: Not a git repository." >&2
@@ -30,6 +36,13 @@ BASE_REF="${1:-}"
 HEAD_REF="${2:-}"
 
 if [ -n "$BASE_REF" ] && [ -n "$HEAD_REF" ]; then
+    if ! vlz_require_sha40_pair_if_merge_group "$BASE_REF" "$HEAD_REF"; then
+        exit 1
+    fi
+    if [ -n "${VLZ_MERGE_SHA_BASE:-}" ]; then
+        BASE_REF=${VLZ_MERGE_SHA_BASE}
+        HEAD_REF=${VLZ_MERGE_SHA_HEAD}
+    fi
     BASE_SHA="$BASE_REF"
     HEAD_SHA="$HEAD_REF"
     # Resolve to full SHAs in case refs were passed

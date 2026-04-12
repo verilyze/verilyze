@@ -17,6 +17,9 @@
 #
 # If base_ref and head_ref are omitted, uses GITHUB_BASE_REF and
 # GITHUB_HEAD_REF (or origin/main, else main, and HEAD for local use).
+# On GitHub merge queue (GITHUB_EVENT_NAME=merge_group), two positional args
+# must each be a full 40-character lowercase hex SHA-1 after trim and lower-case.
+# Elsewhere, any ref accepted by git rev-parse is allowed.
 #
 # Uses --first-parent traversal so that commits brought in through
 # merge second-parents (e.g. GitHub-signed merge commits on main) are
@@ -26,6 +29,9 @@ set -e
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
+
+# shellcheck source=lib/ci-input-validate.sh
+. "${REPO_ROOT}/scripts/lib/ci-input-validate.sh"
 
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     echo "Error: Not a git repository." >&2
@@ -43,6 +49,13 @@ BASE_REF="${1:-}"
 HEAD_REF="${2:-}"
 
 if [[ -n "$BASE_REF" ]] && [[ -n "$HEAD_REF" ]]; then
+    if ! vlz_require_sha40_pair_if_merge_group "$BASE_REF" "$HEAD_REF"; then
+        exit 1
+    fi
+    if [[ -n "${VLZ_MERGE_SHA_BASE:-}" ]]; then
+        BASE_REF=${VLZ_MERGE_SHA_BASE}
+        HEAD_REF=${VLZ_MERGE_SHA_HEAD}
+    fi
     BASE_SHA="$(git rev-parse "$BASE_REF")"
     HEAD_SHA="$(git rev-parse "$HEAD_REF")"
     MERGE_BASE="$(git merge-base "$BASE_SHA" "$HEAD_SHA")"

@@ -31,3 +31,4 @@ Initial tracked release notes entry for the workspace at **0.1.0** (see `Cargo.t
 ### Notes for packagers and CI
 
 - Release artifacts (binary, `.deb`, `.rpm`) and container images are produced by the Release workflow on version tags. Build from source continues to be supported via `make release` and `cargo build --release`.
+- Merge-queue and release shell scripts validate Actions-fed inputs per PRD OP-019 (`scripts/lib/ci-input-validate.sh`).

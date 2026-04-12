@@ -92,6 +92,7 @@ observable behavior.
 | Shell script style   | CONTRIBUTING "Code style and checks"; PRD NFR-022        |
 | Config precedence    | PRD CFG-001--CFG-008; README “Configuration precedence”  |
 | HTTP proxy (CVE)     | PRD OP-018; [INSTALL.md](INSTALL.md); `man vlz` ENVIRONMENT |
+| CI script inputs (GHA) | PRD OP-019; CONTRIBUTING "GitHub Actions (`ci.yml`)"; [scripts/lib/ci-input-validate.sh](scripts/lib/ci-input-validate.sh) |
 | Adding a plugin      | CONTRIBUTING "Adding a new language plugin"; PRD MOD-002 |
 | Config documentation | CONTRIBUTING "Adding or updating configuration keys"; `make generate-config-example` |
 | Commit messages      | CONTRIBUTING "Commit messages"                           |
