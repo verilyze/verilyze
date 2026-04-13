@@ -101,7 +101,7 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[Override configuration file location]:PATH:_default' \
 '-h[Print help]' \
 '--help[Print help]' \
-":: :_vlz__db_commands" \
+":: :_vlz__subcmd__db_commands" \
 "*::: :->db" \
 && ret=0
 
@@ -176,7 +176,7 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[Override configuration file location]:PATH:_default' \
 '-h[Print help]' \
 '--help[Print help]' \
-":: :_vlz__fp_commands" \
+":: :_vlz__subcmd__fp_commands" \
 "*::: :->fp" \
 && ret=0
 
@@ -255,13 +255,13 @@ _vlz_commands() {
     )
     _describe -t commands 'vlz commands' commands "$@"
 }
-(( $+functions[_vlz__config_commands] )) ||
-_vlz__config_commands() {
+(( $+functions[_vlz__subcmd__config_commands] )) ||
+_vlz__subcmd__config_commands() {
     local commands; commands=()
     _describe -t commands 'vlz config commands' commands "$@"
 }
-(( $+functions[_vlz__db_commands] )) ||
-_vlz__db_commands() {
+(( $+functions[_vlz__subcmd__db_commands] )) ||
+_vlz__subcmd__db_commands() {
     local commands; commands=(
 'stats:' \
 'verify:' \
@@ -272,76 +272,76 @@ _vlz__db_commands() {
     )
     _describe -t commands 'vlz db commands' commands "$@"
 }
-(( $+functions[_vlz__db__list-providers_commands] )) ||
-_vlz__db__list-providers_commands() {
+(( $+functions[_vlz__subcmd__db__subcmd__list-providers_commands] )) ||
+_vlz__subcmd__db__subcmd__list-providers_commands() {
     local commands; commands=()
     _describe -t commands 'vlz db list-providers commands' commands "$@"
 }
-(( $+functions[_vlz__db__migrate_commands] )) ||
-_vlz__db__migrate_commands() {
+(( $+functions[_vlz__subcmd__db__subcmd__migrate_commands] )) ||
+_vlz__subcmd__db__subcmd__migrate_commands() {
     local commands; commands=()
     _describe -t commands 'vlz db migrate commands' commands "$@"
 }
-(( $+functions[_vlz__db__set-ttl_commands] )) ||
-_vlz__db__set-ttl_commands() {
+(( $+functions[_vlz__subcmd__db__subcmd__set-ttl_commands] )) ||
+_vlz__subcmd__db__subcmd__set-ttl_commands() {
     local commands; commands=()
     _describe -t commands 'vlz db set-ttl commands' commands "$@"
 }
-(( $+functions[_vlz__db__show_commands] )) ||
-_vlz__db__show_commands() {
+(( $+functions[_vlz__subcmd__db__subcmd__show_commands] )) ||
+_vlz__subcmd__db__subcmd__show_commands() {
     local commands; commands=()
     _describe -t commands 'vlz db show commands' commands "$@"
 }
-(( $+functions[_vlz__db__stats_commands] )) ||
-_vlz__db__stats_commands() {
+(( $+functions[_vlz__subcmd__db__subcmd__stats_commands] )) ||
+_vlz__subcmd__db__subcmd__stats_commands() {
     local commands; commands=()
     _describe -t commands 'vlz db stats commands' commands "$@"
 }
-(( $+functions[_vlz__db__verify_commands] )) ||
-_vlz__db__verify_commands() {
+(( $+functions[_vlz__subcmd__db__subcmd__verify_commands] )) ||
+_vlz__subcmd__db__subcmd__verify_commands() {
     local commands; commands=()
     _describe -t commands 'vlz db verify commands' commands "$@"
 }
-(( $+functions[_vlz__fp_commands] )) ||
-_vlz__fp_commands() {
+(( $+functions[_vlz__subcmd__fp_commands] )) ||
+_vlz__subcmd__fp_commands() {
     local commands; commands=(
 'mark:Mark a CVE as false positive' \
 'unmark:Remove false-positive marking for a CVE' \
     )
     _describe -t commands 'vlz fp commands' commands "$@"
 }
-(( $+functions[_vlz__fp__mark_commands] )) ||
-_vlz__fp__mark_commands() {
+(( $+functions[_vlz__subcmd__fp__subcmd__mark_commands] )) ||
+_vlz__subcmd__fp__subcmd__mark_commands() {
     local commands; commands=()
     _describe -t commands 'vlz fp mark commands' commands "$@"
 }
-(( $+functions[_vlz__fp__unmark_commands] )) ||
-_vlz__fp__unmark_commands() {
+(( $+functions[_vlz__subcmd__fp__subcmd__unmark_commands] )) ||
+_vlz__subcmd__fp__subcmd__unmark_commands() {
     local commands; commands=()
     _describe -t commands 'vlz fp unmark commands' commands "$@"
 }
-(( $+functions[_vlz__generate-completions_commands] )) ||
-_vlz__generate-completions_commands() {
+(( $+functions[_vlz__subcmd__generate-completions_commands] )) ||
+_vlz__subcmd__generate-completions_commands() {
     local commands; commands=()
     _describe -t commands 'vlz generate-completions commands' commands "$@"
 }
-(( $+functions[_vlz__help_commands] )) ||
-_vlz__help_commands() {
+(( $+functions[_vlz__subcmd__help_commands] )) ||
+_vlz__subcmd__help_commands() {
     local commands; commands=()
     _describe -t commands 'vlz help commands' commands "$@"
 }
-(( $+functions[_vlz__list_commands] )) ||
-_vlz__list_commands() {
+(( $+functions[_vlz__subcmd__list_commands] )) ||
+_vlz__subcmd__list_commands() {
     local commands; commands=()
     _describe -t commands 'vlz list commands' commands "$@"
 }
-(( $+functions[_vlz__preload_commands] )) ||
-_vlz__preload_commands() {
+(( $+functions[_vlz__subcmd__preload_commands] )) ||
+_vlz__subcmd__preload_commands() {
     local commands; commands=()
     _describe -t commands 'vlz preload commands' commands "$@"
 }
-(( $+functions[_vlz__scan_commands] )) ||
-_vlz__scan_commands() {
+(( $+functions[_vlz__subcmd__scan_commands] )) ||
+_vlz__subcmd__scan_commands() {
     local commands; commands=()
     _describe -t commands 'vlz scan commands' commands "$@"
 }
