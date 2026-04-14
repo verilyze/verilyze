@@ -89,23 +89,48 @@ graph TD
 
 ## Quick setup
 
-**Required (install before `make check`)**
+**Required system dependencies (install before `make setup`)**
 
-| Dependency        | Purpose                                    | Install                       |
-| ----------------- | ------------------------------------------ | ----------------------------- |
-| Rust, Cargo       | Build and test                             | [rustup](https://rustup.rs/)  |
-| Python 3 (≥3.11)  | Scripts, linters, tests                    | OS package manager            |
-| ShellCheck        | Shell script linting                       | OS package manager            |
-| GNU Make (4.0+)   | Build orchestration                        | OS package manager            |
-| Git               | Contributing, hooks, fuzz change detection | OS package manager            |
-| GnuPG 2.x/SSH key | Commit signing (GPG or SSH; required)      | OS package manager            |
-| cargo-deny        | `make deny-check` / `make check`           | `cargo install cargo-deny --locked |
+| Dependency         | Purpose                                    | Install                      |
+| ------------------ | ------------------------------------------ | ---------------------------- |
+| Rust, Cargo        | Build and test                             | [rustup](https://rustup.rs/) |
+| C toolchain/linker | Link Rust crates on build (GCC/clang)      | OS package manager           |
+| Python 3 (≥3.11)   | Scripts, linters, tests                    | OS package manager           |
+| ShellCheck         | Shell script linting                       | OS package manager           |
+| GNU Make (4.0+)    | Build orchestration                        | OS package manager           |
+| Git                | Contributing, hooks, fuzz change detection | OS package manager           |
+| GnuPG 2.x/SSH key  | Commit signing (GPG or SSH; required)      | OS package manager           |
 
-**Recommended**
+**Auto-installed by `make setup` (when missing)**
+
+| Dependency               | Purpose                                | Installed by |
+| ------------------------ | -------------------------------------- | ------------ |
+| cargo-deny               | `make deny-check` / `make check`       | `make setup` |
+| cargo-about              | `make check-third-party-licenses`      | `make setup` |
+| cargo-llvm-cov           | Coverage (`make coverage*`)            | `make setup` |
+| cargo-afl                | Fuzzing (`make fuzz*`)                 | `make setup` |
+| pytest/pytest-cov        | Script tests (`make test-scripts`)     | `make setup` |
+| black/pylint/mypy/bandit | Python lint (`make lint-python`)       | `make setup` |
+
+**Recommended system dependencies**
 
 | Dependency | Purpose                                | Install                                             |
 | ---------- | -------------------------------------- | --------------------------------------------------- |
 | AFL++      | Fuzzing (`make fuzz`, `make coverage`) | [AFL++](https://github.com/AFLplusplus/AFLplusplus) |
+
+**Preferred linker policy**
+
+- Default linker profile for this project: **gcc + GNU ld (`ld.bfd`)**.
+- The Makefile sets default env values (`CC`, `RUSTFLAGS`) with `?=`,
+  so users can override per command:
+  - `CC=clang RUSTFLAGS="-Clink-arg=-fuse-ld=lld" make debug`
+  - `CC=clang make check-fast`
+- Coverage fallback remains available: `VLZ_COVERAGE_USE_BFD=1` enforces
+  `-fuse-ld=bfd` for coverage runs (see [Running tests and coverage](#running-tests-and-coverage)).
+- Typical first-time installs:
+  - Debian/Ubuntu: `sudo apt install build-essential gcc binutils`
+  - Fedora: `sudo dnf install gcc binutils`
+  - openSUSE: `sudo zypper install gcc binutils`
 
 After installing dependencies and cloning, run:
 
@@ -117,15 +142,16 @@ make -j check
 End-user install options (release binary, `make install`, packages, Docker):
 see [INSTALL.md](INSTALL.md).
 
-Run `make` or `make help` for a full list of targets. `make setup` bootstraps
-Python venvs; REUSE is auto-installed when `check-headers` runs. Recommended:
-`make setup-hooks` for git hooks (REUSE headers, DCO signoff, signature
-verification on push). Commit signing (GPG or SSH) must be configured
-separately -- see [Commit signing setup](#commit-signing-setup). For fuzz:
-AFL++ must be installed; cargo-afl is auto-installed. For coverage: use stable
-Rust with `rustup component add llvm-tools` (CI installs this on stable);
-`cargo install cargo-llvm-cov --locked` when the tool is missing. AFL++ is
-required only when `make coverage` runs (it runs fuzz first).
+Run `make` or `make help` for a full list of targets. `make setup` checks
+system prerequisites (`python3`, `cargo`, `shellcheck`) and bootstraps
+non-system developer tools (cargo-deny, cargo-about, cargo-llvm-cov,
+cargo-afl, Python lint/test venvs). REUSE is auto-installed when
+`check-headers` runs. Recommended: `make setup-hooks` for git hooks (REUSE
+headers, DCO signoff, signature verification on push). Commit signing (GPG or
+SSH) must be configured separately -- see
+[Commit signing setup](#commit-signing-setup). For fuzz, AFL++ must be
+installed separately. For coverage, use stable Rust with
+`rustup component add llvm-tools` (CI installs this on stable).
 
 ### Quick reference
 

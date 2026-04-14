@@ -17,12 +17,19 @@ VENV_REUSE := $(MKFILE_DIR)/.venv-reuse
 VENV_TEST := $(MKFILE_DIR)/.venv-test
 # Override for CI or a pinned binary (NFR-009, SEC-012).
 CARGO_DENY ?= cargo deny
+# Deterministic default linker toolchain; users can override at invocation:
+#   CC=clang RUSTFLAGS="-Clink-arg=-fuse-ld=lld" make debug
+CC ?= gcc
+VLZ_LINKER_RUSTFLAG ?= -Clink-arg=-fuse-ld=bfd
+RUSTFLAGS ?= $(VLZ_LINKER_RUSTFLAG)
 # clean targets use +stable so a broken rust-toolchain.toml install cannot block
 # removing target/ and coverage data (cargo clean does not need the pin).
 CARGO_FOR_CLEAN ?= cargo +stable
 
 .PHONY: help all debug release
-.PHONY: setup setup-hooks check check-fast check-slow check-dco check-signatures
+.PHONY: setup setup-hooks setup-dev-tools setup-system-deps
+.PHONY: setup-cargo-deny setup-cargo-about setup-cargo-llvm-cov setup-cargo-afl
+.PHONY: check check-fast check-slow check-dco check-signatures
 .PHONY: check-headers check-header-duplicates headers
 .PHONY: update-doc-diagrams check-doc-diagrams
 .PHONY: cargo-check cargo-test unit-tests test-scripts
@@ -45,7 +52,8 @@ help:
 	@echo "verilyze development targets:"
 	@echo ""
 	@echo "  Onboarding:"
-	@echo "    make setup       - Bootstrap Python venvs (.venv-lint, .venv-test)"
+	@echo "    make setup       - Check system deps + bootstrap dev tools and Python venvs"
+	@echo "    make setup-dev-tools - Install cargo-deny/about/llvm-cov/afl if missing"
 	@echo "    make setup-hooks - Install git hooks (REUSE headers, DCO signoff, signature check)"
 	@echo ""
 	@echo "  Quick iteration:"
@@ -110,10 +118,10 @@ help:
 	@echo "    make install   - Install binary, config example, man page (PREFIX=/usr/local)"
 
 # ---- Setup & environment ----
-# Prepare dev environment: bootstrap Python venvs for lint and tests.
+# Prepare dev environment: bootstrap Python venvs and non-system Rust CLI tools.
 # System deps (rust, python3, shellcheck, afl++) must be installed separately;
 # see CONTRIBUTING.md "Quick setup".
-setup: $(VENV_LINT)/bin/black $(VENV_TEST)/bin/pytest
+setup: setup-system-deps setup-dev-tools $(VENV_LINT)/bin/black $(VENV_TEST)/bin/pytest
 	@echo "Dev environment ready. Run: make check"
 	@echo "Recommended:"
 	@echo "  make setup-hooks # git hooks (REUSE headers, DCO signoff, signature check)"
@@ -123,6 +131,37 @@ setup: $(VENV_LINT)/bin/black $(VENV_TEST)/bin/pytest
 
 setup-hooks:
 	$(SCRIPTS_DIR)/install-hooks.sh
+
+setup-system-deps:
+	@command -v python3 >/dev/null 2>&1 || \
+		(echo "ERROR: python3 is required. Install via your OS package manager." >&2 && exit 1)
+	@command -v cargo >/dev/null 2>&1 || \
+		(echo "ERROR: cargo is required. Install rustup from https://rustup.rs/." >&2 && exit 1)
+	@command -v gcc >/dev/null 2>&1 || \
+		(echo "ERROR: gcc is required for default Makefile linker settings." >&2 && exit 1)
+	@command -v ld.bfd >/dev/null 2>&1 || \
+		(echo "ERROR: ld.bfd is required for default Makefile linker settings." >&2 && exit 1)
+	@command -v shellcheck >/dev/null 2>&1 || \
+		(echo "ERROR: shellcheck is required for make check." >&2 && \
+		 echo "Install hint (Debian/Ubuntu): sudo apt install shellcheck" >&2 && \
+		 echo "Install hint (Fedora): sudo dnf install ShellCheck" >&2 && \
+		 echo "Install hint (openSUSE): sudo zypper install ShellCheck" >&2 && \
+		 exit 1)
+
+setup-dev-tools: setup-cargo-deny setup-cargo-about setup-cargo-llvm-cov setup-cargo-afl
+
+setup-cargo-deny:
+	@command -v cargo-deny >/dev/null 2>&1 || cargo install cargo-deny --locked
+
+setup-cargo-about:
+	@command -v cargo-about >/dev/null 2>&1 || cargo install cargo-about --locked
+
+setup-cargo-llvm-cov:
+	@command -v cargo-llvm-cov >/dev/null 2>&1 || \
+		cargo install cargo-llvm-cov --locked
+
+setup-cargo-afl:
+	@command -v cargo-afl >/dev/null 2>&1 || cargo install cargo-afl
 
 # ---- Headers ----
 # check-header-duplicates: verify no duplicate copyright holders per .mailmap (DOC-013)
@@ -225,7 +264,7 @@ fmt:
 
 # clippy: Rust linter; fail on all warnings (NFR-008)
 clippy:
-	cd "$(MKFILE_DIR)" && RUSTFLAGS="-Dwarnings" cargo clippy --all-targets --all-features
+	cd "$(MKFILE_DIR)" && RUSTFLAGS="$(RUSTFLAGS) -Dwarnings" cargo clippy --all-targets --all-features
 
 # ---- Advanced (fuzz, coverage) ----
 # fuzz: AFL smoke test (NFR-020, SEC-017). Requires cargo-afl and AFL++.
