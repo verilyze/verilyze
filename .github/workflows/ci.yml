@@ -241,6 +241,9 @@ jobs:
             cargo-llvm-cov@0.8.5,cargo-deny@0.19.0,cargo-afl@0.17.1,cargo-about@0.8.4
 
       - name: Run make -j check (full Makefile gate)
+        env:
+          CC: gcc
+          RUSTFLAGS: -Clink-arg=-fuse-ld=bfd
         run: make -j check
 
       - name: Upload Cobertura XML reports

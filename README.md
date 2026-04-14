@@ -202,8 +202,17 @@ searchable and linkable. For **security vulnerabilities**, use the process in
 
 ## For contributors
 
-Run `make check` for the standard pre-commit gate. For fuzz testing (smoke,
-changed-code-only, or extended), see [CONTRIBUTING.md](CONTRIBUTING.md)
+Run `make setup` first. It checks required system tools (`python3`, `cargo`,
+`shellcheck`) and bootstraps non-system developer tools (`cargo-deny`,
+`cargo-about`, `cargo-llvm-cov`, `cargo-afl`, plus Python lint/test venvs).
+If the first compile warns about a missing linker, install `gcc` + `ld.bfd`
+(typically via `binutils`) and retry. Defaults are overridable per invocation,
+for example `CC=clang RUSTFLAGS="-Clink-arg=-fuse-ld=lld" make debug`.
+On Linux, if coverage link behavior needs explicit GNU `ld.bfd`, use
+`VLZ_COVERAGE_USE_BFD=1` as documented in
+[CONTRIBUTING.md](CONTRIBUTING.md#running-tests-and-coverage).
+Then run `make check` for the standard pre-commit gate. For fuzz testing
+(smoke, changed-code-only, or extended), see [CONTRIBUTING.md](CONTRIBUTING.md)
 (Fuzz testing, NFR-020).
 
 ## Documentation

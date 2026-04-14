@@ -33,6 +33,31 @@ or add the directory to `PATH`:
 
 The release profile uses a stripped binary (PRD NFR-023).
 
+### Build troubleshooting: missing linker on first compile
+
+If the first `make debug`, `make release`, or `cargo build` warns that a linker
+is missing, install a system C toolchain and linker. Preferred for this project:
+**`gcc` + GNU `ld` (`ld.bfd`)**.
+
+Typical installs:
+
+```bash
+# Debian/Ubuntu
+sudo apt install build-essential gcc binutils
+
+# Fedora
+sudo dnf install gcc binutils
+
+# openSUSE
+sudo zypper install gcc binutils
+```
+
+Local linker defaults are overridable per command, for example:
+`CC=clang RUSTFLAGS="-Clink-arg=-fuse-ld=lld" make debug`.
+
+For contributor-oriented setup details and coverage fallback guidance, see
+[CONTRIBUTING.md](CONTRIBUTING.md#quick-setup).
+
 ## `make install` (prefix layout)
 
 Installs the release binary, `verilyze.conf.example`, man pages, and shell
