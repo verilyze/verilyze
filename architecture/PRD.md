@@ -5,7 +5,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
 # verilyze (vlz) – Requirements Specification
-*Version 1.0 – 29 Jan 2026*
 
 ---
 
