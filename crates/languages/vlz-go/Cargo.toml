@@ -11,14 +11,14 @@ description = "Go language plugin for verilyze (manifest finder, parser, resolve
 publish = false
 
 [dependencies]
-async-trait = "0.1"
-thiserror = "2.0"
-regex = ">=1.5.5"  # CVE-2022-24713 fix (SEC-022)
+async-trait.workspace = true
+thiserror.workspace = true
+regex.workspace = true  # CVE-2022-24713 fix (SEC-022)
 vlz-db = { path = "../../core/vlz-db" }
 vlz-manifest-finder = { path = "../../core/vlz-manifest-finder" }
 vlz-manifest-parser = { path = "../../core/vlz-manifest-parser" }
-tokio = { version = "1", features = ["fs"] }
+tokio = { workspace = true, features = ["fs"] }
 
 [dev-dependencies]
-tempfile = "3"
-tokio = { version = "1", features = ["rt", "macros"] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt", "macros"] }

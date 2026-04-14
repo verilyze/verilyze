@@ -574,6 +574,35 @@ Dependencies design principle.
 - When using regex on untrusted patterns or input, satisfy SEC-022 (no
   catastrophic backtracking).
 
+### Duplicate package triage (`cargo-deny` bans)
+
+Use this workflow when `make deny-check` reports duplicate crates:
+
+1. Run `make deny-check` and inspect duplicate warnings.
+2. Run `cargo tree -d` to identify which dependency paths introduce each
+   duplicate.
+3. Prefer unifying versions through `[workspace.dependencies]` in the root
+   `Cargo.toml`, then consume those versions with `*.workspace = true` in crate
+   manifests.
+4. If duplicates are target- or ecosystem-constrained and cannot be unified,
+   add narrowly scoped `bans.skip` entries in `deny.toml` with a clear `reason`.
+   Prefer crate+version entries over broad `skip-tree`.
+5. Keep duplicate policy strict by default (`multiple-versions = "deny"`), and
+   use justified, minimal exceptions only.
+6. Re-audit existing `bans.skip` entries periodically by removing one skip at a
+   time in a temporary deny config and running `cargo deny check bans`. Remove
+   skip entries immediately when they no longer trigger duplicate failures.
+7. For any dependency version or feature change made during convergence, run
+   `cargo deny check licenses` (or `make deny-check`) and keep only
+   GPL-3.0-or-later-compatible results.
+
+Current audit outcome for verilyze:
+- Skips in `deny.toml` are still required today. Removing any current skipped
+  crate causes `cargo deny check bans` duplicate failures.
+- Remaining skips are platform-conditional runtime transitive dependencies
+  (macOS/Windows) or upstream major-version constraints in the rustls/ring
+  ecosystem. They are not primarily fuzz-only dependencies.
+
 ## Copyright and licensing (REUSE)
 
 The project uses the [REUSE](https://reuse.software/) toolchain for SPDX

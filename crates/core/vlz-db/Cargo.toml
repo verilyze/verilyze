@@ -11,11 +11,11 @@ description = "DatabaseBackend trait and related data structures for verilyze"
 publish = false
 
 [dependencies]
-async-trait = "0.1"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-thiserror = "2.0"
+async-trait.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
-tempfile = "3"
-tokio = { version = "1", features = ["rt", "macros"] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt", "macros"] }

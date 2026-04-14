@@ -38,7 +38,7 @@ targets = [
 # they are connected to another crate in the graph that hasn't been pruned,
 # so it should be used with care. The identifiers are [Package ID Specifications]
 # (https://doc.rust-lang.org/cargo/reference/pkgid-spec.html)
-#exclude = []
+exclude = ["vlz-fuzz"]
 # If true, metadata will be collected with `--all-features`. Note that this can't
 # be toggled off if true, if you want to conditionally enable `--all-features` it
 # is recommended to pass `--all-features` on the cmd line instead
@@ -147,7 +147,7 @@ registries = [
 # https://embarkstudios.github.io/cargo-deny/checks/bans/cfg.html
 [bans]
 # Lint level for when multiple versions of the same crate are detected
-multiple-versions = "warn"
+multiple-versions = "deny"
 # Lint level for when a crate version requirement is `*`
 wildcards = "allow"
 # The graph highlighting used when creating dotgraphs for crates
@@ -203,8 +203,27 @@ deny = [
 
 # Certain crates/versions that will be skipped when doing duplicate detection.
 skip = [
-    #"ansi_term@0.11.0",
-    #{ crate = "ansi_term@0.11.0", reason = "you can specify a reason why it can't be updated/removed" },
+    # Platform-targeted and toolchain-specific transitive crates.
+    # Audit result: each entry still triggers duplicate-version failures when
+    # removed one-at-a-time. Keep these until upstream convergence is available.
+    # Requirements linkage:
+    # - OP-018 keeps reqwest system-proxy behavior, which keeps some macOS paths.
+    # - SEC-021 requires platform verifier behavior on Windows/macOS.
+    # - Rustls/ring stack currently requires mixed major versions for some crates.
+    { crate = "core-foundation@0.9.4", reason = "legacy macOS system-configuration dependency from hyper-util stack" },
+    { crate = "getrandom@0.2.17", reason = "required by ring and rustls transitive dependencies" },
+    { crate = "thiserror@1.0.69", reason = "jni dependency chain still requires thiserror 1.x" },
+    { crate = "thiserror-impl@1.0.69", reason = "paired proc-macro crate for thiserror 1.x from jni chain" },
+    { crate = "windows-sys@0.45.0", reason = "legacy windows ABI dependency via jni ecosystem" },
+    { crate = "windows-sys@0.52.0", reason = "transitive windows ABI dependency from crypto/tooling stack" },
+    { crate = "windows-targets@0.42.2", reason = "legacy target support crate pulled by windows-sys 0.45.x" },
+    { crate = "windows_aarch64_gnullvm@0.42.2", reason = "legacy windows target support crate from windows-targets 0.42.x" },
+    { crate = "windows_aarch64_msvc@0.42.2", reason = "legacy windows target support crate from windows-targets 0.42.x" },
+    { crate = "windows_i686_gnu@0.42.2", reason = "legacy windows target support crate from windows-targets 0.42.x" },
+    { crate = "windows_i686_msvc@0.42.2", reason = "legacy windows target support crate from windows-targets 0.42.x" },
+    { crate = "windows_x86_64_gnu@0.42.2", reason = "legacy windows target support crate from windows-targets 0.42.x" },
+    { crate = "windows_x86_64_gnullvm@0.42.2", reason = "legacy windows target support crate from windows-targets 0.42.x" },
+    { crate = "windows_x86_64_msvc@0.42.2", reason = "legacy windows target support crate from windows-targets 0.42.x" },
 ]
 # Similarly to `skip` allows you to skip certain crates during duplicate
 # detection. Unlike skip, it also includes the entire tree of transitive

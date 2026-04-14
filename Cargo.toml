@@ -58,4 +58,17 @@ readme = "README.md"
 
 # CVE provider HTTP client (OP-018); system-proxy enables macOS/Windows OS proxy when env unset.
 [workspace.dependencies]
+async-trait = "0.1"
+clap = "4.6"
+clap_complete = "4.6"
+regex = "1.12"
 reqwest = { version = "0.13", default-features = false, features = ["json", "query", "rustls-no-provider", "system-proxy"] }
+serde = "1.0"
+serde_json = "1.0.149"
+sha2 = "0.10"
+temp-env = "0.3"
+tempfile = "3.27"
+thiserror = "2.0.18"
+tokio = "1.51"
+toml = "1.1"
+wiremock = "0.6"
