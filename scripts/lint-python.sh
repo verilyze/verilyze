@@ -19,14 +19,18 @@ cd "$REPO_ROOT"
 
 V="${VENV_BIN:-.venv-lint/bin}"
 
-# Resolve each tool: venv if executable, else fall back to system
+# Resolve each tool: venv if runnable, else fall back to system.
 resolve_tool() {
   local name=$1
   local venv_path="$V/$name"
-  if [ -x "$venv_path" ] 2>/dev/null; then
+  if [ -x "$venv_path" ] 2>/dev/null && \
+    "$venv_path" --version >/dev/null 2>&1; then
     echo "$venv_path"
-  else
+  elif command -v "$name" >/dev/null 2>&1; then
     echo "$name"
+  else
+    echo "python lint tool not found in venv or PATH: $name" >&2
+    return 1
   fi
 }
 
