@@ -344,21 +344,18 @@ deny-check:
 	cd "$(MKFILE_DIR)" && $(CARGO_DENY) check
 
 # generate-third-party-licenses: Produce THIRD-PARTY-LICENSES for Docker and packages.
-# Syncs license config first, then runs cargo-about.
-# Uses cargo-about (cargo install cargo-about). For Docker build use --no-default-features
-# --features docker; for default build omit those flags.
-generate-third-party-licenses: sync-license-config
-	cd "$(MKFILE_DIR)" && cargo about generate -o THIRD-PARTY-LICENSES --fail \
-		-c about.toml -m crates/core/vlz/Cargo.toml about.hbs
+# Syncs license config first, then runs cargo-about (scripts/generate-third-party-
+# licenses.sh). Uses cargo-about (cargo install cargo-about). Docker variant:
+# --no-default-features --features docker.
+generate-third-party-licenses:
+	$(SCRIPTS_DIR)/generate-third-party-licenses.sh
 
-generate-third-party-licenses-docker: sync-license-config
-	cd "$(MKFILE_DIR)" && cargo about generate -o THIRD-PARTY-LICENSES --fail \
-		-c about.toml -m crates/core/vlz/Cargo.toml --no-default-features --features docker about.hbs
+generate-third-party-licenses-docker:
+	$(SCRIPTS_DIR)/generate-third-party-licenses.sh --docker
 
 # check-third-party-licenses: Regenerate THIRD-PARTY-LICENSES and fail if it differs from committed.
-check-third-party-licenses: sync-license-config
-	cd "$(MKFILE_DIR)" && cargo about generate -o THIRD-PARTY-LICENSES --fail \
-		-c about.toml -m crates/core/vlz/Cargo.toml about.hbs
+check-third-party-licenses:
+	$(SCRIPTS_DIR)/generate-third-party-licenses.sh
 	@cd "$(MKFILE_DIR)" && git diff --exit-code THIRD-PARTY-LICENSES || \
 		(echo "THIRD-PARTY-LICENSES is out of sync. Run: make generate-third-party-licenses" && exit 1)
 

@@ -8,7 +8,11 @@
   "rebaseWhen": "behind-base-branch",
   "platformAutomerge": true,
   "prConcurrentLimit": 3,
+  "constraints": {
+    "rust": "1.94.1"
+  },
   "enabledManagers": [
+    "cargo",
     "dockerfile",
     "custom.regex",
     "github-actions",
@@ -125,6 +129,25 @@
       "groupName": "reuse-tooling-pip"
     },
     {
+      "description": "Rust workspace: regenerate THIRD-PARTY-LICENSES after Cargo updates",
+      "matchManagers": ["cargo"],
+      "postUpgradeTasks": {
+        "commands": ["bash scripts/renovate-post-upgrade-licenses.sh"],
+        "executionMode": "branch",
+        "fileFilters": ["THIRD-PARTY-LICENSES"],
+        "installTools": {
+          "rust": {},
+          "python": {}
+        }
+      }
+    },
+    {
+      "description": "Workspace Rust crates: minor/patch in one PR",
+      "matchManagers": ["cargo"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "rust-workspace-minor-patch"
+    },
+    {
       "description": "Enable GitHub platform auto-merge after CI for non-major updates",
       "matchUpdateTypes": ["minor", "patch", "digest", "pin"],
       "automerge": true
@@ -132,6 +155,11 @@
     {
       "description": "Major updates require manual review and merge",
       "matchUpdateTypes": ["major"],
+      "automerge": false
+    },
+    {
+      "description": "Rust workspace deps: no automerge until cargo rollout verified",
+      "matchManagers": ["cargo"],
       "automerge": false
     }
   ]

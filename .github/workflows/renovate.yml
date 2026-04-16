@@ -3,9 +3,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 ---
-# Scheduled Renovate: twice weekly (Mon/Thu 05:00 UTC). Dockerfile, super-linter
-# digest (regex), rust-toolchain.toml channel (regex + rust-lang/rust tags),
-# GitHub Actions (commit SHA + tag comment; minor/patch grouped in one PR).
+# Scheduled Renovate: twice weekly (Mon/Thu 05:00 UTC). Cargo workspace deps,
+# Dockerfile, super-linter digest (regex), rust-toolchain.toml channel (regex +
+# rust-lang/rust tags), GitHub Actions (commit SHA + tag comment; minor/patch
+# grouped in one PR). Post-upgrade: THIRD-PARTY-LICENSES via
+# scripts/renovate-post-upgrade-licenses.sh (requires RENOVATE_ALLOWED_COMMANDS).
+# Job runs on ubuntu-latest; Renovate executes inside its container image.
 # See renovate.json. Uses a GitHub App installation token (short-lived), not PAT.
 
 name: Renovate
@@ -41,3 +44,5 @@ jobs:
           token: ${{ steps.renovate-token.outputs.token }}
         env:
           RENOVATE_REPOSITORIES: ${{ github.repository }}
+          # postUpgradeTasks (THIRD-PARTY-LICENSES); global-only in Renovate
+          RENOVATE_ALLOWED_COMMANDS: '["^bash scripts/renovate-post-upgrade-licenses\\.sh$"]'
