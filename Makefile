@@ -15,6 +15,7 @@ LINT_PYTHON_SCRIPT := $(SCRIPTS_DIR)/lint-python.sh
 VENV_LINT := $(MKFILE_DIR)/.venv-lint
 VENV_REUSE := $(MKFILE_DIR)/.venv-reuse
 VENV_TEST := $(MKFILE_DIR)/.venv-test
+LINT_PYTHON_PACKAGES := black pylint mypy bandit
 # Override for CI or a pinned binary (NFR-009, SEC-012).
 CARGO_DENY ?= cargo deny
 # Deterministic default linker toolchain; users can override at invocation:
@@ -233,8 +234,16 @@ unit-tests: cargo-test test-scripts
 # ---- Lint ----
 # Bootstrap .venv-lint with linters if missing
 $(VENV_LINT)/bin/black:
+	@if [ -x "$(VENV_LINT)/bin/black" ] && \
+	      "$(VENV_LINT)/bin/black" --version >/dev/null 2>&1 && \
+	      "$(VENV_LINT)/bin/pylint" --version >/dev/null 2>&1 && \
+	      "$(VENV_LINT)/bin/mypy" --version >/dev/null 2>&1 && \
+	      "$(VENV_LINT)/bin/bandit" --version >/dev/null 2>&1; then \
+		exit 0; \
+	fi
+	rm -rf $(VENV_LINT)
 	python3 -m venv $(VENV_LINT)
-	$(VENV_LINT)/bin/pip install black pylint mypy bandit
+	$(VENV_LINT)/bin/pip install $(LINT_PYTHON_PACKAGES)
 
 # lint-python: black, pylint, mypy, bandit (aggregates failures; NFR-021)
 lint-python: $(VENV_LINT)/bin/black

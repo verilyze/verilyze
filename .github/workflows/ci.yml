@@ -150,7 +150,6 @@ jobs:
             'scripts/requirements-reuse.txt')) }}
           restore-keys: |
             ${{ runner.os }}-python-${{ steps.python.outputs.python-version }}-venvs-
-            ${{ runner.os }}-python-
 
       # ubuntu-latest ships rustup (see zizmor superfluous-actions: prefer rustup
       # over dtolnay/rust-toolchain). First rustc/cargo in this repo provisions
