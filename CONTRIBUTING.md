@@ -803,7 +803,33 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   (`helpers:pinGitHubActionDigests`). **Minor** and **patch** action updates are
   grouped into **one** PR; **major** upgrades stay in **separate** PRs.
   Dockerfile base images still follow the `dockerfile` rules in
-  [`renovate.json`](renovate.json). The config extends **`:gitSignOff`** so
+  [`renovate.json`](renovate.json).
+  The **`cargo`** manager updates **workspace** Rust dependencies in
+  `Cargo.toml` / `Cargo.lock` (**minor** and **patch** are grouped into
+  **`rust-workspace-minor-patch`**).
+  **Cargo**-related PRs use **`automerge: false`** (overrides the general
+  non-major automerge rule) until maintainers re-enable after the rollout is
+  verified.
+  After Cargo updates, **`postUpgradeTasks`** run
+  **`bash scripts/renovate-post-upgrade-licenses.sh`** once per branch
+  (**`executionMode: branch`**). That wrapper installs **`cargo-about`** if
+  needed, then runs **`scripts/generate-third-party-licenses.sh`**, the same
+  script invoked by **`make generate-third-party-licenses`**. Containerbase
+  **`installTools`** (**`rust`**, **`python`**) supplies the toolchain; the
+  **`cargo-about`** pin matches
+  [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+  The workflow sets **`RENOVATE_ALLOWED_COMMANDS`** (Renovate global
+  **`allowedCommands`**) so that script is permitted; without it,
+  **`postUpgradeTasks`** do not run.
+  Keep **`constraints.rust`** in [`renovate.json`](renovate.json) aligned with
+  the **`channel`** in [`rust-toolchain.toml`](rust-toolchain.toml).
+  If regeneration fails because a new license needs an allowlist change, edit
+  **`deny.toml`**, run **`make generate-third-party-licenses`**, and push to the
+  Renovate branch.
+  The workflow **job** uses **ubuntu-latest**; the **Renovate** process runs
+  inside the **Renovate** Docker image on that runner, not on a bare Ubuntu
+  shell.
+  The config extends **`:gitSignOff`** so
   each Renovate commit includes **`Signed-off-by:`** in the message body, which
   satisfies [`scripts/check-dco.sh`](scripts/check-dco.sh) and the **check-dco**
   CI job (same expectation as `git commit -s` for humans).
@@ -834,6 +860,8 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   The job sets **`RENOVATE_REPOSITORIES`** to **`${{ github.repository }}`**
   so Renovate targets the current repo; without it, the run logs *No
   repositories found* and does nothing.
+  It also sets **`RENOVATE_ALLOWED_COMMANDS`** for **`postUpgradeTasks`** (see
+  above).
   After merging a digest PR, run `make super-linter-full` and fix any new
   findings. **Manual upgrade:** resolve a new digest from
   `ghcr.io/super-linter/super-linter:slim-latest` (see comment in

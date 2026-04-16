@@ -103,4 +103,4 @@ observable behavior.
 | DRY / constants      | PRD NFR-024; CONTRIBUTING "DRY (Don't Repeat Yourself)"                              |
 | Parser selection     | PRD NFR-025 (manifest format compatibility, use existing vs in-house)               |
 | Super-linter         | CONTRIBUTING "Code style and checks" (Super-linter bullet; Biome file globs in [biome.json](biome.json)) |
-| Renovate             | [renovate.json](renovate.json); [`.github/workflows/renovate.yml`](.github/workflows/renovate.yml); GitHub App secrets `RENOVATE_APP_ID` / `RENOVATE_APP_PRIVATE_KEY`; CONTRIBUTING Super-linter digest bumps |
+| Renovate             | [renovate.json](renovate.json); [`.github/workflows/renovate.yml`](.github/workflows/renovate.yml); GitHub App secrets `RENOVATE_APP_ID` / `RENOVATE_APP_PRIVATE_KEY`; Cargo workspace + `RENOVATE_ALLOWED_COMMANDS` (CONTRIBUTING Super-linter / Rust sections) |
