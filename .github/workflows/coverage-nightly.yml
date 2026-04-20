@@ -95,7 +95,7 @@ jobs:
           cache-on-failure: true
 
       - name: Install cargo tooling (llvm-cov, deny, afl, about)
-        uses: taiki-e/install-action@5939f3337e40968c39aa70f5ecb1417a92fb25a0 # v2.75.15
+        uses: taiki-e/install-action@055f5df8c3f65ea01cd41e9dc855becd88953486 # v2.75.18
         with:
           tool: >-
             cargo-llvm-cov@0.8.5,cargo-deny@0.19.0,cargo-afl@0.17.1,cargo-about@0.8.4
