@@ -214,6 +214,7 @@ skip = [
     { crate = "getrandom@0.2.17", reason = "required by ring and rustls transitive dependencies" },
     { crate = "thiserror@1.0.69", reason = "jni dependency chain still requires thiserror 1.x" },
     { crate = "thiserror-impl@1.0.69", reason = "paired proc-macro crate for thiserror 1.x from jni chain" },
+    { crate = "wit-bindgen@0.51.0", reason = "transitive WASI preview3 path via getrandom/tempfile alongside newer wit-bindgen from wasip2" },
     { crate = "windows-sys@0.45.0", reason = "legacy windows ABI dependency via jni ecosystem" },
     { crate = "windows-sys@0.52.0", reason = "transitive windows ABI dependency from crypto/tooling stack" },
     { crate = "windows-targets@0.42.2", reason = "legacy target support crate pulled by windows-sys 0.45.x" },
