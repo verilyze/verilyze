@@ -37,6 +37,7 @@ flowchart TD
 | cache_db | string |  | `VLZ_CACHE_DB` | `--cache-db` |
 | ignore_db | string |  | `VLZ_IGNORE_DB` | `--ignore-db` |
 | parallel_queries | integer | 10 | `VLZ_PARALLEL_QUERIES` | `--parallel` |
+| scan_exclude_dirs | string | .git | `VLZ_SCAN_EXCLUDE_DIRS` | `--scan-exclude-dir (repeatable)` |
 | cache_ttl_secs | integer | 432000 | `VLZ_CACHE_TTL_SECS` | `--cache-ttl-secs` |
 | min_score | float | 0 | `VLZ_MIN_SCORE` | `--min-score` |
 | min_count | integer | 0 | `VLZ_MIN_COUNT` | `--min-count` |

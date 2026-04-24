@@ -56,6 +56,9 @@ pub const DEFAULT_PARALLEL_QUERIES: usize = 10;
 /// Default cache TTL in seconds (OP-009: 5 days).
 pub const DEFAULT_CACHE_TTL_SECS: u64 = 5 * 24 * 60 * 60;
 
+/// Default directory names to skip during manifest discovery.
+pub const DEFAULT_SCAN_EXCLUDE_DIRS: &[&str] = &[".git"];
+
 /// Default backoff base in milliseconds (SEC-007).
 pub const DEFAULT_BACKOFF_BASE_MS: u64 = 100;
 
@@ -88,6 +91,8 @@ pub struct EffectiveConfig {
     pub project_id: Option<String>,
     /// Per-language manifest regex patterns (FR-006); order = first match wins.
     pub language_regexes: Vec<(String, String)>,
+    /// Directory names to skip during manifest discovery.
+    pub scan_exclude_dirs: Vec<String>,
     /// If true, exit 3 with hint when required package manager (e.g. pip) is not on PATH (FR-024).
     pub package_manager_required: bool,
     /// Backoff base delay in milliseconds (NFR-005, SEC-007, OP-010).
@@ -122,6 +127,10 @@ impl Default for EffectiveConfig {
             fp_exit_code: None,
             project_id: None,
             language_regexes: Vec::new(),
+            scan_exclude_dirs: DEFAULT_SCAN_EXCLUDE_DIRS
+                .iter()
+                .map(|v| (*v).to_string())
+                .collect(),
             package_manager_required: false,
             backoff_base_ms: 0,
             backoff_max_ms: 0,
@@ -169,6 +178,8 @@ struct FileConfig {
     provider_http_request_timeout_secs: Option<u64>,
     #[serde(rename = "tls_crl_bundle")]
     tls_crl_bundle: Option<String>,
+    #[serde(rename = "scan_exclude_dirs")]
+    scan_exclude_dirs: Option<Vec<String>>,
 }
 
 #[derive(Error, Debug)]
@@ -213,6 +224,7 @@ const KNOWN_FILE_CONFIG_KEYS: &[&str] = &[
     "provider_http_connect_timeout_secs",
     "provider_http_request_timeout_secs",
     "tls_crl_bundle",
+    "scan_exclude_dirs",
 ];
 
 /// Parse and validate raw TOML config content (SEC-006). Used for fuzzing (NFR-020).
@@ -301,6 +313,9 @@ fn apply_file_config_inner(
     }
     if let Some(p) = parsed.tls_crl_bundle {
         cfg.tls_crl_bundle = Some(PathBuf::from(p));
+    }
+    if let Some(dirs) = parsed.scan_exclude_dirs {
+        cfg.scan_exclude_dirs = dirs;
     }
     if extract_language_regexes {
         cfg.language_regexes.clear();
@@ -699,6 +714,9 @@ pub fn load(
     if let Some(p) = env_tls_crl_bundle {
         cfg.tls_crl_bundle = Some(p);
     }
+    if let Some(dirs) = env_scan_exclude_dirs() {
+        cfg.scan_exclude_dirs = dirs;
+    }
 
     // 5) CLI
     if let Some(n) = cli_parallel {
@@ -862,6 +880,17 @@ pub fn env_provider_http_request_timeout_secs() -> Option<u64> {
 /// Read `VLZ_TLS_CRL_BUNDLE` (SEC-021, CFG-005): PEM CRL bundle path (Linux only).
 pub fn env_tls_crl_bundle() -> Option<PathBuf> {
     std::env::var_os("VLZ_TLS_CRL_BUNDLE").map(PathBuf::from)
+}
+
+/// Read `VLZ_SCAN_EXCLUDE_DIRS` as comma-separated directory names.
+pub fn env_scan_exclude_dirs() -> Option<Vec<String>> {
+    std::env::var("VLZ_SCAN_EXCLUDE_DIRS").ok().map(|raw| {
+        raw.split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(ToOwned::to_owned)
+            .collect()
+    })
 }
 
 /// Read all VLZ_SEVERITY_* env vars and return a `SeverityOverrides` (FR-013, CFG-005).
@@ -1242,6 +1271,24 @@ mod tests {
     }
 
     #[test]
+    fn env_scan_exclude_dirs_parses_csv() {
+        temp_env::with_var(
+            "VLZ_SCAN_EXCLUDE_DIRS",
+            Some(".git, node_modules ,target"),
+            || {
+                assert_eq!(
+                    env_scan_exclude_dirs(),
+                    Some(vec![
+                        ".git".to_string(),
+                        "node_modules".to_string(),
+                        "target".to_string()
+                    ])
+                );
+            },
+        );
+    }
+
+    #[test]
     fn env_vars_unset_return_none() {
         temp_env::with_vars(
             [
@@ -1423,6 +1470,7 @@ fp_exit_code = 0
 backoff_base_ms = 50
 backoff_max_ms = 5000
 max_retries = 3
+scan_exclude_dirs = [".git", "target"]
 [python]
 regex = "^req\\.txt$"
 "#;
@@ -1484,6 +1532,10 @@ regex = "^req\\.txt$"
         assert_eq!(cfg.backoff_base_ms, 50);
         assert_eq!(cfg.backoff_max_ms, 5000);
         assert_eq!(cfg.max_retries, 3);
+        assert_eq!(
+            cfg.scan_exclude_dirs,
+            vec![".git".to_string(), "target".to_string()]
+        );
         assert_eq!(
             cfg.language_regexes,
             vec![("python".to_string(), "^req\\.txt$".to_string())]

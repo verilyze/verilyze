@@ -76,6 +76,10 @@ pub enum Commands {
         #[arg(long, value_name = "PATH")]
         ignore_db: Option<String>,
 
+        /// Exclude directory name from manifest discovery (repeatable)
+        #[arg(long, value_name = "DIR")]
+        scan_exclude_dir: Vec<String>,
+
         /// Default TTL in seconds for new cache entries (default: 432000 = 5 days).
         /// Does not change existing entries; use `vlz db set-ttl` to update those.
         #[arg(long, value_name = "SECS")]
@@ -416,6 +420,28 @@ mod tests {
         assert_eq!(root.as_deref(), Some("/tmp"));
         assert_eq!(format, "json");
         assert_eq!(*parallel, Some(5));
+    }
+
+    #[test]
+    fn parse_scan_with_excluded_dirs() {
+        let cli = parse(&[
+            "scan",
+            "/tmp",
+            "--scan-exclude-dir",
+            ".git",
+            "--scan-exclude-dir",
+            "target",
+        ]);
+        let Commands::Scan {
+            scan_exclude_dir, ..
+        } = &cli.cmd
+        else {
+            panic!("expected scan")
+        };
+        assert_eq!(
+            scan_exclude_dir,
+            &vec![".git".to_string(), "target".to_string()]
+        );
     }
 
     #[test]

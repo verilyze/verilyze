@@ -22,6 +22,7 @@ path = "src/main.rs"
 # Core utilities
 clap = { workspace = true, features = ["derive"] }
 clap_complete = { workspace = true, optional = true }
+clap_mangen.workspace = true
 tokio = { workspace = true, features = ["full"] }
 log = "0.4"
 env_logger = "0.11"

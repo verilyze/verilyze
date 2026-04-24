@@ -8,6 +8,7 @@ use clap::CommandFactory as _;
 use log::{LevelFilter, error, info};
 use std::io::Write;
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::sync::Semaphore;
 
 use crate::cli::{Cli, Commands, FpCommands};
@@ -115,6 +116,79 @@ fn deduplicate_packages(packages: &[vlz_db::Package]) -> Vec<vlz_db::Package> {
         .collect()
 }
 
+fn normalized_exclude_dir_names(
+    entries: &[String],
+) -> std::collections::HashSet<String> {
+    entries
+        .iter()
+        .map(|entry| entry.trim())
+        .filter(|entry| !entry.is_empty())
+        .map(ToOwned::to_owned)
+        .collect()
+}
+
+fn should_skip_dir(
+    path: &std::path::Path,
+    exclude: &std::collections::HashSet<String>,
+) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| exclude.contains(name))
+        .unwrap_or(false)
+}
+
+fn discover_manifests_one_pass(
+    root: &std::path::Path,
+    exclude_dirs: &std::collections::HashSet<String>,
+) -> std::io::Result<std::collections::HashMap<String, Vec<std::path::PathBuf>>>
+{
+    let mut out: std::collections::HashMap<String, Vec<std::path::PathBuf>> =
+        std::collections::HashMap::new();
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        for entry in std::fs::read_dir(&dir)? {
+            let entry = entry?;
+            let file_type = entry.file_type()?;
+            if file_type.is_dir() {
+                let path = entry.path();
+                if !should_skip_dir(&path, exclude_dirs) {
+                    stack.push(path);
+                }
+                continue;
+            }
+            if !file_type.is_file() {
+                continue;
+            }
+            let file_name = entry.file_name();
+            let Some(name) = file_name.to_str() else {
+                continue;
+            };
+            #[cfg(feature = "python")]
+            if vlz_python::PYTHON_MANIFEST_NAMES.contains(&name) {
+                out.entry("python".to_string())
+                    .or_default()
+                    .push(entry.path());
+                continue;
+            }
+            #[cfg(feature = "rust")]
+            if name == vlz_rust::RUST_MANIFEST_NAME {
+                out.entry("rust".to_string())
+                    .or_default()
+                    .push(entry.path());
+                continue;
+            }
+            #[cfg(feature = "go")]
+            if name == vlz_go::GO_MANIFEST_NAME {
+                out.entry("go".to_string()).or_default().push(entry.path());
+            }
+        }
+    }
+    for manifests in out.values_mut() {
+        manifests.sort();
+    }
+    Ok(out)
+}
+
 /// MOD-009, DOC-013: Show man page via `vlz help` or `vlz help <subcommand>`.
 /// When docs feature is disabled, prints error and returns 2.
 fn run_help(_subcommand: Option<&str>) -> Result<i32> {
@@ -131,7 +205,8 @@ fn run_help(_subcommand: Option<&str>) -> Result<i32> {
 
     #[cfg(feature = "docs")]
     {
-        const MAN_VLZ: &str = include_str!("../../../../man/vlz.1");
+        const MAN_VLZ: &str =
+            include_str!(concat!(env!("OUT_DIR"), "/embedded_vlz.1"));
         let mut tmp = tempfile::Builder::new()
             .suffix(".1")
             .tempfile()
@@ -346,6 +421,7 @@ pub async fn run(args: Cli) -> Result<i32> {
             provider_http_connect_timeout_secs: cli_provider_http_connect_scan,
             provider_http_request_timeout_secs: cli_provider_http_request_scan,
             tls_crl_bundle: cli_tls_crl_bundle_scan,
+            scan_exclude_dir: cli_scan_exclude_dir_scan,
             severity_v2_critical_min,
             severity_v2_high_min,
             severity_v2_medium_min,
@@ -373,7 +449,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                 v4_medium: severity_v4_medium_min,
                 v4_low: severity_v4_low_min,
             };
-            let effective = crate::config::load(
+            let mut effective = crate::config::load(
                 args.config.as_deref(),
                 crate::config::env_parallel(),
                 crate::config::env_cache_db(),
@@ -415,6 +491,9 @@ pub async fn run(args: Cli) -> Result<i32> {
                 error!("{}", e);
                 anyhow!(e)
             })?;
+            if !cli_scan_exclude_dir_scan.is_empty() {
+                effective.scan_exclude_dirs = cli_scan_exclude_dir_scan;
+            }
             let code = run_scan(
                 root,
                 format,
@@ -573,6 +652,10 @@ pub async fn run(args: Cli) -> Result<i32> {
                 write_stdout(&format!(
                     "parallel_queries = {}\n",
                     cfg.parallel_queries
+                ));
+                write_stdout(&format!(
+                    "scan_exclude_dirs = {}\n",
+                    cfg.scan_exclude_dirs.join(",")
                 ));
                 write_stdout(&format!(
                     "cache_ttl_secs = {}\n",
@@ -1070,19 +1153,46 @@ async fn run_scan(
     // -----------------------------------------------------------------
     // d) Scan phase - find manifest files, parse, resolve (per language triplet)
     // -----------------------------------------------------------------
+    let discovery_started_at = Instant::now();
+    let exclude_dirs =
+        normalized_exclude_dir_names(&effective.scan_exclude_dirs);
     let mut all_packages_with_manifests: Vec<(
         vlz_db::Package,
         std::path::PathBuf,
     )> = Vec::new();
+    let can_use_shared_discovery = effective.language_regexes.is_empty()
+        && finders.iter().take(n).all(|finder| {
+            matches!(finder.language_name(), "python" | "rust" | "go")
+        });
+
+    let mut manifests_by_language: std::collections::HashMap<
+        String,
+        Vec<std::path::PathBuf>,
+    > = if can_use_shared_discovery {
+        discover_manifests_one_pass(&root_path, &exclude_dirs)
+            .context("Failed during manifest discovery")?
+    } else {
+        std::collections::HashMap::new()
+    };
+
     for i in 0..n {
-        let manifests = finders[i]
-            .find(&root_path)
-            .await
-            .context("Failed during manifest discovery")?;
+        let language = finders[i].language_name().to_string();
+        let language_discovery_started_at = Instant::now();
+        let manifests = if can_use_shared_discovery {
+            manifests_by_language.remove(&language).unwrap_or_default()
+        } else {
+            finders[i]
+                .find(&root_path)
+                .await
+                .context("Failed during manifest discovery")?
+        };
+        let language_discovery_ms =
+            language_discovery_started_at.elapsed().as_millis();
         info!(
-            "Found {} manifest(s) for {}",
+            "Found {} manifest(s) for {} in {} ms",
             manifests.len(),
-            finders[i].language_name()
+            language,
+            language_discovery_ms
         );
         let parser = &parsers[i];
         let resolver = &resolvers[i];
@@ -1108,6 +1218,10 @@ async fn run_scan(
             }
         }
     }
+    info!(
+        "Manifest discovery finished in {} ms",
+        discovery_started_at.elapsed().as_millis()
+    );
     info!(
         "Discovered {} package entries",
         all_packages_with_manifests.len()
@@ -1590,5 +1704,35 @@ mod tests {
         assert_eq!(out_pkg.name, pkg.name);
         assert_eq!(out_pkg.version, pkg.version);
         assert!(cves.is_empty());
+    }
+
+    #[test]
+    fn normalized_exclude_dir_names_trims_and_deduplicates() {
+        let input = vec![
+            ".git".to_string(),
+            " target ".to_string(),
+            "".to_string(),
+            ".git".to_string(),
+        ];
+        let got = normalized_exclude_dir_names(&input);
+        assert!(got.contains(".git"));
+        assert!(got.contains("target"));
+        assert_eq!(got.len(), 2);
+    }
+
+    #[cfg(feature = "python")]
+    #[test]
+    fn discover_manifests_one_pass_skips_excluded_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir_all(root.join(".git")).unwrap();
+        std::fs::write(root.join(".git").join("requirements.txt"), "x==1.0\n")
+            .unwrap();
+        std::fs::write(root.join("requirements.txt"), "y==2.0\n").unwrap();
+        let mut excludes = std::collections::HashSet::new();
+        excludes.insert(".git".to_string());
+        let got = discover_manifests_one_pass(root, &excludes).unwrap();
+        let manifests = got.get("python").cloned().unwrap_or_default();
+        assert_eq!(manifests, vec![root.join("requirements.txt")]);
     }
 }

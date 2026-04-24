@@ -11,7 +11,7 @@ use vlz_manifest_finder::{FinderError, ManifestFinder};
 /// setup.py is intentionally excluded -- parsing is deferred (see Appendix A in PRD).
 /// Discovering setup.py without a parser would cause silent false negatives (the tool
 /// would report "no vulnerabilities found" without actually checking any dependencies).
-const PYTHON_MANIFEST_NAMES: &[&str] =
+pub const PYTHON_MANIFEST_NAMES: &[&str] =
     &["requirements.txt", "pyproject.toml", "Pipfile", "setup.cfg"];
 
 /// Python manifest finder that discovers Python manifest files under a directory tree.
@@ -68,21 +68,22 @@ fn walk_dir(
     let entries = std::fs::read_dir(dir)?;
     for entry in entries {
         let entry = entry?;
-        let path = entry.path();
-        let name = match path.file_name().and_then(|n| n.to_str()) {
+        let file_name = entry.file_name();
+        let name = match file_name.to_str() {
             Some(n) => n,
             None => continue,
         };
-        let meta = entry.metadata()?;
-        if meta.is_file() {
+        let file_type = entry.file_type()?;
+        if file_type.is_file() {
             let matches = match patterns {
                 Some(regexes) => regexes.iter().any(|r| r.is_match(name)),
                 None => PYTHON_MANIFEST_NAMES.contains(&name),
             };
             if matches {
-                out.push(path);
+                out.push(entry.path());
             }
-        } else if meta.is_dir() && !meta.is_symlink() {
+        } else if file_type.is_dir() {
+            let path = entry.path();
             walk_dir(&path, patterns, out)?;
         }
     }

@@ -32,6 +32,16 @@ type = "integer"
 env = "VLZ_PARALLEL_QUERIES"
 cli = "--parallel"
 
+[scan_exclude_dirs]
+description = """
+Comma-separated directory names to skip during manifest discovery
+(default: .git)
+"""
+type = "string"
+env = "VLZ_SCAN_EXCLUDE_DIRS"
+cli = "--scan-exclude-dir (repeatable)"
+default = ".git"
+
 [cache_ttl_secs]
 description = "Default cache TTL in seconds (5 days); only affects new entries"
 type = "integer"

@@ -43,6 +43,7 @@ complete -c vlz -n "__fish_vlz_using_subcommand scan" -l provider -d 'Force a pa
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l parallel -d 'Parallel query limit (default 10, max 50)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l cache-db -d 'Override cache database path' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l ignore-db -d 'Override ignore (false-positive) database path' -r
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l scan-exclude-dir -d 'Exclude directory name from manifest discovery (repeatable)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l cache-ttl-secs -d 'Default TTL in seconds for new cache entries (default: 432000 = 5 days). Does not change existing entries; use `vlz db set-ttl` to update those' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l min-score -d 'Minimum CVSS score to count toward exit code' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l min-count -d 'Minimum count of CVEs meeting min-score to trigger CVE exit code (0 = any)' -r

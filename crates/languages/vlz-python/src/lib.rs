@@ -8,7 +8,7 @@ mod finder;
 mod parser;
 mod resolver;
 
-pub use finder::PythonManifestFinder;
+pub use finder::{PYTHON_MANIFEST_NAMES, PythonManifestFinder};
 pub use parser::{
     RequirementsTxtParser, parse_pipfile, parse_pyproject_toml,
     parse_requirements_txt, parse_setup_cfg,

@@ -61,6 +61,7 @@ readme = "README.md"
 async-trait = "0.1"
 clap = "4.6"
 clap_complete = "4.6"
+clap_mangen = "0.2"
 regex = "1.12"
 reqwest = { version = "0.13", default-features = false, features = ["json", "query", "rustls-no-provider", "system-proxy"] }
 serde = "1.0"

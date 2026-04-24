@@ -8,6 +8,6 @@ mod finder;
 mod parser;
 mod resolver;
 
-pub use finder::RustManifestFinder;
+pub use finder::{RUST_MANIFEST_NAME, RustManifestFinder};
 pub use parser::{CargoTomlParser, parse_cargo_toml};
 pub use resolver::{CargoResolver, find_lock_file, parse_cargo_lock};
