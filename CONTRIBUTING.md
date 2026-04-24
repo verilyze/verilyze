@@ -807,6 +807,9 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   grouped into **one** PR; **major** upgrades stay in **separate** PRs.
   Dockerfile base images still follow the `dockerfile` rules in
   [`renovate.json`](renovate.json).
+  The **`pep621`** manager updates [`pyproject.toml`](pyproject.toml) (PEP 621
+  optional dev dependencies such as pytest and pytest-cov); **minor** and
+  **patch** bumps are grouped into **`pyproject-dev-minor-patch`**.
   The **`cargo`** manager updates **workspace** Rust dependencies in
   `Cargo.toml` / `Cargo.lock` (**minor** and **patch** are grouped into
   **`rust-workspace-minor-patch`**).
