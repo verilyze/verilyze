@@ -59,6 +59,12 @@ Default: 10.
 Env: VLZ_PARALLEL_QUERIES.
 CLI: --parallel.
 
+.It Va scan_exclude_dirs
+Comma-separated directory names to skip during manifest discovery (default: .git).
+Default: .git.
+Env: VLZ_SCAN_EXCLUDE_DIRS.
+CLI: --scan-exclude-dir (repeatable).
+
 .It Va cache_ttl_secs
 Default cache TTL in seconds (5 days); only affects new entries.
 Default: 432000.

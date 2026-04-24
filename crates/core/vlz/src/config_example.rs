@@ -124,6 +124,7 @@ pub fn generate_example(cfg: &crate::config::EffectiveConfig) -> String {
         ("cache_db", cache_db),
         ("ignore_db", ignore_db),
         ("parallel_queries", cfg.parallel_queries.to_string()),
+        ("scan_exclude_dirs", cfg.scan_exclude_dirs.join(",")),
         ("cache_ttl_secs", cfg.cache_ttl_secs.to_string()),
         ("min_score", cfg.min_score.to_string()),
         ("min_count", cfg.min_count.to_string()),
@@ -163,6 +164,7 @@ pub fn generate_example(cfg: &crate::config::EffectiveConfig) -> String {
         }
         let val_display = if key == "cache_db"
             || key == "ignore_db"
+            || key == "scan_exclude_dirs"
             || key == "tls_crl_bundle"
         {
             format!("\"{}\"", value)

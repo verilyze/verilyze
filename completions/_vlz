@@ -41,6 +41,7 @@ _arguments "${_arguments_options[@]}" : \
 '--parallel=[Parallel query limit (default 10, max 50)]:PARALLEL:_default' \
 '--cache-db=[Override cache database path]:PATH:_default' \
 '--ignore-db=[Override ignore (false-positive) database path]:PATH:_default' \
+'*--scan-exclude-dir=[Exclude directory name from manifest discovery (repeatable)]:DIR:_default' \
 '--cache-ttl-secs=[Default TTL in seconds for new cache entries (default\: 432000 = 5 days). Does not change existing entries; use \`vlz db set-ttl\` to update those]:SECS:_default' \
 '--min-score=[Minimum CVSS score to count toward exit code]:SCORE:_default' \
 '--min-count=[Minimum count of CVEs meeting min-score to trigger CVE exit code (0 = any)]:N:_default' \

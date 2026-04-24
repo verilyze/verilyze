@@ -38,6 +38,7 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: lint-python lint-shell super-linter super-linter-full
 .PHONY: fuzz fuzz-changed fuzz-extended fuzz-then-coverage coverage coverage-quick
 .PHONY: generate-config-example check-config-docs
+.PHONY: generate-manpages check-manpages
 .PHONY: generate-completions completions completions-release check-completions
 .PHONY: generate-packaging check-packaging
 .PHONY: sync-license-config check-license-config deny-check
@@ -77,6 +78,8 @@ help:
 	@echo "    make update-doc-diagrams - Embed Mermaid diagrams into README/CONTRIBUTING"
 	@echo "    make check-doc-diagrams  - Verify diagram content is in sync"
 	@echo "    make generate-config-example - Generate verilyze.conf.example, docs, man page"
+	@echo "    make generate-manpages - Generate CLI man page (man/vlz.1)"
+	@echo "    make check-manpages - Verify CLI man page is in sync"
 	@echo "    make check-config-docs   - Verify config docs are in sync"
 	@echo "    make generate-completions - Generate shell completions (bash, zsh, fish)"
 	@echo "    make check-completions   - Verify completions are in sync"
@@ -192,10 +195,12 @@ $(VLZ_DEBUG):
 	cd "$(MKFILE_DIR)" && cargo build -p vlz
 
 debug: check-headers
+	$(MAKE) -C "$(MKFILE_DIR)" -f "$(MKFILE_DIR)/Makefile" generate-manpages
 	cd "$(MKFILE_DIR)" && cargo build
 	$(MAKE) -C "$(MKFILE_DIR)" -f "$(MKFILE_DIR)/Makefile" completions
 
 release: check-headers
+	$(MAKE) -C "$(MKFILE_DIR)" -f "$(MKFILE_DIR)/Makefile" generate-manpages
 	cd "$(MKFILE_DIR)" && cargo build --release
 
 # ---- Shell completions (FR-028) ----
@@ -318,6 +323,18 @@ check-doc-diagrams:
 generate-config-example: debug $(VENV_TEST)/bin/pytest
 	$(VENV_TEST)/bin/python $(SCRIPTS_DIR)/generate_config_example.py
 
+# generate-manpages: produce man/vlz.1 from the Clap CLI definition.
+generate-manpages:
+	# Use a unique temp file so parallel make jobs do not race.
+	@cd "$(MKFILE_DIR)" && TMP_MANPAGE="$$(mktemp man/vlz.1.tmp.XXXXXX)" && \
+		cargo run -q -p vlz --bin vlz-manpage-gen > "$$TMP_MANPAGE" && \
+		mv "$$TMP_MANPAGE" man/vlz.1
+
+# check-manpages: verify CLI man page is in sync (CI/local).
+check-manpages: generate-manpages
+	@cd "$(MKFILE_DIR)" && git diff --exit-code man/vlz.1 || \
+		(echo "man/vlz.1 is out of sync. Run: make generate-manpages" && exit 1)
+
 # check-config-docs: verify config docs are in sync (CI)
 check-config-docs: debug $(VENV_TEST)/bin/pytest
 	$(VENV_TEST)/bin/python $(SCRIPTS_DIR)/generate_config_example.py --check
@@ -374,6 +391,7 @@ check-fast: setup \
             check-headers \
             check-doc-diagrams \
             check-config-docs \
+            check-manpages \
             check-packaging \
             check-completions \
             check-license-config \
@@ -391,6 +409,7 @@ check: setup \
        check-headers \
        check-doc-diagrams \
        check-config-docs \
+       check-manpages \
        check-packaging \
        check-completions \
        check-license-config \
@@ -415,7 +434,7 @@ BASH_COMPLETION_DIR := $(PREFIX)/share/bash-completion/completions
 ZSH_SITE_FUNCTIONS := $(PREFIX)/share/zsh/site-functions
 FISH_VENDOR_COMPLETIONS := $(PREFIX)/share/fish/vendor_completions.d
 
-install: release generate-config-example completions
+install: release generate-config-example completions generate-manpages
 	install -d "$(DESTDIR)$(BINDIR)"
 	install -m 755 "$(MKFILE_DIR)/target/release/vlz" "$(DESTDIR)$(BINDIR)/vlz"
 	install -d "$(DESTDIR)$(DOCDIR)"

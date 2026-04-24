@@ -1,7 +1,8 @@
-.\" SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+.\" SPDX-FileCopyrightText: The verilyze contributors
 .\"
 .\" SPDX-License-Identifier: GPL-3.0-or-later
 .\"
+
 .\" vlz(1) - verilyze SCA command-line tool
 .\"
 .Dd 2026-03-10
@@ -61,6 +62,8 @@ Parallel query limit (default 10, max 50).
 Override cache database path.
 .It Fl -ignore-db Ar path
 Override false-positive database path.
+.It Fl -scan-exclude-dir Ar dir
+Exclude directory name from manifest discovery (repeatable).
 .It Fl -cache-ttl-secs Ar secs
 Default TTL for new cache entries (default: 432000 = 5 days).
 .It Fl -offline
@@ -213,6 +216,8 @@ Override cache database path.
 Override false-positive database path.
 .It Ev VLZ_PARALLEL_QUERIES
 Max concurrent CVE queries (1-50).
+.It Ev VLZ_SCAN_EXCLUDE_DIRS
+Comma-separated directory names skipped during manifest discovery.
 .It Ev VLZ_CACHE_TTL_SECS
 Default cache TTL in seconds.
 .It Ev VLZ_MIN_SCORE

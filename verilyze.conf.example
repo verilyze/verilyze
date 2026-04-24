@@ -11,6 +11,10 @@
 # Max concurrent CVE queries (1-50)
 # parallel_queries = 10
 
+# Comma-separated directory names to skip during manifest discovery (default:
+# .git)
+# scan_exclude_dirs = .git
+
 # Default cache TTL in seconds (5 days); only affects new entries
 # cache_ttl_secs = 432000
 
