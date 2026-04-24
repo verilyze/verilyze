@@ -16,6 +16,7 @@
     "dockerfile",
     "custom.regex",
     "github-actions",
+    "pep621",
     "pip_requirements"
   ],
   "customManagers": [
@@ -127,6 +128,13 @@
       "matchManagers": ["pip_requirements"],
       "matchFileNames": ["scripts/requirements-reuse.txt"],
       "groupName": "reuse-tooling-pip"
+    },
+    {
+      "description": "pyproject.toml PEP 621 optional-deps (dev): minor/patch in one PR",
+      "matchManagers": ["pep621"],
+      "matchFileNames": ["pyproject.toml"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "pyproject-dev-minor-patch"
     },
     {
       "description": "Rust workspace: regenerate THIRD-PARTY-LICENSES after Cargo updates",
