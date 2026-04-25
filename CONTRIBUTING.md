@@ -852,7 +852,8 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   **GitHub App (not a PAT):** Create a
   [GitHub App](https://docs.github.com/en/apps/creating-github-apps/about-creating-github-apps),
   install it on this repository (or org with repo access), and add secrets
-  **`RENOVATE_APP_ID`** (numeric App ID) and **`RENOVATE_APP_PRIVATE_KEY`**
+  **`RENOVATE_APP_CLIENT_ID`** (GitHub App Client ID, `Iv1...`, from the app’s
+  **About** page) and **`RENOVATE_APP_PRIVATE_KEY`**
   (full PEM from *Generate a private key*). Grant at least **Contents**,
   **Issues**, and **Pull requests** (read and write). For parity with
   [Renovate's GitHub App guidance](https://docs.renovatebot.com/modules/platform/github/#running-as-a-github-app),

@@ -19,7 +19,7 @@
 # Default image is a pinned linux/amd64 digest (not :slim-latest) so bundled Biome
 # and other linter versions do not drift on every CI pull. Renovate bumps SL_SHA
 # via regex manager in renovate.json (weekly workflow .github/workflows/renovate.yml;
-# GitHub App token via secrets RENOVATE_APP_ID / RENOVATE_APP_PRIVATE_KEY).
+# GitHub App token via secrets RENOVATE_APP_CLIENT_ID / RENOVATE_APP_PRIVATE_KEY).
 # Manual bump: use imagetools, then make super-linter-full:
 #   docker buildx imagetools inspect ghcr.io/super-linter/super-linter:slim-latest \
 #     --format '{{range .Manifest.Manifests}}{{if eq .Platform.OS "linux"}}{{if eq .Platform.Architecture "amd64"}}{{.Digest}}{{end}}{{end}}{{end}}'
