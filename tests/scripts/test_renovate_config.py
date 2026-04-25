@@ -171,8 +171,11 @@ def test_renovate_workflow_uses_github_app_token() -> None:
         encoding="utf-8"
     )
     assert "create-github-app-token" in workflow
-    assert "RENOVATE_APP_ID" in workflow
+    assert "client-id:" in workflow
+    assert "RENOVATE_APP_CLIENT_ID" in workflow
     assert "RENOVATE_APP_PRIVATE_KEY" in workflow
+    assert "app-id:" not in workflow
+    assert "RENOVATE_APP_ID" not in workflow
     assert "steps.renovate-token.outputs.token" in workflow.replace(" ", "")
     assert "github.token" not in workflow
 
