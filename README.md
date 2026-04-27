@@ -88,8 +88,12 @@ still follow the documented behavior.
 
 ## Installation
 
-Pre-built binaries, crates.io packages, public container images, and published
-distro packages are **not available yet**. Typical approaches:
+GitHub-hosted release assets are available for tagged releases:
+- GitHub Release assets: Linux binary, `.deb`, and `.rpm`
+- GHCR container image tags: versioned tag and `latest`
+
+crates.io packages and external distro/community repository publication are not
+included in this release scope. Typical local/source-based approaches remain:
 
 - **Local build:** `make release`, then run `target/release/vlz` (see Quick start).
 - **System install:** `make install` with optional `PREFIX` / `DESTDIR`.

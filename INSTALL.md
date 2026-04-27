@@ -6,9 +6,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Installing verilyze (vlz)
 
-Pre-built binaries, [crates.io](https://crates.io/) packages, public container
-registry images, and third-party distro packages are **not published yet**.
-Install by building from this repository (or from packages you build locally
+For tagged releases, GitHub publishes:
+- GitHub Release assets (Linux binary, `.deb`, `.rpm`)
+- Public GHCR container images
+
+[crates.io](https://crates.io/) packages and third-party distro/community
+repository publication are not included in this release scope. You can also
+install by building from this repository (or from packages you build locally
 with the Makefile targets below).
 
 For development setup (venvs, `make check`, fuzz, coverage), see
@@ -197,7 +201,7 @@ Run inside Alpine (container or chroot) as documented for your distro.
 
 ### Container image
 
-There is **no pre-published** image. Build locally:
+You can pull the published GHCR image for tagged releases, or build locally:
 
 ```bash
 make docker
