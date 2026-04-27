@@ -12,7 +12,7 @@ publish = false
 
 [dependencies]
 async-trait.workspace = true
-redb = "1"
+redb = "4"
 vlz-cve-client = { path = "../../core/vlz-cve-client" }
 vlz-db = { path = "../../core/vlz-db" }
 sha2.workspace = true          # for SEC‑004 integrity verification
