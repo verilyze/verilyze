@@ -144,3 +144,10 @@ path = ".coverage"
 precedence = "override"
 SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# REUSE bootstrap virtualenv (created by scripts/ensure-reuse.sh when needed)
+[[annotations]]
+path = ".venv-reuse/**"
+precedence = "override"
+SPDX-FileCopyrightText = "The verilyze contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
