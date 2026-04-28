@@ -90,6 +90,7 @@ still follow the documented behavior.
 
 GitHub-hosted release assets are available for tagged releases:
 - GitHub Release assets: Linux binary, `.deb`, and `.rpm`
+- Release integrity files: `SHA256SUMS` plus Sigstore `.sig`/`.pem` files
 - GHCR container image tags: versioned tag and `latest`
 
 crates.io packages and external distro/community repository publication are not

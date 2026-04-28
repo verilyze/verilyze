@@ -9,6 +9,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 For tagged releases, GitHub publishes:
 - GitHub Release assets (Linux binary, `.deb`, `.rpm`)
 - Public GHCR container images
+- `SHA256SUMS` plus keyless Sigstore signatures/certificates for release assets
 
 [crates.io](https://crates.io/) packages and third-party distro/community
 repository publication are not included in this release scope. You can also
@@ -17,6 +18,22 @@ with the Makefile targets below).
 
 For development setup (venvs, `make check`, fuzz, coverage), see
 [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Verify published release assets
+
+After downloading assets from a GitHub Release, verify checksums and signatures:
+
+```bash
+sha256sum -c SHA256SUMS
+cosign verify-blob \
+  --signature vlz.sig \
+  --certificate vlz.pem \
+  vlz
+```
+
+Use the matching `.sig` and `.pem` file for each asset (`vlz`, `.deb`, `.rpm`,
+or `SHA256SUMS`). For GHCR images, verify signatures and attestations with
+Cosign against the pushed digest.
 
 ## Recommended: `make release`
 
