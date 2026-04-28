@@ -9,14 +9,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
 Fast, modular Software Composition Analysis (SCA) tool for dependency
 vulnerabilities. Written in Rust.
 
-**License:** GPL-3.0-or-later. See
-[LICENSES/GPL-3.0-or-later.txt](LICENSES/GPL-3.0-or-later.txt) for the full
-text.
-
 [![CI](https://github.com/verilyze/verilyze/actions/workflows/ci.yml/badge.svg)](https://github.com/verilyze/verilyze/actions/workflows/ci.yml)
 [![Rust coverage](https://raw.githubusercontent.com/wiki/verilyze/verilyze/coverage-rust.svg)](https://github.com/verilyze/verilyze/actions/workflows/coverage-nightly.yml)
 [![Python coverage](https://raw.githubusercontent.com/wiki/verilyze/verilyze/coverage-python.svg)](https://github.com/verilyze/verilyze/actions/workflows/coverage-nightly.yml)
 [![Super-linter](https://github.com/verilyze/verilyze/actions/workflows/super-linter-nightly.yml/badge.svg)](https://github.com/verilyze/verilyze/actions/workflows/super-linter-nightly.yml)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12361/badge)](https://www.bestpractices.dev/projects/12361)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/verilyze/verilyze/badge)](https://scorecard.dev/viewer/?uri=github.com/verilyze/verilyze)
 
 ## Prerequisites
