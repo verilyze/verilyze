@@ -344,6 +344,13 @@ stripped of symbols (NFR-023) for security and smaller size.
 4. Merge to `main` and run `make check`.
 5. Create signed annotated tag: `git tag -s v0.1.0 -m "Release v0.1.0"`.
 6. Push tag: `git push origin v0.1.0`.
+7. Confirm OBS release automation succeeds:
+   - `release.yml` triggers OBS source service refresh and rebuild after
+     GitHub Release creation.
+   - Ensure repository secret `OBS_TOKEN` is set with least-privilege scope.
+   - Ensure `packaging/obs/obs-project.env` points at the intended OBS target.
+   - Run `make check-obs-packaging` and confirm OBS signing key metadata is
+     present for the configured OBS project.
 
 **Verify locally (optional):** `./scripts/extract-changelog-for-release.sh X.Y.Z > /tmp/notes.md`
    The argument must be **SemVer without a `v` prefix** (Cargo-style, aligned

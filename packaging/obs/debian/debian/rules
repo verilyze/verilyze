@@ -1,0 +1,36 @@
+#!/usr/bin/make -f
+
+export CARGO_HOME := $(CURDIR)/debian/cargo_home
+export CARGO_TARGET_DIR := $(CURDIR)/target
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	cargo build --release --locked
+	mkdir -p completions
+	./target/release/vlz generate-completions bash > completions/vlz.bash
+	./target/release/vlz generate-completions zsh > completions/_vlz
+	./target/release/vlz generate-completions fish > completions/vlz.fish
+
+override_dh_auto_install:
+	install -D -m 0755 target/release/vlz \
+		debian/verilyze/usr/bin/vlz
+	install -D -m 0644 verilyze.conf.example \
+		debian/verilyze/etc/verilyze.conf
+	install -D -m 0644 verilyze.conf.example \
+		debian/verilyze/usr/share/doc/verilyze/verilyze.conf.example
+	install -D -m 0644 man/vlz.1 \
+		debian/verilyze/usr/share/man/man1/vlz.1
+	install -D -m 0644 man/verilyze.conf.5 \
+		debian/verilyze/usr/share/man/man5/verilyze.conf.5
+	install -D -m 0644 completions/vlz.bash \
+		debian/verilyze/usr/share/bash-completion/completions/vlz
+	install -D -m 0644 completions/_vlz \
+		debian/verilyze/usr/share/zsh/site-functions/_vlz
+	install -D -m 0644 completions/vlz.fish \
+		debian/verilyze/usr/share/fish/vendor_completions.d/vlz.fish
+	install -D -m 0644 LICENSES/GPL-3.0-or-later.txt \
+		debian/verilyze/usr/share/doc/verilyze/copyright-license.txt
+	install -D -m 0644 THIRD-PARTY-LICENSES \
+		debian/verilyze/usr/share/doc/verilyze/THIRD-PARTY-LICENSES

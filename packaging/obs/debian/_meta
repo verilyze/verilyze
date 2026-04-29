@@ -1,0 +1,4 @@
+<package name="verilyze" project="home:tpost:verilyze">
+  <title>verilyze</title>
+  <description>OBS Debian package for verilyze.</description>
+</package>

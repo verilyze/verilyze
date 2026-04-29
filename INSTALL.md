@@ -193,6 +193,23 @@ sudo zypper in packaging/rpm/RPMS/*/verilyze-*.rpm
 
 Use `ls packaging/rpm/RPMS/*/` to pick the exact file name.
 
+### OBS packaging (RPM and Debian families)
+
+Canonical OBS packaging metadata lives under `packaging/obs/`:
+
+- `packaging/obs/rpm` for RPM builds (Fedora, RHEL, Rocky, openSUSE, SLE)
+- `packaging/obs/debian` for Debian builds (Debian, Ubuntu)
+
+The OBS project/package coordinates are defined in one file:
+`packaging/obs/obs-project.env`.
+
+Release tags (`v*`) trigger GitHub release automation, which then calls
+OBS source-service refresh and rebuild for the configured project/package.
+Set repository secret `OBS_TOKEN` for this integration.
+
+`cargo-deb` (`make deb`) remains available as a convenience local build path.
+Canonical Debian metadata for OBS is `packaging/obs/debian/debian`.
+
 ### Arch Linux (AUR artifacts)
 
 Requires **cargo-aur** (`cargo install cargo-aur`; see [crates.io/crates/cargo-aur](https://crates.io/crates/cargo-aur)).

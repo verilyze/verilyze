@@ -1,0 +1,20 @@
+Source: verilyze
+Section: utils
+Priority: optional
+Maintainer: Travis Post <post.travis@gmail.com>
+Build-Depends:
+ debhelper-compat (= 13),
+ cargo,
+ rustc,
+ pkg-config,
+ libssl-dev
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+Homepage: https://github.com/verilyze/verilyze
+
+Package: verilyze
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: Fast, modular Software Composition Analysis tool
+ verilyze (vlz) scans codebases for vulnerable dependencies and can
+ generate reports in multiple output formats.

@@ -12,7 +12,7 @@ Release:        1%{?dist}
 Summary:        Fast, modular Software Composition Analysis tool
 License:        GPL-3.0-or-later
 URL:            https://github.com/verilyze/verilyze
-Source0:        %{pkg_name}-%{version}.tar.gz
+Source0:        %{pkg_name}-%{version}.tar.xz
 
 BuildRequires:  cargo >= 1.78.0
 BuildRequires:  rust >= 1.78.0
@@ -41,7 +41,6 @@ mkdir -p completions
 ./target/release/%{crate_name} generate-completions bash > completions/vlz.bash
 ./target/release/%{crate_name} generate-completions zsh > completions/_vlz
 ./target/release/%{crate_name} generate-completions fish > completions/vlz.fish
-# THIRD-PARTY-LICENSES is committed; see make generate-third-party-licenses
 
 %install
 install -D -m 0755 target/release/%{crate_name} \

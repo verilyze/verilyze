@@ -40,7 +40,8 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: generate-config-example check-config-docs
 .PHONY: generate-manpages check-manpages
 .PHONY: generate-completions completions completions-release check-completions
-.PHONY: generate-packaging check-packaging
+.PHONY: generate-packaging check-packaging check-obs-packaging check-obs-signing
+.PHONY: check-obs-packaging
 .PHONY: sync-license-config check-license-config deny-check
 .PHONY: generate-third-party-licenses generate-third-party-licenses-docker
 .PHONY: check-third-party-licenses
@@ -85,6 +86,7 @@ help:
 	@echo "    make check-completions   - Verify completions are in sync"
 	@echo "    make generate-packaging  - Update packaging specs with version from Cargo.toml"
 	@echo "    make check-packaging     - Verify packaging versions are in sync"
+	@echo "    make check-obs-signing   - Verify OBS signing key metadata"
 	@echo "    make sync-license-config - Sync deny.toml [licenses] allow to about.toml accepted"
 	@echo "    make check-license-config - Verify about.toml accepted matches deny.toml"
 	@echo "    make deny-check       - cargo deny check (licenses, advisories, bans, sources)"
@@ -348,6 +350,14 @@ generate-packaging:
 check-packaging:
 	python3 $(SCRIPTS_DIR)/generate_packaging_versions.py --check
 
+# check-obs-packaging: Verify OBS packaging metadata consistency.
+check-obs-packaging:
+	$(SCRIPTS_DIR)/check-obs-packaging.sh
+
+# check-obs-signing: Verify OBS project signing key metadata.
+check-obs-signing:
+	$(SCRIPTS_DIR)/check-obs-signing.sh
+
 # sync-license-config: Copy deny.toml [licenses] allow to about.toml accepted.
 sync-license-config:
 	cd "$(MKFILE_DIR)" && python3 $(SCRIPTS_DIR)/sync_license_config.py
@@ -393,6 +403,7 @@ check-fast: setup \
             check-config-docs \
             check-manpages \
             check-packaging \
+            check-obs-packaging \
             check-completions \
             check-license-config \
             deny-check \
@@ -411,6 +422,7 @@ check: setup \
        check-config-docs \
        check-manpages \
        check-packaging \
+       check-obs-packaging \
        check-completions \
        check-license-config \
        deny-check \
