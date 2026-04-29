@@ -20,7 +20,24 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  preflight-release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.verify.outputs.version }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Verify tag matches workspace version
+        id: verify
+        run: |
+          set -euo pipefail
+          VERSION="$(./scripts/release-verify-tag-version.sh "${GITHUB_REF}")"
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+
   build-binary:
+    needs: preflight-release
     runs-on: ubuntu-latest
     # actions: write -- upload-artifact uses the Actions artifacts API.
     permissions:
@@ -48,7 +65,7 @@ jobs:
           path: target/release/vlz
 
   build-deb:
-    needs: build-binary
+    needs: [preflight-release, build-binary]
     runs-on: ubuntu-latest
     # actions: write -- upload-artifact uses the Actions artifacts API.
     permissions:
@@ -78,7 +95,7 @@ jobs:
           path: target/debian/*.deb
 
   build-rpm:
-    needs: build-binary
+    needs: [preflight-release, build-binary]
     runs-on: ubuntu-latest
     # actions: write -- upload-artifact uses the Actions artifacts API.
     permissions:
@@ -104,25 +121,23 @@ jobs:
           path: packaging/rpm/RPMS/**/*.rpm
 
   build-docker:
+    needs: preflight-release
     runs-on: ubuntu-latest
     # packages: write for docker push to ghcr.io with GITHUB_TOKEN.
     permissions:
       contents: read
       actions: write
       packages: write
+      id-token: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
-      - name: Extract version from tag
-        id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-
       - name: Build Docker image
         env:
           REPO: ${{ github.repository }}
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ needs.preflight-release.outputs.version }}
         run: |
           docker build \
             -f packaging/docker/Dockerfile \
@@ -137,20 +152,67 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push Docker image
+        id: push-image
         env:
           REPO: ${{ github.repository }}
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ needs.preflight-release.outputs.version }}
         run: |
+          set -euo pipefail
           docker push "ghcr.io/${REPO}:${VERSION}"
           docker push "ghcr.io/${REPO}:latest"
+          digest="$(docker inspect --format='{{index .RepoDigests 0}}' "ghcr.io/${REPO}:${VERSION}" | awk -F@ '{print $2}')"
+          if [[ -z "${digest}" ]]; then
+            echo "::error::could not resolve pushed image digest."
+            exit 1
+          fi
+          echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
+
+      - name: Sign container image (keyless)
+        env:
+          REPO: ${{ github.repository }}
+          VERSION: ${{ needs.preflight-release.outputs.version }}
+          DIGEST: ${{ steps.push-image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          cosign sign --yes "ghcr.io/${REPO}@${DIGEST}"
+
+      - name: Attest container image provenance
+        env:
+          REPO: ${{ github.repository }}
+          VERSION: ${{ needs.preflight-release.outputs.version }}
+          DIGEST: ${{ steps.push-image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          cat > container-provenance.json << 'EOF'
+          {
+            "buildType": "https://github.com/Attestations/GitHubActionsWorkflow@v1",
+            "invocation": {
+              "configSource": {
+                "uri": "${{ github.repositoryUrl }}",
+                "entryPoint": ".github/workflows/release.yml"
+              },
+              "parameters": {
+                "sourceRevision": "${{ github.sha }}"
+              }
+            }
+          }
+          EOF
+          cosign attest --yes \
+            --predicate container-provenance.json \
+            --type slsaprovenance \
+            "ghcr.io/${REPO}@${DIGEST}"
 
   create-release:
-    needs: [build-binary, build-deb, build-rpm, build-docker]
+    needs: [preflight-release, build-binary, build-deb, build-rpm, build-docker]
     runs-on: ubuntu-latest
     # contents: write -- GitHub Release and asset upload; actions: read -- download-artifact.
     permissions:
       contents: write
       actions: read
+      id-token: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -161,13 +223,9 @@ jobs:
         with:
           path: release-artifacts
 
-      - name: Extract version from tag
-        id: ver
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-
       - name: Build release notes from CHANGELOG.md
         env:
-          VERSION: ${{ steps.ver.outputs.version }}
+          VERSION: ${{ needs.preflight-release.outputs.version }}
         run: |
           set -euo pipefail
           ./scripts/extract-changelog-for-release.sh "$VERSION" > release-body.md
@@ -176,6 +234,29 @@ jobs:
             exit 1
           fi
 
+      - name: Generate SHA256 checksums
+        run: |
+          set -euo pipefail
+          ./scripts/release-generate-checksums.sh "release-artifacts" >/dev/null
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
+
+      - name: Sign release artifacts (keyless)
+        run: |
+          set -euo pipefail
+          shopt -s nullglob globstar
+          for file in \
+            release-artifacts/vlz-linux-x86_64/vlz \
+            release-artifacts/deb-package/*.deb \
+            release-artifacts/rpm-package/**/*.rpm \
+            release-artifacts/SHA256SUMS; do
+            cosign sign-blob --yes \
+              --output-signature "${file}.sig" \
+              --output-certificate "${file}.pem" \
+              "${file}"
+          done
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0  # zizmor: ignore[superfluous-actions]
         with:
@@ -183,5 +264,14 @@ jobs:
           body_path: release-body.md
           files: |
             release-artifacts/vlz-linux-x86_64/vlz
+            release-artifacts/vlz-linux-x86_64/vlz.sig
+            release-artifacts/vlz-linux-x86_64/vlz.pem
             release-artifacts/deb-package/*.deb
+            release-artifacts/deb-package/*.deb.sig
+            release-artifacts/deb-package/*.deb.pem
             release-artifacts/rpm-package/**/*.rpm
+            release-artifacts/rpm-package/**/*.rpm.sig
+            release-artifacts/rpm-package/**/*.rpm.pem
+            release-artifacts/SHA256SUMS
+            release-artifacts/SHA256SUMS.sig
+            release-artifacts/SHA256SUMS.pem

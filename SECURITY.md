@@ -120,7 +120,9 @@ and [COMPLIANCE.md](COMPLIANCE.md) for credential-handling controls.
   `scripts/check-dco.sh`, `scripts/check-signatures.sh`, and
   `scripts/extract-changelog-for-release.sh` apply allow-listed validation for
   values supplied from GitHub Actions in those flows; shared logic lives under
-  `scripts/lib/`.
+  `scripts/lib/`. Release tags are additionally validated by
+  `scripts/release-verify-tag-version.sh`, which enforces that the pushed
+  `vX.Y.Z` tag matches `[workspace.package].version` before publish steps.
 - **Compliance checklist:** [COMPLIANCE.md](COMPLIANCE.md) in the repository
   root maps controls to implementation (SOC 2 / ISO 27001 / CMMC); refer to the
   PRD (SEC-010, DOC-008) for requirements.
@@ -170,6 +172,11 @@ usage, ensure the engine or validation satisfies SEC-022.
   invoking user).
 - Release binaries are stripped of symbols (NFR-023) to reduce
   information disclosure and binary size.
+- GitHub release artifacts include `SHA256SUMS` plus keyless Sigstore
+  signatures (`.sig`) and certificates (`.pem`) for published binary/package
+  files.
+- GHCR release images are keyless-signed and include provenance attestation
+  generated in the release workflow.
 - Use `vlz db verify` to check integrity of cached data (SHA-256 by default).
 - Keep the tool and dependencies updated; run `vlz scan` on this repository
   (dogfooding, SEC-015) as part of your workflow.

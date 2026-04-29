@@ -9,10 +9,22 @@
 #
 # Run from repository root. Creates completions/ in the current directory.
 
-set -e
+set -euo pipefail
 
 BIN="${1:?Usage: $0 <path-to-vlz-binary>}"
 mkdir -p completions
-"$BIN" generate-completions bash > completions/vlz.bash
-"$BIN" generate-completions zsh > completions/_vlz
-"$BIN" generate-completions fish > completions/vlz.fish
+
+write_completion() {
+  local shell_name="$1"
+  local target_path="$2"
+  local tmp_path
+  tmp_path="$(mktemp "${target_path}.tmp.XXXXXX")"
+  trap 'rm -f "$tmp_path"' RETURN
+  "$BIN" generate-completions "$shell_name" > "$tmp_path"
+  mv -f "$tmp_path" "$target_path"
+  trap - RETURN
+}
+
+write_completion bash completions/vlz.bash
+write_completion zsh completions/_vlz
+write_completion fish completions/vlz.fish

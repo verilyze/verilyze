@@ -14,6 +14,8 @@ _ROOT = Path(__file__).resolve().parent.parent.parent
 _CHECK_DCO = _ROOT / "scripts" / "check-dco.sh"
 _CHECK_SIG = _ROOT / "scripts" / "check-signatures.sh"
 _EXTRACT_CL = _ROOT / "scripts" / "extract-changelog-for-release.sh"
+_VERIFY_TAG = _ROOT / "scripts" / "release-verify-tag-version.sh"
+_CHECKSUMS = _ROOT / "scripts" / "release-generate-checksums.sh"
 
 
 def _run_script(
@@ -173,3 +175,69 @@ class TestExtractChangelogSemver:
         if proc.returncode == 2:
             pytest.fail("valid semver must not be rejected: " + proc.stderr)
         assert proc.returncode in (0, 1)
+
+
+class TestReleaseVerifyTagVersion:
+    """release-verify-tag-version.sh: enforce tag matches workspace version."""
+
+    def test_matching_tag_and_workspace_version_succeeds(self) -> None:
+        proc = _run_script(
+            [str(_VERIFY_TAG), "v0.1.0", str(_ROOT / "Cargo.toml")],
+            cwd=_ROOT,
+        )
+        assert proc.returncode == 0, proc.stderr + proc.stdout
+        assert proc.stdout.strip() == "0.1.0"
+
+    def test_non_semver_tag_exits_2(self) -> None:
+        proc = _run_script(
+            [str(_VERIFY_TAG), "vrelease", str(_ROOT / "Cargo.toml")],
+            cwd=_ROOT,
+        )
+        assert proc.returncode == 2
+        assert proc.stderr
+
+    def test_mismatched_tag_and_workspace_version_exits_1(self) -> None:
+        proc = _run_script(
+            [str(_VERIFY_TAG), "v0.1.1", str(_ROOT / "Cargo.toml")],
+            cwd=_ROOT,
+        )
+        assert proc.returncode == 1
+        assert "does not match" in proc.stderr
+
+
+class TestReleaseGenerateChecksums:
+    """release-generate-checksums.sh: generate deterministic SHA256SUMS files."""
+
+    def test_generates_sha256sums_for_release_artifacts_tree(self, tmp_path: Path) -> None:
+        artifacts = tmp_path / "release-artifacts"
+        binary_dir = artifacts / "vlz-linux-x86_64"
+        deb_dir = artifacts / "deb-package"
+        rpm_dir = artifacts / "rpm-package" / "x86_64"
+        binary_dir.mkdir(parents=True)
+        deb_dir.mkdir(parents=True)
+        rpm_dir.mkdir(parents=True)
+
+        (binary_dir / "vlz").write_bytes(b"vlz-binary")
+        (deb_dir / "vlz_0.1.0_amd64.deb").write_bytes(b"deb-pkg")
+        (rpm_dir / "vlz-0.1.0-1.x86_64.rpm").write_bytes(b"rpm-pkg")
+
+        proc = _run_script(
+            [str(_CHECKSUMS), str(artifacts)],
+            cwd=_ROOT,
+        )
+        assert proc.returncode == 0, proc.stderr + proc.stdout
+
+        sums_file = artifacts / "SHA256SUMS"
+        assert sums_file.exists()
+        sums_text = sums_file.read_text(encoding="utf-8")
+        assert "vlz-linux-x86_64/vlz" in sums_text
+        assert "deb-package/vlz_0.1.0_amd64.deb" in sums_text
+        assert "rpm-package/x86_64/vlz-0.1.0-1.x86_64.rpm" in sums_text
+
+    def test_missing_artifacts_directory_exits_1(self, tmp_path: Path) -> None:
+        proc = _run_script(
+            [str(_CHECKSUMS), str(tmp_path / "missing-release-artifacts")],
+            cwd=_ROOT,
+        )
+        assert proc.returncode == 1
+        assert "does not exist" in proc.stderr
