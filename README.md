@@ -81,10 +81,12 @@ Reports include the manifest file path(s) for each vulnerable package, so you ca
 see which manifest(s) introduce each CVE when scanning directories with many
 nested manifests (e.g. monorepos).
 
-**Reachability:** Per [architecture/PRD.md](architecture/PRD.md) FR-032, reports
-may eventually attach a per-CVE reachability flag. Current releases leave that
-field unset or omit it until analysis is implemented; severity and CVE listing
-still follow the documented behavior.
+**Reachability:** Structured reports include per-CVE `reachable` as `true`,
+`false`, or unknown (`null`/omitted). Current releases use **Tier B** checks:
+direct import/reference evidence in your project source. This is a practical
+signal, not exploitability proof. If the tool cannot decide safely, it reports
+unknown. For maintainer-level tier definitions (Tier A-D) and decision rules,
+see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Installation
 

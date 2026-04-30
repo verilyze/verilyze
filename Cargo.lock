@@ -2053,6 +2053,8 @@ dependencies = [
  "vlz-manifest-parser",
  "vlz-plugin-macro",
  "vlz-python",
+ "vlz-reachability",
+ "vlz-reachability-trait",
  "vlz-report",
  "vlz-rust",
 ]
@@ -2174,6 +2176,7 @@ dependencies = [
  "vlz-db",
  "vlz-manifest-finder",
  "vlz-manifest-parser",
+ "vlz-reachability-trait",
 ]
 
 [[package]]
@@ -2232,6 +2235,22 @@ dependencies = [
  "vlz-db",
  "vlz-manifest-finder",
  "vlz-manifest-parser",
+ "vlz-reachability-trait",
+]
+
+[[package]]
+name = "vlz-reachability"
+version = "0.1.0"
+dependencies = [
+ "vlz-db",
+ "vlz-reachability-trait",
+]
+
+[[package]]
+name = "vlz-reachability-trait"
+version = "0.1.0"
+dependencies = [
+ "vlz-db",
 ]
 
 [[package]]
@@ -2261,6 +2280,7 @@ dependencies = [
  "vlz-db",
  "vlz-manifest-finder",
  "vlz-manifest-parser",
+ "vlz-reachability-trait",
 ]
 
 [[package]]

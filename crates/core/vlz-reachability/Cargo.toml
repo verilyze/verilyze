@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[package]
+name = "vlz-reachability"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Tier B import-based reachability hints for verilyze (FR-032)"
+publish = false
+
+[dependencies]
+vlz-db = { path = "../vlz-db" }
+vlz-reachability-trait = { path = "../vlz-reachability-trait" }

@@ -21,6 +21,7 @@ tempfile.workspace = true
 vlz-db = { path = "../../core/vlz-db" }
 vlz-manifest-finder = { path = "../../core/vlz-manifest-finder" }
 vlz-manifest-parser = { path = "../../core/vlz-manifest-parser" }
+vlz-reachability-trait = { path = "../../core/vlz-reachability-trait" }
 tokio = { workspace = true, features = ["fs"] }
 
 [dev-dependencies]
