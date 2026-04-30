@@ -141,6 +141,14 @@ pub enum Commands {
         #[arg(long, value_name = "PATH")]
         tls_crl_bundle: Option<String>,
 
+        /// Reachability analysis mode.
+        #[arg(
+            long,
+            value_name = "MODE",
+            value_parser = ["off", "tier-b", "best-available"]
+        )]
+        reachability_mode: Option<String>,
+
         // FR-013: per-CVSS-version severity threshold overrides
         /// CVSS v2 critical severity minimum score (default 9.0)
         #[arg(long, value_name = "SCORE")]
@@ -412,6 +420,7 @@ mod tests {
             root,
             format,
             parallel,
+            reachability_mode,
             ..
         } = &cli.cmd
         else {
@@ -420,6 +429,30 @@ mod tests {
         assert_eq!(root.as_deref(), Some("/tmp"));
         assert_eq!(format, "json");
         assert_eq!(*parallel, Some(5));
+        assert!(reachability_mode.is_none());
+    }
+
+    #[test]
+    fn parse_scan_with_reachability_mode() {
+        let cli = parse(&["scan", "--reachability-mode", "best-available"]);
+        let Commands::Scan {
+            reachability_mode, ..
+        } = &cli.cmd
+        else {
+            panic!("expected scan")
+        };
+        assert_eq!(reachability_mode.as_deref(), Some("best-available"));
+    }
+
+    #[test]
+    fn parse_scan_with_invalid_reachability_mode_fails() {
+        let result = Cli::try_parse_from([
+            "vlz",
+            "scan",
+            "--reachability-mode",
+            "bad-tier",
+        ]);
+        assert!(result.is_err());
     }
 
     #[test]

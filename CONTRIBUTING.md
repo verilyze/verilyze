@@ -421,6 +421,12 @@ Use the same tier names in code comments, docs, and tests:
 Tier B must not imply Tier C or Tier D precision. When in doubt, prefer
 unknown over false.
 
+Runtime selection currently supports `off`, `tier-b`, and
+`best-available` via config `reachability_mode`, env
+`VLZ_REACHABILITY_MODE`, or CLI `--reachability-mode`.
+`best-available` maps to Tier B today and is reserved for higher tiers in
+future releases.
+
 ### Reachability analyzer plugin
 
 Tier B language logic is pluginized. Language crates implement

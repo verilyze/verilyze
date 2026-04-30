@@ -31,6 +31,16 @@ fn user_relative_path(path: &Path) -> String {
 /// Maximum allowed parallel queries (FR-012).
 pub const MAX_PARALLEL_QUERIES: usize = 50;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReachabilityMode {
+    Off,
+    TierB,
+    BestAvailable,
+}
+
+pub const DEFAULT_REACHABILITY_MODE: ReachabilityMode =
+    ReachabilityMode::TierB;
+
 /// Per-CVSS-version severity threshold overrides (FR-013).
 /// All fields are optional; when `None`, the corresponding default for that version is kept.
 /// Used to carry both env-var and CLI overrides into `load()`.
@@ -110,6 +120,7 @@ pub struct EffectiveConfig {
     pub config_file: Option<PathBuf>,
     /// Configurable CVSS severity thresholds per version (FR-013).
     pub severity: vlz_report::SeverityConfig,
+    pub reachability_mode: ReachabilityMode,
 }
 
 impl Default for EffectiveConfig {
@@ -140,6 +151,7 @@ impl Default for EffectiveConfig {
             tls_crl_bundle: None,
             config_file: None,
             severity: vlz_report::SeverityConfig::default(),
+            reachability_mode: DEFAULT_REACHABILITY_MODE,
         }
     }
 }
@@ -180,6 +192,8 @@ struct FileConfig {
     tls_crl_bundle: Option<String>,
     #[serde(rename = "scan_exclude_dirs")]
     scan_exclude_dirs: Option<Vec<String>>,
+    #[serde(rename = "reachability_mode")]
+    reachability_mode: Option<String>,
 }
 
 #[derive(Error, Debug)]
@@ -203,6 +217,9 @@ pub enum ConfigError {
     #[error("Invalid TLS CRL bundle path: {message}")]
     InvalidTlsCrlBundle { message: String },
 
+    #[error("Invalid reachability mode '{value}' (from {origin})")]
+    InvalidReachabilityMode { value: String, origin: String },
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 }
@@ -225,6 +242,7 @@ const KNOWN_FILE_CONFIG_KEYS: &[&str] = &[
     "provider_http_request_timeout_secs",
     "tls_crl_bundle",
     "scan_exclude_dirs",
+    "reachability_mode",
 ];
 
 /// Parse and validate raw TOML config content (SEC-006). Used for fuzzing (NFR-020).
@@ -317,6 +335,9 @@ fn apply_file_config_inner(
     if let Some(dirs) = parsed.scan_exclude_dirs {
         cfg.scan_exclude_dirs = dirs;
     }
+    if let Some(mode) = parsed.reachability_mode {
+        cfg.reachability_mode = parse_reachability_mode(&mode, source)?;
+    }
     if extract_language_regexes {
         cfg.language_regexes.clear();
         if let Ok(value) = toml::from_str::<toml::Value>(raw)
@@ -364,6 +385,21 @@ fn apply_toml_severity_table(
         if let Some(v) = tbl.get("low_min").and_then(|v| v.as_float()) {
             thresholds.low_min = v as f32;
         }
+    }
+}
+
+pub fn parse_reachability_mode(
+    value: &str,
+    origin: &str,
+) -> Result<ReachabilityMode, ConfigError> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "off" => Ok(ReachabilityMode::Off),
+        "tier-b" => Ok(ReachabilityMode::TierB),
+        "best-available" => Ok(ReachabilityMode::BestAvailable),
+        _ => Err(ConfigError::InvalidReachabilityMode {
+            value: value.to_string(),
+            origin: origin.to_string(),
+        }),
     }
 }
 
@@ -633,6 +669,91 @@ pub fn load(
     // FR-013, CFG-006: severity threshold overrides from CLI flags; takes precedence over env.
     cli_severity: SeverityOverrides,
 ) -> Result<EffectiveConfig, ConfigError> {
+    load_with_reachability_overrides(
+        config_file_override,
+        env_parallel,
+        env_cache_db,
+        env_ignore_db,
+        env_cache_ttl_secs,
+        env_min_score,
+        env_min_count,
+        env_exit_code_on_cve,
+        env_fp_exit_code,
+        env_project_id,
+        env_backoff_base_ms,
+        env_backoff_max_ms,
+        env_max_retries,
+        env_provider_http_connect_timeout_secs,
+        env_provider_http_request_timeout_secs,
+        env_tls_crl_bundle,
+        cli_parallel,
+        cli_cache_db,
+        cli_ignore_db,
+        cli_cache_ttl_secs,
+        cli_offline,
+        cli_benchmark,
+        cli_min_score,
+        cli_min_count,
+        cli_exit_code_on_cve,
+        cli_fp_exit_code,
+        cli_project_id,
+        cli_package_manager_required,
+        cli_backoff_base_ms,
+        cli_backoff_max_ms,
+        cli_max_retries,
+        cli_provider_http_connect_timeout_secs,
+        cli_provider_http_request_timeout_secs,
+        cli_tls_crl_bundle,
+        None,
+        None,
+        env_severity,
+        cli_severity,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn load_with_reachability_overrides(
+    config_file_override: Option<&str>,
+    env_parallel: Option<usize>,
+    env_cache_db: Option<PathBuf>,
+    env_ignore_db: Option<PathBuf>,
+    env_cache_ttl_secs: Option<u64>,
+    env_min_score: Option<f32>,
+    env_min_count: Option<usize>,
+    env_exit_code_on_cve: Option<u8>,
+    env_fp_exit_code: Option<u8>,
+    env_project_id: Option<String>,
+    env_backoff_base_ms: Option<u64>,
+    env_backoff_max_ms: Option<u64>,
+    env_max_retries: Option<u32>,
+    env_provider_http_connect_timeout_secs: Option<u64>,
+    env_provider_http_request_timeout_secs: Option<u64>,
+    env_tls_crl_bundle: Option<PathBuf>,
+    cli_parallel: Option<usize>,
+    cli_cache_db: Option<&str>,
+    cli_ignore_db: Option<&str>,
+    cli_cache_ttl_secs: Option<u64>,
+    cli_offline: bool,
+    cli_benchmark: bool,
+    cli_min_score: Option<f32>,
+    cli_min_count: Option<usize>,
+    cli_exit_code_on_cve: Option<u8>,
+    cli_fp_exit_code: Option<u8>,
+    cli_project_id: Option<String>,
+    cli_package_manager_required: bool,
+    cli_backoff_base_ms: Option<u64>,
+    cli_backoff_max_ms: Option<u64>,
+    cli_max_retries: Option<u32>,
+    cli_provider_http_connect_timeout_secs: Option<u64>,
+    cli_provider_http_request_timeout_secs: Option<u64>,
+    cli_tls_crl_bundle: Option<String>,
+    env_reachability_mode: Option<ReachabilityMode>,
+    cli_reachability_mode: Option<ReachabilityMode>,
+    // FR-013, CFG-005: severity threshold overrides from environment variables.
+    env_severity: SeverityOverrides,
+    // FR-013, CFG-006: severity threshold overrides from CLI flags; takes precedence over env.
+    cli_severity: SeverityOverrides,
+) -> Result<EffectiveConfig, ConfigError> {
     let mut cfg = EffectiveConfig {
         parallel_queries: DEFAULT_PARALLEL_QUERIES,
         cache_ttl_secs: DEFAULT_CACHE_TTL_SECS,
@@ -717,6 +838,9 @@ pub fn load(
     if let Some(dirs) = env_scan_exclude_dirs() {
         cfg.scan_exclude_dirs = dirs;
     }
+    if let Some(mode) = env_reachability_mode {
+        cfg.reachability_mode = mode;
+    }
 
     // 5) CLI
     if let Some(n) = cli_parallel {
@@ -766,6 +890,9 @@ pub fn load(
     }
     if let Some(p) = cli_tls_crl_bundle {
         cfg.tls_crl_bundle = Some(PathBuf::from(p));
+    }
+    if let Some(mode) = cli_reachability_mode {
+        cfg.reachability_mode = mode;
     }
 
     validate_provider_http_timeouts(
@@ -880,6 +1007,13 @@ pub fn env_provider_http_request_timeout_secs() -> Option<u64> {
 /// Read `VLZ_TLS_CRL_BUNDLE` (SEC-021, CFG-005): PEM CRL bundle path (Linux only).
 pub fn env_tls_crl_bundle() -> Option<PathBuf> {
     std::env::var_os("VLZ_TLS_CRL_BUNDLE").map(PathBuf::from)
+}
+
+/// Read `VLZ_REACHABILITY_MODE`.
+pub fn env_reachability_mode() -> Option<ReachabilityMode> {
+    std::env::var("VLZ_REACHABILITY_MODE")
+        .ok()
+        .and_then(|v| parse_reachability_mode(&v, "environment").ok())
 }
 
 /// Read `VLZ_SCAN_EXCLUDE_DIRS` as comma-separated directory names.
@@ -2530,5 +2664,178 @@ regex = "^req\\.txt$"
             cli_sev,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn reachability_mode_default_is_tier_b() {
+        let cfg = load_with_reachability(None, None, None, None);
+        assert_eq!(cfg.reachability_mode, ReachabilityMode::TierB);
+    }
+
+    #[test]
+    fn reachability_mode_from_config_file() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config_path = dir.path().join("verilyze.conf");
+        std::fs::write(&config_path, "reachability_mode = \"off\"\n")
+            .expect("write config");
+        let cfg = load_with_reachability(
+            Some(config_path.to_str().expect("path utf-8")),
+            None,
+            None,
+            None,
+        );
+        assert_eq!(cfg.reachability_mode, ReachabilityMode::Off);
+    }
+
+    #[test]
+    fn reachability_mode_env_overrides_config_file() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config_path = dir.path().join("verilyze.conf");
+        std::fs::write(
+            &config_path,
+            "reachability_mode = \"best-available\"\n",
+        )
+        .expect("write config");
+        temp_env::with_var("VLZ_REACHABILITY_MODE", Some("off"), || {
+            let cfg = load_with_reachability(
+                Some(config_path.to_str().expect("path utf-8")),
+                env_reachability_mode(),
+                None,
+                None,
+            );
+            assert_eq!(cfg.reachability_mode, ReachabilityMode::Off);
+        });
+    }
+
+    #[test]
+    fn reachability_mode_cli_overrides_env_and_file() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config_path = dir.path().join("verilyze.conf");
+        std::fs::write(&config_path, "reachability_mode = \"off\"\n")
+            .expect("write config");
+        temp_env::with_var(
+            "VLZ_REACHABILITY_MODE",
+            Some("best-available"),
+            || {
+                let cfg = load_with_reachability(
+                    Some(config_path.to_str().expect("path utf-8")),
+                    env_reachability_mode(),
+                    Some(ReachabilityMode::BestAvailable),
+                    None,
+                );
+                assert_eq!(
+                    cfg.reachability_mode,
+                    ReachabilityMode::BestAvailable
+                );
+            },
+        );
+    }
+
+    #[test]
+    fn reachability_mode_invalid_env_value_returns_none() {
+        temp_env::with_var("VLZ_REACHABILITY_MODE", Some("invalid"), || {
+            assert_eq!(env_reachability_mode(), None);
+        });
+    }
+
+    #[test]
+    fn reachability_mode_invalid_file_value_returns_error() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config_path = dir.path().join("verilyze.conf");
+        std::fs::write(&config_path, "reachability_mode = \"bad\"\n")
+            .expect("write config");
+        let result = load_with_reachability_overrides(
+            Some(config_path.to_str().expect("path utf-8")),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Default::default(),
+            Default::default(),
+            Default::default(),
+        );
+        assert!(matches!(
+            result,
+            Err(ConfigError::InvalidReachabilityMode { .. })
+        ));
+    }
+
+    fn load_with_reachability(
+        config_file: Option<&str>,
+        env_mode: Option<ReachabilityMode>,
+        cli_mode: Option<ReachabilityMode>,
+        env_sev: Option<SeverityOverrides>,
+    ) -> EffectiveConfig {
+        load_with_reachability_overrides(
+            config_file,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            env_mode,
+            cli_mode,
+            env_sev.unwrap_or_default(),
+            Default::default(),
+        )
+        .expect("load config")
     }
 }

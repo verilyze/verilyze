@@ -169,6 +169,14 @@ fn tier_b_metrics_line(
     }
 }
 
+fn should_apply_tier_b(mode: crate::config::ReachabilityMode) -> bool {
+    match mode {
+        crate::config::ReachabilityMode::Off => false,
+        crate::config::ReachabilityMode::TierB
+        | crate::config::ReachabilityMode::BestAvailable => true,
+    }
+}
+
 fn discover_manifests_one_pass(
     root: &std::path::Path,
     exclude_dirs: &std::collections::HashSet<String>,
@@ -288,26 +296,44 @@ pub async fn run(args: Cli) -> Result<i32> {
     }
 
     // Resolve CLI cache TTL, cache DB path, and project_id from subcommand.
-    let (cli_cache_ttl_secs, cli_cache_db, cli_ignore_db, cli_project_id) =
-        match &args.cmd {
-            Commands::Db { cache_ttl_secs, .. } => {
-                (*cache_ttl_secs, None, None, None)
-            }
-            Commands::Scan {
-                cache_ttl_secs,
-                cache_db,
-                ignore_db,
-                project_id,
-                ..
-            } => (
-                *cache_ttl_secs,
-                cache_db.clone(),
-                ignore_db.clone(),
-                project_id.clone(),
-            ),
-            Commands::Fp { .. } => (None, None, None, None),
-            _ => (None, None, None, None),
-        };
+    let (
+        cli_cache_ttl_secs,
+        cli_cache_db,
+        cli_ignore_db,
+        cli_project_id,
+        cli_reachability_mode_raw,
+    ) = match &args.cmd {
+        Commands::Db { cache_ttl_secs, .. } => {
+            (*cache_ttl_secs, None, None, None, None)
+        }
+        Commands::Scan {
+            cache_ttl_secs,
+            cache_db,
+            ignore_db,
+            project_id,
+            reachability_mode,
+            ..
+        } => (
+            *cache_ttl_secs,
+            cache_db.clone(),
+            ignore_db.clone(),
+            project_id.clone(),
+            reachability_mode.clone(),
+        ),
+        Commands::Fp { .. } => (None, None, None, None, None),
+        _ => (None, None, None, None, None),
+    };
+
+    let cli_reachability_mode = cli_reachability_mode_raw
+        .as_deref()
+        .map(|mode| {
+            crate::config::parse_reachability_mode(mode, "command line")
+        })
+        .transpose()
+        .map_err(|e| {
+            error!("{}", e);
+            anyhow!(e)
+        })?;
 
     let (
         cli_provider_http_connect_timeout_secs,
@@ -328,7 +354,7 @@ pub async fn run(args: Cli) -> Result<i32> {
     };
 
     // Load config from files + env + CLI for DB paths and TTL.
-    let early_cfg = crate::config::load(
+    let early_cfg = crate::config::load_with_reachability_overrides(
         args.config.as_deref(),
         crate::config::env_parallel(),
         crate::config::env_cache_db(),
@@ -363,6 +389,8 @@ pub async fn run(args: Cli) -> Result<i32> {
         cli_provider_http_connect_timeout_secs,
         cli_provider_http_request_timeout_secs,
         cli_tls_crl_bundle,
+        crate::config::env_reachability_mode(),
+        cli_reachability_mode,
         crate::config::env_severity_overrides(),
         crate::config::SeverityOverrides::default(),
     )
@@ -454,6 +482,7 @@ pub async fn run(args: Cli) -> Result<i32> {
             provider_http_connect_timeout_secs: cli_provider_http_connect_scan,
             provider_http_request_timeout_secs: cli_provider_http_request_scan,
             tls_crl_bundle: cli_tls_crl_bundle_scan,
+            reachability_mode: _cli_reachability_mode_scan,
             scan_exclude_dir: cli_scan_exclude_dir_scan,
             severity_v2_critical_min,
             severity_v2_high_min,
@@ -482,48 +511,51 @@ pub async fn run(args: Cli) -> Result<i32> {
                 v4_medium: severity_v4_medium_min,
                 v4_low: severity_v4_low_min,
             };
-            let mut effective = crate::config::load(
-                args.config.as_deref(),
-                crate::config::env_parallel(),
-                crate::config::env_cache_db(),
-                crate::config::env_ignore_db(),
-                crate::config::env_cache_ttl_secs(),
-                crate::config::env_min_score(),
-                crate::config::env_min_count(),
-                crate::config::env_exit_code_on_cve(),
-                crate::config::env_fp_exit_code(),
-                crate::config::env_project_id(),
-                crate::config::env_backoff_base_ms(),
-                crate::config::env_backoff_max_ms(),
-                crate::config::env_max_retries(),
-                crate::config::env_provider_http_connect_timeout_secs(),
-                crate::config::env_provider_http_request_timeout_secs(),
-                crate::config::env_tls_crl_bundle(),
-                cli_parallel,
-                cli_cache_db.as_deref(),
-                cli_ignore_db.as_deref(),
-                cli_cache_ttl_secs,
-                offline,
-                benchmark,
-                cli_min_score,
-                cli_min_count,
-                cli_exit_code_on_cve,
-                cli_fp_exit_code,
-                cli_project_id,
-                package_manager_required,
-                cli_backoff_base,
-                cli_backoff_max,
-                cli_max_retries,
-                cli_provider_http_connect_scan,
-                cli_provider_http_request_scan,
-                cli_tls_crl_bundle_scan,
-                crate::config::env_severity_overrides(),
-                cli_severity,
-            )
-            .map_err(|e| {
-                error!("{}", e);
-                anyhow!(e)
-            })?;
+            let mut effective =
+                crate::config::load_with_reachability_overrides(
+                    args.config.as_deref(),
+                    crate::config::env_parallel(),
+                    crate::config::env_cache_db(),
+                    crate::config::env_ignore_db(),
+                    crate::config::env_cache_ttl_secs(),
+                    crate::config::env_min_score(),
+                    crate::config::env_min_count(),
+                    crate::config::env_exit_code_on_cve(),
+                    crate::config::env_fp_exit_code(),
+                    crate::config::env_project_id(),
+                    crate::config::env_backoff_base_ms(),
+                    crate::config::env_backoff_max_ms(),
+                    crate::config::env_max_retries(),
+                    crate::config::env_provider_http_connect_timeout_secs(),
+                    crate::config::env_provider_http_request_timeout_secs(),
+                    crate::config::env_tls_crl_bundle(),
+                    cli_parallel,
+                    cli_cache_db.as_deref(),
+                    cli_ignore_db.as_deref(),
+                    cli_cache_ttl_secs,
+                    offline,
+                    benchmark,
+                    cli_min_score,
+                    cli_min_count,
+                    cli_exit_code_on_cve,
+                    cli_fp_exit_code,
+                    cli_project_id,
+                    package_manager_required,
+                    cli_backoff_base,
+                    cli_backoff_max,
+                    cli_max_retries,
+                    cli_provider_http_connect_scan,
+                    cli_provider_http_request_scan,
+                    cli_tls_crl_bundle_scan,
+                    crate::config::env_reachability_mode(),
+                    cli_reachability_mode,
+                    crate::config::env_severity_overrides(),
+                    cli_severity,
+                )
+                .map_err(|e| {
+                    error!("{}", e);
+                    anyhow!(e)
+                })?;
             if !cli_scan_exclude_dir_scan.is_empty() {
                 effective.scan_exclude_dirs = cli_scan_exclude_dir_scan;
             }
@@ -689,6 +721,17 @@ pub async fn run(args: Cli) -> Result<i32> {
                 write_stdout(&format!(
                     "scan_exclude_dirs = {}\n",
                     cfg.scan_exclude_dirs.join(",")
+                ));
+                let reachability_mode = match cfg.reachability_mode {
+                    crate::config::ReachabilityMode::Off => "off",
+                    crate::config::ReachabilityMode::TierB => "tier-b",
+                    crate::config::ReachabilityMode::BestAvailable => {
+                        "best-available"
+                    }
+                };
+                write_stdout(&format!(
+                    "reachability_mode = {}\n",
+                    reachability_mode
                 ));
                 write_stdout(&format!(
                     "cache_ttl_secs = {}\n",
@@ -1424,35 +1467,38 @@ async fn run_scan(
             .filter(|(_, recs)| !recs.is_empty())
             .collect();
 
-    // FR-032 Tier B: import-based reachability hints (conservative unknown when ambiguous).
-    #[cfg(feature = "perf-instrumentation")]
-    vlz_reachability::reset_tier_b_counters();
-    #[cfg(feature = "perf-instrumentation")]
-    let tier_b_started_at = Instant::now();
-    {
-        let reachability_analyzers = crate::registry::reachability_analyzers()
-            .lock()
-            .expect("REACHABILITY_ANALYZERS lock poisoned");
-        vlz_reachability::apply_tier_b_to_findings(
-            &root_path,
-            &exclude_dirs,
-            &mut findings,
-            &pkg_contexts,
-            &reachability_analyzers,
-        );
-    }
-    #[cfg(feature = "perf-instrumentation")]
-    {
-        let (enum_calls, files_enumerated, read_attempts, read_successes) =
-            vlz_reachability::snapshot_tier_b_counters();
-        if let Some(line) = tier_b_metrics_line(
-            tier_b_started_at.elapsed().as_millis(),
-            enum_calls,
-            files_enumerated,
-            read_attempts,
-            read_successes,
-        ) {
-            info!("{}", line);
+    if should_apply_tier_b(effective.reachability_mode) {
+        // FR-032 Tier B: import-based reachability hints (conservative unknown when ambiguous).
+        #[cfg(feature = "perf-instrumentation")]
+        vlz_reachability::reset_tier_b_counters();
+        #[cfg(feature = "perf-instrumentation")]
+        let tier_b_started_at = Instant::now();
+        {
+            let reachability_analyzers =
+                crate::registry::reachability_analyzers()
+                    .lock()
+                    .expect("REACHABILITY_ANALYZERS lock poisoned");
+            vlz_reachability::apply_tier_b_to_findings(
+                &root_path,
+                &exclude_dirs,
+                &mut findings,
+                &pkg_contexts,
+                &reachability_analyzers,
+            );
+        }
+        #[cfg(feature = "perf-instrumentation")]
+        {
+            let (enum_calls, files_enumerated, read_attempts, read_successes) =
+                vlz_reachability::snapshot_tier_b_counters();
+            if let Some(line) = tier_b_metrics_line(
+                tier_b_started_at.elapsed().as_millis(),
+                enum_calls,
+                files_enumerated,
+                read_attempts,
+                read_successes,
+            ) {
+                info!("{}", line);
+            }
         }
     }
 
@@ -1833,5 +1879,14 @@ mod tests {
         let got = discover_manifests_one_pass(root, &excludes).unwrap();
         let manifests = got.get("python").cloned().unwrap_or_default();
         assert_eq!(manifests, vec![root.join("requirements.txt")]);
+    }
+
+    #[test]
+    fn should_apply_tier_b_depends_on_mode() {
+        assert!(!should_apply_tier_b(crate::config::ReachabilityMode::Off));
+        assert!(should_apply_tier_b(crate::config::ReachabilityMode::TierB));
+        assert!(should_apply_tier_b(
+            crate::config::ReachabilityMode::BestAvailable
+        ));
     }
 }

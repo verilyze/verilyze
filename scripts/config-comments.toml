@@ -42,6 +42,16 @@ env = "VLZ_SCAN_EXCLUDE_DIRS"
 cli = "--scan-exclude-dir (repeatable)"
 default = ".git"
 
+[reachability_mode]
+description = """
+Reachability mode for scan output: off, tier-b, or best-available
+(default: tier-b)
+"""
+type = "string"
+env = "VLZ_REACHABILITY_MODE"
+cli = "--reachability-mode"
+default = "tier-b"
+
 [cache_ttl_secs]
 description = "Default cache TTL in seconds (5 days); only affects new entries"
 type = "integer"

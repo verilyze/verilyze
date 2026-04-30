@@ -172,7 +172,8 @@ uses the installed man page. Source: [man/vlz.1](man/vlz.1).
 `--summary-file html:path,cyclonedx:sbom.json,spdx:sbom.spdx.json`,
 `--provider osv|nvd|github|sonatype`, `--parallel N`, `--project-id ID`,
 `--cache-ttl-secs SECS`, `--offline`, `--benchmark`, `--min-score`, `--min-count`,
-`--exit-code-on-cve`, `--fp-exit-code`, `--cache-db`, `--ignore-db`.
+`--exit-code-on-cve`, `--fp-exit-code`, `--cache-db`, `--ignore-db`,
+`--reachability-mode off|tier-b|best-available`.
 
 ### Project-scoped false-positives
 

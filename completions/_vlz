@@ -54,6 +54,7 @@ _arguments "${_arguments_options[@]}" : \
 '--provider-http-connect-timeout-secs=[CVE provider HTTPS connect timeout in seconds (default 15)]:SECS:_default' \
 '--provider-http-request-timeout-secs=[CVE provider HTTPS total request timeout in seconds (default 120)]:SECS:_default' \
 '--tls-crl-bundle=[PEM file of CRLs for optional Linux TLS certificate revocation (SEC-021)]:PATH:_default' \
+'--reachability-mode=[Reachability analysis mode]:MODE:(off tier-b best-available)' \
 '--severity-v2-critical-min=[CVSS v2 critical severity minimum score (default 9.0)]:SCORE:_default' \
 '--severity-v2-high-min=[CVSS v2 high severity minimum score (default 7.0)]:SCORE:_default' \
 '--severity-v2-medium-min=[CVSS v2 medium severity minimum score (default 4.0)]:SCORE:_default' \
