@@ -10,6 +10,7 @@ use vlz_integrity::{BackendDelegatingChecker, IntegrityChecker};
 use vlz_manifest_finder::ManifestFinder;
 use vlz_manifest_parser::{Parser, Resolver};
 use vlz_plugin_macro::vlz_register;
+use vlz_reachability_trait::ReachabilityAnalyzer;
 use vlz_report::{DefaultReporter, Reporter};
 
 /// All possible plug‑in kinds.  The enum makes it easy to route a boxed
@@ -19,6 +20,7 @@ pub enum Plugin {
     ManifestFinder(Box<dyn ManifestFinder>),
     Parser(Box<dyn Parser>),
     Resolver(Box<dyn Resolver>),
+    ReachabilityAnalyzer(Box<dyn ReachabilityAnalyzer>),
     CveProvider(Box<dyn CveProvider>),
     DatabaseBackend(Box<dyn DatabaseBackend>),
     Reporter(Box<dyn Reporter>),
@@ -43,6 +45,9 @@ pub fn register(plugin: Plugin) {
         }
         Plugin::Resolver(r) => {
             resolvers().lock().unwrap().push(r);
+        }
+        Plugin::ReachabilityAnalyzer(r) => {
+            reachability_analyzers().lock().unwrap().push(r);
         }
         Plugin::CveProvider(cp) => {
             providers().lock().unwrap().push(cp);
@@ -155,6 +160,23 @@ pub fn ensure_default_resolver() {
     }
 }
 
+/// Ensures language-specific Tier B reachability analyzers are registered.
+pub fn ensure_default_reachability_analyzer() {
+    let mut analyzers = reachability_analyzers().lock().unwrap();
+    #[cfg(feature = "python")]
+    if !analyzers.iter().any(|x| x.language_name() == "python") {
+        analyzers.push(Box::new(vlz_python::PythonTierBAnalyzer::new()));
+    }
+    #[cfg(feature = "rust")]
+    if !analyzers.iter().any(|x| x.language_name() == "rust") {
+        analyzers.push(Box::new(vlz_rust::RustTierBAnalyzer::new()));
+    }
+    #[cfg(feature = "go")]
+    if !analyzers.iter().any(|x| x.language_name() == "go") {
+        analyzers.push(Box::new(vlz_go::GoTierBAnalyzer::new()));
+    }
+}
+
 /// Ensures at least one CVE provider is registered (default OSV.dev provider).
 /// Call this at startup so the default provider is used when no plugin has registered one.
 /// When the `nvd` feature is enabled, also registers the NVD provider.
@@ -260,6 +282,14 @@ pub fn providers() -> &'static Mutex<Vec<Box<dyn CveProvider>>> {
     PROVIDERS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
+pub fn reachability_analyzers()
+-> &'static Mutex<Vec<Box<dyn ReachabilityAnalyzer>>> {
+    static REACHABILITY_ANALYZERS: OnceLock<
+        Mutex<Vec<Box<dyn ReachabilityAnalyzer>>>,
+    > = OnceLock::new();
+    REACHABILITY_ANALYZERS.get_or_init(|| Mutex::new(Vec::new()))
+}
+
 pub fn db_backends() -> &'static Mutex<Vec<Box<dyn DatabaseBackend>>> {
     static DB_BACKENDS: OnceLock<Mutex<Vec<Box<dyn DatabaseBackend>>>> =
         OnceLock::new();
@@ -308,6 +338,11 @@ pub fn clear_reporters() {
 }
 
 #[cfg(any(test, feature = "testing"))]
+pub fn clear_reachability_analyzers() {
+    reachability_analyzers().lock().unwrap().clear();
+}
+
+#[cfg(any(test, feature = "testing"))]
 pub fn clear_integrity_checkers() {
     integrity_checkers().lock().unwrap().clear();
 }
@@ -331,6 +366,9 @@ mod tests {
     }
     fn clear_providers() {
         providers().lock().unwrap().clear();
+    }
+    fn clear_reachability_analyzers() {
+        reachability_analyzers().lock().unwrap().clear();
     }
     fn clear_db_backends() {
         db_backends().lock().unwrap().clear();
@@ -378,6 +416,14 @@ mod tests {
         )));
         #[cfg(feature = "python")]
         assert_eq!(resolvers().lock().unwrap().len(), 1);
+
+        clear_reachability_analyzers();
+        #[cfg(feature = "python")]
+        register(Plugin::ReachabilityAnalyzer(Box::new(
+            vlz_python::PythonTierBAnalyzer::new(),
+        )));
+        #[cfg(feature = "python")]
+        assert_eq!(reachability_analyzers().lock().unwrap().len(), 1);
 
         clear_providers();
         register(Plugin::CveProvider(Box::new(OsvProvider::default())));
@@ -433,6 +479,18 @@ mod tests {
             assert_eq!(resolvers().lock().unwrap().len(), expected);
             ensure_default_resolver();
             assert_eq!(resolvers().lock().unwrap().len(), expected);
+
+            clear_reachability_analyzers();
+            ensure_default_reachability_analyzer();
+            assert_eq!(
+                reachability_analyzers().lock().unwrap().len(),
+                expected
+            );
+            ensure_default_reachability_analyzer();
+            assert_eq!(
+                reachability_analyzers().lock().unwrap().len(),
+                expected
+            );
         }
 
         clear_providers();

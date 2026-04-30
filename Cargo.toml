@@ -23,6 +23,8 @@ default-members = [
     "crates/languages/vlz-go",
     "crates/core/vlz-manifest-finder",
     "crates/core/vlz-manifest-parser",
+    "crates/core/vlz-reachability-trait",
+    "crates/core/vlz-reachability",
     "crates/core/vlz-cve-client",
     "crates/core/vlz-report",
     "crates/core/vlz-integrity",

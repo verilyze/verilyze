@@ -370,6 +370,7 @@ pub async fn run(args: Cli) -> Result<i32> {
     crate::registry::ensure_default_manifest_finder();
     crate::registry::ensure_default_parser();
     crate::registry::ensure_default_resolver();
+    crate::registry::ensure_default_reachability_analyzer();
     crate::registry::ensure_default_cve_provider(&early_cfg);
     crate::registry::ensure_default_reporter();
     crate::registry::ensure_default_integrity_checker();
@@ -1159,6 +1160,7 @@ async fn run_scan(
     let mut all_packages_with_manifests: Vec<(
         vlz_db::Package,
         std::path::PathBuf,
+        String,
     )> = Vec::new();
     let can_use_shared_discovery = effective.language_regexes.is_empty()
         && finders.iter().take(n).all(|finder| {
@@ -1198,23 +1200,30 @@ async fn run_scan(
         let resolver = &resolvers[i];
         let tasks: Vec<_> = manifests
             .into_iter()
-            .map(|mf| async move {
-                let graph = parser
-                    .parse(&mf)
-                    .await
-                    .with_context(|| format!("Parsing manifest {:?}", mf))?;
-                let resolved =
-                    resolver.resolve(&graph).await.with_context(|| {
-                        format!("Resolving dependencies for {:?}", mf)
-                    })?;
-                Ok::<_, anyhow::Error>((resolved, mf))
+            .map(|mf| {
+                let language = language.clone();
+                async move {
+                    let graph =
+                        parser.parse(&mf).await.with_context(|| {
+                            format!("Parsing manifest {:?}", mf)
+                        })?;
+                    let resolved =
+                        resolver.resolve(&graph).await.with_context(|| {
+                            format!("Resolving dependencies for {:?}", mf)
+                        })?;
+                    Ok::<_, anyhow::Error>((resolved, mf, language))
+                }
             })
             .collect();
         let results = futures::future::join_all(tasks).await;
         for result in results {
-            let (resolved, manifest_path) = result?;
+            let (resolved, manifest_path, language) = result?;
             for pkg in resolved {
-                all_packages_with_manifests.push((pkg, manifest_path.clone()));
+                all_packages_with_manifests.push((
+                    pkg,
+                    manifest_path.clone(),
+                    language.clone(),
+                ));
             }
         }
     }
@@ -1232,15 +1241,22 @@ async fn run_scan(
         vlz_db::Package,
         std::collections::HashSet<std::path::PathBuf>,
     > = std::collections::HashMap::new();
-    for (pkg, path) in &all_packages_with_manifests {
+    let mut pkg_contexts: std::collections::HashMap<
+        vlz_db::Package,
+        vlz_reachability::PackageContext,
+    > = std::collections::HashMap::new();
+    for (pkg, path, language) in &all_packages_with_manifests {
         pkg_to_manifests
             .entry(pkg.clone())
             .or_default()
             .insert(path.clone());
+        let entry = pkg_contexts.entry(pkg.clone()).or_default();
+        entry.languages.insert(language.clone());
+        entry.manifest_paths.push(path.clone());
     }
     let all_packages: Vec<vlz_db::Package> = all_packages_with_manifests
         .iter()
-        .map(|(p, _)| p.clone())
+        .map(|(p, _, _)| p.clone())
         .collect();
     let packages_to_check = deduplicate_packages(&all_packages);
     info!(
@@ -1363,17 +1379,33 @@ async fn run_scan(
     };
     let had_any_cves_before_fp_filter =
         findings.iter().map(|(_, r)| r.len()).sum::<usize>() > 0;
-    let findings: Vec<(vlz_db::Package, Vec<vlz_db::CveRecord>)> = findings
-        .into_iter()
-        .map(|(pkg, recs)| {
-            let kept: Vec<_> = recs
-                .into_iter()
-                .filter(|cve| !marked_fp.contains(&cve.id))
-                .collect();
-            (pkg, kept)
-        })
-        .filter(|(_, recs)| !recs.is_empty())
-        .collect();
+    let mut findings: Vec<(vlz_db::Package, Vec<vlz_db::CveRecord>)> =
+        findings
+            .into_iter()
+            .map(|(pkg, recs)| {
+                let kept: Vec<_> = recs
+                    .into_iter()
+                    .filter(|cve| !marked_fp.contains(&cve.id))
+                    .collect();
+                (pkg, kept)
+            })
+            .filter(|(_, recs)| !recs.is_empty())
+            .collect();
+
+    // FR-032 Tier B: import-based reachability hints (conservative unknown when ambiguous).
+    {
+        let reachability_analyzers = crate::registry::reachability_analyzers()
+            .lock()
+            .expect("REACHABILITY_ANALYZERS lock poisoned");
+        vlz_reachability::apply_tier_b_to_findings(
+            &root_path,
+            &exclude_dirs,
+            &mut findings,
+            &pkg_contexts,
+            &reachability_analyzers,
+        );
+    }
+
     let real_cve_count: usize = findings.iter().map(|(_, r)| r.len()).sum();
     if had_any_cves_before_fp_filter && real_cve_count == 0 {
         let _ = db_backend.stats().await;

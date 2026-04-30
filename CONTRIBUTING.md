@@ -407,12 +407,35 @@ flowchart LR
     Packages --> CVE[CVE lookup]
 ```
 
+### Reachability tiers (maintainer reference)
+
+Use the same tier names in code comments, docs, and tests:
+
+- **Tier A** -- No source analysis. `reachable` is unknown.
+- **Tier B** -- Consumer-project import/reference analysis against package identity.
+  Emit `true` only for unambiguous positive evidence, `false` only for
+  confident absence, otherwise unknown.
+- **Tier C** -- Tier B plus advisory symbol/path metadata for CVE-specific matching.
+- **Tier D** -- Tier C plus deeper dependency source and flow analysis.
+
+Tier B must not imply Tier C or Tier D precision. When in doubt, prefer
+unknown over false.
+
+### Reachability analyzer plugin
+
+Tier B language logic is pluginized. Language crates implement
+`ReachabilityAnalyzer` from
+`crates/core/vlz-reachability-trait/src/lib.rs` and register defaults in
+core startup, similar to finder/parser/resolver registration.
+
 1. Create a new crate under `crates/languages/` (e.g.
    `crates/languages/vlz-java/`) that implements:
    - `ManifestFinder` -- discover manifest files (e.g. `pom.xml`).
    - `Parser` -- parse manifest into `DependencyGraph`.
    - `Resolver` -- resolve to `Vec<Package>` (e.g. using lock file or package
      manager).
+   - `ReachabilityAnalyzer` -- Tier B package reachability decision for this
+     language.
 2. Gate the crate behind a Cargo feature in the `vlz` binary: add your crate
    (e.g. `vlz-java`) as an optional dependency and define a feature (e.g.
    `java`) that enables it. When the feature is enabled, your crate is compiled
