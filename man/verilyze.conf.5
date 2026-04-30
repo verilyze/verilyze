@@ -65,6 +65,12 @@ Default: .git.
 Env: VLZ_SCAN_EXCLUDE_DIRS.
 CLI: --scan-exclude-dir (repeatable).
 
+.It Va reachability_mode
+Reachability mode for scan output: off, tier-b, or best-available (default: tier-b).
+Default: tier-b.
+Env: VLZ_REACHABILITY_MODE.
+CLI: --reachability-mode.
+
 .It Va cache_ttl_secs
 Default cache TTL in seconds (5 days); only affects new entries.
 Default: 432000.

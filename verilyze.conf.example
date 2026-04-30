@@ -15,6 +15,10 @@
 # .git)
 # scan_exclude_dirs = .git
 
+# Reachability mode for scan output: off, tier-b, or best-available (default:
+# tier-b)
+# reachability_mode = tier-b
+
 # Default cache TTL in seconds (5 days); only affects new entries
 # cache_ttl_secs = 432000
 
