@@ -2,10 +2,13 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 
 use vlz_reachability_trait::{
     ReachabilityAnalyzer, TierBContext, TierBDecision, list_files_with_ext,
+    note_tier_b_file_read_attempt,
 };
 
 #[derive(Debug, Default)]
@@ -53,18 +56,17 @@ fn quoted_paths_in_line(line: &str) -> Vec<String> {
 
 fn collect_go_import_paths(context: &TierBContext<'_>) -> HashSet<String> {
     let mut paths = HashSet::new();
-    let files = match list_files_with_ext(
-        context.scan_root,
-        context.exclude_dir_names,
-        "go",
-    ) {
-        Ok(files) => files,
-        Err(_) => return paths,
-    };
+    let files = list_go_files(context);
     for path in files {
         let content = match std::fs::read_to_string(&path) {
-            Ok(c) => c,
-            Err(_) => continue,
+            Ok(c) => {
+                note_tier_b_file_read_attempt(true);
+                c
+            }
+            Err(_) => {
+                note_tier_b_file_read_attempt(false);
+                continue;
+            }
         };
         let mut in_import_block = false;
         for line in content.lines() {
@@ -90,6 +92,44 @@ fn collect_go_import_paths(context: &TierBContext<'_>) -> HashSet<String> {
             }
         }
     }
+    paths
+}
+
+fn go_import_paths_cache() -> &'static Mutex<HashMap<String, HashSet<String>>>
+{
+    static CACHE: OnceLock<Mutex<HashMap<String, HashSet<String>>>> =
+        OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn import_paths_cache_key(context: &TierBContext<'_>) -> String {
+    let roots = scoped_roots(context);
+    format!(
+        "{}|{}",
+        context.scan_root.display(),
+        roots
+            .iter()
+            .map(|p| p.display().to_string())
+            .collect::<Vec<_>>()
+            .join(";")
+    )
+}
+
+fn cached_go_import_paths(context: &TierBContext<'_>) -> HashSet<String> {
+    let key = import_paths_cache_key(context);
+    if let Some(cached) = go_import_paths_cache()
+        .lock()
+        .expect("go import paths cache lock poisoned")
+        .get(&key)
+        .cloned()
+    {
+        return cached;
+    }
+    let paths = collect_go_import_paths(context);
+    go_import_paths_cache()
+        .lock()
+        .expect("go import paths cache lock poisoned")
+        .insert(key, paths.clone());
     paths
 }
 
@@ -129,18 +169,11 @@ impl ReachabilityAnalyzer for GoTierBAnalyzer {
     }
 
     fn analyze_tier_b(&self, context: &TierBContext<'_>) -> TierBDecision {
-        let go_files = match list_files_with_ext(
-            context.scan_root,
-            context.exclude_dir_names,
-            "go",
-        ) {
-            Ok(files) => files,
-            Err(_) => return TierBDecision::Unknown,
-        };
+        let go_files = list_go_files(context);
         if go_files.is_empty() {
             return TierBDecision::Unknown;
         }
-        let imports = collect_go_import_paths(context);
+        let imports = cached_go_import_paths(context);
         if imports.is_empty() {
             return TierBDecision::Unknown;
         }
@@ -155,10 +188,67 @@ impl ReachabilityAnalyzer for GoTierBAnalyzer {
     }
 }
 
+fn go_file_cache() -> &'static Mutex<HashMap<String, Vec<PathBuf>>> {
+    static CACHE: OnceLock<Mutex<HashMap<String, Vec<PathBuf>>>> =
+        OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn list_go_files(context: &TierBContext<'_>) -> Vec<PathBuf> {
+    let roots = scoped_roots(context);
+    let cache_key = format!(
+        "{}|{}",
+        context.scan_root.display(),
+        roots
+            .iter()
+            .map(|p| p.display().to_string())
+            .collect::<Vec<_>>()
+            .join(";")
+    );
+    if let Some(cached) = go_file_cache()
+        .lock()
+        .expect("go reachability cache lock poisoned")
+        .get(&cache_key)
+        .cloned()
+    {
+        return cached;
+    }
+    let mut files = Vec::new();
+    for root in roots {
+        if let Ok(mut found) =
+            list_files_with_ext(&root, context.exclude_dir_names, "go")
+        {
+            files.append(&mut found);
+        }
+    }
+    go_file_cache()
+        .lock()
+        .expect("go reachability cache lock poisoned")
+        .insert(cache_key, files.clone());
+    files
+}
+
+fn scoped_roots(context: &TierBContext<'_>) -> Vec<PathBuf> {
+    let mut roots: Vec<PathBuf> = context
+        .manifest_paths
+        .iter()
+        .filter_map(|manifest| manifest.parent().map(Path::to_path_buf))
+        .collect();
+    if roots.is_empty() {
+        return vec![context.scan_root.to_path_buf()];
+    }
+    roots.sort();
+    roots.dedup();
+    roots
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::path::PathBuf;
+    use vlz_reachability_trait::{
+        reset_tier_b_counters, snapshot_tier_b_counters,
+    };
 
     fn context_for<'a>(
         root: &'a std::path::Path,
@@ -273,5 +363,59 @@ mod tests {
         let analyzer = GoTierBAnalyzer::new();
         let ctx = context_for(dir.path(), "github.com/foo/bar");
         assert_eq!(analyzer.analyze_tier_b(&ctx), TierBDecision::Unknown);
+    }
+
+    #[test]
+    fn analyze_uses_cached_file_enumeration_across_calls() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("main.go"),
+            "package main\nimport \"github.com/foo/bar/sub\"\n",
+        )
+        .expect("write");
+        let analyzer = GoTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "github.com/foo/bar");
+        reset_tier_b_counters();
+        assert_eq!(analyzer.analyze_tier_b(&ctx), TierBDecision::Reachable);
+        assert_eq!(analyzer.analyze_tier_b(&ctx), TierBDecision::Reachable);
+        let (enum_calls, _, read_attempts, _) = snapshot_tier_b_counters();
+        assert!(enum_calls == 0 || enum_calls == 1);
+        assert!(read_attempts == 0 || read_attempts <= 2);
+    }
+
+    #[test]
+    fn analyze_scopes_to_manifest_parent() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let in_scope = dir.path().join("service_a");
+        let out_scope = dir.path().join("service_b");
+        std::fs::create_dir_all(&in_scope).expect("mkdir");
+        std::fs::create_dir_all(&out_scope).expect("mkdir");
+        let manifest = in_scope.join("go.mod");
+        std::fs::write(&manifest, "module example.com/service_a\n")
+            .expect("manifest");
+        std::fs::write(
+            in_scope.join("main.go"),
+            "package main\nimport \"fmt\"\n",
+        )
+        .expect("write");
+        std::fs::write(
+            out_scope.join("main.go"),
+            "package main\nimport \"github.com/foo/bar/sub\"\n",
+        )
+        .expect("write");
+        let package = vlz_db::Package {
+            name: "github.com/foo/bar".to_string(),
+            version: "1.0.0".to_string(),
+            ecosystem: Some("Go".to_string()),
+        };
+        let ctx = TierBContext {
+            scan_root: dir.path(),
+            exclude_dir_names: Box::leak(Box::new(HashSet::new())),
+            package: Box::leak(Box::new(package)),
+            language: "go",
+            manifest_paths: Box::leak(Box::new(vec![manifest])),
+        };
+        let analyzer = GoTierBAnalyzer::new();
+        assert_eq!(analyzer.analyze_tier_b(&ctx), TierBDecision::NotReachable);
     }
 }

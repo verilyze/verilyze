@@ -564,6 +564,9 @@ The `vlz` binary supports optional capabilities via Cargo features:
 - **testing** -- Mocks and registry clear helpers for integration tests. Opt-in;
   use `--features vlz/testing` when running `cargo test` directly. `make
   unit-tests` and `make coverage` enable it automatically.
+- **perf-instrumentation** -- Compile-time gate for performance counters and
+  instrumentation logs (for example Tier-B reachability counters). Opt-in;
+  not included in standard default or release builds.
 - **sqlite**, **mem** -- placeholders for future backends.
 
 NVD is opt-in because: (1) NVD enforces 5 requests per 30-second window for
@@ -612,6 +615,12 @@ Build with GitHub and Sonatype CVE providers:
 
 ```sh
 cargo build --features github,sonatype
+```
+
+Build with performance instrumentation enabled:
+
+```sh
+cargo build --features perf-instrumentation
 ```
 
 A minimal build omits language plugins, the RedB backend, and man page
