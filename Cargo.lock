@@ -2242,6 +2242,10 @@ dependencies = [
 name = "vlz-reachability"
 version = "0.1.0"
 dependencies = [
+ "serde",
+ "serde_json",
+ "temp-env",
+ "tempfile",
  "vlz-db",
  "vlz-reachability-trait",
 ]

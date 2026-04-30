@@ -2,10 +2,13 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 
 use vlz_reachability_trait::{
     ReachabilityAnalyzer, TierBContext, TierBDecision, list_files_with_ext,
+    note_tier_b_file_read_attempt,
 };
 
 #[derive(Debug, Default)]
@@ -100,23 +103,60 @@ fn push_import_roots_from_line(line: &str, roots: &mut HashSet<String>) {
 
 fn collect_python_import_roots(context: &TierBContext<'_>) -> HashSet<String> {
     let mut roots = HashSet::new();
-    let files = match list_files_with_ext(
-        context.scan_root,
-        context.exclude_dir_names,
-        "py",
-    ) {
-        Ok(files) => files,
-        Err(_) => return roots,
-    };
+    let files = list_python_files(context);
     for path in files {
         let content = match std::fs::read_to_string(&path) {
-            Ok(c) => c,
-            Err(_) => continue,
+            Ok(c) => {
+                note_tier_b_file_read_attempt(true);
+                c
+            }
+            Err(_) => {
+                note_tier_b_file_read_attempt(false);
+                continue;
+            }
         };
         for line in content.lines() {
             push_import_roots_from_line(line, &mut roots);
         }
     }
+    roots
+}
+
+fn python_import_roots_cache()
+-> &'static Mutex<HashMap<String, HashSet<String>>> {
+    static CACHE: OnceLock<Mutex<HashMap<String, HashSet<String>>>> =
+        OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn import_roots_cache_key(context: &TierBContext<'_>) -> String {
+    let roots = scoped_roots(context);
+    format!(
+        "{}|{}",
+        context.scan_root.display(),
+        roots
+            .iter()
+            .map(|p| p.display().to_string())
+            .collect::<Vec<_>>()
+            .join(";")
+    )
+}
+
+fn cached_python_import_roots(context: &TierBContext<'_>) -> HashSet<String> {
+    let key = import_roots_cache_key(context);
+    if let Some(cached) = python_import_roots_cache()
+        .lock()
+        .expect("python import roots cache lock poisoned")
+        .get(&key)
+        .cloned()
+    {
+        return cached;
+    }
+    let roots = collect_python_import_roots(context);
+    python_import_roots_cache()
+        .lock()
+        .expect("python import roots cache lock poisoned")
+        .insert(key, roots.clone());
     roots
 }
 
@@ -130,18 +170,11 @@ impl ReachabilityAnalyzer for PythonTierBAnalyzer {
     }
 
     fn analyze_tier_b(&self, context: &TierBContext<'_>) -> TierBDecision {
-        let py_files = match list_files_with_ext(
-            context.scan_root,
-            context.exclude_dir_names,
-            "py",
-        ) {
-            Ok(files) => files,
-            Err(_) => return TierBDecision::Unknown,
-        };
+        let py_files = list_python_files(context);
         if py_files.is_empty() {
             return TierBDecision::Unknown;
         }
-        let roots = collect_python_import_roots(context);
+        let roots = cached_python_import_roots(context);
         if roots.is_empty() {
             return TierBDecision::Unknown;
         }
@@ -157,10 +190,67 @@ impl ReachabilityAnalyzer for PythonTierBAnalyzer {
     }
 }
 
+fn python_file_cache() -> &'static Mutex<HashMap<String, Vec<PathBuf>>> {
+    static CACHE: OnceLock<Mutex<HashMap<String, Vec<PathBuf>>>> =
+        OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn list_python_files(context: &TierBContext<'_>) -> Vec<PathBuf> {
+    let roots = scoped_roots(context);
+    let cache_key = format!(
+        "{}|{}",
+        context.scan_root.display(),
+        roots
+            .iter()
+            .map(|p| p.display().to_string())
+            .collect::<Vec<_>>()
+            .join(";")
+    );
+    if let Some(cached) = python_file_cache()
+        .lock()
+        .expect("python reachability cache lock poisoned")
+        .get(&cache_key)
+        .cloned()
+    {
+        return cached;
+    }
+    let mut files = Vec::new();
+    for root in roots {
+        if let Ok(mut found) =
+            list_files_with_ext(&root, context.exclude_dir_names, "py")
+        {
+            files.append(&mut found);
+        }
+    }
+    python_file_cache()
+        .lock()
+        .expect("python reachability cache lock poisoned")
+        .insert(cache_key, files.clone());
+    files
+}
+
+fn scoped_roots(context: &TierBContext<'_>) -> Vec<PathBuf> {
+    let mut roots: Vec<PathBuf> = context
+        .manifest_paths
+        .iter()
+        .filter_map(|manifest| manifest.parent().map(Path::to_path_buf))
+        .collect();
+    if roots.is_empty() {
+        return vec![context.scan_root.to_path_buf()];
+    }
+    roots.sort();
+    roots.dedup();
+    roots
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::path::PathBuf;
+    use vlz_reachability_trait::{
+        reset_tier_b_counters, snapshot_tier_b_counters,
+    };
 
     fn context_for<'a>(
         root: &'a std::path::Path,
@@ -268,5 +358,49 @@ mod tests {
         let analyzer = PythonTierBAnalyzer::new();
         let ctx = context_for(dir.path(), "requests");
         assert_eq!(analyzer.analyze_tier_b(&ctx), TierBDecision::Unknown);
+    }
+
+    #[test]
+    fn analyze_uses_cached_file_enumeration_across_calls() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join("app.py"), "import requests\n")
+            .expect("write");
+        let analyzer = PythonTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "requests");
+        reset_tier_b_counters();
+        assert_eq!(analyzer.analyze_tier_b(&ctx), TierBDecision::Reachable);
+        assert_eq!(analyzer.analyze_tier_b(&ctx), TierBDecision::Reachable);
+        let (enum_calls, _, read_attempts, _) = snapshot_tier_b_counters();
+        assert!(enum_calls == 0 || enum_calls == 1);
+        assert!(read_attempts == 0 || read_attempts == 1);
+    }
+
+    #[test]
+    fn analyze_scopes_to_manifest_parent() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let in_scope = dir.path().join("service_a");
+        let out_scope = dir.path().join("service_b");
+        std::fs::create_dir_all(&in_scope).expect("mkdir");
+        std::fs::create_dir_all(&out_scope).expect("mkdir");
+        let manifest = in_scope.join("requirements.txt");
+        std::fs::write(&manifest, "requests==2.0.0\n").expect("manifest");
+        std::fs::write(in_scope.join("app.py"), "import sys\n")
+            .expect("write");
+        std::fs::write(out_scope.join("app.py"), "import requests\n")
+            .expect("write");
+        let package = vlz_db::Package {
+            name: "requests".to_string(),
+            version: "1.0.0".to_string(),
+            ecosystem: Some("PyPI".to_string()),
+        };
+        let ctx = TierBContext {
+            scan_root: dir.path(),
+            exclude_dir_names: Box::leak(Box::new(HashSet::new())),
+            package: Box::leak(Box::new(package)),
+            language: "python",
+            manifest_paths: Box::leak(Box::new(vec![manifest])),
+        };
+        let analyzer = PythonTierBAnalyzer::new();
+        assert_eq!(analyzer.analyze_tier_b(&ctx), TierBDecision::NotReachable);
     }
 }

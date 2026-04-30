@@ -95,6 +95,10 @@ sonatype = ["dep:vlz-cve-provider-sonatype"]
 # Mocks and registry clear helpers for integration tests (integration tests
 # build vlz as a dep, so cfg(test) is false; this feature enables them).
 testing = ["async-trait"]
+perf-instrumentation = [
+    "vlz-reachability/perf-instrumentation",
+    "vlz-reachability-trait/perf-instrumentation",
+]
 sqlite = []      # placeholder for a future SQLite backend
 mem = []         # placeholder for an in‑memory/mock backend
 

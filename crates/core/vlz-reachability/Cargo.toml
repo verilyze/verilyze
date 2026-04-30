@@ -11,5 +11,14 @@ description = "Tier B import-based reachability hints for verilyze (FR-032)"
 publish = false
 
 [dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
 vlz-db = { path = "../vlz-db" }
 vlz-reachability-trait = { path = "../vlz-reachability-trait" }
+
+[features]
+perf-instrumentation = ["vlz-reachability-trait/perf-instrumentation"]
+
+[dev-dependencies]
+temp-env.workspace = true
+tempfile.workspace = true

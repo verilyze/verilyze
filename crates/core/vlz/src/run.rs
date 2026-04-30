@@ -137,6 +137,38 @@ fn should_skip_dir(
         .unwrap_or(false)
 }
 
+#[cfg_attr(not(feature = "perf-instrumentation"), allow(dead_code))]
+fn tier_b_metrics_line(
+    elapsed_ms: u128,
+    enum_calls: u64,
+    files_enumerated: u64,
+    read_attempts: u64,
+    read_successes: u64,
+) -> Option<String> {
+    #[cfg(feature = "perf-instrumentation")]
+    {
+        Some(format!(
+            "Tier-B reachability finished in {} ms (enum_calls={}, files_enumerated={}, read_attempts={}, read_successes={})",
+            elapsed_ms,
+            enum_calls,
+            files_enumerated,
+            read_attempts,
+            read_successes
+        ))
+    }
+    #[cfg(not(feature = "perf-instrumentation"))]
+    {
+        let _ = (
+            elapsed_ms,
+            enum_calls,
+            files_enumerated,
+            read_attempts,
+            read_successes,
+        );
+        None
+    }
+}
+
 fn discover_manifests_one_pass(
     root: &std::path::Path,
     exclude_dirs: &std::collections::HashSet<String>,
@@ -1393,6 +1425,10 @@ async fn run_scan(
             .collect();
 
     // FR-032 Tier B: import-based reachability hints (conservative unknown when ambiguous).
+    #[cfg(feature = "perf-instrumentation")]
+    vlz_reachability::reset_tier_b_counters();
+    #[cfg(feature = "perf-instrumentation")]
+    let tier_b_started_at = Instant::now();
     {
         let reachability_analyzers = crate::registry::reachability_analyzers()
             .lock()
@@ -1404,6 +1440,20 @@ async fn run_scan(
             &pkg_contexts,
             &reachability_analyzers,
         );
+    }
+    #[cfg(feature = "perf-instrumentation")]
+    {
+        let (enum_calls, files_enumerated, read_attempts, read_successes) =
+            vlz_reachability::snapshot_tier_b_counters();
+        if let Some(line) = tier_b_metrics_line(
+            tier_b_started_at.elapsed().as_millis(),
+            enum_calls,
+            files_enumerated,
+            read_attempts,
+            read_successes,
+        ) {
+            info!("{}", line);
+        }
     }
 
     let real_cve_count: usize = findings.iter().map(|(_, r)| r.len()).sum();
@@ -1750,6 +1800,23 @@ mod tests {
         assert!(got.contains(".git"));
         assert!(got.contains("target"));
         assert_eq!(got.len(), 2);
+    }
+
+    #[cfg(feature = "perf-instrumentation")]
+    #[test]
+    fn tier_b_metrics_line_present_when_feature_enabled() {
+        let line = tier_b_metrics_line(12, 3, 4, 5, 6).expect("metrics line");
+        assert!(line.contains("12 ms"));
+        assert!(line.contains("enum_calls=3"));
+        assert!(line.contains("files_enumerated=4"));
+        assert!(line.contains("read_attempts=5"));
+        assert!(line.contains("read_successes=6"));
+    }
+
+    #[cfg(not(feature = "perf-instrumentation"))]
+    #[test]
+    fn tier_b_metrics_line_absent_when_feature_disabled() {
+        assert!(tier_b_metrics_line(12, 3, 4, 5, 6).is_none());
     }
 
     #[cfg(feature = "python")]

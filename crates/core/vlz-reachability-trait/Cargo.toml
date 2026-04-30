@@ -12,3 +12,6 @@ publish = false
 
 [dependencies]
 vlz-db = { path = "../vlz-db" }
+
+[features]
+perf-instrumentation = []
