@@ -3,4 +3,5 @@ flowchart LR
     Find --> Parse[Parse dependencies]
     Parse --> Resolve[Resolve versions]
     Resolve --> CVE[Check CVEs]
-    CVE --> Report[Report results]
+    CVE --> Reachability[Apply reachability analysis]
+    Reachability --> Report[Report results]
