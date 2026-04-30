@@ -275,3 +275,29 @@ jobs:
             release-artifacts/SHA256SUMS
             release-artifacts/SHA256SUMS.sig
             release-artifacts/SHA256SUMS.pem
+
+  trigger-obs:
+    needs: [preflight-release, create-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Verify OBS signing metadata
+        run: |
+          set -euo pipefail
+          ./scripts/check-obs-signing.sh \
+            --config packaging/obs/obs-project.env
+
+      - name: Trigger OBS source-service refresh/build
+        env:
+          VERSION: ${{ needs.preflight-release.outputs.version }}
+          OBS_TOKEN: ${{ secrets.OBS_TOKEN }}
+        run: |
+          set -euo pipefail
+          ./scripts/obs-trigger-build.sh \
+            --config packaging/obs/obs-project.env \
+            --version "${VERSION}"

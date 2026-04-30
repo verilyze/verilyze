@@ -1,0 +1,5 @@
+verilyze (0.1.0-1) unstable; urgency=medium
+
+  * Initial OBS Debian packaging for verilyze.
+
+ -- Travis Post <post.travis@gmail.com>  Wed, 29 Apr 2026 10:00:00 +0000
