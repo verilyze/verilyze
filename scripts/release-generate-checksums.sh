@@ -26,15 +26,8 @@ fi
 root_abs="$(cd "${artifacts_dir}" && pwd)"
 tmp_list="$(mktemp)"
 trap 'rm -f "${tmp_list}"' EXIT
-shopt -s nullglob globstar
 
-# Keep deterministic ordering for reproducible manifests.
-(
-  cd "${root_abs}"
-  for pattern in "vlz-linux-x86_64/vlz" "deb-package/*.deb" "rpm-package/**/*.rpm"; do
-    compgen -G "${pattern}" || true
-  done
-) | LC_ALL=C sort -u > "${tmp_list}"
+./scripts/release-list-artifacts.sh "${root_abs}" > "${tmp_list}"
 
 if [[ ! -s "${tmp_list}" ]]; then
   echo "error: no release artifacts found under ${root_abs}" >&2

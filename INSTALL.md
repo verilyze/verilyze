@@ -9,7 +9,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 For tagged releases, GitHub publishes:
 - GitHub Release assets (Linux binary, `.deb`, `.rpm`)
 - Public GHCR container images
-- `SHA256SUMS` plus keyless Sigstore JSON bundles (`*.sigstore.json`) for release assets
+- `SHA256SUMS` plus keyless Sigstore bundles (`*.sigstore.json`) and
+  provenance bundles (`*.intoto.jsonl`) for release assets
 
 [crates.io](https://crates.io/) packages and third-party distro/community
 repository publication are not included in this release scope. You can also
@@ -21,18 +22,23 @@ For development setup (venvs, `make check`, fuzz, coverage), see
 
 ## Verify published release assets
 
-After downloading assets from a GitHub Release, verify checksums and signatures:
+After downloading assets from a GitHub Release, verify checksums, signatures,
+and provenance:
 
 ```bash
 sha256sum -c SHA256SUMS
 cosign verify-blob \
   --bundle vlz.sigstore.json \
   vlz
+cosign verify-blob-attestation \
+  --bundle vlz.intoto.jsonl \
+  --new-bundle-format \
+  vlz
 ```
 
-Use the matching `*.sigstore.json` bundle for each asset (`vlz`, `.deb`, `.rpm`,
-or `SHA256SUMS`). For GHCR images, verify signatures and attestations with
-Cosign against the pushed digest.
+Use matching `*.sigstore.json` and `*.intoto.jsonl` bundles for each asset
+(`vlz`, `.deb`, `.rpm`, or `SHA256SUMS`). For GHCR images, verify signatures
+and attestations with Cosign against the pushed digest.
 
 ## Recommended: `make release`
 

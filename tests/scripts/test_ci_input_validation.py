@@ -17,6 +17,7 @@ _CHECK_SIG = _ROOT / "scripts" / "check-signatures.sh"
 _EXTRACT_CL = _ROOT / "scripts" / "extract-changelog-for-release.sh"
 _VERIFY_TAG = _ROOT / "scripts" / "release-verify-tag-version.sh"
 _CHECKSUMS = _ROOT / "scripts" / "release-generate-checksums.sh"
+_LIST_ARTIFACTS = _ROOT / "scripts" / "release-list-artifacts.sh"
 
 
 def _run_script(
@@ -247,6 +248,45 @@ class TestReleaseGenerateChecksums:
     def test_missing_artifacts_directory_exits_1(self, tmp_path: Path) -> None:
         proc = _run_script(
             [str(_CHECKSUMS), str(tmp_path / "missing-release-artifacts")],
+            cwd=_ROOT,
+        )
+        assert proc.returncode == 1
+        assert "does not exist" in proc.stderr
+
+
+class TestReleaseListArtifacts:
+    """release-list-artifacts.sh: list expected artifact files deterministically."""
+
+    def test_lists_expected_release_artifacts(self, tmp_path: Path) -> None:
+        artifacts = tmp_path / "release-artifacts"
+        binary_dir = artifacts / "vlz-linux-x86_64"
+        deb_dir = artifacts / "deb-package"
+        rpm_dir = artifacts / "rpm-package" / "x86_64"
+        binary_dir.mkdir(parents=True)
+        deb_dir.mkdir(parents=True)
+        rpm_dir.mkdir(parents=True)
+
+        (binary_dir / "vlz").write_bytes(b"vlz-binary")
+        (deb_dir / "vlz_0.1.0_amd64.deb").write_bytes(b"deb-pkg")
+        (rpm_dir / "vlz-0.1.0-1.x86_64.rpm").write_bytes(b"rpm-pkg")
+        (artifacts / "SHA256SUMS").write_text("", encoding="utf-8")
+
+        proc = _run_script(
+            [str(_LIST_ARTIFACTS), str(artifacts), "--include-sha256sums"],
+            cwd=_ROOT,
+        )
+        assert proc.returncode == 0, proc.stderr + proc.stdout
+        lines = [line for line in proc.stdout.splitlines() if line.strip()]
+        assert lines == [
+            "SHA256SUMS",
+            "deb-package/vlz_0.1.0_amd64.deb",
+            "rpm-package/x86_64/vlz-0.1.0-1.x86_64.rpm",
+            "vlz-linux-x86_64/vlz",
+        ]
+
+    def test_missing_artifacts_directory_exits_1(self, tmp_path: Path) -> None:
+        proc = _run_script(
+            [str(_LIST_ARTIFACTS), str(tmp_path / "missing-release-artifacts")],
             cwd=_ROOT,
         )
         assert proc.returncode == 1
