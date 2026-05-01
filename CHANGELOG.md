@@ -12,6 +12,16 @@ The GitHub Release body is generated from the matching `## [version]` section
 below when you push a `v*` tag (see `.github/workflows/release.yml`). Update
 this file **before** creating the release tag.
 
+## [0.2.1] - 2026-04-30
+
+### Fixed
+
+- Release workflow regressions from `v0.2.0`:
+  - `build-rpm` now installs `git` before `actions/checkout` in the Fedora
+    container so `make rpm` can run `git archive` against a real `.git` tree.
+  - container provenance attestation now includes the required SLSA `builder`
+    field and avoids zizmor template-injection findings.
+
 ## [0.2.0] - 2026-04-30
 
 ### Added
