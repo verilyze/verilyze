@@ -264,9 +264,7 @@ jobs:
             release-artifacts/rpm-package/**/*.rpm \
             release-artifacts/SHA256SUMS; do
             cosign sign-blob --yes \
-              --new-bundle-format=false \
-              --output-signature "${file}.sig" \
-              --output-certificate "${file}.pem" \
+              --bundle "${file}.sigstore.json" \
               "${file}"
           done
 
@@ -277,17 +275,13 @@ jobs:
           body_path: release-body.md
           files: |
             release-artifacts/vlz-linux-x86_64/vlz
-            release-artifacts/vlz-linux-x86_64/vlz.sig
-            release-artifacts/vlz-linux-x86_64/vlz.pem
+            release-artifacts/vlz-linux-x86_64/vlz.sigstore.json
             release-artifacts/deb-package/*.deb
-            release-artifacts/deb-package/*.deb.sig
-            release-artifacts/deb-package/*.deb.pem
+            release-artifacts/deb-package/*.deb.sigstore.json
             release-artifacts/rpm-package/**/*.rpm
-            release-artifacts/rpm-package/**/*.rpm.sig
-            release-artifacts/rpm-package/**/*.rpm.pem
+            release-artifacts/rpm-package/**/*.rpm.sigstore.json
             release-artifacts/SHA256SUMS
-            release-artifacts/SHA256SUMS.sig
-            release-artifacts/SHA256SUMS.pem
+            release-artifacts/SHA256SUMS.sigstore.json
 
   trigger-obs:
     needs: [preflight-release, create-release]
