@@ -41,9 +41,29 @@ jobs:
             mkdir -p "${workdir}"
             gh release download "${tag}" --dir "${workdir}"
 
-            ./scripts/release-list-artifacts.sh \
+            if ! ./scripts/release-list-artifacts.sh \
               "${workdir}" \
-              --include-sha256sums > "${workdir}/ARTIFACTS.list"
+              --include-sha256sums > "${workdir}/ARTIFACTS.list"; then
+              # Fallback for historical releases with legacy asset names.
+              (
+                cd "${workdir}"
+                shopt -s nullglob globstar
+                for path in **/*; do
+                  [[ -f "${path}" ]] || continue
+                  case "${path}" in
+                    *.sigstore.json|*.intoto.jsonl|ARTIFACTS.list)
+                      continue
+                      ;;
+                  esac
+                  echo "${path}"
+                done | LC_ALL=C sort -u
+              ) > "${workdir}/ARTIFACTS.list"
+            fi
+
+            if [[ ! -s "${workdir}/ARTIFACTS.list" ]]; then
+              echo "::error::no releasable artifacts found for ${tag}"
+              exit 1
+            fi
 
             while IFS= read -r rel_path; do
               file="${workdir}/${rel_path}"

@@ -33,5 +33,6 @@ def test_backfill_workflow_exists_for_historical_releases() -> None:
     text = _BACKFILL.read_text(encoding="utf-8")
     assert "workflow_dispatch:" in text
     assert "TAGS: v0.1.0,v0.2.1" in text
+    assert "Fallback for historical releases with legacy asset names" in text
     assert "gh release download" in text
     assert "gh release upload" in text
