@@ -6,6 +6,7 @@
 
 import os
 import subprocess
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -44,6 +45,14 @@ def _head_sha(cwd: Path) -> str:
         check=True,
     )
     return r.stdout.strip()
+
+
+def _workspace_semver(cargo_toml: Path | None = None) -> str:
+    """Read [workspace.package].version from the root Cargo.toml (DRY with release script)."""
+    path = cargo_toml or (_ROOT / "Cargo.toml")
+    with path.open("rb") as f:
+        data = tomllib.load(f)
+    return str(data["workspace"]["package"]["version"])
 
 
 class TestCheckDcoMergeGroupSha40:
@@ -181,12 +190,13 @@ class TestReleaseVerifyTagVersion:
     """release-verify-tag-version.sh: enforce tag matches workspace version."""
 
     def test_matching_tag_and_workspace_version_succeeds(self) -> None:
+        ver = _workspace_semver()
         proc = _run_script(
-            [str(_VERIFY_TAG), "v0.1.0", str(_ROOT / "Cargo.toml")],
+            [str(_VERIFY_TAG), f"v{ver}", str(_ROOT / "Cargo.toml")],
             cwd=_ROOT,
         )
         assert proc.returncode == 0, proc.stderr + proc.stdout
-        assert proc.stdout.strip() == "0.1.0"
+        assert proc.stdout.strip() == ver
 
     def test_non_semver_tag_exits_2(self) -> None:
         proc = _run_script(

@@ -5,7 +5,7 @@
 # Maintainer: Travis Post <post.travis@gmail.com>
 
 pkgname=verilyze
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc='Fast, modular Software Composition Analysis tool'
 arch=('x86_64')

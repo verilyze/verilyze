@@ -12,7 +12,13 @@ The GitHub Release body is generated from the matching `## [version]` section
 below when you push a `v*` tag (see `.github/workflows/release.yml`). Update
 this file **before** creating the release tag.
 
-## [Unreleased]
+## [0.2.0] - 2026-04-30
+
+### Added
+
+- Initial reachability analysis (behind feature gates and configuration).
+- OBS packaging metadata under `packaging/obs/` and release workflow trigger
+  for `build.opensuse.org` (`scripts/obs-trigger-build.sh`).
 
 ### Changed
 
@@ -26,6 +32,12 @@ this file **before** creating the release tag.
   `SHA256SUMS`.
 - GHCR release images are now keyless-signed and receive a provenance
   attestation during the release workflow.
+- Performance improvements for reachability analysis.
+- Dependency updates: rustls 0.23.40, redb 4.x, GitHub Actions minor/patch.
+
+### Fixed
+
+- Mermaid diagram output now includes reachability where applicable.
 
 ## [0.1.0] - 2026-04-09
 
