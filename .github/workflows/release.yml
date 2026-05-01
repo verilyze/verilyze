@@ -251,22 +251,76 @@ jobs:
           set -euo pipefail
           ./scripts/release-generate-checksums.sh "release-artifacts" >/dev/null
 
+      - name: Generate release artifact manifest
+        run: |
+          set -euo pipefail
+          ./scripts/release-list-artifacts.sh \
+            "release-artifacts" \
+            --include-sha256sums > release-artifacts/ARTIFACTS.list
+
       - name: Install cosign
         uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
 
       - name: Sign release artifacts (keyless)
         run: |
           set -euo pipefail
-          shopt -s nullglob globstar
-          for file in \
-            release-artifacts/vlz-linux-x86_64/vlz \
-            release-artifacts/deb-package/*.deb \
-            release-artifacts/rpm-package/**/*.rpm \
-            release-artifacts/SHA256SUMS; do
+          while IFS= read -r rel_path; do
+            file="release-artifacts/${rel_path}"
             cosign sign-blob --yes \
               --bundle "${file}.sigstore.json" \
               "${file}"
-          done
+          done < release-artifacts/ARTIFACTS.list
+
+      - name: Attest release artifact provenance
+        env:
+          BUILDER_ID: https://github.com/${{ github.repository }}/.github/workflows/release.yml@${{ github.ref }}
+        run: |
+          set -euo pipefail
+          while IFS= read -r rel_path; do
+            file="release-artifacts/${rel_path}"
+            digest="$(sha256sum "${file}" | awk '{print $1}')"
+            predicate_file="${file}.provenance.json"
+            cat > "${predicate_file}" <<EOF
+          {
+            "buildType": "https://github.com/Attestations/GitHubActionsWorkflow@v1",
+            "builder": {
+              "id": "${BUILDER_ID}"
+            },
+            "invocation": {
+              "configSource": {
+                "uri": "${{ github.repositoryUrl }}",
+                "entryPoint": ".github/workflows/release.yml"
+              },
+              "parameters": {
+                "sourceRevision": "${{ github.sha }}"
+              }
+            },
+            "subject": [
+              {
+                "name": "${rel_path}",
+                "digest": {
+                  "sha256": "${digest}"
+                }
+              }
+            ]
+          }
+          EOF
+            cosign attest-blob --yes \
+              --type slsaprovenance \
+              --predicate "${predicate_file}" \
+              --bundle "${file}.intoto.jsonl" \
+              "${file}"
+            rm -f "${predicate_file}"
+          done < release-artifacts/ARTIFACTS.list
+
+      - name: Validate signed artifacts and provenance outputs
+        run: |
+          set -euo pipefail
+          while IFS= read -r rel_path; do
+            file="release-artifacts/${rel_path}"
+            test -s "${file}.sigstore.json"
+            test -s "${file}.intoto.jsonl"
+          done < release-artifacts/ARTIFACTS.list
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0  # zizmor: ignore[superfluous-actions]
@@ -276,12 +330,16 @@ jobs:
           files: |
             release-artifacts/vlz-linux-x86_64/vlz
             release-artifacts/vlz-linux-x86_64/vlz.sigstore.json
+            release-artifacts/vlz-linux-x86_64/vlz.intoto.jsonl
             release-artifacts/deb-package/*.deb
             release-artifacts/deb-package/*.deb.sigstore.json
+            release-artifacts/deb-package/*.deb.intoto.jsonl
             release-artifacts/rpm-package/**/*.rpm
             release-artifacts/rpm-package/**/*.rpm.sigstore.json
+            release-artifacts/rpm-package/**/*.rpm.intoto.jsonl
             release-artifacts/SHA256SUMS
             release-artifacts/SHA256SUMS.sigstore.json
+            release-artifacts/SHA256SUMS.intoto.jsonl
 
   trigger-obs:
     needs: [preflight-release, create-release]

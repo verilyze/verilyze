@@ -1,0 +1,94 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+---
+name: Release Backfill Metadata
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  backfill-release-metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
+
+      - name: Backfill signatures and provenance
+        env:
+          TAGS: v0.1.0,v0.2.1
+          BUILDER_ID: https://github.com/${{ github.repository }}/.github/workflows/release-backfill-metadata.yml@${{ github.ref }}
+        run: |
+          set -euo pipefail
+          IFS=',' read -r -a tags <<< "${TAGS}"
+          for raw_tag in "${tags[@]}"; do
+            tag="${raw_tag//[[:space:]]/}"
+            if [[ -z "${tag}" ]]; then
+              continue
+            fi
+
+            workdir="backfill/${tag}"
+            mkdir -p "${workdir}"
+            gh release download "${tag}" --dir "${workdir}"
+
+            ./scripts/release-list-artifacts.sh \
+              "${workdir}" \
+              --include-sha256sums > "${workdir}/ARTIFACTS.list"
+
+            while IFS= read -r rel_path; do
+              file="${workdir}/${rel_path}"
+              digest="$(sha256sum "${file}" | awk '{print $1}')"
+              predicate_file="${file}.provenance.json"
+              cat > "${predicate_file}" <<EOF
+          {
+            "buildType": "https://github.com/Attestations/GitHubActionsWorkflow@v1",
+            "builder": {
+              "id": "${BUILDER_ID}"
+            },
+            "invocation": {
+              "configSource": {
+                "uri": "${{ github.repositoryUrl }}",
+                "entryPoint": ".github/workflows/release-backfill-metadata.yml"
+              },
+              "parameters": {
+                "releaseTag": "${tag}"
+              }
+            },
+            "subject": [
+              {
+                "name": "${rel_path}",
+                "digest": {
+                  "sha256": "${digest}"
+                }
+              }
+            ]
+          }
+          EOF
+              cosign sign-blob --yes \
+                --bundle "${file}.sigstore.json" \
+                "${file}"
+              cosign attest-blob --yes \
+                --type slsaprovenance \
+                --predicate "${predicate_file}" \
+                --bundle "${file}.intoto.jsonl" \
+                "${file}"
+              rm -f "${predicate_file}"
+            done < "${workdir}/ARTIFACTS.list"
+
+            while IFS= read -r rel_path; do
+              file="${workdir}/${rel_path}"
+              gh release upload "${tag}" \
+                "${file}.sigstore.json#$(basename "${file}").sigstore.json" \
+                "${file}.intoto.jsonl#$(basename "${file}").intoto.jsonl" \
+                --clobber
+            done < "${workdir}/ARTIFACTS.list"
+          done

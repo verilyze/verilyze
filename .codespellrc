@@ -4,4 +4,4 @@
 
 [codespell]
 skip = .git,target,.venv,.venv-*,.mypy_cache,*.key,*/*.key,**/server.key,coverage,reports,.cache,man,packaging/gentoo,**/fixtures/**
-ignore-words-list = doman,nd,unparseable,ot
+ignore-words-list = doman,nd,unparseable,ot,intoto

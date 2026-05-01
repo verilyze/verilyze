@@ -172,8 +172,9 @@ usage, ensure the engine or validation satisfies SEC-022.
   invoking user).
 - Release binaries are stripped of symbols (NFR-023) to reduce
   information disclosure and binary size.
-- GitHub release artifacts include `SHA256SUMS` plus keyless Sigstore JSON
-  bundles (`*.sigstore.json`) for published binary/package files.
+- GitHub release artifacts include `SHA256SUMS`, keyless Sigstore bundles
+  (`*.sigstore.json`), and provenance bundles (`*.intoto.jsonl`) for
+  published binary/package files.
 - GHCR release images are keyless-signed and include provenance attestation
   generated in the release workflow.
 - Use `vlz db verify` to check integrity of cached data (SHA-256 by default).
