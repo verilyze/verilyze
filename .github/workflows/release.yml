@@ -104,12 +104,20 @@ jobs:
     container:
       image: fedora:45
     steps:
+      # Git must exist before actions/checkout so the clone uses a real .git
+      # tree (not the REST API tarball). make rpm runs git archive on HEAD.
+      - name: Install git for actions/checkout
+        run: |
+          set -euo pipefail
+          dnf install -y git-core
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
       - name: Install build tools
-        run: dnf install -y rpm-build rust cargo openssl-devel git make
+        run: dnf install -y rpm-build rust cargo openssl-devel make
 
       - name: Build .rpm
         run: make rpm
@@ -189,6 +197,9 @@ jobs:
           cat > container-provenance.json << 'EOF'
           {
             "buildType": "https://github.com/Attestations/GitHubActionsWorkflow@v1",
+            "builder": {
+              "id": "https://github.com/${{ github.repository }}/.github/workflows/release.yml@${{ github.ref }}"
+            },
             "invocation": {
               "configSource": {
                 "uri": "${{ github.repositoryUrl }}",
