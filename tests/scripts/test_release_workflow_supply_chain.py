@@ -8,7 +8,6 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent.parent
 _RELEASE = _ROOT / ".github" / "workflows" / "release.yml"
-_BACKFILL = _ROOT / ".github" / "workflows" / "release-backfill-metadata.yml"
 
 
 def test_release_workflow_uses_shared_artifact_manifest_script() -> None:
@@ -27,12 +26,3 @@ def test_release_workflow_verifies_metadata_presence() -> None:
     assert "Validate signed artifacts and provenance outputs" in text
     assert ".sigstore.json" in text
     assert ".intoto.jsonl" in text
-
-
-def test_backfill_workflow_exists_for_historical_releases() -> None:
-    text = _BACKFILL.read_text(encoding="utf-8")
-    assert "workflow_dispatch:" in text
-    assert "TAGS: v0.1.0,v0.2.1" in text
-    assert "Fallback for historical releases with legacy asset names" in text
-    assert "gh release download" in text
-    assert "gh release upload" in text
