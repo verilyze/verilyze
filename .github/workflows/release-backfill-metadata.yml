@@ -26,6 +26,7 @@ jobs:
       - name: Backfill signatures and provenance
         env:
           TAGS: v0.1.0,v0.2.1
+          GH_TOKEN: ${{ github.token }}
           BUILDER_ID: https://github.com/${{ github.repository }}/.github/workflows/release-backfill-metadata.yml@${{ github.ref }}
         run: |
           set -euo pipefail
