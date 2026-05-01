@@ -264,6 +264,7 @@ jobs:
             release-artifacts/rpm-package/**/*.rpm \
             release-artifacts/SHA256SUMS; do
             cosign sign-blob --yes \
+              --new-bundle-format=false \
               --output-signature "${file}.sig" \
               --output-certificate "${file}.pem" \
               "${file}"
