@@ -22,12 +22,14 @@ To migrate from a personal namespace to a project-maintained namespace, update
 
 ## Layout
 
+- `packaging/obs/_service` -- canonical OBS source-service definition (RPM and
+  Debian trees symlink here so there is a single file to maintain).
 - `packaging/obs/rpm`
-  - `_service` for source ingestion
+  - `_service` symlink to `../_service`
   - `_meta` for OBS package metadata
   - `verilyze.spec` for RPM targets (Fedora, RHEL, Rocky, openSUSE, SLE)
 - `packaging/obs/debian`
-  - `_service` for source ingestion
+  - `_service` symlink to `../_service`
   - `_meta` for OBS package metadata
   - `debian/` canonical Debian packaging metadata for Debian and Ubuntu
 
@@ -42,13 +44,49 @@ On every `v*` tag:
 
 1. GitHub release artifacts are built and published.
 2. `.github/workflows/release.yml` runs `scripts/obs-trigger-build.sh`.
-3. The script reads `obs-project.env` and calls OBS API `runservice` then
-   `rebuild`.
+3. The script reads `obs-project.env` and POSTs to **`build.opensuse.org`**
+   trigger endpoints only (not `api.opensuse.org`): `runservice` then `rebuild`.
 
-Required secret:
+Required repository secrets (OBS authorization tokens, scoped to the package):
 
-- `OBS_TOKEN` - least-privilege token with access to trigger service/build for
-  the configured OBS project/package.
+- `OBS_TOKEN_RUNSERVICE` -- for `POST .../trigger/runservice`
+- `OBS_TOKEN_REBUILD` -- for `POST .../trigger/rebuild`
+
+Create them with `osc` (use the same project and package names as `obs-project.env`):
+
+```bash
+osc token --create <OBS_PROJECT> <OBS_PACKAGE>
+osc token --operation rebuild --create <OBS_PROJECT> <OBS_PACKAGE>
+```
+
+Store each secret string in GitHub under the names above. GitHub Actions does
+not upload `_service`; see **Maintainer release checklist** below.
+
+## Maintainer release checklist
+
+CI does not push `_service` to OBS. For a reproducible OBS build that matches a
+**specific Git tag**, update the `_service` file **on the OBS package** before
+or when cutting the release so `tar_scm` checks out that tag, for example:
+
+```xml
+<param name="revision">v0.2.1</param>
+```
+
+Release tags are `v` plus SemVer (`vX.Y.Z`); the GitHub workflow logs `X.Y.Z`
+without the prefix.
+
+After changing `_service` on OBS (web UI or `osc commit`), the release
+workflow still runs `runservice` and `rebuild` so OBS refreshes sources and
+builds.
+
+Copy from `packaging/obs/_service` as a template when editing locally.
+
+### `tar_scm` version after pinning `revision` to a tag
+
+When `revision` points at an annotated tag, confirm the generated tarball
+version matches what `verilyze.spec` and Debian metadata expect (for example run
+the source services on OBS or `osc service run` in a checkout). Adjust
+`versionformat` or packaging if the tag-based checkout differs from `main`.
 
 ## Signing policy and verification
 

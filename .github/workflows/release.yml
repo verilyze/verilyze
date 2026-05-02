@@ -360,7 +360,8 @@ jobs:
       - name: Trigger OBS source-service refresh/build
         env:
           VERSION: ${{ needs.preflight-release.outputs.version }}
-          OBS_TOKEN: ${{ secrets.OBS_TOKEN }}
+          OBS_TOKEN_RUNSERVICE: ${{ secrets.OBS_TOKEN_RUNSERVICE }}
+          OBS_TOKEN_REBUILD: ${{ secrets.OBS_TOKEN_REBUILD }}
         run: |
           set -euo pipefail
           ./scripts/obs-trigger-build.sh \
