@@ -347,7 +347,10 @@ stripped of symbols (NFR-023) for security and smaller size.
 7. Confirm OBS release automation succeeds:
    - `release.yml` triggers OBS source service refresh and rebuild after
      GitHub Release creation.
-   - Ensure repository secret `OBS_TOKEN` is set with least-privilege scope.
+   - Ensure repository secrets `OBS_TOKEN_RUNSERVICE` and `OBS_TOKEN_REBUILD`
+     are set (separate OBS trigger tokens for runservice and rebuild):
+     `osc token --create <OBS_PROJECT> <OBS_PACKAGE>` and
+     `osc token --operation rebuild --create <OBS_PROJECT> <OBS_PACKAGE>`.
    - Ensure `packaging/obs/obs-project.env` points at the intended OBS target.
    - Run `make check-obs-packaging` and confirm OBS signing key metadata is
      present for the configured OBS project.
