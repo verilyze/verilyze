@@ -36,6 +36,12 @@ jobs:
           VERSION="$(./scripts/release-verify-tag-version.sh "${GITHUB_REF}")"
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
 
+      - name: Verify OBS signing metadata
+        run: |
+          set -euo pipefail
+          ./scripts/check-obs-signing.sh \
+            --config packaging/obs/obs-project.env
+
   build-binary:
     needs: preflight-release
     runs-on: ubuntu-latest
@@ -313,18 +319,18 @@ jobs:
             rm -f "${predicate_file}"
           done < release-artifacts/ARTIFACTS.list
 
-      - name: Validate signed artifacts and provenance outputs
+      - name: Verify signatures, attestations, and checksums (local)
+        env:
+          EXPECTED_BUILDER_REGEX: ^https://github\.com/${{ github.repository }}/\.github/workflows/release\.yml@
         run: |
           set -euo pipefail
-          while IFS= read -r rel_path; do
-            file="release-artifacts/${rel_path}"
-            test -s "${file}.sigstore.json"
-            test -s "${file}.intoto.jsonl"
-          done < release-artifacts/ARTIFACTS.list
+          ./scripts/release-verify-bundle.sh release-artifacts
 
-      - name: Create GitHub Release
+      - name: Create draft GitHub Release
+        id: draft_release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0  # zizmor: ignore[superfluous-actions]
         with:
+          draft: true
           generate_release_notes: false
           body_path: release-body.md
           files: |
@@ -341,6 +347,29 @@ jobs:
             release-artifacts/SHA256SUMS.sigstore.json
             release-artifacts/SHA256SUMS.intoto.jsonl
 
+      - name: Re-verify draft release assets from GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          EXPECTED_BUILDER_REGEX: ^https://github\.com/${{ github.repository }}/\.github/workflows/release\.yml@
+        run: |
+          set -euo pipefail
+          rm -rf draft-verify
+          mkdir -p draft-verify
+          gh release download "${TAG}" --dir draft-verify
+          ./scripts/release-restore-download-layout.sh draft-verify
+          ./scripts/release-list-artifacts.sh draft-verify \
+            --include-sha256sums > draft-verify/ARTIFACTS.list
+          ./scripts/release-verify-bundle.sh draft-verify
+
+      - name: Publish release (make immutable)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          gh release edit "${TAG}" --draft=false
+
   trigger-obs:
     needs: [preflight-release, create-release]
     runs-on: ubuntu-latest
@@ -350,12 +379,6 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-
-      - name: Verify OBS signing metadata
-        run: |
-          set -euo pipefail
-          ./scripts/check-obs-signing.sh \
-            --config packaging/obs/obs-project.env
 
       - name: Trigger OBS source-service refresh/build
         env:

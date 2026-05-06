@@ -36,9 +36,13 @@ def _run_script(
 
 def test_release_workflow_invokes_obs_trigger_script() -> None:
     text = _RELEASE.read_text(encoding="utf-8")
+    preflight_end = text.index("build-binary:")
+    trigger_start = text.index("trigger-obs:")
     assert "Trigger OBS source-service refresh/build" in text
-    assert "Verify OBS signing metadata" in text
-    assert "./scripts/check-obs-signing.sh" in text
+    assert "Verify OBS signing metadata" in text[:preflight_end]
+    assert "./scripts/check-obs-signing.sh" in text[:preflight_end]
+    trigger_job = text[trigger_start:]
+    assert "./scripts/check-obs-signing.sh" not in trigger_job
     assert "./scripts/obs-trigger-build.sh" in text
     assert "secrets.OBS_TOKEN_RUNSERVICE" in text
     assert "secrets.OBS_TOKEN_REBUILD" in text

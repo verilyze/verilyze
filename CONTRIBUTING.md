@@ -345,8 +345,12 @@ stripped of symbols (NFR-023) for security and smaller size.
 5. Create signed annotated tag: `git tag -s v0.1.0 -m "Release v0.1.0"`.
 6. Push tag: `git push origin v0.1.0`.
 7. Confirm OBS release automation succeeds:
-   - `release.yml` triggers OBS source service refresh and rebuild after
-     GitHub Release creation.
+   - `release.yml` runs OBS signing-key checks in the preflight job (before
+     builds), then builds assets, creates a **draft** GitHub Release, verifies
+     checksums and Sigstore bundles locally and again after downloading the
+     draft assets, and only then publishes the release (making it immutable if
+     your repository uses immutable releases). OBS source service refresh and
+     rebuild run **after** publish so triggers target the published tag.
    - Ensure repository secrets `OBS_TOKEN_RUNSERVICE` and `OBS_TOKEN_REBUILD`
      are set (separate OBS trigger tokens for runservice and rebuild):
      `osc token --create <OBS_PROJECT> <OBS_PACKAGE>` and
@@ -354,6 +358,10 @@ stripped of symbols (NFR-023) for security and smaller size.
    - Ensure `packaging/obs/obs-project.env` points at the intended OBS target.
    - Run `make check-obs-packaging` and confirm OBS signing key metadata is
      present for the configured OBS project.
+
+If the workflow fails after a draft release exists but before publish, fix the
+underlying issue, delete the draft release (or the broken assets), adjust the
+tag if needed, and push again.
 
 **Verify locally (optional):** `./scripts/extract-changelog-for-release.sh X.Y.Z > /tmp/notes.md`
    The argument must be **SemVer without a `v` prefix** (Cargo-style, aligned

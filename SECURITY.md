@@ -123,6 +123,10 @@ and [COMPLIANCE.md](COMPLIANCE.md) for credential-handling controls.
   `scripts/lib/`. Release tags are additionally validated by
   `scripts/release-verify-tag-version.sh`, which enforces that the pushed
   `vX.Y.Z` tag matches `[workspace.package].version` before publish steps.
+  The release workflow creates a draft GitHub Release, verifies `SHA256SUMS`
+  and keyless Cosign signatures and provenance for every asset (locally and
+  again from the draft download), and only then publishes; immutable releases
+  are therefore not finalized until those checks pass.
 - **Compliance checklist:** [COMPLIANCE.md](COMPLIANCE.md) in the repository
   root maps controls to implementation (SOC 2 / ISO 27001 / CMMC); refer to the
   PRD (SEC-010, DOC-008) for requirements.
@@ -174,7 +178,8 @@ usage, ensure the engine or validation satisfies SEC-022.
   information disclosure and binary size.
 - GitHub release artifacts include `SHA256SUMS`, keyless Sigstore bundles
   (`*.sigstore.json`), and provenance bundles (`*.intoto.jsonl`) for
-  published binary/package files.
+  published binary/package files. CI runs the same verification commands
+  (checksum and Cosign) before the release leaves draft state.
 - GHCR release images are keyless-signed and include provenance attestation
   generated in the release workflow.
 - Use `vlz db verify` to check integrity of cached data (SHA-256 by default).
