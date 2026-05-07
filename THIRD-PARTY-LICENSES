@@ -191,7 +191,7 @@ COMPONENTS
 - synstructure v0.13.2 (MIT)
 - tokio-macros v2.7.0 (MIT)
 - cvssrust v1.1.0 (MIT)
-- tokio v1.52.1 (MIT)
+- tokio v1.52.2 (MIT)
 - zmij v1.0.21 (MIT)
 - winnow v1.0.2 (MIT)
 - aho-corasick v1.1.4 (Unlicense OR MIT)
