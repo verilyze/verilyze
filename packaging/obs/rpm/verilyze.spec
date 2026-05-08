@@ -4,19 +4,20 @@
 
 %global crate_name vlz
 %global pkg_name verilyze
-%{!?version:%global version 0.1.0}
 
 Name:           %{pkg_name}
-Version:        %{version}
-Release:        1%{?dist}
+Version:        0.2.1
+Release:        0%{?dist}
 Summary:        Fast, modular Software Composition Analysis tool
 License:        GPL-3.0-or-later
 URL:            https://github.com/verilyze/verilyze
 Source0:        %{pkg_name}-%{version}.tar.xz
+Source1:        vendor.tar.zst
 
 BuildRequires:  cargo >= 1.78.0
 BuildRequires:  rust >= 1.78.0
 BuildRequires:  make
+BuildRequires:  zstd
 
 %if 0%{?suse_version}
 BuildRequires:  libopenssl-devel
@@ -33,10 +34,12 @@ accurate, modular, and CI-friendly.
 
 %prep
 %autosetup -n %{pkg_name}-%{version}
+# Unpack OBS cargo_vendor tarball; it overlays .cargo, vendor/, and Cargo.lock.
+tar --zstd -xf %{SOURCE1}
 
 %build
 export CARGO_TARGET_DIR="$PWD/target"
-cargo build --release --locked
+cargo build --release --locked --offline
 mkdir -p completions
 ./target/release/%{crate_name} generate-completions bash > completions/vlz.bash
 ./target/release/%{crate_name} generate-completions zsh > completions/_vlz
@@ -75,7 +78,12 @@ install -D -m 0644 completions/vlz.fish \
 %{_mandir}/man1/vlz.1*
 %{_mandir}/man5/verilyze.conf.5*
 %{_datadir}/bash-completion/completions/vlz
+# Parent dirs for zsh and fish completions (OBS 50-check-filelist).
+%dir %{_datadir}/zsh
+%dir %{_datadir}/zsh/site-functions
 %{_datadir}/zsh/site-functions/_vlz
+%dir %{_datadir}/fish
+%dir %{_datadir}/fish/vendor_completions.d
 %{_datadir}/fish/vendor_completions.d/vlz.fish
 
 %changelog

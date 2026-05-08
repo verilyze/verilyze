@@ -76,7 +76,11 @@ install -D -m 0644 completions/vlz.fish \
 %{_mandir}/man1/vlz.1*
 %{_mandir}/man5/verilyze.conf.5*
 %{_datadir}/bash-completion/completions/vlz
+%dir %{_datadir}/zsh
+%dir %{_datadir}/zsh/site-functions
 %{_datadir}/zsh/site-functions/_vlz
+%dir %{_datadir}/fish
+%dir %{_datadir}/fish/vendor_completions.d
 %{_datadir}/fish/vendor_completions.d/vlz.fish
 
 %changelog

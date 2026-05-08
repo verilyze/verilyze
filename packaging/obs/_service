@@ -1,14 +1,26 @@
 <services>
-  <service name="tar_scm" mode="manual">
+  <service name="obs_scm" mode="manual">
     <param name="scm">git</param>
     <param name="url">https://github.com/verilyze/verilyze.git</param>
     <param name="revision">main</param>
     <param name="versionformat">@PARENT_TAG@</param>
+    <param name="versionrewrite-pattern">v(.*)</param>
+    <param name="versionrewrite-replacement">\1</param>
     <param name="filename">verilyze</param>
   </service>
+  <service name="cargo_vendor" mode="manual">
+    <param name="srcdir">verilyze</param>
+    <param name="compression">zst</param>
+    <param name="update">false</param>
+    <param name="respect-lockfile">true</param>
+  </service>
+  <service name="tar" mode="manual" />
   <service name="recompress" mode="manual">
     <param name="compression">xz</param>
     <param name="file">*.tar</param>
   </service>
-  <service name="set_version" mode="manual" />
+  <service name="set_version" mode="manual">
+    <param name="basename">verilyze</param>
+    <param name="regex">^verilyze-v?(.*)\.(?:tar\.xz|obscpio|tar\.gz|tar\.zst)$</param>
+  </service>
 </services>
