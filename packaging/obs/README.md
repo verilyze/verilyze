@@ -168,6 +168,25 @@ The root workspace version in `Cargo.toml` remains the source of truth. Release
 tags follow `vX.Y.Z`. OBS trigger automation receives `X.Y.Z` from the release
 workflow and logs it for traceability.
 
+## RPM dual-spec maintenance
+
+This repository intentionally keeps two RPM spec files:
+
+- `packaging/obs/rpm/verilyze.spec` is the source of truth for OBS builds.
+- `packaging/rpm/SPECS/verilyze.spec` is the local `rpmbuild` variant.
+
+The local spec is generated from the OBS spec with explicit divergence points
+only for local packaging behavior (source format, version macro handling, and
+offline vendor extraction differences).
+
+Use:
+
+- `make sync-rpm-specs` to regenerate `packaging/rpm/SPECS/verilyze.spec`
+- `make check-rpm-spec-sync` to verify no drift in CI/local checks
+
+Reassess this approach after 2-3 release cycles. If maintenance cost
+remains high, evaluate moving to an explicit generator-first option workflow.
+
 ## cargo-deb convenience path
 
 `cargo-deb` remains available for local convenience artifacts (`make deb`), but

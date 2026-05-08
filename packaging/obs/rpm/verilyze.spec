@@ -45,6 +45,13 @@ mkdir -p completions
 ./target/release/%{crate_name} generate-completions zsh > completions/_vlz
 ./target/release/%{crate_name} generate-completions fish > completions/vlz.fish
 
+%check
+expected_version="%{version}"
+set -- $(./target/release/%{crate_name} --version)
+actual_version="$2"
+[ "$actual_version" = "$expected_version" ]
+./target/release/%{crate_name} --help >/dev/null
+
 %install
 install -D -m 0755 target/release/%{crate_name} \
     %{buildroot}%{_bindir}/%{crate_name}

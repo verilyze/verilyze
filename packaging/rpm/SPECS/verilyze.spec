@@ -4,7 +4,7 @@
 
 %global crate_name vlz
 %global pkg_name verilyze
-%{!?version:%global version 0.1.0}
+%{!?version:%global version 0.2.1}
 
 Name:           %{pkg_name}
 Version:        %{version}
@@ -41,6 +41,14 @@ mkdir -p completions
 ./target/release/%{crate_name} generate-completions bash > completions/vlz.bash
 ./target/release/%{crate_name} generate-completions zsh > completions/_vlz
 ./target/release/%{crate_name} generate-completions fish > completions/vlz.fish
+
+%check
+expected_version="%{version}"
+set -- $(./target/release/%{crate_name} --version)
+actual_version="$2"
+[ "$actual_version" = "$expected_version" ]
+./target/release/%{crate_name} --help >/dev/null
+
 # THIRD-PARTY-LICENSES is committed; see make generate-third-party-licenses
 
 %install
@@ -76,6 +84,7 @@ install -D -m 0644 completions/vlz.fish \
 %{_mandir}/man1/vlz.1*
 %{_mandir}/man5/verilyze.conf.5*
 %{_datadir}/bash-completion/completions/vlz
+# Parent dirs for zsh and fish completions (OBS 50-check-filelist).
 %dir %{_datadir}/zsh
 %dir %{_datadir}/zsh/site-functions
 %{_datadir}/zsh/site-functions/_vlz

@@ -4,6 +4,8 @@
 
 """Contract tests for OBS packaging consistency wiring."""
 
+import re
+
 from pathlib import Path
 
 
@@ -50,7 +52,7 @@ def test_obs_spec_uses_literal_version_for_set_version_service() -> None:
         _repo_root() / "packaging" / "obs" / "rpm" / "verilyze.spec"
     ).read_text(encoding="utf-8")
     assert "%{!?version:%global version" not in spec_text
-    assert "Version:        0.1.0" in spec_text
+    assert re.search(r"^Version:\s+\d+\.\d+\.\d+$", spec_text, re.MULTILINE)
 
 
 def test_obs_scm_strips_git_tag_v_prefix() -> None:
@@ -147,3 +149,16 @@ def test_obs_spec_lists_completion_parent_dirs_for_filelist_check() -> None:
         "%dir %{_datadir}/fish/vendor_completions.d",
     ):
         assert line in spec_text
+
+
+def test_obs_spec_declares_non_empty_check_section() -> None:
+    """OBS RPM spec should include a meaningful %check section for rpmlint."""
+    spec_text = (
+        _repo_root() / "packaging" / "obs" / "rpm" / "verilyze.spec"
+    ).read_text(encoding="utf-8")
+    assert "\n%check\n" in spec_text
+    assert 'set -- $(./target/release/%{crate_name} --version)' in spec_text
+    assert 'actual_version="$2"' in spec_text
+    assert 'expected_version="%{version}"' in spec_text
+    assert '[ "$actual_version" = "$expected_version" ]' in spec_text
+    assert "./target/release/%{crate_name} --help >/dev/null" in spec_text

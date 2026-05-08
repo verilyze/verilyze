@@ -41,6 +41,7 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: generate-manpages check-manpages
 .PHONY: generate-completions completions completions-release check-completions
 .PHONY: generate-packaging check-packaging check-obs-packaging check-obs-signing
+.PHONY: sync-rpm-specs check-rpm-spec-sync
 .PHONY: check-obs-packaging
 .PHONY: sync-license-config check-license-config deny-check
 .PHONY: generate-third-party-licenses generate-third-party-licenses-docker
@@ -86,6 +87,8 @@ help:
 	@echo "    make check-completions   - Verify completions are in sync"
 	@echo "    make generate-packaging  - Update packaging specs with version from Cargo.toml"
 	@echo "    make check-packaging     - Verify packaging versions are in sync"
+	@echo "    make sync-rpm-specs      - Regenerate local RPM spec from OBS RPM spec"
+	@echo "    make check-rpm-spec-sync - Verify local RPM spec matches OBS-derived output"
 	@echo "    make check-obs-signing   - Verify OBS signing key metadata"
 	@echo "    make sync-license-config - Sync deny.toml [licenses] allow to about.toml accepted"
 	@echo "    make check-license-config - Verify about.toml accepted matches deny.toml"
@@ -347,8 +350,16 @@ generate-packaging:
 	python3 $(SCRIPTS_DIR)/generate_packaging_versions.py
 
 # check-packaging: Verify packaging spec versions match Cargo.toml.
-check-packaging:
+check-packaging: check-rpm-spec-sync
 	python3 $(SCRIPTS_DIR)/generate_packaging_versions.py --check
+
+# sync-rpm-specs: Regenerate local RPM spec from OBS RPM spec source of truth.
+sync-rpm-specs:
+	python3 $(SCRIPTS_DIR)/sync_rpm_specs.py
+
+# check-rpm-spec-sync: Ensure local RPM spec is synced from OBS RPM spec.
+check-rpm-spec-sync:
+	python3 $(SCRIPTS_DIR)/sync_rpm_specs.py --check
 
 # check-obs-packaging: Verify OBS packaging metadata consistency.
 check-obs-packaging:
