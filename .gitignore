@@ -5,6 +5,7 @@
 .cache
 .coverage
 .mypy_cache
+.pylint.d
 .venv
 .venv-*
 /coverage

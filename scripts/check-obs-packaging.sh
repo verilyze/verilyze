@@ -9,6 +9,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OBS_ENV="${ROOT_DIR}/packaging/obs/obs-project.env"
 DEBIAN_CONTROL="${ROOT_DIR}/packaging/obs/debian/debian/control"
 VLZ_CARGO="${ROOT_DIR}/crates/core/vlz/Cargo.toml"
+OBS_SERVICE="${ROOT_DIR}/packaging/obs/_service"
+OBS_SPEC="${ROOT_DIR}/packaging/obs/rpm/verilyze.spec"
 
 if [[ ! -f "${OBS_ENV}" ]]; then
   echo "ERROR: missing OBS coordinate file: ${OBS_ENV}" >&2
@@ -43,6 +45,26 @@ fi
 
 if ! grep -qE '^\[package\.metadata\.deb\]$' "${VLZ_CARGO}"; then
   echo "ERROR: cargo-deb metadata block is required in ${VLZ_CARGO}" >&2
+  exit 1
+fi
+
+if [[ ! -f "${OBS_SERVICE}" ]]; then
+  echo "ERROR: missing OBS source service file: ${OBS_SERVICE}" >&2
+  exit 1
+fi
+
+if ! grep -q 'name="cargo_vendor"' "${OBS_SERVICE}"; then
+  echo "ERROR: cargo_vendor service must be declared in ${OBS_SERVICE}" >&2
+  exit 1
+fi
+
+if [[ ! -f "${OBS_SPEC}" ]]; then
+  echo "ERROR: missing OBS RPM spec: ${OBS_SPEC}" >&2
+  exit 1
+fi
+
+if ! grep -q -- '--offline' "${OBS_SPEC}"; then
+  echo "ERROR: ${OBS_SPEC} must build cargo with --offline" >&2
   exit 1
 fi
 

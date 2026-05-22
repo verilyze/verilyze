@@ -7,7 +7,8 @@ export CARGO_TARGET_DIR := $(CURDIR)/target
 	dh $@
 
 override_dh_auto_build:
-	cargo build --release --locked
+	tar --zstd -xf ../vendor.tar.zst
+	cargo build --release --locked --offline
 	mkdir -p completions
 	./target/release/vlz generate-completions bash > completions/vlz.bash
 	./target/release/vlz generate-completions zsh > completions/_vlz
