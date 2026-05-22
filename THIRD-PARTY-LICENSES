@@ -155,7 +155,7 @@ COMPONENTS
 - serde v1.0.228 (MIT OR Apache-2.0)
 - serde_core v1.0.228 (MIT OR Apache-2.0)
 - serde_derive v1.0.228 (MIT OR Apache-2.0)
-- serde_json v1.0.149 (MIT OR Apache-2.0)
+- serde_json v1.0.150 (MIT OR Apache-2.0)
 - serde_urlencoded v0.7.1 (MIT OR Apache-2.0)
 - syn v2.0.117 (MIT OR Apache-2.0)
 - sync_wrapper v1.0.2 (Apache-2.0)
