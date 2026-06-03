@@ -44,9 +44,9 @@ jobs:
             steps.python.outputs.python-version, hashFiles('Makefile',
             'pyproject.toml', 'scripts/ensure-reuse.sh',
             'scripts/requirements-reuse.txt')) }}
+          # Do not use runner.os-python- alone: restores venvs from other versions.
           restore-keys: |
             ${{ runner.os }}-python-${{ steps.python.outputs.python-version }}-venvs-
-            ${{ runner.os }}-python-
 
       - name: Install Rust (rust-toolchain.toml)
         run: |
@@ -100,8 +100,8 @@ jobs:
           tool: >-
             cargo-llvm-cov@0.8.5,cargo-deny@0.19.0,cargo-afl@0.17.1,cargo-about@0.8.4
 
-      - name: Run make -j coverage (fuzz + Cobertura)
-        run: make -j coverage
+      - name: Run make coverage (fuzz + Cobertura)
+        run: make coverage
 
       - name: Generate coverage badge SVGs
         run: |

@@ -233,6 +233,11 @@ cargo-test:
 
 # Bootstrap .venv-test with pytest and pytest-cov (NFR-021)
 $(VENV_TEST)/bin/pytest:
+	@if [ -x "$(VENV_TEST)/bin/pytest" ] && \
+	      "$(VENV_TEST)/bin/python" -m pytest --version >/dev/null 2>&1; then \
+		exit 0; \
+	fi
+	rm -rf $(VENV_TEST)
 	python3 -m venv $(VENV_TEST)
 	$(VENV_TEST)/bin/pip install pytest pytest-cov
 

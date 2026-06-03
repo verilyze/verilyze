@@ -148,6 +148,7 @@ jobs:
             steps.python.outputs.python-version, hashFiles('Makefile',
             'pyproject.toml', 'scripts/ensure-reuse.sh',
             'scripts/requirements-reuse.txt')) }}
+          # Do not use runner.os-python- alone: restores venvs from other versions.
           restore-keys: |
             ${{ runner.os }}-python-${{ steps.python.outputs.python-version }}-venvs-
 
