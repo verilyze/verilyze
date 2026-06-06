@@ -42,7 +42,7 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: generate-completions completions completions-release check-completions
 .PHONY: generate-packaging check-packaging check-obs-packaging check-obs-signing
 .PHONY: sync-rpm-specs check-rpm-spec-sync
-.PHONY: check-obs-packaging
+.PHONY: check-obs-packaging obs-upload-dry-run
 .PHONY: sync-license-config check-license-config deny-check
 .PHONY: generate-third-party-licenses generate-third-party-licenses-docker
 .PHONY: check-third-party-licenses
@@ -90,6 +90,7 @@ help:
 	@echo "    make sync-rpm-specs      - Regenerate local RPM spec from OBS RPM spec"
 	@echo "    make check-rpm-spec-sync - Verify local RPM spec matches OBS-derived output"
 	@echo "    make check-obs-signing   - Verify OBS signing key metadata"
+	@echo "    make obs-upload-dry-run  - Build OBS source artifacts locally (no upload)"
 	@echo "    make sync-license-config - Sync deny.toml [licenses] allow to about.toml accepted"
 	@echo "    make check-license-config - Verify about.toml accepted matches deny.toml"
 	@echo "    make deny-check       - cargo deny check (licenses, advisories, bans, sources)"
@@ -373,6 +374,14 @@ check-obs-packaging:
 # check-obs-signing: Verify OBS project signing key metadata.
 check-obs-signing:
 	$(SCRIPTS_DIR)/check-obs-signing.sh
+
+# obs-upload-dry-run: Build verilyze tarball, vendor.tar.zst, and spec without osc.
+# Override VERSION= when testing a non-workspace version.
+ifndef VERSION
+VERSION := $(shell python3 -c "import tomllib; print(tomllib.load(open('Cargo.toml','rb'))['workspace']['package']['version'])")
+endif
+obs-upload-dry-run:
+	$(SCRIPTS_DIR)/obs-upload-release-sources.sh --version "$(VERSION)" --dry-run
 
 # sync-license-config: Copy deny.toml [licenses] allow to about.toml accepted.
 sync-license-config:

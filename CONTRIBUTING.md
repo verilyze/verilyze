@@ -349,12 +349,13 @@ stripped of symbols (NFR-023) for security and smaller size.
      builds), then builds assets, creates a **draft** GitHub Release, verifies
      checksums and Sigstore bundles locally and again after downloading the
      draft assets, and only then publishes the release (making it immutable if
-     your repository uses immutable releases). OBS source service refresh and
-     rebuild run **after** publish so triggers target the published tag.
-   - Ensure repository secrets `OBS_TOKEN_RUNSERVICE` and `OBS_TOKEN_REBUILD`
-     are set (separate OBS trigger tokens for runservice and rebuild):
-     `osc token --create <OBS_PROJECT> <OBS_PACKAGE>` and
-     `osc token --operation rebuild --create <OBS_PROJECT> <OBS_PACKAGE>`.
+     your repository uses immutable releases). OBS source upload and rebuild
+     run in parallel once the tag preflight passes (upload-driven; no OBS
+     source services on build.opensuse.org).
+   - Ensure repository secrets `OBS_USER`, `OBS_PASSWORD`, and
+     `OBS_TOKEN_REBUILD` are set for upload-driven OBS publishing
+     (`osc` upload plus rebuild trigger):
+     `osc token --create --operation rebuild <OBS_PROJECT> <OBS_PACKAGE>`.
    - Ensure `packaging/obs/obs-project.env` points at the intended OBS target.
    - Run `make check-obs-packaging` and confirm OBS signing key metadata is
      present for the configured OBS project.

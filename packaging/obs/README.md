@@ -9,6 +9,66 @@ SPDX-License-Identifier: GPL-3.0-or-later
 This directory contains canonical packaging metadata for builds on
 build.opensuse.org (OBS).
 
+## Public OBS: upload-driven releases
+
+`build.opensuse.org` does **not** provide the `cargo_vendor` or `tar` source
+services on its workers. This project therefore publishes RPMs by uploading
+prepared sources from GitHub Actions on every `v*` tag, then triggering an OBS
+rebuild only.
+
+```mermaid
+sequenceDiagram
+  participant Tag as GitHub_tag
+  participant GA as GitHub_Actions
+  participant OBS as build.opensuse.org
+  Tag->>GA: push vX.Y.Z
+  GA->>GA: git_archive_and_cargo_vendor
+  GA->>OBS: osc_upload_sources_and_spec
+  GA->>OBS: POST_trigger_rebuild
+  OBS->>OBS: rpmbuild_and_publish_repo
+```
+
+Each release uploads into the configured OBS package:
+
+- `verilyze-X.Y.Z.tar.xz` (`Source0`)
+- `vendor.tar.zst` (`Source1`)
+- `verilyze.spec` with `Version: X.Y.Z`
+
+The OBS package should **not** include a `_service` file on public OBS. Delete
+any existing `_service` on the OBS package once before switching to this flow
+(one-time maintainer action).
+
+### Required GitHub secrets
+
+- `OBS_USER` -- OBS account for `osc` upload
+- `OBS_PASSWORD` -- OBS password for `osc` upload
+- `OBS_TOKEN_REBUILD` -- for `POST .../trigger/rebuild` on `build.opensuse.org`
+
+Create the rebuild token with `osc` (or the OBS web UI) scoped to the package:
+
+```bash
+osc token --create --operation rebuild home:tpost:verilyze verilyze
+```
+
+`OBS_TOKEN_RUNSERVICE` is **not** used for public OBS releases.
+
+### Automation scripts
+
+On tag push, [`.github/workflows/release.yml`](../../.github/workflows/release.yml)
+runs:
+
+1. [`scripts/obs-upload-release-sources.sh`](../../scripts/obs-upload-release-sources.sh)
+   -- builds `verilyze-X.Y.Z.tar.xz`, `vendor.tar.zst`, and stamped
+   `verilyze.spec`, then uploads with `osc`.
+2. [`scripts/obs-trigger-build.sh`](../../scripts/obs-trigger-build.sh)
+   `--skip-runservice` -- triggers rebuild only.
+
+Local dry-run (builds artifacts, no upload):
+
+```bash
+make obs-upload-dry-run VERSION=0.2.1
+```
+
 ## Coordinates and namespace migration
 
 OBS project/package coordinates are defined in one place:
@@ -22,8 +82,8 @@ To migrate from a personal namespace to a project-maintained namespace, update
 
 ## Layout
 
-- `packaging/obs/_service` -- canonical OBS source-service definition (RPM and
-  Debian trees symlink here so there is a single file to maintain).
+- `packaging/obs/_service` -- legacy source-service definition for private OBS
+  or local `osc service` use (not used on build.opensuse.org).
 - `packaging/obs/rpm`
   - `_service` symlink to `../_service`
   - `_meta` for OBS package metadata
@@ -33,98 +93,16 @@ To migrate from a personal namespace to a project-maintained namespace, update
   - `_meta` for OBS package metadata
   - `debian/` canonical Debian packaging metadata for Debian and Ubuntu
 
-## Source services
+## Vendor archive layout
 
-OBS source services use `obs_scm`, `cargo_vendor`, `tar`, `recompress`, and
-`set_version` in manual mode. Release automation triggers service refresh for
-tag-based releases.
+GitHub Actions runs `cargo vendor` and packs `vendor.tar.zst` with:
 
-`cargo_vendor` runs after `obs_scm` against the unpacked source tree under
-`verilyze/`. Current `obs-service-cargo` produces **only** `vendor.tar.zst`
-(the Rust rewrite embeds `.cargo/config.toml`, `vendor/`, and a copy of
-`Cargo.lock` inside that archive; older tooling used to emit `cargo_config` as
-its own source file.)
+- `.cargo/config.toml` (crates-io replaced by `vendor/`)
+- `vendor/`
+- `Cargo.lock`
 
 The RPM spec and Debian `debian/rules` extract `vendor.tar.zst` atop the unpacked
 upstream tree, then run `cargo build --release --locked --offline`.
-
-**Troubleshooting:** After `osc service runall`, you should see `vendor.tar.zst`
-in the package directory. If the `cargo_vendor` step prints nothing useful, run:
-
-`osc service -vv run cargo_vendor`
-
-Ensure the `obs-service-cargo` RPM is installed locally (often named
-`obs-service-cargo` on openSUSE; `cargo_vendor` invokes that stack).
-
-After running services locally (`osc service runall`) confirm `vendor.tar.zst`
-is present before `osc commit`.
-
-## GitHub release automation
-
-On every `v*` tag:
-
-1. GitHub release artifacts are built and published.
-2. `.github/workflows/release.yml` runs `scripts/obs-trigger-build.sh`.
-3. The script reads `obs-project.env` and POSTs to **`build.opensuse.org`**
-   trigger endpoints only (not `api.opensuse.org`): `runservice` then `rebuild`.
-
-Required repository secrets (OBS authorization tokens, scoped to the package):
-
-- `OBS_TOKEN_RUNSERVICE` -- for `POST .../trigger/runservice`
-- `OBS_TOKEN_REBUILD` -- for `POST .../trigger/rebuild`
-
-Create them with `osc` (use the same project and package names as `obs-project.env`):
-
-```bash
-osc token --create <OBS_PROJECT> <OBS_PACKAGE>
-osc token --operation rebuild --create <OBS_PROJECT> <OBS_PACKAGE>
-```
-
-Store each secret string in GitHub under the names above. GitHub Actions does
-not upload `_service`; see **Maintainer release checklist** below.
-
-## Maintainer release checklist
-
-CI does not push `_service` to OBS. For a reproducible OBS build that matches a
-**specific Git tag**, update the `_service` file **on the OBS package** before
-or when cutting the release so `obs_scm` checks out that tag, for example:
-
-```xml
-<param name="revision">v0.2.1</param>
-```
-
-Release tags are `v` plus SemVer (`vX.Y.Z`); the GitHub workflow logs `X.Y.Z`
-without the prefix.
-
-After changing `_service` on OBS (web UI or `osc commit`), the release
-workflow still runs `runservice` and `rebuild` so OBS refreshes sources and
-builds.
-
-Copy from `packaging/obs/_service` as a template when editing locally.
-
-### `obs_scm` version after pinning `revision` to a tag
-
-When `revision` points at an annotated tag, confirm the generated tarball
-version matches what `verilyze.spec` and Debian metadata expect (for example run
-the source services on OBS or `osc service run` in a checkout). Confirm that the
-service output includes `verilyze-<version>.tar.xz`. Adjust `versionformat` or
-packaging if the tag-based checkout differs from `main`.
-
-Release tags use a leading `v` (`vX.Y.Z`). This tree sets `obs_scm`
-**`versionrewrite-*`** so semver strings drop the leading `v` when possible (for
-example `v0.2.1` becomes `0.2.1` in the archive basename).
-
-The OBS **`set_version`** service uses a default tarball filename regex that
-requires **a digit immediately after the last hyphen**. Names such as
-**`verilyze-v0.2.1.obscpio`** therefore do **not** update **`Version:`** in the spec
-unless **`set_version`** gets a custom **`regex`** (see `_service` here). Without that,
-**`Version`** stays the placeholder (`0.1.0`), **`Source0`** expands to
-**`verilyze-0.1.0.tar.xz`**, and **`%prep`** fails while **`Unpacking verilyze-v0.2.1.*`**
-still shows the real SCM snapshot.
-
-If OBS still resolves the wrong basename, inspect SOURCES on the worker:
-**`osc ls -v home:tpost:verilyze verilyze`** and re-run services until
-**`verilyze.spec`** **`Version`** and **`Source0`** match the staged archives.
 
 ## Signing policy and verification
 
@@ -165,7 +143,7 @@ Key rotation and expiration:
 ## Versioning
 
 The root workspace version in `Cargo.toml` remains the source of truth. Release
-tags follow `vX.Y.Z`. OBS trigger automation receives `X.Y.Z` from the release
+tags follow `vX.Y.Z`. OBS upload automation receives `X.Y.Z` from the release
 workflow and logs it for traceability.
 
 ## RPM dual-spec maintenance
@@ -198,4 +176,23 @@ canonical distro Debian metadata for OBS is under
 - OBS coordinates are present in `obs-project.env`
 - Debian package name remains `verilyze`
 - `cargo-deb` metadata block remains present in `crates/core/vlz/Cargo.toml`
+- OBS RPM spec uses offline cargo with `vendor.tar.zst`
+- Release workflow invokes upload script and rebuild-only OBS trigger
 - OBS signing key metadata is published for the configured project
+
+## Appendix: private OBS / local source services
+
+The file `packaging/obs/_service` documents an OBS source-service pipeline
+(`obs_scm`, `cargo_vendor`, `tar`, `recompress`, `set_version`) suitable for
+OBS instances where those services are installed. That pipeline is **not**
+used on `build.opensuse.org` for this project.
+
+For local experimentation on a private OBS instance:
+
+```bash
+osc service runall
+osc commit
+```
+
+Ensure `obs-service-cargo` and related packages are installed on the OBS
+source-service workers before relying on `_service`.

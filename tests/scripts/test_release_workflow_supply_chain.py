@@ -55,11 +55,11 @@ def test_release_restore_download_layout_script_exists() -> None:
     assert _RESTORE_SCRIPT.is_file()
 
 
-def test_check_obs_signing_runs_in_preflight_not_in_trigger_obs() -> None:
+def test_check_obs_signing_runs_in_preflight_not_in_publish_obs() -> None:
     text = _RELEASE.read_text(encoding="utf-8")
     preflight_end = text.index("build-binary:")
-    trigger_start = text.index("trigger-obs:")
+    publish_start = text.index("publish-obs:")
     assert "./scripts/check-obs-signing.sh" in text[:preflight_end]
     assert "Verify OBS signing metadata" in text[:preflight_end]
-    trigger_job = text[trigger_start:]
-    assert "./scripts/check-obs-signing.sh" not in trigger_job
+    publish_job = text[publish_start:]
+    assert "./scripts/check-obs-signing.sh" not in publish_job
