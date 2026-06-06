@@ -95,7 +95,7 @@ COMPONENTS
 - js-sys v0.3.95 (MIT OR Apache-2.0)
 - linux-raw-sys v0.12.1 (Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT)
 - lock_api v0.4.14 (MIT OR Apache-2.0)
-- log v0.4.31 (MIT OR Apache-2.0)
+- log v0.4.32 (MIT OR Apache-2.0)
 - once_cell v1.21.4 (MIT OR Apache-2.0)
 - openssl-probe v0.2.1 (MIT OR Apache-2.0)
 - parking_lot v0.12.5 (MIT OR Apache-2.0)
