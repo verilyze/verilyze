@@ -53,11 +53,6 @@ if [[ ! -f "${OBS_SERVICE}" ]]; then
   exit 1
 fi
 
-if ! grep -q 'name="cargo_vendor"' "${OBS_SERVICE}"; then
-  echo "ERROR: cargo_vendor service must be declared in ${OBS_SERVICE}" >&2
-  exit 1
-fi
-
 if [[ ! -f "${OBS_SPEC}" ]]; then
   echo "ERROR: missing OBS RPM spec: ${OBS_SPEC}" >&2
   exit 1
@@ -65,6 +60,27 @@ fi
 
 if ! grep -q -- '--offline' "${OBS_SPEC}"; then
   echo "ERROR: ${OBS_SPEC} must build cargo with --offline" >&2
+  exit 1
+fi
+
+if ! grep -q 'vendor.tar.zst' "${OBS_SPEC}"; then
+  echo "ERROR: ${OBS_SPEC} must declare vendor.tar.zst as Source1" >&2
+  exit 1
+fi
+
+UPLOAD_SCRIPT="${ROOT_DIR}/scripts/obs-upload-release-sources.sh"
+if [[ ! -x "${UPLOAD_SCRIPT}" ]]; then
+  echo "ERROR: missing OBS upload script: ${UPLOAD_SCRIPT}" >&2
+  exit 1
+fi
+
+RELEASE_WORKFLOW="${ROOT_DIR}/.github/workflows/release.yml"
+if ! grep -q 'obs-upload-release-sources.sh' "${RELEASE_WORKFLOW}"; then
+  echo "ERROR: release workflow must invoke obs-upload-release-sources.sh" >&2
+  exit 1
+fi
+if ! grep -q -- '--skip-runservice' "${RELEASE_WORKFLOW}"; then
+  echo "ERROR: release workflow must trigger OBS rebuild with --skip-runservice" >&2
   exit 1
 fi
 

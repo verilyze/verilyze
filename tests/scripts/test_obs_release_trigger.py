@@ -34,18 +34,22 @@ def _run_script(
     )
 
 
-def test_release_workflow_invokes_obs_trigger_script() -> None:
+def test_release_workflow_publishes_obs_sources_and_rebuilds() -> None:
     text = _RELEASE.read_text(encoding="utf-8")
     preflight_end = text.index("build-binary:")
-    trigger_start = text.index("trigger-obs:")
-    assert "Trigger OBS source-service refresh/build" in text
+    publish_start = text.index("publish-obs:")
+    assert "Publish OBS release sources and trigger rebuild" in text
     assert "Verify OBS signing metadata" in text[:preflight_end]
     assert "./scripts/check-obs-signing.sh" in text[:preflight_end]
-    trigger_job = text[trigger_start:]
-    assert "./scripts/check-obs-signing.sh" not in trigger_job
+    publish_job = text[publish_start:]
+    assert "./scripts/check-obs-signing.sh" not in publish_job
+    assert "./scripts/obs-upload-release-sources.sh" in text
     assert "./scripts/obs-trigger-build.sh" in text
-    assert "secrets.OBS_TOKEN_RUNSERVICE" in text
+    assert "--skip-runservice" in text
+    assert "secrets.OBS_USER" in text
+    assert "secrets.OBS_PASSWORD" in text
     assert "secrets.OBS_TOKEN_REBUILD" in text
+    assert "secrets.OBS_TOKEN_RUNSERVICE" not in text
 
 
 def test_obs_trigger_script_dry_run_reads_project_coordinates(
@@ -126,6 +130,58 @@ def test_obs_trigger_script_requires_runservice_token(tmp_path: Path) -> None:
     )
     assert proc.returncode == 1
     assert "OBS_TOKEN_RUNSERVICE" in (proc.stderr + proc.stdout)
+
+
+def test_obs_trigger_script_skip_runservice_dry_run(tmp_path: Path) -> None:
+    env_file = tmp_path / "obs-project.env"
+    env_file.write_text(
+        "OBS_PROJECT=home:tpost:verilyze\nOBS_PACKAGE=verilyze\n",
+        encoding="utf-8",
+    )
+    proc = _run_script(
+        [
+            str(_OBS_SCRIPT),
+            "--config",
+            str(env_file),
+            "--version",
+            "0.1.0",
+            "--skip-runservice",
+            "--dry-run",
+        ]
+    )
+    output = proc.stdout + proc.stderr
+    assert proc.returncode == 0, output
+    assert "skip_runservice=1" in output
+    assert "trigger/rebuild" in output
+    assert "trigger/runservice" not in output
+
+
+def test_obs_trigger_script_skip_runservice_requires_rebuild_token_only(
+    tmp_path: Path,
+) -> None:
+    env_file = tmp_path / "obs-project.env"
+    env_file.write_text(
+        "OBS_PROJECT=home:tpost:verilyze\nOBS_PACKAGE=verilyze\n",
+        encoding="utf-8",
+    )
+    proc = _run_script(
+        [
+            str(_OBS_SCRIPT),
+            "--config",
+            str(env_file),
+            "--version",
+            "0.1.0",
+            "--skip-runservice",
+        ],
+        extra_env={
+            "OBS_TOKEN_RUNSERVICE": "",
+            "OBS_TOKEN_REBUILD": "",
+        },
+    )
+    output = proc.stdout + proc.stderr
+    assert proc.returncode == 1
+    assert "OBS_TOKEN_REBUILD" in output
+    assert "OBS_TOKEN_RUNSERVICE" not in output
 
 
 def test_obs_trigger_script_requires_rebuild_token(tmp_path: Path) -> None:

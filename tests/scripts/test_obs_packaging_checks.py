@@ -64,15 +64,11 @@ def test_obs_scm_strips_git_tag_v_prefix() -> None:
     assert '<param name="versionrewrite-replacement">\\1</param>' in service_text
 
 
-def test_obs_service_declares_cargo_vendor() -> None:
-    """OBS _service must declare cargo_vendor for offline builds (NFR-021)."""
-    service_text = (
-        _repo_root() / "packaging" / "obs" / "_service"
-    ).read_text(encoding="utf-8")
-    assert 'name="cargo_vendor"' in service_text
-    assert '<param name="srcdir">verilyze</param>' in service_text
-    assert '<param name="compression">zst</param>' in service_text
-    assert '<param name="respect-lockfile">true</param>' in service_text
+def test_obs_upload_script_exists() -> None:
+    """Release automation must ship sources via obs-upload-release-sources.sh."""
+    upload_script = _repo_root() / "scripts" / "obs-upload-release-sources.sh"
+    assert upload_script.is_file()
+    assert upload_script.stat().st_mode & 0o111
 
 
 def test_obs_spec_uses_offline_cargo_with_vendor_sources() -> None:
@@ -128,12 +124,14 @@ def test_obs_set_version_handles_optional_leading_v_in_basenames() -> None:
     )
 
 
-def test_obs_packaging_check_asserts_cargo_vendor_and_offline() -> None:
-    """check-obs-packaging.sh must assert cargo_vendor and --offline."""
+def test_obs_packaging_check_asserts_upload_workflow_and_offline() -> None:
+    """check-obs-packaging.sh must assert upload workflow and --offline."""
     text = (_repo_root() / "scripts" / "check-obs-packaging.sh").read_text(
         encoding="utf-8"
     )
-    assert "cargo_vendor" in text
+    assert "obs-upload-release-sources.sh" in text
+    assert "--skip-runservice" in text
+    assert "vendor.tar.zst" in text
     assert "--offline" in text
 
 

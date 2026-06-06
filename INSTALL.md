@@ -208,11 +208,10 @@ Canonical OBS packaging metadata lives under `packaging/obs/`:
 The OBS project/package coordinates are defined in one file:
 `packaging/obs/obs-project.env`.
 
-Release tags (`v*`) trigger GitHub release automation, which then calls
-OBS source-service refresh and rebuild for the configured project/package.
-Set repository secrets `OBS_TOKEN_RUNSERVICE` and `OBS_TOKEN_REBUILD`
-(OBS authorization tokens for `/trigger/runservice` and `/trigger/rebuild`).
-See `packaging/obs/README.md` for creating tokens with `osc token`.
+Release tags (`v*`) trigger GitHub release automation, which uploads prepared
+sources to OBS and triggers a rebuild for the configured project/package.
+Set repository secrets `OBS_USER`, `OBS_PASSWORD`, and `OBS_TOKEN_REBUILD`.
+See `packaging/obs/README.md` for details.
 
 `cargo-deb` (`make deb`) remains available as a convenience local build path.
 Canonical Debian metadata for OBS is `packaging/obs/debian/debian`.
