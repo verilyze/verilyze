@@ -7,7 +7,11 @@
 """Unit tests for scripts/cobertura_line_badge_svg.py."""
 
 import importlib.util
+import runpy
 from pathlib import Path
+from unittest.mock import patch
+
+import pytest
 
 _script_path = (
     Path(__file__).resolve().parent.parent.parent
@@ -42,6 +46,12 @@ class TestParseLineRatePercent:
         )
         assert cobertura_line_badge_svg.parse_line_rate_percent(p) == 100.0
 
+    def test_raises_when_line_rate_missing(self, tmp_path: Path) -> None:
+        p = tmp_path / "c.xml"
+        p.write_text("<coverage version=\"1.9\"><packages/></coverage>", encoding="utf-8")
+        with pytest.raises(ValueError, match="could not find line-rate"):
+            cobertura_line_badge_svg.parse_line_rate_percent(p)
+
 
 class TestBadgeColor:
     def test_high_is_green(self) -> None:
@@ -56,6 +66,16 @@ class TestBadgeColor:
         assert cobertura_line_badge_svg.badge_color_for_percent(
             50.0
         ).upper() == "#E05D44"
+
+    def test_threshold_green_boundary(self) -> None:
+        assert cobertura_line_badge_svg.badge_color_for_percent(
+            85.0
+        ).upper() == "#4C1"
+
+    def test_threshold_yellow_boundary(self) -> None:
+        assert cobertura_line_badge_svg.badge_color_for_percent(
+            70.0
+        ).upper() == "#FE7D37"
 
 
 class TestRenderBadgeSvg:
@@ -82,3 +102,57 @@ class TestWriteBadgeFromCobertura:
         text = out.read_text(encoding="utf-8")
         assert "<svg" in text
         assert "85.33" in text
+
+
+class TestMain:
+    def test_success_writes_svg(self, tmp_path: Path) -> None:
+        c = tmp_path / "cobertura.xml"
+        c.write_text(MIN_COBERTURA, encoding="utf-8")
+        out = tmp_path / "out.svg"
+        argv = ["--label", "rust cov", "-i", str(c), "-o", str(out)]
+        assert cobertura_line_badge_svg.main(argv) == 0
+        assert out.read_text(encoding="utf-8").startswith("<svg")
+
+    def test_value_error_returns_1(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        c = tmp_path / "bad.xml"
+        c.write_text("<coverage version=\"1.9\"/>", encoding="utf-8")
+        out = tmp_path / "out.svg"
+        argv = ["--label", "rust cov", "-i", str(c), "-o", str(out)]
+        assert cobertura_line_badge_svg.main(argv) == 1
+        captured = capsys.readouterr()
+        assert "cobertura_line_badge_svg:" in captured.err
+
+    def test_oserror_returns_1(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        missing = tmp_path / "missing.xml"
+        out = tmp_path / "out.svg"
+        argv = ["--label", "rust cov", "-i", str(missing), "-o", str(out)]
+        assert cobertura_line_badge_svg.main(argv) == 1
+        captured = capsys.readouterr()
+        assert "cobertura_line_badge_svg:" in captured.err
+
+
+class TestMainModule:
+    def test_main_module_exit_code(self, tmp_path: Path) -> None:
+        c = tmp_path / "cobertura.xml"
+        c.write_text(MIN_COBERTURA, encoding="utf-8")
+        out = tmp_path / "out.svg"
+        argv = [
+            "cobertura_line_badge_svg.py",
+            "--label",
+            "rust cov",
+            "-i",
+            str(c),
+            "-o",
+            str(out),
+        ]
+        with patch("sys.argv", argv):
+            try:
+                runpy.run_path(str(_script_path), run_name="__main__")
+            except SystemExit as exc:
+                assert exc.code == 0
+                return
+        pytest.fail("Expected SystemExit from sys.exit(main())")
