@@ -142,8 +142,10 @@ osc_checkout_package() {
   if osc_cmd help co 2>&1 | grep -q -- '--nosource'; then
     osc_cmd co --nosource "${project}" "${package}"
   else
-    # Ubuntu/apt osc lacks --nosource; metadata-only checkout is portable.
-    osc_cmd co --meta "${project}" "${package}"
+    # Ubuntu/apt osc lacks --nosource. Full checkout is required: metadata-only
+    # checkouts include _meta without sha256 sums and osc commit then fails.
+    # -c places the package dir in cwd (not PROJECT/PACKAGE).
+    osc_cmd co -c "${project}" "${package}"
   fi
 }
 
