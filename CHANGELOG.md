@@ -12,6 +12,31 @@ The GitHub Release body is generated from the matching `## [version]` section
 below when you push a `v*` tag (see `.github/workflows/release.yml`). Update
 this file **before** creating the release tag.
 
+## [0.2.2] - 2026-06-07
+
+### Fixed
+
+- OBS upload-driven release flow replaces the broken `_service` pipeline on
+  public `build.opensuse.org` (pre-generated tarball, vendor archive, and spec
+  uploaded via `scripts/obs-upload-release-sources.sh`).
+- RPM spec sync and OBS build reliability (`make sync-rpm-specs`,
+  `make check-rpm-spec-sync`).
+- Release workflow hardening:
+  - draft GitHub Release before publish with local and downloaded asset
+    verification.
+  - sign all release artifacts including edge cases with missing artifacts.
+  - OBS rebuild uses operation-scoped `OBS_TOKEN_REBUILD` tokens.
+
+### Changed
+
+- Dependency updates: Rust toolchain 1.96.0, workspace crates (redb, tokio,
+  serde_json, and related), GitHub Actions pins, Docker base image digest,
+  and REUSE tooling.
+
+### Fixed (CI)
+
+- Coverage nightly workflow Python venv caching.
+
 ## [0.2.1] - 2026-04-30
 
 ### Changed
