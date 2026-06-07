@@ -139,6 +139,13 @@ precedence = "override"
 SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
+# setuptools metadata from pip install ".[dev]" (generated; no SPDX in file)
+[[annotations]]
+path = "**/*.egg-info/**"
+precedence = "override"
+SPDX-FileCopyrightText = "The verilyze contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
 [[annotations]]
 path = ".coverage"
 precedence = "override"

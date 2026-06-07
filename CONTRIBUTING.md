@@ -109,8 +109,8 @@ graph TD
 | cargo-about              | `make check-third-party-licenses`      | `make setup` |
 | cargo-llvm-cov           | Coverage (`make coverage*`)            | `make setup` |
 | cargo-afl                | Fuzzing (`make fuzz*`)                 | `make setup` |
-| pytest/pytest-cov        | Script tests (`make test-scripts`)     | `make setup` |
-| black/pylint/mypy/bandit | Python lint (`make lint-python`)       | `make setup` |
+| pytest/pytest-cov        | Script tests (`make test-scripts`)     | `make setup` (`pyproject.toml` `[dev]`) |
+| black/pylint/mypy/bandit | Python lint (`make lint-python`)       | `make setup` (`pyproject.toml` `[dev]`) |
 
 **Recommended system dependencies**
 
@@ -865,8 +865,12 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
   Dockerfile base images still follow the `dockerfile` rules in
   [`renovate.json`](renovate.json).
   The **`pep621`** manager updates [`pyproject.toml`](pyproject.toml) (PEP 621
-  optional dev dependencies such as pytest and pytest-cov); **minor** and
+  `[project.optional-dependencies].dev` version floors for pytest, pytest-cov,
+  black, pylint, mypy, and bandit). **`rangeStrategy: bump`** raises floors on
+  new PyPI releases even when the old floor was still satisfied. **`minor`** and
   **patch** bumps are grouped into **`pyproject-dev-minor-patch`**.
+  **`osvVulnerabilityAlerts`** is enabled for security-driven floor tightening;
+  wide floors may still need a manual bump when OSV alerts do not fire.
   The **`cargo`** manager updates **workspace** Rust dependencies in
   `Cargo.toml` / `Cargo.lock` (**minor** and **patch** are grouped into
   **`rust-workspace-minor-patch`**).
@@ -1053,9 +1057,14 @@ If the coverage link step fails with LLD (e.g. invalid symbol index with
 ### Script testing (NFR-021)
 
 - **Run script tests:** `make test-scripts` runs `pytest tests/scripts/ -v`.
-- **Prerequisites:** The Makefile auto-creates `.venv-test` and installs pytest
-  and pytest-cov. Run `make setup` first, or `make test-scripts` will bootstrap
-  it on demand.
+- **Python dev dependencies:** [`pyproject.toml`](pyproject.toml)
+  `[project.optional-dependencies].dev` is the single source of truth for
+  version floors. `make setup` bootstraps `.venv-test` and `.venv-lint` via
+  `pip install ".[dev]"` from the repo root. The `pytest>=9.0.3` floor
+  remediates CVE-2025-71176 (insecure temp-dir handling in pytest through
+  9.0.2).
+- **Prerequisites:** Run `make setup` first, or `make test-scripts` will
+  bootstrap `.venv-test` on demand.
 - **Placement:** Script tests live in `tests/scripts/`; the `scripts/` package
   is imported via conftest path setup.
 - **Coverage:** `make coverage` or `make coverage-quick` runs script tests

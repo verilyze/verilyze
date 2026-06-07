@@ -197,3 +197,28 @@ def test_renovate_workflow_scheduled_twice_weekly() -> None:
     assert workflow.count("cron:") == 2
     assert 'cron: "0 5 * * 1"' in workflow
     assert 'cron: "0 5 * * 4"' in workflow
+
+
+def test_renovate_osv_vulnerability_alerts_enabled() -> None:
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    assert data.get("osvVulnerabilityAlerts") is True
+
+
+def test_renovate_pep621_pypi_range_strategy_bump() -> None:
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    rules = data.get("packageRules", [])
+    match = next(
+        (
+            r
+            for r in rules
+            if r.get("matchManagers") == ["pep621"]
+            and r.get("matchDatasources") == ["pypi"]
+            and r.get("matchFileNames") == ["pyproject.toml"]
+            and r.get("rangeStrategy") == "bump"
+        ),
+        None,
+    )
+    assert match is not None, (
+        "packageRules must set rangeStrategy bump for pep621 PyPI deps "
+        "in pyproject.toml"
+    )

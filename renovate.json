@@ -8,6 +8,7 @@
   "rebaseWhen": "behind-base-branch",
   "platformAutomerge": true,
   "prConcurrentLimit": 3,
+  "osvVulnerabilityAlerts": true,
   "constraints": {
     "rust": "1.94.1"
   },
@@ -135,6 +136,13 @@
       "matchFileNames": ["pyproject.toml"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "pyproject-dev-minor-patch"
+    },
+    {
+      "description": "pyproject.toml dev deps: bump floors on new PyPI releases",
+      "matchManagers": ["pep621"],
+      "matchDatasources": ["pypi"],
+      "matchFileNames": ["pyproject.toml"],
+      "rangeStrategy": "bump"
     },
     {
       "description": "Rust workspace: regenerate THIRD-PARTY-LICENSES after Cargo updates",

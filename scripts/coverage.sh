@@ -88,7 +88,7 @@ PY=python3
 command -v "$PY" >/dev/null 2>&1 \
   || { echo "ERROR: python3 not found." >&2; exit 1; }
 "$PY" -m pytest --version >/dev/null 2>&1 \
-  || { echo "ERROR: pytest not found. Run: pip install pytest pytest-cov" >&2; exit 1; }
+  || { echo "ERROR: pytest not found. Run: make setup" >&2; exit 1; }
 PYTHONPATH=. "$PY" -m pytest tests/scripts/ \
   --cov=scripts \
   --cov-report=html:reports/python \
