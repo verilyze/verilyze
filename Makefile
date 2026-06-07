@@ -15,7 +15,6 @@ LINT_PYTHON_SCRIPT := $(SCRIPTS_DIR)/lint-python.sh
 VENV_LINT := $(MKFILE_DIR)/.venv-lint
 VENV_REUSE := $(MKFILE_DIR)/.venv-reuse
 VENV_TEST := $(MKFILE_DIR)/.venv-test
-LINT_PYTHON_PACKAGES := black pylint mypy bandit
 # Override for CI or a pinned binary (NFR-009, SEC-012).
 CARGO_DENY ?= cargo deny
 # Deterministic default linker toolchain; users can override at invocation:
@@ -240,7 +239,7 @@ $(VENV_TEST)/bin/pytest:
 	fi
 	rm -rf $(VENV_TEST)
 	python3 -m venv $(VENV_TEST)
-	$(VENV_TEST)/bin/pip install pytest pytest-cov
+	cd "$(MKFILE_DIR)" && $(VENV_TEST)/bin/pip install ".[dev]"
 
 test-scripts: $(VENV_TEST)/bin/pytest
 	@cd "$(MKFILE_DIR)" && $(VENV_TEST)/bin/python -m pytest tests/scripts/ -v
@@ -259,7 +258,7 @@ $(VENV_LINT)/bin/black:
 	fi
 	rm -rf $(VENV_LINT)
 	python3 -m venv $(VENV_LINT)
-	$(VENV_LINT)/bin/pip install $(LINT_PYTHON_PACKAGES)
+	cd "$(MKFILE_DIR)" && $(VENV_LINT)/bin/pip install ".[dev]"
 
 # lint-python: black, pylint, mypy, bandit (aggregates failures; NFR-021)
 lint-python: $(VENV_LINT)/bin/black
@@ -540,6 +539,7 @@ clean:
 	@find $(MKFILE_DIR) -type f \( -name "*.profraw" -o \
                                        -name "vlz-cache.redb" \) -delete
 	@find $(MKFILE_DIR) -type d -name "__pycache__" -exec rm -rf {} +
+	@find $(MKFILE_DIR) -maxdepth 1 -type d -name "*.egg-info" -exec rm -rf {} +
 	@rm -rfv $(MKFILE_DIR)/reports/ $(MKFILE_DIR)/.cache
 	@rm -rfv $(RPM_TOPDIR)/BUILD $(RPM_TOPDIR)/BUILDROOT \
 	         $(RPM_TOPDIR)/RPMS $(RPM_TOPDIR)/SRPMS \
