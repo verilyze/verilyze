@@ -123,7 +123,7 @@ jobs:
           persist-credentials: false
 
       - name: Install build tools
-        run: dnf install -y rpm-build rust cargo openssl-devel make
+        run: dnf install -y rpm-build rust cargo openssl-devel make python3
 
       - name: Build .rpm
         run: make rpm

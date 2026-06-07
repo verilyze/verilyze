@@ -104,3 +104,10 @@ def test_obs_upload_script_requires_version() -> None:
     proc = _run_script([str(_UPLOAD_SCRIPT), "--dry-run"])
     assert proc.returncode == 1
     assert "--version" in (proc.stderr + proc.stdout)
+
+
+def test_obs_upload_script_uses_portable_osc_checkout_flags() -> None:
+    """osc on Ubuntu/GitHub Actions lacks co --nosource; script must fallback."""
+    text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")
+    assert "osc_checkout_package" in text
+    assert "--meta" in text or 'co -M' in text

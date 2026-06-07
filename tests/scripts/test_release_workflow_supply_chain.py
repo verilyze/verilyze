@@ -55,6 +55,15 @@ def test_release_restore_download_layout_script_exists() -> None:
     assert _RESTORE_SCRIPT.is_file()
 
 
+def test_release_workflow_build_rpm_installs_python3() -> None:
+    text = _RELEASE.read_text(encoding="utf-8")
+    rpm_start = text.index("build-rpm:")
+    rpm_end = text.index("build-docker:", rpm_start)
+    rpm_job = text[rpm_start:rpm_end]
+    assert "make rpm" in rpm_job
+    assert "python3" in rpm_job
+
+
 def test_check_obs_signing_runs_in_preflight_not_in_publish_obs() -> None:
     text = _RELEASE.read_text(encoding="utf-8")
     preflight_end = text.index("build-binary:")

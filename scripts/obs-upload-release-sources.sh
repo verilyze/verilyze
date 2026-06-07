@@ -132,6 +132,18 @@ render_spec() {
     "${template_path}" >"${output_path}"
 }
 
+osc_checkout_package() {
+  local api="$1"
+  local project="$2"
+  local package="$3"
+  if osc -A "${api}" help co 2>&1 | grep -q -- '--nosource'; then
+    osc -A "${api}" co --nosource "${project}" "${package}"
+  else
+    # Ubuntu/apt osc lacks --nosource; metadata-only checkout is portable.
+    osc -A "${api}" co --meta "${project}" "${package}"
+  fi
+}
+
 configure_osc_credentials() {
   local oscrc="${HOME}/.oscrc"
   if [[ -f "${oscrc}" ]] && grep -q "${OBS_API}" "${oscrc}" 2>/dev/null; then
@@ -161,7 +173,7 @@ upload_to_obs() {
   mkdir -p "${checkout_dir}"
   (
     cd "${checkout_dir}"
-    osc -A "${OBS_API}" co --nosource "${OBS_PROJECT}" "${OBS_PACKAGE}"
+    osc_checkout_package "${OBS_API}" "${OBS_PROJECT}" "${OBS_PACKAGE}"
     cd "${OBS_PACKAGE}"
     cp "${work_dir}/${source_archive}" .
     cp "${work_dir}/${VENDOR_ARCHIVE_NAME}" .
