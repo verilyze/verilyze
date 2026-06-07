@@ -41,7 +41,11 @@ any existing `_service` on the OBS package once before switching to this flow
 ### Required GitHub secrets
 
 - `OBS_USER` -- OBS account for `osc` upload
-- `OBS_PASSWORD` -- OBS password for `osc` upload
+- `OBS_PASSWORD` -- OBS password or API token for `osc` upload
+- Release automation maps these to `OSC_USERNAME` / `OSC_PASSWORD` so
+  credentials stay in process memory instead of a plaintext `pass` entry in
+  `~/.oscrc`. A minimal per-run `oscrc` contains only `apiurl` and
+  `use_keyring = 0`.
 - `OBS_TOKEN_REBUILD` -- for `POST .../trigger/rebuild` on `build.opensuse.org`
 
 Create the rebuild token with `osc` (or the OBS web UI) scoped to the package:

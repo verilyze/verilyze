@@ -30,8 +30,12 @@ Options:
 
 Environment (required unless --dry-run):
   OBS_USER                OBS account for osc upload
-  OBS_PASSWORD            OBS password for osc upload
+  OBS_PASSWORD            OBS password or API token for osc upload
 EOF
+}
+
+osc_cmd() {
+  osc --no-keyring -A "${OBS_API}" "$@"
 }
 
 require_cmd() {
@@ -132,24 +136,36 @@ render_spec() {
     "${template_path}" >"${output_path}"
 }
 
-configure_osc_credentials() {
-  local oscrc="${HOME}/.oscrc"
-  if [[ -f "${oscrc}" ]] && grep -q "${OBS_API}" "${oscrc}" 2>/dev/null; then
-    return 0
+osc_checkout_package() {
+  local project="$1"
+  local package="$2"
+  if osc_cmd help co 2>&1 | grep -q -- '--nosource'; then
+    osc_cmd co --nosource "${project}" "${package}"
+  else
+    # Ubuntu/apt osc lacks --nosource. Full checkout is required: metadata-only
+    # checkouts include _meta without sha256 sums and osc commit then fails.
+    # -c places the package dir in cwd (not PROJECT/PACKAGE).
+    osc_cmd co -c "${project}" "${package}"
   fi
+}
+
+setup_osc_auth() {
+  local work_dir="$1"
   if [[ -z "${OBS_USER:-}" || -z "${OBS_PASSWORD:-}" ]]; then
     echo "ERROR: OBS_USER and OBS_PASSWORD are required for osc upload" >&2
     exit 1
   fi
+  local oscrc="${work_dir}/oscrc"
   cat >"${oscrc}" <<EOF
 [general]
 apiurl = ${OBS_API}
-
-[${OBS_API}]
-user = ${OBS_USER}
-pass = ${OBS_PASSWORD}
+use_keyring = 0
 EOF
   chmod 600 "${oscrc}"
+  export OSC_CONFIG="${oscrc}"
+  export OSC_APIURL="${OBS_API}"
+  export OSC_USERNAME="${OBS_USER}"
+  export OSC_PASSWORD="${OBS_PASSWORD}"
 }
 
 upload_to_obs() {
@@ -161,13 +177,13 @@ upload_to_obs() {
   mkdir -p "${checkout_dir}"
   (
     cd "${checkout_dir}"
-    osc -A "${OBS_API}" co --nosource "${OBS_PROJECT}" "${OBS_PACKAGE}"
+    osc_checkout_package "${OBS_PROJECT}" "${OBS_PACKAGE}"
     cd "${OBS_PACKAGE}"
     cp "${work_dir}/${source_archive}" .
     cp "${work_dir}/${VENDOR_ARCHIVE_NAME}" .
     cp "${work_dir}/${SPEC_FILENAME}" .
-    osc -A "${OBS_API}" add "${source_archive}" "${VENDOR_ARCHIVE_NAME}" "${SPEC_FILENAME}" 2>/dev/null || true
-    osc -A "${OBS_API}" commit -m "Upload release ${version} sources from GitHub Actions"
+    osc_cmd add "${source_archive}" "${VENDOR_ARCHIVE_NAME}" "${SPEC_FILENAME}" 2>/dev/null || true
+    osc_cmd commit -m "Upload release ${version} sources from GitHub Actions"
   )
 }
 
@@ -280,7 +296,7 @@ if [[ "${DRY_RUN}" -eq 1 ]]; then
 fi
 
 require_cmd osc
-configure_osc_credentials
+setup_osc_auth "${WORK_DIR}"
 upload_to_obs "${WORK_DIR}" "${VERSION}"
 echo "OBS source upload completed."
 

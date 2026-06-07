@@ -104,3 +104,28 @@ def test_obs_upload_script_requires_version() -> None:
     proc = _run_script([str(_UPLOAD_SCRIPT), "--dry-run"])
     assert proc.returncode == 1
     assert "--version" in (proc.stderr + proc.stdout)
+
+
+def test_obs_upload_script_uses_portable_osc_checkout_flags() -> None:
+    """osc on Ubuntu/GitHub Actions lacks co --nosource; script must fallback."""
+    text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")
+    assert "osc_checkout_package" in text
+    assert 'osc_cmd co -c "${project}" "${package}"' in text
+    assert "co --meta" not in text
+
+
+def test_obs_upload_script_avoids_metadata_only_checkout() -> None:
+    """Metadata-only checkout breaks osc commit (_meta sha256 missing)."""
+    text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")
+    assert "_meta without sha256" in text
+
+
+def test_obs_upload_script_uses_transient_osc_credentials() -> None:
+    """CI auth must use OSC_* env vars, not plaintext pass in oscrc."""
+    text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")
+    assert "setup_osc_auth" in text
+    assert "OSC_USERNAME" in text
+    assert "OSC_PASSWORD" in text
+    assert "OSC_CONFIG" in text
+    assert "pass = ${OBS_PASSWORD}" not in text
+    assert "\npass = " not in text
