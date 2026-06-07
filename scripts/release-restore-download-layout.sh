@@ -26,7 +26,7 @@ fi
 
 (
   cd "${dir}"
-  mkdir -p vlz-linux-x86_64 deb-package rpm-package/RPMS/x86_64
+  mkdir -p vlz-linux-x86_64 deb-package rpm-package/x86_64
 
   if [[ -f vlz ]]; then
     mv -f vlz vlz-linux-x86_64/
@@ -52,12 +52,12 @@ fi
 
   for rpm in *.rpm; do
     [[ -f "${rpm}" ]] || continue
-    mv -f "${rpm}" rpm-package/RPMS/x86_64/
+    mv -f "${rpm}" rpm-package/x86_64/
     if [[ -f "${rpm}.sigstore.json" ]]; then
-      mv -f "${rpm}.sigstore.json" rpm-package/RPMS/x86_64/
+      mv -f "${rpm}.sigstore.json" rpm-package/x86_64/
     fi
     if [[ -f "${rpm}.intoto.jsonl" ]]; then
-      mv -f "${rpm}.intoto.jsonl" rpm-package/RPMS/x86_64/
+      mv -f "${rpm}.intoto.jsonl" rpm-package/x86_64/
     fi
   done
 )

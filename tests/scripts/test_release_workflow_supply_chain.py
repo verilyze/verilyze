@@ -4,6 +4,7 @@
 
 """Tests for release signing and provenance workflow coverage."""
 
+import subprocess
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent.parent
@@ -53,6 +54,24 @@ def test_release_verify_bundle_script_invokes_cosign_verify() -> None:
 
 def test_release_restore_download_layout_script_exists() -> None:
     assert _RESTORE_SCRIPT.is_file()
+
+
+def test_release_restore_download_layout_uses_rpm_x86_64_path(tmp_path: Path) -> None:
+    download_dir = tmp_path / "draft-verify"
+    download_dir.mkdir()
+    (download_dir / "vlz").write_bytes(b"vlz-binary")
+    (download_dir / "vlz_0.1.0_amd64.deb").write_bytes(b"deb-pkg")
+    (download_dir / "vlz-0.1.0-1.x86_64.rpm").write_bytes(b"rpm-pkg")
+
+    proc = subprocess.run(
+        [str(_RESTORE_SCRIPT), str(download_dir)],
+        cwd=_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr + proc.stdout
+    assert (download_dir / "rpm-package" / "x86_64" / "vlz-0.1.0-1.x86_64.rpm").is_file()
 
 
 def test_release_workflow_build_rpm_installs_python3() -> None:
