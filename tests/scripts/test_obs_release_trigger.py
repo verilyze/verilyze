@@ -48,6 +48,8 @@ def test_release_workflow_publishes_obs_sources_and_rebuilds() -> None:
     assert "--skip-runservice" in text
     assert "secrets.OBS_USER" in text
     assert "secrets.OBS_PASSWORD" in text
+    assert "OSC_USERNAME" in publish_job
+    assert "OSC_PASSWORD" in publish_job
     assert "secrets.OBS_TOKEN_REBUILD" in text
     assert "secrets.OBS_TOKEN_RUNSERVICE" not in text
 

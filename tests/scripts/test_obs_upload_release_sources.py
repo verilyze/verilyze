@@ -111,3 +111,14 @@ def test_obs_upload_script_uses_portable_osc_checkout_flags() -> None:
     text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")
     assert "osc_checkout_package" in text
     assert "--meta" in text or 'co -M' in text
+
+
+def test_obs_upload_script_uses_transient_osc_credentials() -> None:
+    """CI auth must use OSC_* env vars, not plaintext pass in oscrc."""
+    text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")
+    assert "setup_osc_auth" in text
+    assert "OSC_USERNAME" in text
+    assert "OSC_PASSWORD" in text
+    assert "OSC_CONFIG" in text
+    assert "pass = ${OBS_PASSWORD}" not in text
+    assert "\npass = " not in text

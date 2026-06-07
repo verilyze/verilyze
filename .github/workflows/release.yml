@@ -398,6 +398,9 @@ jobs:
           VERSION: ${{ needs.preflight-release.outputs.version }}
           OBS_USER: ${{ secrets.OBS_USER }}
           OBS_PASSWORD: ${{ secrets.OBS_PASSWORD }}
+          OSC_USERNAME: ${{ secrets.OBS_USER }}
+          OSC_PASSWORD: ${{ secrets.OBS_PASSWORD }}
+          OSC_APIURL: https://api.opensuse.org
           OBS_TOKEN_REBUILD: ${{ secrets.OBS_TOKEN_REBUILD }}
         run: |
           set -euo pipefail
