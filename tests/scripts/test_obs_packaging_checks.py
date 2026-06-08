@@ -8,6 +8,8 @@ import re
 
 from pathlib import Path
 
+from tests.scripts.workspace_helpers import top_obs_changes_version, workspace_semver
+
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parent.parent.parent
@@ -29,6 +31,10 @@ def test_obs_project_env_has_required_coordinate_keys() -> None:
     text = env_file.read_text(encoding="utf-8")
     assert "OBS_PROJECT=" in text
     assert "OBS_PACKAGE=" in text
+    assert "OBS_SPEC_FILENAME=verilyze.spec" in text
+    assert "OBS_CHANGES_FILENAME=verilyze.changes" in text
+    assert "OBS_LEGACY_CHANGES_FILENAME=verilyze.spec.changes" in text
+    assert "OBS_MAINTAINER=" in text
 
 
 def test_obs_packaging_check_script_invokes_signing_check() -> None:
@@ -69,6 +75,20 @@ def test_obs_upload_script_exists() -> None:
     upload_script = _repo_root() / "scripts" / "obs-upload-release-sources.sh"
     assert upload_script.is_file()
     assert upload_script.stat().st_mode & 0o111
+
+
+def test_obs_changes_renderer_exists() -> None:
+    render_script = _repo_root() / "scripts" / "render_obs_changes.py"
+    assert render_script.is_file()
+    assert render_script.stat().st_mode & 0o111
+
+
+def test_obs_seed_changes_file_exists() -> None:
+    changes_file = _repo_root() / "packaging" / "obs" / "rpm" / "verilyze.changes"
+    assert changes_file.is_file()
+    assert top_obs_changes_version(changes_file.read_text(encoding="utf-8")) == (
+        workspace_semver()
+    )
 
 
 def test_obs_spec_uses_offline_cargo_with_vendor_sources() -> None:
@@ -130,9 +150,19 @@ def test_obs_packaging_check_asserts_upload_workflow_and_offline() -> None:
         encoding="utf-8"
     )
     assert "obs-upload-release-sources.sh" in text
+    assert "render_obs_changes.py" in text
+    assert "OBS_CHANGES_FILENAME" in text
     assert "--skip-runservice" in text
     assert "vendor.tar.zst" in text
     assert "--offline" in text
+
+
+def test_obs_spec_keeps_empty_changelog_section() -> None:
+    spec_text = (
+        _repo_root() / "packaging" / "obs" / "rpm" / "verilyze.spec"
+    ).read_text(encoding="utf-8")
+    changelog_start = spec_text.index("%changelog\n")
+    assert spec_text[changelog_start:].strip() == "%changelog"
 
 
 def test_obs_spec_lists_completion_parent_dirs_for_filelist_check() -> None:
