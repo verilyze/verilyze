@@ -33,6 +33,12 @@ Each release uploads into the configured OBS package:
 - `verilyze-X.Y.Z.tar.xz` (`Source0`)
 - `vendor.tar.zst` (`Source1`)
 - `verilyze.spec` with `Version: X.Y.Z`
+- `verilyze.changes` with a release entry derived from the matching
+  `CHANGELOG.md` section (OBS injects this into built RPM changelogs on
+  openSUSE targets; the spec `%changelog` section stays empty)
+
+The legacy non-standard `verilyze.spec.changes` filename is removed on upload
+when present on the OBS package.
 
 The OBS package should **not** include a `_service` file on public OBS. Delete
 any existing `_service` on the OBS package once before switching to this flow
@@ -62,8 +68,10 @@ On tag push, [`.github/workflows/release.yml`](../../.github/workflows/release.y
 runs:
 
 1. [`scripts/obs-upload-release-sources.sh`](../../scripts/obs-upload-release-sources.sh)
-   -- builds `verilyze-X.Y.Z.tar.xz`, `vendor.tar.zst`, and stamped
-   `verilyze.spec`, then uploads with `osc`.
+   -- builds `verilyze-X.Y.Z.tar.xz`, `vendor.tar.zst`, stamped
+   `verilyze.spec`, and `verilyze.changes` (via
+   [`scripts/render_obs_changes.py`](../../scripts/render_obs_changes.py)),
+   then uploads with `osc`.
 2. [`scripts/obs-trigger-build.sh`](../../scripts/obs-trigger-build.sh)
    `--skip-runservice` -- triggers rebuild only.
 
@@ -92,6 +100,8 @@ To migrate from a personal namespace to a project-maintained namespace, update
   - `_service` symlink to `../_service`
   - `_meta` for OBS package metadata
   - `verilyze.spec` for RPM targets (Fedora, RHEL, Rocky, openSUSE, SLE)
+  - `verilyze.changes` seed history for first upload when OBS has no
+    `.changes` file yet
 - `packaging/obs/debian`
   - `_service` symlink to `../_service`
   - `_meta` for OBS package metadata
@@ -181,8 +191,12 @@ canonical distro Debian metadata for OBS is under
 - Debian package name remains `verilyze`
 - `cargo-deb` metadata block remains present in `crates/core/vlz/Cargo.toml`
 - OBS RPM spec uses offline cargo with `vendor.tar.zst`
+- OBS RPM spec keeps an empty `%changelog` section (history lives in
+  `verilyze.changes`)
 - Release workflow invokes upload script and rebuild-only OBS trigger
 - OBS signing key metadata is published for the configured project
+- `obs-project.env` defines `OBS_CHANGES_FILENAME`, `OBS_LEGACY_CHANGES_FILENAME`,
+  and `OBS_MAINTAINER` for automation
 
 ## Appendix: private OBS / local source services
 

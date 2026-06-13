@@ -10,7 +10,14 @@ import subprocess
 import tarfile
 from pathlib import Path
 
-_ROOT = Path(__file__).resolve().parent.parent.parent
+from tests.scripts.workspace_helpers import (
+    obs_changes_version_marker,
+    obs_package_name,
+    repo_root,
+    workspace_semver,
+)
+
+_ROOT = repo_root()
 _UPLOAD_SCRIPT = _ROOT / "scripts" / "obs-upload-release-sources.sh"
 _OBS_SPEC_TEMPLATE = _ROOT / "packaging" / "obs" / "rpm" / "verilyze.spec"
 _VENDOR_ARCHIVE = "vendor.tar.zst"
@@ -37,12 +44,16 @@ def _run_script(
 
 
 def test_obs_upload_script_dry_run_builds_expected_artifacts(tmp_path: Path) -> None:
+    version = workspace_semver()
+    package = obs_package_name()
+    source_name = f"{package}-{version}.tar.xz"
+    archive_prefix = f"{package}-{version}/"
     work_dir = tmp_path / "work"
     proc = _run_script(
         [
             str(_UPLOAD_SCRIPT),
             "--version",
-            "0.2.1",
+            version,
             "--work-dir",
             str(work_dir),
             "--dry-run",
@@ -51,22 +62,30 @@ def test_obs_upload_script_dry_run_builds_expected_artifacts(tmp_path: Path) -> 
 
     output = proc.stdout + proc.stderr
     assert proc.returncode == 0, output
-    assert "verilyze-0.2.1.tar.xz" in output
+    assert source_name in output
     assert _VENDOR_ARCHIVE in output
     assert "verilyze.spec" in output
+    assert "verilyze.changes" in output
+    assert "changes_sha256=" in output
     assert "dry-run" in output.lower()
 
-    source_archive = work_dir / "verilyze-0.2.1.tar.xz"
+    source_archive = work_dir / source_name
     vendor_archive = work_dir / _VENDOR_ARCHIVE
     spec_file = work_dir / "verilyze.spec"
+    changes_file = work_dir / "verilyze.changes"
     assert source_archive.is_file()
     assert vendor_archive.is_file()
     assert spec_file.is_file()
-    assert re.search(r"^Version:\s+0\.2\.1$", spec_file.read_text(encoding="utf-8"), re.M)
+    assert changes_file.is_file()
+    spec_text = spec_file.read_text(encoding="utf-8")
+    assert re.search(rf"^Version:\s+{re.escape(version)}$", spec_text, re.M)
+    assert obs_changes_version_marker(version) in changes_file.read_text(
+        encoding="utf-8"
+    )
 
     with tarfile.open(source_archive, "r:xz") as tarball:
         names = tarball.getnames()
-    assert any(name.startswith("verilyze-0.2.1/") for name in names)
+    assert any(name.startswith(archive_prefix) for name in names)
 
 
 def test_obs_upload_script_dry_run_vendor_archive_contains_offline_inputs(
@@ -77,7 +96,7 @@ def test_obs_upload_script_dry_run_vendor_archive_contains_offline_inputs(
         [
             str(_UPLOAD_SCRIPT),
             "--version",
-            "0.2.1",
+            workspace_semver(),
             "--work-dir",
             str(work_dir),
             "--dry-run",
@@ -118,6 +137,13 @@ def test_obs_upload_script_avoids_metadata_only_checkout() -> None:
     """Metadata-only checkout breaks osc commit (_meta sha256 missing)."""
     text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")
     assert "_meta without sha256" in text
+
+
+def test_obs_upload_script_renders_changes_from_changelog() -> None:
+    text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")
+    assert "render_obs_changes.py" in text
+    assert "OBS_CHANGES_FILENAME" in text
+    assert "OBS_LEGACY_CHANGES_FILENAME" in text
 
 
 def test_obs_upload_script_uses_transient_osc_credentials() -> None:

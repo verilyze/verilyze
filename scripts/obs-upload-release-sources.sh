@@ -5,11 +5,17 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/obs-project-env-parse.sh
+. "${SCRIPT_DIR}/lib/obs-project-env-parse.sh"
+
 readonly DEFAULT_OBS_API="https://api.opensuse.org"
 readonly DEFAULT_CONFIG_PATH="packaging/obs/obs-project.env"
 readonly DEFAULT_SPEC_TEMPLATE="packaging/obs/rpm/verilyze.spec"
+readonly DEFAULT_SEED_CHANGES="packaging/obs/rpm/verilyze.changes"
+readonly DEFAULT_CHANGELOG="CHANGELOG.md"
+readonly RENDER_CHANGES_SCRIPT="scripts/render_obs_changes.py"
 readonly VENDOR_ARCHIVE_NAME="vendor.tar.zst"
-readonly SPEC_FILENAME="verilyze.spec"
 
 usage() {
   cat >&2 <<'EOF'
@@ -22,6 +28,8 @@ tar source services are unavailable.
 Options:
   --config <path>         OBS coordinate file (default: packaging/obs/obs-project.env)
   --spec-template <path>  RPM spec template (default: packaging/obs/rpm/verilyze.spec)
+  --seed-changes <path>   Seed .changes when OBS checkout has none (default: packaging/obs/rpm/verilyze.changes)
+  --changelog <path>      Release changelog source (default: CHANGELOG.md)
   --work-dir <path>       Staging directory (default: temporary directory)
   --git-ref <ref>         Git tree to archive (default: HEAD)
   --obs-api <url>         OBS API base URL (default: https://api.opensuse.org)
@@ -52,40 +60,24 @@ trim() {
   printf '%s' "${value}"
 }
 
-parse_obs_project_env() {
-  local env_path="$1"
-  local line key value
-  if [[ ! -f "${env_path}" ]]; then
-    echo "ERROR: OBS config file not found: ${env_path}" >&2
-    exit 1
+render_changes_file() {
+  local version="$1"
+  local output_path="$2"
+  local existing_path="${3:-}"
+  local render_args=(
+    env PYTHONPATH="${REPO_ROOT}"
+    python3 "${REPO_ROOT}/${RENDER_CHANGES_SCRIPT}"
+    --version "${version}"
+    --changelog "${REPO_ROOT}/${CHANGELOG_PATH}"
+    --config "${REPO_ROOT}/${CONFIG_PATH}"
+    --output "${output_path}"
+  )
+  if [[ -n "${existing_path}" && -f "${existing_path}" ]]; then
+    render_args+=(--existing-changes "${existing_path}")
+  elif [[ -f "${REPO_ROOT}/${SEED_CHANGES_PATH}" ]]; then
+    render_args+=(--seed-changes "${REPO_ROOT}/${SEED_CHANGES_PATH}")
   fi
-
-  while IFS= read -r line; do
-    line="$(trim "${line}")"
-    [[ -z "${line}" ]] && continue
-    [[ "${line}" == \#* ]] && continue
-    key="${line%%=*}"
-    value="${line#*=}"
-    key="$(trim "${key}")"
-    value="$(trim "${value}")"
-    case "${key}" in
-      OBS_PROJECT) OBS_PROJECT="${value}" ;;
-      OBS_PACKAGE) OBS_PACKAGE="${value}" ;;
-      *)
-        echo "ERROR: unsupported key in ${env_path}: ${key}" >&2
-        exit 1
-        ;;
-    esac
-  done <"${env_path}"
-
-  if [[ -z "${OBS_PROJECT:-}" ]]; then
-    echo "ERROR: OBS_PROJECT is missing in ${env_path}" >&2
-    exit 1
-  fi
-  if [[ -z "${OBS_PACKAGE:-}" ]]; then
-    echo "ERROR: OBS_PACKAGE is missing in ${env_path}" >&2
-    exit 1
-  fi
+  "${render_args[@]}"
 }
 
 sha256_file() {
@@ -173,23 +165,38 @@ upload_to_obs() {
   local version="$2"
   local checkout_dir="${work_dir}/osc-checkout"
   local source_archive="${OBS_PACKAGE}-${version}.tar.xz"
+  local existing_changes=""
   rm -rf "${checkout_dir}"
   mkdir -p "${checkout_dir}"
   (
     cd "${checkout_dir}"
     osc_checkout_package "${OBS_PROJECT}" "${OBS_PACKAGE}"
     cd "${OBS_PACKAGE}"
+    if [[ -f "${OBS_CHANGES_FILENAME}" ]]; then
+      existing_changes="${PWD}/${OBS_CHANGES_FILENAME}"
+    fi
+    render_changes_file "${version}" "${OBS_CHANGES_FILENAME}" "${existing_changes}"
     cp "${work_dir}/${source_archive}" .
     cp "${work_dir}/${VENDOR_ARCHIVE_NAME}" .
-    cp "${work_dir}/${SPEC_FILENAME}" .
-    osc_cmd add "${source_archive}" "${VENDOR_ARCHIVE_NAME}" "${SPEC_FILENAME}" 2>/dev/null || true
+    cp "${work_dir}/${OBS_SPEC_FILENAME}" .
+    osc_cmd add \
+      "${source_archive}" \
+      "${VENDOR_ARCHIVE_NAME}" \
+      "${OBS_SPEC_FILENAME}" \
+      "${OBS_CHANGES_FILENAME}" \
+      2>/dev/null || true
+    if [[ -f "${OBS_LEGACY_CHANGES_FILENAME}" ]]; then
+      osc_cmd delete "${OBS_LEGACY_CHANGES_FILENAME}" 2>/dev/null || rm -f "${OBS_LEGACY_CHANGES_FILENAME}"
+    fi
     osc_cmd commit -m "Upload release ${version} sources from GitHub Actions"
   )
 }
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 CONFIG_PATH="${DEFAULT_CONFIG_PATH}"
 SPEC_TEMPLATE="${DEFAULT_SPEC_TEMPLATE}"
+SEED_CHANGES_PATH="${DEFAULT_SEED_CHANGES}"
+CHANGELOG_PATH="${DEFAULT_CHANGELOG}"
 WORK_DIR=""
 GIT_REF="HEAD"
 OBS_API="${DEFAULT_OBS_API}"
@@ -207,6 +214,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --spec-template)
       SPEC_TEMPLATE="$2"
+      shift 2
+      ;;
+    --seed-changes)
+      SEED_CHANGES_PATH="$2"
+      shift 2
+      ;;
+    --changelog)
+      CHANGELOG_PATH="$2"
       shift 2
       ;;
     --work-dir)
@@ -252,7 +267,7 @@ if [[ ! -f "${REPO_ROOT}/${SPEC_TEMPLATE}" ]]; then
   exit 1
 fi
 
-parse_obs_project_env "${REPO_ROOT}/${CONFIG_PATH}"
+obs_parse_project_env "${REPO_ROOT}/${CONFIG_PATH}"
 
 if [[ -z "${WORK_DIR}" ]]; then
   TEMP_WORK_DIR="$(mktemp -d)"
@@ -265,16 +280,19 @@ require_cmd cargo
 require_cmd tar
 require_cmd sed
 require_cmd xz
+require_cmd python3
 
 SOURCE_ARCHIVE="${OBS_PACKAGE}-${VERSION}.tar.xz"
 SOURCE_PATH="${WORK_DIR}/${SOURCE_ARCHIVE}"
 VENDOR_PATH="${WORK_DIR}/${VENDOR_ARCHIVE_NAME}"
-SPEC_PATH="${WORK_DIR}/${SPEC_FILENAME}"
+SPEC_PATH="${WORK_DIR}/${OBS_SPEC_FILENAME}"
+CHANGES_PATH="${WORK_DIR}/${OBS_CHANGES_FILENAME}"
 
 echo "Building OBS release sources (version=${VERSION})"
 build_source_archive "${GIT_REF}" "${VERSION}" "${SOURCE_PATH}"
 build_vendor_archive "${GIT_REF}" "${WORK_DIR}" "${VENDOR_PATH}"
 render_spec "${VERSION}" "${REPO_ROOT}/${SPEC_TEMPLATE}" "${SPEC_PATH}"
+render_changes_file "${VERSION}" "${CHANGES_PATH}"
 
 echo "OBS upload dry-run summary"
 echo "  project=${OBS_PROJECT}"
@@ -284,8 +302,10 @@ echo "  source_archive=${SOURCE_ARCHIVE}"
 echo "  source_sha256=$(sha256_file "${SOURCE_PATH}")"
 echo "  vendor_archive=${VENDOR_ARCHIVE_NAME}"
 echo "  vendor_sha256=$(sha256_file "${VENDOR_PATH}")"
-echo "  spec=${SPEC_FILENAME}"
+echo "  spec=${OBS_SPEC_FILENAME}"
 echo "  spec_sha256=$(sha256_file "${SPEC_PATH}")"
+echo "  changes=${OBS_CHANGES_FILENAME}"
+echo "  changes_sha256=$(sha256_file "${CHANGES_PATH}")"
 
 if [[ "${DRY_RUN}" -eq 1 ]]; then
   echo "Dry-run complete (no osc upload)."

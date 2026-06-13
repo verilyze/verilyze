@@ -68,6 +68,30 @@ if ! grep -q 'vendor.tar.zst' "${OBS_SPEC}"; then
   exit 1
 fi
 
+if ! grep -qE '^%changelog[[:space:]]*$' "${OBS_SPEC}"; then
+  echo "ERROR: ${OBS_SPEC} must declare an empty %changelog section for OBS" >&2
+  exit 1
+fi
+
+if awk '/^%changelog$/{found=1; next} found && NF{exit 1} END{if (!found) exit 1}' \
+  "${OBS_SPEC}"; then
+  :
+else
+  echo "ERROR: ${OBS_SPEC} %changelog section must remain empty for OBS" >&2
+  exit 1
+fi
+
+RENDER_CHANGES_SCRIPT="${ROOT_DIR}/scripts/render_obs_changes.py"
+if [[ ! -x "${RENDER_CHANGES_SCRIPT}" ]]; then
+  echo "ERROR: missing OBS changes renderer: ${RENDER_CHANGES_SCRIPT}" >&2
+  exit 1
+fi
+
+if ! grep -qE '^OBS_CHANGES_FILENAME=.+$' "${OBS_ENV}"; then
+  echo "ERROR: OBS_CHANGES_FILENAME must be set in ${OBS_ENV}" >&2
+  exit 1
+fi
+
 UPLOAD_SCRIPT="${ROOT_DIR}/scripts/obs-upload-release-sources.sh"
 if [[ ! -x "${UPLOAD_SCRIPT}" ]]; then
   echo "ERROR: missing OBS upload script: ${UPLOAD_SCRIPT}" >&2
@@ -77,6 +101,14 @@ fi
 RELEASE_WORKFLOW="${ROOT_DIR}/.github/workflows/release.yml"
 if ! grep -q 'obs-upload-release-sources.sh' "${RELEASE_WORKFLOW}"; then
   echo "ERROR: release workflow must invoke obs-upload-release-sources.sh" >&2
+  exit 1
+fi
+if ! grep -q 'render_obs_changes.py' "${UPLOAD_SCRIPT}"; then
+  echo "ERROR: OBS upload script must render .changes via render_obs_changes.py" >&2
+  exit 1
+fi
+if ! grep -q 'OBS_CHANGES_FILENAME' "${UPLOAD_SCRIPT}"; then
+  echo "ERROR: OBS upload script must upload OBS_CHANGES_FILENAME" >&2
   exit 1
 fi
 if ! grep -q -- '--skip-runservice' "${RELEASE_WORKFLOW}"; then

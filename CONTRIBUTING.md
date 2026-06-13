@@ -359,6 +359,9 @@ stripped of symbols (NFR-023) for security and smaller size.
    - Ensure `packaging/obs/obs-project.env` points at the intended OBS target.
    - Run `make check-obs-packaging` and confirm OBS signing key metadata is
      present for the configured OBS project.
+   - OBS upload automation also renders `verilyze.changes` from the same
+     `CHANGELOG.md` section as the GitHub Release body (no extra manual step
+     beyond updating `CHANGELOG.md`).
 
 If the workflow fails after a draft release exists but before publish, fix the
 underlying issue, delete the draft release (or the broken assets), adjust the

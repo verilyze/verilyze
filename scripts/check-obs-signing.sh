@@ -5,6 +5,10 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/obs-project-env-parse.sh
+. "${SCRIPT_DIR}/lib/obs-project-env-parse.sh"
+
 readonly DEFAULT_CONFIG_PATH="packaging/obs/obs-project.env"
 readonly DEFAULT_OBS_WEB_URL="https://build.opensuse.org"
 readonly DEFAULT_MIN_VALID_DAYS="30"
@@ -28,50 +32,6 @@ EOF
 require_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
     echo "ERROR: required command not found: $1" >&2
-    exit 1
-  fi
-}
-
-trim() {
-  local value="$1"
-  # shellcheck disable=SC2001
-  value="$(echo "${value}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-  printf '%s' "${value}"
-}
-
-parse_obs_project_env() {
-  local env_path="$1"
-  local line key value
-
-  if [[ ! -f "${env_path}" ]]; then
-    echo "ERROR: OBS config file not found: ${env_path}" >&2
-    exit 1
-  fi
-
-  while IFS= read -r line; do
-    line="$(trim "${line}")"
-    [[ -z "${line}" ]] && continue
-    [[ "${line}" == \#* ]] && continue
-    key="${line%%=*}"
-    value="${line#*=}"
-    key="$(trim "${key}")"
-    value="$(trim "${value}")"
-    case "${key}" in
-      OBS_PROJECT) OBS_PROJECT="${value}" ;;
-      OBS_PACKAGE) OBS_PACKAGE="${value}" ;;
-      *)
-        echo "ERROR: unsupported key in ${env_path}: ${key}" >&2
-        exit 1
-        ;;
-    esac
-  done <"${env_path}"
-
-  if [[ -z "${OBS_PROJECT:-}" ]]; then
-    echo "ERROR: OBS_PROJECT is missing in ${env_path}" >&2
-    exit 1
-  fi
-  if [[ -z "${OBS_PACKAGE:-}" ]]; then
-    echo "ERROR: OBS_PACKAGE is missing in ${env_path}" >&2
     exit 1
   fi
 }
@@ -173,7 +133,7 @@ if ! [[ "${MIN_VALID_DAYS}" =~ ^[0-9]+$ ]]; then
   exit 1
 fi
 
-parse_obs_project_env "${CONFIG_PATH}"
+obs_parse_project_env "${CONFIG_PATH}"
 
 if [[ -n "${SIGNING_KEYS_FILE}" ]]; then
   if [[ ! -f "${SIGNING_KEYS_FILE}" ]]; then
