@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=82.0.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -15,7 +15,7 @@ requires-python = ">=3.11"
 [project.optional-dependencies]
 dev = [
     "pytest>=9.0.3",
-    "pytest-cov>=7",
+    "pytest-cov>=7.1.0",
     "black>=26.5.1",
     "pylint>=4.0.5",
     "mypy>=2.1.0",
