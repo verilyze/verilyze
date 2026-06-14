@@ -29,6 +29,9 @@ obs_parse_project_env() {
   OBS_CHANGES_FILENAME=""
   OBS_LEGACY_CHANGES_FILENAME=""
   OBS_MAINTAINER=""
+  OBS_WAIT_REPOSITORIES=""
+  OBS_WAIT_TIMEOUT_SECONDS=""
+  OBS_WAIT_POLL_INTERVAL_SECONDS=""
 
   while IFS= read -r line; do
     line="$(obs_env_trim "${line}")"
@@ -45,6 +48,9 @@ obs_parse_project_env() {
       OBS_CHANGES_FILENAME) OBS_CHANGES_FILENAME="${value}" ;;
       OBS_LEGACY_CHANGES_FILENAME) OBS_LEGACY_CHANGES_FILENAME="${value}" ;;
       OBS_MAINTAINER) OBS_MAINTAINER="${value}" ;;
+      OBS_WAIT_REPOSITORIES) OBS_WAIT_REPOSITORIES="${value}" ;;
+      OBS_WAIT_TIMEOUT_SECONDS) OBS_WAIT_TIMEOUT_SECONDS="${value}" ;;
+      OBS_WAIT_POLL_INTERVAL_SECONDS) OBS_WAIT_POLL_INTERVAL_SECONDS="${value}" ;;
       *)
         echo "ERROR: unsupported key in ${env_path}: ${key}" >&2
         return 1
@@ -65,4 +71,5 @@ obs_parse_project_env() {
   OBS_CHANGES_FILENAME="${OBS_CHANGES_FILENAME:-verilyze.changes}"
   OBS_LEGACY_CHANGES_FILENAME="${OBS_LEGACY_CHANGES_FILENAME:-verilyze.spec.changes}"
   OBS_MAINTAINER="${OBS_MAINTAINER:-Travis Post <post.travis@gmail.com>}"
+  export OBS_WAIT_REPOSITORIES OBS_WAIT_TIMEOUT_SECONDS OBS_WAIT_POLL_INTERVAL_SECONDS
 }

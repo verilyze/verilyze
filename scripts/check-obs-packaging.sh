@@ -116,5 +116,31 @@ if ! grep -q -- '--skip-runservice' "${RELEASE_WORKFLOW}"; then
   exit 1
 fi
 
+WAIT_SCRIPT="${ROOT_DIR}/scripts/obs-wait-for-builds.sh"
+if [[ ! -x "${WAIT_SCRIPT}" ]]; then
+  echo "ERROR: missing OBS wait script: ${WAIT_SCRIPT}" >&2
+  exit 1
+fi
+
+if ! grep -q 'obs-wait-for-builds.sh' "${RELEASE_WORKFLOW}"; then
+  echo "ERROR: release workflow must invoke obs-wait-for-builds.sh" >&2
+  exit 1
+fi
+
+if ! grep -qE '^OBS_WAIT_REPOSITORIES=.+$' "${OBS_ENV}"; then
+  echo "ERROR: OBS_WAIT_REPOSITORIES must be set in ${OBS_ENV}" >&2
+  exit 1
+fi
+
+if ! grep -q 'wait-obs-builds' "${RELEASE_WORKFLOW}"; then
+  echo "ERROR: release workflow must define wait-obs-builds job" >&2
+  exit 1
+fi
+
+if ! grep -A3 '^  create-release:' "${RELEASE_WORKFLOW}" | grep -q 'wait-obs-builds'; then
+  echo "ERROR: create-release job must depend on wait-obs-builds" >&2
+  exit 1
+fi
+
 "${ROOT_DIR}/scripts/check-obs-signing.sh" \
   --config "${OBS_ENV}"
