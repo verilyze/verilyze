@@ -4,7 +4,7 @@
 
 %global crate_name vlz
 %global pkg_name verilyze
-%{!?version:%global version 0.2.3}
+%{!?version:%global version 0.2.4}
 
 Name:           %{pkg_name}
 Version:        %{version}

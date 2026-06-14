@@ -8,6 +8,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/obs-project-env-parse.sh
 . "${SCRIPT_DIR}/lib/obs-project-env-parse.sh"
+# shellcheck source=lib/osc-cmd.sh
+. "${SCRIPT_DIR}/lib/osc-cmd.sh"
 
 readonly DEFAULT_OBS_API="https://api.opensuse.org"
 readonly DEFAULT_CONFIG_PATH="packaging/obs/obs-project.env"
@@ -35,10 +37,6 @@ Environment (required unless --results-file is used):
   OBS_USER / OSC_USERNAME
   OBS_PASSWORD / OSC_PASSWORD
 EOF
-}
-
-osc_cmd() {
-  osc --no-keyring -A "${OBS_API}" "$@"
 }
 
 require_cmd() {
@@ -148,13 +146,8 @@ fi
 if [[ -z "${RESULTS_FILE}" ]]; then
   require_cmd osc
   require_cmd python3
-  if [[ -z "${OSC_USERNAME:-${OBS_USER:-}}" || -z "${OSC_PASSWORD:-${OBS_PASSWORD:-}}" ]]; then
-    echo "ERROR: OBS_USER and OBS_PASSWORD (or OSC_* equivalents) are required" >&2
-    exit 1
-  fi
-  export OSC_APIURL="${OBS_API}"
-  export OSC_USERNAME="${OSC_USERNAME:-${OBS_USER}}"
-  export OSC_PASSWORD="${OSC_PASSWORD:-${OBS_PASSWORD}}"
+  WORK_DIR="$(mktemp -d)"
+  setup_osc_auth "${WORK_DIR}"
 fi
 
 deadline=$((SECONDS + TIMEOUT_SECONDS))

@@ -12,6 +12,13 @@ The GitHub Release body is generated from the matching `## [version]` section
 below when you push a `v*` tag (see `.github/workflows/release.yml`). Update
 this file **before** creating the release tag.
 
+## [0.2.4] - 2026-06-13
+
+### Fixed
+
+- OBS upload and build-wait scripts pass `-c "${OSC_CONFIG}"` to `osc` so CI
+  uses the transient apiurl/credentials config instead of prompting for login.
+
 ## [0.2.3] - 2026-06-13
 
 ### Fixed
