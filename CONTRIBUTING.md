@@ -363,9 +363,39 @@ stripped of symbols (NFR-023) for security and smaller size.
      `CHANGELOG.md` section as the GitHub Release body (no extra manual step
      beyond updating `CHANGELOG.md`).
 
-If the workflow fails after a draft release exists but before publish, fix the
-underlying issue, delete the draft release (or the broken assets), adjust the
-tag if needed, and push again.
+### Failed release before publish
+
+If `release.yml` fails **before** the GitHub Release is published
+(`gh release edit --draft=false` never ran), stabilize on **one** version and
+**one** tag name. Do not bump the patch version for each CI fix attempt.
+
+1. Fix on the release branch with ordinary commits (keep `Cargo.toml` at `X.Y.Z`).
+2. Add bullets under the existing `## [X.Y.Z]` section in `CHANGELOG.md`.
+3. Choose recovery by failure type:
+
+| Situation | Action |
+|-----------|--------|
+| Transient (network, rate limit, secret fixed in GitHub UI) | Re-run failed jobs on the same tag/commit |
+| Code or workflow script fix | Move the tag to the fix commit and push again (see below) |
+| Draft GitHub Release exists with broken assets | `gh release delete vX.Y.Z --yes`, then move tag or re-run |
+
+**Move tag and retry** (same version):
+
+```sh
+git tag -d vX.Y.Z
+git push origin :refs/tags/vX.Y.Z
+git tag -s vX.Y.Z -m "Release vX.Y.Z"
+git push origin vX.Y.Z
+```
+
+Re-pushing the tag triggers a new `release.yml` run on the updated commit.
+
+**After publish:** If the release was already published, do **not** move the
+tag. Cut the next patch version (`X.Y.(Z+1)`) instead.
+
+**Optional:** Trigger `release.yml` via **workflow_dispatch** from a branch ref
+to exercise build and OBS jobs without pushing a tag. Tag push remains the
+canonical publish for SemVer artifacts and GitHub Releases.
 
 **Verify locally (optional):** `./scripts/extract-changelog-for-release.sh X.Y.Z > /tmp/notes.md`
    The argument must be **SemVer without a `v` prefix** (Cargo-style, aligned

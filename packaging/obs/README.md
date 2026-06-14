@@ -25,7 +25,9 @@ sequenceDiagram
   GA->>GA: git_archive_and_cargo_vendor
   GA->>OBS: osc_upload_sources_and_spec
   GA->>OBS: POST_trigger_rebuild
+  GA->>GA: wait_for_obs_builds
   OBS->>OBS: rpmbuild_and_publish_repo
+  GA->>GA: create_and_promote_github_release
 ```
 
 Each release uploads into the configured OBS package:
@@ -48,10 +50,10 @@ any existing `_service` on the OBS package once before switching to this flow
 
 - `OBS_USER` -- OBS account for `osc` upload
 - `OBS_PASSWORD` -- OBS password or API token for `osc` upload
-- Release automation maps these to `OSC_USERNAME` / `OSC_PASSWORD` so
-  credentials stay in process memory instead of a plaintext `pass` entry in
-  `~/.oscrc`. A minimal per-run `oscrc` contains only `apiurl` and
-  `use_keyring = 0`.
+- Release automation maps `OBS_USER` / `OBS_PASSWORD` into a transient per-run
+  `oscrc` (mode `600`, deleted after upload). Ubuntu apt `osc` requires an
+  apiurl-named section with `user` and `pass`; it does not honor `OSC_*` env
+  vars alone.
 - `OBS_TOKEN_REBUILD` -- for `POST .../trigger/rebuild` on `build.opensuse.org`
 
 Create the rebuild token with `osc` (or the OBS web UI) scoped to the package:
@@ -74,6 +76,10 @@ runs:
    then uploads with `osc`.
 2. [`scripts/obs-trigger-build.sh`](../../scripts/obs-trigger-build.sh)
    `--skip-runservice` -- triggers rebuild only.
+3. [`scripts/obs-wait-for-builds.sh`](../../scripts/obs-wait-for-builds.sh)
+   -- polls OBS until repositories listed in `OBS_WAIT_REPOSITORIES` succeed.
+   The release workflow runs this before creating or promoting the GitHub
+   Release.
 
 Local dry-run (builds artifacts, no upload):
 
@@ -193,7 +199,8 @@ canonical distro Debian metadata for OBS is under
 - OBS RPM spec uses offline cargo with `vendor.tar.zst`
 - OBS RPM spec keeps an empty `%changelog` section (history lives in
   `verilyze.changes`)
-- Release workflow invokes upload script and rebuild-only OBS trigger
+- Release workflow invokes upload script, rebuild-only OBS trigger, and OBS
+  build wait before GitHub Release promotion
 - OBS signing key metadata is published for the configured project
 - `obs-project.env` defines `OBS_CHANGES_FILENAME`, `OBS_LEGACY_CHANGES_FILENAME`,
   and `OBS_MAINTAINER` for automation

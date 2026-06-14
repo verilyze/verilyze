@@ -8,6 +8,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/obs-project-env-parse.sh
 . "${SCRIPT_DIR}/lib/obs-project-env-parse.sh"
+# shellcheck source=lib/osc-cmd.sh
+. "${SCRIPT_DIR}/lib/osc-cmd.sh"
 
 readonly DEFAULT_OBS_API="https://api.opensuse.org"
 readonly DEFAULT_CONFIG_PATH="packaging/obs/obs-project.env"
@@ -40,10 +42,6 @@ Environment (required unless --dry-run):
   OBS_USER                OBS account for osc upload
   OBS_PASSWORD            OBS password or API token for osc upload
 EOF
-}
-
-osc_cmd() {
-  osc --no-keyring -A "${OBS_API}" "$@"
 }
 
 require_cmd() {
@@ -139,25 +137,6 @@ osc_checkout_package() {
     # -c places the package dir in cwd (not PROJECT/PACKAGE).
     osc_cmd co -c "${project}" "${package}"
   fi
-}
-
-setup_osc_auth() {
-  local work_dir="$1"
-  if [[ -z "${OBS_USER:-}" || -z "${OBS_PASSWORD:-}" ]]; then
-    echo "ERROR: OBS_USER and OBS_PASSWORD are required for osc upload" >&2
-    exit 1
-  fi
-  local oscrc="${work_dir}/oscrc"
-  cat >"${oscrc}" <<EOF
-[general]
-apiurl = ${OBS_API}
-use_keyring = 0
-EOF
-  chmod 600 "${oscrc}"
-  export OSC_CONFIG="${oscrc}"
-  export OSC_APIURL="${OBS_API}"
-  export OSC_USERNAME="${OBS_USER}"
-  export OSC_PASSWORD="${OBS_PASSWORD}"
 }
 
 upload_to_obs() {
