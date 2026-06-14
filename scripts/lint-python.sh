@@ -4,8 +4,8 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# Run Python linters (black, pylint, mypy, bandit) on scripts/.
-# Aggregates failures: runs all four, exits 1 only if any failed.
+# Run Python linters (black, pylint, mypy, bandit, modern-style) on scripts/.
+# Aggregates failures: runs all five, exits 1 only if any failed.
 #
 # Usage: ./scripts/lint-python.sh
 # Env:   VENV_BIN (optional) - path to venv bin dir, default .venv-lint/bin
@@ -38,8 +38,11 @@ BLACK=$(resolve_tool black)
 PYLINT=$(resolve_tool pylint)
 MYPY=$(resolve_tool mypy)
 BANDIT=$(resolve_tool bandit)
+PYTHON=$(resolve_tool python3)
 
 ERR=0
+
+"$PYTHON" scripts/python_modern_style.py || ERR=1
 
 "$BLACK" scripts/ --check --line-length 79 || ERR=1
 "$PYLINT" scripts/ --max-line-length=79 || ERR=1

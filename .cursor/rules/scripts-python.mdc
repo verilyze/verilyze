@@ -10,3 +10,14 @@ alwaysApply: false
 - Tests: `.venv-test` via `make test-scripts`
 - Do not invoke black/pylint/mypy directly; use Makefile targets
 - SPDX header on new files; trailing blank line after header block
+
+## Modern Python (3.11+)
+
+Project requires Python >=3.11. Match CONTRIBUTING Python style:
+
+- Never add `from __future__ import annotations` (or any `__future__` import).
+- Use built-in generics (`list[str]`, `dict[str, str]`) and PEP 604 unions
+  (`str | None`); do not import `List`, `Optional`, `Union`, etc. from `typing`.
+- Do not import from `typing_extensions` when the name is in stdlib `typing`
+  on 3.11+ (e.g. `Self`, `Required`, `TypeVarTuple`).
+- Violations fail `make lint-python` (checker: `scripts/python_modern_style.py`).

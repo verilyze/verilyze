@@ -4,8 +4,6 @@
 
 """Tests for OBS signing verification script behavior."""
 
-from __future__ import annotations
-
 import subprocess
 from datetime import UTC, datetime, timedelta
 from pathlib import Path

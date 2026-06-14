@@ -98,7 +98,7 @@ help:
 	@echo "    make fmt-check      - Verify Rust formatting (cargo fmt --check)"
 	@echo "    make fmt           - Auto-format Rust code (cargo fmt)"
 	@echo "    make clippy        - Run Clippy lints (all-targets, all-features)"
-	@echo "    make lint-python   - black, pylint, mypy, bandit"
+	@echo "    make lint-python   - modern-style, black, pylint, mypy, bandit"
 	@echo "    make lint-shell    - ShellCheck (requires shellcheck)"
 	@echo "    make super-linter  - super-linter slim (Docker; incremental)"
 	@echo "    make super-linter-full - super-linter slim full tree (like nightly CI)"
@@ -260,7 +260,7 @@ $(VENV_LINT)/bin/black:
 	python3 -m venv $(VENV_LINT)
 	cd "$(MKFILE_DIR)" && $(VENV_LINT)/bin/pip install ".[dev]"
 
-# lint-python: black, pylint, mypy, bandit (aggregates failures; NFR-021)
+# lint-python: modern-style, black, pylint, mypy, bandit (aggregates failures; NFR-021)
 lint-python: $(VENV_LINT)/bin/black
 	$(LINT_PYTHON_SCRIPT)
 

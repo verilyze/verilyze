@@ -4,8 +4,6 @@
 
 """Shared version and OBS constants for script tests (DRY with Cargo.toml)."""
 
-from __future__ import annotations
-
 import re
 import tomllib
 from pathlib import Path
