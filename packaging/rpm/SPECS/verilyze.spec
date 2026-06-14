@@ -11,6 +11,9 @@ Version:        %{version}
 Release:        1%{?dist}
 Summary:        Fast, modular Software Composition Analysis tool
 License:        GPL-3.0-or-later
+%if 0%{?suse_version}
+Group:          Productivity/Security
+%endif
 URL:            https://github.com/verilyze/verilyze
 Source0:        %{pkg_name}-%{version}.tar.gz
 

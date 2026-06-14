@@ -129,7 +129,7 @@ def test_obs_spec_uses_offline_cargo_with_vendor_sources() -> None:
         _repo_root() / "packaging" / "obs" / "rpm" / "verilyze.spec"
     ).read_text(encoding="utf-8")
     assert "Source1:        vendor.tar.zst" in spec_text
-    assert "Source2:" not in spec_text
+    assert "Source2:        verilyze-rpmlintrc" in spec_text
     assert "cargo_config" not in spec_text
     assert "BuildRequires:  zstd" in spec_text
     assert "cargo build --release --locked --offline" in spec_text
@@ -229,3 +229,45 @@ def test_obs_spec_declares_non_empty_check_section() -> None:
     assert 'expected_version="%{version}"' in spec_text
     assert '[ "$actual_version" = "$expected_version" ]' in spec_text
     assert "./target/release/%{crate_name} --help >/dev/null" in spec_text
+
+
+def test_obs_spec_declares_suse_group_for_rpmlint() -> None:
+    """Leap 15.7 rpmlint requires a valid legacy Group tag on SUSE targets."""
+    spec_text = (
+        _repo_root() / "packaging" / "obs" / "rpm" / "verilyze.spec"
+    ).read_text(encoding="utf-8")
+    assert "%if 0%{?suse_version}" in spec_text
+    assert "Group:          Productivity/Security" in spec_text
+
+
+def test_obs_spec_declares_rpmlintrc_source() -> None:
+    """OBS rpmlint reads package-specific filters from Source2."""
+    spec_text = (
+        _repo_root() / "packaging" / "obs" / "rpm" / "verilyze.spec"
+    ).read_text(encoding="utf-8")
+    assert "Source2:        verilyze-rpmlintrc" in spec_text
+
+
+def test_obs_rpmlintrc_filters_chroot_false_positive() -> None:
+    rpmlintrc = _repo_root() / "packaging" / "obs" / "rpm" / "verilyze-rpmlintrc"
+    assert rpmlintrc.is_file()
+    text = rpmlintrc.read_text(encoding="utf-8")
+    assert 'addFilter("missing-call-to-chdir-with-chroot")' in text
+
+
+def test_obs_project_env_defines_rpmlintrc_filename() -> None:
+    text = (_repo_root() / "packaging" / "obs" / "obs-project.env").read_text(
+        encoding="utf-8"
+    )
+    assert "OBS_RPMLINTRC_FILENAME=verilyze-rpmlintrc" in text
+
+
+def test_obs_packaging_check_asserts_upload_includes_rpmlintrc() -> None:
+    check_text = (_repo_root() / "scripts" / "check-obs-packaging.sh").read_text(
+        encoding="utf-8"
+    )
+    upload_text = (
+        _repo_root() / "scripts" / "obs-upload-release-sources.sh"
+    ).read_text(encoding="utf-8")
+    assert "OBS_RPMLINTRC_FILENAME" in check_text
+    assert "OBS_RPMLINTRC_FILENAME" in upload_text

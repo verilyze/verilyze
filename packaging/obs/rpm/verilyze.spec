@@ -10,9 +10,13 @@ Version:        0.2.3
 Release:        0%{?dist}
 Summary:        Fast, modular Software Composition Analysis tool
 License:        GPL-3.0-or-later
+%if 0%{?suse_version}
+Group:          Productivity/Security
+%endif
 URL:            https://github.com/verilyze/verilyze
 Source0:        %{pkg_name}-%{version}.tar.xz
 Source1:        vendor.tar.zst
+Source2:        verilyze-rpmlintrc
 
 BuildRequires:  cargo >= 1.78.0
 BuildRequires:  rust >= 1.78.0
