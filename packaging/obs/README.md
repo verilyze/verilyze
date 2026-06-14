@@ -43,6 +43,9 @@ Each release uploads into the configured OBS package:
 The legacy non-standard `verilyze.spec.changes` filename is removed on upload
 when present on the OBS package.
 
+Prior `${OBS_PACKAGE}-*.tar.xz` source archives are removed on upload, leaving
+only the current release tarball.
+
 The OBS package should **not** include a `_service` file on public OBS. Delete
 any existing `_service` on the OBS package once before switching to this flow
 (one-time maintainer action).

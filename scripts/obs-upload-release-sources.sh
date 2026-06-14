@@ -139,6 +139,18 @@ osc_checkout_package() {
   fi
 }
 
+remove_stale_source_archives() {
+  local version="$1"
+  local current_archive="${OBS_PACKAGE}-${version}.tar.xz"
+  local stale=""
+  for stale in "${OBS_PACKAGE}"-*.tar.xz; do
+    [[ -e "${stale}" ]] || continue
+    if [[ "${stale}" != "${current_archive}" ]]; then
+      osc_cmd delete "${stale}" 2>/dev/null || rm -f "${stale}"
+    fi
+  done
+}
+
 upload_to_obs() {
   local work_dir="$1"
   local version="$2"
@@ -151,6 +163,7 @@ upload_to_obs() {
     cd "${checkout_dir}"
     osc_checkout_package "${OBS_PROJECT}" "${OBS_PACKAGE}"
     cd "${OBS_PACKAGE}"
+    remove_stale_source_archives "${version}"
     if [[ -f "${OBS_CHANGES_FILENAME}" ]]; then
       existing_changes="${PWD}/${OBS_CHANGES_FILENAME}"
     fi
