@@ -43,8 +43,13 @@ def test_release_workflow_publishes_obs_sources_and_rebuilds() -> None:
     assert "./scripts/check-obs-signing.sh" in text[:preflight_end]
     publish_job = text[publish_start:]
     assert "./scripts/check-obs-signing.sh" not in publish_job
+    assert "./scripts/sync-obs-project-meta.sh" in text
     assert "./scripts/obs-upload-release-sources.sh" in text
+    assert "./scripts/sync-obs-project-meta.sh" in text
     assert "./scripts/obs-trigger-build.sh" in text
+    sync_pos = publish_job.index("sync-obs-project-meta.sh")
+    upload_pos = publish_job.index("obs-upload-release-sources.sh")
+    assert sync_pos < upload_pos
     assert "--skip-runservice" in text
     assert "secrets.OBS_USER" in text
     assert "secrets.OBS_PASSWORD" in text

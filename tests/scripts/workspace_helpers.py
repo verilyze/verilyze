@@ -38,6 +38,14 @@ def obs_package_name(env_path: Path | None = None) -> str:
     raise ValueError(f"OBS_PACKAGE is missing in {path}")
 
 
+def obs_enabled_build_repositories(repo_root: Path | None = None) -> tuple[str, ...]:
+    """Derive enabled OBS build repositories from committed _meta files."""
+    from scripts.obs_repositories import load_enabled_build_repositories
+
+    root = repo_root or _REPO_ROOT
+    return load_enabled_build_repositories(root)
+
+
 def obs_changes_version_marker(version: str) -> str:
     """Return the version token used in OBS .changes entry headers."""
     return f" - {version}\n"

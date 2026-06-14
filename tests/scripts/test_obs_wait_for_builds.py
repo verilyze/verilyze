@@ -10,6 +10,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from tests.scripts.workspace_helpers import obs_enabled_build_repositories
+
 _ROOT = Path(__file__).resolve().parent.parent.parent
 _WAIT_SCRIPT = _ROOT / "scripts" / "obs-wait-for-builds.sh"
 _STATUS_MODULE = _ROOT / "scripts" / "obs_wait_build_status.py"
@@ -55,14 +57,22 @@ _FAILED_XML = """\
 </resultlist>
 """
 
-_WAIT_REPOS = ("openSUSE_Tumbleweed", "Fedora_44")
+_FIXTURE_XML_REPOS = frozenset({"openSUSE_Tumbleweed", "Fedora_44"})
+
+
+def _fixture_wait_repositories() -> tuple[str, ...]:
+    return tuple(
+        repo
+        for repo in obs_enabled_build_repositories()
+        if repo in _FIXTURE_XML_REPOS
+    )
 
 
 def test_evaluate_build_results_all_succeeded() -> None:
     summary = obs_wait_build_status.evaluate_build_results(
         _SUCCEEDED_XML,
         package="verilyze",
-        repositories=_WAIT_REPOS,
+        repositories=_fixture_wait_repositories(),
     )
     assert summary.all_succeeded is True
     assert summary.any_failed is False
@@ -73,7 +83,7 @@ def test_evaluate_build_results_still_building() -> None:
     summary = obs_wait_build_status.evaluate_build_results(
         _BUILDING_XML,
         package="verilyze",
-        repositories=_WAIT_REPOS,
+        repositories=_fixture_wait_repositories(),
     )
     assert summary.all_succeeded is False
     assert summary.any_failed is False
@@ -84,7 +94,7 @@ def test_evaluate_build_results_failed() -> None:
     summary = obs_wait_build_status.evaluate_build_results(
         _FAILED_XML,
         package="verilyze",
-        repositories=_WAIT_REPOS,
+        repositories=_fixture_wait_repositories(),
     )
     assert summary.all_succeeded is False
     assert summary.any_failed is True
@@ -97,7 +107,6 @@ def test_wait_script_dry_run(tmp_path: Path) -> None:
             [
                 "OBS_PROJECT=home:tpost:verilyze",
                 "OBS_PACKAGE=verilyze",
-                "OBS_WAIT_REPOSITORIES=openSUSE_Tumbleweed,Fedora_44",
                 "OBS_WAIT_TIMEOUT_SECONDS=120",
                 "OBS_WAIT_POLL_INTERVAL_SECONDS=5",
                 "",
@@ -126,8 +135,8 @@ def test_wait_script_dry_run(tmp_path: Path) -> None:
     output = proc.stdout + proc.stderr
     assert proc.returncode == 0, output
     assert "dry-run" in output.lower()
-    assert "openSUSE_Tumbleweed" in output
-    assert "Fedora_44" in output
+    for repo in obs_enabled_build_repositories():
+        assert repo in output
 
 
 def test_wait_script_with_results_file_succeeds(tmp_path: Path) -> None:
@@ -137,7 +146,6 @@ def test_wait_script_with_results_file_succeeds(tmp_path: Path) -> None:
             [
                 "OBS_PROJECT=home:tpost:verilyze",
                 "OBS_PACKAGE=verilyze",
-                "OBS_WAIT_REPOSITORIES=openSUSE_Tumbleweed,Fedora_44",
                 "",
             ]
         ),
@@ -145,6 +153,7 @@ def test_wait_script_with_results_file_succeeds(tmp_path: Path) -> None:
     )
     results_file = tmp_path / "results.xml"
     results_file.write_text(_SUCCEEDED_XML, encoding="utf-8")
+    fixture_repos = ",".join(_fixture_wait_repositories())
     proc = subprocess.run(
         [
             str(_WAIT_SCRIPT),
@@ -152,6 +161,8 @@ def test_wait_script_with_results_file_succeeds(tmp_path: Path) -> None:
             str(env_file),
             "--version",
             "0.2.3",
+            "--repositories",
+            fixture_repos,
             "--results-file",
             str(results_file),
         ],
@@ -166,17 +177,21 @@ def test_wait_script_with_results_file_succeeds(tmp_path: Path) -> None:
     assert "OBS builds succeeded" in output
 
 
-def test_wait_script_requires_wait_repositories(tmp_path: Path) -> None:
+def test_wait_script_requires_repository_resolution(tmp_path: Path) -> None:
     env_file = tmp_path / "obs-project.env"
     env_file.write_text(
         "OBS_PROJECT=home:tpost:verilyze\nOBS_PACKAGE=verilyze\n",
         encoding="utf-8",
     )
+    missing_meta_root = tmp_path / "empty-root"
+    missing_meta_root.mkdir()
     proc = subprocess.run(
         [
             str(_WAIT_SCRIPT),
             "--config",
             str(env_file),
+            "--repo-root",
+            str(missing_meta_root),
             "--version",
             "0.2.3",
             "--dry-run",
@@ -187,5 +202,6 @@ def test_wait_script_requires_wait_repositories(tmp_path: Path) -> None:
         text=True,
         check=False,
     )
+    output = proc.stderr + proc.stdout
     assert proc.returncode == 1
-    assert "OBS_WAIT_REPOSITORIES" in proc.stderr + proc.stdout
+    assert "project _meta" in output.lower() or "enabled obs repositories" in output.lower()

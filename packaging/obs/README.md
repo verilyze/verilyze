@@ -23,6 +23,7 @@ sequenceDiagram
   participant OBS as build.opensuse.org
   Tag->>GA: push vX.Y.Z
   GA->>GA: git_archive_and_cargo_vendor
+  GA->>OBS: PUT_project_meta_from_git
   GA->>OBS: osc_upload_sources_and_spec
   GA->>OBS: POST_trigger_rebuild
   GA->>GA: wait_for_obs_builds
@@ -69,17 +70,20 @@ osc token --create --operation rebuild home:tpost:verilyze verilyze
 On tag push, [`.github/workflows/release.yml`](../../.github/workflows/release.yml)
 runs:
 
-1. [`scripts/obs-upload-release-sources.sh`](../../scripts/obs-upload-release-sources.sh)
+1. [`scripts/sync-obs-project-meta.sh`](../../scripts/sync-obs-project-meta.sh)
+   `--push` -- applies committed [`packaging/obs/project/_meta`](project/_meta)
+   to OBS before upload.
+2. [`scripts/obs-upload-release-sources.sh`](../../scripts/obs-upload-release-sources.sh)
    -- builds `verilyze-X.Y.Z.tar.xz`, `vendor.tar.zst`, stamped
    `verilyze.spec`, and `verilyze.changes` (via
    [`scripts/render_obs_changes.py`](../../scripts/render_obs_changes.py)),
    then uploads with `osc`.
-2. [`scripts/obs-trigger-build.sh`](../../scripts/obs-trigger-build.sh)
+3. [`scripts/obs-trigger-build.sh`](../../scripts/obs-trigger-build.sh)
    `--skip-runservice` -- triggers rebuild only.
-3. [`scripts/obs-wait-for-builds.sh`](../../scripts/obs-wait-for-builds.sh)
-   -- polls OBS until repositories listed in `OBS_WAIT_REPOSITORIES` succeed.
-   The release workflow runs this before creating or promoting the GitHub
-   Release.
+4. [`scripts/obs-wait-for-builds.sh`](../../scripts/obs-wait-for-builds.sh)
+   -- polls OBS until enabled build repositories (derived from committed
+   `_meta` files) succeed. The release workflow runs this before creating or
+   promoting the GitHub Release.
 
 Local dry-run (builds artifacts, no upload):
 
@@ -97,6 +101,33 @@ OBS project/package coordinates are defined in one place:
 
 To migrate from a personal namespace to a project-maintained namespace, update
 `obs-project.env` first, then update OBS-side metadata as needed.
+
+## Build targets (enabled distros)
+
+Git is the single source of truth for which OBS build repositories are enabled.
+
+- [`packaging/obs/project/_meta`](project/_meta) -- project-level repository
+  definitions (canonical; pushed to OBS on every release).
+- [`packaging/obs/rpm/_meta`](rpm/_meta) -- package metadata; repo-level build
+  disables (if any) are subtracted when deriving the wait list.
+
+[`scripts/obs_repositories.py`](../../scripts/obs_repositories.py) parses those
+files offline for `obs-wait-for-builds.sh` and `make check-obs-packaging`.
+
+Maintainer workflow when adding or removing a build target:
+
+1. Edit `packaging/obs/project/_meta` in a PR (add/remove `<repository>`
+   elements with correct `<path>` and `<arch>` entries).
+2. Merge and tag; `release.yml` runs
+   [`scripts/sync-obs-project-meta.sh`](../../scripts/sync-obs-project-meta.sh)
+   `--push` before source upload.
+3. Optional local commands (require `OBS_USER` / `OBS_PASSWORD`):
+   - `./scripts/sync-obs-project-meta.sh --push` -- apply git meta to OBS
+   - `./scripts/sync-obs-project-meta.sh --check` -- fail on drift vs live OBS
+   - `./scripts/sync-obs-project-meta.sh --pull` -- bootstrap/recover committed
+     meta from OBS (one-time or after out-of-band OBS UI edits)
+
+Do not edit project repositories in the OBS web UI as the primary workflow.
 
 ## Layout
 
@@ -199,8 +230,10 @@ canonical distro Debian metadata for OBS is under
 - OBS RPM spec uses offline cargo with `vendor.tar.zst`
 - OBS RPM spec keeps an empty `%changelog` section (history lives in
   `verilyze.changes`)
-- Release workflow invokes upload script, rebuild-only OBS trigger, and OBS
-  build wait before GitHub Release promotion
+- Release workflow invokes project meta sync (`--push`), upload script,
+  rebuild-only OBS trigger, and OBS build wait before GitHub Release promotion
+- Committed `packaging/obs/project/_meta` exists and yields a non-empty enabled
+  repository list
 - OBS signing key metadata is published for the configured project
 - `obs-project.env` defines `OBS_CHANGES_FILENAME`, `OBS_LEGACY_CHANGES_FILENAME`,
   and `OBS_MAINTAINER` for automation
