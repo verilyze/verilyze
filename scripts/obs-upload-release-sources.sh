@@ -10,6 +10,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/lib/obs-project-env-parse.sh"
 # shellcheck source=lib/osc-cmd.sh
 . "${SCRIPT_DIR}/lib/osc-cmd.sh"
+# shellcheck source=lib/obs-upload-verify.sh
+. "${SCRIPT_DIR}/lib/obs-upload-verify.sh"
 
 readonly DEFAULT_OBS_API="https://api.opensuse.org"
 readonly DEFAULT_CONFIG_PATH="packaging/obs/obs-project.env"
@@ -151,9 +153,21 @@ remove_stale_source_archives() {
   done
 }
 
+osc_add_or_update_file() {
+  local filename="$1"
+  if osc_cmd status "${filename}" >/dev/null 2>&1; then
+    return 0
+  fi
+  osc_cmd add "${filename}"
+}
+
 upload_to_obs() {
   local work_dir="$1"
   local version="$2"
+  local source_sha256="$3"
+  local vendor_sha256="$4"
+  local spec_sha256="$5"
+  local changes_sha256="$6"
   local checkout_dir="${work_dir}/osc-checkout"
   local source_archive="${OBS_PACKAGE}-${version}.tar.xz"
   local existing_changes=""
@@ -168,19 +182,25 @@ upload_to_obs() {
       existing_changes="${PWD}/${OBS_CHANGES_FILENAME}"
     fi
     render_changes_file "${version}" "${OBS_CHANGES_FILENAME}" "${existing_changes}"
+    if [[ -f "${VENDOR_ARCHIVE_NAME}" ]]; then
+      osc_cmd delete "${VENDOR_ARCHIVE_NAME}" 2>/dev/null || rm -f "${VENDOR_ARCHIVE_NAME}"
+    fi
     cp "${work_dir}/${source_archive}" .
     cp "${work_dir}/${VENDOR_ARCHIVE_NAME}" .
     cp "${work_dir}/${OBS_SPEC_FILENAME}" .
-    osc_cmd add \
-      "${source_archive}" \
-      "${VENDOR_ARCHIVE_NAME}" \
-      "${OBS_SPEC_FILENAME}" \
-      "${OBS_CHANGES_FILENAME}" \
-      2>/dev/null || true
+    osc_add_or_update_file "${source_archive}"
+    osc_add_or_update_file "${VENDOR_ARCHIVE_NAME}"
+    osc_add_or_update_file "${OBS_SPEC_FILENAME}"
+    osc_add_or_update_file "${OBS_CHANGES_FILENAME}"
     if [[ -f "${OBS_LEGACY_CHANGES_FILENAME}" ]]; then
       osc_cmd delete "${OBS_LEGACY_CHANGES_FILENAME}" 2>/dev/null || rm -f "${OBS_LEGACY_CHANGES_FILENAME}"
     fi
     osc_cmd commit -m "Upload release ${version} sources from GitHub Actions"
+    obs_verify_package_checksums "${REPO_ROOT}" "${PWD}" \
+      "${source_archive}=${source_sha256}" \
+      "${VENDOR_ARCHIVE_NAME}=${vendor_sha256}" \
+      "${OBS_SPEC_FILENAME}=${spec_sha256}" \
+      "${OBS_CHANGES_FILENAME}=${changes_sha256}"
   )
 }
 
@@ -283,21 +303,27 @@ CHANGES_PATH="${WORK_DIR}/${OBS_CHANGES_FILENAME}"
 echo "Building OBS release sources (version=${VERSION})"
 build_source_archive "${GIT_REF}" "${VERSION}" "${SOURCE_PATH}"
 build_vendor_archive "${GIT_REF}" "${WORK_DIR}" "${VENDOR_PATH}"
+obs_verify_vendor_lockfile "${REPO_ROOT}" "${GIT_REF}" "${VENDOR_PATH}"
 render_spec "${VERSION}" "${REPO_ROOT}/${SPEC_TEMPLATE}" "${SPEC_PATH}"
 render_changes_file "${VERSION}" "${CHANGES_PATH}"
+
+SOURCE_SHA256="$(sha256_file "${SOURCE_PATH}")"
+VENDOR_SHA256="$(sha256_file "${VENDOR_PATH}")"
+SPEC_SHA256="$(sha256_file "${SPEC_PATH}")"
+CHANGES_SHA256="$(sha256_file "${CHANGES_PATH}")"
 
 echo "OBS upload dry-run summary"
 echo "  project=${OBS_PROJECT}"
 echo "  package=${OBS_PACKAGE}"
 echo "  version=${VERSION}"
 echo "  source_archive=${SOURCE_ARCHIVE}"
-echo "  source_sha256=$(sha256_file "${SOURCE_PATH}")"
+echo "  source_sha256=${SOURCE_SHA256}"
 echo "  vendor_archive=${VENDOR_ARCHIVE_NAME}"
-echo "  vendor_sha256=$(sha256_file "${VENDOR_PATH}")"
+echo "  vendor_sha256=${VENDOR_SHA256}"
 echo "  spec=${OBS_SPEC_FILENAME}"
-echo "  spec_sha256=$(sha256_file "${SPEC_PATH}")"
+echo "  spec_sha256=${SPEC_SHA256}"
 echo "  changes=${OBS_CHANGES_FILENAME}"
-echo "  changes_sha256=$(sha256_file "${CHANGES_PATH}")"
+echo "  changes_sha256=${CHANGES_SHA256}"
 
 if [[ "${DRY_RUN}" -eq 1 ]]; then
   echo "Dry-run complete (no osc upload)."
@@ -309,7 +335,13 @@ fi
 
 require_cmd osc
 setup_osc_auth "${WORK_DIR}"
-upload_to_obs "${WORK_DIR}" "${VERSION}"
+upload_to_obs \
+  "${WORK_DIR}" \
+  "${VERSION}" \
+  "${SOURCE_SHA256}" \
+  "${VENDOR_SHA256}" \
+  "${SPEC_SHA256}" \
+  "${CHANGES_SHA256}"
 echo "OBS source upload completed."
 
 if [[ -n "${TEMP_WORK_DIR}" ]]; then

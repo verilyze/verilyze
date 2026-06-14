@@ -158,6 +158,22 @@ GitHub Actions runs `cargo vendor` and packs `vendor.tar.zst` with:
 The RPM spec and Debian `debian/rules` extract `vendor.tar.zst` atop the unpacked
 upstream tree, then run `cargo build --release --locked --offline`.
 
+Because `vendor.tar.zst` keeps a fixed filename on OBS (unlike the versioned
+upstream tarball), release upload verifies it in two layers:
+
+1. **Pre-upload content gate** -- [`scripts/obs_upload_verify.py`](../../scripts/obs_upload_verify.py)
+   extracts `Cargo.lock` from the built vendor archive and compares it to
+   `git show <ref>:Cargo.lock` before `osc commit`.
+2. **Post-upload integrity gate** -- after `osc commit`, the upload script
+   compares SHA-256 digests of the OBS checkout files (and OBS `.osc/_files`
+   metadata when present) to the locally built artifacts.
+
+Checksum verification closes the packaging handoff gap (stale or mismatched
+vendor bytes on OBS). It does not replace dependency policy checks (`cargo deny`,
+committed `Cargo.lock` curation in CI). Signing `vendor.tar.zst` before upload is
+not used: OBS does not validate maintainer signatures on source files; published
+RPM/DEB trust is covered by OBS repository signing (below).
+
 ## Signing policy and verification
 
 OBS repositories on `build.opensuse.org` are signed with an OBS project key.
@@ -235,6 +251,8 @@ canonical distro Debian metadata for OBS is under
   `verilyze.changes`)
 - Release workflow invokes project meta sync (`--push`), upload script,
   rebuild-only OBS trigger, and OBS build wait before GitHub Release promotion
+- OBS upload script verifies vendor `Cargo.lock` before upload and artifact
+  SHA-256 checksums after `osc commit`
 - Committed `packaging/obs/project/_meta` exists and yields a non-empty enabled
   repository list
 - OBS signing key metadata is published for the configured project

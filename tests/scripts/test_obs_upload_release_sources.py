@@ -152,6 +152,18 @@ def test_obs_upload_script_removes_stale_source_archives() -> None:
     assert '"${OBS_PACKAGE}"-*.tar.xz' in text
 
 
+def test_obs_upload_script_verifies_vendor_lockfile_before_upload() -> None:
+    text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")
+    assert "obs-upload-verify.sh" in text
+    assert "obs_verify_vendor_lockfile" in text
+
+
+def test_obs_upload_script_verifies_upload_checksums_after_commit() -> None:
+    text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")
+    assert "obs_verify_package_checksums" in text
+    assert "osc_add_or_update_file" in text
+
+
 def test_obs_upload_script_uses_transient_osc_credentials() -> None:
     """Upload script delegates osc auth to lib/osc-cmd.sh (transient oscrc)."""
     text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")

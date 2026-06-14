@@ -118,6 +118,19 @@ if ! grep -q 'remove_stale_source_archives' "${UPLOAD_SCRIPT}"; then
   echo "ERROR: OBS upload script must remove stale source tarballs on upload" >&2
   exit 1
 fi
+if ! grep -q 'obs_verify_vendor_lockfile' "${UPLOAD_SCRIPT}"; then
+  echo "ERROR: OBS upload script must verify vendor Cargo.lock before upload" >&2
+  exit 1
+fi
+if ! grep -q 'obs_verify_package_checksums' "${UPLOAD_SCRIPT}"; then
+  echo "ERROR: OBS upload script must verify upload checksums after osc commit" >&2
+  exit 1
+fi
+VERIFY_SCRIPT="${ROOT_DIR}/scripts/obs_upload_verify.py"
+if [[ ! -f "${VERIFY_SCRIPT}" ]]; then
+  echo "ERROR: missing OBS upload verification helper: ${VERIFY_SCRIPT}" >&2
+  exit 1
+fi
 if ! grep -q -- '--skip-runservice' "${RELEASE_WORKFLOW}"; then
   echo "ERROR: release workflow must trigger OBS rebuild with --skip-runservice" >&2
   exit 1
