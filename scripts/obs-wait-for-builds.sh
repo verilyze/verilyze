@@ -16,6 +16,7 @@ readonly DEFAULT_CONFIG_PATH="packaging/obs/obs-project.env"
 readonly DEFAULT_WAIT_TIMEOUT_SECONDS=7200
 readonly DEFAULT_WAIT_POLL_INTERVAL_SECONDS=60
 readonly STATUS_HELPER="${SCRIPT_DIR}/obs_wait_build_status.py"
+readonly REPOSITORIES_HELPER="${SCRIPT_DIR}/obs_repositories.py"
 
 usage() {
   cat >&2 <<'EOF'
@@ -25,10 +26,12 @@ Poll OBS until configured repositories finish building the package.
 
 Options:
   --config <path>       OBS coordinate file (default: packaging/obs/obs-project.env)
+  --repo-root <path>    Repository root for _meta derivation (default: repo root)
   --obs-api <url>       OBS API base URL (default: https://api.opensuse.org)
   --version <semver>    Release version (for logging)
   --timeout <seconds>   Override OBS_WAIT_TIMEOUT_SECONDS
   --poll-interval <sec> Override OBS_WAIT_POLL_INTERVAL_SECONDS
+  --repositories <list> Comma-separated repository names (default: derive from _meta)
   --results-file <path> Use XML from a file instead of osc api (tests/local)
   --dry-run             Print wait plan without polling OBS
   -h, --help            Show this help text
@@ -66,11 +69,27 @@ evaluate_results() {
   rm -f "${xml_file}"
 }
 
+resolve_wait_repositories() {
+  if [[ -n "${REPOSITORIES_OVERRIDE}" ]]; then
+    OBS_WAIT_REPOSITORIES="${REPOSITORIES_OVERRIDE}"
+    return
+  fi
+  OBS_WAIT_REPOSITORIES="$(
+    python3 "${REPOSITORIES_HELPER}" --repo-root "${REPO_ROOT}"
+  )"
+  if [[ -z "${OBS_WAIT_REPOSITORIES}" ]]; then
+    echo "ERROR: no enabled OBS repositories derived from _meta files" >&2
+    exit 1
+  fi
+}
+
 CONFIG_PATH="${DEFAULT_CONFIG_PATH}"
+REPO_ROOT=""
 OBS_API="${DEFAULT_OBS_API}"
 VERSION=""
 TIMEOUT_SECONDS=""
 POLL_INTERVAL_SECONDS=""
+REPOSITORIES_OVERRIDE=""
 RESULTS_FILE=""
 DRY_RUN=0
 
@@ -78,6 +97,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --config)
       CONFIG_PATH="$2"
+      shift 2
+      ;;
+    --repo-root)
+      REPO_ROOT="$2"
       shift 2
       ;;
     --obs-api)
@@ -94,6 +117,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --poll-interval)
       POLL_INTERVAL_SECONDS="$2"
+      shift 2
+      ;;
+    --repositories)
+      REPOSITORIES_OVERRIDE="$2"
       shift 2
       ;;
     --results-file)
@@ -116,6 +143,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ -z "${REPO_ROOT}" ]]; then
+  REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+fi
+
 if [[ -z "${VERSION}" ]]; then
   echo "ERROR: --version is required" >&2
   usage
@@ -124,10 +155,8 @@ fi
 
 obs_parse_project_env "${CONFIG_PATH}"
 
-if [[ -z "${OBS_WAIT_REPOSITORIES}" ]]; then
-  echo "ERROR: OBS_WAIT_REPOSITORIES must be set in ${CONFIG_PATH}" >&2
-  exit 1
-fi
+require_cmd python3
+resolve_wait_repositories
 
 TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-${OBS_WAIT_TIMEOUT_SECONDS:-${DEFAULT_WAIT_TIMEOUT_SECONDS}}}"
 POLL_INTERVAL_SECONDS="${POLL_INTERVAL_SECONDS:-${OBS_WAIT_POLL_INTERVAL_SECONDS:-${DEFAULT_WAIT_POLL_INTERVAL_SECONDS}}}"
@@ -145,7 +174,6 @@ fi
 
 if [[ -z "${RESULTS_FILE}" ]]; then
   require_cmd osc
-  require_cmd python3
   WORK_DIR="$(mktemp -d)"
   setup_osc_auth "${WORK_DIR}"
 fi

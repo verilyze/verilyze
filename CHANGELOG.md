@@ -27,8 +27,13 @@ this file **before** creating the release tag.
 
 ### Added
 
-- `scripts/obs-wait-for-builds.sh` polls OBS build results for repositories
-  configured in `OBS_WAIT_REPOSITORIES` (`packaging/obs/obs-project.env`).
+- `scripts/obs-wait-for-builds.sh` polls OBS build results for enabled build
+  repositories derived from committed `_meta` files.
+- `scripts/sync-obs-project-meta.sh` pushes `packaging/obs/project/_meta` to
+  OBS on release (`--push`); supports `--pull` (bootstrap) and `--check`
+  (drift detection).
+- `scripts/obs_repositories.py` derives enabled repositories from project and
+  package `_meta` files (replaces `OBS_WAIT_REPOSITORIES` in `obs-project.env`).
 - `release.yml` supports `workflow_dispatch` to exercise build and OBS jobs
   from a branch ref without publishing a GitHub Release.
 

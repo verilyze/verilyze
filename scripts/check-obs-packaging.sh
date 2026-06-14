@@ -7,6 +7,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OBS_ENV="${ROOT_DIR}/packaging/obs/obs-project.env"
+PROJECT_META="${ROOT_DIR}/packaging/obs/project/_meta"
+REPOSITORIES_HELPER="${ROOT_DIR}/scripts/obs_repositories.py"
+SYNC_META_SCRIPT="${ROOT_DIR}/scripts/sync-obs-project-meta.sh"
 DEBIAN_CONTROL="${ROOT_DIR}/packaging/obs/debian/debian/control"
 VLZ_CARGO="${ROOT_DIR}/crates/core/vlz/Cargo.toml"
 OBS_SERVICE="${ROOT_DIR}/packaging/obs/_service"
@@ -127,8 +130,50 @@ if ! grep -q 'obs-wait-for-builds.sh' "${RELEASE_WORKFLOW}"; then
   exit 1
 fi
 
-if ! grep -qE '^OBS_WAIT_REPOSITORIES=.+$' "${OBS_ENV}"; then
-  echo "ERROR: OBS_WAIT_REPOSITORIES must be set in ${OBS_ENV}" >&2
+if grep -qE '^OBS_WAIT_REPOSITORIES=.+$' "${OBS_ENV}"; then
+  echo "ERROR: OBS_WAIT_REPOSITORIES must not be set in ${OBS_ENV}" >&2
+  echo "  enabled repositories are derived from packaging/obs/project/_meta" >&2
+  exit 1
+fi
+
+if [[ ! -f "${PROJECT_META}" ]]; then
+  echo "ERROR: missing OBS project meta file: ${PROJECT_META}" >&2
+  exit 1
+fi
+
+if [[ ! -x "${SYNC_META_SCRIPT}" ]]; then
+  echo "ERROR: missing OBS project meta sync script: ${SYNC_META_SCRIPT}" >&2
+  exit 1
+fi
+
+if ! grep -q 'sync-obs-project-meta.sh' "${RELEASE_WORKFLOW}"; then
+  echo "ERROR: release workflow must invoke sync-obs-project-meta.sh" >&2
+  exit 1
+fi
+
+publish_obs_start="$(grep -n '^  publish-obs:' "${RELEASE_WORKFLOW}" | cut -d: -f1)"
+wait_obs_start="$(grep -n '^  wait-obs-builds:' "${RELEASE_WORKFLOW}" | cut -d: -f1)"
+publish_obs_block="$(sed -n "${publish_obs_start},${wait_obs_start}p" "${RELEASE_WORKFLOW}")"
+if ! printf '%s' "${publish_obs_block}" | grep -q 'sync-obs-project-meta.sh'; then
+  echo "ERROR: publish-obs job must invoke sync-obs-project-meta.sh" >&2
+  exit 1
+fi
+if ! printf '%s' "${publish_obs_block}" | grep -q -- '--push'; then
+  echo "ERROR: publish-obs job must push project _meta with --push" >&2
+  exit 1
+fi
+sync_line="$(printf '%s' "${publish_obs_block}" | grep -n 'sync-obs-project-meta.sh' | head -n1 | cut -d: -f1)"
+upload_line="$(printf '%s' "${publish_obs_block}" | grep -n 'obs-upload-release-sources.sh' | head -n1 | cut -d: -f1)"
+if [[ -z "${sync_line}" || -z "${upload_line}" || "${sync_line}" -ge "${upload_line}" ]]; then
+  echo "ERROR: publish-obs must run sync-obs-project-meta.sh before obs-upload-release-sources.sh" >&2
+  exit 1
+fi
+
+enabled_repos="$(
+  python3 "${REPOSITORIES_HELPER}" --repo-root "${ROOT_DIR}"
+)"
+if [[ -z "${enabled_repos}" ]]; then
+  echo "ERROR: no enabled OBS repositories derived from committed _meta files" >&2
   exit 1
 fi
 

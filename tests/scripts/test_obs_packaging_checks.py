@@ -35,9 +35,22 @@ def test_obs_project_env_has_required_coordinate_keys() -> None:
     assert "OBS_CHANGES_FILENAME=verilyze.changes" in text
     assert "OBS_LEGACY_CHANGES_FILENAME=verilyze.spec.changes" in text
     assert "OBS_MAINTAINER=" in text
-    assert "OBS_WAIT_REPOSITORIES=" in text
+    assert "OBS_WAIT_REPOSITORIES=" not in text
     assert "OBS_WAIT_TIMEOUT_SECONDS=" in text
     assert "OBS_WAIT_POLL_INTERVAL_SECONDS=" in text
+
+
+def test_obs_project_meta_exists() -> None:
+    project_meta = _repo_root() / "packaging" / "obs" / "project" / "_meta"
+    assert project_meta.is_file()
+
+
+def test_obs_enabled_build_repositories_non_empty() -> None:
+    from tests.scripts.workspace_helpers import obs_enabled_build_repositories
+
+    repos = obs_enabled_build_repositories()
+    assert repos
+    assert "openSUSE_Tumbleweed" in repos
 
 
 def test_obs_project_env_assignment_keys_are_sorted() -> None:
@@ -175,7 +188,9 @@ def test_obs_packaging_check_asserts_upload_workflow_and_offline() -> None:
     assert "vendor.tar.zst" in text
     assert "--offline" in text
     assert "obs-wait-for-builds.sh" in text
-    assert "OBS_WAIT_REPOSITORIES" in text
+    assert "sync-obs-project-meta.sh" in text
+    assert "--push" in text
+    assert "OBS_WAIT_REPOSITORIES must not be set" in text
 
 
 def test_obs_spec_keeps_empty_changelog_section() -> None:

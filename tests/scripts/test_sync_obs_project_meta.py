@@ -1,0 +1,204 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+"""Tests for OBS project _meta sync script."""
+
+import os
+import subprocess
+from pathlib import Path
+
+from scripts.obs_repositories import DEFAULT_PROJECT_META_REL
+
+_ROOT = Path(__file__).resolve().parent.parent.parent
+_SYNC_SCRIPT = _ROOT / "scripts" / "sync-obs-project-meta.sh"
+_PROJECT_META = _ROOT / DEFAULT_PROJECT_META_REL
+
+_SAMPLE_META = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="home:example:proj">
+  <title>example</title>
+  <repository name="openSUSE_Tumbleweed">
+    <path project="openSUSE:Tumbleweed" repository="standard"/>
+    <arch>x86_64</arch>
+  </repository>
+</project>
+"""
+
+_FAKE_OSC_SCRIPT = """\
+#!/usr/bin/env bash
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --no-keyring) shift ;;
+    --config) shift 2 ;;
+    -A) shift 2 ;;
+    api)
+      shift
+      if [[ "${1:-}" == "-X" ]]; then exit 0; fi
+      echo '<project name="home:example:proj"><title>other</title></project>'
+      exit 0
+      ;;
+    *) shift ;;
+  esac
+done
+exit 1
+"""
+
+
+def _write_fake_osc(tmp_path: Path) -> Path:
+    fake_osc = tmp_path / "osc"
+    fake_osc.write_text(_FAKE_OSC_SCRIPT, encoding="utf-8")
+    fake_osc.chmod(0o755)
+    return fake_osc
+
+
+def _run_script(
+    argv: list[str],
+    *,
+    extra_env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    for key in ("OBS_USER", "OBS_PASSWORD", "OSC_USERNAME", "OSC_PASSWORD"):
+        env.pop(key, None)
+    if extra_env is not None:
+        env.update(extra_env)
+    return subprocess.run(
+        argv,
+        cwd=_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_sync_script_dry_run_push_prints_paths(tmp_path: Path) -> None:
+    env_file = tmp_path / "obs-project.env"
+    meta_file = tmp_path / "project" / "_meta"
+    meta_file.parent.mkdir(parents=True)
+    meta_file.write_text(_SAMPLE_META, encoding="utf-8")
+    env_file.write_text(
+        "\n".join(
+            [
+                "OBS_PROJECT=home:example:proj",
+                "OBS_PACKAGE=verilyze",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    proc = _run_script(
+        [
+            str(_SYNC_SCRIPT),
+            "--config",
+            str(env_file),
+            "--project-meta",
+            str(meta_file),
+            "--push",
+            "--dry-run",
+        ]
+    )
+
+    output = proc.stdout + proc.stderr
+    assert proc.returncode == 0, output
+    assert "dry-run" in output.lower()
+    assert "home:example:proj" in output
+    assert str(meta_file) in output or "project/_meta" in output
+
+
+def test_sync_script_push_requires_credentials(tmp_path: Path) -> None:
+    env_file = tmp_path / "obs-project.env"
+    meta_file = tmp_path / "project" / "_meta"
+    meta_file.parent.mkdir(parents=True)
+    meta_file.write_text(_SAMPLE_META, encoding="utf-8")
+    env_file.write_text(
+        "OBS_PROJECT=home:example:proj\nOBS_PACKAGE=verilyze\n",
+        encoding="utf-8",
+    )
+    _write_fake_osc(tmp_path)
+
+    proc = _run_script(
+        [
+            str(_SYNC_SCRIPT),
+            "--config",
+            str(env_file),
+            "--project-meta",
+            str(meta_file),
+            "--push",
+        ],
+        extra_env={"PATH": f"{tmp_path}:{os.environ.get('PATH', '')}"},
+    )
+
+    output = proc.stdout + proc.stderr
+    assert proc.returncode != 0
+    assert "OBS_USER" in output or "OSC_" in output
+
+
+def test_sync_script_push_requires_project_meta_file(tmp_path: Path) -> None:
+    env_file = tmp_path / "obs-project.env"
+    env_file.write_text(
+        "OBS_PROJECT=home:example:proj\nOBS_PACKAGE=verilyze\n",
+        encoding="utf-8",
+    )
+
+    proc = _run_script(
+        [
+            str(_SYNC_SCRIPT),
+            "--config",
+            str(env_file),
+            "--project-meta",
+            str(tmp_path / "missing" / "_meta"),
+            "--push",
+            "--dry-run",
+        ]
+    )
+
+    output = proc.stdout + proc.stderr
+    assert proc.returncode != 0
+    assert "_meta" in output
+
+
+def test_sync_script_check_exits_nonzero_on_drift(
+    tmp_path: Path,
+) -> None:
+    env_file = tmp_path / "obs-project.env"
+    meta_file = tmp_path / "project" / "_meta"
+    meta_file.parent.mkdir(parents=True)
+    meta_file.write_text(_SAMPLE_META, encoding="utf-8")
+    env_file.write_text(
+        "OBS_PROJECT=home:example:proj\nOBS_PACKAGE=verilyze\n",
+        encoding="utf-8",
+    )
+
+    _write_fake_osc(tmp_path)
+
+    proc = _run_script(
+        [
+            str(_SYNC_SCRIPT),
+            "--config",
+            str(env_file),
+            "--project-meta",
+            str(meta_file),
+            "--check",
+        ],
+        extra_env={
+            "OBS_USER": "tester",
+            "OBS_PASSWORD": "secret",
+            "PATH": f"{tmp_path}:{os.environ.get('PATH', '')}",
+        },
+    )
+
+    output = proc.stdout + proc.stderr
+    assert proc.returncode == 1, output
+    assert "drift" in output.lower() or "diff" in output.lower()
+
+
+def test_committed_project_meta_exists_and_parses() -> None:
+    assert _PROJECT_META.is_file()
+    text = _PROJECT_META.read_text(encoding="utf-8")
+    assert 'repository name="openSUSE_Tumbleweed"' in text
+    assert 'repository name="Fedora_44"' in text
+    assert 'repository name="Fedora_43"' in text
+    assert 'repository name="16.0"' in text
+    assert 'repository name="15.7"' in text

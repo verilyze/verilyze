@@ -357,6 +357,9 @@ stripped of symbols (NFR-023) for security and smaller size.
      (`osc` upload plus rebuild trigger):
      `osc token --create --operation rebuild <OBS_PROJECT> <OBS_PACKAGE>`.
    - Ensure `packaging/obs/obs-project.env` points at the intended OBS target.
+   - When adding or removing OBS build targets, edit
+     `packaging/obs/project/_meta` in git; the release workflow pushes it to
+     OBS with `scripts/sync-obs-project-meta.sh --push` before source upload.
    - Run `make check-obs-packaging` and confirm OBS signing key metadata is
      present for the configured OBS project.
    - OBS upload automation also renders `verilyze.changes` from the same

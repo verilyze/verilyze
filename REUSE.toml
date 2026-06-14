@@ -42,6 +42,13 @@ precedence = "override"
 SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
+# OBS metadata XML (OBS-native format; SPDX via REUSE.toml, not in-file headers)
+[[annotations]]
+path = "packaging/obs/**/_meta"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Travis Post <post.travis@gmail.com>"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
 # Config and data files
 [[annotations]]
 path = ".cursor/**"

@@ -1,0 +1,143 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+"""Tests for OBS repository derivation from committed _meta files."""
+
+from pathlib import Path
+
+import pytest
+
+from scripts.obs_repositories import (
+    DEFAULT_PACKAGE_META_REL,
+    DEFAULT_PROJECT_META_REL,
+    enabled_build_repositories,
+    format_repository_list,
+    load_enabled_build_repositories,
+    parse_package_disabled_repositories,
+    parse_project_repository_names,
+)
+
+_PROJECT_META = """\
+<project name="home:example:proj">
+  <title>example</title>
+  <repository name="openSUSE_Tumbleweed">
+    <path project="openSUSE:Tumbleweed" repository="standard"/>
+    <arch>x86_64</arch>
+    <arch>aarch64</arch>
+  </repository>
+  <repository name="Fedora_44">
+    <path project="Fedora:Rawhide" repository="standard"/>
+    <arch>x86_64</arch>
+  </repository>
+  <repository name="Fedora_43">
+    <path project="Fedora:43" repository="standard"/>
+    <arch>x86_64</arch>
+  </repository>
+  <repository name="16.0">
+    <path project="openSUSE:Leap:16.0" repository="standard"/>
+    <arch>x86_64</arch>
+  </repository>
+  <repository name="15.7">
+    <path project="openSUSE:Leap:15.7" repository="standard"/>
+    <arch>x86_64</arch>
+  </repository>
+</project>
+"""
+
+_PACKAGE_META_NO_DISABLE = """\
+<package name="verilyze" project="home:example:proj">
+  <title>verilyze</title>
+</package>
+"""
+
+_PACKAGE_META_WITH_DISABLE = """\
+<package name="verilyze" project="home:example:proj">
+  <title>verilyze</title>
+  <build>
+    <disable repository="Fedora_43"/>
+  </build>
+</package>
+"""
+
+_EXPECTED_ALL_REPOS = (
+    "15.7",
+    "16.0",
+    "Fedora_43",
+    "Fedora_44",
+    "openSUSE_Tumbleweed",
+)
+
+
+def test_parse_project_repository_names_returns_sorted_unique_names() -> None:
+    names = parse_project_repository_names(_PROJECT_META)
+    assert names == _EXPECTED_ALL_REPOS
+
+
+def test_parse_package_disabled_repositories_empty_when_no_build_flags() -> None:
+    disabled = parse_package_disabled_repositories(_PACKAGE_META_NO_DISABLE)
+    assert disabled == frozenset()
+
+
+def test_parse_package_disabled_repositories_collects_repo_level_disables() -> None:
+    disabled = parse_package_disabled_repositories(_PACKAGE_META_WITH_DISABLE)
+    assert disabled == frozenset({"Fedora_43"})
+
+
+def test_enabled_build_repositories_subtracts_disabled_repos() -> None:
+    repos = enabled_build_repositories(_PROJECT_META, _PACKAGE_META_WITH_DISABLE)
+    assert repos == (
+        "15.7",
+        "16.0",
+        "Fedora_44",
+        "openSUSE_Tumbleweed",
+    )
+
+
+def test_enabled_build_repositories_returns_all_when_none_disabled() -> None:
+    repos = enabled_build_repositories(_PROJECT_META, _PACKAGE_META_NO_DISABLE)
+    assert repos == _EXPECTED_ALL_REPOS
+
+
+def test_parse_project_repository_names_raises_when_no_repositories() -> None:
+    empty_meta = '<project name="home:empty"><title>empty</title></project>'
+    with pytest.raises(ValueError, match="no repository definitions"):
+        parse_project_repository_names(empty_meta)
+
+
+def test_format_repository_list_joins_with_commas() -> None:
+    assert format_repository_list(("a", "b")) == "a,b"
+
+
+def test_load_enabled_build_repositories_reads_committed_files(
+    tmp_path: Path,
+) -> None:
+    project_meta = tmp_path / "project" / "_meta"
+    package_meta = tmp_path / "rpm" / "_meta"
+    project_meta.parent.mkdir(parents=True)
+    package_meta.parent.mkdir(parents=True)
+    project_meta.write_text(_PROJECT_META, encoding="utf-8")
+    package_meta.write_text(_PACKAGE_META_NO_DISABLE, encoding="utf-8")
+
+    repos = load_enabled_build_repositories(
+        tmp_path,
+        project_meta_path=project_meta,
+        package_meta_path=package_meta,
+    )
+    assert repos == _EXPECTED_ALL_REPOS
+
+
+def test_load_enabled_build_repositories_raises_when_project_meta_missing(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(FileNotFoundError, match="project _meta"):
+        load_enabled_build_repositories(
+            tmp_path,
+            project_meta_path=tmp_path / "missing" / "_meta",
+            package_meta_path=tmp_path / "rpm" / "_meta",
+        )
+
+
+def test_default_meta_paths_match_packaging_layout() -> None:
+    assert DEFAULT_PROJECT_META_REL == Path("packaging/obs/project/_meta")
+    assert DEFAULT_PACKAGE_META_REL == Path("packaging/obs/rpm/_meta")
