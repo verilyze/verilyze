@@ -39,9 +39,9 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: generate-config-example check-config-docs
 .PHONY: generate-manpages check-manpages
 .PHONY: generate-completions completions completions-release check-completions
-.PHONY: generate-packaging check-packaging check-obs-packaging check-obs-signing
+.PHONY: generate-packaging check-packaging check-obs-signing
 .PHONY: sync-rpm-specs check-rpm-spec-sync
-.PHONY: check-obs-packaging obs-upload-dry-run
+.PHONY: check-obs-packaging check-super-linter-native obs-upload-dry-run
 .PHONY: sync-license-config check-license-config deny-check
 .PHONY: generate-third-party-licenses generate-third-party-licenses-docker
 .PHONY: check-third-party-licenses
@@ -370,6 +370,10 @@ check-rpm-spec-sync:
 check-obs-packaging:
 	$(SCRIPTS_DIR)/check-obs-packaging.sh
 
+# check-super-linter-native: ENV key order and Checkov skip parity (no Docker).
+check-super-linter-native:
+	$(SCRIPTS_DIR)/check-super-linter-native.sh
+
 # check-obs-signing: Verify OBS project signing key metadata.
 check-obs-signing:
 	$(SCRIPTS_DIR)/check-obs-signing.sh
@@ -437,6 +441,7 @@ check-fast: setup \
             check-manpages \
             check-packaging \
             check-obs-packaging \
+            check-super-linter-native \
             check-completions \
             check-license-config \
             deny-check \

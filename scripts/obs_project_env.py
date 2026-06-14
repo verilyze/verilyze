@@ -68,3 +68,40 @@ def parse_obs_project_env(env_path: Path) -> ObsProjectEnv:
             "Travis Post <post.travis@gmail.com>",
         ),
     )
+
+
+def env_assignment_keys(env_path: Path) -> list[str]:
+    """Return KEY names from non-comment KEY= lines in obs-project.env."""
+    keys: list[str] = []
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = _trim(raw_line)
+        if not line or line.startswith("#"):
+            continue
+        key, sep, _value = line.partition("=")
+        if not sep:
+            msg = (
+                f"Invalid line in {env_path} (expected KEY=VALUE): "
+                f"{raw_line!r}"
+            )
+            raise ValueError(msg)
+        key = _trim(key)
+        if not key:
+            continue
+        keys.append(key)
+    return keys
+
+
+def validate_obs_project_env_key_order(env_path: Path) -> None:
+    """Require KEY= lines sorted alphabetically (super-linter ENV parity)."""
+    keys = env_assignment_keys(env_path)
+    sorted_keys = sorted(keys)
+    if keys != sorted_keys:
+        for index, key in enumerate(keys):
+            if index > 0 and key < keys[index - 1]:
+                msg = (
+                    f"{env_path}: UnorderedKey: {key} should go before "
+                    f"{keys[index - 1]}"
+                )
+                raise ValueError(msg)
+        msg = f"{env_path}: assignment keys are not alphabetically sorted"
+        raise ValueError(msg)

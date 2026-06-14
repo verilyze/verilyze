@@ -10,7 +10,11 @@ from pathlib import Path
 
 import pytest
 
-from scripts.obs_project_env import ObsProjectEnv, parse_obs_project_env
+from scripts.obs_project_env import (
+    ObsProjectEnv,
+    parse_obs_project_env,
+    validate_obs_project_env_key_order,
+)
 
 
 def test_parse_obs_project_env_loads_all_keys(tmp_path: Path) -> None:
@@ -112,3 +116,32 @@ def test_parse_obs_project_env_skips_blank_and_comment_lines(
     env = parse_obs_project_env(env_file)
     assert env.obs_project == "home:test"
     assert env.obs_package == "test"
+
+
+def test_validate_obs_project_env_key_order_accepts_sorted_keys(
+    tmp_path: Path,
+) -> None:
+    env_file = tmp_path / "obs-project.env"
+    env_file.write_text(
+        "\n".join(
+            [
+                "OBS_ALPHA=1",
+                "OBS_BETA=2",
+                "OBS_GAMMA=3",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    validate_obs_project_env_key_order(env_file)
+
+
+def test_validate_obs_project_env_key_order_rejects_unsorted_keys(
+    tmp_path: Path,
+) -> None:
+    env_file = tmp_path / "obs-project.env"
+    env_file.write_text(
+        "OBS_Z=1\nOBS_A=2\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="UnorderedKey"):
+        validate_obs_project_env_key_order(env_file)

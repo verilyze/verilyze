@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Sat Jun 13 16:00:00 UTC 2026 - Travis Post <post.travis@gmail.com> - 0.2.3
+
+- Fixed: Release workflow gates GitHub Release promotion on OBS build success; OBS osc auth (`osc-cmd.sh`, `--config`, transient oscrc credentials for Ubuntu apt osc).
+- Added: `obs-wait-for-builds.sh`; `release.yml` workflow_dispatch for branch dry runs.
+
+-------------------------------------------------------------------
 Sun Jun  7 10:00:00 UTC 2026 - Travis Post <post.travis@gmail.com> - 0.2.2
 
 - Fixed: OBS upload-driven release flow replaces the broken `_service` pipeline on public `build.opensuse.org` (pre-generated tarball, vendor archive, and spec uploaded via `scripts/obs-upload-release-sources.sh`).

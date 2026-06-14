@@ -48,28 +48,12 @@ if mode == "rust-paths":
     for path in paths:
         print(path)
 elif mode == "followup":
-    import subprocess
-
     repo = cursor_validation.get_repo_root()
-    diff_paths: list[str] = []
-    for cmd in (
-        ["git", "diff", "--name-only"],
-        ["git", "diff", "--cached", "--name-only"],
-    ):
-        proc = subprocess.run(
-            cmd,
-            cwd=repo,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if proc.returncode == 0 and proc.stdout.strip():
-            diff_paths.extend(proc.stdout.splitlines())
-    diff_paths = list(dict.fromkeys(diff_paths))
+    diff_paths = cursor_validation.collect_changed_paths(repo)
     targets = cursor_validation.classify_changed_paths(diff_paths)
     if cursor_validation.should_skip_followup(data, targets):
         sys.exit(0)
-    message = cursor_validation.build_followup_message(targets)
+    message = cursor_validation.build_followup_message(targets, diff_paths)
     print(json.dumps({"followup_message": message}))
 else:
     raise SystemExit(f"unknown mode: {mode}")

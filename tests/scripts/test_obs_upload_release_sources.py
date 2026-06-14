@@ -147,11 +147,21 @@ def test_obs_upload_script_renders_changes_from_changelog() -> None:
 
 
 def test_obs_upload_script_uses_transient_osc_credentials() -> None:
-    """CI auth must use OSC_* env vars, not plaintext pass in oscrc."""
+    """Upload script delegates osc auth to lib/osc-cmd.sh (transient oscrc)."""
     text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")
     assert "setup_osc_auth" in text
-    assert "OSC_USERNAME" in text
-    assert "OSC_PASSWORD" in text
-    assert "OSC_CONFIG" in text
+    assert "lib/osc-cmd.sh" in text
     assert "pass = ${OBS_PASSWORD}" not in text
     assert "\npass = " not in text
+    osc_lib = (_ROOT / "scripts" / "lib" / "osc-cmd.sh").read_text(encoding="utf-8")
+    assert "[${OBS_API}]" in osc_lib
+    assert "pass = ${obs_password}" in osc_lib
+    assert "OSC_CONFIG" in osc_lib
+
+
+def test_osc_cmd_uses_transient_config_file() -> None:
+    """osc must read apiurl from OSC_CONFIG, not default ~/.oscrc."""
+    text = (_ROOT / "scripts" / "lib" / "osc-cmd.sh").read_text(encoding="utf-8")
+    assert 'config_args=(--config "${OSC_CONFIG}")' in text
+    assert "osc --no-keyring" in text
+    assert 'config_args=(-c "${OSC_CONFIG}")' not in text

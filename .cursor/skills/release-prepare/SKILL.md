@@ -62,6 +62,43 @@ gh release delete vX.Y.Z --yes
 
 Fix root cause; re-tag only after user confirms.
 
+## Release stabilization (before first successful publish)
+
+Use **one** SemVer bump and **one** tag name until `release.yml` completes with
+workflow conclusion `success`. Do **not** increment the patch version for each
+CI or script fix during stabilization.
+
+**When to use:** The release workflow failed due to fixable CI/script/secret
+issues; `Cargo.toml` and `CHANGELOG.md ## [X.Y.Z]` are already correct for the
+intended release.
+
+**Loop:**
+
+1. Fix on the release branch with ordinary fix commits (no version bump).
+2. Add bullets under the existing `## [X.Y.Z]` section (not a new version header).
+3. Move the tag locally and on origin (requires explicit user approval):
+
+```sh
+git tag -d vX.Y.Z
+git push origin :refs/tags/vX.Y.Z
+git tag -s vX.Y.Z -m "Release vX.Y.Z"
+git push origin vX.Y.Z
+```
+
+4. Watch `gh run watch --workflow=release.yml` until success.
+
+**When not to move the tag:**
+
+| Situation | Action |
+|-----------|--------|
+| Transient failure (network, secret fixed in GitHub UI) | Re-run failed jobs on same tag/commit |
+| Release already published (`gh release edit --draft=false` succeeded) | Never move tag; cut `X.Y.(Z+1)` |
+| Immutable release or registry artifacts consumed downstream | New patch version only |
+
+**Optional:** Run `workflow_dispatch` on `release.yml` from a branch ref to
+exercise build and OBS jobs without pushing a tag. Tag push remains the
+canonical publish for SemVer artifacts and GitHub Releases.
+
 ## Agent boundaries
 
 | Action | When |
@@ -71,6 +108,7 @@ Fix root cause; re-tag only after user confirms.
 | Create signed tag | User explicitly asked to tag or publish |
 | Push tag to origin | User explicitly confirmed publish (separate confirm if ambiguous) |
 | Delete draft release / force-push tag | User explicitly requested recovery |
+| Move release tag (`git push origin :refs/tags/vX.Y.Z`) | User explicitly requested stabilization retry |
 
 Never push a `v*` tag or publish a GitHub release without explicit user intent
 in the current conversation.
