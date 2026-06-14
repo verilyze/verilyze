@@ -1,12 +1,8 @@
 -------------------------------------------------------------------
-Sat Jun 13 14:00:00 UTC 2026 - Travis Post <post.travis@gmail.com> - 0.2.5
+Sat Jun 13 16:00:00 UTC 2026 - Travis Post <post.travis@gmail.com> - 0.2.6
 
-- Fixed: OBS osc_cmd uses `--config` (not `-c`) for transient oscrc; `-c` conflicts with `osc co`.
-
--------------------------------------------------------------------
-Sat Jun 13 12:00:00 UTC 2026 - Travis Post <post.travis@gmail.com> - 0.2.4
-
-- Fixed: OBS upload and build-wait scripts pass `-c "${OSC_CONFIG}"` to `osc` so CI uses the transient apiurl/credentials config.
+- Fixed: Release workflow gates GitHub Release promotion on OBS build success; OBS osc auth (`osc-cmd.sh`, `--config`, transient oscrc credentials for Ubuntu apt osc).
+- Added: `obs-wait-for-builds.sh`; `release.yml` workflow_dispatch for branch dry runs.
 
 -------------------------------------------------------------------
 Sat Jun 13 10:00:00 UTC 2026 - Travis Post <post.travis@gmail.com> - 0.2.3

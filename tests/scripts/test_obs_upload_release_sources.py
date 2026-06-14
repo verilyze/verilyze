@@ -147,15 +147,15 @@ def test_obs_upload_script_renders_changes_from_changelog() -> None:
 
 
 def test_obs_upload_script_uses_transient_osc_credentials() -> None:
-    """CI auth must use OSC_* env vars, not plaintext pass in oscrc."""
+    """Upload script delegates osc auth to lib/osc-cmd.sh (transient oscrc)."""
     text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")
     assert "setup_osc_auth" in text
     assert "lib/osc-cmd.sh" in text
     assert "pass = ${OBS_PASSWORD}" not in text
     assert "\npass = " not in text
     osc_lib = (_ROOT / "scripts" / "lib" / "osc-cmd.sh").read_text(encoding="utf-8")
-    assert "OSC_USERNAME" in osc_lib
-    assert "OSC_PASSWORD" in osc_lib
+    assert "[${OBS_API}]" in osc_lib
+    assert "pass = ${obs_password}" in osc_lib
     assert "OSC_CONFIG" in osc_lib
 
 

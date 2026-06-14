@@ -98,6 +98,37 @@ def test_release_workflow_gates_create_release_on_obs_builds() -> None:
     assert "wait-obs-builds" in create_needs
 
 
+def test_release_workflow_supports_dispatch_without_github_release() -> None:
+    text = _RELEASE.read_text(encoding="utf-8")
+    assert "workflow_dispatch:" in text
+    assert "RELEASE_CHECKOUT_REF:" in text
+    assert "release-read-workspace-version.sh" in text
+    create_start = text.index("create-release:")
+    create_block_end = text.index("\n\n", create_start + 1)
+    create_block = text[create_start:create_block_end]
+    assert "if: github.event_name == 'push'" in create_block
+
+
+def test_release_read_workspace_version_script_matches_cargo_toml() -> None:
+    script = _ROOT / "scripts" / "release-read-workspace-version.sh"
+    cargo = _ROOT / "Cargo.toml"
+    assert script.is_file()
+    proc = subprocess.run(
+        [str(script), str(cargo)],
+        cwd=_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr
+    version_line = next(
+        line for line in cargo.read_text(encoding="utf-8").splitlines()
+        if line.strip().startswith("version = ")
+    )
+    cargo_version = version_line.split("=", 1)[1].strip().strip('"')
+    assert proc.stdout.strip() == cargo_version
+
+
 def test_check_obs_signing_runs_in_preflight_not_in_publish_obs() -> None:
     text = _RELEASE.read_text(encoding="utf-8")
     preflight_end = text.index("build-binary:")

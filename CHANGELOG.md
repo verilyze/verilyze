@@ -12,22 +12,7 @@ The GitHub Release body is generated from the matching `## [version]` section
 below when you push a `v*` tag (see `.github/workflows/release.yml`). Update
 this file **before** creating the release tag.
 
-## [0.2.5] - 2026-06-13
-
-### Fixed
-
-- OBS `osc_cmd` uses `--config` (not `-c`) for the transient oscrc path; `-c`
-  is reserved by `osc co` for checkout-into-current-directory.
-
-## [0.2.4] - 2026-06-13
-
-### Fixed
-
-- OBS upload and build-wait scripts pass `--config "${OSC_CONFIG}"` to `osc`
-  (not `-c`, which conflicts with `osc co -c`) so CI uses the transient
-  apiurl/credentials config instead of prompting for login.
-
-## [0.2.3] - 2026-06-13
+## [0.2.6] - 2026-06-13
 
 ### Fixed
 
@@ -35,11 +20,17 @@ this file **before** creating the release tag.
   upload, rebuild trigger, and completed OBS builds (`wait-obs-builds` job).
 - OpenSSF Scorecard Packaging check: requires a fully successful release
   workflow run (including OBS jobs) so `docker push` to GHCR is recognized.
+- OBS upload and build-wait scripts use shared `scripts/lib/osc-cmd.sh` with
+  `--config` for the transient oscrc (not `-c`, which conflicts with `osc co`).
+- OBS transient `oscrc` includes an apiurl-named section with credentials;
+  Ubuntu apt `osc` ignores `OSC_*` env vars without it.
 
 ### Added
 
 - `scripts/obs-wait-for-builds.sh` polls OBS build results for repositories
   configured in `OBS_WAIT_REPOSITORIES` (`packaging/obs/obs-project.env`).
+- `release.yml` supports `workflow_dispatch` to exercise build and OBS jobs
+  from a branch ref without publishing a GitHub Release.
 
 ## [0.2.2] - 2026-06-07
 

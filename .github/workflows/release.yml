@@ -4,7 +4,7 @@
 
 ---
 # Release workflow: builds packages and Docker image on version tags.
-# Triggered by pushing a tag matching v*.
+# Triggered by pushing a tag matching v*, or manually via workflow_dispatch.
 
 name: Release
 
@@ -12,12 +12,20 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag, or SHA to build (dispatch skips GitHub Release publish)
+        required: true
+        default: main
 
 permissions:
   contents: read
 
 env:
   CARGO_TERM_COLOR: always
+  RELEASE_CHECKOUT_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+  RELEASE_GIT_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref_name }}
 
 jobs:
   preflight-release:
@@ -27,13 +35,18 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
+          ref: ${{ env.RELEASE_CHECKOUT_REF }}
           persist-credentials: false
 
       - name: Verify tag matches workspace version
         id: verify
         run: |
           set -euo pipefail
-          VERSION="$(./scripts/release-verify-tag-version.sh "${GITHUB_REF}")"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="$(./scripts/release-read-workspace-version.sh)"
+          else
+            VERSION="$(./scripts/release-verify-tag-version.sh "${GITHUB_REF}")"
+          fi
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
 
       - name: Verify OBS signing metadata
@@ -52,6 +65,7 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
+          ref: ${{ env.RELEASE_CHECKOUT_REF }}
           persist-credentials: false
 
       # Provision toolchain from rust-toolchain.toml (see zizmor superfluous-actions).
@@ -80,6 +94,7 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
+          ref: ${{ env.RELEASE_CHECKOUT_REF }}
           persist-credentials: false
 
       - name: Install Rust (rust-toolchain.toml)
@@ -120,6 +135,7 @@ jobs:
 
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
+          ref: ${{ env.RELEASE_CHECKOUT_REF }}
           persist-credentials: false
 
       - name: Install build tools
@@ -146,6 +162,7 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
+          ref: ${{ env.RELEASE_CHECKOUT_REF }}
           persist-credentials: false
 
       - name: Build Docker image
@@ -224,6 +241,7 @@ jobs:
             "ghcr.io/${REPO}@${DIGEST}"
 
   create-release:
+    if: github.event_name == 'push'
     needs: [preflight-release, build-binary, build-deb, build-rpm, build-docker, wait-obs-builds]
     runs-on: ubuntu-latest
     # contents: write -- GitHub Release and asset upload; actions: read -- download-artifact.
@@ -234,6 +252,7 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
+          ref: ${{ env.RELEASE_CHECKOUT_REF }}
           persist-credentials: false
 
       - name: Download all artifacts
@@ -407,7 +426,7 @@ jobs:
           ./scripts/obs-upload-release-sources.sh \
             --config packaging/obs/obs-project.env \
             --version "${VERSION}" \
-            --git-ref "${GITHUB_REF_NAME}"
+            --git-ref "${RELEASE_GIT_REF}"
           ./scripts/obs-trigger-build.sh \
             --config packaging/obs/obs-project.env \
             --version "${VERSION}" \
@@ -421,6 +440,7 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
+          ref: ${{ env.RELEASE_CHECKOUT_REF }}
           persist-credentials: false
 
       - name: Install OBS wait tools

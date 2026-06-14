@@ -22,10 +22,16 @@ setup_osc_auth() {
     exit 1
   fi
   local oscrc="${work_dir}/oscrc"
+  # Ubuntu apt osc ignores OSC_* env vars and requires an apiurl-named section
+  # with user/pass. Write a transient oscrc (mode 600) removed after upload.
   cat >"${oscrc}" <<EOF
 [general]
 apiurl = ${OBS_API}
 use_keyring = 0
+
+[${OBS_API}]
+user = ${obs_user}
+pass = ${obs_password}
 EOF
   chmod 600 "${oscrc}"
   export OSC_CONFIG="${oscrc}"
