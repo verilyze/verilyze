@@ -20,12 +20,15 @@ Do not run blind `make check` unless full CI parity is required.
 | `Cargo.toml`, `deny.toml`, deps | `make deny-check` (+ `make check-third-party-licenses` if lockfiles/deps changed) |
 | New source files | `make check-headers` |
 | Any behavior change | `make unit-tests`; before PR also `make coverage-quick` |
-| Super-linter paths (below) | `make super-linter` (Docker, ~3-10 min) |
-| **Before push / PR** | `make check-fast` (~2-4 min) |
+| Super-linter paths (below) | `make super-linter` (Docker, ~3-10 min; must exit 0 when touched) |
+| **Before push / PR** | `make check-fast` (~2-4 min; includes `check-super-linter-native`) |
 | **Full CI parity** | `make -j check` |
 
 Super-linter paths: `.github/**`, `*.{yml,yaml}`, `biome.json`, `renovate.json`,
-`.gitleaks.toml`, `.commitlintrc.json`, `scripts/super-linter.sh`.
+`.gitleaks.toml`, `.commitlintrc.json`, `scripts/super-linter.sh`,
+`packaging/**/*.env`, `packaging/**/Dockerfile`.
+
+Incremental: `make super-linter`. Full tree (nightly): `make super-linter-full`.
 
 ## Clippy (Rust only)
 
@@ -33,7 +36,7 @@ Super-linter paths: `.github/**`, `*.{yml,yaml}`, `biome.json`, `renovate.json`,
 - Cross-crate or workspace `Cargo.toml`: `make clippy`
 - Before PR: `make check-fast` (includes clippy)
 
-Do **not** run clippy or super-linter inside Cursor hooks.
+Do **not** run clippy or super-linter inside Cursor hooks. Run them via shell or a **shell** subagent before finishing when paths require it.
 
 ## Do not skip
 

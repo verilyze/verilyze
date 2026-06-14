@@ -35,6 +35,25 @@ def test_obs_project_env_has_required_coordinate_keys() -> None:
     assert "OBS_CHANGES_FILENAME=verilyze.changes" in text
     assert "OBS_LEGACY_CHANGES_FILENAME=verilyze.spec.changes" in text
     assert "OBS_MAINTAINER=" in text
+    assert "OBS_WAIT_REPOSITORIES=" in text
+    assert "OBS_WAIT_TIMEOUT_SECONDS=" in text
+    assert "OBS_WAIT_POLL_INTERVAL_SECONDS=" in text
+
+
+def test_obs_project_env_assignment_keys_are_sorted() -> None:
+    from scripts.obs_project_env import validate_obs_project_env_key_order
+
+    env_file = _repo_root() / "packaging" / "obs" / "obs-project.env"
+    validate_obs_project_env_key_order(env_file)
+
+
+def test_makefile_exposes_check_super_linter_native_target() -> None:
+    text = (_repo_root() / "Makefile").read_text(encoding="utf-8")
+    assert "check-super-linter-native:" in text
+    check_fast_block = text.split("check-fast:", maxsplit=1)[1].split(
+        "check-slow:", maxsplit=1
+    )[0]
+    assert "check-super-linter-native" in check_fast_block
 
 
 def test_obs_packaging_check_script_invokes_signing_check() -> None:
@@ -155,6 +174,8 @@ def test_obs_packaging_check_asserts_upload_workflow_and_offline() -> None:
     assert "--skip-runservice" in text
     assert "vendor.tar.zst" in text
     assert "--offline" in text
+    assert "obs-wait-for-builds.sh" in text
+    assert "OBS_WAIT_REPOSITORIES" in text
 
 
 def test_obs_spec_keeps_empty_changelog_section() -> None:

@@ -64,18 +64,63 @@ class TestClassifyChangedPaths:
         assert "make super-linter" in targets
         assert "make fmt-check clippy" in targets
 
+    def test_packaging_env_triggers_super_linter(self) -> None:
+        targets = cursor_validation.classify_changed_paths(
+            ["packaging/obs/obs-project.env"]
+        )
+        assert "make check-packaging" in targets
+        assert "make super-linter" in targets
+
+    def test_packaging_dockerfile_triggers_super_linter(self) -> None:
+        targets = cursor_validation.classify_changed_paths(
+            ["packaging/docker/Dockerfile"]
+        )
+        assert "make super-linter" in targets
+
 
 class TestFollowupMessage:
     def test_python_scripts_message(self) -> None:
         targets = cursor_validation.classify_changed_paths(["scripts/foo.py"])
         msg = cursor_validation.build_followup_message(targets)
         assert "make lint-python test-scripts" in msg
-        assert "make check-fast" in msg
+        assert "make check-fast before push" in msg
 
-    def test_skip_when_history_matches(self) -> None:
+    def test_empty_targets_unconditional_check_fast(self) -> None:
+        msg = cursor_validation.build_followup_message([])
+        assert msg == "Run make check-fast before push."
+        assert "if you changed behavior" not in msg
+
+    def test_unclassified_paths_list_changed_files(self) -> None:
+        msg = cursor_validation.build_followup_message([], ["README.md"])
+        assert "README.md" in msg
+        assert "make check-fast before push" in msg
+
+    def test_skip_when_last_history_matches(self) -> None:
         data = _fixture("stop_skip_followup.json")
         targets = ["make lint-python test-scripts"]
         assert cursor_validation.should_skip_followup(data, targets) is True
+
+    def test_no_skip_when_target_only_in_earlier_history(self) -> None:
+        data = {
+            "conversation": {
+                "last_shell_commands": [
+                    "make lint-python test-scripts",
+                    "git status",
+                ]
+            }
+        }
+        targets = ["make lint-python test-scripts"]
+        assert cursor_validation.should_skip_followup(data, targets) is False
+
+    def test_no_skip_when_last_command_failed(self) -> None:
+        data = {
+            "conversation": {
+                "last_shell_commands": ["make super-linter"],
+                "last_shell_command_results": [{"exit_code": 1}],
+            }
+        }
+        targets = ["make super-linter"]
+        assert cursor_validation.should_skip_followup(data, targets) is False
 
 
 class TestHooksDisabled:

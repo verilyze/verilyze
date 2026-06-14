@@ -11,22 +11,23 @@ description: Runs verilyze pre-merge and CI validation. Use when finishing a tas
 
 ## Workflow
 
-1. `git diff --name-only` and `git diff --cached --name-only` to classify paths
+1. Classify paths from working tree, index, and unpushed commits (`origin/main...HEAD`)
 2. Run the **minimal** target set from [targets.md](targets.md) (not blind `make check`)
 3. On failure, fix and re-run only the failed gate
 4. Behavior changed: `make coverage-quick` (85% line/region, 80% function) but
    attempt to reach as close as reasonably possible to 100%
-5. Before PR: `make check-fast`
+5. Before PR: `make check-fast` (must exit 0)
 6. Remind human-only steps: signed commits, DCO, `git push`
 
 ## Super-linter
 
-When diff touches `.github/**`, YAML, `biome.json`, `renovate.json`, `.gitleaks.toml`,
-`.commitlintrc.json`, or `scripts/super-linter.sh`:
+When diff touches super-linter paths (see [targets.md](targets.md)):
 
-- Run `make super-linter` (requires Docker)
+- **Must** run `make super-linter` (Docker) and confirm exit 0 before declaring done
 - Optional: launch a **shell** subagent with `make super-linter` in background while running other gates
-- After Renovate digest bumps: `make super-linter-full`
+- After Renovate digest bumps or nightly badge failures: `make super-linter-full`
+
+`make check-fast` includes `check-super-linter-native` (ENV key order and Checkov skip parity without Docker).
 
 Skip local super-linter for Rust-only PRs; CI still runs incremental super-linter.
 
