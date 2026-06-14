@@ -114,6 +114,10 @@ if ! grep -q 'OBS_CHANGES_FILENAME' "${UPLOAD_SCRIPT}"; then
   echo "ERROR: OBS upload script must upload OBS_CHANGES_FILENAME" >&2
   exit 1
 fi
+if ! grep -q 'remove_stale_source_archives' "${UPLOAD_SCRIPT}"; then
+  echo "ERROR: OBS upload script must remove stale source tarballs on upload" >&2
+  exit 1
+fi
 if ! grep -q -- '--skip-runservice' "${RELEASE_WORKFLOW}"; then
   echo "ERROR: release workflow must trigger OBS rebuild with --skip-runservice" >&2
   exit 1

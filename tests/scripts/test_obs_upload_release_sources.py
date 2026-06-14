@@ -146,6 +146,12 @@ def test_obs_upload_script_renders_changes_from_changelog() -> None:
     assert "OBS_LEGACY_CHANGES_FILENAME" in text
 
 
+def test_obs_upload_script_removes_stale_source_archives() -> None:
+    text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")
+    assert "remove_stale_source_archives" in text
+    assert '"${OBS_PACKAGE}"-*.tar.xz' in text
+
+
 def test_obs_upload_script_uses_transient_osc_credentials() -> None:
     """Upload script delegates osc auth to lib/osc-cmd.sh (transient oscrc)."""
     text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")

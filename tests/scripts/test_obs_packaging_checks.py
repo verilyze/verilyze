@@ -184,6 +184,7 @@ def test_obs_packaging_check_asserts_upload_workflow_and_offline() -> None:
     assert "obs-upload-release-sources.sh" in text
     assert "render_obs_changes.py" in text
     assert "OBS_CHANGES_FILENAME" in text
+    assert "remove_stale_source_archives" in text
     assert "--skip-runservice" in text
     assert "vendor.tar.zst" in text
     assert "--offline" in text
