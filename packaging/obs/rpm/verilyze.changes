@@ -1,5 +1,5 @@
 -------------------------------------------------------------------
-Sat Jun 13 16:00:00 UTC 2026 - Travis Post <post.travis@gmail.com> - 0.2.6
+Sat Jun 13 16:00:00 UTC 2026 - Travis Post <post.travis@gmail.com> - 0.2.3
 
 - Fixed: Release workflow gates GitHub Release promotion on OBS build success; OBS osc auth (`osc-cmd.sh`, `--config`, transient oscrc credentials for Ubuntu apt osc).
 - Added: `obs-wait-for-builds.sh`; `release.yml` workflow_dispatch for branch dry runs.

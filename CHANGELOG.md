@@ -12,7 +12,7 @@ The GitHub Release body is generated from the matching `## [version]` section
 below when you push a `v*` tag (see `.github/workflows/release.yml`). Update
 this file **before** creating the release tag.
 
-## [0.2.6] - 2026-06-13
+## [0.2.3] - 2026-06-13
 
 ### Fixed
 
