@@ -164,6 +164,35 @@ def test_obs_upload_script_verifies_upload_checksums_after_commit() -> None:
     assert "osc_add_or_update_file" in text
 
 
+def test_obs_upload_script_uploads_rpmlintrc_with_checksum() -> None:
+    text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")
+    assert "OBS_RPMLINTRC_FILENAME" in text
+    assert "rpmlintrc_sha256" in text
+
+
+def test_obs_upload_script_dry_run_includes_rpmlintrc_artifact(
+    tmp_path: Path,
+) -> None:
+    work_dir = tmp_path / "work"
+    proc = _run_script(
+        [
+            str(_UPLOAD_SCRIPT),
+            "--version",
+            workspace_semver(),
+            "--work-dir",
+            str(work_dir),
+            "--dry-run",
+        ]
+    )
+    assert proc.returncode == 0, proc.stderr + proc.stdout
+    rpmlintrc = work_dir / "verilyze-rpmlintrc"
+    assert rpmlintrc.is_file()
+    assert 'addFilter("missing-call-to-chdir-with-chroot")' in rpmlintrc.read_text(
+        encoding="utf-8"
+    )
+    assert "rpmlintrc_sha256=" in proc.stdout + proc.stderr
+
+
 def test_obs_upload_script_uses_transient_osc_credentials() -> None:
     """Upload script delegates osc auth to lib/osc-cmd.sh (transient oscrc)."""
     text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")

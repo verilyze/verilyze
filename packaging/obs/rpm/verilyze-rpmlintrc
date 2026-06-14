@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# vlz does not call chroot; the symbol is linked via rustix (tempfile dependency).
+addFilter("missing-call-to-chdir-with-chroot")

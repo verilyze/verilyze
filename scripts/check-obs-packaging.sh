@@ -126,6 +126,14 @@ if ! grep -q 'obs_verify_package_checksums' "${UPLOAD_SCRIPT}"; then
   echo "ERROR: OBS upload script must verify upload checksums after osc commit" >&2
   exit 1
 fi
+if ! grep -q 'OBS_RPMLINTRC_FILENAME' "${UPLOAD_SCRIPT}"; then
+  echo "ERROR: OBS upload script must upload OBS_RPMLINTRC_FILENAME" >&2
+  exit 1
+fi
+if ! grep -qE '^OBS_RPMLINTRC_FILENAME=.+$' "${OBS_ENV}"; then
+  echo "ERROR: OBS_RPMLINTRC_FILENAME must be set in ${OBS_ENV}" >&2
+  exit 1
+fi
 VERIFY_SCRIPT="${ROOT_DIR}/scripts/obs_upload_verify.py"
 if [[ ! -f "${VERIFY_SCRIPT}" ]]; then
   echo "ERROR: missing OBS upload verification helper: ${VERIFY_SCRIPT}" >&2

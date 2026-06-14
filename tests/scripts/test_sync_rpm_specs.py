@@ -86,6 +86,7 @@ class TestRenderLocalSpec:
         assert "Source0:        %{pkg_name}-%{version}.tar.gz" in result
         assert "cargo build --release --locked\n" in result
         assert "Source1:" not in result
+        assert "Source2:" not in result
         assert "BuildRequires:  zstd" not in result
         assert "tar --zstd" not in result
         assert sync_rpm_specs.LOCAL_INSERTION in result

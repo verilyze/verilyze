@@ -16,6 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly DEFAULT_OBS_API="https://api.opensuse.org"
 readonly DEFAULT_CONFIG_PATH="packaging/obs/obs-project.env"
 readonly DEFAULT_SPEC_TEMPLATE="packaging/obs/rpm/verilyze.spec"
+readonly DEFAULT_RPMLINTRC_TEMPLATE="packaging/obs/rpm/verilyze-rpmlintrc"
 readonly DEFAULT_SEED_CHANGES="packaging/obs/rpm/verilyze.changes"
 readonly DEFAULT_CHANGELOG="CHANGELOG.md"
 readonly RENDER_CHANGES_SCRIPT="scripts/render_obs_changes.py"
@@ -168,6 +169,7 @@ upload_to_obs() {
   local vendor_sha256="$4"
   local spec_sha256="$5"
   local changes_sha256="$6"
+  local rpmlintrc_sha256="$7"
   local checkout_dir="${work_dir}/osc-checkout"
   local source_archive="${OBS_PACKAGE}-${version}.tar.xz"
   local existing_changes=""
@@ -188,9 +190,11 @@ upload_to_obs() {
     cp "${work_dir}/${source_archive}" .
     cp "${work_dir}/${VENDOR_ARCHIVE_NAME}" .
     cp "${work_dir}/${OBS_SPEC_FILENAME}" .
+    cp "${work_dir}/${OBS_RPMLINTRC_FILENAME}" .
     osc_add_or_update_file "${source_archive}"
     osc_add_or_update_file "${VENDOR_ARCHIVE_NAME}"
     osc_add_or_update_file "${OBS_SPEC_FILENAME}"
+    osc_add_or_update_file "${OBS_RPMLINTRC_FILENAME}"
     osc_add_or_update_file "${OBS_CHANGES_FILENAME}"
     if [[ -f "${OBS_LEGACY_CHANGES_FILENAME}" ]]; then
       osc_cmd delete "${OBS_LEGACY_CHANGES_FILENAME}" 2>/dev/null || rm -f "${OBS_LEGACY_CHANGES_FILENAME}"
@@ -200,7 +204,8 @@ upload_to_obs() {
       "${source_archive}=${source_sha256}" \
       "${VENDOR_ARCHIVE_NAME}=${vendor_sha256}" \
       "${OBS_SPEC_FILENAME}=${spec_sha256}" \
-      "${OBS_CHANGES_FILENAME}=${changes_sha256}"
+      "${OBS_CHANGES_FILENAME}=${changes_sha256}" \
+      "${OBS_RPMLINTRC_FILENAME}=${rpmlintrc_sha256}"
   )
 }
 
@@ -281,6 +286,12 @@ fi
 
 obs_parse_project_env "${REPO_ROOT}/${CONFIG_PATH}"
 
+RPMLINTRC_TEMPLATE="${REPO_ROOT}/${DEFAULT_RPMLINTRC_TEMPLATE}"
+if [[ ! -f "${RPMLINTRC_TEMPLATE}" ]]; then
+  echo "ERROR: rpmlintrc template not found: ${RPMLINTRC_TEMPLATE}" >&2
+  exit 1
+fi
+
 if [[ -z "${WORK_DIR}" ]]; then
   TEMP_WORK_DIR="$(mktemp -d)"
   WORK_DIR="${TEMP_WORK_DIR}"
@@ -298,6 +309,7 @@ SOURCE_ARCHIVE="${OBS_PACKAGE}-${VERSION}.tar.xz"
 SOURCE_PATH="${WORK_DIR}/${SOURCE_ARCHIVE}"
 VENDOR_PATH="${WORK_DIR}/${VENDOR_ARCHIVE_NAME}"
 SPEC_PATH="${WORK_DIR}/${OBS_SPEC_FILENAME}"
+RPMLINTRC_PATH="${WORK_DIR}/${OBS_RPMLINTRC_FILENAME}"
 CHANGES_PATH="${WORK_DIR}/${OBS_CHANGES_FILENAME}"
 
 echo "Building OBS release sources (version=${VERSION})"
@@ -305,11 +317,13 @@ build_source_archive "${GIT_REF}" "${VERSION}" "${SOURCE_PATH}"
 build_vendor_archive "${GIT_REF}" "${WORK_DIR}" "${VENDOR_PATH}"
 obs_verify_vendor_lockfile "${REPO_ROOT}" "${GIT_REF}" "${VENDOR_PATH}"
 render_spec "${VERSION}" "${REPO_ROOT}/${SPEC_TEMPLATE}" "${SPEC_PATH}"
+cp "${RPMLINTRC_TEMPLATE}" "${RPMLINTRC_PATH}"
 render_changes_file "${VERSION}" "${CHANGES_PATH}"
 
 SOURCE_SHA256="$(sha256_file "${SOURCE_PATH}")"
 VENDOR_SHA256="$(sha256_file "${VENDOR_PATH}")"
 SPEC_SHA256="$(sha256_file "${SPEC_PATH}")"
+RPMLINTRC_SHA256="$(sha256_file "${RPMLINTRC_PATH}")"
 CHANGES_SHA256="$(sha256_file "${CHANGES_PATH}")"
 
 echo "OBS upload dry-run summary"
@@ -322,6 +336,8 @@ echo "  vendor_archive=${VENDOR_ARCHIVE_NAME}"
 echo "  vendor_sha256=${VENDOR_SHA256}"
 echo "  spec=${OBS_SPEC_FILENAME}"
 echo "  spec_sha256=${SPEC_SHA256}"
+echo "  rpmlintrc=${OBS_RPMLINTRC_FILENAME}"
+echo "  rpmlintrc_sha256=${RPMLINTRC_SHA256}"
 echo "  changes=${OBS_CHANGES_FILENAME}"
 echo "  changes_sha256=${CHANGES_SHA256}"
 
@@ -341,7 +357,8 @@ upload_to_obs \
   "${SOURCE_SHA256}" \
   "${VENDOR_SHA256}" \
   "${SPEC_SHA256}" \
-  "${CHANGES_SHA256}"
+  "${CHANGES_SHA256}" \
+  "${RPMLINTRC_SHA256}"
 echo "OBS source upload completed."
 
 if [[ -n "${TEMP_WORK_DIR}" ]]; then
