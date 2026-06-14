@@ -6,6 +6,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Pre-merge target matrix
 
+Run these targets only after code edits in the current session, or when the
+user explicitly asks before commit/push. Do not run during Plan or Ask mode.
+See [agent-workflow.mdc](../../rules/agent-workflow.mdc).
+
 | Paths | Commands |
 |-------|----------|
 | `**/*.rs` | `make fmt-check clippy`, `make cargo-test` (or scoped crate test) |
@@ -19,7 +23,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 | New files | `make check-headers` |
 | Super-linter paths | `make super-linter` (must exit 0 when touched) |
 | Behavior change | `make unit-tests`, `make coverage-quick` before PR |
-| Before PR | `make check-fast` (includes `check-super-linter-native`) |
+| Before push / PR (code changed) | `make check-fast` (includes `check-super-linter-native`) |
 | Full CI | `make -j check` |
 
 Super-linter paths: `.github/**`, `*.{yml,yaml}`, `biome.json`, `renovate.json`,

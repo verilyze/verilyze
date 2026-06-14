@@ -78,22 +78,122 @@ class TestClassifyChangedPaths:
         assert "make super-linter" in targets
 
 
+class TestSessionEditPaths:
+    def test_clear_read_append(self, tmp_path: Path) -> None:
+        paths_file = tmp_path / ".cursor" / ".agent-edited-paths"
+        cursor_validation.clear_session_edit_paths(tmp_path, paths_file=paths_file)
+        assert cursor_validation.read_session_edit_paths(
+            tmp_path, paths_file=paths_file
+        ) == []
+
+        cursor_validation.append_session_edit_paths(
+            tmp_path,
+            ["scripts/a.py", "./scripts/b.py"],
+            paths_file=paths_file,
+        )
+        assert cursor_validation.read_session_edit_paths(
+            tmp_path, paths_file=paths_file
+        ) == ["scripts/a.py", "scripts/b.py"]
+
+        cursor_validation.append_session_edit_paths(
+            tmp_path,
+            ["scripts/a.py", "scripts/c.py"],
+            paths_file=paths_file,
+        )
+        assert cursor_validation.read_session_edit_paths(
+            tmp_path, paths_file=paths_file
+        ) == ["scripts/a.py", "scripts/b.py", "scripts/c.py"]
+
+        cursor_validation.clear_session_edit_paths(tmp_path, paths_file=paths_file)
+        assert cursor_validation.read_session_edit_paths(
+            tmp_path, paths_file=paths_file
+        ) == []
+
+
+class TestShouldEmitFollowup:
+    def test_no_session_edits(self) -> None:
+        assert (
+            cursor_validation.should_emit_followup(
+                {},
+                session_paths=[],
+                diff_paths=["scripts/foo.py"],
+                targets=["make lint-python test-scripts"],
+            )
+            is False
+        )
+
+    def test_aborted_status(self) -> None:
+        data = {"status": "aborted"}
+        assert (
+            cursor_validation.should_emit_followup(
+                data,
+                session_paths=["scripts/foo.py"],
+                diff_paths=["scripts/foo.py"],
+                targets=["make lint-python test-scripts"],
+            )
+            is False
+        )
+
+    def test_empty_targets(self) -> None:
+        assert (
+            cursor_validation.should_emit_followup(
+                {},
+                session_paths=["README.md"],
+                diff_paths=["README.md"],
+                targets=[],
+            )
+            is False
+        )
+
+    def test_stale_git_diff_without_session_edits(self) -> None:
+        assert (
+            cursor_validation.should_emit_followup(
+                {},
+                session_paths=[],
+                diff_paths=["tests/scripts/test_sync_obs_project_meta.py"],
+                targets=["make lint-python test-scripts"],
+            )
+            is False
+        )
+
+    def test_session_edits_need_scoped_checks(self) -> None:
+        targets = ["make lint-python test-scripts"]
+        assert (
+            cursor_validation.should_emit_followup(
+                {},
+                session_paths=["scripts/foo.py"],
+                diff_paths=["scripts/foo.py"],
+                targets=targets,
+            )
+            is True
+        )
+
+    def test_skip_when_checks_already_ran(self) -> None:
+        data = _fixture("stop_skip_followup.json")
+        targets = ["make lint-python test-scripts"]
+        assert (
+            cursor_validation.should_emit_followup(
+                data,
+                session_paths=["scripts/foo.py"],
+                diff_paths=["scripts/foo.py"],
+                targets=targets,
+            )
+            is False
+        )
+
+
 class TestFollowupMessage:
-    def test_python_scripts_message(self) -> None:
+    def test_python_scripts_message_scoped_only(self) -> None:
         targets = cursor_validation.classify_changed_paths(["scripts/foo.py"])
         msg = cursor_validation.build_followup_message(targets)
-        assert "make lint-python test-scripts" in msg
-        assert "make check-fast before push" in msg
+        assert msg == "Run: make lint-python test-scripts."
+        assert "check-fast" not in msg
 
-    def test_empty_targets_unconditional_check_fast(self) -> None:
-        msg = cursor_validation.build_followup_message([])
-        assert msg == "Run make check-fast before push."
-        assert "if you changed behavior" not in msg
+    def test_empty_targets_returns_empty(self) -> None:
+        assert cursor_validation.build_followup_message([]) == ""
 
-    def test_unclassified_paths_list_changed_files(self) -> None:
-        msg = cursor_validation.build_followup_message([], ["README.md"])
-        assert "README.md" in msg
-        assert "make check-fast before push" in msg
+    def test_unclassified_paths_returns_empty(self) -> None:
+        assert cursor_validation.build_followup_message([], ["README.md"]) == ""
 
     def test_skip_when_last_history_matches(self) -> None:
         data = _fixture("stop_skip_followup.json")
@@ -174,8 +274,10 @@ class TestRustFmtHookScoping:
 
 class TestHookScriptsExist:
     def test_lib_and_hooks_present_after_install(self) -> None:
+        _SESSION_TRACK = _ROOT / ".cursor" / "hooks" / "session-track-edits.sh"
         assert _SCRIPT.is_file()
         assert _HOOK_INPUT.is_file()
         assert _RUST_FMT_HOOK.is_file()
         assert _STOP_HOOK.is_file()
+        assert _SESSION_TRACK.is_file()
         assert (_ROOT / ".cursor" / "hooks.json").is_file()

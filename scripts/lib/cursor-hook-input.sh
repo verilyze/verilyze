@@ -49,12 +49,17 @@ if mode == "rust-paths":
         print(path)
 elif mode == "followup":
     repo = cursor_validation.get_repo_root()
-    diff_paths = cursor_validation.collect_changed_paths(repo)
-    targets = cursor_validation.classify_changed_paths(diff_paths)
-    if cursor_validation.should_skip_followup(data, targets):
-        sys.exit(0)
-    message = cursor_validation.build_followup_message(targets, diff_paths)
-    print(json.dumps({"followup_message": message}))
+    message = cursor_validation.resolve_stop_followup(data, repo)
+    if message:
+        print(json.dumps({"followup_message": message}))
+elif mode == "session-clear":
+    repo = cursor_validation.get_repo_root()
+    cursor_validation.clear_session_edit_paths(repo)
+elif mode == "session-append":
+    repo = cursor_validation.get_repo_root()
+    paths = cursor_validation.parse_edited_paths(data)
+    if paths:
+        cursor_validation.append_session_edit_paths(repo, paths)
 else:
     raise SystemExit(f"unknown mode: {mode}")
 PY

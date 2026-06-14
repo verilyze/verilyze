@@ -1,0 +1,44 @@
+---
+description: Agent workflow phases and when to run validation
+alwaysApply: true
+---
+
+# Agent workflow
+
+Follow these phases so Plan and Ask turns stay read-only and validation runs
+only after implementation.
+
+## Phases
+
+1. **Research / Plan** -- Read code, answer questions, create or refine plans.
+   No file edits, no `make` targets, no validation subagents.
+2. **User review** -- Stop after `CreatePlan` or a proposed approach. Wait for
+   explicit approval ("implement", "go ahead", mode switch) before editing.
+3. **Implementation** -- Edit files; follow TDD from
+   [project-guidance.mdc](project-guidance.mdc).
+4. **Validation** -- Run scoped checks from [ci-validation.mdc](ci-validation.mdc)
+   only after code changes in this session.
+
+## Plan and Ask mode
+
+- Read-only: no Write/StrReplace, no commits, no local CI scans.
+- After delivering a plan, **stop**. Do not run `make` targets or launch
+  validation subagents until the user approves implementation.
+- Do not treat plan delivery, research answers, or code reviews as "declaring
+  work done".
+
+## Validation triggers
+
+Run checks only when:
+
+- The user asked to implement and files were edited this session, or
+- The user explicitly asks before commit/push or if changes are merge-ready, or
+- CI failed on an existing PR (use **ci-investigator**).
+
+Do **not** run validation after read-only turns or when no files were edited.
+
+## Stop hook behavior
+
+The project stop hook follow-up runs only when the agent edited files this
+session and scoped checks from [pre-merge-check/targets.md](.cursor/skills/pre-merge-check/targets.md)
+have not succeeded yet. It does not auto-submit `make check-fast`.
