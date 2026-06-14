@@ -807,8 +807,14 @@ releases](#versioning-and-releases) below.
 - Run `make fmt` to auto-format Rust code; run `make clippy` to verify lints.
   Both are included in `make check`; fix any failures before submitting.
 - Python scripts in `scripts/` follow PEP 8, use line length 79, and pass
-  `make lint-python` (black, pylint, mypy, bandit). The Makefile auto-creates
-  `.venv-lint` and installs the linters if they are not found.
+  `make lint-python` (modern-style checker, black, pylint, mypy, bandit).
+  The Makefile auto-creates `.venv-lint` and installs the linters if they are
+  not found. Python 3.11+ style is required for `scripts/` and
+  `tests/scripts/`: do not use `from __future__ import annotations`; use
+  built-in generics (`list[str]`) and PEP 604 unions (`str | None`) instead of
+  legacy `typing` aliases (`List`, `Optional`, `Union`, etc.); import names
+  that are in stdlib `typing` on 3.11+ from `typing`, not `typing_extensions`.
+  Policy is enforced by [`scripts/python_modern_style.py`](scripts/python_modern_style.py).
 - Shell scripts in `scripts/` follow
   [Google's Shell Style Guide](https://google.github.io/styleguide/shellguide.html)
   (PRD NFR-022). Run `make lint-shell` (ShellCheck) before submitting.

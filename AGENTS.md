@@ -83,6 +83,8 @@ observable behavior.
   values), configuration (for user-overridable values), or programmatic
   derivation. Tests must use the same constants as production. See PRD NFR-024,
   CONTRIBUTING "DRY (Don't Repeat Yourself)".
+- **Python modern style:** Follow CONTRIBUTING Python style (3.11+ typing; no
+  `__future__` imports or legacy `typing` aliases).
 
 ## Quick links
 

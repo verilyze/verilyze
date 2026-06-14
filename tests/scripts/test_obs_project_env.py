@@ -4,8 +4,6 @@
 
 """Tests for OBS obs-project.env parsing."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 import pytest

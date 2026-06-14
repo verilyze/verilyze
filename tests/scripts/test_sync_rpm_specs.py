@@ -6,8 +6,6 @@
 
 """Tests for RPM spec synchronization tooling."""
 
-from __future__ import annotations
-
 import importlib.util
 import runpy
 import subprocess
