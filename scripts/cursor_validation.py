@@ -21,7 +21,7 @@ RUST_PATH_RE = re.compile(r"\.rs$")
 PYTHON_SCRIPT_RE = re.compile(r"^(scripts/|tests/scripts/).*\.py$")
 SHELL_SCRIPT_RE = re.compile(r"^scripts/.*\.sh$")
 
-CHECK_FAST_BASELINE = "Run make check-fast before push."
+SESSION_EDIT_PATHS_REL = ".cursor/.agent-edited-paths"
 
 
 def hooks_disabled() -> bool:
@@ -148,14 +148,71 @@ def needs_super_linter(paths: list[str]) -> bool:
     return any(SUPER_LINTER_PATH_RE.search(p) for p in normalized)
 
 
-def _format_changed_paths(paths: list[str]) -> str:
+def session_edit_paths_file(
+    repo_root: Path,
+    *,
+    paths_file: Path | None = None,
+) -> Path:
+    """Return the session edit tracking file path."""
+    if paths_file is not None:
+        return paths_file
+    return repo_root / SESSION_EDIT_PATHS_REL
+
+
+def read_session_edit_paths(
+    repo_root: Path,
+    *,
+    paths_file: Path | None = None,
+) -> list[str]:
+    """Read normalized paths edited by the agent this session."""
+    path = session_edit_paths_file(repo_root, paths_file=paths_file)
+    if not path.is_file():
+        return []
+    lines = path.read_text(encoding="utf-8").splitlines()
+    return normalize_repo_paths([line for line in lines if line.strip()])
+
+
+def write_session_edit_paths(
+    repo_root: Path,
+    paths: list[str],
+    *,
+    paths_file: Path | None = None,
+) -> None:
+    """Replace session edit paths."""
+    path = session_edit_paths_file(repo_root, paths_file=paths_file)
+    path.parent.mkdir(parents=True, exist_ok=True)
     normalized = normalize_repo_paths(paths)
-    if not normalized:
-        return ""
-    if len(normalized) <= 8:
-        return ", ".join(normalized)
-    head = ", ".join(normalized[:8])
-    return f"{head}, ..."
+    if normalized:
+        path.write_text("\n".join(normalized) + "\n", encoding="utf-8")
+    elif path.is_file():
+        path.unlink()
+
+
+def clear_session_edit_paths(
+    repo_root: Path,
+    *,
+    paths_file: Path | None = None,
+) -> None:
+    """Clear session edit tracking for a new conversation."""
+    write_session_edit_paths(repo_root, [], paths_file=paths_file)
+
+
+def append_session_edit_paths(
+    repo_root: Path,
+    paths: list[str],
+    *,
+    paths_file: Path | None = None,
+) -> None:
+    """Append unique normalized paths to the session edit list."""
+    existing = read_session_edit_paths(repo_root, paths_file=paths_file)
+    merged = list(dict.fromkeys([*existing, *normalize_repo_paths(paths)]))
+    write_session_edit_paths(repo_root, merged, paths_file=paths_file)
+
+
+def stop_status_aborted(hook_input: dict) -> bool:
+    """True when the stop hook reports an aborted agent turn."""
+    status = hook_input.get("status")
+    return isinstance(status, str) and status == "aborted"
 
 
 def build_followup_message(
@@ -163,18 +220,35 @@ def build_followup_message(
     paths: list[str] | None = None,
 ) -> str:
     """Build stop-hook follow-up text for the agent."""
-    changed = _format_changed_paths(paths or [])
-    if targets:
-        body = "; ".join(targets)
-        return f"Run: {body}. Then {CHECK_FAST_BASELINE}"
-    if changed:
-        return f"{CHECK_FAST_BASELINE} Changed paths: {changed}."
-    return CHECK_FAST_BASELINE
+    _ = paths
+    if not targets:
+        return ""
+    return f"Run: {'; '.join(targets)}."
 
 
 def _command_matches_target(command: str, target: str) -> bool:
     stripped = command.strip()
     return stripped == target or stripped.startswith(f"{target} ")
+
+
+def _last_shell_command_succeeded(
+    hook_input: dict,
+    history: list[str],
+) -> bool:
+    conversation = hook_input.get("conversation")
+    if not isinstance(conversation, dict):
+        return True
+    command_results = conversation.get("last_shell_command_results")
+    if not isinstance(command_results, list) or len(command_results) != len(
+        history
+    ):
+        return True
+    last_result = command_results[-1]
+    if isinstance(last_result, dict):
+        exit_code = last_result.get("exit_code")
+        if exit_code is not None and exit_code != 0:
+            return False
+    return True
 
 
 def should_skip_followup(hook_input: dict, targets: list[str]) -> bool:
@@ -194,15 +268,47 @@ def should_skip_followup(hook_input: dict, targets: list[str]) -> bool:
     ):
         return False
 
-    results = conversation.get("last_shell_command_results")
-    if isinstance(results, list) and len(results) == len(history):
-        last_result = results[-1]
-        if isinstance(last_result, dict):
-            exit_code = last_result.get("exit_code")
-            if exit_code is not None and exit_code != 0:
-                return False
+    return _last_shell_command_succeeded(hook_input, history)
 
+
+def should_emit_followup(
+    hook_input: dict,
+    session_paths: list[str],
+    diff_paths: list[str],
+    targets: list[str],
+) -> bool:
+    """True when the stop hook should auto-submit a scoped check follow-up."""
+    _ = diff_paths
+    if stop_status_aborted(hook_input):
+        return False
+    if not session_paths:
+        return False
+    if not targets:
+        return False
+    if should_skip_followup(hook_input, targets):
+        return False
     return True
+
+
+def resolve_stop_followup(
+    hook_input: dict,
+    repo_root: Path,
+    *,
+    paths_file: Path | None = None,
+) -> str | None:
+    """Return follow-up text, or None when the stop hook should stay silent."""
+    session_paths = read_session_edit_paths(repo_root, paths_file=paths_file)
+    validation_paths = session_paths
+    targets = classify_changed_paths(validation_paths)
+    if not should_emit_followup(
+        hook_input,
+        session_paths,
+        validation_paths,
+        targets,
+    ):
+        return None
+    message = build_followup_message(targets, validation_paths)
+    return message or None
 
 
 def load_hook_json(raw: str) -> dict:

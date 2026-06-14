@@ -782,9 +782,17 @@ no file lists the same copyright holder twice (per `.mailmap` canonicalization).
 
 Project-scoped Cursor rules, skills, and hooks live under [`.cursor/`](.cursor/).
 
+- **Agent workflow:** [`.cursor/rules/agent-workflow.mdc`](.cursor/rules/agent-workflow.mdc)
+  (Plan/Ask read-only phases; stop after plan delivery; validation only after edits)
 - **Pre-merge / CI validation:** [`.cursor/skills/pre-merge-check/SKILL.md`](.cursor/skills/pre-merge-check/SKILL.md)
 - **Release preparation:** [`.cursor/skills/release-prepare/SKILL.md`](.cursor/skills/release-prepare/SKILL.md)
 - **CI gates reference:** [`.cursor/rules/ci-validation.mdc`](.cursor/rules/ci-validation.mdc)
+
+**Stop hook:** After each agent turn, the stop hook may auto-submit a follow-up
+only when the agent edited files this session and scoped checks have not run
+successfully yet. It does not suggest `make check-fast` on read-only turns or
+when the working tree has unrelated stale changes. The `sessionStart` hook
+clears session edit tracking; `afterFileEdit` records agent-edited paths.
 
 Hooks opt-out: set `VLZ_CURSOR_HOOKS_DISABLE=1` to skip Cursor hook scripts locally.
 

@@ -1,9 +1,18 @@
 {
   "version": 1,
   "hooks": {
+    "sessionStart": [
+      {
+        "command": ".cursor/hooks/session-track-edits.sh clear"
+      }
+    ],
     "afterFileEdit": [
       {
         "command": ".cursor/hooks/rust-fmt.sh",
+        "matcher": "Write|StrReplace|ApplyPatch"
+      },
+      {
+        "command": ".cursor/hooks/session-track-edits.sh append",
         "matcher": "Write|StrReplace|ApplyPatch"
       }
     ],

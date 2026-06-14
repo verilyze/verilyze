@@ -4,20 +4,24 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 name: pre-merge-check
-description: Runs verilyze pre-merge and CI validation. Use when finishing a task, before commit or push, when CI fails, or when the user asks if changes are ready to merge.
+description: Runs verilyze pre-merge and CI validation. Use after code edits, before commit or push, when CI fails, or when the user asks if changes are ready to merge.
 ---
 
 # Pre-merge check
 
+Do **not** invoke during Plan or Ask mode, or when no files were edited this
+session. See [agent-workflow.mdc](../../rules/agent-workflow.mdc).
+
 ## Workflow
 
-1. Classify paths from working tree, index, and unpushed commits (`origin/main...HEAD`)
-2. Run the **minimal** target set from [targets.md](targets.md) (not blind `make check`)
-3. On failure, fix and re-run only the failed gate
-4. Behavior changed: `make coverage-quick` (85% line/region, 80% function) but
+1. Confirm files were edited this session (or user explicitly requested checks)
+2. Classify paths from session edits and git diff (`origin/main...HEAD`)
+3. Run the **minimal** target set from [targets.md](targets.md) (not blind `make check`)
+4. On failure, fix and re-run only the failed gate
+5. Behavior changed: `make coverage-quick` (85% line/region, 80% function) but
    attempt to reach as close as reasonably possible to 100%
-5. Before PR: `make check-fast` (must exit 0)
-6. Remind human-only steps: signed commits, DCO, `git push`
+6. Before push/PR with code changes: `make check-fast` (must exit 0)
+7. Remind human-only steps: signed commits, DCO, `git push`
 
 ## Super-linter
 

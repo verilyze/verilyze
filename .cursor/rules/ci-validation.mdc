@@ -5,11 +5,16 @@ alwaysApply: true
 
 # CI validation gates
 
-Before declaring work done, run the **minimal** `make` targets for touched paths.
-Do not run blind `make check` unless full CI parity is required.
+After **implementing code changes** (files edited this session), run the
+**minimal** `make` targets for touched paths. Do not run blind `make check`
+unless full CI parity is required.
 
-| If you changed | Run before finishing |
-|----------------|----------------------|
+**Do not run validation** during Plan mode, Ask mode, research-only turns, or
+when no files were edited this session. See
+[agent-workflow.mdc](agent-workflow.mdc).
+
+| If you changed | Run after implementation |
+|----------------|------------------------|
 | `**/*.rs` | `make fmt-check clippy` then `make cargo-test` (or scoped `cargo test -p <crate> --features vlz/testing`) |
 | `scripts/**/*.py`, `tests/scripts/**` | `make lint-python test-scripts` |
 | `scripts/**/*.sh` | `make lint-shell` |
@@ -21,7 +26,7 @@ Do not run blind `make check` unless full CI parity is required.
 | New source files | `make check-headers` |
 | Any behavior change | `make unit-tests`; before PR also `make coverage-quick` |
 | Super-linter paths (below) | `make super-linter` (Docker, ~3-10 min; must exit 0 when touched) |
-| **Before push / PR** | `make check-fast` (~2-4 min; includes `check-super-linter-native`) |
+| **Before push / PR** (code changed) | `make check-fast` (~2-4 min; includes `check-super-linter-native`) |
 | **Full CI parity** | `make -j check` |
 
 Super-linter paths: `.github/**`, `*.{yml,yaml}`, `biome.json`, `renovate.json`,
@@ -34,9 +39,11 @@ Incremental: `make super-linter`. Full tree (nightly): `make super-linter-full`.
 
 - Single crate: `cargo clippy -p <crate> --all-targets -- -D warnings`
 - Cross-crate or workspace `Cargo.toml`: `make clippy`
-- Before PR: `make check-fast` (includes clippy)
+- Before PR (with code changes): `make check-fast` (includes clippy)
 
-Do **not** run clippy or super-linter inside Cursor hooks. Run them via shell or a **shell** subagent before finishing when paths require it.
+Do **not** run clippy or super-linter inside Cursor hooks. Run them via shell
+when paths require it. Launch a **shell** subagent for long checks only when
+checks failed or the user asked; do not spawn one after read-only turns.
 
 ## Do not skip
 
@@ -47,7 +54,7 @@ Do **not** run clippy or super-linter inside Cursor hooks. Run them via shell or
 ## Subagents
 
 - `explore`: broad codebase questions (readonly)
-- `shell`: long checks (`check-fast`, clippy fix-and-retry, super-linter in background)
+- `shell`: long checks when validation is required (`check-fast`, clippy fix-and-retry, super-linter in background)
 - `ci-investigator`: one failed GitHub Actions job on a PR
 
 Hooks opt-out: `VLZ_CURSOR_HOOKS_DISABLE=1`.
