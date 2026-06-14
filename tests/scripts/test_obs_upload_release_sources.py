@@ -162,5 +162,6 @@ def test_obs_upload_script_uses_transient_osc_credentials() -> None:
 def test_osc_cmd_uses_transient_config_file() -> None:
     """osc must read apiurl from OSC_CONFIG, not default ~/.oscrc."""
     text = (_ROOT / "scripts" / "lib" / "osc-cmd.sh").read_text(encoding="utf-8")
-    assert 'config_args=(-c "${OSC_CONFIG}")' in text
+    assert 'config_args=(--config "${OSC_CONFIG}")' in text
     assert "osc --no-keyring" in text
+    assert 'config_args=(-c "${OSC_CONFIG}")' not in text

@@ -8,7 +8,7 @@
 osc_cmd() {
   local -a config_args=()
   if [[ -n "${OSC_CONFIG:-}" ]]; then
-    config_args=(-c "${OSC_CONFIG}")
+    config_args=(--config "${OSC_CONFIG}")
   fi
   osc --no-keyring "${config_args[@]}" -A "${OBS_API}" "$@"
 }

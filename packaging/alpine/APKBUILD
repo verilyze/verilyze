@@ -4,7 +4,7 @@
 
 # Maintainer: Travis Post <post.travis@gmail.com>
 pkgname=verilyze
-pkgver=0.2.4
+pkgver=0.2.5
 pkgrel=0
 pkgdesc="Fast, modular Software Composition Analysis tool"
 url="https://github.com/verilyze/verilyze"

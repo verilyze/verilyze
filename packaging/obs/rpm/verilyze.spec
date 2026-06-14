@@ -6,7 +6,7 @@
 %global pkg_name verilyze
 
 Name:           %{pkg_name}
-Version:        0.2.4
+Version:        0.2.5
 Release:        0%{?dist}
 Summary:        Fast, modular Software Composition Analysis tool
 License:        GPL-3.0-or-later
