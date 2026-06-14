@@ -745,6 +745,23 @@ canonical form. Format:
 which copyright lines are generated. `make check-header-duplicates` verifies
 no file lists the same copyright holder twice (per `.mailmap` canonicalization).
 
+## Cursor agent configuration
+
+Project-scoped Cursor rules, skills, and hooks live under [`.cursor/`](.cursor/).
+
+- **Pre-merge / CI validation:** [`.cursor/skills/pre-merge-check/SKILL.md`](.cursor/skills/pre-merge-check/SKILL.md)
+- **Release preparation:** [`.cursor/skills/release-prepare/SKILL.md`](.cursor/skills/release-prepare/SKILL.md)
+- **CI gates reference:** [`.cursor/rules/ci-validation.mdc`](.cursor/rules/ci-validation.mdc)
+
+Hooks opt-out: set `VLZ_CURSOR_HOOKS_DISABLE=1` to skip Cursor hook scripts locally.
+
+**Agent-assisted releases:** AI agents may run the full release workflow
+(including signed commits, tags, and `git push origin vX.Y.Z`) when a human
+**explicitly requests** it in chat. Agents must not start release work
+proactively. See [`.cursor/skills/release-prepare/SKILL.md`](.cursor/skills/release-prepare/SKILL.md).
+Human maintainers may still cut releases manually per [Versioning and
+releases](#versioning-and-releases) below.
+
 ## Code style and checks
 
 - Run `make check` before submitting to verify headers, build, tests

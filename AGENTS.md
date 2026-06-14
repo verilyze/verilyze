@@ -45,7 +45,8 @@ behavior), you **must** follow test-driven development (TDD):
 4. **Iterate** -- Keep iterating on the implementation until all tests pass.
 5. **Code coverage** -- Ensure code coverage meets or exceeds the minimum
    thresholds defined in the PRD.md. Add mocking if necessary, and iterate
-   until coverage thresholds are satisfied.
+   until coverage thresholds are satisfied, but attempt to reach as close to
+   100% coverage as reasonably possible.
 
 Full workflow and rationale:
 [CONTRIBUTING.md -- Test-driven development](CONTRIBUTING.md#test-driven-development-tdd).

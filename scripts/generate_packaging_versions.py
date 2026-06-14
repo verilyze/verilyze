@@ -18,8 +18,6 @@ RPM spec and Docker get version via Makefile at build time.
 cargo-deb and cargo-aur read Cargo.toml directly.
 """
 
-from __future__ import annotations
-
 import argparse
 import re
 import sys

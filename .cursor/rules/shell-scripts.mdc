@@ -1,0 +1,12 @@
+---
+description: Shell script conventions for verilyze
+globs: "scripts/**/*.sh"
+alwaysApply: false
+---
+
+# Shell scripts
+
+- ShellCheck via `make lint-shell`
+- Use `set -euo pipefail` in bash scripts
+- SPDX header block with trailing blank line after the block
+- Prefer existing `scripts/lib/*.sh` helpers over duplicating logic

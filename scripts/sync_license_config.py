@@ -14,8 +14,6 @@ Updates about.toml accepted = [...] to match deny.toml [licenses] allow.
 Preserves all other about.toml content (workarounds, private, etc.).
 """
 
-from __future__ import annotations
-
 import argparse
 import re
 import sys
