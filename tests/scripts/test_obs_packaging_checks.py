@@ -35,6 +35,9 @@ def test_obs_project_env_has_required_coordinate_keys() -> None:
     assert "OBS_CHANGES_FILENAME=verilyze.changes" in text
     assert "OBS_LEGACY_CHANGES_FILENAME=verilyze.spec.changes" in text
     assert "OBS_MAINTAINER=" in text
+    assert "OBS_WAIT_REPOSITORIES=" in text
+    assert "OBS_WAIT_TIMEOUT_SECONDS=" in text
+    assert "OBS_WAIT_POLL_INTERVAL_SECONDS=" in text
 
 
 def test_obs_packaging_check_script_invokes_signing_check() -> None:
@@ -155,6 +158,8 @@ def test_obs_packaging_check_asserts_upload_workflow_and_offline() -> None:
     assert "--skip-runservice" in text
     assert "vendor.tar.zst" in text
     assert "--offline" in text
+    assert "obs-wait-for-builds.sh" in text
+    assert "OBS_WAIT_REPOSITORIES" in text
 
 
 def test_obs_spec_keeps_empty_changelog_section() -> None:

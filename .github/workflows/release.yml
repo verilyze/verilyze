@@ -224,7 +224,7 @@ jobs:
             "ghcr.io/${REPO}@${DIGEST}"
 
   create-release:
-    needs: [preflight-release, build-binary, build-deb, build-rpm, build-docker]
+    needs: [preflight-release, build-binary, build-deb, build-rpm, build-docker, wait-obs-builds]
     runs-on: ubuntu-latest
     # contents: write -- GitHub Release and asset upload; actions: read -- download-artifact.
     permissions:
@@ -412,3 +412,33 @@ jobs:
             --config packaging/obs/obs-project.env \
             --version "${VERSION}" \
             --skip-runservice
+
+  wait-obs-builds:
+    needs: [preflight-release, publish-obs]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Install OBS wait tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y osc
+
+      - name: Wait for OBS builds
+        env:
+          VERSION: ${{ needs.preflight-release.outputs.version }}
+          OBS_USER: ${{ secrets.OBS_USER }}
+          OBS_PASSWORD: ${{ secrets.OBS_PASSWORD }}
+          OSC_USERNAME: ${{ secrets.OBS_USER }}
+          OSC_PASSWORD: ${{ secrets.OBS_PASSWORD }}
+          OSC_APIURL: https://api.opensuse.org
+        run: |
+          set -euo pipefail
+          ./scripts/obs-wait-for-builds.sh \
+            --config packaging/obs/obs-project.env \
+            --version "${VERSION}"

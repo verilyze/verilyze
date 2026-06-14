@@ -83,6 +83,21 @@ def test_release_workflow_build_rpm_installs_python3() -> None:
     assert "python3" in rpm_job
 
 
+def test_release_workflow_has_scorecard_packaging_pattern() -> None:
+    text = _RELEASE.read_text(encoding="utf-8")
+    assert "docker push" in text or "docker/build-push-action" in text
+
+
+def test_release_workflow_gates_create_release_on_obs_builds() -> None:
+    text = _RELEASE.read_text(encoding="utf-8")
+    assert "wait-obs-builds:" in text
+    assert "./scripts/obs-wait-for-builds.sh" in text
+    create_start = text.index("create-release:")
+    create_needs_end = text.index("\n    runs-on:", create_start)
+    create_needs = text[create_start:create_needs_end]
+    assert "wait-obs-builds" in create_needs
+
+
 def test_check_obs_signing_runs_in_preflight_not_in_publish_obs() -> None:
     text = _RELEASE.read_text(encoding="utf-8")
     preflight_end = text.index("build-binary:")

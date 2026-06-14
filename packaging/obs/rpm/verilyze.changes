@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Sat Jun 13 10:00:00 UTC 2026 - Travis Post <post.travis@gmail.com> - 0.2.3
+
+- Fixed: Release workflow gates GitHub Release promotion on successful OBS source upload, rebuild trigger, and completed OBS builds (`wait-obs-builds` job).
+- Added: `scripts/obs-wait-for-builds.sh` polls OBS build results for repositories configured in `OBS_WAIT_REPOSITORIES`.
+
+-------------------------------------------------------------------
 Sun Jun  7 10:00:00 UTC 2026 - Travis Post <post.travis@gmail.com> - 0.2.2
 
 - Fixed: OBS upload-driven release flow replaces the broken `_service` pipeline on public `build.opensuse.org` (pre-generated tarball, vendor archive, and spec uploaded via `scripts/obs-upload-release-sources.sh`).

@@ -12,6 +12,20 @@ The GitHub Release body is generated from the matching `## [version]` section
 below when you push a `v*` tag (see `.github/workflows/release.yml`). Update
 this file **before** creating the release tag.
 
+## [0.2.3] - 2026-06-13
+
+### Fixed
+
+- Release workflow gates GitHub Release promotion on successful OBS source
+  upload, rebuild trigger, and completed OBS builds (`wait-obs-builds` job).
+- OpenSSF Scorecard Packaging check: requires a fully successful release
+  workflow run (including OBS jobs) so `docker push` to GHCR is recognized.
+
+### Added
+
+- `scripts/obs-wait-for-builds.sh` polls OBS build results for repositories
+  configured in `OBS_WAIT_REPOSITORIES` (`packaging/obs/obs-project.env`).
+
 ## [0.2.2] - 2026-06-07
 
 ### Fixed
