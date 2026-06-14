@@ -6,8 +6,6 @@
 
 """Build a simple SVG coverage badge from Cobertura root line-rate."""
 
-from __future__ import annotations
-
 import argparse
 import re
 import sys

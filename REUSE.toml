@@ -79,6 +79,13 @@ precedence = "override"
 SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
+# Cursor hook test fixtures (JSON; no SPDX in file)
+[[annotations]]
+path = "tests/scripts/fixtures/cursor-hooks/*.json"
+precedence = "override"
+SPDX-FileCopyrightText = "The verilyze contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
 # PEM test material for TLS CRL integration tests (SEC-021); not comments-friendly
 [[annotations]]
 path = "crates/core/vlz-cve-client/tests/fixtures/tls_crl/*.pem"

@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": ".cursor/hooks/rust-fmt.sh",
+        "matcher": "Write|StrReplace|ApplyPatch"
+      }
+    ],
+    "stop": [
+      {
+        "command": ".cursor/hooks/stop-check-followup.sh",
+        "loop_limit": 2
+      }
+    ]
+  }
+}

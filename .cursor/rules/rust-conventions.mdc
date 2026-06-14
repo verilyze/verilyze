@@ -1,0 +1,22 @@
+---
+description: Rust conventions and clippy guidance for verilyze
+globs: "**/*.rs,**/Cargo.toml"
+alwaysApply: false
+---
+
+# Rust conventions
+
+- `#![deny(unsafe_code)]` in new crates; no `unsafe` without approval
+- Integration tests: enable `vlz/testing` feature; use per-crate `tests/` layout
+- CLI output: use `write_stdout()` per CONTRIBUTING
+- Unit tests: `#[cfg(test)] mod tests` in the same file or crate
+
+## Clippy
+
+| Situation | Command |
+|-----------|---------|
+| Single crate | `cargo clippy -p <crate> --all-targets -- -D warnings` |
+| Cross-crate / workspace Cargo.toml | `make clippy` |
+| Before PR | `make check-fast` (includes clippy) |
+
+Do not run clippy in Cursor hooks.

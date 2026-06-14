@@ -5,8 +5,6 @@
 
 """Render OBS RPM .changes entries from CHANGELOG.md release sections."""
 
-from __future__ import annotations
-
 import argparse
 import re
 import sys

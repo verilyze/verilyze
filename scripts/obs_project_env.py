@@ -5,8 +5,6 @@
 
 """Parse packaging/obs/obs-project.env for automation scripts."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from pathlib import Path
 

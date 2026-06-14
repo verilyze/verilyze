@@ -1,2 +1,8 @@
 COPYING
 LICENSE
+/target
+/reports
+/coverage
+/super-linter-output
+/super-linter.log
+/super-linter-summary.md

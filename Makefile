@@ -419,6 +419,15 @@ check-dco:
 check-signatures:
 	@cd "$(MKFILE_DIR)" && ./scripts/check-signatures.sh
 
+# release-preflight: CHANGELOG, tag/version, OBS and packaging checks before tag push
+release-preflight:
+	$(SCRIPTS_DIR)/release-preflight.sh
+
+# release-notes: preview GitHub Release body for VERSION=x.y.z
+release-notes:
+	@test -n "$(VERSION)" || (echo "VERSION is required, e.g. make release-notes VERSION=0.2.2" && exit 2)
+	@$(SCRIPTS_DIR)/extract-changelog-for-release.sh "$(VERSION)"
+
 # ---- Check (full CI gate) ----
 # check-fast: headers, build, fmt, clippy, cargo-deny, lint (no coverage/fuzz; ~2-4 min)
 check-fast: setup \

@@ -1,0 +1,12 @@
+---
+description: Python script conventions for verilyze scripts and tests
+globs: "scripts/**/*.py,tests/scripts/**"
+alwaysApply: false
+---
+
+# Python scripts
+
+- Linters: `.venv-lint` via `make lint-python`
+- Tests: `.venv-test` via `make test-scripts`
+- Do not invoke black/pylint/mypy directly; use Makefile targets
+- SPDX header on new files; trailing blank line after header block

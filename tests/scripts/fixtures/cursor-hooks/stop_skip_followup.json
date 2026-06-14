@@ -1,0 +1,5 @@
+{
+  "conversation": {
+    "last_shell_commands": ["make lint-python test-scripts"]
+  }
+}
