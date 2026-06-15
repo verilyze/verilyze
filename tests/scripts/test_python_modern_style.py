@@ -25,7 +25,7 @@ _ROOT = Path(__file__).resolve().parent.parent.parent
         ("from typing import List\n", "legacy-typing"),
         ("import typing\nx: typing.Optional[str] = None\n", "legacy-typing"),
         ("from typing_extensions import Self\n", "typing-extensions"),
-        ("import typing_extensions as te\nx = te.Self\n", "typing-extensions"),
+        ("import typing_extensions as typing_ext\nx = typing_ext.Self\n", "typing-extensions"),
     ],
 )
 def test_find_violations_in_source_flags_banned_patterns(

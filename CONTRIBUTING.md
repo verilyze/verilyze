@@ -880,7 +880,11 @@ releases](#versioning-and-releases) below.
   The README badge reflects the **nightly** workflow (last full-tree run).
   Locally: `make super-linter` (incremental) or `make super-linter-full` (full
   tree); both call [`scripts/super-linter.sh`](scripts/super-linter.sh) and
-  require Docker. Workflows pass `GITHUB_TOKEN` and set
+  require Docker. Before opening a PR, `make check-fast` runs
+  `make check-super-linter-native` (no Docker): OBS env key order, release
+  workflow Checkov skip parity, and **codespell** from `.venv-test/bin`
+  using [`.codespellrc`](.codespellrc) (same gate as super-linter
+  SPELL_CODESPELL). Workflows pass `GITHUB_TOKEN` and set
   `SAVE_SUPER_LINTER_OUTPUT` / `SAVE_SUPER_LINTER_SUMMARY` so logs upload on
   failure. The script sets `IGNORE_GITIGNORED_FILES=true` and
   `FILTER_REGEX_EXCLUDE` so `target/`, `.git/`, `completions/` (ShellCheck is

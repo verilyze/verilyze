@@ -20,6 +20,7 @@ dev = [
     "pylint>=4.0.5",
     "mypy>=2.1.0",
     "bandit>=1.9.4",
+    "codespell>=2.4.1",
 ]
 
 [tool.setuptools]

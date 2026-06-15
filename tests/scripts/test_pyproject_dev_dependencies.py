@@ -14,7 +14,15 @@ _ROOT = Path(__file__).resolve().parent.parent.parent
 PYTEST_MIN_FLOOR = (9, 0, 3)
 
 EXPECTED_DEV_PACKAGES = frozenset(
-    {"pytest", "pytest-cov", "black", "pylint", "mypy", "bandit"}
+    {
+        "pytest",
+        "pytest-cov",
+        "black",
+        "pylint",
+        "mypy",
+        "bandit",
+        "codespell",
+    }
 )
 
 _FLOOR_RE = re.compile(r"^([a-zA-Z0-9_-]+)\s*>=\s*([\d.]+)\s*$")
@@ -87,6 +95,7 @@ def test_makefile_venv_test_installs_from_pyproject_dev_extra() -> None:
     assert 'pip install ".[dev]"' in recipe
     assert 'cd "$(MKFILE_DIR)"' in recipe
     assert "pip install pytest" not in recipe
+    assert "codespell" in recipe
     assert "LINT_PYTHON_PACKAGES" not in recipe
 
 
@@ -96,6 +105,7 @@ def test_makefile_venv_lint_installs_from_pyproject_dev_extra() -> None:
     assert 'pip install ".[dev]"' in recipe
     assert 'cd "$(MKFILE_DIR)"' in recipe
     assert "pip install black" not in recipe
+    assert "codespell" in recipe
     assert "LINT_PYTHON_PACKAGES" not in text
 
 

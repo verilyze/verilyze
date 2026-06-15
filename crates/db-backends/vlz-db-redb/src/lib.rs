@@ -61,6 +61,15 @@ fn pkg_cache_key(pkg: &Package, provider_id: &str) -> String {
     format!("{}::{}::{}", pkg.name, pkg.version, provider_id)
 }
 
+/// Default on-disk cache path from the process working directory.
+fn default_cache_db_path(
+    current_dir: Result<PathBuf, std::io::Error>,
+) -> PathBuf {
+    current_dir
+        .unwrap_or_else(|_| PathBuf::from("."))
+        .join("vlz-cache.redb")
+}
+
 /// Load persisted hits/misses and cache_ttl_secs from the metadata table.
 /// Returns (hits, misses, optional stored TTL).
 fn load_metadata(db: &Database) -> (usize, usize, Option<u64>) {
@@ -199,9 +208,7 @@ impl RedbBackend {
     ///
     /// * `ttl_secs` – time‑to‑live for cached CVE entries.
     pub fn new(ttl_secs: u64) -> Self {
-        let path = std::env::current_dir()
-            .unwrap_or_else(|_| PathBuf::from("."))
-            .join("vlz-cache.redb");
+        let path = default_cache_db_path(std::env::current_dir());
         Self::with_path(path, ttl_secs)
             .expect("failed to open or create RedB database")
     }
@@ -1319,21 +1326,18 @@ mod tests {
     }
 
     /// RedbBackend::new uses PathBuf::from(".") when current_dir() fails.
-    /// When cwd is a deleted directory, with_path fails; we catch the panic.
-    #[tokio::test]
-    async fn redb_backend_new_fallback_when_current_dir_fails() {
-        let orig =
-            std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-        let dir = tempfile::tempdir().expect("tempdir");
-        let path = dir.path().to_path_buf();
-        std::env::set_current_dir(&path).expect("chdir");
-        drop(dir);
-        let result = std::panic::catch_unwind(|| RedbBackend::new(3600));
-        std::env::set_current_dir(&orig).expect("restore cwd");
-        assert!(
-            result.is_err(),
-            "new() should panic when cwd is deleted and fallback path fails"
-        );
+    #[test]
+    fn default_cache_db_path_falls_back_to_dot_when_cwd_unavailable() {
+        let err = std::io::Error::new(std::io::ErrorKind::NotFound, "no cwd");
+        let path = super::default_cache_db_path(Err(err));
+        assert_eq!(path, PathBuf::from(".").join("vlz-cache.redb"));
+    }
+
+    #[test]
+    fn default_cache_db_path_joins_under_cwd() {
+        let path =
+            super::default_cache_db_path(Ok(PathBuf::from("/tmp/work")));
+        assert_eq!(path, PathBuf::from("/tmp/work/vlz-cache.redb"));
     }
 
     #[tokio::test]
