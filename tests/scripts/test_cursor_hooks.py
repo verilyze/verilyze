@@ -9,6 +9,7 @@ import json
 import shutil
 import subprocess
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -38,6 +39,49 @@ class TestParseEditedPaths:
         data = _fixture("after_file_edit_yaml.json")
         paths = cursor_validation.parse_edited_paths(data)
         assert paths == [".github/workflows/ci.yml"]
+
+    def test_edits_and_files_lists(self) -> None:
+        data = {
+            "edits": [{"path": "scripts/a.py"}],
+            "files": ["scripts/b.py"],
+        }
+        paths = cursor_validation.parse_edited_paths(data)
+        assert paths == ["scripts/a.py", "scripts/b.py"]
+
+
+class TestCollectChangedPaths:
+    def test_git_output_returns_empty_on_failure(self, tmp_path: Path) -> None:
+        from unittest.mock import MagicMock
+
+        proc = MagicMock(returncode=1, stdout="")
+        with patch("scripts.cursor_validation.subprocess.run", return_value=proc):
+            assert cursor_validation._git_output(tmp_path, "status") == ""
+
+    def test_collects_git_diff_paths(self, tmp_path: Path, monkeypatch) -> None:
+        repo = tmp_path / "repo"
+        repo.mkdir()
+
+        def fake_git_output(_root: Path, *args: str) -> str:
+            if args == ("diff", "--name-only"):
+                return "scripts/new.py\n"
+            if args == ("merge-base", "origin/main", "HEAD"):
+                return "abc\n"
+            if args == ("diff", "--name-only", "abc..HEAD"):
+                return "crates/foo.rs\n"
+            return ""
+
+        monkeypatch.setattr(
+            cursor_validation, "_git_output", fake_git_output
+        )
+        paths = cursor_validation.collect_changed_paths(repo)
+        assert paths == ["scripts/new.py", "crates/foo.rs"]
+
+
+class TestRustPaths:
+    def test_filters_rust_only(self) -> None:
+        assert cursor_validation.rust_paths(
+            ["crates/a.rs", "scripts/b.py"]
+        ) == ["crates/a.rs"]
 
 
 class TestClassifyChangedPaths:
@@ -77,8 +121,35 @@ class TestClassifyChangedPaths:
         )
         assert "make super-linter" in targets
 
+    def test_shell_scripts_trigger_lint_shell(self) -> None:
+        targets = cursor_validation.classify_changed_paths(
+            ["scripts/foo.sh"]
+        )
+        assert targets == ["make lint-shell"]
 
-class TestSessionEditPaths:
+    def test_architecture_mmd_triggers_doc_diagrams(self) -> None:
+        targets = cursor_validation.classify_changed_paths(
+            ["architecture/flow.mmd"]
+        )
+        assert targets == ["make check-doc-diagrams"]
+
+    def test_man_pages_trigger_config_and_manpage_checks(self) -> None:
+        targets = cursor_validation.classify_changed_paths(["man/vlz.1"])
+        assert "make check-config-docs" in targets
+        assert "make check-manpages" in targets
+
+    def test_cargo_toml_triggers_deny_check(self) -> None:
+        targets = cursor_validation.classify_changed_paths(["Cargo.toml"])
+        assert targets == ["make deny-check"]
+
+
+class TestNeedsSuperLinter:
+    def test_true_for_biome_json(self) -> None:
+        assert cursor_validation.needs_super_linter(["biome.json"]) is True
+
+    def test_false_for_readme(self) -> None:
+        assert cursor_validation.needs_super_linter(["README.md"]) is False
+
     def test_clear_read_append(self, tmp_path: Path) -> None:
         paths_file = tmp_path / ".cursor" / ".agent-edited-paths"
         cursor_validation.clear_session_edit_paths(tmp_path, paths_file=paths_file)
@@ -108,6 +179,27 @@ class TestSessionEditPaths:
         assert cursor_validation.read_session_edit_paths(
             tmp_path, paths_file=paths_file
         ) == []
+
+    def test_write_empty_paths_unlinks_file(self, tmp_path: Path) -> None:
+        paths_file = tmp_path / "paths.txt"
+        paths_file.write_text("scripts/a.py\n", encoding="utf-8")
+        cursor_validation.write_session_edit_paths(
+            tmp_path, [], paths_file=paths_file
+        )
+        assert not paths_file.exists()
+
+    def test_custom_paths_file_override(self, tmp_path: Path) -> None:
+        custom = tmp_path / "custom-paths.txt"
+        assert cursor_validation.session_edit_paths_file(
+            tmp_path, paths_file=custom
+        ) == custom
+
+    def test_read_session_uses_custom_paths_file(self, tmp_path: Path) -> None:
+        custom = tmp_path / "custom-paths.txt"
+        custom.write_text("scripts/z.py\n", encoding="utf-8")
+        assert cursor_validation.read_session_edit_paths(
+            tmp_path, paths_file=custom
+        ) == ["scripts/z.py"]
 
 
 class TestShouldEmitFollowup:
@@ -221,6 +313,69 @@ class TestFollowupMessage:
         }
         targets = ["make super-linter"]
         assert cursor_validation.should_skip_followup(data, targets) is False
+
+    def test_skip_when_no_conversation(self) -> None:
+        assert (
+            cursor_validation.should_skip_followup({}, ["make lint-python test-scripts"])
+            is False
+        )
+
+    def test_skip_when_history_length_mismatch(self) -> None:
+        data = {
+            "conversation": {
+                "last_shell_commands": ["make lint-python test-scripts"],
+                "last_shell_command_results": [],
+            }
+        }
+        assert (
+            cursor_validation.should_skip_followup(
+                data, ["make lint-python test-scripts"]
+            )
+            is True
+        )
+
+
+class TestResolveStopFollowup:
+    def test_returns_message_when_checks_needed(self, tmp_path: Path) -> None:
+        paths_file = tmp_path / "paths.txt"
+        cursor_validation.write_session_edit_paths(
+            tmp_path,
+            ["scripts/foo.py"],
+            paths_file=paths_file,
+        )
+        msg = cursor_validation.resolve_stop_followup(
+            {},
+            tmp_path,
+            paths_file=paths_file,
+        )
+        assert msg == "Run: make lint-python test-scripts."
+
+    def test_returns_none_when_aborted(self, tmp_path: Path) -> None:
+        paths_file = tmp_path / "paths.txt"
+        cursor_validation.write_session_edit_paths(
+            tmp_path,
+            ["scripts/foo.py"],
+            paths_file=paths_file,
+        )
+        assert (
+            cursor_validation.resolve_stop_followup(
+                {"status": "aborted"},
+                tmp_path,
+                paths_file=paths_file,
+            )
+            is None
+        )
+
+
+class TestLoadHookJson:
+    def test_rejects_non_object(self) -> None:
+        with pytest.raises(TypeError, match="JSON object"):
+            cursor_validation.load_hook_json("[]")
+
+
+class TestGetRepoRoot:
+    def test_points_at_repository_root(self) -> None:
+        assert cursor_validation.get_repo_root() == _ROOT
 
 
 class TestHooksDisabled:

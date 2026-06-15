@@ -93,8 +93,15 @@ PYTHONPATH=. "$PY" -m pytest tests/scripts/ \
   --cov=scripts \
   --cov-report=html:reports/python \
   --cov-report=xml:reports/cobertura-python.xml \
-  --cov-fail-under=85 \
+  --cov-report=term-missing:skip-covered \
+  --cov-fail-under=95 \
   -v || ERR=1
+
+if [[ "$ERR" -eq 0 ]]; then
+  PYTHONPATH=. "$PY" scripts/coverage_per_file_check.py \
+    reports/cobertura-python.xml \
+    --min-line-rate 95 || ERR=1
+fi
 
 echo "Coverage report: $RUST_REPORT (Rust), $PYTHON_REPORT (Python)"
 exit "$ERR"

@@ -18,8 +18,9 @@ session. See [agent-workflow.mdc](../../rules/agent-workflow.mdc).
 2. Classify paths from session edits and git diff (`origin/main...HEAD`)
 3. Run the **minimal** target set from [targets.md](targets.md) (not blind `make check`)
 4. On failure, fix and re-run only the failed gate
-5. Behavior changed: `make coverage-quick` (85% line/region, 80% function) but
-   attempt to reach as close as reasonably possible to 100%
+5. Behavior changed: `make coverage-quick` (Rust: 85% line/region, 80% function;
+   scripts: 95% line aggregate and per module) but attempt to reach as close as
+   reasonably possible to 100%
 6. Before push/PR with code changes: `make check-fast` (must exit 0)
 7. Remind human-only steps: signed commits, DCO, `git push`
 

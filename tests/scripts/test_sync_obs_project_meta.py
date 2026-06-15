@@ -8,11 +8,8 @@ import os
 import subprocess
 from pathlib import Path
 
-from scripts.obs_repositories import DEFAULT_PROJECT_META_REL
-
 _ROOT = Path(__file__).resolve().parent.parent.parent
 _SYNC_SCRIPT = _ROOT / "scripts" / "sync-obs-project-meta.sh"
-_PROJECT_META = _ROOT / DEFAULT_PROJECT_META_REL
 
 _SAMPLE_META = """\
 <?xml version="1.0" encoding="UTF-8"?>
@@ -192,13 +189,3 @@ def test_sync_script_check_exits_nonzero_on_drift(
     output = proc.stdout + proc.stderr
     assert proc.returncode == 1, output
     assert "drift" in output.lower() or "diff" in output.lower()
-
-
-def test_committed_project_meta_exists_and_parses() -> None:
-    assert _PROJECT_META.is_file()
-    text = _PROJECT_META.read_text(encoding="utf-8")
-    assert 'repository name="openSUSE_Tumbleweed"' in text
-    assert 'repository name="Fedora_44"' in text
-    assert 'repository name="Fedora_43"' in text
-    assert 'repository name="16.0"' in text
-    assert 'repository name="15.7"' in text

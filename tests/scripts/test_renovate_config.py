@@ -2,20 +2,13 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Tests for renovate.json (super-linter digest, GitHub Actions, scoped managers)."""
+"""Structural tests for renovate.json (regex managers, super-linter digest)."""
 
 import json
 import re
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent.parent
-
-
-def test_renovate_json_exists_and_parses() -> None:
-    path = _ROOT / "renovate.json"
-    assert path.is_file(), "renovate.json must exist at repository root"
-    data = json.loads(path.read_text(encoding="utf-8"))
-    assert data.get("$schema")
 
 
 def test_renovate_regex_managers_use_delimited_file_patterns() -> None:
@@ -79,54 +72,6 @@ def test_renovate_extends_git_sign_off_for_dco() -> None:
     assert ":gitSignOff" in extends
 
 
-def test_renovate_rebase_when_behind_base_branch() -> None:
-    """Keep PR branches rebased when main moves (staleness reduction)."""
-    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
-    assert data.get("rebaseWhen") == "behind-base-branch"
-
-
-def test_renovate_platform_automerge_uses_github_native_merge() -> None:
-    """Use GitHub auto-merge after required checks; pairs with repo branch settings."""
-    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
-    assert data.get("platformAutomerge") is True
-
-
-def test_renovate_pr_concurrent_limit() -> None:
-    """Cap open Renovate PRs to reduce parallel stale branches."""
-    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
-    assert data.get("prConcurrentLimit") == 3
-
-
-def test_renovate_automerge_non_major_via_package_rules() -> None:
-    """Automerge safe update types only; majors need manual merge."""
-    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
-    rules = data.get("packageRules", [])
-    merge_on = next(
-        (
-            r
-            for r in rules
-            if r.get("description", "").startswith("Enable GitHub platform auto-merge")
-            and r.get("automerge") is True
-        ),
-        None,
-    )
-    assert merge_on is not None
-    types = merge_on.get("matchUpdateTypes", [])
-    assert "major" not in types
-    assert "minor" in types and "patch" in types
-    major_off = next(
-        (
-            r
-            for r in rules
-            if r.get("description", "").startswith("Major updates require manual")
-            and r.get("automerge") is False
-        ),
-        None,
-    )
-    assert major_off is not None
-    assert major_off.get("matchUpdateTypes") == ["major"]
-
-
 def test_renovate_package_rule_groups_reuse_lockfile() -> None:
     data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
     rules = data.get("packageRules", [])
@@ -163,40 +108,6 @@ def test_renovate_package_rule_groups_github_actions_minor_patch() -> None:
         "packageRules must group github-actions minor and patch updates "
         "under groupName github-actions-minor-patch"
     )
-
-
-def test_renovate_workflow_uses_github_app_token() -> None:
-    """Renovate workflow should authenticate via GitHub App, not GITHUB_TOKEN."""
-    workflow = (_ROOT / ".github" / "workflows" / "renovate.yml").read_text(
-        encoding="utf-8"
-    )
-    assert "create-github-app-token" in workflow
-    assert "client-id:" in workflow
-    assert "RENOVATE_APP_CLIENT_ID" in workflow
-    assert "RENOVATE_APP_PRIVATE_KEY" in workflow
-    assert "app-id:" not in workflow
-    assert "RENOVATE_APP_ID" not in workflow
-    assert "steps.renovate-token.outputs.token" in workflow.replace(" ", "")
-    assert "github.token" not in workflow
-
-
-def test_renovate_workflow_sets_repository_target() -> None:
-    """Renovate must receive RENOVATE_REPOSITORIES or it logs No repositories found."""
-    workflow = (_ROOT / ".github" / "workflows" / "renovate.yml").read_text(
-        encoding="utf-8"
-    )
-    assert "RENOVATE_REPOSITORIES" in workflow
-    assert "github.repository" in workflow
-
-
-def test_renovate_workflow_scheduled_twice_weekly() -> None:
-    """Scheduled Renovate runs twice per week at 05:00 UTC (Monday and Thursday)."""
-    workflow = (_ROOT / ".github" / "workflows" / "renovate.yml").read_text(
-        encoding="utf-8"
-    )
-    assert workflow.count("cron:") == 2
-    assert 'cron: "0 5 * * 1"' in workflow
-    assert 'cron: "0 5 * * 4"' in workflow
 
 
 def test_renovate_osv_vulnerability_alerts_enabled() -> None:

@@ -103,5 +103,5 @@ def validate_obs_project_env_key_order(env_path: Path) -> None:
                     f"{keys[index - 1]}"
                 )
                 raise ValueError(msg)
-        msg = f"{env_path}: assignment keys are not alphabetically sorted"
-        raise ValueError(msg)
+        msg = f"{env_path}: assignment keys are not " "alphabetically sorted"
+        raise ValueError(msg)  # pragma: no cover

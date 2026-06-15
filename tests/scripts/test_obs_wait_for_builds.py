@@ -9,6 +9,9 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from unittest.mock import patch
+
+import pytest
 
 from tests.scripts.workspace_helpers import obs_enabled_build_repositories
 
@@ -205,3 +208,148 @@ def test_wait_script_requires_repository_resolution(tmp_path: Path) -> None:
     output = proc.stderr + proc.stdout
     assert proc.returncode == 1
     assert "project _meta" in output.lower() or "enabled obs repositories" in output.lower()
+
+
+def test_evaluate_build_results_requires_repositories() -> None:
+    with pytest.raises(ValueError, match="repositories must not be empty"):
+        obs_wait_build_status.evaluate_build_results(
+            _SUCCEEDED_XML,
+            package="verilyze",
+            repositories=(),
+        )
+
+
+def test_evaluate_build_results_skips_unknown_repository() -> None:
+    summary = obs_wait_build_status.evaluate_build_results(
+        _SUCCEEDED_XML,
+        package="verilyze",
+        repositories=("Nonexistent_Repo",),
+    )
+    assert summary.matched == 0
+    assert summary.all_succeeded is False
+
+
+def test_evaluate_build_results_pending_when_status_missing() -> None:
+    xml = """\
+<resultlist>
+  <result repository="openSUSE_Tumbleweed" arch="x86_64">
+  </result>
+</resultlist>
+"""
+    summary = obs_wait_build_status.evaluate_build_results(
+        xml,
+        package="verilyze",
+        repositories=("openSUSE_Tumbleweed",),
+    )
+    assert summary.pending == 1
+    assert "openSUSE_Tumbleweed/x86_64" in summary.pending_targets[0]
+
+
+def test_format_shell_summary_quotes_single_quotes() -> None:
+    summary = obs_wait_build_status.BuildResultsSummary(
+        all_succeeded=False,
+        any_failed=True,
+        pending=0,
+        matched=1,
+        failures=("repo/arch:failed",),
+        pending_targets=(),
+    )
+    text = obs_wait_build_status.format_shell_summary(summary)
+    assert "FAILURES='repo/arch:failed'" in text
+
+
+def test_main_cli_reads_xml_file(tmp_path: Path) -> None:
+    xml_file = tmp_path / "results.xml"
+    xml_file.write_text(_SUCCEEDED_XML, encoding="utf-8")
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(_STATUS_MODULE),
+            "--package",
+            "verilyze",
+            "--repositories",
+            "openSUSE_Tumbleweed,Fedora_44",
+            "--xml-file",
+            str(xml_file),
+        ],
+        cwd=_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "ALL_SUCCEEDED=1" in proc.stdout
+
+
+def test_evaluate_build_results_ignores_other_package_status() -> None:
+    xml = """\
+<resultlist>
+  <result repository="openSUSE_Tumbleweed" arch="x86_64">
+    <status package="other" code="failed"/>
+  </result>
+</resultlist>
+"""
+    summary = obs_wait_build_status.evaluate_build_results(
+        xml,
+        package="verilyze",
+        repositories=("openSUSE_Tumbleweed",),
+    )
+    assert summary.matched == 0
+
+
+def test_evaluate_build_results_unknown_status_is_pending() -> None:
+    xml = """\
+<resultlist>
+  <result repository="openSUSE_Tumbleweed" arch="x86_64">
+    <status package="verilyze" code="weird"/>
+  </result>
+</resultlist>
+"""
+    summary = obs_wait_build_status.evaluate_build_results(
+        xml,
+        package="verilyze",
+        repositories=("openSUSE_Tumbleweed",),
+    )
+    assert summary.pending == 1
+    assert "weird" in summary.pending_targets[0]
+
+
+def test_main_cli_accepts_inline_xml() -> None:
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(_STATUS_MODULE),
+            "--package",
+            "verilyze",
+            "--repositories",
+            "openSUSE_Tumbleweed",
+            "--xml",
+            _SUCCEEDED_XML,
+        ],
+        cwd=_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "MATCHED=2" in proc.stdout
+
+
+def test_main_module_entry_point(tmp_path: Path) -> None:
+    import runpy
+
+    xml_file = tmp_path / "results.xml"
+    xml_file.write_text(_SUCCEEDED_XML, encoding="utf-8")
+    argv = [
+        "obs_wait_build_status.py",
+        "--package",
+        "verilyze",
+        "--repositories",
+        "openSUSE_Tumbleweed",
+        "--xml-file",
+        str(xml_file),
+    ]
+    with patch.object(sys, "argv", argv):
+        with pytest.raises(SystemExit) as exc_info:
+            runpy.run_path(str(_STATUS_MODULE), run_name="__main__")
+    assert exc_info.value.code == 0

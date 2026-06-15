@@ -29,6 +29,16 @@ packages = []
 testpaths = ["tests/scripts"]
 addopts = "-v"
 
+[tool.coverage.run]
+source = ["scripts"]
+branch = false
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+fail_under = 95
+
 [tool.vlz-headers]
 default_copyright = "The verilyze contributors"
 default_license = "GPL-3.0-or-later"
