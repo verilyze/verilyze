@@ -5,6 +5,7 @@
 """Tests for OBS repository derivation from committed _meta files."""
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -141,3 +142,45 @@ def test_load_enabled_build_repositories_raises_when_project_meta_missing(
 def test_default_meta_paths_match_packaging_layout() -> None:
     assert DEFAULT_PROJECT_META_REL == Path("packaging/obs/project/_meta")
     assert DEFAULT_PACKAGE_META_REL == Path("packaging/obs/rpm/_meta")
+
+
+def test_load_enabled_build_repositories_raises_when_package_meta_missing(
+    tmp_path: Path,
+) -> None:
+    project_meta = tmp_path / "project" / "_meta"
+    project_meta.parent.mkdir(parents=True)
+    project_meta.write_text(_PROJECT_META, encoding="utf-8")
+    with pytest.raises(FileNotFoundError, match="package _meta"):
+        load_enabled_build_repositories(
+            tmp_path,
+            project_meta_path=project_meta,
+            package_meta_path=tmp_path / "missing" / "_meta",
+        )
+
+
+def test_main_cli_prints_repository_list(tmp_path: Path) -> None:
+    from scripts.obs_repositories import main
+
+    project_meta = tmp_path / "project" / "_meta"
+    package_meta = tmp_path / "rpm" / "_meta"
+    project_meta.parent.mkdir(parents=True)
+    package_meta.parent.mkdir(parents=True)
+    project_meta.write_text(_PROJECT_META, encoding="utf-8")
+    package_meta.write_text(_PACKAGE_META_NO_DISABLE, encoding="utf-8")
+
+    import io
+    import sys
+
+    buf = io.StringIO()
+    argv = [
+        "obs_repositories.py",
+        "--repo-root",
+        str(tmp_path),
+        "--project-meta",
+        str(project_meta),
+        "--package-meta",
+        str(package_meta),
+    ]
+    with patch.object(sys, "argv", argv), patch.object(sys, "stdout", buf):
+        assert main() == 0
+    assert buf.getvalue().strip() == format_repository_list(_EXPECTED_ALL_REPOS)

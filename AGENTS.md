@@ -33,8 +33,9 @@ sources of truth for the **verilyze (vlz)** project.
 
 ## AI agent requirements
 
-When adding or changing behavior (new features, bug fixes, refactors that affect
-behavior), you **must** follow test-driven development (TDD):
+When adding or changing **production logic** (Rust in `crates/**`, Python in
+`scripts/` with branching, parsing, transformation, or I/O), you **must**
+follow test-driven development (TDD):
 
 1. **Write tests first** -- Define tests from expected inputs/outputs or behavior.
    Do not create mock implementations for functionality that does not exist yet.
@@ -43,25 +44,30 @@ behavior), you **must** follow test-driven development (TDD):
 3. **Implement to pass** -- Write the minimal code that makes the tests pass.
    Do not modify the tests to match the implementation.
 4. **Iterate** -- Keep iterating on the implementation until all tests pass.
-5. **Code coverage** -- Ensure code coverage meets or exceeds the minimum
-   thresholds defined in the PRD.md. Add mocking if necessary, and iterate
-   until coverage thresholds are satisfied, but attempt to reach as close to
-   100% coverage as reasonably possible.
+5. **Code coverage** -- Meet PRD minimum thresholds (NFR-012). For Python,
+   each touched `scripts/**/*.py` module should reach **>= 95% line coverage**
+   (target 100% where practical). Add mocking if necessary.
 
 Full workflow and rationale:
 [CONTRIBUTING.md -- Test-driven development](CONTRIBUTING.md#test-driven-development-tdd).
+Test layering (what not to test):
+[CONTRIBUTING.md -- Test scope and layering](CONTRIBUTING.md#test-scope-and-layering).
 
-**Scope:** This requirement applies only to AI agents. Human contributors may use
-TDD but it remains **preferred**, not required (see CONTRIBUTING.md). Exceptions
-for AI: documentation-only, comment/typo fixes, or changes that do not affect
-observable behavior.
+**TDD not required** for Makefile-only, `.github/**` workflow-only,
+packaging-only, or documentation-only changes. Run the relevant `make check-*`
+targets instead of adding `read_text()` substring tests on config files.
+
+**Scope:** Mandatory TDD applies only to AI agents on production logic. Human
+contributors may use TDD but it remains **preferred**, not required (see
+CONTRIBUTING.md). Exceptions for AI: documentation-only, comment/typo fixes, or
+changes that do not affect observable behavior.
 
 ## Conventions
 
-- **TDD:** The project encourages test-driven development. When adding or
-  changing behavior, prefer writing tests first, then implementation. See
-  [CONTRIBUTING.md -- Test-driven development](CONTRIBUTING.md#test-driven-development-tdd)
-  for the full workflow and AI-agent instructions.
+- **TDD:** Strict for production Rust and Python script logic; use make/lint
+  gates for config and wiring. See
+  [CONTRIBUTING.md -- Test scope and layering](CONTRIBUTING.md#test-scope-and-layering)
+  and [Test-driven development](CONTRIBUTING.md#test-driven-development-tdd).
 - Follow SOLID and the Unix philosophy as stated in the PRD (design principles).
 - The codebase uses `#![deny(unsafe_code)]`; no new `unsafe` or
   `#[allow(unsafe_code)]` without explicit justification and approval.
@@ -99,7 +105,7 @@ observable behavior.
 | Adding a plugin      | CONTRIBUTING "Adding a new language plugin"; PRD MOD-002 |
 | Config documentation | CONTRIBUTING "Adding or updating configuration keys"; `make generate-config-example` |
 | Commit messages      | CONTRIBUTING "Commit messages"                           |
-| TDD workflow         | [CONTRIBUTING.md -- Test-driven development](CONTRIBUTING.md#test-driven-development-tdd) |
+| TDD / test scope     | [CONTRIBUTING.md -- Test scope and layering](CONTRIBUTING.md#test-scope-and-layering); [TDD](CONTRIBUTING.md#test-driven-development-tdd) |
 | Security             | PRD section 6 (SEC-*), section 11 (Risk & Threat Model); [SECURITY.md](SECURITY.md); [COMPLIANCE.md](COMPLIANCE.md) |
 | OpenSSF Best Practices | [bestpractices.dev](https://www.bestpractices.dev/en/projects/12361) |
 | Copyright duplicates | `make check-header-duplicates`; CONTRIBUTING "Copyright and licensing"; `.mailmap` |

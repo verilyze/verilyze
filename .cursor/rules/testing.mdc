@@ -1,0 +1,40 @@
+---
+description: Test scope, layering, and coverage for verilyze
+alwaysApply: true
+---
+
+# Testing policy
+
+Read [CONTRIBUTING.md -- Test scope and layering](../CONTRIBUTING.md#test-scope-and-layering).
+
+## Strict TDD (AI agents)
+
+Required when editing **production logic**:
+
+- Rust in `crates/**`
+- Python in `scripts/**/*.py` with branching, parsing, transformation, or I/O
+
+Workflow: tests first, confirm fail, implement. Do not lower per-file coverage
+on touched `scripts/**/*.py` modules (target >= 95% line).
+
+## Exceptions (no new tests)
+
+Makefile-only, `.github/**` workflow-only, packaging-only, or docs-only changes:
+run relevant `make check-*` targets. Do **not** add `read_text()` substring
+tests on config files.
+
+## Decision checklist
+
+1. Does the test execute code paths?
+2. Would `make check` already catch the regression?
+3. Judgment (logic) -> unit test; wiring (text) -> gate or subprocess smoke.
+4. Would a rename break the test without breaking behavior? Skip it.
+
+## Coverage
+
+Run `term-missing` before PRs touching `scripts/`:
+
+```sh
+PYTHONPATH=. .venv-test/bin/python -m pytest tests/scripts/ \
+  --cov=scripts --cov-report=term-missing:skip-covered -q
+```

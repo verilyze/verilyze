@@ -143,3 +143,20 @@ def test_validate_obs_project_env_key_order_rejects_unsorted_keys(
     )
     with pytest.raises(ValueError, match="UnorderedKey"):
         validate_obs_project_env_key_order(env_file)
+
+
+def test_env_assignment_keys_rejects_line_without_equals(tmp_path: Path) -> None:
+    from scripts.obs_project_env import env_assignment_keys
+
+    env_file = tmp_path / "obs-project.env"
+    env_file.write_text("OBS_BAD\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="expected KEY=VALUE"):
+        env_assignment_keys(env_file)
+
+
+def test_env_assignment_keys_skips_empty_key(tmp_path: Path) -> None:
+    from scripts.obs_project_env import env_assignment_keys
+
+    env_file = tmp_path / "obs-project.env"
+    env_file.write_text(" =value\nOBS_OK=1\n", encoding="utf-8")
+    assert env_assignment_keys(env_file) == ["OBS_OK"]

@@ -27,3 +27,10 @@ if ! grep -qE 'checkov:skip=CKV_GHA_7:' "${RELEASE_WORKFLOW}"; then
   echo "ERROR: ${RELEASE_WORKFLOW} must include inline checkov:skip=CKV_GHA_7 for workflow_dispatch dry runs" >&2
   exit 1
 fi
+
+CODESPELL="${ROOT_DIR}/.venv-test/bin/codespell"
+if [[ ! -x "${CODESPELL}" ]]; then
+  echo "ERROR: missing codespell in .venv-test; run make setup" >&2
+  exit 1
+fi
+"${CODESPELL}"

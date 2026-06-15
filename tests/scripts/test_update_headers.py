@@ -114,6 +114,11 @@ class TestEmailMatchesBotMarkers:
             is False
         )
 
+    def test_identifier_without_angle_brackets_has_no_email(self) -> None:
+        from scripts.update_headers import _extract_email_from_identifier
+
+        assert _extract_email_from_identifier("No Email Here") == ""
+
     def test_filter_non_bot_entries(self) -> None:
         m = _primary_bot_marker()
         raw = ["2024 A <a@x>", f"2024 B <b{m}@y>"]
@@ -1392,6 +1397,23 @@ class TestGetNontrivialAuthorsCacheErrors:
                     tmp_path, "foo.py", cache_dir, config
                 )
         assert result == ["2024 Alice <a@x>"]
+
+
+def test_main_module_entry_point_print_config() -> None:
+    import runpy
+    import sys
+
+    with patch.object(sys, "argv", ["update_headers.py", "--print-config"]):
+        with pytest.raises(SystemExit) as exc_info:
+            runpy.run_path(
+                str(
+                    Path(__file__).resolve().parent.parent.parent
+                    / "scripts"
+                    / "update_headers.py"
+                ),
+                run_name="__main__",
+            )
+    assert exc_info.value.code == 0
 
 
 # REUSE-IgnoreEnd

@@ -38,6 +38,30 @@ class TestGetRepoRoot:
 class TestParseConfigComments:
     """Tests for parse_config_comments."""
 
+    def test_stringify_toml_value_handles_none_and_bool(self) -> None:
+        assert generate_config_example._stringify_toml_value(None) == ""
+        assert generate_config_example._stringify_toml_value(True) == "true"
+        assert generate_config_example._stringify_toml_value(False) == "false"
+        assert generate_config_example._stringify_toml_value(42) == "42"
+
+    def test_returns_empty_dict_for_non_mapping_root(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        path = tmp_path / "bad.toml"
+        path.write_bytes(b"[x]\n")
+
+        def fake_load(_f):  # noqa: ANN001
+            return ["not", "a", "dict"]
+
+        monkeypatch.setattr(generate_config_example.tomllib, "load", fake_load)
+        assert generate_config_example.parse_config_comments(path) == {}
+
+    def test_nested_none_becomes_empty_row(self, tmp_path: Path) -> None:
+        path = tmp_path / "config.toml"
+        path.write_bytes(b"orphan = 1\n")
+        result = generate_config_example.parse_config_comments(path)
+        assert result["orphan"] == {}
+
     def test_parses_top_level_keys(self, tmp_path: Path) -> None:
         path = tmp_path / "config.toml"
         path.write_text(
@@ -709,6 +733,23 @@ class TestMain:
         (tmp_path / "man" / "verilyze.conf.5.in").write_text(
             "{{OPTIONS_SECTION}}", encoding="utf-8"
         )
+
+
+def test_main_module_entry_point_exits_zero() -> None:
+    import runpy
+    import sys
+
+    with patch.object(sys, "argv", ["generate_config_example.py", "--check"]):
+        with pytest.raises(SystemExit) as exc_info:
+            runpy.run_path(
+                str(
+                    Path(__file__).resolve().parent.parent.parent
+                    / "scripts"
+                    / "generate_config_example.py"
+                ),
+                run_name="__main__",
+            )
+    assert exc_info.value.code == 0
 
 
 # REUSE-IgnoreEnd

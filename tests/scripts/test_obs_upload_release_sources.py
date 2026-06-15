@@ -19,7 +19,6 @@ from tests.scripts.workspace_helpers import (
 
 _ROOT = repo_root()
 _UPLOAD_SCRIPT = _ROOT / "scripts" / "obs-upload-release-sources.sh"
-_OBS_SPEC_TEMPLATE = _ROOT / "packaging" / "obs" / "rpm" / "verilyze.spec"
 _VENDOR_ARCHIVE = "vendor.tar.zst"
 
 
@@ -125,51 +124,6 @@ def test_obs_upload_script_requires_version() -> None:
     assert "--version" in (proc.stderr + proc.stdout)
 
 
-def test_obs_upload_script_uses_portable_osc_checkout_flags() -> None:
-    """osc on Ubuntu/GitHub Actions lacks co --nosource; script must fallback."""
-    text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")
-    assert "osc_checkout_package" in text
-    assert 'osc_cmd co -c "${project}" "${package}"' in text
-    assert "co --meta" not in text
-
-
-def test_obs_upload_script_avoids_metadata_only_checkout() -> None:
-    """Metadata-only checkout breaks osc commit (_meta sha256 missing)."""
-    text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")
-    assert "_meta without sha256" in text
-
-
-def test_obs_upload_script_renders_changes_from_changelog() -> None:
-    text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")
-    assert "render_obs_changes.py" in text
-    assert "OBS_CHANGES_FILENAME" in text
-    assert "OBS_LEGACY_CHANGES_FILENAME" in text
-
-
-def test_obs_upload_script_removes_stale_source_archives() -> None:
-    text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")
-    assert "remove_stale_source_archives" in text
-    assert '"${OBS_PACKAGE}"-*.tar.xz' in text
-
-
-def test_obs_upload_script_verifies_vendor_lockfile_before_upload() -> None:
-    text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")
-    assert "obs-upload-verify.sh" in text
-    assert "obs_verify_vendor_lockfile" in text
-
-
-def test_obs_upload_script_verifies_upload_checksums_after_commit() -> None:
-    text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")
-    assert "obs_verify_package_checksums" in text
-    assert "osc_add_or_update_file" in text
-
-
-def test_obs_upload_script_uploads_rpmlintrc_with_checksum() -> None:
-    text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")
-    assert "OBS_RPMLINTRC_FILENAME" in text
-    assert "rpmlintrc_sha256" in text
-
-
 def test_obs_upload_script_dry_run_includes_rpmlintrc_artifact(
     tmp_path: Path,
 ) -> None:
@@ -191,24 +145,3 @@ def test_obs_upload_script_dry_run_includes_rpmlintrc_artifact(
         encoding="utf-8"
     )
     assert "rpmlintrc_sha256=" in proc.stdout + proc.stderr
-
-
-def test_obs_upload_script_uses_transient_osc_credentials() -> None:
-    """Upload script delegates osc auth to lib/osc-cmd.sh (transient oscrc)."""
-    text = _UPLOAD_SCRIPT.read_text(encoding="utf-8")
-    assert "setup_osc_auth" in text
-    assert "lib/osc-cmd.sh" in text
-    assert "pass = ${OBS_PASSWORD}" not in text
-    assert "\npass = " not in text
-    osc_lib = (_ROOT / "scripts" / "lib" / "osc-cmd.sh").read_text(encoding="utf-8")
-    assert "[${OBS_API}]" in osc_lib
-    assert "pass = ${obs_password}" in osc_lib
-    assert "OSC_CONFIG" in osc_lib
-
-
-def test_osc_cmd_uses_transient_config_file() -> None:
-    """osc must read apiurl from OSC_CONFIG, not default ~/.oscrc."""
-    text = (_ROOT / "scripts" / "lib" / "osc-cmd.sh").read_text(encoding="utf-8")
-    assert 'config_args=(--config "${OSC_CONFIG}")' in text
-    assert "osc --no-keyring" in text
-    assert 'config_args=(-c "${OSC_CONFIG}")' not in text

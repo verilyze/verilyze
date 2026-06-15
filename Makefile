@@ -234,14 +234,20 @@ cargo-test:
 # Bootstrap .venv-test with pytest and pytest-cov (NFR-021)
 $(VENV_TEST)/bin/pytest:
 	@if [ -x "$(VENV_TEST)/bin/pytest" ] && \
-	      "$(VENV_TEST)/bin/python" -m pytest --version >/dev/null 2>&1; then \
+	      "$(VENV_TEST)/bin/python" -m pytest --version >/dev/null 2>&1 && \
+	      "$(VENV_TEST)/bin/codespell" --version >/dev/null 2>&1; then \
 		exit 0; \
 	fi
 	rm -rf $(VENV_TEST)
 	python3 -m venv $(VENV_TEST)
 	cd "$(MKFILE_DIR)" && $(VENV_TEST)/bin/pip install ".[dev]"
 
-test-scripts: $(VENV_TEST)/bin/pytest
+# Re-run .venv-test health check even when $(VENV_TEST)/bin/pytest exists (stale cache).
+.PHONY: venv-test-ready
+venv-test-ready:
+	@$(MAKE) --always-make $(VENV_TEST)/bin/pytest
+
+test-scripts: venv-test-ready
 	@cd "$(MKFILE_DIR)" && $(VENV_TEST)/bin/python -m pytest tests/scripts/ -v
 
 unit-tests: cargo-test test-scripts
@@ -253,7 +259,8 @@ $(VENV_LINT)/bin/black:
 	      "$(VENV_LINT)/bin/black" --version >/dev/null 2>&1 && \
 	      "$(VENV_LINT)/bin/pylint" --version >/dev/null 2>&1 && \
 	      "$(VENV_LINT)/bin/mypy" --version >/dev/null 2>&1 && \
-	      "$(VENV_LINT)/bin/bandit" --version >/dev/null 2>&1; then \
+	      "$(VENV_LINT)/bin/bandit" --version >/dev/null 2>&1 && \
+	      "$(VENV_LINT)/bin/codespell" --version >/dev/null 2>&1; then \
 		exit 0; \
 	fi
 	rm -rf $(VENV_LINT)
@@ -371,7 +378,7 @@ check-obs-packaging:
 	$(SCRIPTS_DIR)/check-obs-packaging.sh
 
 # check-super-linter-native: ENV key order and Checkov skip parity (no Docker).
-check-super-linter-native:
+check-super-linter-native: venv-test-ready
 	$(SCRIPTS_DIR)/check-super-linter-native.sh
 
 # check-obs-signing: Verify OBS project signing key metadata.

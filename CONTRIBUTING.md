@@ -880,7 +880,11 @@ releases](#versioning-and-releases) below.
   The README badge reflects the **nightly** workflow (last full-tree run).
   Locally: `make super-linter` (incremental) or `make super-linter-full` (full
   tree); both call [`scripts/super-linter.sh`](scripts/super-linter.sh) and
-  require Docker. Workflows pass `GITHUB_TOKEN` and set
+  require Docker. Before opening a PR, `make check-fast` runs
+  `make check-super-linter-native` (no Docker): OBS env key order, release
+  workflow Checkov skip parity, and **codespell** from `.venv-test/bin`
+  using [`.codespellrc`](.codespellrc) (same gate as super-linter
+  SPELL_CODESPELL). Workflows pass `GITHUB_TOKEN` and set
   `SAVE_SUPER_LINTER_OUTPUT` / `SAVE_SUPER_LINTER_SUMMARY` so logs upload on
   failure. The script sets `IGNORE_GITIGNORED_FILES=true` and
   `FILTER_REGEX_EXCLUDE` so `target/`, `.git/`, `completions/` (ShellCheck is
@@ -1086,8 +1090,8 @@ Stderr can stay as `eprintln!` or `log::error!`.
        `reports/cobertura-rust.xml` (Rust Cobertura), `reports/python/index.html`
        (Python HTML), `reports/cobertura-python.xml` (Python Cobertura).
      - Thresholds (NFR-012, NFR-017): Rust >= 85% line, >= 80% function, >= 85%
-       region; scripts >= 85% line. The coverage run **exits 1** when
-       below these thresholds.
+       region; scripts >= 95% line (aggregate and per `scripts/*.py` module).
+       The coverage run **exits 1** when below these thresholds.
 - **CI:** The Cobertura XML files (`reports/cobertura-rust.xml`,
   `reports/cobertura-python.xml`) are uploaded from GitHub Actions and used for
   PR coverage summaries (job `coverage-pr-comment` in
@@ -1139,8 +1143,9 @@ If the coverage link step fails with LLD (e.g. invalid symbol index with
   is imported via conftest path setup.
 - **Coverage:** `make coverage` or `make coverage-quick` runs script tests
   with pytest-cov
-  (`--cov=scripts --cov-fail-under=85`). Reports: `reports/python/index.html`,
-  `reports/cobertura-python.xml`.
+  (`--cov=scripts --cov-fail-under=95`). Reports: `reports/python/index.html`,
+  `reports/cobertura-python.xml`. Per-file modules under `scripts/*.py` must
+  meet >= 95% line coverage; run `term-missing` locally to find gaps.
 
 ### Fuzz testing (NFR-020)
 
@@ -1174,13 +1179,99 @@ If the coverage link step fails with LLD (e.g. invalid symbol index with
   (see
   [cargo-llvm-cov AFL docs](https://github.com/taiki-e/cargo-llvm-cov#get-coverage-of-afl-fuzzers)).
 
+## Test scope and layering
+
+Not every change needs a new pytest or Rust test. Place each assertion where
+it earns its cost: **behavioral tests** for production logic, **make/lint/CI
+gates** for config and wiring.
+
+### Production code (strict TDD)
+
+**In scope:** all Rust in `crates/**`; Python modules under `scripts/` with
+branching, parsing, transformation, or I/O logic.
+
+**AI agents:** follow the TDD workflow below (tests first, confirm fail,
+implement). When editing `scripts/**/*.py`, keep each touched module at
+**>= 95% line coverage** (target 100% where practical). See
+[Script testing (NFR-021)](#script-testing-nfr-021) and
+[Per-file Python coverage](#per-file-python-coverage).
+
+**Human contributors:** TDD preferred; automated tests required before merge for
+substantive behavior changes.
+
+### Selective tests (reasonable value)
+
+Add tests when they exercise **executable behavior** that existing gates do not
+cover:
+
+| Change type | Preferred verification |
+| ----------- | ---------------------- |
+| Shell release/OBS scripts | Subprocess with fixtures or dry-run |
+| CI input contracts | Run validator scripts (`scripts/ci-input-validate.sh`) |
+| Parallel-make hazards | Focused contract test or `make` invocation |
+| Supply-chain pins | Hash/pin invariants with clear SEC/NFR tie |
+
+### Do not add tests (use other gates)
+
+**Discouraged:** `Path(...).read_text()` plus `assert "some string" in text` on
+non-production files when any of these already apply:
+
+- `make check`, `make check-fast`, `make check-packaging`, `make lint-shell`,
+  `make super-linter`
+- Dedicated check scripts (`scripts/check-obs-packaging.sh`, etc.)
+- Schema/linters (ShellCheck, super-linter, Renovate schema)
+
+Do not add tests for Makefile target lists, workflow step titles, Renovate
+policy knobs, or file-exists checks for scripts already invoked by behavioral
+tests unless documenting a non-obvious invariant (e.g. parallel-make ordering).
+
+### Decision checklist
+
+Before adding a test:
+
+1. **Does this test execute code paths?** If no, prefer a make/lint gate.
+2. **Would `make check` already fail on regression?** If yes, skip the test.
+3. **Is the assertion about judgment (logic) or wiring (text)?** Judgment:
+   unit test. Wiring: gate script or one subprocess smoke test.
+4. **Would a rename/refactor break the test without breaking behavior?** If
+   yes, the test is likely low value.
+
+### Per-file Python coverage
+
+Production Python lives in `scripts/*.py`. Aggregate coverage must meet NFR-012
+(>= 95% line). Each production module should reach **>= 95% line coverage**;
+aim for 100% where practical.
+
+Before opening a PR that touches `scripts/**/*.py`, review gaps:
+
+```sh
+PYTHONPATH=. .venv-test/bin/python -m pytest tests/scripts/ \
+  --cov=scripts --cov-report=term-missing:skip-covered -q
+```
+
+**Documented exceptions** (must be explicit, not silent):
+
+- Thin `if __name__ == "__main__":` blocks that only parse args and call
+  `main()` -- cover via subprocess test or `# pragma: no cover` after
+  `main()` is tested directly
+- Platform-only branches where the other branch is tested and documented
+- Defensive I/O `except` blocks with a one-line comment and `# pragma: no cover`
+
+Do not use "CI already checks it" to excuse untested `scripts/` logic. Do not
+add `# pragma: no cover` without a one-line justification.
+
 ## Test-driven development (TDD)
 
-We use **test-driven development**: write tests that define the desired
-behavior first, then implement code until those tests pass. TDD keeps
-requirements explicit, avoids over-implementation, and gives a clear target for
-each change. Tests belong in the crate that owns the logic (unit tests) or in
-the appropriate integration test layout.
+We use **test-driven development** for **production logic** (Rust and Python
+scripts): write tests that define the desired behavior first, then implement
+code until those tests pass. TDD keeps requirements explicit, avoids
+over-implementation, and gives a clear target for each change. Tests belong in
+the crate that owns the logic (unit tests) or in the appropriate integration
+test layout.
+
+For Makefile-only, workflow-only, packaging-only, or documentation-only changes,
+run the relevant `make check-*` targets instead of adding static text-assertion
+tests. See [Test scope and layering](#test-scope-and-layering).
 
 **Placement (Rust convention):** Unit tests live in the same file as the code
 under test (or same crate) in a `#[cfg(test)] mod tests` block; integration
@@ -1233,10 +1324,13 @@ read AGENTS.md or include one of the prompts below in your request.
 
 ### OpenSSF Best Practices (`test_policy` / `tests_are_added`)
 
-The **test policy** for new behavior is the TDD workflow above. Merge requests
-that add or change substantive behavior should include **automated tests** when
-practical. When filing the OpenSSF Best Practices (passing) questionnaire, use
-recent merged pull requests as evidence that tests accompanied major changes.
+The **test policy** for new behavior is the TDD workflow above plus
+[Test scope and layering](#test-scope-and-layering). Production logic changes
+need behavioral tests; wiring-only changes rely on make/lint gates. Merge
+requests that add or change substantive behavior should include **automated
+tests** when practical. When filing the OpenSSF Best Practices (passing)
+questionnaire, use recent merged pull requests as evidence that tests
+accompanied major changes.
 Project entry: [bestpractices.dev](https://www.bestpractices.dev/en/projects/12361).
 
 ## Requirements

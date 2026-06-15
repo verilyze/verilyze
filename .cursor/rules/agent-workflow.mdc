@@ -14,8 +14,8 @@ only after implementation.
    No file edits, no `make` targets, no validation subagents.
 2. **User review** -- Stop after `CreatePlan` or a proposed approach. Wait for
    explicit approval ("implement", "go ahead", mode switch) before editing.
-3. **Implementation** -- Edit files; follow TDD from
-   [project-guidance.mdc](project-guidance.mdc).
+3. **Implementation** -- Edit files; follow TDD for production logic per
+   [testing.mdc](testing.mdc) and [project-guidance.mdc](project-guidance.mdc).
 4. **Validation** -- Run scoped checks from [ci-validation.mdc](ci-validation.mdc)
    only after code changes in this session.
 
