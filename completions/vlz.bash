@@ -193,7 +193,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__db__subcmd__set__subcmd__ttl)
-            opts="-c -h --entry --all --pattern --entries --config --help <SECS>"
+            opts="-c -h --entry --all --pattern --entries --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -319,7 +319,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__fp__subcmd__mark)
-            opts="-c -h --comment --project-id --config --help <CVE-ID>"
+            opts="-c -h --comment --project-id --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -349,7 +349,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__fp__subcmd__unmark)
-            opts="-c -h --config --help <CVE-ID>"
+            opts="-c -h --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -393,7 +393,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__help)
-            opts="-c -h --config --help [SUBCOMMAND]"
+            opts="-c -h --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -459,7 +459,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__scan)
-            opts="-c -h --format --summary-file --provider --parallel --cache-db --ignore-db --scan-exclude-dir --cache-ttl-secs --offline --benchmark --min-score --min-count --exit-code-on-cve --fp-exit-code --project-id --package-manager-required --backoff-base --backoff-max --max-retries --provider-http-connect-timeout-secs --provider-http-request-timeout-secs --tls-crl-bundle --reachability-mode --severity-v2-critical-min --severity-v2-high-min --severity-v2-medium-min --severity-v2-low-min --severity-v3-critical-min --severity-v3-high-min --severity-v3-medium-min --severity-v3-low-min --severity-v4-critical-min --severity-v4-high-min --severity-v4-medium-min --severity-v4-low-min --config --help [PATH]"
+            opts="-c -h --format --summary-file --provider --parallel --cache-db --ignore-db --scan-exclude-dir --cache-ttl-secs --offline --benchmark --min-score --min-count --exit-code-on-cve --fp-exit-code --project-id --package-manager-required --backoff-base --backoff-max --max-retries --provider-http-connect-timeout-secs --provider-http-request-timeout-secs --tls-crl-bundle --reachability-mode --severity-v2-critical-min --severity-v2-high-min --severity-v2-medium-min --severity-v2-low-min --severity-v3-critical-min --severity-v3-high-min --severity-v3-medium-min --severity-v3-low-min --severity-v4-critical-min --severity-v4-high-min --severity-v4-medium-min --severity-v4-low-min --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
