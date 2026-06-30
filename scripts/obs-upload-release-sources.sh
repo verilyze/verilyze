@@ -184,6 +184,8 @@ upload_to_obs() {
       existing_changes="${PWD}/${OBS_CHANGES_FILENAME}"
     fi
     render_changes_file "${version}" "${OBS_CHANGES_FILENAME}" "${existing_changes}"
+    local uploaded_changes_sha256
+    uploaded_changes_sha256="$(sha256_file "${OBS_CHANGES_FILENAME}")"
     if [[ -f "${VENDOR_ARCHIVE_NAME}" ]]; then
       osc_cmd delete "${VENDOR_ARCHIVE_NAME}" 2>/dev/null || rm -f "${VENDOR_ARCHIVE_NAME}"
     fi
@@ -204,7 +206,7 @@ upload_to_obs() {
       "${source_archive}=${source_sha256}" \
       "${VENDOR_ARCHIVE_NAME}=${vendor_sha256}" \
       "${OBS_SPEC_FILENAME}=${spec_sha256}" \
-      "${OBS_CHANGES_FILENAME}=${changes_sha256}" \
+      "${OBS_CHANGES_FILENAME}=${uploaded_changes_sha256}" \
       "${OBS_RPMLINTRC_FILENAME}=${rpmlintrc_sha256}"
   )
 }

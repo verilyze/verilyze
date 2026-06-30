@@ -91,6 +91,35 @@ def test_render_changes_prepends_to_existing_file(tmp_path: Path) -> None:
     assert "- Older release item." in output
 
 
+def test_render_with_existing_changes_differs_from_seed_only(
+    tmp_path: Path,
+) -> None:
+    """OBS upload checksum must use the checkout render, not a seed-only dry-run."""
+    changelog = tmp_path / "CHANGELOG.md"
+    changelog.write_text(_SAMPLE_CHANGELOG, encoding="utf-8")
+    existing = tmp_path / "verilyze.changes"
+    existing.write_text(_EXISTING_CHANGES, encoding="utf-8")
+    maintainer = "Travis Post <post.travis@gmail.com>"
+    seed_only = render_obs_changes.render_changes(
+        "1.2.3",
+        changelog,
+        render_obs_changes.RenderChangesContext(
+            maintainer=maintainer,
+            now=_FIXED_TIMESTAMP,
+        ),
+    )
+    with_existing = render_obs_changes.render_changes(
+        "1.2.3",
+        changelog,
+        render_obs_changes.RenderChangesContext(
+            existing_changes_path=existing,
+            maintainer=maintainer,
+            now=_FIXED_TIMESTAMP,
+        ),
+    )
+    assert seed_only != with_existing
+
+
 def test_render_changes_skips_prepend_when_version_already_at_top(
     tmp_path: Path,
 ) -> None:
