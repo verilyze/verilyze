@@ -21,11 +21,28 @@ CONTRIBUTING.md and **wait for confirmation** before editing `Cargo.toml`.
 
 ## Prerequisites (check before tagging)
 
-- On `main` (or the branch CONTRIBUTING specifies for releases), up to date
+- Base branch `main` up to date with `origin/main` before starting release prep
 - Working tree clean or only intentional release files staged
 - Commit signing configured (`git config commit.gpgsign`, tag signing enabled)
 - `make -j check` green (or run it now)
 - `make release-preflight` passes
+
+## Never push directly to `main`
+
+`main` is branch-protected (PR reviews, CI, signed commits). Agents must
+**not** run `git push origin main` when cutting a release.
+
+Use a release branch and PR instead:
+
+1. Branch from current `main` (e.g. `release/vX.Y.Z`).
+2. Commit release prep on that branch.
+3. `git push -u origin release/vX.Y.Z` and open a PR to `main`.
+4. Wait for CI green; merge with `gh pr merge` (or human review).
+5. `git checkout main && git pull origin main` locally.
+6. Tag the merged commit on `main`; push **only** the tag (step 9 below).
+
+Pushing `vX.Y.Z` triggers `release.yml`; pushing `main` is not required for
+publish and bypasses project review policy.
 
 ## Workflow
 
@@ -35,17 +52,18 @@ CONTRIBUTING.md and **wait for confirmation** before editing `Cargo.toml`.
 3. **`make generate-packaging`**
 4. **`make release-preflight`**
 5. **Full gate** -- `make -j check` (use shell subagent in background if helpful)
-6. **Commit** -- signed commit with conventional message when user asked to
-   complete the release prep (e.g. `release: prepare vX.Y.Z`)
-7. **Merge / push branch** -- if release prep is on a PR, ensure merged to
-   `main` and CI green before tagging
-8. **Tag** -- when user explicitly asks to tag or publish:
+6. **Branch and commit** -- create `release/vX.Y.Z` from `main`; signed commit
+   when user asked to complete release prep (e.g. `release: prepare vX.Y.Z`)
+7. **Pull request** -- `git push -u origin release/vX.Y.Z`; `gh pr create`;
+   wait for CI green; merge to `main` (do not push `main` directly)
+8. **Sync local `main`** -- `git checkout main && git pull origin main`
+9. **Tag** -- when user explicitly asks to tag or publish:
    `git tag -s vX.Y.Z -m "Release vX.Y.Z"`
-9. **Push tag** -- only after user confirms publish intent:
-   `git push origin vX.Y.Z`
-10. **Monitor** -- `gh run watch --workflow=release.yml`; then
+10. **Push tag** -- only after user confirms publish intent:
+    `git push origin vX.Y.Z` (never bundle with `git push origin main`)
+11. **Monitor** -- `gh run watch --workflow=release.yml`; then
     `gh release view vX.Y.Z`
-11. **Preview notes anytime** -- `make release-notes VERSION=x.y.z`
+12. **Preview notes anytime** -- `make release-notes VERSION=x.y.z`
 
 ## Optional deeper checks
 
@@ -104,11 +122,14 @@ canonical publish for SemVer artifacts and GitHub Releases.
 | Action | When |
 |--------|------|
 | Draft CHANGELOG / bump version | User asked to prepare release |
-| Commit release prep | User asked to prepare or complete release |
-| Create signed tag | User explicitly asked to tag or publish |
+| Commit release prep on `release/vX.Y.Z` branch | User asked to prepare or complete release |
+| Push release branch / open PR | User asked to prepare or complete release |
+| Merge release PR | CI green; user asked to complete release |
+| `git push origin main` | **Never** (use PR merge per CONTRIBUTING) |
+| Create signed tag | User explicitly asked to tag or publish; after PR merged |
 | Push tag to origin | User explicitly confirmed publish (separate confirm if ambiguous) |
 | Delete draft release / force-push tag | User explicitly requested recovery |
 | Move release tag (`git push origin :refs/tags/vX.Y.Z`) | User explicitly requested stabilization retry |
 
 Never push a `v*` tag or publish a GitHub release without explicit user intent
-in the current conversation.
+in the current conversation. Never push directly to `origin/main`.
