@@ -39,10 +39,6 @@ _PROJECT_META = """\
     <path project="openSUSE:Leap:16.0" repository="standard"/>
     <arch>x86_64</arch>
   </repository>
-  <repository name="15.7">
-    <path project="openSUSE:Leap:15.7" repository="standard"/>
-    <arch>x86_64</arch>
-  </repository>
 </project>
 """
 
@@ -62,7 +58,6 @@ _PACKAGE_META_WITH_DISABLE = """\
 """
 
 _EXPECTED_ALL_REPOS = (
-    "15.7",
     "16.0",
     "Fedora_43",
     "Fedora_44",
@@ -88,7 +83,6 @@ def test_parse_package_disabled_repositories_collects_repo_level_disables() -> N
 def test_enabled_build_repositories_subtracts_disabled_repos() -> None:
     repos = enabled_build_repositories(_PROJECT_META, _PACKAGE_META_WITH_DISABLE)
     assert repos == (
-        "15.7",
         "16.0",
         "Fedora_44",
         "openSUSE_Tumbleweed",
