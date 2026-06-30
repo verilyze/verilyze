@@ -25,7 +25,6 @@ fi
 
 ./scripts/release-verify-tag-version.sh "v${VERSION}"
 
-make check-obs-signing
 make check-obs-packaging
 make check-packaging
 

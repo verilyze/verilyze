@@ -4,8 +4,11 @@
 
 """OBS packaging validation via check-obs-packaging.sh (NFR-021)."""
 
+import os
 import subprocess
 from pathlib import Path
+
+from tests.scripts.obs_signing_fixture import obs_signing_env
 
 
 def _repo_root() -> Path:
@@ -15,10 +18,13 @@ def _repo_root() -> Path:
 def test_check_obs_packaging_passes() -> None:
     """check-obs-packaging.sh validates OBS wiring and packaging invariants."""
     root = _repo_root()
+    env = os.environ.copy()
+    env.update(obs_signing_env())
     subprocess.run(
         ["make", "-f", str(root / "Makefile"), "check-obs-packaging"],
         check=True,
         cwd=root,
+        env=env,
     )
 
 
