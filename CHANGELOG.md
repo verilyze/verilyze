@@ -25,6 +25,8 @@ this file **before** creating the release tag.
   exists on build.opensuse.org (fixes release `publish-obs` sync).
 - OBS upload verifies `.changes` checksum from the checkout render (not the
   seed-only dry-run digest).
+- OBS upload stages untracked source archives with `osc add` and fails when
+  `osc commit` reports no package changes.
 
 ### Changed
 
