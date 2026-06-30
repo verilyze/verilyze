@@ -426,6 +426,9 @@ jobs:
           set -euo pipefail
           ./scripts/sync-obs-project-meta.sh \
             --config packaging/obs/obs-project.env \
+            --check \
+          || ./scripts/sync-obs-project-meta.sh \
+            --config packaging/obs/obs-project.env \
             --push
           ./scripts/obs-upload-release-sources.sh \
             --config packaging/obs/obs-project.env \
