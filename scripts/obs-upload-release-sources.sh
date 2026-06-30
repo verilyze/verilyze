@@ -12,6 +12,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/lib/osc-cmd.sh"
 # shellcheck source=lib/obs-upload-verify.sh
 . "${SCRIPT_DIR}/lib/obs-upload-verify.sh"
+# shellcheck source=lib/obs-upload-staging.sh
+. "${SCRIPT_DIR}/lib/obs-upload-staging.sh"
 
 readonly DEFAULT_OBS_API="https://api.opensuse.org"
 readonly DEFAULT_CONFIG_PATH="packaging/obs/obs-project.env"
@@ -154,14 +156,6 @@ remove_stale_source_archives() {
   done
 }
 
-osc_add_or_update_file() {
-  local filename="$1"
-  if osc_cmd status "${filename}" >/dev/null 2>&1; then
-    return 0
-  fi
-  osc_cmd add "${filename}"
-}
-
 upload_to_obs() {
   local work_dir="$1"
   local version="$2"
@@ -192,15 +186,15 @@ upload_to_obs() {
     cp "${work_dir}/${VENDOR_ARCHIVE_NAME}" .
     cp "${work_dir}/${OBS_SPEC_FILENAME}" .
     cp "${work_dir}/${OBS_RPMLINTRC_FILENAME}" .
-    osc_add_or_update_file "${source_archive}"
-    osc_add_or_update_file "${VENDOR_ARCHIVE_NAME}"
-    osc_add_or_update_file "${OBS_SPEC_FILENAME}"
-    osc_add_or_update_file "${OBS_RPMLINTRC_FILENAME}"
-    osc_add_or_update_file "${OBS_CHANGES_FILENAME}"
+    osc_stage_file_for_commit "${source_archive}"
+    osc_stage_file_for_commit "${VENDOR_ARCHIVE_NAME}"
+    osc_stage_file_for_commit "${OBS_SPEC_FILENAME}"
+    osc_stage_file_for_commit "${OBS_RPMLINTRC_FILENAME}"
+    osc_stage_file_for_commit "${OBS_CHANGES_FILENAME}"
     if [[ -f "${OBS_LEGACY_CHANGES_FILENAME}" ]]; then
       osc_cmd delete "${OBS_LEGACY_CHANGES_FILENAME}" 2>/dev/null || rm -f "${OBS_LEGACY_CHANGES_FILENAME}"
     fi
-    osc_cmd commit -m "Upload release ${version} sources from GitHub Actions"
+    osc_commit_package_upload "Upload release ${version} sources from GitHub Actions"
     obs_verify_package_checksums "${REPO_ROOT}" "${PWD}" \
       "${source_archive}=${source_sha256}" \
       "${VENDOR_ARCHIVE_NAME}=${vendor_sha256}" \
