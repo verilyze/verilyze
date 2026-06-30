@@ -12,6 +12,28 @@ The GitHub Release body is generated from the matching `## [version]` section
 below when you push a `v*` tag (see `.github/workflows/release.yml`). Update
 this file **before** creating the release tag.
 
+## [0.2.4] - 2026-06-30
+
+### Fixed
+
+- Release workflow waits for OBS builds to succeed before publishing the
+  GitHub Release.
+- OBS upload verifies checksums on uploaded sources and removes stale
+  source tarballs from the package directory.
+- RPM packaging resolves rpmlint warnings in OBS builds.
+
+### Changed
+
+- OBS project and package `_meta` files in git are the single source of
+  truth; the release workflow syncs them to build.opensuse.org.
+- Dependency updates: Rust workspace crates, Python dev tooling, Docker
+  base image digests, and click 8.4.2.
+
+### CI
+
+- Native codespell and super-linter checks run in `make check-fast`.
+- Workflow permissions tightened for least-privilege (zizmor).
+
 ## [0.2.3] - 2026-06-13
 
 ### Fixed
