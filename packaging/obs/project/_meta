@@ -3,6 +3,7 @@
   <title>verilyze</title>
   <description>OBS build project for verilyze.</description>
   <person userid="tpost" role="maintainer"/>
+  <person userid="verilyze-obs-bot" role="maintainer"/>
   <person userid="tpost" role="bugowner"/>
   <repository name="openSUSE_Tumbleweed">
     <path project="openSUSE:Tumbleweed" repository="standard"/>

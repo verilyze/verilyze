@@ -183,8 +183,12 @@ if ! printf '%s' "${publish_obs_block}" | grep -q 'sync-obs-project-meta.sh'; th
   echo "ERROR: publish-obs job must invoke sync-obs-project-meta.sh" >&2
   exit 1
 fi
+if ! printf '%s' "${publish_obs_block}" | grep -q -- '--check'; then
+  echo "ERROR: publish-obs job must verify project _meta with --check" >&2
+  exit 1
+fi
 if ! printf '%s' "${publish_obs_block}" | grep -q -- '--push'; then
-  echo "ERROR: publish-obs job must push project _meta with --push" >&2
+  echo "ERROR: publish-obs job must push project _meta with --push when --check fails" >&2
   exit 1
 fi
 sync_line="$(printf '%s' "${publish_obs_block}" | grep -n 'sync-obs-project-meta.sh' | head -n1 | cut -d: -f1)"

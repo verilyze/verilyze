@@ -27,6 +27,10 @@ this file **before** creating the release tag.
   seed-only dry-run digest).
 - OBS upload stages untracked source archives with `osc add` and fails when
   `osc commit` reports no package changes.
+- Release workflow skips OBS project `_meta` push when `--check` already
+  matches live OBS (package upload does not require project PUT).
+- OBS project `_meta` grants `verilyze-obs-bot` maintainer so release
+  `publish-obs` can sync project metadata without HTTP 403.
 
 ### Changed
 

@@ -46,6 +46,8 @@ def test_release_workflow_publishes_obs_sources_and_rebuilds() -> None:
     assert "./scripts/sync-obs-project-meta.sh" in text
     assert "./scripts/obs-upload-release-sources.sh" in text
     assert "./scripts/sync-obs-project-meta.sh" in text
+    assert "--check" in publish_job
+    assert "--push" in publish_job
     assert "./scripts/obs-trigger-build.sh" in text
     sync_pos = publish_job.index("sync-obs-project-meta.sh")
     upload_pos = publish_job.index("obs-upload-release-sources.sh")
