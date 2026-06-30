@@ -26,7 +26,6 @@ obs_parse_project_env() {
   OBS_PROJECT=""
   OBS_PACKAGE=""
   OBS_SPEC_FILENAME=""
-  OBS_RPMLINTRC_FILENAME=""
   OBS_CHANGES_FILENAME=""
   OBS_LEGACY_CHANGES_FILENAME=""
   OBS_MAINTAINER=""
@@ -45,7 +44,6 @@ obs_parse_project_env() {
       OBS_PROJECT) OBS_PROJECT="${value}" ;;
       OBS_PACKAGE) OBS_PACKAGE="${value}" ;;
       OBS_SPEC_FILENAME) OBS_SPEC_FILENAME="${value}" ;;
-      OBS_RPMLINTRC_FILENAME) OBS_RPMLINTRC_FILENAME="${value}" ;;
       OBS_CHANGES_FILENAME) OBS_CHANGES_FILENAME="${value}" ;;
       OBS_LEGACY_CHANGES_FILENAME) OBS_LEGACY_CHANGES_FILENAME="${value}" ;;
       OBS_MAINTAINER) OBS_MAINTAINER="${value}" ;;
@@ -68,7 +66,6 @@ obs_parse_project_env() {
   fi
 
   OBS_SPEC_FILENAME="${OBS_SPEC_FILENAME:-verilyze.spec}"
-  OBS_RPMLINTRC_FILENAME="${OBS_RPMLINTRC_FILENAME:-verilyze-rpmlintrc}"
   OBS_CHANGES_FILENAME="${OBS_CHANGES_FILENAME:-verilyze.changes}"
   OBS_LEGACY_CHANGES_FILENAME="${OBS_LEGACY_CHANGES_FILENAME:-verilyze.spec.changes}"
   OBS_MAINTAINER="${OBS_MAINTAINER:-Travis Post <post.travis@gmail.com>}"

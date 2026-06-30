@@ -16,7 +16,6 @@ Group:          Productivity/Security
 URL:            https://github.com/verilyze/verilyze
 Source0:        %{pkg_name}-%{version}.tar.xz
 Source1:        vendor.tar.zst
-Source2:        verilyze-rpmlintrc
 
 BuildRequires:  cargo >= 1.78.0
 BuildRequires:  rust >= 1.78.0
