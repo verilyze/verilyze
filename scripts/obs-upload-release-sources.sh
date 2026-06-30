@@ -168,8 +168,7 @@ upload_to_obs() {
   local source_sha256="$3"
   local vendor_sha256="$4"
   local spec_sha256="$5"
-  local changes_sha256="$6"
-  local rpmlintrc_sha256="$7"
+  local rpmlintrc_sha256="$6"
   local checkout_dir="${work_dir}/osc-checkout"
   local source_archive="${OBS_PACKAGE}-${version}.tar.xz"
   local existing_changes=""
@@ -359,7 +358,6 @@ upload_to_obs \
   "${SOURCE_SHA256}" \
   "${VENDOR_SHA256}" \
   "${SPEC_SHA256}" \
-  "${CHANGES_SHA256}" \
   "${RPMLINTRC_SHA256}"
 echo "OBS source upload completed."
 
