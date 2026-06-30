@@ -24,9 +24,4 @@
     <arch>x86_64</arch>
     <arch>aarch64</arch>
   </repository>
-  <repository name="15.7">
-    <path project="openSUSE:Leap:15.7" repository="standard"/>
-    <arch>x86_64</arch>
-    <arch>aarch64</arch>
-  </repository>
 </project>
