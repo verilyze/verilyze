@@ -23,6 +23,8 @@ this file **before** creating the release tag.
 - RPM packaging resolves rpmlint warnings in OBS builds.
 - OBS project `_meta` drops Leap 15.7 target until `openSUSE:Leap:15.7`
   exists on build.opensuse.org (fixes release `publish-obs` sync).
+- OBS upload verifies `.changes` checksum from the checkout render (not the
+  seed-only dry-run digest).
 
 ### Changed
 

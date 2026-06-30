@@ -168,8 +168,7 @@ upload_to_obs() {
   local source_sha256="$3"
   local vendor_sha256="$4"
   local spec_sha256="$5"
-  local changes_sha256="$6"
-  local rpmlintrc_sha256="$7"
+  local rpmlintrc_sha256="$6"
   local checkout_dir="${work_dir}/osc-checkout"
   local source_archive="${OBS_PACKAGE}-${version}.tar.xz"
   local existing_changes=""
@@ -184,6 +183,8 @@ upload_to_obs() {
       existing_changes="${PWD}/${OBS_CHANGES_FILENAME}"
     fi
     render_changes_file "${version}" "${OBS_CHANGES_FILENAME}" "${existing_changes}"
+    local uploaded_changes_sha256
+    uploaded_changes_sha256="$(sha256_file "${OBS_CHANGES_FILENAME}")"
     if [[ -f "${VENDOR_ARCHIVE_NAME}" ]]; then
       osc_cmd delete "${VENDOR_ARCHIVE_NAME}" 2>/dev/null || rm -f "${VENDOR_ARCHIVE_NAME}"
     fi
@@ -204,7 +205,7 @@ upload_to_obs() {
       "${source_archive}=${source_sha256}" \
       "${VENDOR_ARCHIVE_NAME}=${vendor_sha256}" \
       "${OBS_SPEC_FILENAME}=${spec_sha256}" \
-      "${OBS_CHANGES_FILENAME}=${changes_sha256}" \
+      "${OBS_CHANGES_FILENAME}=${uploaded_changes_sha256}" \
       "${OBS_RPMLINTRC_FILENAME}=${rpmlintrc_sha256}"
   )
 }
@@ -357,7 +358,6 @@ upload_to_obs \
   "${SOURCE_SHA256}" \
   "${VENDOR_SHA256}" \
   "${SPEC_SHA256}" \
-  "${CHANGES_SHA256}" \
   "${RPMLINTRC_SHA256}"
 echo "OBS source upload completed."
 
