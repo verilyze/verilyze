@@ -796,10 +796,12 @@ clears session edit tracking; `afterFileEdit` records agent-edited paths.
 
 Hooks opt-out: set `VLZ_CURSOR_HOOKS_DISABLE=1` to skip Cursor hook scripts locally.
 
-**Agent-assisted releases:** AI agents may run the full release workflow
-(including signed commits, tags, and `git push origin vX.Y.Z`) when a human
-**explicitly requests** it in chat. Agents must not start release work
-proactively. See [`.cursor/skills/release-prepare/SKILL.md`](.cursor/skills/release-prepare/SKILL.md).
+**Agent-assisted releases:** AI agents may run the release workflow
+(including signed commits, a `release/vX.Y.Z` pull request merged to `main`,
+tags, and `git push origin vX.Y.Z`) when a human **explicitly requests** it in
+chat. Agents must **not** push directly to `origin/main` (branch protection
+requires PR review). Agents must not start release work proactively. See
+[`.cursor/skills/release-prepare/SKILL.md`](.cursor/skills/release-prepare/SKILL.md).
 Human maintainers may still cut releases manually per [Versioning and
 releases](#versioning-and-releases) below.
 
