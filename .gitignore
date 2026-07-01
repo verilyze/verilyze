@@ -15,6 +15,7 @@
 /target
 .tmp-empty-xdg
 .cursor/.agent-edited-paths
+.cursor/.agent-turn-paths
 
 # super-linter local artifacts (SAVE_SUPER_LINTER_*)
 /super-linter.log
