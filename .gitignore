@@ -13,6 +13,7 @@
 /coverage
 /reports
 /target
+crates/**/target/
 .tmp-empty-xdg
 .cursor/.agent-edited-paths
 .cursor/.agent-turn-paths

@@ -124,6 +124,7 @@ pub fn generate_example(cfg: &crate::config::EffectiveConfig) -> String {
         ("cache_db", cache_db),
         ("ignore_db", ignore_db),
         ("parallel_queries", cfg.parallel_queries.to_string()),
+        ("parallel_resolutions", cfg.parallel_resolutions.to_string()),
         ("scan_exclude_dirs", cfg.scan_exclude_dirs.join(",")),
         ("cache_ttl_secs", cfg.cache_ttl_secs.to_string()),
         ("min_score", cfg.min_score.to_string()),

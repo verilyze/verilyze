@@ -41,6 +41,7 @@ complete -c vlz -n "__fish_vlz_using_subcommand scan" -l format -d 'Output forma
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l summary-file -d 'Generate additional files: e.g. html:/tmp/out.html,cyclonedx:/tmp/sbom.json' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l provider -d 'Force a particular CVE provider' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l parallel -d 'Parallel query limit (default 10, max 50)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l parallel-resolutions -d 'Parallel dependency resolution limit (default: CPU count, max 32)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l cache-db -d 'Override cache database path' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l ignore-db -d 'Override ignore (false-positive) database path' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l scan-exclude-dir -d 'Exclude directory name from manifest discovery (repeatable)' -r
@@ -75,6 +76,10 @@ complete -c vlz -n "__fish_vlz_using_subcommand scan" -s c -l config -d 'Overrid
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l offline -d 'Disable network access'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l benchmark -d 'Benchmark mode (no cache, no network, parallel=1)'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l package-manager-required -d 'Require package manager on PATH; exit 3 with hint if missing'
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l keep-ephemeral-venv -d 'Do not remove ephemeral Python venv after scan (FR-023 debug)'
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l allow-dependency-code-execution -d 'Allow pip to execute dependency build code during resolution (SEC-023)'
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l allow-direct-only-fallback -d 'Fall back to direct-only scan with warning when transitive resolution fails (FR-022a)'
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l fail-fast -d 'Stop on first manifest parse/resolution failure; skip CVE lookup (FR-037)'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand list" -s c -l config -d 'Override configuration file location' -r
 complete -c vlz -n "__fish_vlz_using_subcommand list" -s h -l help -d 'Print help'

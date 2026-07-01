@@ -39,6 +39,7 @@ _arguments "${_arguments_options[@]}" : \
 '*--summary-file=[Generate additional files\: e.g. html\:/tmp/out.html,cyclonedx\:/tmp/sbom.json]:TYPE:PATH:_default' \
 '--provider=[Force a particular CVE provider]:PROVIDER:_default' \
 '--parallel=[Parallel query limit (default 10, max 50)]:PARALLEL:_default' \
+'--parallel-resolutions=[Parallel dependency resolution limit (default\: CPU count, max 32)]:N:_default' \
 '--cache-db=[Override cache database path]:PATH:_default' \
 '--ignore-db=[Override ignore (false-positive) database path]:PATH:_default' \
 '*--scan-exclude-dir=[Exclude directory name from manifest discovery (repeatable)]:DIR:_default' \
@@ -72,6 +73,10 @@ _arguments "${_arguments_options[@]}" : \
 '--offline[Disable network access]' \
 '--benchmark[Benchmark mode (no cache, no network, parallel=1)]' \
 '--package-manager-required[Require package manager on PATH; exit 3 with hint if missing]' \
+'--keep-ephemeral-venv[Do not remove ephemeral Python venv after scan (FR-023 debug)]' \
+'--allow-dependency-code-execution[Allow pip to execute dependency build code during resolution (SEC-023)]' \
+'--allow-direct-only-fallback[Fall back to direct-only scan with warning when transitive resolution fails (FR-022a)]' \
+'--fail-fast[Stop on first manifest parse/resolution failure; skip CVE lookup (FR-037)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 '::root -- Root directory (defaults to current working dir):_default' \

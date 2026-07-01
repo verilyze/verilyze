@@ -37,6 +37,7 @@ flowchart TD
 | cache_db | string |  | `VLZ_CACHE_DB` | `--cache-db` |
 | ignore_db | string |  | `VLZ_IGNORE_DB` | `--ignore-db` |
 | parallel_queries | integer | 10 | `VLZ_PARALLEL_QUERIES` | `--parallel` |
+| parallel_resolutions | integer | 4 | `VLZ_PARALLEL_RESOLUTIONS` | `--parallel-resolutions` |
 | scan_exclude_dirs | string | .git | `VLZ_SCAN_EXCLUDE_DIRS` | `--scan-exclude-dir (repeatable)` |
 | reachability_mode | string | tier-b | `VLZ_REACHABILITY_MODE` | `--reachability-mode` |
 | cache_ttl_secs | integer | 432000 | `VLZ_CACHE_TTL_SECS` | `--cache-ttl-secs` |
@@ -51,6 +52,10 @@ flowchart TD
 | provider_http_connect_timeout_secs | integer | 15 | `VLZ_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS` | `--provider-http-connect-timeout-secs` |
 | provider_http_request_timeout_secs | integer | 120 | `VLZ_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS` | `--provider-http-request-timeout-secs` |
 | tls_crl_bundle | string |  | `VLZ_TLS_CRL_BUNDLE` | `--tls-crl-bundle` |
+| keep_ephemeral_venv | boolean | false | `VLZ_KEEP_EPHEMERAL_VENV` | `--keep-ephemeral-venv` |
+| allow_dependency_code_execution | boolean | false | `VLZ_ALLOW_DEPENDENCY_CODE_EXECUTION` | `--allow-dependency-code-execution` |
+| allow_direct_only_fallback | boolean | false | `VLZ_ALLOW_DIRECT_ONLY_FALLBACK` | `--allow-direct-only-fallback` |
+| fail_fast | boolean | false | `VLZ_FAIL_FAST` | `--fail-fast` |
 
 ## Severity thresholds (FR-013)
 

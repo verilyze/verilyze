@@ -11,6 +11,9 @@
 # Max concurrent CVE queries (1-50)
 # parallel_queries = 10
 
+# Max concurrent manifest resolution subprocesses (1-32)
+# parallel_resolutions = 4
+
 # Comma-separated directory names to skip during manifest discovery (default:
 # .git)
 # scan_exclude_dirs = .git
@@ -56,6 +59,23 @@
 # Optional PEM CRL bundle path for Linux CVE provider TLS (SEC-021); empty
 # disables
 # tls_crl_bundle = 
+
+# Do not remove ephemeral Python venv after scan (FR-023 debug; default false)
+# keep_ephemeral_venv = false
+
+# Allow pip to execute dependency build code during Python resolution (SEC-023;
+# default false)
+# allow_dependency_code_execution = false
+
+# When transitive resolution is required but cannot be satisfied, fall back to
+# direct-only scanning with an FR-022a warning instead of exit 2 (FR-022,
+# FR-022a; default false)
+# allow_direct_only_fallback = false
+
+# Stop manifest processing on the first blocking parse or resolution failure
+# and skip CVE lookup (FR-037; default false). Does not affect CVE provider
+# fetch behavior when the CVE phase runs.
+# fail_fast = false
 
 #
 # [severity.v2], [severity.v3], [severity.v4] (CVSS thresholds)

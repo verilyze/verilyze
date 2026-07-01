@@ -110,7 +110,9 @@ build_vendor_archive() {
   git archive --format=tar "${git_ref}" | tar -x -C "${vendor_root}"
   (
     cd "${vendor_root}"
-    cargo vendor --locked vendor
+    local vendor_tmp="${vendor_root}/.vendor-tmp"
+    mkdir -p "${vendor_tmp}"
+    TMPDIR="${vendor_tmp}" cargo vendor --locked vendor
     mkdir -p .cargo
     cat >.cargo/config.toml <<'EOF'
 [source.crates-io]

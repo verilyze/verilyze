@@ -16,6 +16,97 @@ use vlz_db::{CveRecord, CvssVersion, Package, Severity};
 
 const DESCRIPTION_MAX_LEN: usize = 60;
 
+/// Format a single path relative to scan root when possible (FR-037).
+fn relative_path_string(
+    path: &std::path::Path,
+    root: Option<&std::path::Path>,
+) -> String {
+    if let Some(root) = root {
+        path.strip_prefix(root)
+            .map(|r| r.to_string_lossy().into_owned())
+            .unwrap_or_else(|_| path.to_string_lossy().into_owned())
+    } else {
+        path.to_string_lossy().into_owned()
+    }
+}
+
+/// True when plain/HTML manifest coverage section should be shown (FR-037).
+pub fn manifest_coverage_needs_section(
+    coverage: &[ManifestCoverageEntry],
+) -> bool {
+    coverage
+        .iter()
+        .any(|e| e.status != ManifestScanStatus::ScannedTransitive)
+}
+
+fn write_manifest_coverage_plain(
+    w: &mut (dyn std::io::Write + Send),
+    coverage: &[ManifestCoverageEntry],
+    root_path: Option<&std::path::Path>,
+) -> Result<(), ReportError> {
+    if !manifest_coverage_needs_section(coverage) {
+        return Ok(());
+    }
+    writeln!(w, "Manifest coverage:")?;
+    writeln!(w, "Path | Language | Status | Direct-only reason | Error")?;
+    writeln!(w, "{}", "-".repeat(100))?;
+    for entry in coverage {
+        let path = relative_path_string(&entry.path, root_path);
+        let direct_only = entry.direct_only_reason.as_deref().unwrap_or("-");
+        let error = entry.error.as_deref().unwrap_or("-");
+        writeln!(
+            w,
+            "{} | {} | {} | {} | {}",
+            path,
+            entry.language,
+            entry.status.as_str(),
+            direct_only,
+            error
+        )?;
+    }
+    writeln!(w)?;
+    Ok(())
+}
+
+#[derive(Serialize)]
+struct JsonManifestCoverageEntry<'a> {
+    path: String,
+    language: &'a str,
+    status: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    direct_only_reason: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<&'a str>,
+}
+
+fn json_manifest_coverage_entries<'a>(
+    coverage: &'a [ManifestCoverageEntry],
+    root_path: Option<&std::path::Path>,
+) -> Vec<JsonManifestCoverageEntry<'a>> {
+    coverage
+        .iter()
+        .map(|entry| JsonManifestCoverageEntry {
+            path: relative_path_string(&entry.path, root_path),
+            language: &entry.language,
+            status: entry.status.as_str(),
+            direct_only_reason: entry.direct_only_reason.as_deref(),
+            error: entry.error.as_deref(),
+        })
+        .collect()
+}
+
+fn manifest_coverage_json_array(
+    coverage: &[ManifestCoverageEntry],
+    root_path: Option<&std::path::Path>,
+) -> Vec<serde_json::Value> {
+    json_manifest_coverage_entries(coverage, root_path)
+        .into_iter()
+        .map(|entry| {
+            serde_json::to_value(entry).expect("manifest coverage entry")
+        })
+        .collect()
+}
+
 /// Format manifest paths for display. When root_path is provided, makes paths relative.
 fn format_manifest_paths(
     paths: &[PathBuf],
@@ -26,16 +117,7 @@ fn format_manifest_paths(
     }
     let formatted: Vec<String> = paths
         .iter()
-        .map(|p| {
-            let p = p.as_path();
-            if let Some(root) = root_path {
-                p.strip_prefix(root)
-                    .map(|r| r.to_string_lossy().into_owned())
-                    .unwrap_or_else(|_| p.to_string_lossy().into_owned())
-            } else {
-                p.to_string_lossy().into_owned()
-            }
-        })
+        .map(|p| relative_path_string(p.as_path(), root_path))
         .collect();
     if formatted.len() <= 2 {
         formatted.join(", ")
@@ -123,6 +205,51 @@ pub struct Finding {
     pub cves: Vec<(CveRecord, Severity)>,
 }
 
+/// Manifest scan outcome for multi-manifest resilience (FR-037).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ManifestScanStatus {
+    ScannedTransitive,
+    ScannedDirectOnly,
+    FailedParse,
+    FailedResolution,
+}
+
+/// JSON/status string for `scanned_transitive` (NFR-024).
+pub const MANIFEST_STATUS_SCANNED_TRANSITIVE: &str = "scanned_transitive";
+/// JSON/status string for `scanned_direct_only` (NFR-024).
+pub const MANIFEST_STATUS_SCANNED_DIRECT_ONLY: &str = "scanned_direct_only";
+/// JSON/status string for `failed_parse` (NFR-024).
+pub const MANIFEST_STATUS_FAILED_PARSE: &str = "failed_parse";
+/// JSON/status string for `failed_resolution` (NFR-024).
+pub const MANIFEST_STATUS_FAILED_RESOLUTION: &str = "failed_resolution";
+
+impl ManifestScanStatus {
+    /// Stable snake_case label for reports and JSON (FR-037).
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::ScannedTransitive => MANIFEST_STATUS_SCANNED_TRANSITIVE,
+            Self::ScannedDirectOnly => MANIFEST_STATUS_SCANNED_DIRECT_ONLY,
+            Self::FailedParse => MANIFEST_STATUS_FAILED_PARSE,
+            Self::FailedResolution => MANIFEST_STATUS_FAILED_RESOLUTION,
+        }
+    }
+
+    /// True when this status should cause exit 2 (FR-037).
+    pub fn is_blocking(self) -> bool {
+        matches!(self, Self::FailedParse | Self::FailedResolution)
+    }
+}
+
+/// Per-manifest scan coverage entry (FR-037).
+#[derive(Debug, Clone)]
+pub struct ManifestCoverageEntry {
+    pub path: PathBuf,
+    pub language: String,
+    pub status: ManifestScanStatus,
+    pub direct_only_reason: Option<String>,
+    pub error: Option<String>,
+}
+
 /// Simple data structure handed to the reporter. Each CVE has a pre-resolved severity (FR-013).
 /// FR-015a: project_id is included when the scan was run with --project-id (or config/env).
 pub struct ReportData {
@@ -134,6 +261,8 @@ pub struct ReportData {
     /// Scan root for path normalization (relative paths in reports). When Some, paths are
     /// made relative to this root when possible.
     pub root_path: Option<PathBuf>,
+    /// Per-manifest scan status (FR-037). Empty when no manifests were discovered.
+    pub manifest_coverage: Vec<ManifestCoverageEntry>,
 }
 
 #[async_trait]
@@ -185,8 +314,14 @@ impl Reporter for DefaultReporter {
         if let Some(ref pid) = data.project_id {
             writeln!(w, "Project: {}", pid)?;
         }
+        write_manifest_coverage_plain(
+            w,
+            &data.manifest_coverage,
+            data.root_path.as_deref(),
+        )?;
         if data.findings.is_empty() {
             writeln!(w, "No vulnerabilities found.")?;
+            w.flush()?;
             return Ok(());
         }
         writeln!(
@@ -234,6 +369,7 @@ impl Reporter for DefaultReporter {
 struct JsonReport<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     project_id: Option<&'a str>,
+    manifest_coverage: Vec<JsonManifestCoverageEntry<'a>>,
     findings: Vec<JsonFinding<'a>>,
 }
 
@@ -286,6 +422,10 @@ impl Reporter for JsonReporter {
     ) -> Result<(), ReportError> {
         let report = JsonReport {
             project_id: data.project_id.as_deref(),
+            manifest_coverage: json_manifest_coverage_entries(
+                &data.manifest_coverage,
+                data.root_path.as_deref(),
+            ),
             findings: data
                 .findings
                 .iter()
@@ -338,6 +478,33 @@ impl Reporter for HtmlReporter {
                 "<p><strong>Project:</strong> {}</p>",
                 html_escape(pid)
             )?;
+        }
+        if manifest_coverage_needs_section(&data.manifest_coverage) {
+            writeln!(w, "<h2>Manifest coverage</h2>")?;
+            writeln!(
+                w,
+                "<table border=\"1\"><thead><tr><th>Path</th><th>Language</th><th>Status</th><th>Direct-only reason</th><th>Error</th></tr></thead><tbody>"
+            )?;
+            for entry in &data.manifest_coverage {
+                let path = html_escape(&relative_path_string(
+                    &entry.path,
+                    data.root_path.as_deref(),
+                ));
+                let direct_only = html_escape(
+                    entry.direct_only_reason.as_deref().unwrap_or("-"),
+                );
+                let error = html_escape(entry.error.as_deref().unwrap_or("-"));
+                writeln!(
+                    w,
+                    "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                    path,
+                    html_escape(&entry.language),
+                    entry.status.as_str(),
+                    direct_only,
+                    error
+                )?;
+            }
+            writeln!(w, "</tbody></table>")?;
         }
         if data.findings.is_empty() {
             writeln!(w, "<p>No vulnerabilities found.</p>")?;
@@ -473,6 +640,28 @@ impl Reporter for SarifReporter {
         });
         if let Some(ref pid) = data.project_id {
             run_obj["properties"] = serde_json::json!({ "project_id": pid });
+        }
+        if !data.manifest_coverage.is_empty() {
+            let props = run_obj
+                .get_mut("properties")
+                .and_then(|v| v.as_object_mut());
+            let coverage = manifest_coverage_json_array(
+                &data.manifest_coverage,
+                data.root_path.as_deref(),
+            );
+            match props {
+                Some(obj) => {
+                    obj.insert(
+                        "manifest_coverage".to_string(),
+                        serde_json::Value::Array(coverage),
+                    );
+                }
+                None => {
+                    run_obj["properties"] = serde_json::json!({
+                        "manifest_coverage": coverage
+                    });
+                }
+            }
         }
         let sarif = serde_json::json!({
             "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
@@ -841,6 +1030,7 @@ mod tests {
             all_packages: None,
             project_id: None,
             root_path: None,
+            manifest_coverage: vec![],
         }
     }
 
@@ -866,6 +1056,32 @@ mod tests {
             all_packages: None,
             project_id: None,
             root_path: None,
+            manifest_coverage: vec![],
+        }
+    }
+
+    fn sample_report_data_with_manifest_coverage() -> ReportData {
+        ReportData {
+            findings: vec![],
+            all_packages: None,
+            project_id: None,
+            root_path: Some(PathBuf::from("/root")),
+            manifest_coverage: vec![
+                ManifestCoverageEntry {
+                    path: PathBuf::from("/root/good/requirements.txt"),
+                    language: "python".to_string(),
+                    status: ManifestScanStatus::ScannedTransitive,
+                    direct_only_reason: None,
+                    error: None,
+                },
+                ManifestCoverageEntry {
+                    path: PathBuf::from("/root/broken/requirements.txt"),
+                    language: "python".to_string(),
+                    status: ManifestScanStatus::FailedResolution,
+                    direct_only_reason: None,
+                    error: Some("resolve failed".to_string()),
+                },
+            ],
         }
     }
 
@@ -896,6 +1112,7 @@ mod tests {
             all_packages: Some(vec![pkg_foo, pkg_bar]),
             project_id: None,
             root_path: None,
+            manifest_coverage: vec![],
         }
     }
 
@@ -925,6 +1142,103 @@ mod tests {
         assert!(out.contains("HIGH"));
         assert!(out.contains("Manifest(s)"));
         assert!(out.contains("Cargo.toml"));
+    }
+
+    #[test]
+    fn manifest_coverage_needs_section_true_for_failures() {
+        let coverage = vec![ManifestCoverageEntry {
+            path: PathBuf::from("requirements.txt"),
+            language: "python".to_string(),
+            status: ManifestScanStatus::FailedResolution,
+            direct_only_reason: None,
+            error: Some("err".to_string()),
+        }];
+        assert!(manifest_coverage_needs_section(&coverage));
+    }
+
+    #[test]
+    fn manifest_coverage_needs_section_false_for_transitive_only() {
+        let coverage = vec![ManifestCoverageEntry {
+            path: PathBuf::from("requirements.txt"),
+            language: "python".to_string(),
+            status: ManifestScanStatus::ScannedTransitive,
+            direct_only_reason: None,
+            error: None,
+        }];
+        assert!(!manifest_coverage_needs_section(&coverage));
+    }
+
+    #[tokio::test]
+    async fn json_reporter_includes_manifest_coverage() {
+        let data = sample_report_data_with_manifest_coverage();
+        let mut buf = Vec::new();
+        JsonReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim())
+                .unwrap();
+        let coverage = parsed
+            .get("manifest_coverage")
+            .expect("manifest_coverage")
+            .as_array()
+            .expect("array");
+        assert_eq!(coverage.len(), 2);
+        assert_eq!(
+            coverage[1].get("status").unwrap(),
+            MANIFEST_STATUS_FAILED_RESOLUTION
+        );
+        assert_eq!(
+            coverage[1].get("path").unwrap(),
+            "broken/requirements.txt"
+        );
+    }
+
+    #[tokio::test]
+    async fn default_reporter_includes_manifest_coverage_section() {
+        let data = sample_report_data_with_manifest_coverage();
+        let mut buf = Vec::new();
+        DefaultReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let out = String::from_utf8(buf).unwrap();
+        assert!(out.contains("Manifest coverage:"));
+        assert!(out.contains("failed_resolution"));
+        assert!(out.contains("broken/requirements.txt"));
+    }
+
+    #[tokio::test]
+    async fn sarif_reporter_includes_manifest_coverage_in_properties() {
+        let data = sample_report_data_with_manifest_coverage();
+        let mut buf = Vec::new();
+        SarifReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim())
+                .unwrap();
+        let props = parsed["runs"][0]["properties"]
+            .get("manifest_coverage")
+            .expect("manifest_coverage in properties")
+            .as_array()
+            .expect("array");
+        assert_eq!(props.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn html_reporter_includes_manifest_coverage_table() {
+        let data = sample_report_data_with_manifest_coverage();
+        let mut buf = Vec::new();
+        HtmlReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let out = String::from_utf8(buf).unwrap();
+        assert!(out.contains("Manifest coverage"));
+        assert!(out.contains("failed_resolution"));
     }
 
     #[tokio::test]
@@ -1041,6 +1355,7 @@ mod tests {
             all_packages: None,
             project_id: None,
             root_path: None,
+            manifest_coverage: vec![],
         };
         let mut buf = Vec::new();
         HtmlReporter::new()
@@ -1129,6 +1444,7 @@ mod tests {
             all_packages: Some(vec![]),
             project_id: None,
             root_path: None,
+            manifest_coverage: vec![],
         };
         let mut buf = Vec::new();
         CycloneDxReporter::new()
@@ -1218,6 +1534,7 @@ mod tests {
             all_packages: Some(vec![]),
             project_id: None,
             root_path: None,
+            manifest_coverage: vec![],
         };
         let mut buf = Vec::new();
         SpdxReporter::new()

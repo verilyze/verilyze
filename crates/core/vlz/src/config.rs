@@ -31,6 +31,21 @@ fn user_relative_path(path: &Path) -> String {
 /// Maximum allowed parallel queries (FR-012).
 pub const MAX_PARALLEL_QUERIES: usize = 50;
 
+/// Maximum allowed concurrent manifest resolutions (FR-012a).
+pub const MAX_PARALLEL_RESOLUTIONS: usize = 32;
+
+/// Fallback when CPU count is unavailable for default parallel resolutions.
+const FALLBACK_PARALLEL_RESOLUTIONS: usize = 4;
+
+/// Default concurrent manifest resolutions from CPU count, clamped to
+/// [`MAX_PARALLEL_RESOLUTIONS`] (FR-012a).
+pub fn default_parallel_resolutions() -> usize {
+    std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(FALLBACK_PARALLEL_RESOLUTIONS)
+        .clamp(1, MAX_PARALLEL_RESOLUTIONS)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReachabilityMode {
     Off,
@@ -89,6 +104,8 @@ pub struct EffectiveConfig {
     pub cache_db: Option<PathBuf>,
     pub ignore_db: Option<PathBuf>,
     pub parallel_queries: usize,
+    /// Max concurrent manifest resolution subprocesses (FR-012a).
+    pub parallel_resolutions: usize,
     pub cache_ttl_secs: u64,
     pub offline: bool,
     pub benchmark: bool,
@@ -105,6 +122,15 @@ pub struct EffectiveConfig {
     pub scan_exclude_dirs: Vec<String>,
     /// If true, exit 3 with hint when required package manager (e.g. pip) is not on PATH (FR-024).
     pub package_manager_required: bool,
+    /// Do not remove ephemeral Python venv after scan (FR-023 debug).
+    pub keep_ephemeral_venv: bool,
+    /// Allow pip operations that may execute dependency build code (SEC-023).
+    pub allow_dependency_code_execution: bool,
+    /// When true, FR-022 transitive-resolution failures fall back to direct-only
+    /// scan with FR-022a warning instead of exit 2 (FR-022, FR-022a).
+    pub allow_direct_only_fallback: bool,
+    /// Stop manifest processing on first blocking failure; skip CVE lookup (FR-037).
+    pub fail_fast: bool,
     /// Backoff base delay in milliseconds (NFR-005, SEC-007, OP-010).
     pub backoff_base_ms: u64,
     /// Backoff maximum delay in milliseconds.
@@ -129,6 +155,7 @@ impl Default for EffectiveConfig {
             cache_db: None,
             ignore_db: None,
             parallel_queries: 0,
+            parallel_resolutions: 0,
             cache_ttl_secs: 0,
             offline: false,
             benchmark: false,
@@ -143,6 +170,10 @@ impl Default for EffectiveConfig {
                 .map(|v| (*v).to_string())
                 .collect(),
             package_manager_required: false,
+            keep_ephemeral_venv: false,
+            allow_dependency_code_execution: false,
+            allow_direct_only_fallback: false,
+            fail_fast: false,
             backoff_base_ms: 0,
             backoff_max_ms: 0,
             max_retries: 0,
@@ -166,6 +197,8 @@ struct FileConfig {
     ignore_db: Option<String>,
     #[serde(rename = "parallel_queries")]
     parallel_queries: Option<u32>,
+    #[serde(rename = "parallel_resolutions")]
+    parallel_resolutions: Option<u32>,
     #[serde(rename = "cache_ttl_secs")]
     cache_ttl_secs: Option<u64>,
     #[serde(rename = "min_score")]
@@ -194,6 +227,14 @@ struct FileConfig {
     scan_exclude_dirs: Option<Vec<String>>,
     #[serde(rename = "reachability_mode")]
     reachability_mode: Option<String>,
+    #[serde(rename = "keep_ephemeral_venv")]
+    keep_ephemeral_venv: Option<bool>,
+    #[serde(rename = "allow_dependency_code_execution")]
+    allow_dependency_code_execution: Option<bool>,
+    #[serde(rename = "allow_direct_only_fallback")]
+    allow_direct_only_fallback: Option<bool>,
+    #[serde(rename = "fail_fast")]
+    fail_fast: Option<bool>,
 }
 
 #[derive(Error, Debug)]
@@ -210,6 +251,9 @@ pub enum ConfigError {
 
     #[error("Parallel queries must be at most {max}; got {value}")]
     ParallelTooHigh { value: usize, max: usize },
+
+    #[error("Parallel resolutions must be at most {max}; got {value}")]
+    ParallelResolutionsTooHigh { value: usize, max: usize },
 
     #[error("Invalid CVE provider HTTP timeouts: {message}")]
     InvalidProviderHttpTimeouts { message: String },
@@ -229,6 +273,7 @@ const KNOWN_FILE_CONFIG_KEYS: &[&str] = &[
     "cache_db",
     "ignore_db",
     "parallel_queries",
+    "parallel_resolutions",
     "cache_ttl_secs",
     "min_score",
     "min_count",
@@ -243,6 +288,10 @@ const KNOWN_FILE_CONFIG_KEYS: &[&str] = &[
     "tls_crl_bundle",
     "scan_exclude_dirs",
     "reachability_mode",
+    "keep_ephemeral_venv",
+    "allow_dependency_code_execution",
+    "allow_direct_only_fallback",
+    "fail_fast",
 ];
 
 /// Parse and validate raw TOML config content (SEC-006). Used for fuzzing (NFR-020).
@@ -296,6 +345,9 @@ fn apply_file_config_inner(
     if let Some(n) = parsed.parallel_queries {
         cfg.parallel_queries = n as usize;
     }
+    if let Some(n) = parsed.parallel_resolutions {
+        cfg.parallel_resolutions = n as usize;
+    }
     if let Some(n) = parsed.cache_ttl_secs {
         cfg.cache_ttl_secs = n;
     }
@@ -337,6 +389,18 @@ fn apply_file_config_inner(
     }
     if let Some(mode) = parsed.reachability_mode {
         cfg.reachability_mode = parse_reachability_mode(&mode, source)?;
+    }
+    if let Some(v) = parsed.keep_ephemeral_venv {
+        cfg.keep_ephemeral_venv = v;
+    }
+    if let Some(v) = parsed.allow_dependency_code_execution {
+        cfg.allow_dependency_code_execution = v;
+    }
+    if let Some(v) = parsed.allow_direct_only_fallback {
+        cfg.allow_direct_only_fallback = v;
+    }
+    if let Some(v) = parsed.fail_fast {
+        cfg.fail_fast = v;
     }
     if extract_language_regexes {
         cfg.language_regexes.clear();
@@ -627,11 +691,13 @@ fn validate_tls_crl_bundle_readable(path: &Path) -> Result<(), ConfigError> {
 }
 
 /// Build effective config: defaults, then system file, user file, -c file, env, CLI.
-/// Validates parallel_queries <= MAX_PARALLEL_QUERIES (FR-012).
+/// Validates parallel_queries <= MAX_PARALLEL_QUERIES (FR-012) and
+/// parallel_resolutions <= MAX_PARALLEL_RESOLUTIONS (FR-012a).
 #[allow(clippy::too_many_arguments)]
 pub fn load(
     config_file_override: Option<&str>,
     env_parallel: Option<usize>,
+    env_parallel_resolutions: Option<usize>,
     env_cache_db: Option<PathBuf>,
     env_ignore_db: Option<PathBuf>,
     env_cache_ttl_secs: Option<u64>,
@@ -647,6 +713,7 @@ pub fn load(
     env_provider_http_request_timeout_secs: Option<u64>,
     env_tls_crl_bundle: Option<PathBuf>,
     cli_parallel: Option<usize>,
+    cli_parallel_resolutions: Option<usize>,
     cli_cache_db: Option<&str>,
     cli_ignore_db: Option<&str>,
     cli_cache_ttl_secs: Option<u64>,
@@ -672,6 +739,7 @@ pub fn load(
     load_with_reachability_overrides(
         config_file_override,
         env_parallel,
+        env_parallel_resolutions,
         env_cache_db,
         env_ignore_db,
         env_cache_ttl_secs,
@@ -687,6 +755,7 @@ pub fn load(
         env_provider_http_request_timeout_secs,
         env_tls_crl_bundle,
         cli_parallel,
+        cli_parallel_resolutions,
         cli_cache_db,
         cli_ignore_db,
         cli_cache_ttl_secs,
@@ -706,6 +775,10 @@ pub fn load(
         cli_tls_crl_bundle,
         None,
         None,
+        false,
+        false,
+        false,
+        false,
         env_severity,
         cli_severity,
     )
@@ -715,6 +788,7 @@ pub fn load(
 pub fn load_with_reachability_overrides(
     config_file_override: Option<&str>,
     env_parallel: Option<usize>,
+    env_parallel_resolutions: Option<usize>,
     env_cache_db: Option<PathBuf>,
     env_ignore_db: Option<PathBuf>,
     env_cache_ttl_secs: Option<u64>,
@@ -730,6 +804,7 @@ pub fn load_with_reachability_overrides(
     env_provider_http_request_timeout_secs: Option<u64>,
     env_tls_crl_bundle: Option<PathBuf>,
     cli_parallel: Option<usize>,
+    cli_parallel_resolutions: Option<usize>,
     cli_cache_db: Option<&str>,
     cli_ignore_db: Option<&str>,
     cli_cache_ttl_secs: Option<u64>,
@@ -749,6 +824,10 @@ pub fn load_with_reachability_overrides(
     cli_tls_crl_bundle: Option<String>,
     env_reachability_mode: Option<ReachabilityMode>,
     cli_reachability_mode: Option<ReachabilityMode>,
+    cli_keep_ephemeral_venv: bool,
+    cli_allow_dependency_code_execution: bool,
+    cli_allow_direct_only_fallback: bool,
+    cli_fail_fast: bool,
     // FR-013, CFG-005: severity threshold overrides from environment variables.
     env_severity: SeverityOverrides,
     // FR-013, CFG-006: severity threshold overrides from CLI flags; takes precedence over env.
@@ -756,6 +835,7 @@ pub fn load_with_reachability_overrides(
 ) -> Result<EffectiveConfig, ConfigError> {
     let mut cfg = EffectiveConfig {
         parallel_queries: DEFAULT_PARALLEL_QUERIES,
+        parallel_resolutions: default_parallel_resolutions(),
         cache_ttl_secs: DEFAULT_CACHE_TTL_SECS,
         backoff_base_ms: DEFAULT_BACKOFF_BASE_MS,
         backoff_max_ms: DEFAULT_BACKOFF_MAX_MS,
@@ -792,6 +872,9 @@ pub fn load_with_reachability_overrides(
     // 4) Environment (VLZ_*)
     if let Some(n) = env_parallel {
         cfg.parallel_queries = n;
+    }
+    if let Some(n) = env_parallel_resolutions {
+        cfg.parallel_resolutions = n;
     }
     if let Some(p) = env_cache_db {
         cfg.cache_db = Some(p);
@@ -841,10 +924,25 @@ pub fn load_with_reachability_overrides(
     if let Some(mode) = env_reachability_mode {
         cfg.reachability_mode = mode;
     }
+    if let Some(v) = env_keep_ephemeral_venv() {
+        cfg.keep_ephemeral_venv = v;
+    }
+    if let Some(v) = env_allow_dependency_code_execution() {
+        cfg.allow_dependency_code_execution = v;
+    }
+    if let Some(v) = env_allow_direct_only_fallback() {
+        cfg.allow_direct_only_fallback = v;
+    }
+    if let Some(v) = env_fail_fast() {
+        cfg.fail_fast = v;
+    }
 
     // 5) CLI
     if let Some(n) = cli_parallel {
         cfg.parallel_queries = n;
+    }
+    if let Some(n) = cli_parallel_resolutions {
+        cfg.parallel_resolutions = n;
     }
     if let Some(p) = cli_cache_db {
         cfg.cache_db = Some(PathBuf::from(p));
@@ -894,6 +992,18 @@ pub fn load_with_reachability_overrides(
     if let Some(mode) = cli_reachability_mode {
         cfg.reachability_mode = mode;
     }
+    if cli_keep_ephemeral_venv {
+        cfg.keep_ephemeral_venv = true;
+    }
+    if cli_allow_dependency_code_execution {
+        cfg.allow_dependency_code_execution = true;
+    }
+    if cli_allow_direct_only_fallback {
+        cfg.allow_direct_only_fallback = true;
+    }
+    if cli_fail_fast {
+        cfg.fail_fast = true;
+    }
 
     validate_provider_http_timeouts(
         cfg.provider_http_connect_timeout_secs,
@@ -911,6 +1021,13 @@ pub fn load_with_reachability_overrides(
         });
     }
 
+    if cfg.parallel_resolutions > MAX_PARALLEL_RESOLUTIONS {
+        return Err(ConfigError::ParallelResolutionsTooHigh {
+            value: cfg.parallel_resolutions,
+            max: MAX_PARALLEL_RESOLUTIONS,
+        });
+    }
+
     // FR-013: apply severity threshold overrides (env first, then CLI).
     apply_severity_overrides(&mut cfg.severity, &env_severity);
     apply_severity_overrides(&mut cfg.severity, &cli_severity);
@@ -921,6 +1038,12 @@ pub fn load_with_reachability_overrides(
 /// Read VLZ_* environment variables for config (CFG-005).
 pub fn env_parallel() -> Option<usize> {
     std::env::var("VLZ_PARALLEL_QUERIES")
+        .ok()
+        .and_then(|s| s.parse().ok())
+}
+
+pub fn env_parallel_resolutions() -> Option<usize> {
+    std::env::var("VLZ_PARALLEL_RESOLUTIONS")
         .ok()
         .and_then(|s| s.parse().ok())
 }
@@ -1025,6 +1148,35 @@ pub fn env_scan_exclude_dirs() -> Option<Vec<String>> {
             .map(ToOwned::to_owned)
             .collect()
     })
+}
+
+fn parse_env_bool_var(name: &str) -> Option<bool> {
+    std::env::var(name).ok().map(|v| {
+        matches!(
+            v.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        )
+    })
+}
+
+/// Read `VLZ_KEEP_EPHEMERAL_VENV` (FR-023 debug).
+pub fn env_keep_ephemeral_venv() -> Option<bool> {
+    parse_env_bool_var("VLZ_KEEP_EPHEMERAL_VENV")
+}
+
+/// Read `VLZ_ALLOW_DEPENDENCY_CODE_EXECUTION` (SEC-023).
+pub fn env_allow_dependency_code_execution() -> Option<bool> {
+    parse_env_bool_var("VLZ_ALLOW_DEPENDENCY_CODE_EXECUTION")
+}
+
+/// Read `VLZ_ALLOW_DIRECT_ONLY_FALLBACK` (FR-022, FR-022a).
+pub fn env_allow_direct_only_fallback() -> Option<bool> {
+    parse_env_bool_var("VLZ_ALLOW_DIRECT_ONLY_FALLBACK")
+}
+
+/// Read `VLZ_FAIL_FAST` (FR-037).
+pub fn env_fail_fast() -> Option<bool> {
+    parse_env_bool_var("VLZ_FAIL_FAST")
 }
 
 /// Read all VLZ_SEVERITY_* env vars and return a `SeverityOverrides` (FR-013, CFG-005).
@@ -1139,9 +1291,65 @@ pub fn set_config_key(key: &str, value: &str) -> Result<(), ConfigError> {
 mod tests {
     use super::*;
 
+    /// Invoke [`load`] with defaults except optional parallel overrides.
+    fn load_parallel_test(
+        config_file: Option<&str>,
+        env_parallel: Option<usize>,
+        env_parallel_resolutions: Option<usize>,
+        cli_parallel: Option<usize>,
+        cli_parallel_resolutions: Option<usize>,
+    ) -> Result<EffectiveConfig, ConfigError> {
+        load(
+            config_file,
+            env_parallel,
+            env_parallel_resolutions,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            cli_parallel,
+            cli_parallel_resolutions,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            SeverityOverrides::default(),
+            SeverityOverrides::default(),
+        )
+    }
+
+    fn load_no_severity(config_file: Option<&str>) -> EffectiveConfig {
+        load_parallel_test(config_file, None, None, None, None).unwrap()
+    }
+
     #[test]
     fn load_defaults_when_no_files() {
         let cfg = load(
+            None,
+            None,
             None,
             None,
             None,
@@ -1181,6 +1389,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(cfg.parallel_queries, DEFAULT_PARALLEL_QUERIES);
+        assert_eq!(cfg.parallel_resolutions, default_parallel_resolutions());
         assert_eq!(cfg.cache_ttl_secs, DEFAULT_CACHE_TTL_SECS);
         assert_eq!(cfg.backoff_base_ms, DEFAULT_BACKOFF_BASE_MS);
         assert_eq!(cfg.max_retries, DEFAULT_MAX_RETRIES);
@@ -1225,6 +1434,8 @@ mod tests {
             None,
             None,
             None,
+            None,
+            None,
             false,
             false,
             None,
@@ -1247,47 +1458,22 @@ mod tests {
 
     #[test]
     fn load_parallel_too_high_fr012() {
-        let r = load(
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Some(51),
-            None,
-            None,
-            None,
-            false,
-            false,
-            None,
-            None,
-            None,
-            None,
-            None,
-            false,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Default::default(),
-            Default::default(),
-        );
+        let r = load_parallel_test(None, None, None, Some(51), None);
         assert!(matches!(
             r,
             Err(ConfigError::ParallelTooHigh { value: 51, max: 50 })
+        ));
+    }
+
+    #[test]
+    fn load_parallel_resolutions_too_high_fr012a() {
+        let r = load_parallel_test(None, None, Some(33), None, None);
+        assert!(matches!(
+            r,
+            Err(ConfigError::ParallelResolutionsTooHigh {
+                value: 33,
+                max: 32
+            })
         ));
     }
 
@@ -1463,6 +1649,8 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
+                None,
                 false,
                 false,
                 None,
@@ -1496,6 +1684,8 @@ mod tests {
         temp_env::with_var("HOME", Some(home_str.as_str()), || {
             let r = load(
                 Some(config_path.to_str().unwrap()),
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -1565,6 +1755,8 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
+                None,
                 false,
                 false,
                 None,
@@ -1612,6 +1804,8 @@ regex = "^req\\.txt$"
         let path_str = config_path.to_string_lossy().into_owned();
         let cfg = load(
             Some(&path_str),
+            None,
+            None,
             None,
             None,
             None,
@@ -1710,6 +1904,8 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
+            None,
+            None,
             false,
             false,
             None,
@@ -1737,6 +1933,7 @@ regex = "^req\\.txt$"
         let cfg = load(
             None,
             Some(7),
+            None,
             Some(PathBuf::from("/env/cache.redb")),
             Some(PathBuf::from("/env/ignore.redb")),
             Some(200),
@@ -1744,6 +1941,7 @@ regex = "^req\\.txt$"
             Some(4),
             Some(90),
             Some(1),
+            None,
             None,
             None,
             None,
@@ -1808,7 +2006,9 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
+            None,
             Some(8),
+            None,
             Some("/cli/cache.redb"),
             Some("/cli/ignore.redb"),
             Some(300),
@@ -1862,6 +2062,7 @@ regex = "^req\\.txt$"
                 let cfg = load(
                     None,
                     env_parallel(),
+                    None,
                     env_cache_db(),
                     env_ignore_db(),
                     env_cache_ttl_secs(),
@@ -1873,6 +2074,7 @@ regex = "^req\\.txt$"
                     env_backoff_base_ms(),
                     env_backoff_max_ms(),
                     env_max_retries(),
+                    None,
                     None,
                     None,
                     None,
@@ -1918,10 +2120,12 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
+            None,
             // env_project_id
             Some(150),
             Some(8000),
             Some(4),
+            None,
             None,
             None,
             None,
@@ -1964,6 +2168,8 @@ regex = "^req\\.txt$"
         let path_str = path.to_string_lossy().into_owned();
         let cfg = load(
             Some(path_str.as_str()),
+            None,
+            None,
             None,
             None,
             None,
@@ -2035,8 +2241,10 @@ regex = "^req\\.txt$"
                     None,
                     None,
                     None,
+                    None,
                     env_provider_http_connect_timeout_secs(),
                     env_provider_http_request_timeout_secs(),
+                    None,
                     None,
                     None,
                     None,
@@ -2096,8 +2304,10 @@ regex = "^req\\.txt$"
                     None,
                     None,
                     None,
+                    None,
                     env_provider_http_connect_timeout_secs(),
                     env_provider_http_request_timeout_secs(),
+                    None,
                     None,
                     None,
                     None,
@@ -2130,6 +2340,8 @@ regex = "^req\\.txt$"
     #[test]
     fn load_provider_http_zero_connect_fails_cfg008() {
         let r = load(
+            None,
+            None,
             None,
             None,
             None,
@@ -2196,6 +2408,8 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
+            None,
+            None,
             false,
             false,
             None,
@@ -2222,18 +2436,11 @@ regex = "^req\\.txt$"
     #[test]
     fn set_config_key_config_path_is_directory_returns_io_error() {
         let dir = tempfile::tempdir().unwrap();
-        let xdg = dir.path().join("xdg").join("verilyze");
-        std::fs::create_dir_all(&xdg).unwrap();
-        std::fs::create_dir(xdg.join("verilyze.conf")).unwrap();
-        temp_env::with_var(
-            "XDG_CONFIG_HOME",
-            Some(dir.path().join("xdg").to_str().unwrap()),
-            || {
-                let r = set_config_key("python.regex", "x");
-                assert!(r.is_err());
-                assert!(matches!(r.unwrap_err(), ConfigError::Io(_)));
-            },
-        );
+        let config_path = dir.path().join("verilyze.conf");
+        std::fs::create_dir(&config_path).unwrap();
+        let r = set_config_key_in_path(&config_path, "python.regex", "x");
+        assert!(r.is_err());
+        assert!(matches!(r.unwrap_err(), ConfigError::Io(_)));
     }
 
     #[test]
@@ -2253,6 +2460,8 @@ regex = "^req\\.txt$"
             ],
             || {
                 let cfg = load(
+                    None,
+                    None,
                     None,
                     None,
                     None,
@@ -2310,6 +2519,8 @@ regex = "^req\\.txt$"
         temp_env::with_var("XDG_CONFIG_HOME", None::<&str>, || {
             temp_env::with_var("HOME", Some(home.to_str().unwrap()), || {
                 let cfg = load(
+                    None,
+                    None,
                     None,
                     None,
                     None,
@@ -2610,60 +2821,19 @@ regex = "^req\\.txt$"
         );
     }
 
-    /// Helper: call load() with no env or CLI severity overrides.
-    fn load_no_severity(config_file: Option<&str>) -> EffectiveConfig {
-        load_with_severity(
-            config_file,
-            SeverityOverrides::default(),
-            SeverityOverrides::default(),
-        )
-    }
-
     /// Helper: call load() with given severity overrides.
     fn load_with_severity(
         config_file: Option<&str>,
         env_sev: SeverityOverrides,
         cli_sev: SeverityOverrides,
     ) -> EffectiveConfig {
-        load(
-            config_file,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            false,
-            false,
-            None,
-            None,
-            None,
-            None,
-            None,
-            false,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            env_sev,
-            cli_sev,
-        )
-        .unwrap()
+        load_parallel_test(config_file, None, None, None, None)
+            .map(|mut cfg| {
+                apply_severity_overrides(&mut cfg.severity, &env_sev);
+                apply_severity_overrides(&mut cfg.severity, &cli_sev);
+                cfg
+            })
+            .unwrap()
     }
 
     #[test]
@@ -2765,22 +2935,28 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
+            None,
+            None,
             false,
-            false,
-            None,
-            None,
-            None,
-            None,
-            None,
             false,
             None,
             None,
             None,
             None,
             None,
+            false,
             None,
             None,
-            Default::default(),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            false,
+            false,
             Default::default(),
             Default::default(),
         );
@@ -2817,6 +2993,8 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
+            None,
+            None,
             false,
             false,
             None,
@@ -2833,9 +3011,113 @@ regex = "^req\\.txt$"
             None,
             env_mode,
             cli_mode,
+            false,
+            false,
+            false,
+            false,
             env_sev.unwrap_or_default(),
             Default::default(),
         )
         .expect("load config")
+    }
+
+    fn load_with_direct_only_fallback(
+        config_file: Option<&str>,
+        env_fallback: Option<bool>,
+        cli_fallback: bool,
+    ) -> EffectiveConfig {
+        temp_env::with_var(
+            "VLZ_ALLOW_DIRECT_ONLY_FALLBACK",
+            env_fallback.map(|v| if v { "1" } else { "0" }),
+            || {
+                load_with_reachability_overrides(
+                    config_file,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    false,
+                    cli_fallback,
+                    false,
+                    Default::default(),
+                    Default::default(),
+                )
+                .expect("load config")
+            },
+        )
+    }
+
+    #[test]
+    fn allow_direct_only_fallback_defaults_false() {
+        let cfg = load_no_severity(None);
+        assert!(!cfg.allow_direct_only_fallback);
+    }
+
+    #[test]
+    fn allow_direct_only_fallback_from_config_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("verilyze.conf");
+        std::fs::write(&config_path, "allow_direct_only_fallback = true\n")
+            .unwrap();
+        let cfg = load_with_direct_only_fallback(
+            Some(config_path.to_str().expect("path utf-8")),
+            None,
+            false,
+        );
+        assert!(cfg.allow_direct_only_fallback);
+    }
+
+    #[test]
+    fn allow_direct_only_fallback_env_overrides_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("verilyze.conf");
+        std::fs::write(&config_path, "allow_direct_only_fallback = true\n")
+            .unwrap();
+        let cfg = load_with_direct_only_fallback(
+            Some(config_path.to_str().expect("path utf-8")),
+            Some(false),
+            false,
+        );
+        assert!(!cfg.allow_direct_only_fallback);
+    }
+
+    #[test]
+    fn allow_direct_only_fallback_cli_overrides_env() {
+        let cfg = load_with_direct_only_fallback(None, Some(false), true);
+        assert!(cfg.allow_direct_only_fallback);
     }
 }

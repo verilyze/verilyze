@@ -7,7 +7,10 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use async_trait::async_trait;
-use vlz_manifest_parser::{DependencyGraph, Resolver, ResolverError};
+use vlz_manifest_parser::{
+    DependencyGraph, ResolutionDepth, ResolveContext, ResolveResult, Resolver,
+    ResolverError,
+};
 
 /// Find Cargo.lock next to the manifest or in parent dirs (workspace root).
 pub fn find_lock_file(manifest_path: &Path) -> Option<std::path::PathBuf> {
@@ -106,7 +109,8 @@ impl Resolver for CargoResolver {
     async fn resolve(
         &self,
         graph: &DependencyGraph,
-    ) -> Result<Vec<vlz_db::Package>, ResolverError> {
+        _ctx: &ResolveContext,
+    ) -> Result<ResolveResult, ResolverError> {
         if let Some(ref manifest_path) = graph.manifest_path
             && let Some(lock_path) = find_lock_file(manifest_path)
         {
@@ -115,7 +119,11 @@ impl Resolver for CargoResolver {
                 && let Some(cached) = cache.get(&cache_key)
                 && !cached.is_empty()
             {
-                return Ok(cached.clone());
+                return Ok(ResolveResult {
+                    packages: cached.clone(),
+                    depth: ResolutionDepth::Transitive,
+                    direct_only_reason: None,
+                });
             }
             if let Ok(content) = tokio::fs::read_to_string(&lock_path).await
                 && let Ok(packages) = parse_cargo_lock(&content)
@@ -124,10 +132,18 @@ impl Resolver for CargoResolver {
                 if let Ok(mut cache) = self.lock_cache.lock() {
                     cache.insert(cache_key, packages.clone());
                 }
-                return Ok(packages);
+                return Ok(ResolveResult {
+                    packages,
+                    depth: ResolutionDepth::Transitive,
+                    direct_only_reason: None,
+                });
             }
         }
-        Ok(graph.packages.clone())
+        Ok(ResolveResult {
+            packages: graph.packages.clone(),
+            depth: ResolutionDepth::DirectOnly,
+            direct_only_reason: None,
+        })
     }
 
     fn package_manager_available(&self) -> bool {
@@ -205,9 +221,10 @@ version = "1.0"
             manifest_path: None,
         };
         let resolver = CargoResolver::new();
-        let resolved = resolver.resolve(&graph).await.unwrap();
-        assert_eq!(resolved.len(), 1);
-        assert_eq!(resolved[0].name, "serde");
+        let ctx = vlz_manifest_parser::ResolveContext::default();
+        let resolved = resolver.resolve(&graph, &ctx).await.unwrap();
+        assert_eq!(resolved.packages.len(), 1);
+        assert_eq!(resolved.packages[0].name, "serde");
     }
 
     #[tokio::test]
@@ -250,14 +267,16 @@ version = "1.0.2"
             manifest_path: Some(tmp.join("Cargo.toml")),
         };
         let resolver = CargoResolver::new();
-        let resolved = resolver.resolve(&graph).await.unwrap();
-        assert_eq!(resolved.len(), 2);
+        let ctx = vlz_manifest_parser::ResolveContext::default();
+        let resolved = resolver.resolve(&graph, &ctx).await.unwrap();
+        assert_eq!(resolved.packages.len(), 2);
         assert!(
             resolved
+                .packages
                 .iter()
                 .any(|p| p.name == "serde" && p.version == "1.0.2")
         );
-        assert!(resolved.iter().any(|p| p.name == "serde_derive"));
+        assert!(resolved.packages.iter().any(|p| p.name == "serde_derive"));
     }
 
     #[tokio::test]
@@ -277,9 +296,10 @@ version = "1.0.2"
             manifest_path: Some(tmp.join("Cargo.toml")),
         };
         let resolver = CargoResolver::new();
-        let resolved = resolver.resolve(&graph).await.unwrap();
-        assert_eq!(resolved.len(), 1);
-        assert_eq!(resolved[0].name, "serde");
+        let ctx = vlz_manifest_parser::ResolveContext::default();
+        let resolved = resolver.resolve(&graph, &ctx).await.unwrap();
+        assert_eq!(resolved.packages.len(), 1);
+        assert_eq!(resolved.packages[0].name, "serde");
     }
 
     #[test]

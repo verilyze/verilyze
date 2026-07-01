@@ -162,6 +162,7 @@ _FALLBACK_SCALAR_KEYS = [
     "cache_db",
     "ignore_db",
     "parallel_queries",
+    "parallel_resolutions",
     "cache_ttl_secs",
     "min_score",
     "min_count",
