@@ -235,3 +235,22 @@ default = "^Cargo\\.toml$"
 description = "Regex for Go manifest file names (go.mod)"
 type = "string"
 default = "^go\\.mod$"
+
+[keep_ephemeral_venv]
+description = """
+Do not remove ephemeral Python venv after scan (FR-023 debug; default false)
+"""
+type = "boolean"
+env = "VLZ_KEEP_EPHEMERAL_VENV"
+cli = "--keep-ephemeral-venv"
+default = "false"
+
+[allow_dependency_code_execution]
+description = """
+Allow pip to execute dependency build code during Python resolution (SEC-023;
+default false)
+"""
+type = "boolean"
+env = "VLZ_ALLOW_DEPENDENCY_CODE_EXECUTION"
+cli = "--allow-dependency-code-execution"
+default = "false"

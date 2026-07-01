@@ -16,7 +16,7 @@ pub fn find_lock_file(manifest_path: &Path) -> Option<PathBuf> {
             vec!["pylock.toml", "poetry.lock", "uv.lock", "Pipfile.lock"]
         }
         "Pipfile" => vec!["Pipfile.lock"],
-        "requirements.txt" => vec![],
+        "requirements.txt" => vec!["pylock.toml", "poetry.lock"],
         _ => vec![],
     };
 
@@ -33,6 +33,23 @@ pub fn find_lock_file(manifest_path: &Path) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn find_lock_file_requirements_txt_returns_pylock_toml() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::create_dir_all(tmp).unwrap();
+        let req = tmp.join("requirements.txt");
+        let pylock = tmp.join("pylock.toml");
+        std::fs::write(&req, "pkg==1.0\n").unwrap();
+        std::fs::write(
+            &pylock,
+            "[[packages]]\nname = \"pkg\"\nversion = \"1.0\"\n",
+        )
+        .unwrap();
+        let found = find_lock_file(req.as_path());
+        assert_eq!(found.as_deref(), Some(pylock.as_path()));
+    }
 
     #[test]
     fn find_lock_file_pipfile_returns_pipfile_lock() {

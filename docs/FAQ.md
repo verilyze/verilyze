@@ -286,6 +286,64 @@ later if the failure was transient.
 
 ---
 
+## Partial dependency resolution (FR-022, FR-022a, SEC-023)
+
+### `vlz warning: Only direct dependencies were scanned for ...`
+
+**Cause:** Transitive dependency resolution was not performed for the listed
+manifest. Common reasons:
+
+- **`offline mode` or `benchmark mode`:** `--offline` and `--benchmark` skip pip
+  network resolution (FR-031, FR-029).
+- **`executable dependency resolution is disabled`:** Secure default (SEC-023).
+  `vlz` does not run `pip install` or `pip lock -e` on local projects unless
+  you opt in.
+- **`transitive resolution unavailable`:** No adjacent lock file and pip is not
+  on PATH for a local project manifest (`setup.py`, `pyproject.toml`, etc.).
+
+**Remediation (best):** Add an adjacent lock file for transitive coverage. See
+[Appendix A -- Manifest and lock files](../architecture/PRD.md#appendix-a-manifest-and-lock-files)
+for supported formats (`poetry.lock`, `Pipfile.lock`, `pylock.toml`, etc.).
+
+**Optional (trusted workspaces only):** Enable executable pip resolution:
+
+```sh
+vlz scan --allow-dependency-code-execution /path/to/project
+```
+
+Or set `VLZ_ALLOW_DEPENDENCY_CODE_EXECUTION=1` or
+`allow_dependency_code_execution = true` in config. This may run local project
+code and third-party build hooks during resolution. See [SECURITY.md](../SECURITY.md).
+
+**Requirements files without pip:** `requirements.txt` requires transitive
+resolution via lock file, safe `pip lock` (when pip >= 25.1), or explicit
+opt-in pip fallback. Without those, the scan exits **2** with the FR-022 message
+below.
+
+### Unable to detect transitive dependencies (exit 2)
+
+**Message:** `Unable to detect transitive dependencies. Try installing the
+package manager or generate a lock file before running vlz.`
+
+**Cause:** Transitive resolution was required but could not be completed
+(FR-022). Typical cases: `requirements.txt` or `Pipfile` without a lock file
+and without working pip resolution; explicit pip resolution failed after
+`--allow-dependency-code-execution`; or the parser found no dependencies.
+
+**Remediation:**
+
+1. Commit an adjacent lock file (preferred).
+2. Ensure pip >= 25.1 is on PATH for safe `pip lock -r` on `requirements.txt`.
+3. For local projects, use `--allow-dependency-code-execution` only in trusted
+   CI or workspaces (see SECURITY.md).
+4. Use `--offline` or `--benchmark` only when you accept direct-only scanning
+   (warnings will be emitted for affected manifests).
+
+See also `man vlz` for configuration keys `keep_ephemeral_venv` and
+`allow_dependency_code_execution`.
+
+---
+
 ## Network and TLS errors
 
 ### TLS / certificate verification failed

@@ -57,6 +57,13 @@
 # disables
 # tls_crl_bundle = 
 
+# Do not remove ephemeral Python venv after scan (FR-023 debug; default false)
+# keep_ephemeral_venv = false
+
+# Allow pip to execute dependency build code during Python resolution (SEC-023;
+# default false)
+# allow_dependency_code_execution = false
+
 #
 # [severity.v2], [severity.v3], [severity.v4] (CVSS thresholds)
 # [severity.v2]

@@ -7,7 +7,10 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use async_trait::async_trait;
-use vlz_manifest_parser::{DependencyGraph, Resolver, ResolverError};
+use vlz_manifest_parser::{
+    DependencyGraph, ResolutionDepth, ResolveContext, ResolveResult, Resolver,
+    ResolverError,
+};
 
 use crate::parser::GO_ECOSYSTEM;
 
@@ -92,7 +95,8 @@ impl Resolver for GoResolver {
     async fn resolve(
         &self,
         graph: &DependencyGraph,
-    ) -> Result<Vec<vlz_db::Package>, ResolverError> {
+        _ctx: &ResolveContext,
+    ) -> Result<ResolveResult, ResolverError> {
         if let Some(ref manifest_path) = graph.manifest_path {
             let dir = find_go_mod_dir(manifest_path);
             if let Some(ref work_dir) = dir {
@@ -101,7 +105,11 @@ impl Resolver for GoResolver {
                     && let Some(cached) = cache.get(&cache_key)
                     && !cached.is_empty()
                 {
-                    return Ok(cached.clone());
+                    return Ok(ResolveResult {
+                        packages: cached.clone(),
+                        depth: ResolutionDepth::Transitive,
+                        direct_only_reason: None,
+                    });
                 }
                 if go_package_manager_available() {
                     let output = std::process::Command::new("go")
@@ -117,13 +125,21 @@ impl Resolver for GoResolver {
                             if let Ok(mut cache) = self.list_cache.lock() {
                                 cache.insert(cache_key, packages.clone());
                             }
-                            return Ok(packages);
+                            return Ok(ResolveResult {
+                                packages,
+                                depth: ResolutionDepth::Transitive,
+                                direct_only_reason: None,
+                            });
                         }
                     }
                 }
             }
         }
-        Ok(graph.packages.clone())
+        Ok(ResolveResult {
+            packages: graph.packages.clone(),
+            depth: ResolutionDepth::DirectOnly,
+            direct_only_reason: None,
+        })
     }
 
     fn package_manager_available(&self) -> bool {
@@ -181,9 +197,12 @@ github.com/stretchr/testify v1.8.0
             manifest_path: None,
         };
         let resolver = GoResolver::new();
-        let resolved = resolver.resolve(&graph).await.unwrap();
-        assert_eq!(resolved.len(), 1);
-        assert_eq!(resolved[0].name, "github.com/foo/bar");
+        let resolved = resolver
+            .resolve(&graph, &vlz_manifest_parser::ResolveContext::default())
+            .await
+            .unwrap();
+        assert_eq!(resolved.packages.len(), 1);
+        assert_eq!(resolved.packages[0].name, "github.com/foo/bar");
     }
 
     #[tokio::test]
@@ -203,10 +222,14 @@ github.com/stretchr/testify v1.8.0
             manifest_path: Some(tmp.join("go.mod")),
         };
         let resolver = GoResolver::new();
-        let resolved = resolver.resolve(&graph).await.unwrap();
-        assert!(!resolved.is_empty());
+        let resolved = resolver
+            .resolve(&graph, &vlz_manifest_parser::ResolveContext::default())
+            .await
+            .unwrap();
+        assert!(!resolved.packages.is_empty());
         assert!(
             resolved
+                .packages
                 .iter()
                 .any(|p| p.name == "github.com/gin-gonic/gin")
         );

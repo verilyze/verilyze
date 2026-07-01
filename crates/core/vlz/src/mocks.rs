@@ -15,7 +15,9 @@ use vlz_db::{
     CacheEntryInfo, CveRecord, DatabaseBackend, DatabaseError, DatabaseStats,
     Package, TtlSelector,
 };
-use vlz_manifest_parser::{DependencyGraph, Resolver, ResolverError};
+use vlz_manifest_parser::{
+    DependencyGraph, ResolveContext, ResolveResult, Resolver, ResolverError,
+};
 
 /// Resolver that always returns an error. Covers resolve `with_context` (557-558).
 #[derive(Debug, Default)]
@@ -32,7 +34,8 @@ impl Resolver for FailingResolver {
     async fn resolve(
         &self,
         _graph: &DependencyGraph,
-    ) -> Result<Vec<Package>, ResolverError> {
+        _ctx: &ResolveContext,
+    ) -> Result<ResolveResult, ResolverError> {
         Err(ResolverError::Resolve("mock resolve failure".to_string()))
     }
 
@@ -213,7 +216,9 @@ mod tests {
     async fn failing_resolver_resolve_returns_err() {
         let r = FailingResolver::new();
         let graph = DependencyGraph::default();
-        let result = r.resolve(&graph).await;
+        let result = r
+            .resolve(&graph, &vlz_manifest_parser::ResolveContext::default())
+            .await;
         assert!(result.is_err());
         assert!(
             result

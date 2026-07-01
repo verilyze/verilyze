@@ -51,6 +51,8 @@ flowchart TD
 | provider_http_connect_timeout_secs | integer | 15 | `VLZ_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS` | `--provider-http-connect-timeout-secs` |
 | provider_http_request_timeout_secs | integer | 120 | `VLZ_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS` | `--provider-http-request-timeout-secs` |
 | tls_crl_bundle | string |  | `VLZ_TLS_CRL_BUNDLE` | `--tls-crl-bundle` |
+| keep_ephemeral_venv | boolean | false | `VLZ_KEEP_EPHEMERAL_VENV` | `--keep-ephemeral-venv` |
+| allow_dependency_code_execution | boolean | false | `VLZ_ALLOW_DEPENDENCY_CODE_EXECUTION` | `--allow-dependency-code-execution` |
 
 ## Severity thresholds (FR-013)
 

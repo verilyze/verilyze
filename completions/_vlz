@@ -72,6 +72,8 @@ _arguments "${_arguments_options[@]}" : \
 '--offline[Disable network access]' \
 '--benchmark[Benchmark mode (no cache, no network, parallel=1)]' \
 '--package-manager-required[Require package manager on PATH; exit 3 with hint if missing]' \
+'--keep-ephemeral-venv[Do not remove ephemeral Python venv after scan (FR-023 debug)]' \
+'--allow-dependency-code-execution[Allow pip to execute dependency build code during resolution (SEC-023)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 '::root -- Root directory (defaults to current working dir):_default' \

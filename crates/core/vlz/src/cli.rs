@@ -117,6 +117,14 @@ pub enum Commands {
         #[arg(long)]
         package_manager_required: bool,
 
+        /// Do not remove ephemeral Python venv after scan (FR-023 debug)
+        #[arg(long)]
+        keep_ephemeral_venv: bool,
+
+        /// Allow pip to execute dependency build code during resolution (SEC-023)
+        #[arg(long)]
+        allow_dependency_code_execution: bool,
+
         /// Base delay in ms for retry backoff (default 100)
         #[arg(long, value_name = "MS")]
         backoff_base: Option<u64>,

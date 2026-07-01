@@ -105,6 +105,10 @@ pub struct EffectiveConfig {
     pub scan_exclude_dirs: Vec<String>,
     /// If true, exit 3 with hint when required package manager (e.g. pip) is not on PATH (FR-024).
     pub package_manager_required: bool,
+    /// Do not remove ephemeral Python venv after scan (FR-023 debug).
+    pub keep_ephemeral_venv: bool,
+    /// Allow pip operations that may execute dependency build code (SEC-023).
+    pub allow_dependency_code_execution: bool,
     /// Backoff base delay in milliseconds (NFR-005, SEC-007, OP-010).
     pub backoff_base_ms: u64,
     /// Backoff maximum delay in milliseconds.
@@ -143,6 +147,8 @@ impl Default for EffectiveConfig {
                 .map(|v| (*v).to_string())
                 .collect(),
             package_manager_required: false,
+            keep_ephemeral_venv: false,
+            allow_dependency_code_execution: false,
             backoff_base_ms: 0,
             backoff_max_ms: 0,
             max_retries: 0,
@@ -194,6 +200,10 @@ struct FileConfig {
     scan_exclude_dirs: Option<Vec<String>>,
     #[serde(rename = "reachability_mode")]
     reachability_mode: Option<String>,
+    #[serde(rename = "keep_ephemeral_venv")]
+    keep_ephemeral_venv: Option<bool>,
+    #[serde(rename = "allow_dependency_code_execution")]
+    allow_dependency_code_execution: Option<bool>,
 }
 
 #[derive(Error, Debug)]
@@ -243,6 +253,8 @@ const KNOWN_FILE_CONFIG_KEYS: &[&str] = &[
     "tls_crl_bundle",
     "scan_exclude_dirs",
     "reachability_mode",
+    "keep_ephemeral_venv",
+    "allow_dependency_code_execution",
 ];
 
 /// Parse and validate raw TOML config content (SEC-006). Used for fuzzing (NFR-020).
@@ -337,6 +349,12 @@ fn apply_file_config_inner(
     }
     if let Some(mode) = parsed.reachability_mode {
         cfg.reachability_mode = parse_reachability_mode(&mode, source)?;
+    }
+    if let Some(v) = parsed.keep_ephemeral_venv {
+        cfg.keep_ephemeral_venv = v;
+    }
+    if let Some(v) = parsed.allow_dependency_code_execution {
+        cfg.allow_dependency_code_execution = v;
     }
     if extract_language_regexes {
         cfg.language_regexes.clear();
@@ -706,6 +724,8 @@ pub fn load(
         cli_tls_crl_bundle,
         None,
         None,
+        false,
+        false,
         env_severity,
         cli_severity,
     )
@@ -749,6 +769,8 @@ pub fn load_with_reachability_overrides(
     cli_tls_crl_bundle: Option<String>,
     env_reachability_mode: Option<ReachabilityMode>,
     cli_reachability_mode: Option<ReachabilityMode>,
+    cli_keep_ephemeral_venv: bool,
+    cli_allow_dependency_code_execution: bool,
     // FR-013, CFG-005: severity threshold overrides from environment variables.
     env_severity: SeverityOverrides,
     // FR-013, CFG-006: severity threshold overrides from CLI flags; takes precedence over env.
@@ -841,6 +863,12 @@ pub fn load_with_reachability_overrides(
     if let Some(mode) = env_reachability_mode {
         cfg.reachability_mode = mode;
     }
+    if let Some(v) = env_keep_ephemeral_venv() {
+        cfg.keep_ephemeral_venv = v;
+    }
+    if let Some(v) = env_allow_dependency_code_execution() {
+        cfg.allow_dependency_code_execution = v;
+    }
 
     // 5) CLI
     if let Some(n) = cli_parallel {
@@ -893,6 +921,12 @@ pub fn load_with_reachability_overrides(
     }
     if let Some(mode) = cli_reachability_mode {
         cfg.reachability_mode = mode;
+    }
+    if cli_keep_ephemeral_venv {
+        cfg.keep_ephemeral_venv = true;
+    }
+    if cli_allow_dependency_code_execution {
+        cfg.allow_dependency_code_execution = true;
     }
 
     validate_provider_http_timeouts(
@@ -1025,6 +1059,25 @@ pub fn env_scan_exclude_dirs() -> Option<Vec<String>> {
             .map(ToOwned::to_owned)
             .collect()
     })
+}
+
+fn parse_env_bool_var(name: &str) -> Option<bool> {
+    std::env::var(name).ok().map(|v| {
+        matches!(
+            v.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        )
+    })
+}
+
+/// Read `VLZ_KEEP_EPHEMERAL_VENV` (FR-023 debug).
+pub fn env_keep_ephemeral_venv() -> Option<bool> {
+    parse_env_bool_var("VLZ_KEEP_EPHEMERAL_VENV")
+}
+
+/// Read `VLZ_ALLOW_DEPENDENCY_CODE_EXECUTION` (SEC-023).
+pub fn env_allow_dependency_code_execution() -> Option<bool> {
+    parse_env_bool_var("VLZ_ALLOW_DEPENDENCY_CODE_EXECUTION")
 }
 
 /// Read all VLZ_SEVERITY_* env vars and return a `SeverityOverrides` (FR-013, CFG-005).
@@ -2780,7 +2833,9 @@ regex = "^req\\.txt$"
             None,
             None,
             None,
-            Default::default(),
+            None,
+            false,
+            false,
             Default::default(),
             Default::default(),
         );
@@ -2833,6 +2888,8 @@ regex = "^req\\.txt$"
             None,
             env_mode,
             cli_mode,
+            false,
+            false,
             env_sev.unwrap_or_default(),
             Default::default(),
         )

@@ -25,6 +25,27 @@ where
     })
 }
 
+/// Write `requirements.txt` plus adjacent `pylock.toml` for transitive resolution in tests.
+#[cfg(feature = "python")]
+fn write_requirements_with_pylock(
+    dir: &std::path::Path,
+    pkg: &str,
+    version: &str,
+) {
+    std::fs::write(
+        dir.join("requirements.txt"),
+        format!("{pkg}=={version}\n"),
+    )
+    .expect("write requirements.txt");
+    std::fs::write(
+        dir.join("pylock.toml"),
+        format!(
+            "lock-version = \"1.0\"\n\n[[packages]]\nname = \"{pkg}\"\nversion = \"{version}\"\n"
+        ),
+    )
+    .expect("write pylock.toml");
+}
+
 fn ensure_registries_for_run() {
     let _guard = vlz::registry::registry_test_mutex()
         .lock()
@@ -653,8 +674,7 @@ fn run_scan_json_includes_manifest_paths() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
         let dir = tempfile::tempdir().expect("tempdir");
-        std::fs::write(dir.path().join("requirements.txt"), "pkg==1.0\n")
-            .expect("write");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
         let out_path = dir.path().join("report.json");
         let root = dir.path().to_str().unwrap();
 
@@ -726,8 +746,7 @@ fn run_scan_cve_provider_fails_logs_error() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
         let dir = tempfile::tempdir().expect("tempdir");
-        std::fs::write(dir.path().join("requirements.txt"), "pkg==1.0\n")
-            .expect("write");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
         let root = dir.path().to_str().unwrap();
         vlz::registry::clear_providers();
         vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
@@ -750,10 +769,16 @@ fn run_scan_deduplicates_packages_before_cve_lookup() {
         let root = dir.path().to_str().unwrap();
         std::fs::create_dir_all(dir.path().join("sub1")).expect("mkdir");
         std::fs::create_dir_all(dir.path().join("sub2")).expect("mkdir");
-        std::fs::write(dir.path().join("sub1/requirements.txt"), "pkg==1.0\n")
-            .expect("write");
-        std::fs::write(dir.path().join("sub2/requirements.txt"), "pkg==1.0\n")
-            .expect("write");
+        write_requirements_with_pylock(
+            dir.path().join("sub1").as_path(),
+            "pkg",
+            "1.0",
+        );
+        write_requirements_with_pylock(
+            dir.path().join("sub2").as_path(),
+            "pkg",
+            "1.0",
+        );
 
         let fetch_counts: Arc<Mutex<HashMap<String, usize>>> =
             Arc::new(Mutex::new(HashMap::new()));

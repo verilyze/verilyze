@@ -141,6 +141,18 @@ Optional PEM CRL bundle path for Linux CVE provider TLS (SEC-021); empty disable
 Env: VLZ_TLS_CRL_BUNDLE.
 CLI: --tls-crl-bundle.
 
+.It Va keep_ephemeral_venv
+Do not remove ephemeral Python venv after scan (FR-023 debug; default false).
+Default: false.
+Env: VLZ_KEEP_EPHEMERAL_VENV.
+CLI: --keep-ephemeral-venv.
+
+.It Va allow_dependency_code_execution
+Allow pip to execute dependency build code during Python resolution (SEC-023; default false).
+Default: false.
+Env: VLZ_ALLOW_DEPENDENCY_CODE_EXECUTION.
+CLI: --allow-dependency-code-execution.
+
 .It Sy [severity.v2] , Sy [severity.v3] , Sy [severity.v4]
 CVSS score thresholds: critical_min, high_min, medium_min, low_min.
 Defaults: 9.0, 7.0, 4.0, 0.1.

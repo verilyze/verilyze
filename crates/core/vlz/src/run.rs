@@ -391,6 +391,8 @@ pub async fn run(args: Cli) -> Result<i32> {
         cli_tls_crl_bundle,
         crate::config::env_reachability_mode(),
         cli_reachability_mode,
+        false,
+        false,
         crate::config::env_severity_overrides(),
         crate::config::SeverityOverrides::default(),
     )
@@ -476,6 +478,8 @@ pub async fn run(args: Cli) -> Result<i32> {
             fp_exit_code: cli_fp_exit_code,
             project_id: cli_project_id,
             package_manager_required,
+            keep_ephemeral_venv,
+            allow_dependency_code_execution,
             backoff_base: cli_backoff_base,
             backoff_max: cli_backoff_max,
             max_retries: cli_max_retries,
@@ -549,6 +553,8 @@ pub async fn run(args: Cli) -> Result<i32> {
                     cli_tls_crl_bundle_scan,
                     crate::config::env_reachability_mode(),
                     cli_reachability_mode,
+                    keep_ephemeral_venv,
+                    allow_dependency_code_execution,
                     crate::config::env_severity_overrides(),
                     cli_severity,
                 )
@@ -772,6 +778,14 @@ pub async fn run(args: Cli) -> Result<i32> {
                     .map(|p| p.display().to_string())
                     .unwrap_or_default();
                 write_stdout(&format!("tls_crl_bundle = {}\n", tls_crl));
+                write_stdout(&format!(
+                    "keep_ephemeral_venv = {}\n",
+                    cfg.keep_ephemeral_venv
+                ));
+                write_stdout(&format!(
+                    "allow_dependency_code_execution = {}\n",
+                    cfg.allow_dependency_code_execution
+                ));
                 write_stdout(&format!(
                     "severity_v2_critical_min = {}\n",
                     cfg.severity.v2.critical_min
@@ -1237,6 +1251,17 @@ async fn run_scan(
         std::path::PathBuf,
         String,
     )> = Vec::new();
+    let mut direct_only_warned: std::collections::HashSet<(
+        std::path::PathBuf,
+        &'static str,
+    )> = std::collections::HashSet::new();
+    let resolve_ctx = vlz_manifest_parser::ResolveContext {
+        keep_ephemeral_venv: effective.keep_ephemeral_venv,
+        skip_pip_resolution: effective.offline || effective.benchmark,
+        benchmark_mode: effective.benchmark,
+        allow_dependency_code_execution: effective
+            .allow_dependency_code_execution,
+    };
     let can_use_shared_discovery = effective.language_regexes.is_empty()
         && finders.iter().take(n).all(|finder| {
             matches!(finder.language_name(), "python" | "rust" | "go")
@@ -1273,19 +1298,21 @@ async fn run_scan(
         );
         let parser = &parsers[i];
         let resolver = &resolvers[i];
+        let ctx = resolve_ctx.clone();
         let tasks: Vec<_> = manifests
             .into_iter()
             .map(|mf| {
                 let language = language.clone();
+                let ctx = ctx.clone();
                 async move {
                     let graph =
                         parser.parse(&mf).await.with_context(|| {
                             format!("Parsing manifest {:?}", mf)
                         })?;
                     let resolved =
-                        resolver.resolve(&graph).await.with_context(|| {
-                            format!("Resolving dependencies for {:?}", mf)
-                        })?;
+                        resolver.resolve(&graph, &ctx).await.with_context(
+                            || format!("Resolving dependencies for {:?}", mf),
+                        )?;
                     Ok::<_, anyhow::Error>((resolved, mf, language))
                 }
             })
@@ -1293,7 +1320,20 @@ async fn run_scan(
         let results = futures::future::join_all(tasks).await;
         for result in results {
             let (resolved, manifest_path, language) = result?;
-            for pkg in resolved {
+            if resolved.depth
+                == vlz_manifest_parser::ResolutionDepth::DirectOnly
+                && let Some(reason) = resolved.direct_only_reason
+                && direct_only_warned.insert((manifest_path.clone(), reason))
+            {
+                eprintln!(
+                    "{}",
+                    vlz_manifest_parser::format_direct_only_warning(
+                        &manifest_path.display().to_string(),
+                        reason,
+                    )
+                );
+            }
+            for pkg in resolved.packages {
                 all_packages_with_manifests.push((
                     pkg,
                     manifest_path.clone(),

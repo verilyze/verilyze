@@ -75,6 +75,8 @@ complete -c vlz -n "__fish_vlz_using_subcommand scan" -s c -l config -d 'Overrid
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l offline -d 'Disable network access'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l benchmark -d 'Benchmark mode (no cache, no network, parallel=1)'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l package-manager-required -d 'Require package manager on PATH; exit 3 with hint if missing'
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l keep-ephemeral-venv -d 'Do not remove ephemeral Python venv after scan (FR-023 debug)'
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l allow-dependency-code-execution -d 'Allow pip to execute dependency build code during resolution (SEC-023)'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand list" -s c -l config -d 'Override configuration file location' -r
 complete -c vlz -n "__fish_vlz_using_subcommand list" -s h -l help -d 'Print help'
