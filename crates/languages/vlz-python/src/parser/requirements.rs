@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use super::pep508::parse_pep508_dependency;
 use vlz_manifest_parser::ParserError;
 
 /// Parse requirements.txt content into a list of packages (name, version).
@@ -34,61 +35,15 @@ pub fn parse_requirements_txt(
 
 /// Parse a single requirement line into Package (name, version), or None if unparseable.
 fn parse_requirement_line(line: &str) -> Option<vlz_db::Package> {
-    // Strip inline comment
     let line = line
         .find('#')
         .map(|i| line[..i].trim())
         .unwrap_or(line)
         .trim();
-    if line.is_empty() {
+    if line.is_empty() || line == "[]" {
         return None;
     }
-    // PEP 508: name may have [extras]; strip extras so we get "name" and version spec
-    let spec = if let Some(open) = line.find('[') {
-        let after_close = line[open..]
-            .find(']')
-            .map(|c| open + c + 1)
-            .unwrap_or(line.len());
-        format!("{}{}", line[..open].trim(), line[after_close..].trim())
-    } else {
-        line.to_string()
-    };
-    let (name, version) = parse_name_version(&spec)?;
-    if name.is_empty() {
-        return None;
-    }
-    Some(vlz_db::Package {
-        name,
-        version,
-        ecosystem: Some("PyPI".to_string()),
-    })
-}
-
-/// Split a requirement spec (no [extras]) into (name, version).
-fn parse_name_version(spec: &str) -> Option<(String, String)> {
-    let spec = spec.trim();
-    if spec.is_empty() {
-        return None;
-    }
-    // Exact version: name==1.0.0
-    if let Some((n, v)) = spec.split_once("==") {
-        return Some((n.trim().to_string(), v.trim().to_string()));
-    }
-    // Version specifiers: take first version-like part
-    for sep in ["~=", ">=", "<=", "!=", ">", "<"] {
-        if let Some((n, v)) = spec.split_once(sep) {
-            let version =
-                v.trim().split(',').next().unwrap_or("").trim().to_string();
-            let version = if version.is_empty() {
-                "any".to_string()
-            } else {
-                version
-            };
-            return Some((n.trim().to_string(), version));
-        }
-    }
-    // No version: name only
-    Some((spec.to_string(), "any".to_string()))
+    parse_pep508_dependency(line)
 }
 
 #[cfg(test)]

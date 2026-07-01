@@ -49,6 +49,10 @@ name = "fuzz_setup_cfg"
 path = "fuzz_targets/setup_cfg.rs"
 
 [[bin]]
+name = "fuzz_setup_py"
+path = "fuzz_targets/setup_py.rs"
+
+[[bin]]
 name = "fuzz_cargo_toml"
 path = "fuzz_targets/cargo_toml.rs"
 

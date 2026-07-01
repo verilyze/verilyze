@@ -12,6 +12,9 @@ pub fn find_lock_file(manifest_path: &Path) -> Option<PathBuf> {
 
     let lock_candidates: Vec<&str> = match name {
         "pyproject.toml" => vec!["pylock.toml", "poetry.lock", "uv.lock"],
+        "setup.py" => {
+            vec!["pylock.toml", "poetry.lock", "uv.lock", "Pipfile.lock"]
+        }
         "Pipfile" => vec!["Pipfile.lock"],
         "requirements.txt" => vec![],
         _ => vec![],
@@ -42,5 +45,23 @@ mod tests {
         std::fs::write(&pipfile_lock, "{}").unwrap();
         let found = find_lock_file(pipfile.as_path());
         assert_eq!(found.as_deref(), Some(pipfile_lock.as_path()));
+    }
+
+    #[test]
+    fn find_lock_file_setup_py_returns_poetry_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::create_dir_all(tmp).unwrap();
+        let setup_py = tmp.join("setup.py");
+        let poetry_lock = tmp.join("poetry.lock");
+        std::fs::write(&setup_py, "from setuptools import setup\nsetup()\n")
+            .unwrap();
+        std::fs::write(
+            &poetry_lock,
+            "[[package]]\nname = \"a\"\nversion = \"1\"\n",
+        )
+        .unwrap();
+        let found = find_lock_file(setup_py.as_path());
+        assert_eq!(found.as_deref(), Some(poetry_lock.as_path()));
     }
 }

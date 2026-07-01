@@ -2,10 +2,12 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+mod pep508;
 mod pipfile;
 mod pyproject;
 mod requirements;
 mod setup_cfg;
+mod setup_py;
 
 use async_trait::async_trait;
 
@@ -15,6 +17,7 @@ pub use pipfile::parse_pipfile;
 pub use pyproject::parse_pyproject_toml;
 pub use requirements::parse_requirements_txt;
 pub use setup_cfg::parse_setup_cfg;
+pub use setup_py::parse_setup_py;
 
 /// Parser for Python manifest files (requirements.txt, pyproject.toml, etc.).
 /// Dispatches by manifest file name; returns empty graph for unknown types
@@ -68,6 +71,15 @@ impl Parser for RequirementsTxtParser {
         if name == "setup.cfg" {
             let content = tokio::fs::read_to_string(manifest).await?;
             let packages = parse_setup_cfg(&content)?;
+            return Ok(DependencyGraph {
+                packages,
+                manifest_path,
+            });
+        }
+
+        if name == "setup.py" {
+            let content = tokio::fs::read_to_string(manifest).await?;
+            let packages = parse_setup_py(&content)?;
             return Ok(DependencyGraph {
                 packages,
                 manifest_path,

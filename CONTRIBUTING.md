@@ -29,7 +29,7 @@ Crates are organized by plugin type under `crates/`:
   - **vlz-plugin-macro** -- `vlz_register!` macro for registering default plugins
     in the binary.
 - **crates/languages/** -- Language plugins (ManifestFinder, Parser, Resolver):
-  - **vlz-python** -- Python: requirements.txt, pyproject.toml, Pipfile, etc.
+  - **vlz-python** -- Python: requirements.txt, pyproject.toml, Pipfile, setup.cfg, setup.py, etc.
   - **vlz-rust** -- Rust: Cargo.toml, Cargo.lock (workspace members supported).
 - **crates/providers/** -- CVE providers (optional, feature-gated):
   - **vlz-cve-provider-nvd** -- NVD (NIST); `nvd` feature.

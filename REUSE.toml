@@ -107,6 +107,13 @@ precedence = "override"
 SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
+# setup.py parser test fixtures (realistic snippets; SPDX via REUSE.toml)
+[[annotations]]
+path = "crates/languages/vlz-python/tests/fixtures/setup_py/**"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Travis Post <post.travis@gmail.com>"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
 [[annotations]]
 path = "crates/core/vlz-cve-client/tests/fixtures/tls_crl/*.key"
 precedence = "override"

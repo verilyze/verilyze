@@ -8,11 +8,15 @@ use std::path::{Path, PathBuf};
 use vlz_manifest_finder::{FinderError, ManifestFinder};
 
 /// Python manifest file names (FR-005). Overridden by regexes when set (FR-006).
-/// setup.py is intentionally excluded -- parsing is deferred (see Appendix A in PRD).
-/// Discovering setup.py without a parser would cause silent false negatives (the tool
-/// would report "no vulnerabilities found" without actually checking any dependencies).
-pub const PYTHON_MANIFEST_NAMES: &[&str] =
-    &["requirements.txt", "pyproject.toml", "Pipfile", "setup.cfg"];
+/// `setup.py` is parsed via AST (see `parser/setup_py.rs`); dynamic/runtime deps
+/// are not extracted.
+pub const PYTHON_MANIFEST_NAMES: &[&str] = &[
+    "requirements.txt",
+    "pyproject.toml",
+    "Pipfile",
+    "setup.cfg",
+    "setup.py",
+];
 
 /// Python manifest finder that discovers Python manifest files under a directory tree.
 /// When patterns are set (FR-006), file names are matched by regex in order; first match wins.
@@ -101,14 +105,8 @@ mod tests {
     }
 
     #[test]
-    fn setup_py_not_in_default_manifest_names() {
-        // FR-005 / Appendix A: setup.py parsing is deferred; the finder must not
-        // discover it by default to avoid silent false negatives (no CVE check performed
-        // but tool reports "no vulnerabilities found").
-        assert!(
-            !PYTHON_MANIFEST_NAMES.contains(&"setup.py"),
-            "setup.py must not be in the default manifest list until parsing is implemented"
-        );
+    fn setup_py_in_default_manifest_names() {
+        assert!(PYTHON_MANIFEST_NAMES.contains(&"setup.py"));
     }
 
     #[test]
