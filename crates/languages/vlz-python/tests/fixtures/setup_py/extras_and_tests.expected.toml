@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[[package]]
+name = "requests"
+version = "2.0"
+ecosystem = "PyPI"
+
+[[package]]
+name = "pytest"
+version = "7.0"
+ecosystem = "PyPI"
+
+[[package]]
+name = "black"
+version = "any"
+ecosystem = "PyPI"
+
+[[package]]
+name = "sphinx"
+version = "5.0"
+ecosystem = "PyPI"
+
+[[package]]
+name = "pytest-cov"
+version = "4.0"
+ecosystem = "PyPI"

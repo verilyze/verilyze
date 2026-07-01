@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[[package]]
+name = "requests"
+version = "2.31.0"
+ecosystem = "PyPI"
+
+[[package]]
+name = "django"
+version = "4.2"
+ecosystem = "PyPI"

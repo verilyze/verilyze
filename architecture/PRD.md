@@ -128,7 +128,7 @@ DOC-002).
 | **FR‑002** | Program name | `--version` prints `vlz <semver>` (the binary name followed by the version). | Same pattern as FR‑001, expecting output `vlz 1.0.0`. |
 | **FR‑003** | License | Source released under **GPL‑3.0‑or‑later**. The project uses the REUSE toolchain: license texts live in `LICENSES/` with SPDX identifiers as filenames (e.g. `LICENSES/GPL-3.0-or-later.txt`); SPDX headers in source files; `reuse lint` for verification. | `reuse lint` passes; `LICENSES/GPL-3.0-or-later.txt` exists. |
 | **FR‑004** | Directory scanning | Scan a directory tree (default: cwd) for manifest files; positional argument overrides root. | `vlz scan` scans cwd; `vlz scan /my/project` scans the supplied path. |
-| **FR‑005** | Manifest discovery (initial) | Detect all registered language plugins (Python, Rust, and Go when built with default features). For Python, the default manifest file names are **requirements.txt**, **pyproject.toml**, **Pipfile**, and **setup.cfg** (setup.py parsing is deferred -- see Appendix A); for Rust, the default is **Cargo.toml**; for Go, the default is **go.mod**; these sets are overridable via FR‑006 (per-language regex). | `vlz list` prints `python`, `rust`, and `go` for default build. |
+| **FR‑005** | Manifest discovery (initial) | Detect all registered language plugins (Python, Rust, and Go when built with default features). For Python, the default manifest file names are **requirements.txt**, **pyproject.toml**, **Pipfile**, **setup.cfg**, and **setup.py**; for Rust, the default is **Cargo.toml**; for Go, the default is **go.mod**; these sets are overridable via FR‑006 (per-language regex). | `vlz list` prints `python`, `rust`, and `go` for default build. |
 | **FR‑006** | Configurable regexes | Users can add custom manifest‑file patterns per language. Patterns are evaluated in order, first match wins, and conflicts are resolved by user-defined order. | `vlz config --set python.regex="^requirements\\.txt$"` stores the pattern; subsequent scans honor it. |
 | **FR‑007** | Primary output format | Default: plain‑text table; `--format json|sarif` switches format. Default text output shall be suitable for piping and scripting (e.g., line-oriented or clearly delimited). JSON and SARIF are for programmatic consumers; when output is to stdout, it shall be unambiguous so that pipelines and wrappers can rely on it. Default table output is intended for both human read and simple parsing (e.g., by grep/awk or CI scripts). | `vlz scan --format json` outputs valid JSON to STDOUT. Default table output is pipe- and script-friendly. |
 | **FR‑008** | Secondary output formats | `--summary-file` can generate any combination of html,json,sarif files. | `vlz scan -s html:/tmp/r.html,json:/tmp/r.json` creates both files. |
@@ -385,7 +385,7 @@ security reviewers with no outstanding issues.
 
 | Language | Manifest files (discovered by default or via config) | Lock files (used for transitive resolution when present) |
 |----------|------------------------------------------------------|----------------------------------------------------------|
-| **Python** | requirements.txt, pyproject.toml, Pipfile, setup.cfg (setup.py deferred) | pylock.toml, pylock.*.toml, poetry.lock, Pipfile.lock, uv.lock |
+| **Python** | requirements.txt, pyproject.toml, Pipfile, setup.cfg, setup.py | pylock.toml, pylock.*.toml, poetry.lock, Pipfile.lock, uv.lock |
 | **Rust** | Cargo.toml | Cargo.lock |
 | **Go** | go.mod | go.sum (informational; resolution via `go list -m all`) |
 

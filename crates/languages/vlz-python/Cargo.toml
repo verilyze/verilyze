@@ -12,6 +12,8 @@ publish = false
 
 [dependencies]
 async-trait.workspace = true
+ruff_python_ast = "=0.0.3"
+ruff_python_parser = "=0.0.3"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 thiserror.workspace = true
@@ -28,3 +30,4 @@ tokio = { workspace = true, features = ["fs"] }
 temp-env.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["rt", "macros"] }
+toml.workspace = true

@@ -102,3 +102,63 @@ async fn resolve_uses_lock_file_when_present() {
     let resolved = resolver.resolve(&graph).await.unwrap();
     assert_eq!(resolved.len(), 2);
 }
+
+#[derive(serde::Deserialize)]
+struct ExpectedFixture {
+    package: Vec<vlz_db::Package>,
+}
+
+fn assert_packages_match_fixture(
+    actual: &[vlz_db::Package],
+    expected_toml: &str,
+) {
+    let expected: ExpectedFixture =
+        toml::from_str(expected_toml).expect("expected fixture toml");
+    let mut actual_sorted: Vec<_> = actual.to_vec();
+    let mut expected_sorted = expected.package;
+    actual_sorted.sort_by(|a, b| a.name.cmp(&b.name));
+    expected_sorted.sort_by(|a, b| a.name.cmp(&b.name));
+    assert_eq!(actual_sorted, expected_sorted);
+}
+
+#[tokio::test]
+async fn parse_setup_py_file_dispatches_and_sets_manifest_path() {
+    let dir = tempfile::tempdir().unwrap();
+    let tmp = dir.path();
+    std::fs::create_dir_all(tmp).unwrap();
+    let path = tmp.join("setup.py");
+    let content = include_str!("fixtures/setup_py/classic_import_setup.py");
+    let expected =
+        include_str!("fixtures/setup_py/classic_import_setup.expected.toml");
+    std::fs::write(&path, content).unwrap();
+
+    let parser = RequirementsTxtParser::new();
+    let graph = parser.parse(&path).await.unwrap();
+    assert_eq!(graph.manifest_path.as_deref(), Some(path.as_path()));
+    assert!(!graph.packages.is_empty());
+    assert_packages_match_fixture(&graph.packages, expected);
+}
+
+#[tokio::test]
+async fn resolve_setup_py_uses_lock_file_when_present() {
+    let dir = tempfile::tempdir().unwrap();
+    let tmp = dir.path();
+    std::fs::create_dir_all(tmp).unwrap();
+    let setup_py = tmp.join("setup.py");
+    let poetry_lock = tmp.join("poetry.lock");
+    std::fs::write(
+        &setup_py,
+        b"from setuptools import setup\nsetup(install_requires=[\"requests\"])\n",
+    )
+    .unwrap();
+    std::fs::write(
+        &poetry_lock,
+        b"[[package]]\nname = \"requests\"\nversion = \"2.31.0\"\n\n[[package]]\nname = \"certifi\"\nversion = \"2024.1.0\"\n",
+    )
+    .unwrap();
+    let parser = RequirementsTxtParser::new();
+    let resolver = vlz_python::DirectOnlyResolver::new();
+    let graph = parser.parse(&setup_py).await.unwrap();
+    let resolved = resolver.resolve(&graph).await.unwrap();
+    assert!(resolved.len() >= 2);
+}

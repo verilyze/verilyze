@@ -38,8 +38,8 @@ make release
 Run scans with the built binary (adjust the path if you use `CARGO_TARGET_DIR`):
 
 ```bash
-# Scan current directory for manifests (Python: requirements.txt, pyproject.toml;
-# Rust: Cargo.toml; Go: go.mod) and check for CVEs
+# Scan current directory for manifests (Python: requirements.txt, pyproject.toml,
+# setup.cfg, setup.py; Rust: Cargo.toml; Go: go.mod) and check for CVEs
 ./target/release/vlz scan
 
 # Scan a specific path

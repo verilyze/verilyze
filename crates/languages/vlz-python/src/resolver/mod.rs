@@ -6,14 +6,24 @@
 mod ephemeral_venv;
 mod lock_discovery;
 mod lock_parser;
+mod manifest_dir;
 
 use async_trait::async_trait;
 use vlz_manifest_parser::{DependencyGraph, Resolver, ResolverError};
 
 pub use lock_discovery::find_lock_file;
 pub use lock_parser::parse_lock_file;
+pub use manifest_dir::{
+    PipInstallStrategy, find_manifest_project_dir, pip_install_strategy,
+};
 
-/// Resolver that prefers lock files, falls back to direct deps (Phase 6 will add pip).
+/// Resolver for Python manifests.
+///
+/// Resolution order (FR-022, FR-023):
+/// 1. Adjacent lock file when present (`find_lock_file`).
+/// 2. Pip ephemeral venv (FR-023, not yet implemented; see `ephemeral_venv.rs`,
+///    `pip_install_strategy`, and `find_manifest_project_dir`).
+/// 3. Direct dependencies from the parser (`graph.packages`).
 #[derive(Debug, Default)]
 pub struct DirectOnlyResolver;
 
