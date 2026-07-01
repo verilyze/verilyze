@@ -789,10 +789,11 @@ Project-scoped Cursor rules, skills, and hooks live under [`.cursor/`](.cursor/)
 - **CI gates reference:** [`.cursor/rules/ci-validation.mdc`](.cursor/rules/ci-validation.mdc)
 
 **Stop hook:** After each agent turn, the stop hook may auto-submit a follow-up
-only when the agent edited files this session and scoped checks have not run
-successfully yet. It does not suggest `make check-fast` on read-only turns or
-when the working tree has unrelated stale changes. The `sessionStart` hook
-clears session edit tracking; `afterFileEdit` records agent-edited paths.
+only when the agent edited files **this turn** (or when a scoped check failed on
+the previous turn) and required targets have not succeeded yet. It does not
+suggest `make check-fast` on read-only turns. Pending paths clear after all
+scoped checks succeed. The `sessionStart` hook clears edit tracking;
+`afterFileEdit` records agent-edited paths in both pending and per-turn files.
 
 Hooks opt-out: set `VLZ_CURSOR_HOOKS_DISABLE=1` to skip Cursor hook scripts locally.
 

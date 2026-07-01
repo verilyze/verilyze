@@ -40,5 +40,7 @@ Do **not** run validation after read-only turns or when no files were edited.
 ## Stop hook behavior
 
 The project stop hook follow-up runs only when the agent edited files this
-session and scoped checks from [pre-merge-check/targets.md](.cursor/skills/pre-merge-check/targets.md)
-have not succeeded yet. It does not auto-submit `make check-fast`.
+turn (or when a scoped check failed on the prior turn) and required targets
+from [pre-merge-check/targets.md](.cursor/skills/pre-merge-check/targets.md)
+have not all succeeded yet. Pending paths clear after successful checks. It
+does not auto-submit `make check-fast`.

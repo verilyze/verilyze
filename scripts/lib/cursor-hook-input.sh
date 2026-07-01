@@ -54,12 +54,12 @@ elif mode == "followup":
         print(json.dumps({"followup_message": message}))
 elif mode == "session-clear":
     repo = cursor_validation.get_repo_root()
-    cursor_validation.clear_session_edit_paths(repo)
+    cursor_validation.clear_agent_edit_paths(repo)
 elif mode == "session-append":
     repo = cursor_validation.get_repo_root()
     paths = cursor_validation.parse_edited_paths(data)
     if paths:
-        cursor_validation.append_session_edit_paths(repo, paths)
+        cursor_validation.append_agent_edit_paths(repo, paths)
 else:
     raise SystemExit(f"unknown mode: {mode}")
 PY

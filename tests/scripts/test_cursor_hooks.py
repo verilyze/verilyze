@@ -50,6 +50,13 @@ class TestParseEditedPaths:
 
 
 class TestCollectChangedPaths:
+    def test_git_output_returns_stdout_on_success(self, tmp_path: Path) -> None:
+        from unittest.mock import MagicMock
+
+        proc = MagicMock(returncode=0, stdout="ok\n")
+        with patch("scripts.cursor_validation.subprocess.run", return_value=proc):
+            assert cursor_validation._git_output(tmp_path, "status") == "ok\n"
+
     def test_git_output_returns_empty_on_failure(self, tmp_path: Path) -> None:
         from unittest.mock import MagicMock
 
@@ -194,6 +201,11 @@ class TestNeedsSuperLinter:
             tmp_path, paths_file=custom
         ) == custom
 
+    def test_default_session_paths_file(self, tmp_path: Path) -> None:
+        assert cursor_validation.session_edit_paths_file(tmp_path) == (
+            tmp_path / ".cursor" / ".agent-edited-paths"
+        )
+
     def test_read_session_uses_custom_paths_file(self, tmp_path: Path) -> None:
         custom = tmp_path / "custom-paths.txt"
         custom.write_text("scripts/z.py\n", encoding="utf-8")
@@ -202,13 +214,191 @@ class TestNeedsSuperLinter:
         ) == ["scripts/z.py"]
 
 
+class TestTurnEditPaths:
+    def test_clear_read_append(self, tmp_path: Path) -> None:
+        turn_file = tmp_path / ".cursor" / ".agent-turn-paths"
+        cursor_validation.clear_turn_edit_paths(tmp_path, paths_file=turn_file)
+        assert cursor_validation.read_turn_edit_paths(
+            tmp_path, paths_file=turn_file
+        ) == []
+
+        cursor_validation.append_turn_edit_paths(
+            tmp_path,
+            ["crates/a.rs"],
+            paths_file=turn_file,
+        )
+        assert cursor_validation.read_turn_edit_paths(
+            tmp_path, paths_file=turn_file
+        ) == ["crates/a.rs"]
+
+        cursor_validation.clear_turn_edit_paths(tmp_path, paths_file=turn_file)
+        assert cursor_validation.read_turn_edit_paths(
+            tmp_path, paths_file=turn_file
+        ) == []
+
+    def test_append_agent_edit_paths_updates_both(self, tmp_path: Path) -> None:
+        pending_file = tmp_path / ".cursor" / ".agent-edited-paths"
+        turn_file = tmp_path / ".cursor" / ".agent-turn-paths"
+        cursor_validation.append_agent_edit_paths(
+            tmp_path,
+            ["scripts/a.py"],
+            paths_file=pending_file,
+            turn_paths_file=turn_file,
+        )
+        assert cursor_validation.read_session_edit_paths(
+            tmp_path, paths_file=pending_file
+        ) == ["scripts/a.py"]
+        assert cursor_validation.read_turn_edit_paths(
+            tmp_path, paths_file=turn_file
+        ) == ["scripts/a.py"]
+
+    def test_default_turn_paths_file(self, tmp_path: Path) -> None:
+        assert cursor_validation.turn_edit_paths_file(tmp_path) == (
+            tmp_path / ".cursor" / ".agent-turn-paths"
+        )
+
+    def test_clear_agent_edit_paths_clears_both(self, tmp_path: Path) -> None:
+        pending_file = tmp_path / "pending.txt"
+        turn_file = tmp_path / "turn.txt"
+        cursor_validation.append_agent_edit_paths(
+            tmp_path,
+            ["scripts/a.py"],
+            paths_file=pending_file,
+            turn_paths_file=turn_file,
+        )
+        cursor_validation.clear_agent_edit_paths(
+            tmp_path,
+            paths_file=pending_file,
+            turn_paths_file=turn_file,
+        )
+        assert cursor_validation.read_session_edit_paths(
+            tmp_path, paths_file=pending_file
+        ) == []
+        assert cursor_validation.read_turn_edit_paths(
+            tmp_path, paths_file=turn_file
+        ) == []
+
+
+class TestTargetsSatisfiedByHistory:
+    def test_all_targets_in_separate_commands(self) -> None:
+        data = {
+            "conversation": {
+                "last_shell_commands": [
+                    "make fmt-check clippy",
+                    "make cargo-test",
+                ],
+                "last_shell_command_results": [
+                    {"exit_code": 0},
+                    {"exit_code": 0},
+                ],
+            }
+        }
+        targets = ["make fmt-check clippy", "make cargo-test"]
+        assert cursor_validation.targets_satisfied_by_history(data, targets) is True
+
+    def test_compound_command_satisfies_both(self) -> None:
+        data = {
+            "conversation": {
+                "last_shell_commands": [
+                    "make fmt-check clippy; make cargo-test",
+                ],
+                "last_shell_command_results": [{"exit_code": 0}],
+            }
+        }
+        targets = ["make fmt-check clippy", "make cargo-test"]
+        assert cursor_validation.targets_satisfied_by_history(data, targets) is True
+
+    def test_false_when_one_target_missing(self) -> None:
+        data = {
+            "conversation": {
+                "last_shell_commands": ["make fmt-check clippy"],
+                "last_shell_command_results": [{"exit_code": 0}],
+            }
+        }
+        targets = ["make fmt-check clippy", "make cargo-test"]
+        assert cursor_validation.targets_satisfied_by_history(data, targets) is False
+
+    def test_false_when_history_length_mismatch(self) -> None:
+        data = {
+            "conversation": {
+                "last_shell_commands": ["make cargo-test"],
+                "last_shell_command_results": [],
+            }
+        }
+        assert (
+            cursor_validation.targets_satisfied_by_history(
+                data, ["make cargo-test"]
+            )
+            is False
+        )
+
+    def test_false_for_empty_targets(self) -> None:
+        assert cursor_validation.targets_satisfied_by_history({}, []) is False
+
+    def test_false_when_shell_history_empty(self) -> None:
+        data = {"conversation": {"last_shell_commands": []}}
+        assert (
+            cursor_validation.targets_satisfied_by_history(
+                data, ["make cargo-test"]
+            )
+            is False
+        )
+
+
+class TestLastTargetCommandFailed:
+    def test_true_when_last_target_failed(self) -> None:
+        data = {
+            "conversation": {
+                "last_shell_commands": ["make cargo-test"],
+                "last_shell_command_results": [{"exit_code": 1}],
+            }
+        }
+        assert (
+            cursor_validation.last_target_command_failed(
+                data, ["make cargo-test"]
+            )
+            is True
+        )
+
+    def test_false_when_last_target_succeeded(self) -> None:
+        data = {
+            "conversation": {
+                "last_shell_commands": ["make cargo-test"],
+                "last_shell_command_results": [{"exit_code": 0}],
+            }
+        }
+        assert (
+            cursor_validation.last_target_command_failed(
+                data, ["make cargo-test"]
+            )
+            is False
+        )
+
+    def test_false_for_empty_targets(self) -> None:
+        assert cursor_validation.last_target_command_failed({}, []) is False
+
+    def test_false_when_last_command_does_not_match_target(self) -> None:
+        data = {
+            "conversation": {
+                "last_shell_commands": ["git status"],
+                "last_shell_command_results": [{"exit_code": 1}],
+            }
+        }
+        assert (
+            cursor_validation.last_target_command_failed(
+                data, ["make cargo-test"]
+            )
+            is False
+        )
+
+
 class TestShouldEmitFollowup:
-    def test_no_session_edits(self) -> None:
+    def test_no_turn_or_pending_edits(self) -> None:
         assert (
             cursor_validation.should_emit_followup(
                 {},
-                session_paths=[],
-                diff_paths=["scripts/foo.py"],
+                turn_paths=[],
+                pending_paths=[],
                 targets=["make lint-python test-scripts"],
             )
             is False
@@ -219,8 +409,8 @@ class TestShouldEmitFollowup:
         assert (
             cursor_validation.should_emit_followup(
                 data,
-                session_paths=["scripts/foo.py"],
-                diff_paths=["scripts/foo.py"],
+                turn_paths=["scripts/foo.py"],
+                pending_paths=["scripts/foo.py"],
                 targets=["make lint-python test-scripts"],
             )
             is False
@@ -230,31 +420,49 @@ class TestShouldEmitFollowup:
         assert (
             cursor_validation.should_emit_followup(
                 {},
-                session_paths=["README.md"],
-                diff_paths=["README.md"],
+                turn_paths=["README.md"],
+                pending_paths=["README.md"],
                 targets=[],
             )
             is False
         )
 
-    def test_stale_git_diff_without_session_edits(self) -> None:
+    def test_stale_pending_without_turn_edits(self) -> None:
         assert (
             cursor_validation.should_emit_followup(
                 {},
-                session_paths=[],
-                diff_paths=["tests/scripts/test_sync_obs_project_meta.py"],
-                targets=["make lint-python test-scripts"],
+                turn_paths=[],
+                pending_paths=["crates/core/vlz/src/lib.rs"],
+                targets=["make fmt-check clippy", "make cargo-test"],
             )
             is False
         )
 
-    def test_session_edits_need_scoped_checks(self) -> None:
+    def test_turn_edits_need_scoped_checks(self) -> None:
         targets = ["make lint-python test-scripts"]
         assert (
             cursor_validation.should_emit_followup(
                 {},
-                session_paths=["scripts/foo.py"],
-                diff_paths=["scripts/foo.py"],
+                turn_paths=["scripts/foo.py"],
+                pending_paths=["scripts/foo.py"],
+                targets=targets,
+            )
+            is True
+        )
+
+    def test_retry_when_last_check_failed(self) -> None:
+        data = {
+            "conversation": {
+                "last_shell_commands": ["make cargo-test"],
+                "last_shell_command_results": [{"exit_code": 1}],
+            }
+        }
+        targets = ["make fmt-check clippy", "make cargo-test"]
+        assert (
+            cursor_validation.should_emit_followup(
+                data,
+                turn_paths=[],
+                pending_paths=["crates/core/vlz/src/lib.rs"],
                 targets=targets,
             )
             is True
@@ -266,8 +474,8 @@ class TestShouldEmitFollowup:
         assert (
             cursor_validation.should_emit_followup(
                 data,
-                session_paths=["scripts/foo.py"],
-                diff_paths=["scripts/foo.py"],
+                turn_paths=["scripts/foo.py"],
+                pending_paths=["scripts/foo.py"],
                 targets=targets,
             )
             is False
@@ -331,43 +539,196 @@ class TestFollowupMessage:
             cursor_validation.should_skip_followup(
                 data, ["make lint-python test-scripts"]
             )
-            is True
+            is False
         )
 
 
 class TestResolveStopFollowup:
     def test_returns_message_when_checks_needed(self, tmp_path: Path) -> None:
-        paths_file = tmp_path / "paths.txt"
+        pending_file = tmp_path / "pending.txt"
+        turn_file = tmp_path / "turn.txt"
         cursor_validation.write_session_edit_paths(
             tmp_path,
             ["scripts/foo.py"],
-            paths_file=paths_file,
+            paths_file=pending_file,
+        )
+        cursor_validation.write_turn_edit_paths(
+            tmp_path,
+            ["scripts/foo.py"],
+            paths_file=turn_file,
         )
         msg = cursor_validation.resolve_stop_followup(
             {},
             tmp_path,
-            paths_file=paths_file,
+            paths_file=pending_file,
+            turn_paths_file=turn_file,
         )
         assert msg == "Run: make lint-python test-scripts."
+        assert cursor_validation.read_turn_edit_paths(
+            tmp_path, paths_file=turn_file
+        ) == []
 
     def test_returns_none_when_aborted(self, tmp_path: Path) -> None:
-        paths_file = tmp_path / "paths.txt"
+        pending_file = tmp_path / "pending.txt"
+        turn_file = tmp_path / "turn.txt"
         cursor_validation.write_session_edit_paths(
             tmp_path,
             ["scripts/foo.py"],
-            paths_file=paths_file,
+            paths_file=pending_file,
+        )
+        cursor_validation.write_turn_edit_paths(
+            tmp_path,
+            ["scripts/foo.py"],
+            paths_file=turn_file,
         )
         assert (
             cursor_validation.resolve_stop_followup(
                 {"status": "aborted"},
                 tmp_path,
-                paths_file=paths_file,
+                paths_file=pending_file,
+                turn_paths_file=turn_file,
             )
             is None
         )
 
+    def test_stale_pending_without_turn_edits(self, tmp_path: Path) -> None:
+        pending_file = tmp_path / "pending.txt"
+        turn_file = tmp_path / "turn.txt"
+        cursor_validation.write_session_edit_paths(
+            tmp_path,
+            ["crates/core/vlz/src/lib.rs"],
+            paths_file=pending_file,
+        )
+        assert (
+            cursor_validation.resolve_stop_followup(
+                {},
+                tmp_path,
+                paths_file=pending_file,
+                turn_paths_file=turn_file,
+            )
+            is None
+        )
+
+    def test_rust_turn_paths_emit_scoped_targets(self, tmp_path: Path) -> None:
+        pending_file = tmp_path / "pending.txt"
+        turn_file = tmp_path / "turn.txt"
+        cursor_validation.write_turn_edit_paths(
+            tmp_path,
+            ["crates/core/vlz/src/lib.rs"],
+            paths_file=turn_file,
+        )
+        msg = cursor_validation.resolve_stop_followup(
+            {},
+            tmp_path,
+            paths_file=pending_file,
+            turn_paths_file=turn_file,
+        )
+        assert msg == "Run: make fmt-check clippy; make cargo-test."
+
+    def test_clears_pending_when_checks_succeeded(self, tmp_path: Path) -> None:
+        pending_file = tmp_path / "pending.txt"
+        turn_file = tmp_path / "turn.txt"
+        cursor_validation.write_session_edit_paths(
+            tmp_path,
+            ["crates/core/vlz/src/lib.rs"],
+            paths_file=pending_file,
+        )
+        data = {
+            "conversation": {
+                "last_shell_commands": [
+                    "make fmt-check clippy",
+                    "make cargo-test",
+                ],
+                "last_shell_command_results": [
+                    {"exit_code": 0},
+                    {"exit_code": 0},
+                ],
+            }
+        }
+        assert (
+            cursor_validation.resolve_stop_followup(
+                data,
+                tmp_path,
+                paths_file=pending_file,
+                turn_paths_file=turn_file,
+            )
+            is None
+        )
+        assert not pending_file.exists()
+
+    def test_retries_when_last_check_failed(self, tmp_path: Path) -> None:
+        pending_file = tmp_path / "pending.txt"
+        turn_file = tmp_path / "turn.txt"
+        cursor_validation.write_session_edit_paths(
+            tmp_path,
+            ["crates/core/vlz/src/lib.rs"],
+            paths_file=pending_file,
+        )
+        data = {
+            "conversation": {
+                "last_shell_commands": ["make cargo-test"],
+                "last_shell_command_results": [{"exit_code": 1}],
+            }
+        }
+        msg = cursor_validation.resolve_stop_followup(
+            data,
+            tmp_path,
+            paths_file=pending_file,
+            turn_paths_file=turn_file,
+        )
+        assert msg == "Run: make fmt-check clippy; make cargo-test."
+
+    def test_returns_none_for_unclassified_turn_paths(self, tmp_path: Path) -> None:
+        pending_file = tmp_path / "pending.txt"
+        turn_file = tmp_path / "turn.txt"
+        cursor_validation.write_turn_edit_paths(
+            tmp_path,
+            ["README.md"],
+            paths_file=turn_file,
+        )
+        assert (
+            cursor_validation.resolve_stop_followup(
+                {},
+                tmp_path,
+                paths_file=pending_file,
+                turn_paths_file=turn_file,
+            )
+            is None
+        )
+
+    def test_clears_pending_when_turn_checks_already_succeeded(
+        self, tmp_path: Path
+    ) -> None:
+        pending_file = tmp_path / "pending.txt"
+        turn_file = tmp_path / "turn.txt"
+        cursor_validation.write_session_edit_paths(
+            tmp_path,
+            ["crates/core/vlz/src/lib.rs"],
+            paths_file=pending_file,
+        )
+        cursor_validation.write_turn_edit_paths(
+            tmp_path,
+            ["scripts/foo.py"],
+            paths_file=turn_file,
+        )
+        data = _fixture("stop_skip_followup.json")
+        assert (
+            cursor_validation.resolve_stop_followup(
+                data,
+                tmp_path,
+                paths_file=pending_file,
+                turn_paths_file=turn_file,
+            )
+            is None
+        )
+        assert not pending_file.exists()
+
 
 class TestLoadHookJson:
+    def test_parses_object(self) -> None:
+        data = cursor_validation.load_hook_json('{"status": "completed"}')
+        assert data == {"status": "completed"}
+
     def test_rejects_non_object(self) -> None:
         with pytest.raises(TypeError, match="JSON object"):
             cursor_validation.load_hook_json("[]")

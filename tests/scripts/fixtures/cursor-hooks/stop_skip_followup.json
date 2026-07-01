@@ -1,5 +1,6 @@
 {
   "conversation": {
-    "last_shell_commands": ["make lint-python test-scripts"]
+    "last_shell_commands": ["make lint-python test-scripts"],
+    "last_shell_command_results": [{ "exit_code": 0 }]
   }
 }

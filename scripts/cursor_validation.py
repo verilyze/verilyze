@@ -22,6 +22,7 @@ PYTHON_SCRIPT_RE = re.compile(r"^(scripts/|tests/scripts/).*\.py$")
 SHELL_SCRIPT_RE = re.compile(r"^scripts/.*\.sh$")
 
 SESSION_EDIT_PATHS_REL = ".cursor/.agent-edited-paths"
+TURN_EDIT_PATHS_REL = ".cursor/.agent-turn-paths"
 
 
 def hooks_disabled() -> bool:
@@ -153,10 +154,21 @@ def session_edit_paths_file(
     *,
     paths_file: Path | None = None,
 ) -> Path:
-    """Return the session edit tracking file path."""
+    """Return the pending validation tracking file path."""
     if paths_file is not None:
         return paths_file
     return repo_root / SESSION_EDIT_PATHS_REL
+
+
+def turn_edit_paths_file(
+    repo_root: Path,
+    *,
+    paths_file: Path | None = None,
+) -> Path:
+    """Return the per-turn edit tracking file path."""
+    if paths_file is not None:
+        return paths_file
+    return repo_root / TURN_EDIT_PATHS_REL
 
 
 def read_session_edit_paths(
@@ -164,8 +176,21 @@ def read_session_edit_paths(
     *,
     paths_file: Path | None = None,
 ) -> list[str]:
-    """Read normalized paths edited by the agent this session."""
+    """Read normalized paths pending validation since last successful check."""
     path = session_edit_paths_file(repo_root, paths_file=paths_file)
+    if not path.is_file():
+        return []
+    lines = path.read_text(encoding="utf-8").splitlines()
+    return normalize_repo_paths([line for line in lines if line.strip()])
+
+
+def read_turn_edit_paths(
+    repo_root: Path,
+    *,
+    paths_file: Path | None = None,
+) -> list[str]:
+    """Read normalized paths edited by the agent in the current turn."""
+    path = turn_edit_paths_file(repo_root, paths_file=paths_file)
     if not path.is_file():
         return []
     lines = path.read_text(encoding="utf-8").splitlines()
@@ -178,8 +203,24 @@ def write_session_edit_paths(
     *,
     paths_file: Path | None = None,
 ) -> None:
-    """Replace session edit paths."""
+    """Replace pending validation paths."""
     path = session_edit_paths_file(repo_root, paths_file=paths_file)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    normalized = normalize_repo_paths(paths)
+    if normalized:
+        path.write_text("\n".join(normalized) + "\n", encoding="utf-8")
+    elif path.is_file():
+        path.unlink()
+
+
+def write_turn_edit_paths(
+    repo_root: Path,
+    paths: list[str],
+    *,
+    paths_file: Path | None = None,
+) -> None:
+    """Replace per-turn edit paths."""
+    path = turn_edit_paths_file(repo_root, paths_file=paths_file)
     path.parent.mkdir(parents=True, exist_ok=True)
     normalized = normalize_repo_paths(paths)
     if normalized:
@@ -193,8 +234,17 @@ def clear_session_edit_paths(
     *,
     paths_file: Path | None = None,
 ) -> None:
-    """Clear session edit tracking for a new conversation."""
+    """Clear pending validation tracking."""
     write_session_edit_paths(repo_root, [], paths_file=paths_file)
+
+
+def clear_turn_edit_paths(
+    repo_root: Path,
+    *,
+    paths_file: Path | None = None,
+) -> None:
+    """Clear per-turn edit tracking."""
+    write_turn_edit_paths(repo_root, [], paths_file=paths_file)
 
 
 def append_session_edit_paths(
@@ -203,10 +253,49 @@ def append_session_edit_paths(
     *,
     paths_file: Path | None = None,
 ) -> None:
-    """Append unique normalized paths to the session edit list."""
+    """Append unique normalized paths to the pending validation list."""
     existing = read_session_edit_paths(repo_root, paths_file=paths_file)
     merged = list(dict.fromkeys([*existing, *normalize_repo_paths(paths)]))
     write_session_edit_paths(repo_root, merged, paths_file=paths_file)
+
+
+def append_turn_edit_paths(
+    repo_root: Path,
+    paths: list[str],
+    *,
+    paths_file: Path | None = None,
+) -> None:
+    """Append unique normalized paths to the current turn edit list."""
+    existing = read_turn_edit_paths(repo_root, paths_file=paths_file)
+    merged = list(dict.fromkeys([*existing, *normalize_repo_paths(paths)]))
+    write_turn_edit_paths(repo_root, merged, paths_file=paths_file)
+
+
+def append_agent_edit_paths(
+    repo_root: Path,
+    paths: list[str],
+    *,
+    paths_file: Path | None = None,
+    turn_paths_file: Path | None = None,
+) -> None:
+    """Append paths to both pending validation and current turn tracking."""
+    append_session_edit_paths(repo_root, paths, paths_file=paths_file)
+    append_turn_edit_paths(
+        repo_root,
+        paths,
+        paths_file=turn_paths_file,
+    )
+
+
+def clear_agent_edit_paths(
+    repo_root: Path,
+    *,
+    paths_file: Path | None = None,
+    turn_paths_file: Path | None = None,
+) -> None:
+    """Clear both pending validation and current turn tracking."""
+    clear_session_edit_paths(repo_root, paths_file=paths_file)
+    clear_turn_edit_paths(repo_root, paths_file=turn_paths_file)
 
 
 def stop_status_aborted(hook_input: dict) -> bool:
@@ -231,63 +320,98 @@ def _command_matches_target(command: str, target: str) -> bool:
     return stripped == target or stripped.startswith(f"{target} ")
 
 
-def _last_shell_command_succeeded(
+def _split_command_segments(command: str) -> list[str]:
+    segments: list[str] = []
+    for part in re.split(r"[;&]|&&", command):
+        stripped = part.strip()
+        if stripped:
+            segments.append(stripped)
+    return segments
+
+
+def _shell_history_pairs(
     hook_input: dict,
-    history: list[str],
-) -> bool:
+) -> list[tuple[str, dict | None]] | None:
     conversation = hook_input.get("conversation")
     if not isinstance(conversation, dict):
-        return True
-    command_results = conversation.get("last_shell_command_results")
-    if not isinstance(command_results, list) or len(command_results) != len(
-        history
-    ):
-        return True
-    last_result = command_results[-1]
-    if isinstance(last_result, dict):
-        exit_code = last_result.get("exit_code")
-        if exit_code is not None and exit_code != 0:
-            return False
-    return True
+        return None
+    history = conversation.get("last_shell_commands")
+    if not isinstance(history, list) or not history:
+        return None
+    results = conversation.get("last_shell_command_results")
+    if not isinstance(results, list) or len(results) != len(history):
+        return None
+    pairs: list[tuple[str, dict | None]] = []
+    for cmd, result in zip(history, results, strict=True):
+        pairs.append((str(cmd), result if isinstance(result, dict) else None))
+    return pairs
+
+
+def targets_satisfied_by_history(hook_input: dict, targets: list[str]) -> bool:
+    """True when every target succeeded in the shell command history."""
+    if not targets:
+        return False
+    pairs = _shell_history_pairs(hook_input)
+    if pairs is None:
+        return False
+
+    satisfied: set[str] = set()
+    for cmd, result in pairs:
+        exit_code = result.get("exit_code") if result is not None else None
+        if exit_code is None or exit_code != 0:
+            continue
+        for segment in _split_command_segments(cmd):
+            for target in targets:
+                if target not in satisfied and _command_matches_target(
+                    segment, target
+                ):
+                    satisfied.add(target)
+    return satisfied == set(targets)
+
+
+def last_target_command_failed(hook_input: dict, targets: list[str]) -> bool:
+    """True when the latest shell command matched a target and failed."""
+    if not targets:
+        return False
+    pairs = _shell_history_pairs(hook_input)
+    if pairs is None:
+        return False
+
+    last_cmd, last_result = pairs[-1]
+    exit_code = (
+        last_result.get("exit_code") if last_result is not None else None
+    )
+    if exit_code is None or exit_code == 0:
+        return False
+    for segment in _split_command_segments(last_cmd):
+        if any(_command_matches_target(segment, target) for target in targets):
+            return True
+    return False
 
 
 def should_skip_followup(hook_input: dict, targets: list[str]) -> bool:
-    """Skip follow-up when the latest shell command succeeded on a target."""
-    if not targets:
-        return False
-    conversation = hook_input.get("conversation")
-    if not isinstance(conversation, dict):
-        return False
-    history = conversation.get("last_shell_commands")
-    if not isinstance(history, list) or not history:
-        return False
-
-    last_cmd = str(history[-1])
-    if not any(
-        _command_matches_target(last_cmd, target) for target in targets
-    ):
-        return False
-
-    return _last_shell_command_succeeded(hook_input, history)
+    """Skip follow-up when all required targets succeeded in shell history."""
+    return targets_satisfied_by_history(hook_input, targets)
 
 
 def should_emit_followup(
     hook_input: dict,
-    session_paths: list[str],
-    diff_paths: list[str],
+    turn_paths: list[str],
+    pending_paths: list[str],
     targets: list[str],
 ) -> bool:
     """True when the stop hook should auto-submit a scoped check follow-up."""
-    _ = diff_paths
     if stop_status_aborted(hook_input):
-        return False
-    if not session_paths:
         return False
     if not targets:
         return False
     if should_skip_followup(hook_input, targets):
         return False
-    return True
+    if turn_paths:
+        return True
+    if pending_paths and last_target_command_failed(hook_input, targets):
+        return True
+    return False
 
 
 def resolve_stop_followup(
@@ -295,20 +419,54 @@ def resolve_stop_followup(
     repo_root: Path,
     *,
     paths_file: Path | None = None,
+    turn_paths_file: Path | None = None,
 ) -> str | None:
     """Return follow-up text, or None when the stop hook should stay silent."""
-    session_paths = read_session_edit_paths(repo_root, paths_file=paths_file)
-    validation_paths = session_paths
-    targets = classify_changed_paths(validation_paths)
-    if not should_emit_followup(
-        hook_input,
-        session_paths,
-        validation_paths,
-        targets,
-    ):
-        return None
-    message = build_followup_message(targets, validation_paths)
-    return message or None
+    pending_paths = read_session_edit_paths(repo_root, paths_file=paths_file)
+    turn_paths = read_turn_edit_paths(
+        repo_root,
+        paths_file=turn_paths_file,
+    )
+    try:
+        if stop_status_aborted(hook_input):
+            return None
+
+        if pending_paths:
+            pending_targets = classify_changed_paths(pending_paths)
+            if pending_targets and targets_satisfied_by_history(
+                hook_input,
+                pending_targets,
+            ):
+                clear_session_edit_paths(repo_root, paths_file=paths_file)
+                return None
+
+        if turn_paths:
+            validation_paths = turn_paths
+        elif pending_paths and last_target_command_failed(
+            hook_input,
+            classify_changed_paths(pending_paths),
+        ):
+            validation_paths = pending_paths
+        else:
+            return None
+
+        targets = classify_changed_paths(validation_paths)
+        if not targets:
+            return None
+        if not should_emit_followup(
+            hook_input,
+            turn_paths,
+            pending_paths,
+            targets,
+        ):
+            if targets_satisfied_by_history(hook_input, targets):
+                clear_session_edit_paths(repo_root, paths_file=paths_file)
+            return None
+
+        message = build_followup_message(targets, validation_paths)
+        return message or None
+    finally:
+        clear_turn_edit_paths(repo_root, paths_file=turn_paths_file)
 
 
 def load_hook_json(raw: str) -> dict:
