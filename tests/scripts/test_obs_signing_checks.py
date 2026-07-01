@@ -4,9 +4,16 @@
 
 """Tests for OBS signing verification script behavior."""
 
+import os
 import subprocess
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+
+from tests.scripts.obs_signing_fixture import (
+    VLZ_OBS_SIGNING_KEYS_FILE,
+    obs_signing_env,
+    obs_signing_fixture_path,
+)
 
 _ROOT = Path(__file__).resolve().parent.parent.parent
 _SCRIPT = _ROOT / "scripts" / "check-obs-signing.sh"
@@ -93,6 +100,35 @@ def test_obs_signing_check_accepts_valid_metadata(tmp_path: Path) -> None:
 
     output = proc.stdout + proc.stderr
     assert proc.returncode == 0, output
+    assert "fingerprint=" in output
+
+
+def test_obs_signing_check_accepts_fixture_via_env_var(
+    tmp_path: Path,
+) -> None:
+    env_file = _write_obs_env(tmp_path)
+    env = os.environ.copy()
+    env.update(obs_signing_env())
+
+    proc = subprocess.run(
+        [
+            str(_SCRIPT),
+            "--config",
+            str(env_file),
+            "--min-valid-days",
+            "30",
+        ],
+        cwd=_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+    )
+
+    output = proc.stdout + proc.stderr
+    assert proc.returncode == 0, output
+    assert obs_signing_fixture_path().is_file()
+    assert VLZ_OBS_SIGNING_KEYS_FILE in env
     assert "fingerprint=" in output
 
 

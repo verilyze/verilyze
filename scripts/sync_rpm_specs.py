@@ -24,7 +24,6 @@ LOCAL_VERSION_MACRO_TEMPLATE = "%{{!?version:%global version {version}}}\n"
 # Explicit, frozen divergence points for Option A dual-spec maintenance.
 OBS_ONLY_LINES = (
     "Source1:        vendor.tar.zst\n",
-    "Source2:        verilyze-rpmlintrc\n",
     "BuildRequires:  zstd\n",
     (
         "# Unpack OBS cargo_vendor tarball; it overlays .cargo, vendor/, and "

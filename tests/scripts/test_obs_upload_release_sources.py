@@ -124,7 +124,7 @@ def test_obs_upload_script_requires_version() -> None:
     assert "--version" in (proc.stderr + proc.stdout)
 
 
-def test_obs_upload_script_dry_run_includes_rpmlintrc_artifact(
+def test_obs_upload_script_dry_run_excludes_rpmlintrc_artifact(
     tmp_path: Path,
 ) -> None:
     work_dir = tmp_path / "work"
@@ -139,9 +139,5 @@ def test_obs_upload_script_dry_run_includes_rpmlintrc_artifact(
         ]
     )
     assert proc.returncode == 0, proc.stderr + proc.stdout
-    rpmlintrc = work_dir / "verilyze-rpmlintrc"
-    assert rpmlintrc.is_file()
-    assert 'addFilter("missing-call-to-chdir-with-chroot")' in rpmlintrc.read_text(
-        encoding="utf-8"
-    )
-    assert "rpmlintrc_sha256=" in proc.stdout + proc.stderr
+    assert not (work_dir / "verilyze-rpmlintrc").exists()
+    assert "rpmlintrc_sha256=" not in proc.stdout + proc.stderr

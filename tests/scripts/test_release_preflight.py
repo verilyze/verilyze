@@ -4,10 +4,13 @@
 
 """Tests for scripts/release-preflight.sh."""
 
+import os
 import subprocess
 from pathlib import Path
 
 import pytest
+
+from tests.scripts.obs_signing_fixture import obs_signing_env
 
 _ROOT = Path(__file__).resolve().parent.parent.parent
 _SCRIPT = _ROOT / "scripts" / "release-preflight.sh"
@@ -16,12 +19,15 @@ _CARGO = _ROOT / "Cargo.toml"
 
 
 def _run_preflight(*extra: str) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    env.update(obs_signing_env())
     return subprocess.run(
         [str(_SCRIPT), *extra],
         cwd=_ROOT,
         capture_output=True,
         text=True,
         check=False,
+        env=env,
     )
 
 

@@ -25,6 +25,10 @@ Options:
   --signing-keys-file <path>   Read signing metadata from a local file
   --min-valid-days <days>      Minimum remaining key validity in days
                                (default: 30)
+
+Environment:
+  VLZ_OBS_SIGNING_KEYS_FILE    Offline signing keys HTML (same as
+                               --signing-keys-file; for tests/CI)
   -h, --help                   Show this help text
 EOF
 }
@@ -134,6 +138,10 @@ if ! [[ "${MIN_VALID_DAYS}" =~ ^[0-9]+$ ]]; then
 fi
 
 obs_parse_project_env "${CONFIG_PATH}"
+
+if [[ -z "${SIGNING_KEYS_FILE}" && -n "${VLZ_OBS_SIGNING_KEYS_FILE:-}" ]]; then
+  SIGNING_KEYS_FILE="${VLZ_OBS_SIGNING_KEYS_FILE}"
+fi
 
 if [[ -n "${SIGNING_KEYS_FILE}" ]]; then
   if [[ ! -f "${SIGNING_KEYS_FILE}" ]]; then

@@ -93,6 +93,13 @@ precedence = "override"
 SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
+# OBS signing keys HTML fixture for offline subprocess tests
+[[annotations]]
+path = "tests/fixtures/obs_signing_keys.html"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Travis Post <post.travis@gmail.com>"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
 # PEM test material for TLS CRL integration tests (SEC-021); not comments-friendly
 [[annotations]]
 path = "crates/core/vlz-cve-client/tests/fixtures/tls_crl/*.pem"
