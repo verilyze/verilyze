@@ -11,6 +11,7 @@ pub mod config;
 pub mod config_example;
 pub mod registry;
 pub mod run;
+pub mod scan;
 
 #[cfg(any(test, feature = "testing"))]
 pub mod mocks;
@@ -77,6 +78,28 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use vlz_manifest_parser::ResolverError;
+
+    #[test]
+    fn resolve_with_cause_preserves_pip_lock_in_anyhow_chain() {
+        let err = ResolverError::ResolveWithCause {
+            message: "Unable to detect transitive dependencies. Try installing the package manager or generate a lock file before running vlz.".to_string(),
+            cause: Box::new(ResolverError::Resolve(
+                "pip lock failed for /proj/requirements.txt: ERROR: No matching distribution".to_string(),
+            )),
+        };
+        let wrapped: anyhow::Error = err.into();
+        let with_ctx = wrapped
+            .context("Resolving dependencies for \"/proj/requirements.txt\"");
+        let chain: Vec<String> = with_ctx
+            .chain()
+            .map(std::string::ToString::to_string)
+            .collect();
+        assert!(
+            chain.iter().any(|m| m.contains("pip lock failed")),
+            "expected pip lock in anyhow chain, got: {chain:?}"
+        );
+    }
 
     #[tokio::test]
     #[allow(clippy::await_holding_lock)]

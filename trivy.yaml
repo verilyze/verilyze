@@ -5,7 +5,22 @@
 ---
 # Super-linter passes `--config` to this file when it lives at the workspace
 # root (LINTER_RULES_PATH `.` in scripts/super-linter.sh). Suppresses DB
-# download progress.
+# download progress. skip-dirs mirrors FILTER_REGEX_EXCLUDE in super-linter.sh
+# and skip-path in .checkov.yaml (Trivy does not honor FILTER_REGEX_EXCLUDE).
 
 db:
   no-progress: true
+
+scan:
+  skip-dirs:
+    - target
+    - "**/target"
+    - .git
+    - completions
+    - .mypy_cache
+    - site-packages
+    - super-linter-output
+    - ".venv"
+    - ".venv-reuse"
+    - ".venv-test"
+    - ".venv-*"

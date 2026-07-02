@@ -58,6 +58,8 @@ Generate additional files (e.g. html:/tmp/out.html,cyclonedx:/tmp/sbom.json).
 Force CVE provider (osv, nvd, github, sonatype when built with features).
 .It Fl -parallel Ar N
 Parallel query limit (default 10, max 50).
+.It Fl -parallel-resolutions Ar N
+Parallel manifest resolution limit (default: CPU count, max 32).
 .It Fl -cache-db Ar path
 Override cache database path.
 .It Fl -ignore-db Ar path
@@ -80,6 +82,15 @@ Exit code when CVEs meet threshold (default: 86).
 Exit code when only false-positives present (default: 0).
 .It Fl -package-manager-required
 Require package manager on PATH; exit 3 with hint if missing.
+.It Fl -allow-dependency-code-execution
+Allow pip to execute dependency build code during Python resolution (SEC-023;
+default: disabled).
+.It Fl -allow-direct-only-fallback
+When transitive resolution is required but cannot be satisfied, fall back to
+direct-only scanning with an FR-022a warning instead of exit 2 (default:
+disabled).
+.It Fl -fail-fast
+Stop on first manifest parse/resolution failure; skip CVE lookup (FR-037).
 .It Fl -backoff-base Ar ms
 Base delay in ms for retry backoff (default: 100).
 .It Fl -backoff-max Ar ms
@@ -216,6 +227,8 @@ Override cache database path.
 Override false-positive database path.
 .It Ev VLZ_PARALLEL_QUERIES
 Max concurrent CVE queries (1-50).
+.It Ev VLZ_PARALLEL_RESOLUTIONS
+Max concurrent manifest resolution subprocesses (1-32).
 .It Ev VLZ_SCAN_EXCLUDE_DIRS
 Comma-separated directory names skipped during manifest discovery.
 .It Ev VLZ_CACHE_TTL_SECS

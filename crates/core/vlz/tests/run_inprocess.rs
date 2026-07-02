@@ -25,6 +25,27 @@ where
     })
 }
 
+/// Write `requirements.txt` plus adjacent `pylock.toml` for transitive resolution in tests.
+#[cfg(feature = "python")]
+fn write_requirements_with_pylock(
+    dir: &std::path::Path,
+    pkg: &str,
+    version: &str,
+) {
+    std::fs::write(
+        dir.join("requirements.txt"),
+        format!("{pkg}=={version}\n"),
+    )
+    .expect("write requirements.txt");
+    std::fs::write(
+        dir.join("pylock.toml"),
+        format!(
+            "lock-version = \"1.0\"\n\n[[packages]]\nname = \"{pkg}\"\nversion = \"{version}\"\n"
+        ),
+    )
+    .expect("write pylock.toml");
+}
+
 fn ensure_registries_for_run() {
     let _guard = vlz::registry::registry_test_mutex()
         .lock()
@@ -653,8 +674,7 @@ fn run_scan_json_includes_manifest_paths() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
         let dir = tempfile::tempdir().expect("tempdir");
-        std::fs::write(dir.path().join("requirements.txt"), "pkg==1.0\n")
-            .expect("write");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
         let out_path = dir.path().join("report.json");
         let root = dir.path().to_str().unwrap();
 
@@ -704,6 +724,253 @@ fn run_scan_json_includes_manifest_paths() {
 }
 
 #[cfg(feature = "python")]
+fn write_partial_manifest_fixture(root: &std::path::Path) {
+    std::fs::create_dir_all(root.join("good")).expect("mkdir good");
+    std::fs::create_dir_all(root.join("broken")).expect("mkdir broken");
+    write_requirements_with_pylock(
+        root.join("good").as_path(),
+        "partial-pkg",
+        "1.0",
+    );
+    std::fs::write(root.join("broken/requirements.txt"), "partial-pkg==1.0\n")
+        .expect("write broken requirements");
+}
+
+#[cfg(feature = "python")]
+fn register_conditional_failing_resolver() {
+    vlz::registry::clear_resolvers();
+    vlz::registry::register(vlz::registry::Plugin::Resolver(Box::new(
+        vlz::mocks::PythonConditionalFailingResolver::for_broken_paths(),
+    )));
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_partial_manifest_resolution_exits_2_with_report() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_partial_manifest_fixture(dir.path());
+        let out_path = dir.path().join("report.json");
+        let root = dir.path().to_str().unwrap();
+
+        register_conditional_failing_resolver();
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            CveReturningProvider::new(),
+        )));
+
+        let code = run_async(&[
+            "scan",
+            root,
+            "--format",
+            "json",
+            "--summary-file",
+            &format!("json:{}", out_path.display()),
+            "--provider",
+            "cve_returning",
+        ]);
+        assert_eq!(code, 2, "blocking manifest failure should exit 2");
+
+        let content = std::fs::read_to_string(&out_path).expect("read report");
+        let parsed: serde_json::Value =
+            serde_json::from_str(&content).expect("parse json");
+        let coverage = parsed
+            .get("manifest_coverage")
+            .expect("manifest_coverage")
+            .as_array()
+            .expect("manifest_coverage array");
+        assert_eq!(coverage.len(), 2);
+        let failed = coverage
+            .iter()
+            .find(|e| {
+                e.get("status")
+                    == Some(&serde_json::json!("failed_resolution"))
+            })
+            .expect("failed_resolution entry");
+        assert!(
+            failed
+                .get("path")
+                .and_then(|p| p.as_str())
+                .unwrap_or("")
+                .contains("broken"),
+            "failed entry should reference broken manifest"
+        );
+        let findings = parsed
+            .get("findings")
+            .expect("findings")
+            .as_array()
+            .expect("findings array");
+        assert!(
+            !findings.is_empty(),
+            "good manifest should still produce CVE findings"
+        );
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_fail_fast_aborts_before_cve() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_partial_manifest_fixture(dir.path());
+        let root = dir.path().to_str().unwrap();
+
+        register_conditional_failing_resolver();
+        let fetch_counts: Arc<Mutex<HashMap<String, usize>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        let provider = CountingCveProvider::new(fetch_counts.clone());
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            provider,
+        )));
+
+        let code = run_async(&[
+            "scan",
+            root,
+            "--fail-fast",
+            "--provider",
+            "counting",
+        ]);
+        assert_eq!(code, 2, "fail-fast manifest failure should exit 2");
+
+        let counts = fetch_counts.lock().unwrap();
+        assert!(
+            counts.is_empty(),
+            "fail-fast should skip CVE phase; fetch counts: {:?}",
+            *counts
+        );
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_manifest_failure_and_offline_miss_still_renders_report() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_partial_manifest_fixture(dir.path());
+        let out_path = dir.path().join("report.json");
+        let root = dir.path().to_str().unwrap();
+
+        register_conditional_failing_resolver();
+
+        let code = run_async(&[
+            "scan",
+            root,
+            "--offline",
+            "--format",
+            "json",
+            "--summary-file",
+            &format!("json:{}", out_path.display()),
+        ]);
+        assert_eq!(
+            code, 2,
+            "manifest blocking failure takes precedence over offline miss (4)"
+        );
+
+        let content = std::fs::read_to_string(&out_path).expect("read report");
+        let parsed: serde_json::Value =
+            serde_json::from_str(&content).expect("parse json");
+        assert!(
+            parsed.get("manifest_coverage").is_some(),
+            "report must render manifest_coverage despite offline miss"
+        );
+    });
+}
+
+#[cfg(feature = "python")]
+fn write_partial_manifest_fixture_natural_broken(root: &std::path::Path) {
+    std::fs::create_dir_all(root.join("good")).expect("mkdir good");
+    std::fs::create_dir_all(root.join("broken")).expect("mkdir broken");
+    write_requirements_with_pylock(
+        root.join("good").as_path(),
+        "partial-pkg",
+        "1.0",
+    );
+    std::fs::write(
+        root.join("broken/pyproject.toml"),
+        "[tool.poetry\nname = \"broken\"\n",
+    )
+    .expect("write invalid pyproject.toml");
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_manifest_failure_summary_on_stderr() {
+    use std::process::Command;
+
+    let _ = env_logger::try_init();
+    let dir = tempfile::tempdir().expect("tempdir");
+    let xdg = dir.path().join("xdg");
+    std::fs::create_dir_all(&xdg).expect("mkdir xdg");
+    write_partial_manifest_fixture_natural_broken(
+        dir.path().join("proj").as_path(),
+    );
+    let root = dir.path().join("proj");
+    let root_str = root.to_str().unwrap();
+
+    let out = Command::new(env!("CARGO_BIN_EXE_vlz"))
+        .args(["scan", root_str, "--format", "json", "--offline"])
+        .env("XDG_CACHE_HOME", xdg.to_str().unwrap())
+        .env("XDG_DATA_HOME", xdg.to_str().unwrap())
+        .env("XDG_CONFIG_HOME", xdg.to_str().unwrap())
+        .output()
+        .expect("run vlz");
+
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(2));
+    assert!(
+        stderr.contains("1 manifest(s) could not be fully analyzed"),
+        "stderr should include consolidated summary header; got: {stderr}"
+    );
+    assert!(
+        stderr.contains("broken/pyproject.toml"),
+        "stderr should list failed manifest path; got: {stderr}"
+    );
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_json_includes_manifest_coverage() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_partial_manifest_fixture(dir.path());
+        let out_path = dir.path().join("report.json");
+        let root = dir.path().to_str().unwrap();
+
+        register_conditional_failing_resolver();
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            CveReturningProvider::new(),
+        )));
+
+        let code = run_async(&[
+            "scan",
+            root,
+            "--format",
+            "json",
+            "--summary-file",
+            &format!("json:{}", out_path.display()),
+            "--provider",
+            "cve_returning",
+        ]);
+        assert_eq!(code, 2);
+
+        let parsed: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(&out_path).expect("read report"),
+        )
+        .expect("parse json");
+        assert!(
+            parsed.get("manifest_coverage").is_some(),
+            "JSON report must include manifest_coverage"
+        );
+    });
+}
+
+#[cfg(feature = "python")]
 #[test]
 fn run_scan_resolver_fails_exits_2() {
     let _ = env_logger::try_init();
@@ -711,12 +978,36 @@ fn run_scan_resolver_fails_exits_2() {
         let dir = tempfile::tempdir().expect("tempdir");
         std::fs::write(dir.path().join("requirements.txt"), "pkg==1.0\n")
             .expect("write");
+        let out_path = dir.path().join("report.json");
         let root = dir.path().to_str().unwrap();
         vlz::registry::clear_resolvers();
         vlz::registry::register(vlz::registry::Plugin::Resolver(Box::new(
             vlz::mocks::FailingResolver::new(),
         )));
-        assert_eq!(run_async(&["scan", root, "--offline"]), 2);
+        let code = run_async(&[
+            "scan",
+            root,
+            "--offline",
+            "--format",
+            "json",
+            "--summary-file",
+            &format!("json:{}", out_path.display()),
+        ]);
+        assert_eq!(code, 2);
+
+        let parsed: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(&out_path).expect("report must render"),
+        )
+        .expect("parse json");
+        let coverage = parsed
+            .get("manifest_coverage")
+            .and_then(|v| v.as_array())
+            .expect("manifest_coverage in report");
+        assert_eq!(coverage.len(), 1);
+        assert_eq!(
+            coverage[0].get("status"),
+            Some(&serde_json::json!("failed_resolution"))
+        );
     });
 }
 
@@ -726,8 +1017,7 @@ fn run_scan_cve_provider_fails_logs_error() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
         let dir = tempfile::tempdir().expect("tempdir");
-        std::fs::write(dir.path().join("requirements.txt"), "pkg==1.0\n")
-            .expect("write");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
         let root = dir.path().to_str().unwrap();
         vlz::registry::clear_providers();
         vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
@@ -750,10 +1040,16 @@ fn run_scan_deduplicates_packages_before_cve_lookup() {
         let root = dir.path().to_str().unwrap();
         std::fs::create_dir_all(dir.path().join("sub1")).expect("mkdir");
         std::fs::create_dir_all(dir.path().join("sub2")).expect("mkdir");
-        std::fs::write(dir.path().join("sub1/requirements.txt"), "pkg==1.0\n")
-            .expect("write");
-        std::fs::write(dir.path().join("sub2/requirements.txt"), "pkg==1.0\n")
-            .expect("write");
+        write_requirements_with_pylock(
+            dir.path().join("sub1").as_path(),
+            "pkg",
+            "1.0",
+        );
+        write_requirements_with_pylock(
+            dir.path().join("sub2").as_path(),
+            "pkg",
+            "1.0",
+        );
 
         let fetch_counts: Arc<Mutex<HashMap<String, usize>>> =
             Arc::new(Mutex::new(HashMap::new()));

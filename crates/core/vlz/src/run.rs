@@ -357,6 +357,7 @@ pub async fn run(args: Cli) -> Result<i32> {
     let early_cfg = crate::config::load_with_reachability_overrides(
         args.config.as_deref(),
         crate::config::env_parallel(),
+        crate::config::env_parallel_resolutions(),
         crate::config::env_cache_db(),
         crate::config::env_ignore_db(),
         crate::config::env_cache_ttl_secs(),
@@ -371,6 +372,7 @@ pub async fn run(args: Cli) -> Result<i32> {
         crate::config::env_provider_http_connect_timeout_secs(),
         crate::config::env_provider_http_request_timeout_secs(),
         crate::config::env_tls_crl_bundle(),
+        None,
         None,
         cli_cache_db.as_deref(),
         cli_ignore_db.as_deref(),
@@ -391,6 +393,10 @@ pub async fn run(args: Cli) -> Result<i32> {
         cli_tls_crl_bundle,
         crate::config::env_reachability_mode(),
         cli_reachability_mode,
+        false,
+        false,
+        false,
+        false,
         crate::config::env_severity_overrides(),
         crate::config::SeverityOverrides::default(),
     )
@@ -465,6 +471,7 @@ pub async fn run(args: Cli) -> Result<i32> {
             summary_file,
             provider,
             parallel: cli_parallel,
+            parallel_resolutions: cli_parallel_resolutions,
             cache_db: cli_cache_db,
             ignore_db: cli_ignore_db,
             cache_ttl_secs: cli_cache_ttl_secs,
@@ -476,6 +483,10 @@ pub async fn run(args: Cli) -> Result<i32> {
             fp_exit_code: cli_fp_exit_code,
             project_id: cli_project_id,
             package_manager_required,
+            keep_ephemeral_venv,
+            allow_dependency_code_execution,
+            allow_direct_only_fallback,
+            fail_fast,
             backoff_base: cli_backoff_base,
             backoff_max: cli_backoff_max,
             max_retries: cli_max_retries,
@@ -515,6 +526,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                 crate::config::load_with_reachability_overrides(
                     args.config.as_deref(),
                     crate::config::env_parallel(),
+                    crate::config::env_parallel_resolutions(),
                     crate::config::env_cache_db(),
                     crate::config::env_ignore_db(),
                     crate::config::env_cache_ttl_secs(),
@@ -530,6 +542,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                     crate::config::env_provider_http_request_timeout_secs(),
                     crate::config::env_tls_crl_bundle(),
                     cli_parallel,
+                    cli_parallel_resolutions,
                     cli_cache_db.as_deref(),
                     cli_ignore_db.as_deref(),
                     cli_cache_ttl_secs,
@@ -549,6 +562,10 @@ pub async fn run(args: Cli) -> Result<i32> {
                     cli_tls_crl_bundle_scan,
                     crate::config::env_reachability_mode(),
                     cli_reachability_mode,
+                    keep_ephemeral_venv,
+                    allow_dependency_code_execution,
+                    allow_direct_only_fallback,
+                    fail_fast,
                     crate::config::env_severity_overrides(),
                     cli_severity,
                 )
@@ -593,6 +610,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                 let cfg = crate::config::load(
                     args.config.as_deref(),
                     crate::config::env_parallel(),
+                    crate::config::env_parallel_resolutions(),
                     crate::config::env_cache_db(),
                     crate::config::env_ignore_db(),
                     crate::config::env_cache_ttl_secs(),
@@ -607,6 +625,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                     crate::config::env_provider_http_connect_timeout_secs(),
                     crate::config::env_provider_http_request_timeout_secs(),
                     crate::config::env_tls_crl_bundle(),
+                    None,
                     None,
                     None,
                     None,
@@ -657,6 +676,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                 let cfg = crate::config::load(
                     args.config.as_deref(),
                     crate::config::env_parallel(),
+                    crate::config::env_parallel_resolutions(),
                     crate::config::env_cache_db(),
                     crate::config::env_ignore_db(),
                     crate::config::env_cache_ttl_secs(),
@@ -671,6 +691,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                     crate::config::env_provider_http_connect_timeout_secs(),
                     crate::config::env_provider_http_request_timeout_secs(),
                     crate::config::env_tls_crl_bundle(),
+                    None,
                     None,
                     None,
                     None,
@@ -717,6 +738,10 @@ pub async fn run(args: Cli) -> Result<i32> {
                 write_stdout(&format!(
                     "parallel_queries = {}\n",
                     cfg.parallel_queries
+                ));
+                write_stdout(&format!(
+                    "parallel_resolutions = {}\n",
+                    cfg.parallel_resolutions
                 ));
                 write_stdout(&format!(
                     "scan_exclude_dirs = {}\n",
@@ -772,6 +797,19 @@ pub async fn run(args: Cli) -> Result<i32> {
                     .map(|p| p.display().to_string())
                     .unwrap_or_default();
                 write_stdout(&format!("tls_crl_bundle = {}\n", tls_crl));
+                write_stdout(&format!(
+                    "keep_ephemeral_venv = {}\n",
+                    cfg.keep_ephemeral_venv
+                ));
+                write_stdout(&format!(
+                    "allow_dependency_code_execution = {}\n",
+                    cfg.allow_dependency_code_execution
+                ));
+                write_stdout(&format!(
+                    "allow_direct_only_fallback = {}\n",
+                    cfg.allow_direct_only_fallback
+                ));
+                write_stdout(&format!("fail_fast = {}\n", cfg.fail_fast));
                 write_stdout(&format!(
                     "severity_v2_critical_min = {}\n",
                     cfg.severity.v2.critical_min
@@ -1224,6 +1262,11 @@ async fn run_scan(
     } else {
         effective.parallel_queries
     };
+    let effective_resolution_parallel = if effective.benchmark {
+        1
+    } else {
+        effective.parallel_resolutions
+    };
     let use_network = !(effective.offline || effective.benchmark);
 
     // -----------------------------------------------------------------
@@ -1237,6 +1280,21 @@ async fn run_scan(
         std::path::PathBuf,
         String,
     )> = Vec::new();
+    let mut direct_only_warned: std::collections::HashSet<(
+        std::path::PathBuf,
+        &'static str,
+    )> = std::collections::HashSet::new();
+    let mut manifest_coverage: Vec<vlz_report::ManifestCoverageEntry> =
+        Vec::new();
+    let mut skip_cve_phase = false;
+    let resolve_ctx = vlz_manifest_parser::ResolveContext {
+        keep_ephemeral_venv: effective.keep_ephemeral_venv,
+        skip_pip_resolution: effective.offline || effective.benchmark,
+        benchmark_mode: effective.benchmark,
+        allow_dependency_code_execution: effective
+            .allow_dependency_code_execution,
+        allow_direct_only_fallback: effective.allow_direct_only_fallback,
+    };
     let can_use_shared_discovery = effective.language_regexes.is_empty()
         && finders.iter().take(n).all(|finder| {
             matches!(finder.language_name(), "python" | "rust" | "go")
@@ -1253,9 +1311,12 @@ async fn run_scan(
     };
 
     for i in 0..n {
+        if skip_cve_phase {
+            break;
+        }
         let language = finders[i].language_name().to_string();
         let language_discovery_started_at = Instant::now();
-        let manifests = if can_use_shared_discovery {
+        let mut manifests = if can_use_shared_discovery {
             manifests_by_language.remove(&language).unwrap_or_default()
         } else {
             finders[i]
@@ -1263,6 +1324,7 @@ async fn run_scan(
                 .await
                 .context("Failed during manifest discovery")?
         };
+        manifests.sort();
         let language_discovery_ms =
             language_discovery_started_at.elapsed().as_millis();
         info!(
@@ -1273,32 +1335,129 @@ async fn run_scan(
         );
         let parser = &parsers[i];
         let resolver = &resolvers[i];
+        let ctx = resolve_ctx.clone();
+        let resolution_semaphore =
+            Arc::new(Semaphore::new(effective_resolution_parallel));
         let tasks: Vec<_> = manifests
             .into_iter()
             .map(|mf| {
                 let language = language.clone();
+                let ctx = ctx.clone();
+                let resolution_sem = resolution_semaphore.clone();
                 async move {
-                    let graph =
-                        parser.parse(&mf).await.with_context(|| {
-                            format!("Parsing manifest {:?}", mf)
-                        })?;
-                    let resolved =
-                        resolver.resolve(&graph).await.with_context(|| {
-                            format!("Resolving dependencies for {:?}", mf)
-                        })?;
-                    Ok::<_, anyhow::Error>((resolved, mf, language))
+                    match parser.parse(&mf).await {
+                        Ok(graph) => {
+                            let _permit = resolution_sem.acquire().await;
+                            match resolver.resolve(&graph, &ctx).await {
+                                Ok(resolved) => {
+                                    crate::scan::ManifestTaskOutcome::Success {
+                                        resolved,
+                                        manifest_path: mf,
+                                        language,
+                                    }
+                                }
+                                Err(error) => {
+                                    crate::scan::ManifestTaskOutcome::ResolveFailed {
+                                        manifest_path: mf,
+                                        language,
+                                        error,
+                                    }
+                                }
+                            }
+                        }
+                        Err(error) => {
+                            crate::scan::ManifestTaskOutcome::ParseFailed {
+                                manifest_path: mf,
+                                language,
+                                error,
+                            }
+                        }
+                    }
                 }
             })
             .collect();
-        let results = futures::future::join_all(tasks).await;
-        for result in results {
-            let (resolved, manifest_path, language) = result?;
-            for pkg in resolved {
-                all_packages_with_manifests.push((
-                    pkg,
-                    manifest_path.clone(),
-                    language.clone(),
-                ));
+        let mut outcomes = futures::future::join_all(tasks).await;
+        outcomes.sort_by(|a, b| a.manifest_path().cmp(b.manifest_path()));
+        for outcome in outcomes {
+            match outcome {
+                crate::scan::ManifestTaskOutcome::Success {
+                    resolved,
+                    manifest_path,
+                    language,
+                } => {
+                    manifest_coverage.push(
+                        crate::scan::coverage_entry_success(
+                            manifest_path.clone(),
+                            language.clone(),
+                            &resolved,
+                        ),
+                    );
+                    if resolved.depth
+                        == vlz_manifest_parser::ResolutionDepth::DirectOnly
+                        && let Some(reason) = resolved.direct_only_reason
+                        && direct_only_warned
+                            .insert((manifest_path.clone(), reason))
+                    {
+                        eprintln!(
+                            "{}",
+                            vlz_manifest_parser::format_direct_only_warning(
+                                &manifest_path.display().to_string(),
+                                reason,
+                            )
+                        );
+                    }
+                    for pkg in resolved.packages {
+                        all_packages_with_manifests.push((
+                            pkg,
+                            manifest_path.clone(),
+                            language.clone(),
+                        ));
+                    }
+                }
+                crate::scan::ManifestTaskOutcome::ParseFailed {
+                    manifest_path,
+                    language,
+                    error,
+                } => {
+                    manifest_coverage.push(
+                        crate::scan::coverage_entry_parse_failure(
+                            manifest_path.clone(),
+                            language,
+                            &error,
+                        ),
+                    );
+                    crate::scan::log_manifest_failure(
+                        &manifest_path,
+                        &error,
+                        _verbosity,
+                    );
+                    if effective.fail_fast {
+                        skip_cve_phase = true;
+                        break;
+                    }
+                }
+                crate::scan::ManifestTaskOutcome::ResolveFailed {
+                    manifest_path,
+                    language,
+                    error,
+                } => {
+                    manifest_coverage.push(
+                        crate::scan::coverage_entry_resolution_failure(
+                            manifest_path.clone(),
+                            language,
+                            &error,
+                        ),
+                    );
+                    crate::scan::log_manifest_failure(
+                        &manifest_path,
+                        &error,
+                        _verbosity,
+                    );
+                    if effective.fail_fast {
+                        skip_cve_phase = true;
+                        break;
+                    }
+                }
             }
         }
     }
@@ -1343,92 +1502,89 @@ async fn run_scan(
     // f) For each package: try cache -> (optional) network -> store
     // -----------------------------------------------------------------
     let mut findings = Vec::new();
-    let semaphore = Arc::new(Semaphore::new(effective_parallel));
-    let mut handles = Vec::new();
-
-    let benchmark_mode = effective.benchmark;
-
-    for pkg in &packages_to_check {
-        let db = db_backend.clone();
-        let prov = provider_impl.clone();
-        let sem = semaphore.clone();
-        let permit = sem.acquire_owned().await.unwrap();
-        let pkg = pkg.clone();
-
-        let fut = async move {
-            let _guard = permit;
-
-            // FR-029: benchmark mode bypasses cache and network entirely so only the
-            // scan/parse/resolve pipeline is timed.
-            if benchmark_mode {
-                return Ok(benchmark_lookup_result(&pkg));
-            }
-
-            if let Some(cached) = db.as_ref().get(&pkg, prov.name()).await? {
-                return Ok((pkg.clone(), cached));
-            }
-
-            if !use_network {
-                return Err(anyhow!(
-                    "CVE not found in cache, and unable to lookup CVE due to `--offline` argument."
-                ));
-            }
-
-            let fetched =
-                prov.as_ref().fetch(&pkg).await.with_context(|| {
-                    format!("Fetching CVEs for {}@{}", pkg.name, pkg.version)
-                })?;
-            db.as_ref()
-                .put(&pkg, prov.name(), &fetched.raw_vulns, None)
-                .await
-                .with_context(|| {
-                    format!("Storing cache for {}@{}", pkg.name, pkg.version)
-                })?;
-            Ok((pkg.clone(), fetched.records))
-        };
-
-        handles.push(tokio::spawn(fut));
-    }
-
-    // -----------------------------------------------------------------
-    // g) Gather results, apply false-positive filtering & severity map
-    // -----------------------------------------------------------------
     let mut offline_cache_miss = false;
     let mut provider_fetch_failed = false;
-    for h in handles {
-        match h.await? {
-            Ok((pkg, recs)) => {
-                findings.push((pkg, recs));
-            }
-            Err(e) => {
-                let msg = e.to_string();
-                if effective.offline && msg.contains("--offline") {
-                    offline_cache_miss = true;
-                } else {
-                    provider_fetch_failed = true;
-                    error!("{}", e);
-                    if _verbosity > 0 {
-                        for cause in e.chain().skip(1) {
-                            error!("  Caused by: {}", cause);
+
+    if !skip_cve_phase {
+        let semaphore = Arc::new(Semaphore::new(effective_parallel));
+        let mut handles = Vec::new();
+
+        let benchmark_mode = effective.benchmark;
+
+        for pkg in &packages_to_check {
+            let db = db_backend.clone();
+            let prov = provider_impl.clone();
+            let sem = semaphore.clone();
+            let permit = sem.acquire_owned().await.unwrap();
+            let pkg = pkg.clone();
+
+            let fut = async move {
+                let _guard = permit;
+
+                // FR-029: benchmark mode bypasses cache and network entirely so only the
+                // scan/parse/resolve pipeline is timed.
+                if benchmark_mode {
+                    return Ok(benchmark_lookup_result(&pkg));
+                }
+
+                if let Some(cached) =
+                    db.as_ref().get(&pkg, prov.name()).await?
+                {
+                    return Ok((pkg.clone(), cached));
+                }
+
+                if !use_network {
+                    return Err(anyhow!(
+                        "CVE not found in cache, and unable to lookup CVE due to `--offline` argument."
+                    ));
+                }
+
+                let fetched =
+                    prov.as_ref().fetch(&pkg).await.with_context(|| {
+                        format!(
+                            "Fetching CVEs for {}@{}",
+                            pkg.name, pkg.version
+                        )
+                    })?;
+                db.as_ref()
+                    .put(&pkg, prov.name(), &fetched.raw_vulns, None)
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "Storing cache for {}@{}",
+                            pkg.name, pkg.version
+                        )
+                    })?;
+                Ok((pkg.clone(), fetched.records))
+            };
+
+            handles.push(tokio::spawn(fut));
+        }
+
+        // -----------------------------------------------------------------
+        // g) Gather results, apply false-positive filtering & severity map
+        // -----------------------------------------------------------------
+        for h in handles {
+            match h.await? {
+                Ok((pkg, recs)) => {
+                    findings.push((pkg, recs));
+                }
+                Err(e) => {
+                    let msg = e.to_string();
+                    if effective.offline && msg.contains("--offline") {
+                        offline_cache_miss = true;
+                    } else {
+                        provider_fetch_failed = true;
+                        error!("{}", e);
+                        if _verbosity > 0 {
+                            for cause in e.chain().skip(1) {
+                                error!("  Caused by: {}", cause);
+                            }
                         }
                     }
                 }
             }
         }
-    }
-    if offline_cache_miss {
-        let _ = db_backend.stats().await;
-        eprintln!(
-            "CVE not found in cache, and unable to lookup CVE due to `--offline` argument."
-        );
-        return Ok(4);
-    }
-    if provider_fetch_failed {
-        let _ = db_backend.stats().await;
-        eprintln!(
-            "Unable to fetch CVE data from provider. Run with -v for details."
-        );
-        return Ok(5);
     }
 
     // -----------------------------------------------------------------
@@ -1573,11 +1729,39 @@ async fn run_scan(
         all_packages: Some(packages_to_check),
         project_id: effective.project_id.clone(),
         root_path: Some(root_path.clone()),
+        manifest_coverage,
     };
     reporter
         .render(&report_data)
         .await
         .context("Failed while rendering the report")?;
+
+    if let Some(summary) = crate::scan::format_manifest_failure_summary(
+        &report_data.manifest_coverage,
+        Some(root_path.as_path()),
+    ) {
+        eprintln!("{summary}");
+    }
+    if offline_cache_miss {
+        eprintln!(
+            "CVE not found in cache, and unable to lookup CVE due to `--offline` argument."
+        );
+    }
+    if provider_fetch_failed {
+        eprintln!(
+            "Unable to fetch CVE data from provider. Run with -v for details."
+        );
+    }
+
+    let manifest_blocking = crate::scan::count_blocking_manifest_failures(
+        &report_data.manifest_coverage,
+    );
+    let exit_code = crate::scan::pick_exit_code(
+        manifest_blocking,
+        offline_cache_miss,
+        provider_fetch_failed,
+        exit_code,
+    );
 
     // -----------------------------------------------------------------
     // j) Emit optional secondary files (FR-008 --summary-file)

@@ -68,6 +68,10 @@ pub enum Commands {
         #[arg(long)]
         parallel: Option<usize>,
 
+        /// Parallel dependency resolution limit (default: CPU count, max 32)
+        #[arg(long, value_name = "N")]
+        parallel_resolutions: Option<usize>,
+
         /// Override cache database path
         #[arg(long, value_name = "PATH")]
         cache_db: Option<String>,
@@ -116,6 +120,22 @@ pub enum Commands {
         /// Require package manager on PATH; exit 3 with hint if missing
         #[arg(long)]
         package_manager_required: bool,
+
+        /// Do not remove ephemeral Python venv after scan (FR-023 debug)
+        #[arg(long)]
+        keep_ephemeral_venv: bool,
+
+        /// Allow pip to execute dependency build code during resolution (SEC-023)
+        #[arg(long)]
+        allow_dependency_code_execution: bool,
+
+        /// Fall back to direct-only scan with warning when transitive resolution fails (FR-022a)
+        #[arg(long)]
+        allow_direct_only_fallback: bool,
+
+        /// Stop on first manifest parse/resolution failure; skip CVE lookup (FR-037)
+        #[arg(long)]
+        fail_fast: bool,
 
         /// Base delay in ms for retry backoff (default 100)
         #[arg(long, value_name = "MS")]

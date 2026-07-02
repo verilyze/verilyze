@@ -15,7 +15,73 @@ use vlz_db::{
     CacheEntryInfo, CveRecord, DatabaseBackend, DatabaseError, DatabaseStats,
     Package, TtlSelector,
 };
-use vlz_manifest_parser::{DependencyGraph, Resolver, ResolverError};
+use vlz_manifest_parser::{
+    DependencyGraph, ResolveContext, ResolveResult, Resolver, ResolverError,
+};
+
+/// Resolver that fails when the manifest path contains a marker substring; otherwise
+/// delegates to an inner resolver (FR-037 partial-scan tests).
+pub struct ConditionalFailingResolver<R> {
+    inner: R,
+    path_marker: &'static str,
+    failure_message: &'static str,
+}
+
+impl<R> ConditionalFailingResolver<R> {
+    pub fn new(inner: R, path_marker: &'static str) -> Self {
+        Self {
+            inner,
+            path_marker,
+            failure_message: "mock conditional resolve failure",
+        }
+    }
+
+    fn should_fail(&self, graph: &DependencyGraph) -> bool {
+        graph
+            .manifest_path
+            .as_ref()
+            .is_some_and(|p| p.to_string_lossy().contains(self.path_marker))
+    }
+}
+
+#[async_trait]
+impl<R: Resolver + Send + Sync> Resolver for ConditionalFailingResolver<R> {
+    async fn resolve(
+        &self,
+        graph: &DependencyGraph,
+        ctx: &ResolveContext,
+    ) -> Result<ResolveResult, ResolverError> {
+        if self.should_fail(graph) {
+            return Err(ResolverError::Resolve(
+                self.failure_message.to_string(),
+            ));
+        }
+        self.inner.resolve(graph, ctx).await
+    }
+
+    fn package_manager_available(&self) -> bool {
+        self.inner.package_manager_available()
+    }
+
+    fn package_manager_hint(&self) -> &'static str {
+        self.inner.package_manager_hint()
+    }
+}
+
+/// Python resolver that fails only for manifests under a `broken` path segment.
+#[cfg(feature = "python")]
+pub type PythonConditionalFailingResolver =
+    ConditionalFailingResolver<vlz_python::DirectOnlyResolver>;
+
+#[cfg(feature = "python")]
+impl PythonConditionalFailingResolver {
+    pub fn for_broken_paths() -> Self {
+        ConditionalFailingResolver::new(
+            vlz_python::DirectOnlyResolver::new(),
+            "broken",
+        )
+    }
+}
 
 /// Resolver that always returns an error. Covers resolve `with_context` (557-558).
 #[derive(Debug, Default)]
@@ -32,7 +98,8 @@ impl Resolver for FailingResolver {
     async fn resolve(
         &self,
         _graph: &DependencyGraph,
-    ) -> Result<Vec<Package>, ResolverError> {
+        _ctx: &ResolveContext,
+    ) -> Result<ResolveResult, ResolverError> {
         Err(ResolverError::Resolve("mock resolve failure".to_string()))
     }
 
@@ -210,10 +277,56 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    async fn conditional_failing_resolver_fails_when_path_contains_marker() {
+        let r =
+            ConditionalFailingResolver::new(FailingResolver::new(), "broken");
+        let graph = DependencyGraph {
+            manifest_path: Some(std::path::PathBuf::from(
+                "/tmp/broken/requirements.txt",
+            )),
+            ..Default::default()
+        };
+        let result = r
+            .resolve(&graph, &vlz_manifest_parser::ResolveContext::default())
+            .await;
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("mock conditional resolve failure")
+        );
+    }
+
+    #[tokio::test]
+    async fn conditional_failing_resolver_delegates_when_marker_absent() {
+        let r =
+            ConditionalFailingResolver::new(FailingResolver::new(), "broken");
+        let graph = DependencyGraph {
+            manifest_path: Some(std::path::PathBuf::from(
+                "/tmp/good/requirements.txt",
+            )),
+            ..Default::default()
+        };
+        let result = r
+            .resolve(&graph, &vlz_manifest_parser::ResolveContext::default())
+            .await;
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("mock resolve failure")
+        );
+    }
+
+    #[tokio::test]
     async fn failing_resolver_resolve_returns_err() {
         let r = FailingResolver::new();
         let graph = DependencyGraph::default();
-        let result = r.resolve(&graph).await;
+        let result = r
+            .resolve(&graph, &vlz_manifest_parser::ResolveContext::default())
+            .await;
         assert!(result.is_err());
         assert!(
             result

@@ -63,3 +63,7 @@ path = "fuzz_targets/cargo_lock.rs"
 [[bin]]
 name = "fuzz_go_mod"
 path = "fuzz_targets/go_mod.rs"
+
+[[bin]]
+name = "fuzz_pip_freeze"
+path = "fuzz_targets/pip_freeze.rs"

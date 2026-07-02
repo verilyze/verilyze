@@ -35,7 +35,9 @@ ALL_CODEBASE="${VALIDATE_ALL_CODEBASE:-false}"
 DEFAULT_BRANCH="${DEFAULT_BRANCH:-main}"
 
 # Match CONTRIBUTING: skip build trees, venvs, completions (ShellCheck via make
-# lint-shell + completions/.shellcheckrc), and site-packages.
+# lint-shell + completions/.shellcheckrc), and site-packages. Trivy uses
+# scan.skip-dirs in trivy.yaml; Checkov uses skip-path in .checkov.yaml (both
+# ignore FILTER_REGEX_EXCLUDE).
 FILTER_REGEX_EXCLUDE='(^|/)(target/|\.git/|completions/|\.venv[^/]*/|\.mypy_cache/|site-packages/|super-linter-output/)'
 
 # Validator toggles: Rust/Python/shell/markdown/natural-language off when covered by

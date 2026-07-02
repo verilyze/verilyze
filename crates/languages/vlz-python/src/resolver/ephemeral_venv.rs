@@ -14,6 +14,7 @@ use tempfile::TempDir;
 
 /// Base directory for security-sensitive temp data (ephemeral venvs).
 /// Prefers XDG_RUNTIME_DIR, then TMPDIR, then std::env::temp_dir().
+/// Mirrors `vlz::config::secure_temp_base()` (duplicate avoids vlz-python -> vlz cycle).
 fn secure_temp_base() -> PathBuf {
     std::env::var_os("XDG_RUNTIME_DIR")
         .or_else(|| std::env::var_os("TMPDIR"))

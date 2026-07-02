@@ -286,6 +286,96 @@ later if the failure was transient.
 
 ---
 
+## Partial dependency resolution (FR-022, FR-022a, SEC-023)
+
+### `vlz warning: Only direct dependencies were scanned for ...`
+
+**Cause:** Transitive dependency resolution was not performed for the listed
+manifest. Common reasons:
+
+- **`offline mode` or `benchmark mode`:** `--offline` and `--benchmark` skip pip
+  network resolution (FR-031, FR-029).
+- **`executable dependency resolution is disabled`:** Secure default (SEC-023).
+  `vlz` does not run `pip install` or `pip lock -e` on local projects unless
+  you opt in.
+- **`transitive resolution unavailable`:** No adjacent lock file and pip is not
+  on PATH for a local project manifest (`setup.py`, `pyproject.toml`, etc.).
+- **`transitive resolution failed; direct-only fallback enabled`:** Transitive
+  resolution was required but could not be completed; you opted in via
+  `allow_direct_only_fallback`.
+
+**Remediation (best):** Add an adjacent lock file for transitive coverage. See
+[Appendix A -- Manifest and lock files](../architecture/PRD.md#appendix-a-manifest-and-lock-files)
+for supported formats (`poetry.lock`, `Pipfile.lock`, `pylock.toml`, etc.).
+
+**Optional (trusted workspaces only):** Enable executable pip resolution:
+
+```sh
+vlz scan --allow-dependency-code-execution /path/to/project
+```
+
+Or set `VLZ_ALLOW_DEPENDENCY_CODE_EXECUTION=1` or
+`allow_dependency_code_execution = true` in config. This may run local project
+code and third-party build hooks during resolution. See [SECURITY.md](../SECURITY.md).
+
+**Requirements files without pip:** `requirements.txt` requires transitive
+resolution via lock file, safe `pip lock` (when pip >= 25.1), explicit
+opt-in pip fallback, or `--allow-direct-only-fallback` (direct-only scan with
+FR-022a warning). Without those, the scan exits **2** with the FR-022 message
+below.
+
+### Unable to detect transitive dependencies (exit 2)
+
+**Message:** `Unable to detect transitive dependencies. Try installing the
+package manager or generate a lock file before running vlz.`
+
+**Cause:** Transitive resolution was required but could not be completed
+(FR-022). Typical cases: `requirements.txt` or `Pipfile` without a lock file
+and without working pip resolution; explicit pip resolution failed after
+`--allow-dependency-code-execution`; or the parser found no dependencies.
+
+**Remediation:**
+
+1. Commit an adjacent lock file (preferred).
+2. Ensure pip >= 25.1 is on PATH for safe `pip lock -r` on `requirements.txt`.
+3. For local projects, use `--allow-dependency-code-execution` only in trusted
+   CI or workspaces (see SECURITY.md).
+4. When you accept direct-only scanning without transitive coverage, use
+   `--allow-direct-only-fallback`, `VLZ_ALLOW_DIRECT_ONLY_FALLBACK=1`, or
+   `allow_direct_only_fallback = true` in config.
+5. Use `--offline` or `--benchmark` only when you accept direct-only scanning
+   (warnings will be emitted for affected manifests).
+
+See also `man vlz` for configuration keys `keep_ephemeral_venv`,
+`allow_dependency_code_execution`, `allow_direct_only_fallback`, and
+`fail_fast`.
+
+---
+
+## Multi-manifest scans (FR-037)
+
+When `vlz scan` discovers multiple manifests under a root directory, each
+manifest is parsed and resolved independently. Successfully resolved manifests
+contribute packages to the CVE lookup phase even when other manifests fail.
+
+**Report metadata:** JSON, SARIF, HTML, and plain-text reports include a
+`manifest_coverage` array listing each manifest path, scan status
+(`scanned_transitive`, `scanned_direct_only`, `failed_parse`,
+`failed_resolution`), and error detail when applicable.
+
+**Exit code 2:** If any manifest requires transitive resolution and cannot be
+satisfied (or cannot be parsed), the scan exits **2** after rendering the report
+for manifests that succeeded. A consolidated summary on stderr lists all failed
+manifests at the end of the run (easy to find in CI logs).
+
+**`--fail-fast`:** Stops manifest processing on the first blocking parse or
+resolution failure and skips CVE lookup. Applies only to manifest
+discovery/parsing/resolution; CVE provider fetch behavior is unchanged. Use for
+strict CI jobs that should abort early. Set via `--fail-fast`, `fail_fast = true`
+in config, or `VLZ_FAIL_FAST=1`.
+
+---
+
 ## Network and TLS errors
 
 ### TLS / certificate verification failed

@@ -99,8 +99,9 @@ async fn resolve_uses_lock_file_when_present() {
     let parser = RequirementsTxtParser::new();
     let resolver = vlz_python::DirectOnlyResolver::new();
     let graph = parser.parse(&pyproject).await.unwrap();
-    let resolved = resolver.resolve(&graph).await.unwrap();
-    assert_eq!(resolved.len(), 2);
+    let ctx = vlz_manifest_parser::ResolveContext::default();
+    let resolved = resolver.resolve(&graph, &ctx).await.unwrap();
+    assert_eq!(resolved.packages.len(), 2);
 }
 
 #[derive(serde::Deserialize)]
@@ -159,6 +160,7 @@ async fn resolve_setup_py_uses_lock_file_when_present() {
     let parser = RequirementsTxtParser::new();
     let resolver = vlz_python::DirectOnlyResolver::new();
     let graph = parser.parse(&setup_py).await.unwrap();
-    let resolved = resolver.resolve(&graph).await.unwrap();
-    assert!(resolved.len() >= 2);
+    let ctx = vlz_manifest_parser::ResolveContext::default();
+    let resolved = resolver.resolve(&graph, &ctx).await.unwrap();
+    assert!(resolved.packages.len() >= 2);
 }

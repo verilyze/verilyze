@@ -149,6 +149,27 @@ usage, ensure the engine or validation satisfies SEC-022.
   ephemeral virtual environments, it prefers `XDG_RUNTIME_DIR` or `TMPDIR`
   when set (per-user, not world-writable); otherwise falls back to
   `std::env::temp_dir()`. Directories are created with `0o700` on Unix.
+
+## Executable Python dependency resolution (SEC-023)
+
+By default, `vlz` does **not** execute target project code or third-party
+package build hooks during scanning. Python transitive resolution therefore
+uses, in order:
+
+1. Adjacent lock files (Appendix A formats).
+2. Static in-house parsers (direct dependencies only, with FR-022a warnings).
+3. Non-executing `pip lock -r requirements.txt -o - --only-binary :all:` when
+   pip >= 25.1 is available (requirements files only).
+
+The program does **not** run `pip lock -e`, `pip install`, or other paths that
+may execute `setup.py`, PEP 517 build backends, dynamic metadata hooks, or
+transitive source-distribution builds unless you explicitly opt in via
+`--allow-dependency-code-execution`, `VLZ_ALLOW_DEPENDENCY_CODE_EXECUTION`, or
+config `allow_dependency_code_execution = true`.
+
+Use opt-in only in trusted workspaces or CI where fuller transitive CVE coverage
+outweighs the risk of running dependency build code. See [docs/FAQ.md](docs/FAQ.md)
+for remediation when scans warn about partial (direct-only) resolution.
 - **SEC-014:** The program refuses to use cache or ignore DB files that are
   world-writable. Using `--cache-db /tmp/foo.redb` or similar is allowed
   but will fail with a clear error if the file exists with overly permissive

@@ -2678,12 +2678,14 @@ dependencies = [
 name = "vlz-python"
 version = "0.2.4"
 dependencies = [
+ "anyhow",
  "async-trait",
  "regex",
  "ruff_python_ast",
  "ruff_python_parser",
  "serde",
  "serde_json",
+ "sha2",
  "temp-env",
  "tempfile",
  "thiserror 2.0.18",

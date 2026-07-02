@@ -160,12 +160,12 @@ def test_verify_obs_upload_checksums_rejects_meta_mismatch(tmp_path: Path) -> No
         )
 
 
-def test_dry_run_vendor_lockfile_matches_repo_head(tmp_path: Path) -> None:
+def test_dry_run_vendor_lockfile_matches_repo_head() -> None:
     """Integration: upload script vendor archive matches HEAD Cargo.lock."""
     from tests.scripts.test_obs_upload_release_sources import _run_script
-    from tests.scripts.workspace_helpers import workspace_semver
+    from tests.scripts.workspace_helpers import obs_dry_run_work_dir, workspace_semver
 
-    work_dir = tmp_path / "work"
+    work_dir = obs_dry_run_work_dir("dry_run_vendor_lockfile_matches_repo_head")
     proc = _run_script(
         [
             str(_ROOT / "scripts" / "obs-upload-release-sources.sh"),

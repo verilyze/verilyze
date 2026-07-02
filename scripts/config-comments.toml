@@ -32,6 +32,12 @@ type = "integer"
 env = "VLZ_PARALLEL_QUERIES"
 cli = "--parallel"
 
+[parallel_resolutions]
+description = "Max concurrent manifest resolution subprocesses (1-32)"
+type = "integer"
+env = "VLZ_PARALLEL_RESOLUTIONS"
+cli = "--parallel-resolutions"
+
 [scan_exclude_dirs]
 description = """
 Comma-separated directory names to skip during manifest discovery
@@ -235,3 +241,44 @@ default = "^Cargo\\.toml$"
 description = "Regex for Go manifest file names (go.mod)"
 type = "string"
 default = "^go\\.mod$"
+
+[keep_ephemeral_venv]
+description = """
+Do not remove ephemeral Python venv after scan (FR-023 debug; default false)
+"""
+type = "boolean"
+env = "VLZ_KEEP_EPHEMERAL_VENV"
+cli = "--keep-ephemeral-venv"
+default = "false"
+
+[allow_dependency_code_execution]
+description = """
+Allow pip to execute dependency build code during Python resolution (SEC-023;
+default false)
+"""
+type = "boolean"
+env = "VLZ_ALLOW_DEPENDENCY_CODE_EXECUTION"
+cli = "--allow-dependency-code-execution"
+default = "false"
+
+[allow_direct_only_fallback]
+description = """
+When transitive resolution is required but cannot be satisfied, fall back to
+direct-only scanning with an FR-022a warning instead of exit 2 (FR-022,
+FR-022a; default false)
+"""
+type = "boolean"
+env = "VLZ_ALLOW_DIRECT_ONLY_FALLBACK"
+cli = "--allow-direct-only-fallback"
+default = "false"
+
+[fail_fast]
+description = """
+Stop manifest processing on the first blocking parse or resolution failure
+and skip CVE lookup (FR-037; default false). Does not affect CVE provider
+fetch behavior when the CVE phase runs.
+"""
+type = "boolean"
+env = "VLZ_FAIL_FAST"
+cli = "--fail-fast"
+default = "false"
