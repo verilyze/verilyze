@@ -11,6 +11,9 @@ mod pip_lock;
 mod pip_venv;
 mod pip_version;
 
+#[cfg(test)]
+mod test_fixtures;
+
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
@@ -73,6 +76,15 @@ impl DirectOnlyResolver {
 
     fn fr022_transitive_error() -> ResolverError {
         ResolverError::Resolve(FR_022_TRANSITIVE_ERROR_MESSAGE.to_string())
+    }
+
+    fn fr022_transitive_error_with_cause(
+        cause: ResolverError,
+    ) -> ResolverError {
+        ResolverError::ResolveWithCause {
+            message: FR_022_TRANSITIVE_ERROR_MESSAGE.to_string(),
+            cause: Box::new(cause),
+        }
     }
 
     fn transitive_result(packages: Vec<vlz_db::Package>) -> ResolveResult {
@@ -185,17 +197,21 @@ impl DirectOnlyResolver {
         Ok(Self::direct_only_result(graph.packages.clone(), reason))
     }
 
+    /// `Ok(Some(_))` on success, `Ok(None)` when pip lock does not apply,
+    /// `Err(_)` when pip lock was attempted and failed.
     fn try_pip_lock_transitive(
         &self,
         manifest_path: &Path,
         project_dir: &Path,
         ctx: &ResolveContext,
-    ) -> Option<Vec<vlz_db::Package>> {
+    ) -> Result<Option<Vec<vlz_db::Package>>, ResolverError> {
         if !pip_supports_lock() || manifest_is_pipfile(manifest_path) {
-            return None;
+            return Ok(None);
         }
-        self.try_pip_lock_cached(manifest_path, project_dir, ctx)
-            .ok()
+        match self.try_pip_lock_cached(manifest_path, project_dir, ctx) {
+            Ok(packages) => Ok(Some(packages)),
+            Err(err) => Err(err),
+        }
     }
 
     fn resolve_inner(
@@ -221,30 +237,52 @@ impl DirectOnlyResolver {
 
         if !ctx.allow_dependency_code_execution {
             if manifest_is_requirements_txt(manifest_path) {
-                if let Some(packages) = self.try_pip_lock_transitive(
+                return match self.try_pip_lock_transitive(
                     manifest_path,
                     &project_dir,
                     ctx,
                 ) {
-                    return Ok(Self::transitive_result(packages));
-                }
-                return Err(Self::fr022_transitive_error());
+                    Ok(Some(packages)) => {
+                        Ok(Self::transitive_result(packages))
+                    }
+                    Ok(None) => Err(Self::fr022_transitive_error()),
+                    Err(pip_err) => {
+                        Err(Self::fr022_transitive_error_with_cause(pip_err))
+                    }
+                };
             }
             return Self::direct_only_policy(graph, manifest_path, ctx, false);
         }
 
         if python_package_manager_available() {
-            if let Some(packages) =
-                self.try_pip_lock_transitive(manifest_path, &project_dir, ctx)
-            {
-                return Ok(Self::transitive_result(packages));
-            }
-            if let Ok(packages) =
-                self.try_pip_venv_cached(manifest_path, &project_dir, ctx)
-            {
-                return Ok(Self::transitive_result(packages));
-            }
-            return Err(Self::fr022_transitive_error());
+            let pip_lock_err = match self.try_pip_lock_transitive(
+                manifest_path,
+                &project_dir,
+                ctx,
+            ) {
+                Ok(Some(packages)) => {
+                    return Ok(Self::transitive_result(packages));
+                }
+                Ok(None) => None,
+                Err(err) => Some(err),
+            };
+            return match self.try_pip_venv_cached(
+                manifest_path,
+                &project_dir,
+                ctx,
+            ) {
+                Ok(packages) => Ok(Self::transitive_result(packages)),
+                Err(venv_err) => {
+                    let venv_msg = venv_err.to_string();
+                    let cause = pip_lock_err.map_or(venv_err, |pip_err| {
+                        ResolverError::ResolveWithCause {
+                            message: venv_msg,
+                            cause: Box::new(pip_err),
+                        }
+                    });
+                    Err(Self::fr022_transitive_error_with_cause(cause))
+                }
+            };
         }
 
         Self::direct_only_policy(graph, manifest_path, ctx, false)
@@ -306,6 +344,43 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
+    use crate::resolver::test_fixtures::{
+        empty_path, fake_pip_lock_failure, fake_pip_lock_success,
+        fake_python_venv,
+    };
+
+    fn error_chain_messages(err: &dyn std::error::Error) -> Vec<String> {
+        let mut chain = vec![err.to_string()];
+        let mut next = err.source();
+        while let Some(cause) = next {
+            chain.push(cause.to_string());
+            next = cause.source();
+        }
+        chain
+    }
+
+    fn sample_graph(manifest: PathBuf) -> DependencyGraph {
+        DependencyGraph {
+            packages: vec![vlz_db::Package {
+                name: "demo".to_string(),
+                version: "1.0.0".to_string(),
+                ecosystem: Some("PyPI".to_string()),
+            }],
+            manifest_path: Some(manifest),
+        }
+    }
+
+    fn block_on_resolver_test<F>(future: F)
+    where
+        F: std::future::Future<Output = ()>,
+    {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime")
+            .block_on(future);
+    }
+
     #[test]
     fn package_manager_hint_returns_non_empty() {
         let hint = python_package_manager_hint();
@@ -314,6 +389,13 @@ mod tests {
             hint.contains("pip") || hint.contains("Python"),
             "hint should mention pip or Python"
         );
+    }
+
+    #[test]
+    fn resolver_trait_package_manager_methods() {
+        let resolver = DirectOnlyResolver::new();
+        let _ = resolver.package_manager_available();
+        assert!(!resolver.package_manager_hint().is_empty());
     }
 
     #[test]
@@ -374,6 +456,23 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn direct_only_resolver_benchmark_mode_reason() {
+        let graph = sample_graph(PathBuf::from("/tmp/testproj/setup.py"));
+        let resolver = DirectOnlyResolver::new();
+        let ctx = ResolveContext {
+            skip_pip_resolution: true,
+            benchmark_mode: true,
+            ..Default::default()
+        };
+        let result = resolver.resolve(&graph, &ctx).await.unwrap();
+        assert_eq!(result.depth, ResolutionDepth::DirectOnly);
+        assert_eq!(
+            result.direct_only_reason,
+            Some(DIRECT_ONLY_REASON_BENCHMARK)
+        );
+    }
+
+    #[tokio::test]
     async fn direct_only_resolver_empty_graph_exits_error() {
         let graph = DependencyGraph {
             packages: vec![],
@@ -385,5 +484,243 @@ mod tests {
         let ctx = ResolveContext::default();
         let err = resolver.resolve(&graph, &ctx).await.unwrap_err();
         assert!(err.to_string().contains(FR_022_TRANSITIVE_ERROR_MESSAGE));
+    }
+
+    #[tokio::test]
+    async fn direct_only_resolver_missing_manifest_path_errors() {
+        let graph = DependencyGraph {
+            packages: vec![vlz_db::Package {
+                name: "a".to_string(),
+                version: "1".to_string(),
+                ecosystem: Some("PyPI".to_string()),
+            }],
+            manifest_path: None,
+        };
+        let resolver = DirectOnlyResolver::new();
+        let err = resolver
+            .resolve(&graph, &ResolveContext::default())
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains(FR_022_TRANSITIVE_ERROR_MESSAGE));
+    }
+
+    #[tokio::test]
+    async fn direct_only_resolver_uses_adjacent_lock_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let req = dir.path().join("requirements.txt");
+        let pylock = dir.path().join("pylock.toml");
+        std::fs::write(&req, b"requests>=2.0\n").unwrap();
+        std::fs::write(
+            &pylock,
+            "[[packages]]\nname = \"requests\"\nversion = \"2.31.0\"\n",
+        )
+        .unwrap();
+        let graph = sample_graph(req);
+        let resolver = DirectOnlyResolver::new();
+        let result = resolver
+            .resolve(&graph, &ResolveContext::default())
+            .await
+            .unwrap();
+        assert_eq!(result.depth, ResolutionDepth::Transitive);
+        assert!(result.packages.iter().any(|p| p.name == "requests"));
+    }
+
+    #[tokio::test]
+    async fn direct_only_resolver_ignores_empty_lock_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let setup = dir.path().join("setup.py");
+        let pylock = dir.path().join("pylock.toml");
+        std::fs::write(&setup, b"from setuptools import setup\nsetup()\n")
+            .unwrap();
+        std::fs::write(&pylock, b"packages = []\n").unwrap();
+        let graph = sample_graph(setup);
+        let resolver = DirectOnlyResolver::new();
+        let result = resolver
+            .resolve(&graph, &ResolveContext::default())
+            .await
+            .unwrap();
+        assert_eq!(result.depth, ResolutionDepth::DirectOnly);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn direct_only_resolver_requirements_pip_lock_failure_surfaces_cause() {
+        let dir = tempfile::tempdir().unwrap();
+        let req = dir.path().join("requirements.txt");
+        std::fs::write(&req, b"requests>=2.0\n").unwrap();
+        let graph = sample_graph(req);
+        let fake = fake_pip_lock_failure();
+        fake.with_path(|| {
+            block_on_resolver_test(async {
+                let resolver = DirectOnlyResolver::new();
+                let err = resolver
+                    .resolve(&graph, &ResolveContext::default())
+                    .await
+                    .unwrap_err();
+                let chain = error_chain_messages(&err);
+                assert!(
+                    chain[0].contains(FR_022_TRANSITIVE_ERROR_MESSAGE),
+                    "outer: {chain:?}"
+                );
+                assert!(
+                    chain.iter().any(|m| m.contains("pip lock failed for")),
+                    "resolver chain: {chain:?}"
+                );
+                let anyhow_err: anyhow::Error = err.into();
+                let anyhow_chain: Vec<String> = anyhow_err
+                    .chain()
+                    .map(std::string::ToString::to_string)
+                    .collect();
+                assert!(
+                    anyhow_chain.iter().any(|m| m.contains("pip lock failed")),
+                    "anyhow chain: {anyhow_chain:?}"
+                );
+            });
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn direct_only_resolver_requirements_pip_lock_transitive() {
+        let dir = tempfile::tempdir().unwrap();
+        let req = dir.path().join("requirements.txt");
+        std::fs::write(&req, b"requests>=2.0\n").unwrap();
+        let graph = sample_graph(req);
+        let fake = fake_pip_lock_success(
+            "[[packages]]\nname = \"requests\"\nversion = \"2.31.0\"\n",
+        );
+        fake.with_path(|| {
+            block_on_resolver_test(async {
+                let resolver = DirectOnlyResolver::new();
+                let result = resolver
+                    .resolve(&graph, &ResolveContext::default())
+                    .await
+                    .unwrap();
+                assert_eq!(result.depth, ResolutionDepth::Transitive);
+            });
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn direct_only_resolver_pip_lock_cache_hit() {
+        let dir = tempfile::tempdir().unwrap();
+        let req = dir.path().join("requirements.txt");
+        std::fs::write(&req, b"requests>=2.0\n").unwrap();
+        let graph = sample_graph(req);
+        let fake = fake_pip_lock_success(
+            "[[packages]]\nname = \"requests\"\nversion = \"2.31.0\"\n",
+        );
+        fake.with_path(|| {
+            block_on_resolver_test(async {
+                let resolver = DirectOnlyResolver::new();
+                let ctx = ResolveContext::default();
+                let first = resolver.resolve(&graph, &ctx).await.unwrap();
+                let second = resolver.resolve(&graph, &ctx).await.unwrap();
+                assert_eq!(first.depth, ResolutionDepth::Transitive);
+                assert_eq!(second.packages, first.packages);
+            });
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn direct_only_resolver_exec_enabled_venv_fallback() {
+        let fake = fake_python_venv(0, "requests==2.31.0", 0, 0);
+        let project = fake.project_dir();
+        let setup = project.join("setup.py");
+        std::fs::write(
+            &setup,
+            b"from setuptools import setup\nsetup(name='x', install_requires=['requests'])\n",
+        )
+        .unwrap();
+        let graph = sample_graph(setup);
+        fake.with_path(|| {
+            block_on_resolver_test(async {
+                let resolver = DirectOnlyResolver::new();
+                let ctx = ResolveContext {
+                    allow_dependency_code_execution: true,
+                    ..Default::default()
+                };
+                let result = resolver.resolve(&graph, &ctx).await.unwrap();
+                assert_eq!(result.depth, ResolutionDepth::Transitive);
+                assert!(result.packages.iter().any(|p| p.name == "requests"));
+            });
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn direct_only_resolver_exec_enabled_venv_cache_hit() {
+        let fake = fake_python_venv(0, "requests==2.31.0", 0, 0);
+        let project = fake.project_dir();
+        let setup = project.join("setup.py");
+        std::fs::write(
+            &setup,
+            b"from setuptools import setup\nsetup(name='x', install_requires=['requests'])\n",
+        )
+        .unwrap();
+        let graph = sample_graph(setup);
+        fake.with_path(|| {
+            block_on_resolver_test(async {
+                let resolver = DirectOnlyResolver::new();
+                let ctx = ResolveContext {
+                    allow_dependency_code_execution: true,
+                    ..Default::default()
+                };
+                let first = resolver.resolve(&graph, &ctx).await.unwrap();
+                let second = resolver.resolve(&graph, &ctx).await.unwrap();
+                assert_eq!(second.packages, first.packages);
+            });
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn direct_only_resolver_exec_enabled_pip_unavailable_direct_only() {
+        let fake = empty_path();
+        let project = fake.project_dir();
+        let setup = project.join("setup.py");
+        std::fs::write(&setup, b"from setuptools import setup\nsetup()\n")
+            .unwrap();
+        let graph = sample_graph(setup);
+        fake.with_path(|| {
+            block_on_resolver_test(async {
+                let resolver = DirectOnlyResolver::new();
+                let ctx = ResolveContext {
+                    allow_dependency_code_execution: true,
+                    ..Default::default()
+                };
+                let result = resolver.resolve(&graph, &ctx).await.unwrap();
+                assert_eq!(result.depth, ResolutionDepth::DirectOnly);
+                assert_eq!(
+                    result.direct_only_reason,
+                    Some(DIRECT_ONLY_REASON_UNAVAILABLE)
+                );
+            });
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn direct_only_resolver_pipfile_with_exec_errors_fr022() {
+        let fake = fake_python_venv(1, "requests==2.31.0", 0, 0);
+        let project = fake.project_dir();
+        let pipfile = project.join("Pipfile");
+        std::fs::write(&pipfile, b"[[source]]\nurl = \"pypi\"\n").unwrap();
+        let graph = sample_graph(pipfile);
+        fake.with_path(|| {
+            block_on_resolver_test(async {
+                let resolver = DirectOnlyResolver::new();
+                let ctx = ResolveContext {
+                    allow_dependency_code_execution: true,
+                    ..Default::default()
+                };
+                let err = resolver.resolve(&graph, &ctx).await.unwrap_err();
+                assert!(
+                    err.to_string().contains(FR_022_TRANSITIVE_ERROR_MESSAGE)
+                );
+            });
+        });
     }
 }

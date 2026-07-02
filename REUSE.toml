@@ -186,3 +186,10 @@ path = ".venv-reuse/**"
 precedence = "override"
 SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# Ephemeral fake pip/python scripts for vlz-python resolver unit tests
+[[annotations]]
+path = "target/fake-toolchain/**"
+precedence = "override"
+SPDX-FileCopyrightText = "The verilyze contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"

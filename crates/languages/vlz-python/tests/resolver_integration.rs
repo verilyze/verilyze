@@ -25,7 +25,11 @@ async fn requirements_txt_without_pip_exits_fr022_error() {
     };
     let resolver = DirectOnlyResolver::new();
     let ctx = ResolveContext::default();
-    let err = resolver.resolve(&graph, &ctx).await.unwrap_err();
+    let err = temp_env::async_with_vars([("PATH", Some(""))], async {
+        resolver.resolve(&graph, &ctx).await
+    })
+    .await
+    .unwrap_err();
     assert!(
         err.to_string().contains(FR_022_TRANSITIVE_ERROR_MESSAGE),
         "expected FR-022 message, got: {err}"

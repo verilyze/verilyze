@@ -5,6 +5,7 @@
 """Shared version and OBS constants for script tests (DRY with Cargo.toml)."""
 
 import re
+import shutil
 import tomllib
 from pathlib import Path
 
@@ -64,3 +65,17 @@ def top_obs_changes_version(changes_text: str) -> str | None:
         if match:
             return match.group(1)
     return None
+
+
+def obs_dry_run_work_dir(test_key: str) -> Path:
+    """Staging directory for OBS dry-run tests that run ``cargo vendor``.
+
+    Uses ``target/pytest-obs-work/`` under the repo instead of pytest's default
+    ``tmp_path`` (often ``/tmp``) so vendoring is less likely to hit disk quotas.
+    """
+    safe_key = re.sub(r"[^\w.-]+", "_", test_key).strip("_") or "obs-work"
+    work = _REPO_ROOT / "target" / "pytest-obs-work" / safe_key
+    if work.exists():
+        shutil.rmtree(work)
+    work.mkdir(parents=True)
+    return work

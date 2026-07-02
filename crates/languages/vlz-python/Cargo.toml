@@ -27,6 +27,7 @@ vlz-reachability-trait = { path = "../../core/vlz-reachability-trait" }
 tokio = { workspace = true, features = ["fs"] }
 
 [dev-dependencies]
+anyhow = "1.0"
 temp-env.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["rt", "macros"] }

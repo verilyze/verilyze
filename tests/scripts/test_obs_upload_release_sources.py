@@ -12,6 +12,7 @@ from pathlib import Path
 
 from tests.scripts.workspace_helpers import (
     obs_changes_version_marker,
+    obs_dry_run_work_dir,
     obs_package_name,
     repo_root,
     workspace_semver,
@@ -42,12 +43,12 @@ def _run_script(
     )
 
 
-def test_obs_upload_script_dry_run_builds_expected_artifacts(tmp_path: Path) -> None:
+def test_obs_upload_script_dry_run_builds_expected_artifacts() -> None:
     version = workspace_semver()
     package = obs_package_name()
     source_name = f"{package}-{version}.tar.xz"
     archive_prefix = f"{package}-{version}/"
-    work_dir = tmp_path / "work"
+    work_dir = obs_dry_run_work_dir("dry_run_builds_expected_artifacts")
     proc = _run_script(
         [
             str(_UPLOAD_SCRIPT),
@@ -87,10 +88,8 @@ def test_obs_upload_script_dry_run_builds_expected_artifacts(tmp_path: Path) -> 
     assert any(name.startswith(archive_prefix) for name in names)
 
 
-def test_obs_upload_script_dry_run_vendor_archive_contains_offline_inputs(
-    tmp_path: Path,
-) -> None:
-    work_dir = tmp_path / "work"
+def test_obs_upload_script_dry_run_vendor_archive_contains_offline_inputs() -> None:
+    work_dir = obs_dry_run_work_dir("dry_run_vendor_archive_offline_inputs")
     proc = _run_script(
         [
             str(_UPLOAD_SCRIPT),
@@ -124,10 +123,8 @@ def test_obs_upload_script_requires_version() -> None:
     assert "--version" in (proc.stderr + proc.stdout)
 
 
-def test_obs_upload_script_dry_run_excludes_rpmlintrc_artifact(
-    tmp_path: Path,
-) -> None:
-    work_dir = tmp_path / "work"
+def test_obs_upload_script_dry_run_excludes_rpmlintrc_artifact() -> None:
+    work_dir = obs_dry_run_work_dir("dry_run_excludes_rpmlintrc")
     proc = _run_script(
         [
             str(_UPLOAD_SCRIPT),

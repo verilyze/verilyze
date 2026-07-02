@@ -25,6 +25,14 @@ pub enum ResolverError {
     #[error("Resolve error: {0}")]
     Resolve(String),
 
+    /// Transitive resolution failed after a nested resolver step (NFR-018).
+    #[error("Resolve error: {message}")]
+    ResolveWithCause {
+        message: String,
+        #[source]
+        cause: Box<ResolverError>,
+    },
+
     /// IO or subprocess error during resolution; source preserved (NFR-018).
     #[error("IO error during resolution")]
     Io(#[from] std::io::Error),

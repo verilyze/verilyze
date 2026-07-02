@@ -16,6 +16,18 @@ use crate::resolver::python_package_manager_available;
 /// `--only-binary :all:` flag for secure-default pip lock (SEC-023).
 pub const PIP_LOCK_ONLY_BINARY_ALL: &str = ":all:";
 
+/// Suppress pip resolver progress on stdout so `-o -` is parseable pylock.toml.
+pub const PIP_LOCK_QUIET_FLAG: &str = "-q";
+
+/// Return the pylock.toml body when pip writes resolver progress before the lock file.
+pub fn extract_pylock_stdout(stdout: &str) -> &str {
+    if let Some(idx) = stdout.find("lock-version") {
+        let start = stdout[..idx].rfind('\n').map_or(0, |i| i + 1);
+        return stdout[start..].trim_start();
+    }
+    stdout.trim()
+}
+
 /// Returns true when the manifest basename is `Pipfile` (pip lock unsupported).
 pub fn manifest_is_pipfile(manifest_path: &Path) -> bool {
     manifest_path
@@ -56,6 +68,7 @@ pub fn build_pip_lock_args(
     match strategy {
         PipInstallStrategy::InstallRequirementsFile => {
             let mut args = vec![
+                PIP_LOCK_QUIET_FLAG.to_string(),
                 "lock".to_string(),
                 "-r".to_string(),
                 manifest_path.to_string_lossy().into_owned(),
@@ -73,6 +86,7 @@ pub fn build_pip_lock_args(
                 return None;
             }
             Some(vec![
+                PIP_LOCK_QUIET_FLAG.to_string(),
                 "lock".to_string(),
                 "-e".to_string(),
                 project_dir.to_string_lossy().into_owned(),
@@ -99,6 +113,22 @@ fn pip_lock_env() -> std::collections::HashMap<String, String> {
     env.insert("PIP_NO_CACHE_DIR".to_string(), "1".to_string());
     env.remove("PYTHONUSERBASE");
     env
+}
+
+/// Prefer pip `ERROR:` lines; fall back to trimmed stderr, then stdout.
+fn summarize_pip_command_output(stderr: &str, stdout: &str) -> String {
+    let errors: Vec<&str> = stderr
+        .lines()
+        .filter(|line| line.contains("ERROR:"))
+        .collect();
+    if !errors.is_empty() {
+        return errors.join("\n");
+    }
+    let trimmed_stderr = stderr.trim();
+    if !trimmed_stderr.is_empty() {
+        return trimmed_stderr.to_string();
+    }
+    stdout.trim().to_string()
 }
 
 /// Run `pip lock` when policy allows; parse stdout as pylock.toml.
@@ -146,18 +176,27 @@ pub fn run_pip_lock(
     }
     let output = cmd.output().map_err(ResolverError::Io)?;
     if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let detail = summarize_pip_command_output(&stderr, &stdout);
+        let detail = if detail.is_empty() {
+            format!("exit status {}", output.status)
+        } else {
+            detail
+        };
         return Err(ResolverError::Resolve(format!(
-            "pip lock failed for {}",
+            "pip lock failed for {}: {detail}",
             manifest_path.display()
         )));
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
-    if stdout.trim().is_empty() {
+    let pylock = extract_pylock_stdout(&stdout);
+    if pylock.is_empty() {
         return Err(ResolverError::Resolve(
             "pip lock produced empty output".to_string(),
         ));
     }
-    let packages = parse_pylock_toml(&stdout).map_err(|e| {
+    let packages = parse_pylock_toml(pylock).map_err(|e| {
         ResolverError::Resolve(format!("pip lock pylock parse: {e}"))
     })?;
     if packages.is_empty() {
@@ -173,6 +212,22 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
+    use crate::resolver::test_fixtures::{
+        empty_path, fake_pip_lock_empty_output, fake_pip_lock_failure,
+        fake_pip_lock_no_packages, fake_pip_lock_success, fake_pip_too_old,
+    };
+
+    fn default_ctx() -> ResolveContext {
+        ResolveContext::default()
+    }
+
+    fn exec_ctx() -> ResolveContext {
+        ResolveContext {
+            allow_dependency_code_execution: true,
+            ..Default::default()
+        }
+    }
+
     #[test]
     fn build_pip_lock_args_safe_requirements_uses_only_binary() {
         let manifest = PathBuf::from("/proj/requirements.txt");
@@ -184,6 +239,7 @@ mod tests {
             false,
         )
         .unwrap();
+        assert!(args.contains(&PIP_LOCK_QUIET_FLAG.to_string()));
         assert!(args.contains(&"-r".to_string()));
         assert!(args.contains(&"--only-binary".to_string()));
         assert!(args.contains(&":all:".to_string()));
@@ -255,5 +311,169 @@ mod tests {
         assert!(manifest_is_pipfile(Path::new("/a/Pipfile")));
         assert!(manifest_is_local_project(Path::new("/a/setup.py")));
         assert!(!manifest_is_local_project(Path::new("/a/requirements.txt")));
+    }
+
+    #[test]
+    fn run_pip_lock_skipped_when_offline() {
+        let dir = tempfile::tempdir().unwrap();
+        let req = dir.path().join("requirements.txt");
+        std::fs::write(&req, b"pkg\n").unwrap();
+        let ctx = ResolveContext {
+            skip_pip_resolution: true,
+            ..Default::default()
+        };
+        let err = run_pip_lock(&req, dir.path(), &ctx).unwrap_err();
+        assert!(err.to_string().contains("pip lock skipped"));
+    }
+
+    #[test]
+    fn run_pip_lock_rejects_pipfile() {
+        let dir = tempfile::tempdir().unwrap();
+        let pipfile = dir.path().join("Pipfile");
+        std::fs::write(&pipfile, b"").unwrap();
+        let err = run_pip_lock(&pipfile, dir.path(), &exec_ctx()).unwrap_err();
+        assert!(err.to_string().contains("unsupported for Pipfile"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_pip_lock_requires_modern_pip() {
+        let dir = tempfile::tempdir().unwrap();
+        let req = dir.path().join("requirements.txt");
+        std::fs::write(&req, b"pkg\n").unwrap();
+        let fake = fake_pip_too_old();
+        fake.with_path(|| {
+            let err =
+                run_pip_lock(&req, dir.path(), &default_ctx()).unwrap_err();
+            assert!(err.to_string().contains("pip lock requires pip >= 25.1"));
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_pip_lock_local_project_requires_execution_opt_in() {
+        let dir = tempfile::tempdir().unwrap();
+        let setup = dir.path().join("setup.py");
+        std::fs::write(&setup, b"from setuptools import setup\nsetup()\n")
+            .unwrap();
+        let fake = fake_pip_lock_success(
+            "[[packages]]\nname = \"demo\"\nversion = \"1.0.0\"\n",
+        );
+        fake.with_path(|| {
+            let err =
+                run_pip_lock(&setup, dir.path(), &default_ctx()).unwrap_err();
+            assert!(err.to_string().contains("not permitted"));
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_pip_lock_success_requirements() {
+        let dir = tempfile::tempdir().unwrap();
+        let req = dir.path().join("requirements.txt");
+        std::fs::write(&req, b"requests\n").unwrap();
+        let fake = fake_pip_lock_success(
+            "[[packages]]\nname = \"requests\"\nversion = \"2.31.0\"\n",
+        );
+        fake.with_path(|| {
+            let packages =
+                run_pip_lock(&req, dir.path(), &default_ctx()).unwrap();
+            assert_eq!(packages.len(), 1);
+            assert_eq!(packages[0].name, "requests");
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_pip_lock_success_local_project_with_execution() {
+        let dir = tempfile::tempdir().unwrap();
+        let setup = dir.path().join("setup.py");
+        std::fs::write(&setup, b"from setuptools import setup\nsetup()\n")
+            .unwrap();
+        let fake = fake_pip_lock_success(
+            "[[packages]]\nname = \"demo\"\nversion = \"1.0.0\"\n",
+        );
+        fake.with_path(|| {
+            let packages =
+                run_pip_lock(&setup, dir.path(), &exec_ctx()).unwrap();
+            assert_eq!(packages[0].name, "demo");
+        });
+    }
+
+    #[test]
+    fn summarize_pip_command_output_prefers_error_lines() {
+        let stderr =
+            "WARNING: experimental\nERROR: No matching distribution\n";
+        assert_eq!(
+            summarize_pip_command_output(stderr, ""),
+            "ERROR: No matching distribution"
+        );
+    }
+
+    #[test]
+    fn extract_pylock_stdout_strips_pip_resolver_progress() {
+        let stdout = "Collecting requests==2.0.1\n  Downloading...\nlock-version = \"1.0\"\n\n[[packages]]\nname = \"requests\"\nversion = \"2.0.1\"\n";
+        let pylock = extract_pylock_stdout(stdout);
+        assert!(pylock.starts_with("lock-version"));
+        let packages = parse_pylock_toml(pylock).unwrap();
+        assert_eq!(packages[0].name, "requests");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_pip_lock_command_failure_includes_stderr() {
+        let dir = tempfile::tempdir().unwrap();
+        let req = dir.path().join("requirements.txt");
+        std::fs::write(&req, b"requests\n").unwrap();
+        let fake = fake_pip_lock_failure();
+        fake.with_path(|| {
+            let err =
+                run_pip_lock(&req, dir.path(), &default_ctx()).unwrap_err();
+            let msg = err.to_string();
+            assert!(msg.contains("pip lock failed for"));
+            assert!(msg.contains("pip lock failed"));
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_pip_lock_empty_stdout() {
+        let dir = tempfile::tempdir().unwrap();
+        let req = dir.path().join("requirements.txt");
+        std::fs::write(&req, b"requests\n").unwrap();
+        let fake = fake_pip_lock_empty_output();
+        fake.with_path(|| {
+            let err =
+                run_pip_lock(&req, dir.path(), &default_ctx()).unwrap_err();
+            assert!(err.to_string().contains("empty output"));
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_pip_lock_no_packages_in_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let req = dir.path().join("requirements.txt");
+        std::fs::write(&req, b"requests\n").unwrap();
+        let fake = fake_pip_lock_no_packages();
+        fake.with_path(|| {
+            let err =
+                run_pip_lock(&req, dir.path(), &default_ctx()).unwrap_err();
+            assert!(err.to_string().contains("no packages"));
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_pip_lock_skipped_without_pip_on_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let req = dir.path().join("requirements.txt");
+        std::fs::write(&req, b"requests\n").unwrap();
+        let fake = empty_path();
+        fake.with_path(|| {
+            let err =
+                run_pip_lock(&req, dir.path(), &default_ctx()).unwrap_err();
+            assert!(err.to_string().contains("pip lock skipped"));
+        });
     }
 }

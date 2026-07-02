@@ -144,6 +144,15 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
+    use crate::resolver::test_fixtures::{empty_path, fake_python_venv};
+
+    fn exec_ctx() -> ResolveContext {
+        ResolveContext {
+            allow_dependency_code_execution: true,
+            ..Default::default()
+        }
+    }
+
     #[test]
     fn build_pip_install_args_requirements_file() {
         let manifest = PathBuf::from("/proj/requirements.txt");
@@ -167,5 +176,159 @@ mod tests {
             &project,
         );
         assert!(args.iter().any(|a| a.contains("/proj")));
+    }
+
+    #[test]
+    fn run_pip_venv_freeze_requires_execution_opt_in() {
+        let dir = tempfile::tempdir().unwrap();
+        let setup = dir.path().join("setup.py");
+        std::fs::write(&setup, b"from setuptools import setup\nsetup()\n")
+            .unwrap();
+        let err = run_pip_venv_freeze(
+            &setup,
+            dir.path(),
+            &ResolveContext::default(),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("allow_dependency_code_execution"));
+    }
+
+    #[test]
+    fn run_pip_venv_freeze_skipped_when_offline() {
+        let dir = tempfile::tempdir().unwrap();
+        let setup = dir.path().join("setup.py");
+        std::fs::write(&setup, b"from setuptools import setup\nsetup()\n")
+            .unwrap();
+        let ctx = ResolveContext {
+            allow_dependency_code_execution: true,
+            skip_pip_resolution: true,
+            ..Default::default()
+        };
+        let err = run_pip_venv_freeze(&setup, dir.path(), &ctx).unwrap_err();
+        assert!(err.to_string().contains("pip venv skipped"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_pip_venv_freeze_requires_python_on_path() {
+        let fake = empty_path();
+        let project = fake.project_dir();
+        let setup = project.join("setup.py");
+        std::fs::write(&setup, b"from setuptools import setup\nsetup()\n")
+            .unwrap();
+        fake.with_path(|| {
+            let err = run_pip_venv_freeze(&setup, &project, &exec_ctx())
+                .unwrap_err();
+            assert!(err.to_string().contains("python interpreter not found"));
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_pip_venv_freeze_success_requirements() {
+        let fake = fake_python_venv(0, "requests==2.31.0", 0, 0);
+        let project = fake.project_dir();
+        let req = project.join("requirements.txt");
+        std::fs::write(&req, b"requests\n").unwrap();
+        fake.with_path(|| {
+            let packages =
+                run_pip_venv_freeze(&req, &project, &exec_ctx()).unwrap();
+            assert_eq!(packages[0].name, "requests");
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_pip_venv_freeze_success_project_directory() {
+        let fake = fake_python_venv(0, "demo==1.0.0", 0, 0);
+        let project = fake.project_dir();
+        let setup = project.join("setup.py");
+        std::fs::write(&setup, b"from setuptools import setup\nsetup()\n")
+            .unwrap();
+        fake.with_path(|| {
+            let packages =
+                run_pip_venv_freeze(&setup, &project, &exec_ctx()).unwrap();
+            assert_eq!(packages[0].name, "demo");
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_pip_venv_freeze_venv_creation_failure() {
+        let fake = fake_python_venv(0, "demo==1.0.0", 0, 1);
+        let project = fake.project_dir();
+        let setup = project.join("setup.py");
+        std::fs::write(&setup, b"from setuptools import setup\nsetup()\n")
+            .unwrap();
+        fake.with_path(|| {
+            let err = run_pip_venv_freeze(&setup, &project, &exec_ctx())
+                .unwrap_err();
+            assert!(err.to_string().contains("python -m venv failed"));
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_pip_venv_freeze_install_failure() {
+        let fake = fake_python_venv(1, "demo==1.0.0", 0, 0);
+        let project = fake.project_dir();
+        let setup = project.join("setup.py");
+        std::fs::write(&setup, b"from setuptools import setup\nsetup()\n")
+            .unwrap();
+        fake.with_path(|| {
+            let err = run_pip_venv_freeze(&setup, &project, &exec_ctx())
+                .unwrap_err();
+            assert!(err.to_string().contains("pip install failed"));
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_pip_venv_freeze_freeze_failure() {
+        let fake = fake_python_venv(0, "demo==1.0.0", 1, 0);
+        let project = fake.project_dir();
+        let setup = project.join("setup.py");
+        std::fs::write(&setup, b"from setuptools import setup\nsetup()\n")
+            .unwrap();
+        fake.with_path(|| {
+            let err = run_pip_venv_freeze(&setup, &project, &exec_ctx())
+                .unwrap_err();
+            assert!(err.to_string().contains("pip freeze failed"));
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_pip_venv_freeze_empty_freeze_output() {
+        let fake = fake_python_venv(0, "", 0, 0);
+        let project = fake.project_dir();
+        let setup = project.join("setup.py");
+        std::fs::write(&setup, b"from setuptools import setup\nsetup()\n")
+            .unwrap();
+        fake.with_path(|| {
+            let err = run_pip_venv_freeze(&setup, &project, &exec_ctx())
+                .unwrap_err();
+            assert!(err.to_string().contains("no packages"));
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_pip_venv_freeze_keep_ephemeral_venv() {
+        let fake = fake_python_venv(0, "demo==1.0.0", 0, 0);
+        let project = fake.project_dir();
+        let setup = project.join("setup.py");
+        std::fs::write(&setup, b"from setuptools import setup\nsetup()\n")
+            .unwrap();
+        fake.with_path(|| {
+            let ctx = ResolveContext {
+                allow_dependency_code_execution: true,
+                keep_ephemeral_venv: true,
+                ..Default::default()
+            };
+            let packages =
+                run_pip_venv_freeze(&setup, &project, &ctx).unwrap();
+            assert_eq!(packages[0].name, "demo");
+        });
     }
 }
