@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+---
+# Push committed OBS project and package _meta to build.opensuse.org when they
+# change on main (OP-*: OBS metadata is git-driven).
+
+name: OBS meta sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - packaging/obs/**/_meta
+
+permissions: {}
+
+jobs:
+  sync-meta:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Install osc
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y osc
+
+      - name: Sync OBS project and package _meta
+        env:
+          OBS_USER: ${{ secrets.OBS_USER }}
+          OBS_PASSWORD: ${{ secrets.OBS_PASSWORD }}
+          OSC_USERNAME: ${{ secrets.OBS_USER }}
+          OSC_PASSWORD: ${{ secrets.OBS_PASSWORD }}
+          OSC_APIURL: https://api.opensuse.org
+        run: |
+          set -euo pipefail
+          ./scripts/sync-obs-project-meta.sh \
+            --config packaging/obs/obs-project.env \
+            --check \
+          || ./scripts/sync-obs-project-meta.sh \
+            --config packaging/obs/obs-project.env \
+            --push

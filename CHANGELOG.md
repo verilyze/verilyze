@@ -33,6 +33,9 @@ this file **before** creating the release tag.
   source file (catches delete-without-reupload commits).
 - Disable OBS `Fedora_43` builds: worker Rust 1.90 cannot compile v0.3.0
   (Ruff-based setup.py support requires Rust 1.94+).
+- OBS meta sync pushes both project and package `_meta` to build.opensuse.org;
+  a dedicated workflow syncs on every `main` push that touches
+  `packaging/obs/**/_meta`.
 - Cursor agent validation no longer runs on read-only turns (plans, questions,
   reviews with no file edits).
 - CI header and super-linter failures.
