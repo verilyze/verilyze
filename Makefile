@@ -563,7 +563,8 @@ clean:
 	@cd "$(MKFILE_DIR)" && $(CARGO_FOR_CLEAN) clean
 	@cd "$(MKFILE_DIR)" && $(CARGO_FOR_CLEAN) llvm-cov clean --workspace 2>/dev/null || true
 	@find $(MKFILE_DIR) -type f \( -name "*.profraw" -o \
-                                       -name "vlz-cache.redb" \) -delete
+                                 -name "vlz-cache.redb" -o \
+                                 -name "vendor.tar.zst" \) -delete
 	@find $(MKFILE_DIR) -type d -name "__pycache__" -exec rm -rf {} +
 	@find $(MKFILE_DIR) -maxdepth 1 -type d -name "*.egg-info" -exec rm -rf {} +
 	@rm -rfv $(MKFILE_DIR)/reports/ $(MKFILE_DIR)/.cache
