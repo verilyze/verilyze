@@ -12,6 +12,32 @@ The GitHub Release body is generated from the matching `## [version]` section
 below when you push a `v*` tag (see `.github/workflows/release.yml`). Update
 this file **before** creating the release tag.
 
+## [0.3.0] - 2026-07-03
+
+### Added
+
+- Python transitive dependency resolution when no lock file is found, with
+  parallel resolution per manifest, batched error reporting, and new
+  `fail_fast` and `allow_direct_only_fallback` options.
+- Scan `setup.py` files via Ruff AST analysis for direct dependency CVE
+  checks.
+- Scan orphan lock files when no manifest is present; warn when multiple
+  lock files exist in the same directory.
+- `lock_file` allowlist configuration.
+
+### Fixed
+
+- Cursor agent validation no longer runs on read-only turns (plans, questions,
+  reviews with no file edits).
+- CI header and super-linter failures.
+- Transient OBS build errors in release workflow.
+- Removed unnecessary `rpmlintrc` from RPM packaging.
+
+### Changed
+
+- Dependency updates: GitHub Actions, `clap_complete`, Rust 1.96.1, and
+  Docker base image digests.
+
 ## [0.2.4] - 2026-06-30
 
 ### Fixed
