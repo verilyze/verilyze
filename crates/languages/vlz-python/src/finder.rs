@@ -7,6 +7,8 @@ use std::path::{Path, PathBuf};
 
 use vlz_manifest_finder::{FinderError, ManifestFinder};
 
+use crate::lock_names::{filter_orphan_locks, is_python_lock_file};
+
 /// Python manifest file names (FR-005). Overridden by regexes when set (FR-006).
 /// `setup.py` is parsed via AST (see `parser/setup_py.rs`); dynamic/runtime deps
 /// are not extracted.
@@ -56,18 +58,27 @@ impl ManifestFinder for PythonManifestFinder {
 
     async fn find(&self, root: &Path) -> Result<Vec<PathBuf>, FinderError> {
         let mut manifests = Vec::new();
-        walk_dir(root, self.patterns.as_deref(), &mut manifests)?;
+        let mut locks = Vec::new();
+        walk_dir_collect(
+            root,
+            self.patterns.as_deref(),
+            &mut manifests,
+            &mut locks,
+        )?;
+        let orphans = filter_orphan_locks(&manifests, &locks);
+        manifests.extend(orphans);
         manifests.sort();
+        manifests.dedup();
         Ok(manifests)
     }
 }
 
-/// Recursively walk from `dir`, appending paths that match known manifest names or regex patterns.
-/// Only recurses into real directories (not symlinks) to avoid cycles.
-fn walk_dir(
+/// Recursively walk from `dir`, collecting manifest paths and lock file paths.
+fn walk_dir_collect(
     dir: &Path,
     patterns: Option<&[regex::Regex]>,
-    out: &mut Vec<PathBuf>,
+    manifests: &mut Vec<PathBuf>,
+    locks: &mut Vec<PathBuf>,
 ) -> Result<(), FinderError> {
     let entries = std::fs::read_dir(dir)?;
     for entry in entries {
@@ -79,16 +90,18 @@ fn walk_dir(
         };
         let file_type = entry.file_type()?;
         if file_type.is_file() {
-            let matches = match patterns {
+            let manifest_matches = match patterns {
                 Some(regexes) => regexes.iter().any(|r| r.is_match(name)),
                 None => PYTHON_MANIFEST_NAMES.contains(&name),
             };
-            if matches {
-                out.push(entry.path());
+            if manifest_matches {
+                manifests.push(entry.path());
+            }
+            if is_python_lock_file(name) {
+                locks.push(entry.path());
             }
         } else if file_type.is_dir() {
-            let path = entry.path();
-            walk_dir(&path, patterns, out)?;
+            walk_dir_collect(&entry.path(), patterns, manifests, locks)?;
         }
     }
     Ok(())
@@ -117,5 +130,72 @@ mod tests {
     #[test]
     fn requirements_txt_in_default_manifest_names() {
         assert!(PYTHON_MANIFEST_NAMES.contains(&"requirements.txt"));
+    }
+
+    #[test]
+    fn orphan_pylock_discovered() {
+        let dir = tempfile::tempdir().unwrap();
+        let pylock = dir.path().join("pylock.toml");
+        std::fs::write(
+            &pylock,
+            "[[packages]]\nname = \"a\"\nversion = \"1.0\"\n",
+        )
+        .unwrap();
+        let finder = PythonManifestFinder::new();
+        let found = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(finder.find(dir.path()))
+            .unwrap();
+        assert_eq!(found, vec![pylock]);
+    }
+
+    #[test]
+    fn multiple_orphan_locks_all_discovered() {
+        let dir = tempfile::tempdir().unwrap();
+        let pylock = dir.path().join("pylock.toml");
+        let poetry = dir.path().join("poetry.lock");
+        std::fs::write(
+            &pylock,
+            "[[packages]]\nname = \"a\"\nversion = \"1.0\"\n",
+        )
+        .unwrap();
+        std::fs::write(
+            &poetry,
+            "[[package]]\nname = \"b\"\nversion = \"2.0\"\n",
+        )
+        .unwrap();
+        let finder = PythonManifestFinder::new();
+        let found = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(finder.find(dir.path()))
+            .unwrap();
+        assert_eq!(found.len(), 2);
+        assert!(found.contains(&pylock));
+        assert!(found.contains(&poetry));
+    }
+
+    #[test]
+    fn colocated_manifest_and_lock_discovers_manifest_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let req = dir.path().join("requirements.txt");
+        let pylock = dir.path().join("pylock.toml");
+        std::fs::write(&req, "a==1.0\n").unwrap();
+        std::fs::write(
+            &pylock,
+            "[[packages]]\nname = \"a\"\nversion = \"1.0\"\n",
+        )
+        .unwrap();
+        let finder = PythonManifestFinder::new();
+        let found = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(finder.find(dir.path()))
+            .unwrap();
+        assert_eq!(found, vec![req]);
     }
 }

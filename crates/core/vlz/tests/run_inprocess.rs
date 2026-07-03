@@ -716,10 +716,320 @@ fn run_scan_json_includes_manifest_paths() {
             );
             assert_eq!(
                 paths[0].as_str().unwrap(),
-                "requirements.txt",
-                "manifest path should be requirements.txt (relative to scan root)"
+                "pylock.toml",
+                "manifest path should be pylock.toml when lock provides resolved packages"
             );
         }
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_orphan_pylock_only() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("pylock.toml"),
+            "lock-version = \"1.0\"\n\n[[packages]]\nname = \"pkg\"\nversion = \"1.0\"\n",
+        )
+        .expect("write pylock");
+        let out_path = dir.path().join("report.json");
+        let root = dir.path().to_str().unwrap();
+
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            CveReturningProvider::new(),
+        )));
+
+        let code = run_async(&[
+            "scan",
+            root,
+            "--format",
+            "json",
+            "--summary-file",
+            &format!("json:{}", out_path.display()),
+            "--provider",
+            "cve_returning",
+        ]);
+        assert_eq!(code, 86);
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&out_path).unwrap())
+                .unwrap();
+        let findings = parsed["findings"].as_array().unwrap();
+        assert_eq!(findings[0]["manifest_paths"][0], "pylock.toml");
+        let coverage = parsed["manifest_coverage"].as_array().unwrap();
+        assert_eq!(coverage.len(), 1);
+        assert_eq!(coverage[0]["path"], "pylock.toml");
+        assert_eq!(coverage[0]["status"], "scanned_transitive");
+    });
+}
+
+#[cfg(feature = "python")]
+fn assert_orphan_lock_entry_point_scanned(lock_name: &str, content: &str) {
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join(lock_name), content)
+            .expect("write lock");
+        let out_path = dir.path().join("report.json");
+        let root = dir.path().to_str().unwrap();
+
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            CveReturningProvider::new(),
+        )));
+
+        let code = run_async(&[
+            "scan",
+            root,
+            "--format",
+            "json",
+            "--summary-file",
+            &format!("json:{}", out_path.display()),
+            "--provider",
+            "cve_returning",
+        ]);
+        assert_eq!(code, 86, "orphan {lock_name} should produce CVE findings");
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&out_path).unwrap())
+                .unwrap();
+        let coverage = parsed["manifest_coverage"].as_array().unwrap();
+        assert_eq!(coverage.len(), 1);
+        assert_eq!(coverage[0]["path"], lock_name);
+        assert_eq!(coverage[0]["status"], "scanned_transitive");
+        assert_eq!(
+            parsed["findings"][0]["manifest_paths"][0].as_str().unwrap(),
+            lock_name
+        );
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_orphan_poetry_lock_only() {
+    let _ = env_logger::try_init();
+    assert_orphan_lock_entry_point_scanned(
+        "poetry.lock",
+        "[[package]]\nname = \"pkg\"\nversion = \"1.0\"\n",
+    );
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_orphan_uv_lock_only() {
+    let _ = env_logger::try_init();
+    assert_orphan_lock_entry_point_scanned(
+        "uv.lock",
+        "version = 1\n\n[[package]]\nname = \"pkg\"\nversion = \"1.0\"\n",
+    );
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_orphan_pipfile_lock_only() {
+    let _ = env_logger::try_init();
+    assert_orphan_lock_entry_point_scanned(
+        "Pipfile.lock",
+        r#"{"default":{"pkg":{"version":"==1.0"}}}"#,
+    );
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_orphan_multi_lock_different_packages() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("pylock.toml"),
+            "lock-version = \"1.0\"\n\n[[packages]]\nname = \"pkg-a\"\nversion = \"1.0\"\n",
+        )
+        .expect("write pylock");
+        std::fs::write(
+            dir.path().join("poetry.lock"),
+            "[[package]]\nname = \"pkg-b\"\nversion = \"2.0\"\n",
+        )
+        .expect("write poetry");
+        let out_path = dir.path().join("report.json");
+        let root = dir.path().to_str().unwrap();
+
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            CveReturningProvider::new(),
+        )));
+
+        let code = run_async(&[
+            "scan",
+            root,
+            "--format",
+            "json",
+            "--summary-file",
+            &format!("json:{}", out_path.display()),
+            "--provider",
+            "cve_returning",
+        ]);
+        assert_eq!(code, 86);
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&out_path).unwrap())
+                .unwrap();
+        let coverage = parsed["manifest_coverage"].as_array().unwrap();
+        assert_eq!(coverage.len(), 2);
+        let paths: Vec<_> = coverage
+            .iter()
+            .map(|e| e["path"].as_str().unwrap())
+            .collect();
+        assert!(paths.contains(&"pylock.toml"));
+        assert!(paths.contains(&"poetry.lock"));
+
+        let findings = parsed["findings"].as_array().unwrap();
+        assert_eq!(findings.len(), 2);
+        let mut paths_by_pkg: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
+        for finding in findings {
+            let pkg = finding["package"]["name"].as_str().unwrap().to_string();
+            let path =
+                finding["manifest_paths"][0].as_str().unwrap().to_string();
+            paths_by_pkg.insert(pkg, path);
+        }
+        assert_eq!(paths_by_pkg["pkg-a"], "pylock.toml");
+        assert_eq!(paths_by_pkg["pkg-b"], "poetry.lock");
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_orphan_valid_empty_pylock_exit_0() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("pylock.toml"),
+            "lock-version = \"1.0\"\npackages = []\n",
+        )
+        .expect("write empty pylock");
+        let out_path = dir.path().join("report.json");
+        let root = dir.path().to_str().unwrap();
+
+        let code = run_async(&[
+            "scan",
+            root,
+            "--format",
+            "json",
+            "--summary-file",
+            &format!("json:{}", out_path.display()),
+            "--offline",
+        ]);
+        assert_eq!(code, 0);
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&out_path).unwrap())
+                .unwrap();
+        let coverage = parsed["manifest_coverage"].as_array().unwrap();
+        assert_eq!(coverage[0]["status"], "scanned_transitive");
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_orphan_multi_lock_partial_parse_exit_2() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("pylock.toml"),
+            "lock-version = \"1.0\"\n\n[[packages]]\nname = \"good\"\nversion = \"1.0\"\n",
+        )
+        .expect("write pylock");
+        std::fs::write(dir.path().join("poetry.lock"), "not valid poetry")
+            .expect("write bad poetry");
+        let out_path = dir.path().join("report.json");
+        let root = dir.path().to_str().unwrap();
+
+        let code = run_async(&[
+            "scan",
+            root,
+            "--format",
+            "json",
+            "--summary-file",
+            &format!("json:{}", out_path.display()),
+            "--offline",
+        ]);
+        assert_eq!(code, 2);
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&out_path).unwrap())
+                .unwrap();
+        let coverage = parsed["manifest_coverage"].as_array().unwrap();
+        assert_eq!(coverage.len(), 2);
+        let statuses: Vec<_> = coverage
+            .iter()
+            .map(|e| e["status"].as_str().unwrap())
+            .collect();
+        assert!(statuses.contains(&"scanned_transitive"));
+        assert!(statuses.contains(&"failed_parse"));
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_adjacent_multi_lock_manifest_paths_per_source() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join("requirements.txt"), "ignored==9.9\n")
+            .expect("write requirements");
+        std::fs::write(
+            dir.path().join("pylock.toml"),
+            "lock-version = \"1.0\"\n\n[[packages]]\nname = \"pkg-a\"\nversion = \"1.0\"\n",
+        )
+        .expect("write pylock");
+        std::fs::write(
+            dir.path().join("poetry.lock"),
+            "[[package]]\nname = \"pkg-b\"\nversion = \"2.0\"\n",
+        )
+        .expect("write poetry");
+        let out_path = dir.path().join("report.json");
+        let root = dir.path().to_str().unwrap();
+
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            CveReturningProvider::new(),
+        )));
+
+        let code = run_async(&[
+            "scan",
+            root,
+            "--format",
+            "json",
+            "--summary-file",
+            &format!("json:{}", out_path.display()),
+            "--provider",
+            "cve_returning",
+        ]);
+        assert_eq!(code, 86);
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&out_path).unwrap())
+                .unwrap();
+        let findings = parsed["findings"].as_array().unwrap();
+        assert_eq!(findings.len(), 2);
+        let mut paths_by_pkg: std::collections::HashMap<String, Vec<String>> =
+            std::collections::HashMap::new();
+        for finding in findings {
+            let pkg = finding["package"]["name"].as_str().unwrap().to_string();
+            let paths: Vec<String> = finding["manifest_paths"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|p| p.as_str().unwrap().to_string())
+                .collect();
+            paths_by_pkg.insert(pkg, paths);
+        }
+        assert_eq!(paths_by_pkg["pkg-a"], vec!["pylock.toml".to_string()]);
+        assert_eq!(paths_by_pkg["pkg-b"], vec!["poetry.lock".to_string()]);
     });
 }
 

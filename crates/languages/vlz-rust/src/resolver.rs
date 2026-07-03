@@ -123,6 +123,7 @@ impl Resolver for CargoResolver {
                     packages: cached.clone(),
                     depth: ResolutionDepth::Transitive,
                     direct_only_reason: None,
+                    ..Default::default()
                 });
             }
             if let Ok(content) = tokio::fs::read_to_string(&lock_path).await
@@ -136,6 +137,7 @@ impl Resolver for CargoResolver {
                     packages,
                     depth: ResolutionDepth::Transitive,
                     direct_only_reason: None,
+                    ..Default::default()
                 });
             }
         }
@@ -143,6 +145,7 @@ impl Resolver for CargoResolver {
             packages: graph.packages.clone(),
             depth: ResolutionDepth::DirectOnly,
             direct_only_reason: None,
+            ..Default::default()
         })
     }
 

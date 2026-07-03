@@ -109,6 +109,7 @@ impl Resolver for GoResolver {
                         packages: cached.clone(),
                         depth: ResolutionDepth::Transitive,
                         direct_only_reason: None,
+                        ..Default::default()
                     });
                 }
                 if go_package_manager_available() {
@@ -138,6 +139,7 @@ impl Resolver for GoResolver {
                                 packages,
                                 depth: ResolutionDepth::Transitive,
                                 direct_only_reason: None,
+                                ..Default::default()
                             });
                         }
                     }
@@ -148,6 +150,7 @@ impl Resolver for GoResolver {
             packages: graph.packages.clone(),
             depth: ResolutionDepth::DirectOnly,
             direct_only_reason: None,
+            ..Default::default()
         })
     }
 

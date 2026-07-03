@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+mod lockfile;
 mod pep508;
 mod pipfile;
 mod pyproject;
@@ -13,6 +14,9 @@ use async_trait::async_trait;
 
 use vlz_manifest_parser::{DependencyGraph, Parser, ParserError};
 
+use crate::lock_names::is_python_lock_file;
+
+pub use lockfile::{parse_lock_file, parse_pylock_toml};
 pub use pipfile::parse_pipfile;
 pub use pyproject::parse_pyproject_toml;
 pub use requirements::parse_requirements_txt;
@@ -86,6 +90,15 @@ impl Parser for RequirementsTxtParser {
             });
         }
 
+        if is_python_lock_file(name) {
+            let content = tokio::fs::read_to_string(manifest).await?;
+            let packages = parse_lock_file(manifest, &content)?;
+            return Ok(DependencyGraph {
+                packages,
+                manifest_path,
+            });
+        }
+
         Ok(DependencyGraph {
             packages: Vec::new(),
             manifest_path,
@@ -97,6 +110,32 @@ impl Parser for RequirementsTxtParser {
 mod tests {
     use super::*;
     use std::path::PathBuf;
+
+    #[tokio::test]
+    async fn parse_orphan_pylock_entry_point() {
+        let dir = tempfile::tempdir().unwrap();
+        let pylock = dir.path().join("pylock.toml");
+        std::fs::write(
+            &pylock,
+            "lock-version = \"1.0\"\n\n[[packages]]\nname = \"pkg\"\nversion = \"1.0\"\n",
+        )
+        .unwrap();
+        let parser = RequirementsTxtParser::new();
+        let graph = parser.parse(&pylock).await.unwrap();
+        assert_eq!(graph.packages.len(), 1);
+        assert_eq!(graph.packages[0].name, "pkg");
+    }
+
+    #[tokio::test]
+    async fn parse_valid_empty_pylock_returns_empty_packages() {
+        let dir = tempfile::tempdir().unwrap();
+        let pylock = dir.path().join("pylock.toml");
+        std::fs::write(&pylock, "lock-version = \"1.0\"\npackages = []\n")
+            .unwrap();
+        let parser = RequirementsTxtParser::new();
+        let graph = parser.parse(&pylock).await.unwrap();
+        assert!(graph.packages.is_empty());
+    }
 
     #[tokio::test]
     async fn unknown_manifest_fallthrough_returns_empty_graph() {

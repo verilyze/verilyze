@@ -492,4 +492,11 @@ name = "no-version"
         assert_eq!(packages.len(), 1);
         assert_eq!(packages[0].version, "");
     }
+
+    #[test]
+    fn parse_pylock_toml_valid_empty_packages_array() {
+        let content = "lock-version = \"1.0\"\npackages = []\n";
+        let packages = parse_pylock_toml(content).unwrap();
+        assert!(packages.is_empty());
+    }
 }

@@ -8,9 +8,9 @@ use std::path::Path;
 
 use vlz_manifest_parser::{ResolveContext, ResolverError};
 
-use super::lock_parser::parse_pylock_toml;
 use super::manifest_dir::{PipInstallStrategy, pip_install_strategy};
 use super::pip_version::{detect_pip_version, pip_version_supports_lock};
+use crate::parser::parse_pylock_toml;
 use crate::resolver::python_package_manager_available;
 
 /// `--only-binary :all:` flag for secure-default pip lock (SEC-023).

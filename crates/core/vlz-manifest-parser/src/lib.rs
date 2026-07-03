@@ -5,6 +5,7 @@
 #![deny(unsafe_code)]
 
 use async_trait::async_trait;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 #[derive(thiserror::Error, Debug)]
@@ -59,19 +60,25 @@ pub struct ResolveContext {
 }
 
 /// Whether resolution produced a full transitive tree or direct deps only (FR-022a).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ResolutionDepth {
+    #[default]
     Transitive,
     DirectOnly,
 }
 
 /// Result of dependency resolution including depth metadata for FR-022a warnings.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ResolveResult {
     pub packages: Vec<vlz_db::Package>,
     pub depth: ResolutionDepth,
     /// Set when `depth == DirectOnly` (e.g. `"offline mode"`).
     pub direct_only_reason: Option<&'static str>,
+    /// When non-empty, FR-036 attribution uses these paths per package instead of
+    /// the discovered entry point path (e.g. adjacent lock file sources).
+    pub package_source_paths: HashMap<vlz_db::Package, Vec<PathBuf>>,
+    /// Lock files merged during adjacent resolution; used for multi-lock warnings.
+    pub resolved_lock_paths: Vec<PathBuf>,
 }
 
 /// Shown after the manifest path and reason in FR-022a direct-only warnings (NFR-024).
@@ -88,6 +95,17 @@ pub fn format_direct_only_warning(
 ) -> String {
     format!(
         "vlz warning: Only direct dependencies were scanned for {manifest_display} ({reason}). {DIRECT_ONLY_WARNING_REMEDIATION} {DIRECT_ONLY_WARNING_DOC_HINT}"
+    )
+}
+
+/// Multi-lock diagnostic warning (not FR-022a direct-only).
+pub fn format_multi_lock_warning(
+    dir_display: &str,
+    lock_names: &[String],
+) -> String {
+    format!(
+        "vlz warning: Multiple lock files in {dir_display} were scanned and packages merged: {}. Keep one canonical lock file for clarity. {DIRECT_ONLY_WARNING_DOC_HINT}",
+        lock_names.join(", ")
     )
 }
 

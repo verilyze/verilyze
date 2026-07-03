@@ -4,7 +4,6 @@
 
 mod ephemeral_venv;
 mod lock_discovery;
-mod lock_parser;
 mod manifest_cache_key;
 mod manifest_dir;
 mod pip_freeze;
@@ -16,17 +15,20 @@ mod pip_version;
 mod test_fixtures;
 
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use async_trait::async_trait;
 use vlz_manifest_parser::{
-    DependencyGraph, ResolutionDepth, ResolveContext, ResolveResult, Resolver,
-    ResolverError,
+    DependencyGraph, ParserError, ResolutionDepth, ResolveContext,
+    ResolveResult, Resolver, ResolverError,
 };
 
-pub use lock_discovery::find_lock_file;
-pub use lock_parser::parse_lock_file;
+use crate::lock_names::manifest_is_lock_file;
+
+pub use lock_discovery::{
+    ResolvedLockFiles, find_lock_file, find_lock_files, resolve_lock_files,
+};
 pub use manifest_cache_key::manifest_cache_key;
 pub use manifest_dir::{
     PipInstallStrategy, find_manifest_project_dir, pip_install_strategy,
@@ -110,12 +112,24 @@ impl DirectOnlyResolver {
         }
     }
 
-    fn transitive_result(packages: Vec<vlz_db::Package>) -> ResolveResult {
+    fn transitive_result(
+        packages: Vec<vlz_db::Package>,
+        package_source_paths: HashMap<vlz_db::Package, Vec<PathBuf>>,
+        resolved_lock_paths: Vec<PathBuf>,
+    ) -> ResolveResult {
         ResolveResult {
             packages,
             depth: ResolutionDepth::Transitive,
             direct_only_reason: None,
+            package_source_paths,
+            resolved_lock_paths,
         }
+    }
+
+    fn transitive_result_simple(
+        packages: Vec<vlz_db::Package>,
+    ) -> ResolveResult {
+        Self::transitive_result(packages, HashMap::new(), Vec::new())
     }
 
     fn direct_only_result(
@@ -126,7 +140,20 @@ impl DirectOnlyResolver {
             packages,
             depth: ResolutionDepth::DirectOnly,
             direct_only_reason: Some(reason),
+            package_source_paths: HashMap::new(),
+            resolved_lock_paths: Vec::new(),
         }
+    }
+
+    fn lock_parse_to_resolve_err(err: ParserError) -> ResolverError {
+        ResolverError::Resolve(err.to_string())
+    }
+
+    fn resolve_adjacent_lock_files(
+        manifest_path: &Path,
+    ) -> Result<Option<ResolvedLockFiles>, ResolverError> {
+        resolve_lock_files(manifest_path)
+            .map_err(Self::lock_parse_to_resolve_err)
     }
 
     fn skip_pip_reason(ctx: &ResolveContext) -> Option<&'static str> {
@@ -137,19 +164,6 @@ impl DirectOnlyResolver {
             Some(DIRECT_ONLY_REASON_BENCHMARK)
         } else {
             Some(DIRECT_ONLY_REASON_OFFLINE)
-        }
-    }
-
-    fn resolve_lock_file(
-        manifest_path: &Path,
-    ) -> Option<Vec<vlz_db::Package>> {
-        let lock_path = find_lock_file(manifest_path)?;
-        let content = std::fs::read_to_string(&lock_path).ok()?;
-        let packages = parse_lock_file(lock_path.as_path(), &content).ok()?;
-        if packages.is_empty() {
-            None
-        } else {
-            Some(packages)
         }
     }
 
@@ -279,8 +293,18 @@ impl DirectOnlyResolver {
             .as_deref()
             .ok_or_else(Self::fr022_transitive_error)?;
 
-        if let Some(packages) = Self::resolve_lock_file(manifest_path) {
-            return Ok(Self::transitive_result(packages));
+        if manifest_is_lock_file(manifest_path) {
+            return Ok(Self::transitive_result_simple(graph.packages.clone()));
+        }
+
+        if let Some(resolved) =
+            Self::resolve_adjacent_lock_files(manifest_path)?
+        {
+            return Ok(Self::transitive_result(
+                resolved.packages,
+                resolved.package_source_paths,
+                resolved.lock_paths,
+            ));
         }
 
         let project_dir = find_manifest_project_dir(manifest_path)
@@ -297,7 +321,7 @@ impl DirectOnlyResolver {
                     .await
                 {
                     Ok(Some(packages)) => {
-                        Ok(Self::transitive_result(packages))
+                        Ok(Self::transitive_result_simple(packages))
                     }
                     Ok(None) => {
                         Self::require_transitive_or_fallback(graph, ctx, None)
@@ -318,7 +342,7 @@ impl DirectOnlyResolver {
                 .await
             {
                 Ok(Some(packages)) => {
-                    return Ok(Self::transitive_result(packages));
+                    return Ok(Self::transitive_result_simple(packages));
                 }
                 Ok(None) => None,
                 Err(err) => Some(err),
@@ -327,7 +351,7 @@ impl DirectOnlyResolver {
                 .try_pip_venv_cached(manifest_path, &project_dir, ctx)
                 .await
             {
-                Ok(packages) => Ok(Self::transitive_result(packages)),
+                Ok(packages) => Ok(Self::transitive_result_simple(packages)),
                 Err(venv_err) => {
                     let venv_msg = venv_err.to_string();
                     let cause = pip_lock_err.map_or(venv_err, |pip_err| {

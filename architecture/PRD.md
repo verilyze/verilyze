@@ -390,6 +390,10 @@ security reviewers with no outstanding issues.
 | Language | Manifest files (discovered by default or via config) | Lock files (used for transitive resolution when present) |
 |----------|------------------------------------------------------|----------------------------------------------------------|
 | **Python** | requirements.txt, pyproject.toml, Pipfile, setup.cfg, setup.py | pylock.toml, pylock.*.toml, poetry.lock, Pipfile.lock, uv.lock |
+
+Lock files are normally adjacent to a manifest in the same directory and are merged during resolution for transitive dependency coverage. When no Python manifest exists in a directory, supported lock files may be discovered as **standalone entry points** (FR-005, FR-006). Orphan lock discovery uses built-in lock patterns and is independent of `python.regex` manifest overrides.
+
+When multiple supported lock files apply in one directory (orphan or adjacent to a manifest), **all** applicable locks are parsed and packages are unioned. Report `manifest_paths` (FR-036) list the dependency entry point path per package version (manifest or lock file), not per CVE. A valid lock file with zero packages is a successful transitive scan, not a parse error.
 | **Rust** | Cargo.toml | Cargo.lock |
 | **Go** | go.mod | go.sum (informational; resolution via `go list -m all`) |
 
