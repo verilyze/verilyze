@@ -1,4 +1,7 @@
 <package name="verilyze" project="home:tpost:verilyze">
   <title>verilyze</title>
   <description>OBS RPM package for verilyze.</description>
+  <build>
+    <disable repository="Fedora_43"/>
+  </build>
 </package>
