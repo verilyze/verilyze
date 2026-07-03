@@ -122,6 +122,10 @@ if ! grep -q 'obs_verify_vendor_lockfile' "${UPLOAD_SCRIPT}"; then
   echo "ERROR: OBS upload script must verify vendor Cargo.lock before upload" >&2
   exit 1
 fi
+if ! grep -q 'osc_stage_replaced_file_for_commit' "${UPLOAD_SCRIPT}"; then
+  echo "ERROR: OBS upload script must replace and re-add vendor.tar.zst on upload" >&2
+  exit 1
+fi
 if ! grep -q 'obs_verify_package_checksums' "${UPLOAD_SCRIPT}"; then
   echo "ERROR: OBS upload script must verify upload checksums after osc commit" >&2
   exit 1

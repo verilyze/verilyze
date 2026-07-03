@@ -39,6 +39,10 @@ case "${subcmd}" in
       echo "?    verilyze-0.2.4.tar.xz"
       exit 0
     fi
+    if [[ "${file}" == "vendor.tar.zst" ]]; then
+      echo "D    vendor.tar.zst"
+      exit 0
+    fi
     if [[ "${file}" == "verilyze.spec" ]]; then
       echo "    verilyze.spec"
       exit 0
@@ -47,6 +51,10 @@ case "${subcmd}" in
     ;;
   add)
     echo "added $1"
+    exit 0
+    ;;
+  delete)
+    echo "deleted $1"
     exit 0
     ;;
   commit)
@@ -113,6 +121,31 @@ def test_stage_file_skips_tracked_spec(tmp_path: Path) -> None:
     output = proc.stdout + proc.stderr
     assert proc.returncode == 0, output
     assert "added verilyze.spec" not in output
+
+
+def test_stage_file_does_not_readd_deleted_vendor_archive(tmp_path: Path) -> None:
+    proc = _run_staging_helper(
+        tmp_path,
+        helper="osc_stage_file_for_commit",
+        args='"vendor.tar.zst"',
+    )
+    output = proc.stdout + proc.stderr
+    assert proc.returncode == 0, output
+    assert "added vendor.tar.zst" not in output
+
+
+def test_stage_replaced_file_adds_vendor_after_delete(tmp_path: Path) -> None:
+    vendor_path = tmp_path / "vendor.tar.zst"
+    vendor_path.write_bytes(b"vendor bytes")
+    proc = _run_staging_helper(
+        tmp_path,
+        helper="osc_stage_replaced_file_for_commit",
+        args=f'"vendor.tar.zst" "{vendor_path}"',
+    )
+    output = proc.stdout + proc.stderr
+    assert proc.returncode == 0, output
+    assert "deleted vendor.tar.zst" in output
+    assert "added vendor.tar.zst" in output
 
 
 def test_commit_fails_when_osc_reports_nothing_to_do(tmp_path: Path) -> None:

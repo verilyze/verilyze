@@ -334,7 +334,7 @@ def test_main_package_checksums_cli_success(tmp_path: Path) -> None:
     )
 
 
-def test_verify_obs_upload_checksums_skips_missing_meta_digest(
+def test_verify_obs_upload_checksums_skips_missing_meta_when_no_metadata(
     tmp_path: Path,
 ) -> None:
     package_dir = tmp_path / "pkg"
@@ -346,3 +346,29 @@ def test_verify_obs_upload_checksums_skips_missing_meta_digest(
         package_dir=package_dir,
         expected={"file.txt": digest},
     )
+
+
+def test_verify_obs_upload_checksums_rejects_missing_file_in_metadata(
+    tmp_path: Path,
+) -> None:
+    package_dir = tmp_path / "pkg"
+    package_dir.mkdir()
+    vendor = package_dir / _VENDOR_ARCHIVE
+    vendor.write_bytes(b"vendor bytes")
+    digest = sha256_file(vendor)
+    meta = package_dir / ".osc" / "_files"
+    meta.parent.mkdir(parents=True)
+    meta.write_text(
+        (
+            '<directory name="." rev="1" vrev="1">\n'
+            '  <file name="verilyze.spec" size="5" mtime="0" '
+            f'sha256="{"a" * 64}"/>\n'
+            "</directory>\n"
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="OBS metadata missing"):
+        verify_obs_upload_checksums(
+            package_dir=package_dir,
+            expected={_VENDOR_ARCHIVE: digest},
+        )
