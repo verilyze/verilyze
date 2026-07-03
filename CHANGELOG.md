@@ -31,6 +31,8 @@ this file **before** creating the release tag.
   delete on OBS cannot leave the package without vendored Rust sources.
 - Post-upload checksum verification fails when OBS metadata omits an expected
   source file (catches delete-without-reupload commits).
+- Disable OBS `Fedora_43` builds: worker Rust 1.90 cannot compile v0.3.0
+  (Ruff-based setup.py support requires Rust 1.94+).
 - Cursor agent validation no longer runs on read-only turns (plans, questions,
   reviews with no file edits).
 - CI header and super-linter failures.
