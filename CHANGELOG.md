@@ -27,6 +27,10 @@ this file **before** creating the release tag.
 
 ### Fixed
 
+- OBS release upload always replaces and re-adds `vendor.tar.zst` so a prior
+  delete on OBS cannot leave the package without vendored Rust sources.
+- Post-upload checksum verification fails when OBS metadata omits an expected
+  source file (catches delete-without-reupload commits).
 - Cursor agent validation no longer runs on read-only turns (plans, questions,
   reviews with no file edits).
 - CI header and super-linter failures.

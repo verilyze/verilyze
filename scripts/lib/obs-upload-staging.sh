@@ -28,6 +28,15 @@ osc_stage_file_for_commit() {
   fi
 }
 
+osc_stage_replaced_file_for_commit() {
+  local filename="$1"
+  local source_path="$2"
+  osc_cmd delete "${filename}" 2>/dev/null || true
+  rm -f "${filename}"
+  cp "${source_path}" "${filename}"
+  osc_cmd add "${filename}"
+}
+
 osc_commit_package_upload() {
   local message="$1"
   local output=""

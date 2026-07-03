@@ -128,10 +128,14 @@ def verify_obs_upload_checksums(
     for source in _obs_checksum_sources(package_dir):
         meta_checksums.update(parse_obs_file_checksums(source))
 
+    if not meta_checksums:
+        return
+
     for filename, expected_digest in normalized.items():
         meta_digest = meta_checksums.get(filename)
         if meta_digest is None:
-            continue
+            msg = f"{package_dir}: OBS metadata missing {filename}"
+            raise ValueError(msg)
         if meta_digest != expected_digest:
             msg = (
                 f"{package_dir}: OBS metadata checksum mismatch "

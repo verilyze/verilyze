@@ -180,14 +180,12 @@ upload_to_obs() {
     render_changes_file "${version}" "${OBS_CHANGES_FILENAME}" "${existing_changes}"
     local uploaded_changes_sha256
     uploaded_changes_sha256="$(sha256_file "${OBS_CHANGES_FILENAME}")"
-    if [[ -f "${VENDOR_ARCHIVE_NAME}" ]]; then
-      osc_cmd delete "${VENDOR_ARCHIVE_NAME}" 2>/dev/null || rm -f "${VENDOR_ARCHIVE_NAME}"
-    fi
     cp "${work_dir}/${source_archive}" .
-    cp "${work_dir}/${VENDOR_ARCHIVE_NAME}" .
+    osc_stage_replaced_file_for_commit \
+      "${VENDOR_ARCHIVE_NAME}" \
+      "${work_dir}/${VENDOR_ARCHIVE_NAME}"
     cp "${work_dir}/${OBS_SPEC_FILENAME}" .
     osc_stage_file_for_commit "${source_archive}"
-    osc_stage_file_for_commit "${VENDOR_ARCHIVE_NAME}"
     osc_stage_file_for_commit "${OBS_SPEC_FILENAME}"
     osc_stage_file_for_commit "${OBS_CHANGES_FILENAME}"
     if [[ -f "${OBS_LEGACY_RPMLINTRC_FILENAME}" ]]; then
