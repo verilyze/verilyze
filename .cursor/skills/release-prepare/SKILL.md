@@ -53,7 +53,7 @@ publish and bypasses project review policy.
 4. **`make release-preflight`**
 5. **Full gate** -- `make -j check` (use shell subagent in background if helpful)
 6. **Branch and commit** -- create `release/vX.Y.Z` from `main`; signed commit
-   when user asked to complete release prep (e.g. `release: prepare vX.Y.Z`)
+   when user asked to complete release prep (`chore: prepare vX.Y.Z release`)
 7. **Pull request** -- `git push -u origin release/vX.Y.Z`; `gh pr create`;
    wait for CI green; merge to `main` (do not push `main` directly)
 8. **Sync local `main`** -- `git checkout main && git pull origin main`
