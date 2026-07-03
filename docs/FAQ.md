@@ -352,6 +352,56 @@ See also `man vlz` for configuration keys `keep_ephemeral_venv`,
 
 ---
 
+## Standalone Python lock files
+
+### Scanning a directory with only `pylock.toml` (or other lock files)
+
+**Cause:** Previously, lock files were only used when adjacent to a manifest.
+Directories containing only `pylock.toml`, `poetry.lock`, `uv.lock`, or
+`Pipfile.lock` were not discovered as entry points.
+
+**Behavior:** Supported lock files in a directory with no Python manifest
+(`requirements.txt`, `pyproject.toml`, etc.) are now discovered and scanned
+directly. A valid lock with zero packages completes with `scanned_transitive`
+and exit 0 when no CVEs are found.
+
+### Multiple lock files in one directory
+
+**Behavior:** When more than one supported lock file exists in the same
+directory, `vlz` parses **all** of them and unions packages (orphan locks as
+separate entry points; adjacent locks merged during manifest resolution). A
+warning is emitted:
+
+`vlz warning: Multiple lock files in <dir> were scanned and packages merged: ...`
+
+**Operational note:** Stale or duplicate lock files in one directory can cause
+extra packages to appear in results. Prefer keeping one canonical lock file per
+project directory, or scope with `--lock-file` / `python.lock_files` /
+`VLZ_PYTHON_LOCK_FILES` (union applies among listed locks only).
+
+### Lock-file allowlist (`--lock-file`)
+
+Repeat `--lock-file` or set `python.lock_files` in config (comma-separated via
+`VLZ_PYTHON_LOCK_FILES`) to discover and merge **only** the listed lock
+basenames. When a directory already contains lock files but a listed file is
+missing, the scan exits **2** (user-recoverable). Unset allowlist keeps Phase 1
+behavior: union all supported locks in each directory.
+
+```sh
+vlz scan --lock-file poetry.lock .
+vlz scan --lock-file pylock.toml --lock-file poetry.lock .
+```
+
+### `manifest_paths` with lock files
+
+When packages come from an adjacent lock file, JSON/SARIF `manifest_paths` on
+each finding list the **lock file path** (for example `pylock.toml`), not the
+manifest entry point. When a package appears in multiple merged locks, all
+source lock paths are listed. `manifest_paths` is per package version, not per
+CVE.
+
+---
+
 ## Multi-manifest scans (FR-037)
 
 When `vlz scan` discovers multiple manifests under a root directory, each

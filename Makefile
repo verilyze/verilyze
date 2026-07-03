@@ -15,6 +15,8 @@ LINT_PYTHON_SCRIPT := $(SCRIPTS_DIR)/lint-python.sh
 VENV_LINT := $(MKFILE_DIR)/.venv-lint
 VENV_REUSE := $(MKFILE_DIR)/.venv-reuse
 VENV_TEST := $(MKFILE_DIR)/.venv-test
+# Pip/venv temp under target/ avoids /tmp quota partial installs (broken coverage htmlfiles).
+PIP_TMPDIR := $(MKFILE_DIR)/target/tmp-pip
 # Override for CI or a pinned binary (NFR-009, SEC-012).
 CARGO_DENY ?= cargo deny
 # Deterministic default linker toolchain; users can override at invocation:
@@ -235,12 +237,14 @@ cargo-test:
 $(VENV_TEST)/bin/pytest:
 	@if [ -x "$(VENV_TEST)/bin/pytest" ] && \
 	      "$(VENV_TEST)/bin/python" -m pytest --version >/dev/null 2>&1 && \
-	      "$(VENV_TEST)/bin/codespell" --version >/dev/null 2>&1; then \
+	      "$(VENV_TEST)/bin/codespell" --version >/dev/null 2>&1 && \
+	      "$(VENV_TEST)/bin/python" -c "import pathlib, coverage; p=pathlib.Path(coverage.__file__).resolve().parent/'htmlfiles'/'index.html'; assert p.is_file(), p" 2>/dev/null; then \
 		exit 0; \
 	fi
 	rm -rf $(VENV_TEST)
-	python3 -m venv $(VENV_TEST)
-	cd "$(MKFILE_DIR)" && $(VENV_TEST)/bin/pip install ".[dev]"
+	@mkdir -p $(PIP_TMPDIR)
+	TMPDIR=$(PIP_TMPDIR) python3 -m venv $(VENV_TEST)
+	cd "$(MKFILE_DIR)" && TMPDIR=$(PIP_TMPDIR) $(VENV_TEST)/bin/pip install ".[dev]"
 
 # Re-run .venv-test health check even when $(VENV_TEST)/bin/pytest exists (stale cache).
 .PHONY: venv-test-ready
@@ -264,8 +268,9 @@ $(VENV_LINT)/bin/black:
 		exit 0; \
 	fi
 	rm -rf $(VENV_LINT)
-	python3 -m venv $(VENV_LINT)
-	cd "$(MKFILE_DIR)" && $(VENV_LINT)/bin/pip install ".[dev]"
+	@mkdir -p $(PIP_TMPDIR)
+	TMPDIR=$(PIP_TMPDIR) python3 -m venv $(VENV_LINT)
+	cd "$(MKFILE_DIR)" && TMPDIR=$(PIP_TMPDIR) $(VENV_LINT)/bin/pip install ".[dev]"
 
 # lint-python: modern-style, black, pylint, mypy, bandit (aggregates failures; NFR-021)
 lint-python: $(VENV_LINT)/bin/black
