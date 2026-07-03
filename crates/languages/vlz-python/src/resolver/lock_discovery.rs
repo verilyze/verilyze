@@ -7,8 +7,10 @@ use std::path::{Path, PathBuf};
 
 use vlz_manifest_parser::ParserError;
 
-use crate::lock_names::is_pylock_variant;
-use crate::lock_names::manifest_is_lock_file;
+use crate::lock_names::{
+    filter_lock_paths_by_allowlist, is_pylock_variant, manifest_is_lock_file,
+    verify_lock_allowlist_for_dir,
+};
 use crate::parser::parse_lock_file;
 
 /// Basenames searched adjacent to manifests (Appendix A). `pylock.*.toml` via [`collect_pylock_variants`].
@@ -16,7 +18,10 @@ const LOCK_CANDIDATE_BASENAMES: &[&str] =
     &["pylock.toml", "poetry.lock", "uv.lock", "Pipfile.lock"];
 
 /// Find all applicable adjacent lock file paths for `manifest_path`.
-pub fn find_lock_files(manifest_path: &Path) -> Vec<PathBuf> {
+pub fn find_lock_files(
+    manifest_path: &Path,
+    lock_file_allowlist: &[String],
+) -> Vec<PathBuf> {
     let dir = match manifest_path.parent() {
         Some(d) => d,
         None => return Vec::new(),
@@ -56,12 +61,17 @@ pub fn find_lock_files(manifest_path: &Path) -> Vec<PathBuf> {
     collect_pylock_variants(dir, &mut found);
     found.sort();
     found.dedup();
-    found
+    filter_lock_paths_by_allowlist(&found, lock_file_allowlist)
 }
 
 /// Legacy helper: first adjacent lock file, if any.
-pub fn find_lock_file(manifest_path: &Path) -> Option<PathBuf> {
-    find_lock_files(manifest_path).into_iter().next()
+pub fn find_lock_file(
+    manifest_path: &Path,
+    lock_file_allowlist: &[String],
+) -> Option<PathBuf> {
+    find_lock_files(manifest_path, lock_file_allowlist)
+        .into_iter()
+        .next()
 }
 
 /// Packages merged from adjacent lock files plus FR-036 source attribution.
@@ -78,11 +88,16 @@ pub struct ResolvedLockFiles {
 /// successfully but yielded zero packages (fall through to pip / FR-022).
 pub fn resolve_lock_files(
     manifest_path: &Path,
+    lock_file_allowlist: &[String],
 ) -> Result<Option<ResolvedLockFiles>, ParserError> {
     if manifest_is_lock_file(manifest_path) {
         return Ok(None);
     }
-    let lock_paths = find_lock_files(manifest_path);
+    if let Some(dir) = manifest_path.parent() {
+        verify_lock_allowlist_for_dir(dir, lock_file_allowlist)
+            .map_err(ParserError::Other)?;
+    }
+    let lock_paths = find_lock_files(manifest_path, lock_file_allowlist);
     if lock_paths.is_empty() {
         return Ok(None);
     }
@@ -176,7 +191,7 @@ mod tests {
             "[[package]]\nname = \"other\"\nversion = \"2.0\"\n",
         )
         .unwrap();
-        let found = find_lock_files(req.as_path());
+        let found = find_lock_files(req.as_path(), &[]);
         assert_eq!(found.len(), 2);
         assert!(found.contains(&pylock));
         assert!(found.contains(&poetry));
@@ -190,7 +205,7 @@ mod tests {
         let pipfile_lock = tmp.join("Pipfile.lock");
         std::fs::write(&pipfile, "").unwrap();
         std::fs::write(&pipfile_lock, "{}").unwrap();
-        let found = find_lock_files(pipfile.as_path());
+        let found = find_lock_files(pipfile.as_path(), &[]);
         assert_eq!(found, vec![pipfile_lock]);
     }
 
@@ -207,7 +222,7 @@ mod tests {
             "[[package]]\nname = \"a\"\nversion = \"1\"\n",
         )
         .unwrap();
-        let found = find_lock_files(setup_cfg.as_path());
+        let found = find_lock_files(setup_cfg.as_path(), &[]);
         assert_eq!(found, vec![poetry_lock]);
     }
 
@@ -223,8 +238,29 @@ mod tests {
             "[[packages]]\nname = \"pkg\"\nversion = \"1.0\"\n",
         )
         .unwrap();
-        let found = find_lock_files(req.as_path());
+        let found = find_lock_files(req.as_path(), &[]);
         assert_eq!(found, vec![variant]);
+    }
+
+    #[test]
+    fn find_lock_files_filters_by_allowlist() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        let req = tmp.join("requirements.txt");
+        std::fs::write(&req, "pkg==1.0\n").unwrap();
+        std::fs::write(
+            tmp.join("pylock.toml"),
+            "[[packages]]\nname = \"a\"\nversion = \"1\"\n",
+        )
+        .unwrap();
+        std::fs::write(
+            tmp.join("poetry.lock"),
+            "[[package]]\nname = \"b\"\nversion = \"1\"\n",
+        )
+        .unwrap();
+        let found =
+            find_lock_files(req.as_path(), &["poetry.lock".to_string()]);
+        assert_eq!(found, vec![tmp.join("poetry.lock")]);
     }
 
     #[test]
@@ -243,7 +279,7 @@ mod tests {
             "[[package]]\nname = \"b\"\nversion = \"1\"\n",
         )
         .unwrap();
-        let found = find_lock_file(req.as_path());
+        let found = find_lock_file(req.as_path(), &[]);
         assert!(found.is_some());
     }
 }

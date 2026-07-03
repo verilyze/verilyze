@@ -57,6 +57,8 @@ pub struct ResolveContext {
     /// When true, FR-022 transitive-resolution failures fall back to direct-only
     /// scan with FR-022a warning instead of exit 2 (FR-022, FR-022a).
     pub allow_direct_only_fallback: bool,
+    /// When non-empty, only discover/merge listed Python lock file basenames.
+    pub python_lock_files: Vec<String>,
 }
 
 /// Whether resolution produced a full transitive tree or direct deps only (FR-022a).

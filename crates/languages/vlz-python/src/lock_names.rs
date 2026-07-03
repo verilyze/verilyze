@@ -5,6 +5,9 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
+/// Environment variable for Python lock-file allowlist (Phase 2).
+pub const PYTHON_LOCK_FILES_ENV: &str = "VLZ_PYTHON_LOCK_FILES";
+
 /// Python lock file basenames (Appendix A). `pylock.*.toml` handled by [`is_pylock_variant`].
 pub const PYTHON_LOCK_FILE_NAMES: &[&str] =
     &["pylock.toml", "poetry.lock", "Pipfile.lock", "uv.lock"];
@@ -25,6 +28,97 @@ pub fn manifest_is_lock_file(path: &Path) -> bool {
     path.file_name()
         .and_then(|n| n.to_str())
         .is_some_and(is_python_lock_file)
+}
+
+/// Basename from a `--lock-file` / config entry (path or basename).
+pub fn normalize_lock_file_basename(entry: &str) -> String {
+    Path::new(entry.trim())
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(entry.trim())
+        .to_string()
+}
+
+/// Normalize and validate a lock-file allowlist; empty input is allowed.
+pub fn normalize_lock_file_allowlist(
+    entries: &[String],
+) -> Result<Vec<String>, String> {
+    let mut out = Vec::new();
+    for entry in entries {
+        let base = normalize_lock_file_basename(entry);
+        if base.is_empty() {
+            continue;
+        }
+        if !is_python_lock_file(&base) {
+            return Err(format!("unsupported lock file name: {base}"));
+        }
+        if !out.contains(&base) {
+            out.push(base);
+        }
+    }
+    Ok(out)
+}
+
+/// True when `allowlist` is empty (scan all supported locks) or `name` is listed.
+pub fn lock_name_matches_allowlist(name: &str, allowlist: &[String]) -> bool {
+    if allowlist.is_empty() {
+        return true;
+    }
+    allowlist
+        .iter()
+        .any(|entry| normalize_lock_file_basename(entry) == name)
+}
+
+/// Keep only lock paths whose basename is in `allowlist` (no-op when empty).
+pub fn filter_lock_paths_by_allowlist(
+    paths: &[PathBuf],
+    allowlist: &[String],
+) -> Vec<PathBuf> {
+    if allowlist.is_empty() {
+        return paths.to_vec();
+    }
+    paths
+        .iter()
+        .filter(|p| {
+            p.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| lock_name_matches_allowlist(n, allowlist))
+        })
+        .cloned()
+        .collect()
+}
+
+/// True when `dir` contains at least one supported Python lock file.
+pub fn dir_has_any_python_lock(dir: &Path) -> bool {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return false;
+    };
+    entries.filter_map(Result::ok).any(|entry| {
+        entry.file_name().to_str().is_some_and(is_python_lock_file)
+    })
+}
+
+/// When `allowlist` is set and `dir` already has lock files, every listed basename must exist.
+pub fn verify_lock_allowlist_for_dir(
+    dir: &Path,
+    allowlist: &[String],
+) -> Result<(), String> {
+    if allowlist.is_empty() {
+        return Ok(());
+    }
+    if !dir_has_any_python_lock(dir) {
+        return Ok(());
+    }
+    for entry in allowlist {
+        let base = normalize_lock_file_basename(entry);
+        if !dir.join(&base).is_file() {
+            return Err(format!(
+                "lock file {base} not found in {}",
+                dir.display()
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Return orphan lock paths: locks in directories with no Python manifest.
@@ -160,5 +254,41 @@ mod tests {
                 "{name} should not be a default manifest name"
             );
         }
+    }
+
+    #[test]
+    fn filter_lock_paths_by_allowlist_keeps_only_listed() {
+        let paths = vec![
+            PathBuf::from("/a/pylock.toml"),
+            PathBuf::from("/a/poetry.lock"),
+        ];
+        let filtered = filter_lock_paths_by_allowlist(
+            &paths,
+            &["poetry.lock".to_string()],
+        );
+        assert_eq!(filtered, vec![PathBuf::from("/a/poetry.lock")]);
+    }
+
+    #[test]
+    fn verify_lock_allowlist_skips_dir_without_locks() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("requirements.txt"), "a==1\n").unwrap();
+        verify_lock_allowlist_for_dir(
+            dir.path(),
+            &["poetry.lock".to_string()],
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn verify_lock_allowlist_errors_when_listed_lock_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("uv.lock"), "version = 1\n").unwrap();
+        let err = verify_lock_allowlist_for_dir(
+            dir.path(),
+            &["poetry.lock".to_string()],
+        )
+        .unwrap_err();
+        assert!(err.contains("poetry.lock"));
     }
 }

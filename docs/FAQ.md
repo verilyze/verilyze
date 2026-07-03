@@ -376,7 +376,21 @@ warning is emitted:
 
 **Operational note:** Stale or duplicate lock files in one directory can cause
 extra packages to appear in results. Prefer keeping one canonical lock file per
-project directory. Future releases may add `--lock-file` allowlist scoping.
+project directory, or scope with `--lock-file` / `python.lock_files` /
+`VLZ_PYTHON_LOCK_FILES` (union applies among listed locks only).
+
+### Lock-file allowlist (`--lock-file`)
+
+Repeat `--lock-file` or set `python.lock_files` in config (comma-separated via
+`VLZ_PYTHON_LOCK_FILES`) to discover and merge **only** the listed lock
+basenames. When a directory already contains lock files but a listed file is
+missing, the scan exits **2** (user-recoverable). Unset allowlist keeps Phase 1
+behavior: union all supported locks in each directory.
+
+```sh
+vlz scan --lock-file poetry.lock .
+vlz scan --lock-file pylock.toml --lock-file poetry.lock .
+```
 
 ### `manifest_paths` with lock files
 

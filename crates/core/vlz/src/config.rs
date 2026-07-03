@@ -118,6 +118,8 @@ pub struct EffectiveConfig {
     pub project_id: Option<String>,
     /// Per-language manifest regex patterns (FR-006); order = first match wins.
     pub language_regexes: Vec<(String, String)>,
+    /// Python lock-file allowlist (Phase 2); empty = union all supported locks.
+    pub python_lock_files: Vec<String>,
     /// Directory names to skip during manifest discovery.
     pub scan_exclude_dirs: Vec<String>,
     /// If true, exit 3 with hint when required package manager (e.g. pip) is not on PATH (FR-024).
@@ -165,6 +167,7 @@ impl Default for EffectiveConfig {
             fp_exit_code: None,
             project_id: None,
             language_regexes: Vec::new(),
+            python_lock_files: Vec::new(),
             scan_exclude_dirs: DEFAULT_SCAN_EXCLUDE_DIRS
                 .iter()
                 .map(|v| (*v).to_string())
@@ -263,6 +266,9 @@ pub enum ConfigError {
 
     #[error("Invalid reachability mode '{value}' (from {origin})")]
     InvalidReachabilityMode { value: String, origin: String },
+
+    #[error("Invalid Python lock file allowlist: {message}")]
+    InvalidPythonLockFiles { message: String },
 
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
@@ -427,6 +433,74 @@ fn apply_file_config_inner(
         apply_toml_severity_table(sev, "v4", &mut cfg.severity.v4);
     }
     let _ = source;
+    extract_python_lock_files(cfg, raw)?;
+    Ok(())
+}
+
+#[cfg(feature = "python")]
+fn parse_python_lock_files_toml_value(
+    value: &toml::Value,
+) -> Result<Vec<String>, ConfigError> {
+    let raw: Vec<String> = match value {
+        toml::Value::Array(arr) => arr
+            .iter()
+            .filter_map(|v| v.as_str().map(str::to_string))
+            .collect(),
+        toml::Value::String(s) => s
+            .split(',')
+            .map(str::trim)
+            .filter(|part| !part.is_empty())
+            .map(str::to_string)
+            .collect(),
+        _ => {
+            return Err(ConfigError::InvalidPythonLockFiles {
+                message: "python.lock_files must be an array or comma-separated string"
+                    .to_string(),
+            });
+        }
+    };
+    vlz_python::normalize_lock_file_allowlist(&raw)
+        .map_err(|message| ConfigError::InvalidPythonLockFiles { message })
+}
+
+#[cfg(not(feature = "python"))]
+fn parse_python_lock_files_toml_value(
+    _value: &toml::Value,
+) -> Result<Vec<String>, ConfigError> {
+    Ok(Vec::new())
+}
+
+fn extract_python_lock_files(
+    cfg: &mut EffectiveConfig,
+    raw: &str,
+) -> Result<(), ConfigError> {
+    let Ok(value) = toml::from_str::<toml::Value>(raw) else {
+        return Ok(());
+    };
+    let Some(python) = value.get("python").and_then(|v| v.as_table()) else {
+        return Ok(());
+    };
+    let Some(lock_files) = python.get("lock_files") else {
+        return Ok(());
+    };
+    cfg.python_lock_files = parse_python_lock_files_toml_value(lock_files)?;
+    Ok(())
+}
+
+fn validate_python_lock_files(
+    cfg: &mut EffectiveConfig,
+) -> Result<(), ConfigError> {
+    if cfg.python_lock_files.is_empty() {
+        return Ok(());
+    }
+    #[cfg(feature = "python")]
+    {
+        cfg.python_lock_files =
+            vlz_python::normalize_lock_file_allowlist(&cfg.python_lock_files)
+                .map_err(|message| ConfigError::InvalidPythonLockFiles {
+                    message,
+                })?;
+    }
     Ok(())
 }
 
@@ -921,6 +995,10 @@ pub fn load_with_reachability_overrides(
     if let Some(dirs) = env_scan_exclude_dirs() {
         cfg.scan_exclude_dirs = dirs;
     }
+    #[cfg(feature = "python")]
+    if let Some(files) = env_python_lock_files() {
+        cfg.python_lock_files = files;
+    }
     if let Some(mode) = env_reachability_mode {
         cfg.reachability_mode = mode;
     }
@@ -1031,6 +1109,8 @@ pub fn load_with_reachability_overrides(
     // FR-013: apply severity threshold overrides (env first, then CLI).
     apply_severity_overrides(&mut cfg.severity, &env_severity);
     apply_severity_overrides(&mut cfg.severity, &cli_severity);
+
+    validate_python_lock_files(&mut cfg)?;
 
     Ok(cfg)
 }
@@ -1148,6 +1228,20 @@ pub fn env_scan_exclude_dirs() -> Option<Vec<String>> {
             .map(ToOwned::to_owned)
             .collect()
     })
+}
+
+/// Read `VLZ_PYTHON_LOCK_FILES` as comma-separated lock file basenames.
+#[cfg(feature = "python")]
+pub fn env_python_lock_files() -> Option<Vec<String>> {
+    std::env::var(vlz_python::PYTHON_LOCK_FILES_ENV)
+        .ok()
+        .map(|raw| {
+            raw.split(',')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(ToOwned::to_owned)
+                .collect()
+        })
 }
 
 fn parse_env_bool_var(name: &str) -> Option<bool> {
@@ -1269,7 +1363,20 @@ fn set_config_key_in_path(
                 key: key.to_string(),
                 origin: "config set".to_string(),
             })?;
-    inner.insert(sub_key.to_string(), toml::Value::String(value.to_string()));
+    if table_key == "python" && sub_key == "lock_files" {
+        let entries: Vec<toml::Value> = value
+            .split(',')
+            .map(str::trim)
+            .filter(|part| !part.is_empty())
+            .map(|part| toml::Value::String(part.to_string()))
+            .collect();
+        inner.insert(sub_key.to_string(), toml::Value::Array(entries));
+    } else {
+        inner.insert(
+            sub_key.to_string(),
+            toml::Value::String(value.to_string()),
+        );
+    }
     let out = toml::to_string_pretty(&root).map_err(|e| {
         ConfigError::InvalidToml {
             path: path.to_path_buf(),

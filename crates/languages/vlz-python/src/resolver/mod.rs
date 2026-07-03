@@ -151,8 +151,9 @@ impl DirectOnlyResolver {
 
     fn resolve_adjacent_lock_files(
         manifest_path: &Path,
+        lock_file_allowlist: &[String],
     ) -> Result<Option<ResolvedLockFiles>, ResolverError> {
-        resolve_lock_files(manifest_path)
+        resolve_lock_files(manifest_path, lock_file_allowlist)
             .map_err(Self::lock_parse_to_resolve_err)
     }
 
@@ -294,12 +295,20 @@ impl DirectOnlyResolver {
             .ok_or_else(Self::fr022_transitive_error)?;
 
         if manifest_is_lock_file(manifest_path) {
+            if let Some(dir) = manifest_path.parent() {
+                crate::lock_names::verify_lock_allowlist_for_dir(
+                    dir,
+                    &ctx.python_lock_files,
+                )
+                .map_err(ResolverError::Resolve)?;
+            }
             return Ok(Self::transitive_result_simple(graph.packages.clone()));
         }
 
-        if let Some(resolved) =
-            Self::resolve_adjacent_lock_files(manifest_path)?
-        {
+        if let Some(resolved) = Self::resolve_adjacent_lock_files(
+            manifest_path,
+            &ctx.python_lock_files,
+        )? {
             return Ok(Self::transitive_result(
                 resolved.packages,
                 resolved.package_source_paths,

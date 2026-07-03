@@ -12,9 +12,11 @@ mod resolver;
 
 pub use finder::{PYTHON_MANIFEST_NAMES, PythonManifestFinder};
 pub use lock_names::{
-    PYTHON_LOCK_FILE_NAMES, filter_orphan_locks, is_pylock_variant,
-    is_python_lock_file, manifest_is_lock_file,
-    orphan_multi_lock_warning_dirs,
+    PYTHON_LOCK_FILE_NAMES, PYTHON_LOCK_FILES_ENV, filter_orphan_locks,
+    is_pylock_variant, is_python_lock_file, lock_name_matches_allowlist,
+    manifest_is_lock_file, normalize_lock_file_allowlist,
+    normalize_lock_file_basename, orphan_multi_lock_warning_dirs,
+    verify_lock_allowlist_for_dir,
 };
 pub use parser::{
     RequirementsTxtParser, parse_lock_file, parse_pipfile, parse_pylock_toml,

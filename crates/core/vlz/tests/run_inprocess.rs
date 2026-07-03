@@ -1034,6 +1034,77 @@ fn run_scan_adjacent_multi_lock_manifest_paths_per_source() {
 }
 
 #[cfg(feature = "python")]
+#[test]
+fn run_scan_lock_file_allowlist_ignores_other_locks() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("pylock.toml"),
+            "lock-version = \"1.0\"\n\n[[packages]]\nname = \"pkg-a\"\nversion = \"1.0\"\n",
+        )
+        .expect("write pylock");
+        std::fs::write(
+            dir.path().join("poetry.lock"),
+            "[[package]]\nname = \"pkg-b\"\nversion = \"2.0\"\n",
+        )
+        .expect("write poetry");
+        let out_path = dir.path().join("report.json");
+        let root = dir.path().to_str().unwrap();
+
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            CveReturningProvider::new(),
+        )));
+
+        let code = run_async(&[
+            "scan",
+            root,
+            "--format",
+            "json",
+            "--summary-file",
+            &format!("json:{}", out_path.display()),
+            "--provider",
+            "cve_returning",
+            "--lock-file",
+            "poetry.lock",
+        ]);
+        assert_eq!(code, 86);
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&out_path).unwrap())
+                .unwrap();
+        let coverage = parsed["manifest_coverage"].as_array().unwrap();
+        assert_eq!(coverage.len(), 1);
+        assert_eq!(coverage[0]["path"], "poetry.lock");
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_lock_file_allowlist_missing_listed_lock_exits_2() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("uv.lock"),
+            "version = 1\n\n[[package]]\nname = \"pkg\"\nversion = \"1.0\"\n",
+        )
+        .expect("write uv.lock");
+        let root = dir.path().to_str().unwrap();
+
+        let code = run_async(&[
+            "scan",
+            root,
+            "--offline",
+            "--lock-file",
+            "poetry.lock",
+        ]);
+        assert_eq!(code, 2);
+    });
+}
+
+#[cfg(feature = "python")]
 fn write_partial_manifest_fixture(root: &std::path::Path) {
     std::fs::create_dir_all(root.join("good")).expect("mkdir good");
     std::fs::create_dir_all(root.join("broken")).expect("mkdir broken");

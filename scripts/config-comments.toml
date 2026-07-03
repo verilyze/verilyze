@@ -232,6 +232,16 @@ Regex for Python manifest file names (e.g. requirements.txt, pyproject.toml)
 type = "string"
 default = "^requirements\\.txt$"
 
+["python.lock_files"]
+description = """
+Allowlist of Python lock file basenames to discover and merge (Phase 2).
+When unset, all supported lock files in each directory are unioned.
+"""
+type = "string[]"
+env = "VLZ_PYTHON_LOCK_FILES"
+cli = "--lock-file"
+default = ""
+
 ["rust.regex"]
 description = "Regex for Rust manifest file names (Cargo.toml)"
 type = "string"

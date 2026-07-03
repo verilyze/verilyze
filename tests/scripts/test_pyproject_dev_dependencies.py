@@ -96,6 +96,9 @@ def test_makefile_venv_test_installs_from_pyproject_dev_extra() -> None:
     assert 'cd "$(MKFILE_DIR)"' in recipe
     assert "pip install pytest" not in recipe
     assert "codespell" in recipe
+    assert "coverage.__file__" in recipe
+    assert "htmlfiles" in recipe
+    assert "PIP_TMPDIR" in recipe
     assert "LINT_PYTHON_PACKAGES" not in recipe
 
 

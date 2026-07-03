@@ -6,10 +6,12 @@ use anyhow::{Context, Result, anyhow};
 #[cfg(feature = "completions")]
 use clap::CommandFactory as _;
 use log::{LevelFilter, error, info};
+use std::collections::HashSet;
 use std::io::Write;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Semaphore;
+use vlz_manifest_finder::ManifestFinder;
 
 use crate::cli::{Cli, Commands, FpCommands};
 
@@ -185,6 +187,7 @@ type ManifestDiscoveryResult = (
 fn discover_manifests_one_pass(
     root: &std::path::Path,
     exclude_dirs: &std::collections::HashSet<String>,
+    #[cfg(feature = "python")] lock_file_allowlist: &[String],
 ) -> std::io::Result<ManifestDiscoveryResult> {
     let mut out: std::collections::HashMap<String, Vec<std::path::PathBuf>> =
         std::collections::HashMap::new();
@@ -192,6 +195,8 @@ fn discover_manifests_one_pass(
     let mut python_manifests: Vec<std::path::PathBuf> = Vec::new();
     #[cfg(feature = "python")]
     let mut python_locks: Vec<std::path::PathBuf> = Vec::new();
+    #[cfg(feature = "python")]
+    let mut python_lock_dirs: HashSet<std::path::PathBuf> = HashSet::new();
     let mut stack = vec![root.to_path_buf()];
     while let Some(dir) = stack.pop() {
         for entry in std::fs::read_dir(&dir)? {
@@ -218,7 +223,15 @@ fn discover_manifests_one_pass(
                     continue;
                 }
                 if vlz_python::is_python_lock_file(name) {
-                    python_locks.push(entry.path());
+                    if let Some(parent) = entry.path().parent() {
+                        python_lock_dirs.insert(parent.to_path_buf());
+                    }
+                    if vlz_python::lock_name_matches_allowlist(
+                        name,
+                        lock_file_allowlist,
+                    ) {
+                        python_locks.push(entry.path());
+                    }
                     continue;
                 }
             }
@@ -237,6 +250,20 @@ fn discover_manifests_one_pass(
     }
     #[cfg(feature = "python")]
     {
+        if !lock_file_allowlist.is_empty() {
+            for dir in &python_lock_dirs {
+                vlz_python::verify_lock_allowlist_for_dir(
+                    dir,
+                    lock_file_allowlist,
+                )
+                .map_err(|message| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        message,
+                    )
+                })?;
+            }
+        }
         let orphans =
             vlz_python::filter_orphan_locks(&python_manifests, &python_locks);
         python_manifests.extend(orphans);
@@ -524,6 +551,7 @@ pub async fn run(args: Cli) -> Result<i32> {
             tls_crl_bundle: cli_tls_crl_bundle_scan,
             reachability_mode: _cli_reachability_mode_scan,
             scan_exclude_dir: cli_scan_exclude_dir_scan,
+            lock_file: cli_lock_files_scan,
             severity_v2_critical_min,
             severity_v2_high_min,
             severity_v2_medium_min,
@@ -604,6 +632,17 @@ pub async fn run(args: Cli) -> Result<i32> {
                 })?;
             if !cli_scan_exclude_dir_scan.is_empty() {
                 effective.scan_exclude_dirs = cli_scan_exclude_dir_scan;
+            }
+            #[cfg(feature = "python")]
+            if !cli_lock_files_scan.is_empty() {
+                effective.python_lock_files =
+                    vlz_python::normalize_lock_file_allowlist(
+                        &cli_lock_files_scan,
+                    )
+                    .map_err(|message| {
+                        error!("{}", message);
+                        anyhow!(message)
+                    })?;
             }
             let code = run_scan(
                 root,
@@ -890,6 +929,12 @@ pub async fn run(args: Cli) -> Result<i32> {
                 for (lang, re) in &cfg.language_regexes {
                     write_stdout(&format!("{}.regex = {}\n", lang, re));
                 }
+                if !cfg.python_lock_files.is_empty() {
+                    write_stdout(&format!(
+                        "python.lock_files = {}\n",
+                        cfg.python_lock_files.join(",")
+                    ));
+                }
             }
             Ok(0)
         }
@@ -1141,7 +1186,9 @@ async fn run_scan(
             match vlz_python::PythonManifestFinder::with_patterns(
                 patterns.clone(),
             ) {
-                Ok(f) => finders.push(Box::new(f)),
+                Ok(f) => finders.push(Box::new(f.with_lock_file_allowlist(
+                    effective.python_lock_files.clone(),
+                ))),
                 Err(e) => {
                     error!("Invalid language regex in config: {}", e);
                     return Err(anyhow!(
@@ -1325,6 +1372,7 @@ async fn run_scan(
         allow_dependency_code_execution: effective
             .allow_dependency_code_execution,
         allow_direct_only_fallback: effective.allow_direct_only_fallback,
+        python_lock_files: effective.python_lock_files.clone(),
     };
     let can_use_shared_discovery = effective.language_regexes.is_empty()
         && finders.iter().take(n).all(|finder| {
@@ -1333,8 +1381,13 @@ async fn run_scan(
 
     let (mut manifests_by_language, orphan_multi_lock_warnings) =
         if can_use_shared_discovery {
-            discover_manifests_one_pass(&root_path, &exclude_dirs)
-                .context("Failed during manifest discovery")?
+            discover_manifests_one_pass(
+                &root_path,
+                &exclude_dirs,
+                #[cfg(feature = "python")]
+                &effective.python_lock_files,
+            )
+            .context("Failed during manifest discovery")?
         } else {
             (std::collections::HashMap::new(), Vec::new())
         };
@@ -1357,6 +1410,26 @@ async fn run_scan(
         let language_discovery_started_at = Instant::now();
         let mut manifests = if can_use_shared_discovery {
             manifests_by_language.remove(&language).unwrap_or_default()
+        } else if language == "python" {
+            #[cfg(feature = "python")]
+            {
+                if effective.language_regexes.is_empty() {
+                    vlz_python::PythonManifestFinder::new()
+                        .with_lock_file_allowlist(
+                            effective.python_lock_files.clone(),
+                        )
+                        .find(&root_path)
+                        .await
+                        .context("Failed during manifest discovery")?
+                } else {
+                    finders[i]
+                        .find(&root_path)
+                        .await
+                        .context("Failed during manifest discovery")?
+                }
+            }
+            #[cfg(not(feature = "python"))]
+            Vec::new()
         } else {
             finders[i]
                 .find(&root_path)
@@ -2157,7 +2230,7 @@ mod tests {
         std::fs::write(root.join("requirements.txt"), "y==2.0\n").unwrap();
         let mut excludes = std::collections::HashSet::new();
         excludes.insert(".git".to_string());
-        let got = discover_manifests_one_pass(root, &excludes).unwrap();
+        let got = discover_manifests_one_pass(root, &excludes, &[]).unwrap();
         let manifests = got.0.get("python").cloned().unwrap_or_default();
         assert_eq!(manifests, vec![root.join("requirements.txt")]);
     }
@@ -2173,10 +2246,55 @@ mod tests {
             "[[packages]]\nname = \"a\"\nversion = \"1.0\"\n",
         )
         .unwrap();
-        let got =
-            discover_manifests_one_pass(root, &Default::default()).unwrap();
+        let got = discover_manifests_one_pass(root, &Default::default(), &[])
+            .unwrap();
         let manifests = got.0.get("python").cloned().unwrap_or_default();
         assert_eq!(manifests, vec![pylock]);
+    }
+
+    #[cfg(feature = "python")]
+    #[test]
+    fn discover_manifests_one_pass_lock_allowlist_filters_orphans() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(
+            root.join("pylock.toml"),
+            "[[packages]]\nname = \"a\"\nversion = \"1.0\"\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("poetry.lock"),
+            "[[package]]\nname = \"b\"\nversion = \"2.0\"\n",
+        )
+        .unwrap();
+        let got = discover_manifests_one_pass(
+            root,
+            &Default::default(),
+            &["poetry.lock".to_string()],
+        )
+        .unwrap();
+        let manifests = got.0.get("python").cloned().unwrap_or_default();
+        assert_eq!(manifests, vec![root.join("poetry.lock")]);
+    }
+
+    #[cfg(feature = "python")]
+    #[test]
+    fn discover_manifests_one_pass_lock_allowlist_missing_listed_lock_errors()
+    {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(
+            root.join("uv.lock"),
+            "version = 1\n\n[[package]]\nname = \"pkg\"\nversion = \"1.0\"\n",
+        )
+        .unwrap();
+        let err = discover_manifests_one_pass(
+            root,
+            &Default::default(),
+            &["poetry.lock".to_string()],
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("poetry.lock"));
     }
 
     #[test]

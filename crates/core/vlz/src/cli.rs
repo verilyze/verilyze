@@ -84,6 +84,10 @@ pub enum Commands {
         #[arg(long, value_name = "DIR")]
         scan_exclude_dir: Vec<String>,
 
+        /// Only discover/merge listed Python lock file basenames (repeatable)
+        #[arg(long = "lock-file", value_name = "PATH")]
+        lock_file: Vec<String>,
+
         /// Default TTL in seconds for new cache entries (default: 432000 = 5 days).
         /// Does not change existing entries; use `vlz db set-ttl` to update those.
         #[arg(long, value_name = "SECS")]
