@@ -171,6 +171,23 @@ if ! grep -q 'sync-obs-project-meta.sh' "${RELEASE_WORKFLOW}"; then
   echo "ERROR: release workflow must invoke sync-obs-project-meta.sh" >&2
   exit 1
 fi
+OBS_META_SYNC_WORKFLOW="${ROOT_DIR}/.github/workflows/obs-meta-sync.yml"
+if [[ ! -f "${OBS_META_SYNC_WORKFLOW}" ]]; then
+  echo "ERROR: missing OBS meta sync workflow: ${OBS_META_SYNC_WORKFLOW}" >&2
+  exit 1
+fi
+if ! grep -q 'sync-obs-project-meta.sh' "${OBS_META_SYNC_WORKFLOW}"; then
+  echo "ERROR: obs-meta-sync workflow must invoke sync-obs-project-meta.sh" >&2
+  exit 1
+fi
+if ! grep -q 'packaging/obs/\*\*/_meta' "${OBS_META_SYNC_WORKFLOW}"; then
+  echo "ERROR: obs-meta-sync workflow must trigger on packaging/obs _meta paths" >&2
+  exit 1
+fi
+if ! grep -q 'package meta pushed' "${SYNC_META_SCRIPT}"; then
+  echo "ERROR: sync script must push package _meta to OBS" >&2
+  exit 1
+fi
 
 publish_obs_start="$(grep -n '^  publish-obs:' "${RELEASE_WORKFLOW}" | cut -d: -f1)"
 wait_obs_start="$(grep -n '^  wait-obs-builds:' "${RELEASE_WORKFLOW}" | cut -d: -f1)"
