@@ -17,6 +17,7 @@ crates/**/target/
 .tmp-empty-xdg
 .cursor/.agent-edited-paths
 .cursor/.agent-turn-paths
+**/vendor.tar.zst
 
 # super-linter local artifacts (SAVE_SUPER_LINTER_*)
 /super-linter.log
