@@ -8,6 +8,8 @@
 
 from pathlib import Path
 
+from tests.scripts.repo_root import repo_root
+
 
 def _extract_prerequisite_block(makefile_text: str, target: str) -> str:
     """Join prerequisite lines for target (handles backslash continuations)."""
@@ -42,12 +44,8 @@ def _extract_prerequisite_block(makefile_text: str, target: str) -> str:
     return " ".join(s.strip() for s in chunk)
 
 
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parent.parent.parent
-
-
 def test_check_target_includes_deny_check() -> None:
-    text = (_repo_root() / "Makefile").read_text(encoding="utf-8")
+    text = (repo_root() / "Makefile").read_text(encoding="utf-8")
     block = _extract_prerequisite_block(text, "check")
     assert "deny-check" in block.split(), (
         "make check must depend on deny-check (cargo deny check)"
@@ -55,7 +53,7 @@ def test_check_target_includes_deny_check() -> None:
 
 
 def test_check_fast_target_includes_deny_check() -> None:
-    text = (_repo_root() / "Makefile").read_text(encoding="utf-8")
+    text = (repo_root() / "Makefile").read_text(encoding="utf-8")
     block = _extract_prerequisite_block(text, "check-fast")
     tokens = block.replace("\\", " ").split()
     assert "deny-check" in tokens, (

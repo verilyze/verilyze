@@ -13,12 +13,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from tests.scripts.repo_root import repo_root
+
 # Load generate_config_example module
-_script_path = (
-    Path(__file__).resolve().parent.parent.parent
-    / "scripts"
-    / "generate_config_example.py"
-)
+_script_path = repo_root() / "scripts" / "generate_config_example.py"
 _spec = importlib.util.spec_from_file_location(
     "generate_config_example", _script_path
 )
@@ -742,11 +740,7 @@ def test_main_module_entry_point_exits_zero() -> None:
     with patch.object(sys, "argv", ["generate_config_example.py", "--check"]):
         with pytest.raises(SystemExit) as exc_info:
             runpy.run_path(
-                str(
-                    Path(__file__).resolve().parent.parent.parent
-                    / "scripts"
-                    / "generate_config_example.py"
-                ),
+                str(repo_root() / "scripts" / "generate_config_example.py"),
                 run_name="__main__",
             )
     assert exc_info.value.code == 0

@@ -7,7 +7,9 @@
 import re
 from pathlib import Path
 
-_ROOT = Path(__file__).resolve().parent.parent.parent
+from tests.scripts.repo_root import repo_root
+
+_ROOT = repo_root()
 
 
 def test_requirements_reuse_txt_has_reuse_with_hashes() -> None:

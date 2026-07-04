@@ -6,7 +6,9 @@
 
 from pathlib import Path
 
-_ROOT = Path(__file__).resolve().parent.parent.parent
+from tests.scripts.repo_root import repo_root
+
+_ROOT = repo_root()
 _CI = _ROOT / ".github" / "workflows" / "ci.yml"
 _CODEQL = _ROOT / ".github" / "workflows" / "codeql.yml"
 _SCORECARD_PR = _ROOT / ".github" / "workflows" / "scorecard-pr.yml"

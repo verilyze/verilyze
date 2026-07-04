@@ -568,6 +568,7 @@ clean:
 	@find $(MKFILE_DIR) -type d -name "__pycache__" -exec rm -rf {} +
 	@find $(MKFILE_DIR) -maxdepth 1 -type d -name "*.egg-info" -exec rm -rf {} +
 	@rm -rfv $(MKFILE_DIR)/reports/ $(MKFILE_DIR)/.cache
+	@if [ -n "$(MKFILE_DIR)" ]; then rm -rf "$(MKFILE_DIR)/target/pytest-obs-work"; fi
 	@rm -rfv $(RPM_TOPDIR)/BUILD $(RPM_TOPDIR)/BUILDROOT \
 	         $(RPM_TOPDIR)/RPMS $(RPM_TOPDIR)/SRPMS \
 	         $(RPM_TOPDIR)/SOURCES/*.tar.gz

@@ -15,7 +15,9 @@ import pytest
 
 from tests.scripts.workspace_helpers import obs_enabled_build_repositories
 
-_ROOT = Path(__file__).resolve().parent.parent.parent
+from tests.scripts.repo_root import repo_root
+
+_ROOT = repo_root()
 _WAIT_SCRIPT = _ROOT / "scripts" / "obs-wait-for-builds.sh"
 _STATUS_MODULE = _ROOT / "scripts" / "obs_wait_build_status.py"
 

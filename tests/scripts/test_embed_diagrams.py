@@ -13,8 +13,10 @@ from unittest.mock import patch
 
 import pytest
 
+from tests.scripts.repo_root import repo_root
+
 # Load embed-diagrams module (filename has hyphen, not valid Python identifier)
-_embed_diagrams_path = Path(__file__).resolve().parent.parent.parent / "scripts" / "embed-diagrams.py"
+_embed_diagrams_path = repo_root() / "scripts" / "embed-diagrams.py"
 _spec = importlib.util.spec_from_file_location("embed_diagrams", _embed_diagrams_path)
 embed_diagrams = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(embed_diagrams)  # type: ignore[union-attr]

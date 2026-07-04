@@ -5,15 +5,12 @@
 """Native super-linter parity gate (subprocess smoke test)."""
 
 import subprocess
-from pathlib import Path
 
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parent.parent.parent
+from tests.scripts.repo_root import repo_root
 
 
 def test_check_super_linter_native_make_target_passes() -> None:
-    root = _repo_root()
+    root = repo_root()
     subprocess.run(
         ["make", "-f", str(root / "Makefile"), "check-super-linter-native"],
         check=True,

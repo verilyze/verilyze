@@ -16,7 +16,9 @@ import pytest
 
 from scripts import render_obs_changes
 
-_ROOT = Path(__file__).resolve().parent.parent.parent
+from tests.scripts.repo_root import repo_root
+
+_ROOT = repo_root()
 _RENDER_SCRIPT = _ROOT / "scripts" / "render_obs_changes.py"
 _ENV_FILE = _ROOT / "packaging" / "obs" / "obs-project.env"
 

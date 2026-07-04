@@ -13,11 +13,9 @@ from unittest.mock import patch
 
 import pytest
 
-_script_path = (
-    Path(__file__).resolve().parent.parent.parent
-    / "scripts"
-    / "cobertura_line_badge_svg.py"
-)
+from tests.scripts.repo_root import repo_root
+
+_script_path = repo_root() / "scripts" / "cobertura_line_badge_svg.py"
 _spec = importlib.util.spec_from_file_location(
     "cobertura_line_badge_svg", _script_path
 )

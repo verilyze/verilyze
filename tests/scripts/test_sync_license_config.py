@@ -13,12 +13,10 @@ from unittest.mock import patch
 
 import pytest
 
+from tests.scripts.repo_root import repo_root
+
 # Load sync_license_config module (may not exist yet during TDD)
-_script_path = (
-    Path(__file__).resolve().parent.parent.parent
-    / "scripts"
-    / "sync_license_config.py"
-)
+_script_path = repo_root() / "scripts" / "sync_license_config.py"
 
 
 def _load_module():

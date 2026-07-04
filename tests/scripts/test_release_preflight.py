@@ -12,7 +12,9 @@ import pytest
 
 from tests.scripts.obs_signing_fixture import obs_signing_env
 
-_ROOT = Path(__file__).resolve().parent.parent.parent
+from tests.scripts.repo_root import repo_root
+
+_ROOT = repo_root()
 _SCRIPT = _ROOT / "scripts" / "release-preflight.sh"
 _CHANGELOG = _ROOT / "CHANGELOG.md"
 _CARGO = _ROOT / "Cargo.toml"

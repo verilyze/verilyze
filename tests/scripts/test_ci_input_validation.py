@@ -11,7 +11,9 @@ from pathlib import Path
 
 import pytest
 
-_ROOT = Path(__file__).resolve().parent.parent.parent
+from tests.scripts.repo_root import repo_root
+
+_ROOT = repo_root()
 _CHECK_DCO = _ROOT / "scripts" / "check-dco.sh"
 _CHECK_SIG = _ROOT / "scripts" / "check-signatures.sh"
 _EXTRACT_CL = _ROOT / "scripts" / "extract-changelog-for-release.sh"

@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import pytest
 
+from tests.scripts.repo_root import repo_root
 from scripts.check_header_duplicates import (
     extract_copyright_identifiers,
     get_files_with_duplicates,
@@ -340,8 +341,7 @@ class TestMainModule:
         """Running as __main__ invokes main() and exits with its return code."""
         import runpy
 
-        repo_root = Path(__file__).resolve().parent.parent.parent
-        script = repo_root / "scripts" / "check_header_duplicates.py"
+        script = repo_root() / "scripts" / "check_header_duplicates.py"
         try:
             runpy.run_path(str(script), run_name="__main__")
         except SystemExit as e:

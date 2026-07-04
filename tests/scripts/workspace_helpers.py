@@ -7,15 +7,73 @@
 import re
 import shutil
 import tomllib
+import os
 from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+from tests.scripts.repo_root import repo_root
+
+_REPO_ROOT = repo_root()
 _OBS_ENV = _REPO_ROOT / "packaging" / "obs" / "obs-project.env"
+_PYTEST_OBS_WORK_ROOT = _REPO_ROOT / "target" / "pytest-obs-work"
 _CHANGES_HEADER_VERSION_RE = re.compile(r" - (\d+\.\d+\.\d+)\s*$")
+_PYTEST_XDIST_WORKER_ENV = "PYTEST_XDIST_WORKER"
 
 
-def repo_root() -> Path:
-    return _REPO_ROOT
+def _pytest_worker_segment() -> str:
+    """Isolate OBS work dirs per pytest-xdist worker when parallelized."""
+    worker = os.environ.get(_PYTEST_XDIST_WORKER_ENV, "")
+    if not worker or worker == "master":
+        return "master"
+    safe_worker = re.sub(r"[^\w.-]+", "_", worker).strip("_")
+    return safe_worker or "worker"
+
+
+def pytest_obs_work_root() -> Path:
+    return _PYTEST_OBS_WORK_ROOT
+
+
+def _resolved_under_pytest_obs_work(path: Path) -> Path:
+    resolved = path.resolve()
+    root = _PYTEST_OBS_WORK_ROOT.resolve()
+    if resolved == root:
+        raise ValueError(
+            f"path must be a subdirectory of {root}, not the root itself: {path}"
+        )
+    try:
+        resolved.relative_to(root)
+    except ValueError as exc:
+        raise ValueError(f"path is outside {root}: {path}") from exc
+    return resolved
+
+
+def safe_rmtree_obs_work(path: Path) -> None:
+    """Remove a per-test OBS work directory under ``target/pytest-obs-work/``."""
+    if not str(path).strip():
+        raise ValueError("path must be non-empty")
+    if path.is_symlink():
+        raise ValueError(f"path must not be a symlink: {path}")
+    resolved = _resolved_under_pytest_obs_work(path)
+    forbidden = {
+        _REPO_ROOT.resolve(),
+        (_REPO_ROOT / "target").resolve(),
+        _PYTEST_OBS_WORK_ROOT.resolve(),
+    }
+    if resolved in forbidden:
+        raise ValueError(f"refusing to remove forbidden path: {path}")
+    if resolved.exists():
+        shutil.rmtree(resolved)
+
+
+def safe_rmtree_pytest_obs_work_root(path: Path | None = None) -> None:
+    """Remove the entire ``target/pytest-obs-work/`` tree."""
+    root = _PYTEST_OBS_WORK_ROOT.resolve()
+    target = (path or _PYTEST_OBS_WORK_ROOT).resolve()
+    if (path or _PYTEST_OBS_WORK_ROOT).is_symlink():
+        raise ValueError(f"path must not be a symlink: {path or _PYTEST_OBS_WORK_ROOT}")
+    if target != root:
+        raise ValueError(f"path must be the exact pytest obs work root: {root}")
+    if target.exists():
+        shutil.rmtree(target)
 
 
 def workspace_semver(cargo_toml: Path | None = None) -> str:
@@ -74,8 +132,9 @@ def obs_dry_run_work_dir(test_key: str) -> Path:
     ``tmp_path`` (often ``/tmp``) so vendoring is less likely to hit disk quotas.
     """
     safe_key = re.sub(r"[^\w.-]+", "_", test_key).strip("_") or "obs-work"
-    work = _REPO_ROOT / "target" / "pytest-obs-work" / safe_key
+    worker = _pytest_worker_segment()
+    work = _PYTEST_OBS_WORK_ROOT / worker / safe_key
     if work.exists():
-        shutil.rmtree(work)
+        safe_rmtree_obs_work(work)
     work.mkdir(parents=True)
     return work

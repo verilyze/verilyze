@@ -16,7 +16,8 @@ from scripts.obs_upload_verify import (
     verify_obs_upload_checksums,
     verify_vendor_lockfile_matches_git_ref,
 )
-from tests.scripts.workspace_helpers import repo_root
+from tests.scripts.repo_root import repo_root
+from tests.scripts.workspace_helpers import workspace_semver
 
 _ROOT = repo_root()
 _VENDOR_ARCHIVE = "vendor.tar.zst"
@@ -160,12 +161,13 @@ def test_verify_obs_upload_checksums_rejects_meta_mismatch(tmp_path: Path) -> No
         )
 
 
-def test_dry_run_vendor_lockfile_matches_repo_head() -> None:
+def test_dry_run_vendor_lockfile_matches_repo_head(
+    obs_dry_run_work_dir: Path,
+) -> None:
     """Integration: upload script vendor archive matches HEAD Cargo.lock."""
     from tests.scripts.test_obs_upload_release_sources import _run_script
-    from tests.scripts.workspace_helpers import obs_dry_run_work_dir, workspace_semver
 
-    work_dir = obs_dry_run_work_dir("dry_run_vendor_lockfile_matches_repo_head")
+    work_dir = obs_dry_run_work_dir
     proc = _run_script(
         [
             str(_ROOT / "scripts" / "obs-upload-release-sources.sh"),
