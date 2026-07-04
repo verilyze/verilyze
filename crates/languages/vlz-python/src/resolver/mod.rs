@@ -21,7 +21,7 @@ use std::sync::Mutex;
 use async_trait::async_trait;
 use vlz_manifest_parser::{
     DependencyGraph, ParserError, ResolutionDepth, ResolveContext,
-    ResolveResult, Resolver, ResolverError,
+    ResolveResult, Resolver, ResolverError, skip_package_manager_reason,
 };
 
 use crate::lock_names::manifest_is_lock_file;
@@ -42,19 +42,13 @@ use pip_version::pip_supports_lock;
 /// FR-022 exit-2 message (exact PRD string, NFR-024).
 pub const FR_022_TRANSITIVE_ERROR_MESSAGE: &str = "Unable to detect transitive dependencies. Try installing the package manager or generate a lock file before running vlz.";
 
-/// Direct-only reason when `--offline` is active (FR-022a).
-pub const DIRECT_ONLY_REASON_OFFLINE: &str = "offline mode";
-
-/// Direct-only reason when `--benchmark` is active (FR-022a).
-pub const DIRECT_ONLY_REASON_BENCHMARK: &str = "benchmark mode";
+pub use vlz_manifest_parser::{
+    DIRECT_ONLY_REASON_OFFLINE, DIRECT_ONLY_REASON_UNAVAILABLE,
+};
 
 /// Direct-only reason when executable resolution is disabled (SEC-023).
 pub const DIRECT_ONLY_REASON_EXEC_DISABLED: &str =
     "executable dependency resolution is disabled";
-
-/// Direct-only reason when pip is unavailable for local project manifests.
-pub const DIRECT_ONLY_REASON_UNAVAILABLE: &str =
-    "transitive resolution unavailable";
 
 /// Direct-only reason when `allow_direct_only_fallback` is enabled (FR-022a).
 pub const DIRECT_ONLY_REASON_FALLBACK_ON_FAILURE: &str =
@@ -157,17 +151,6 @@ impl DirectOnlyResolver {
             .map_err(Self::lock_parse_to_resolve_err)
     }
 
-    fn skip_pip_reason(ctx: &ResolveContext) -> Option<&'static str> {
-        if !ctx.skip_pip_resolution {
-            return None;
-        }
-        if ctx.benchmark_mode {
-            Some(DIRECT_ONLY_REASON_BENCHMARK)
-        } else {
-            Some(DIRECT_ONLY_REASON_OFFLINE)
-        }
-    }
-
     async fn try_pip_lock_cached(
         &self,
         manifest_path: &Path,
@@ -248,7 +231,7 @@ impl DirectOnlyResolver {
             return Err(Self::fr022_transitive_error());
         }
 
-        let reason = if let Some(r) = Self::skip_pip_reason(ctx) {
+        let reason = if let Some(r) = skip_package_manager_reason(ctx) {
             r
         } else if !ctx.allow_dependency_code_execution {
             DIRECT_ONLY_REASON_EXEC_DISABLED
@@ -561,7 +544,7 @@ mod tests {
         assert_eq!(result.depth, ResolutionDepth::DirectOnly);
         assert_eq!(
             result.direct_only_reason,
-            Some(DIRECT_ONLY_REASON_BENCHMARK)
+            Some(vlz_manifest_parser::DIRECT_ONLY_REASON_BENCHMARK)
         );
     }
 

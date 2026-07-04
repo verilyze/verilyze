@@ -8,8 +8,9 @@ use std::sync::Mutex;
 
 use async_trait::async_trait;
 use vlz_manifest_parser::{
-    DependencyGraph, ResolutionDepth, ResolveContext, ResolveResult, Resolver,
-    ResolverError,
+    DIRECT_ONLY_REASON_UNAVAILABLE, DependencyGraph, ResolutionDepth,
+    ResolveContext, ResolveResult, Resolver, ResolverError,
+    direct_only_result, skip_package_manager_reason,
 };
 
 use crate::parser::GO_ECOSYSTEM;
@@ -95,8 +96,12 @@ impl Resolver for GoResolver {
     async fn resolve(
         &self,
         graph: &DependencyGraph,
-        _ctx: &ResolveContext,
+        ctx: &ResolveContext,
     ) -> Result<ResolveResult, ResolverError> {
+        if let Some(reason) = skip_package_manager_reason(ctx) {
+            return Ok(direct_only_result(graph.packages.clone(), reason));
+        }
+
         if let Some(ref manifest_path) = graph.manifest_path {
             let dir = find_go_mod_dir(manifest_path);
             if let Some(ref work_dir) = dir {
@@ -146,12 +151,10 @@ impl Resolver for GoResolver {
                 }
             }
         }
-        Ok(ResolveResult {
-            packages: graph.packages.clone(),
-            depth: ResolutionDepth::DirectOnly,
-            direct_only_reason: None,
-            ..Default::default()
-        })
+        Ok(direct_only_result(
+            graph.packages.clone(),
+            DIRECT_ONLY_REASON_UNAVAILABLE,
+        ))
     }
 
     fn package_manager_available(&self) -> bool {
@@ -215,6 +218,70 @@ github.com/stretchr/testify v1.8.0
             .unwrap();
         assert_eq!(resolved.packages.len(), 1);
         assert_eq!(resolved.packages[0].name, "github.com/foo/bar");
+        assert_eq!(
+            resolved.direct_only_reason,
+            Some(vlz_manifest_parser::DIRECT_ONLY_REASON_UNAVAILABLE)
+        );
+    }
+
+    #[tokio::test]
+    async fn go_resolver_offline_skips_go_list() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::write(
+            tmp.join("go.mod"),
+            "module example.com/test\n\nrequire github.com/gin-gonic/gin v1.9.0\n",
+        )
+        .unwrap();
+
+        let graph = DependencyGraph {
+            packages: vec![vlz_db::Package {
+                name: "github.com/gin-gonic/gin".to_string(),
+                version: "v1.9.0".to_string(),
+                ecosystem: Some(GO_ECOSYSTEM.to_string()),
+            }],
+            manifest_path: Some(tmp.join("go.mod")),
+        };
+        let resolver = GoResolver::new();
+        let ctx = vlz_manifest_parser::ResolveContext {
+            skip_pip_resolution: true,
+            benchmark_mode: false,
+            ..Default::default()
+        };
+        let resolved = resolver.resolve(&graph, &ctx).await.unwrap();
+        assert_eq!(resolved.packages.len(), 1);
+        assert_eq!(
+            resolved.direct_only_reason,
+            Some(vlz_manifest_parser::DIRECT_ONLY_REASON_OFFLINE)
+        );
+    }
+
+    #[tokio::test]
+    async fn go_resolver_benchmark_skips_go_list() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::write(tmp.join("go.mod"), "module example.com/test\n")
+            .unwrap();
+
+        let graph = DependencyGraph {
+            packages: vec![vlz_db::Package {
+                name: "github.com/gin-gonic/gin".to_string(),
+                version: "v1.9.0".to_string(),
+                ecosystem: Some(GO_ECOSYSTEM.to_string()),
+            }],
+            manifest_path: Some(tmp.join("go.mod")),
+        };
+        let resolver = GoResolver::new();
+        let ctx = vlz_manifest_parser::ResolveContext {
+            skip_pip_resolution: true,
+            benchmark_mode: true,
+            ..Default::default()
+        };
+        let resolved = resolver.resolve(&graph, &ctx).await.unwrap();
+        assert_eq!(
+            resolved.direct_only_reason,
+            Some(vlz_manifest_parser::DIRECT_ONLY_REASON_BENCHMARK)
+        );
     }
 
     #[tokio::test]

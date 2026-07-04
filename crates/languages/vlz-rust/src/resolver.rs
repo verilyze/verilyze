@@ -8,8 +8,9 @@ use std::sync::Mutex;
 
 use async_trait::async_trait;
 use vlz_manifest_parser::{
-    DependencyGraph, ResolutionDepth, ResolveContext, ResolveResult, Resolver,
-    ResolverError,
+    DIRECT_ONLY_REASON_UNAVAILABLE, DependencyGraph, ResolutionDepth,
+    ResolveContext, ResolveResult, Resolver, ResolverError,
+    direct_only_result, skip_package_manager_reason,
 };
 
 /// Find Cargo.lock next to the manifest or in parent dirs (workspace root).
@@ -109,7 +110,7 @@ impl Resolver for CargoResolver {
     async fn resolve(
         &self,
         graph: &DependencyGraph,
-        _ctx: &ResolveContext,
+        ctx: &ResolveContext,
     ) -> Result<ResolveResult, ResolverError> {
         if let Some(ref manifest_path) = graph.manifest_path
             && let Some(lock_path) = find_lock_file(manifest_path)
@@ -141,12 +142,15 @@ impl Resolver for CargoResolver {
                 });
             }
         }
-        Ok(ResolveResult {
-            packages: graph.packages.clone(),
-            depth: ResolutionDepth::DirectOnly,
-            direct_only_reason: None,
-            ..Default::default()
-        })
+
+        if let Some(reason) = skip_package_manager_reason(ctx) {
+            return Ok(direct_only_result(graph.packages.clone(), reason));
+        }
+
+        Ok(direct_only_result(
+            graph.packages.clone(),
+            DIRECT_ONLY_REASON_UNAVAILABLE,
+        ))
     }
 
     fn package_manager_available(&self) -> bool {
@@ -161,6 +165,14 @@ impl Resolver for CargoResolver {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Avoid picking up the workspace `Cargo.lock` when `TMPDIR` is under the repo.
+    fn isolated_tempdir() -> tempfile::TempDir {
+        tempfile::Builder::new()
+            .prefix("vlz-rust-resolver-test-")
+            .tempdir_in("/tmp")
+            .unwrap()
+    }
 
     #[test]
     fn find_lock_file_same_dir() {
@@ -228,6 +240,119 @@ version = "1.0"
         let resolved = resolver.resolve(&graph, &ctx).await.unwrap();
         assert_eq!(resolved.packages.len(), 1);
         assert_eq!(resolved.packages[0].name, "serde");
+        assert_eq!(
+            resolved.depth,
+            vlz_manifest_parser::ResolutionDepth::DirectOnly
+        );
+        assert_eq!(
+            resolved.direct_only_reason,
+            Some(vlz_manifest_parser::DIRECT_ONLY_REASON_UNAVAILABLE)
+        );
+    }
+
+    #[tokio::test]
+    async fn cargo_resolver_offline_without_lock_sets_offline_reason() {
+        let dir = isolated_tempdir();
+        let tmp = dir.path();
+        std::fs::write(
+            tmp.join("Cargo.toml"),
+            r#"[package]
+name = "test"
+version = "0.1.0"
+
+[dependencies]
+serde = "1.0"
+"#,
+        )
+        .unwrap();
+
+        let graph = DependencyGraph {
+            packages: vec![vlz_db::Package {
+                name: "serde".to_string(),
+                version: "1.0".to_string(),
+                ecosystem: Some("crates.io".to_string()),
+            }],
+            manifest_path: Some(tmp.join("Cargo.toml")),
+        };
+        let resolver = CargoResolver::new();
+        let ctx = vlz_manifest_parser::ResolveContext {
+            skip_pip_resolution: true,
+            benchmark_mode: false,
+            ..Default::default()
+        };
+        let resolved = resolver.resolve(&graph, &ctx).await.unwrap();
+        assert_eq!(resolved.packages.len(), 1);
+        assert_eq!(
+            resolved.direct_only_reason,
+            Some(vlz_manifest_parser::DIRECT_ONLY_REASON_OFFLINE)
+        );
+    }
+
+    #[tokio::test]
+    async fn cargo_resolver_offline_with_lock_stays_transitive() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::write(tmp.join("Cargo.toml"), "[package]\nname = \"test\"\n")
+            .unwrap();
+        std::fs::write(
+            tmp.join("Cargo.lock"),
+            r#"version = 3
+
+[[package]]
+name = "serde"
+version = "1.0.2"
+"#,
+        )
+        .unwrap();
+
+        let graph = DependencyGraph {
+            packages: vec![vlz_db::Package {
+                name: "serde".to_string(),
+                version: "1.0".to_string(),
+                ecosystem: Some("crates.io".to_string()),
+            }],
+            manifest_path: Some(tmp.join("Cargo.toml")),
+        };
+        let resolver = CargoResolver::new();
+        let ctx = vlz_manifest_parser::ResolveContext {
+            skip_pip_resolution: true,
+            ..Default::default()
+        };
+        let resolved = resolver.resolve(&graph, &ctx).await.unwrap();
+        assert_eq!(
+            resolved.depth,
+            vlz_manifest_parser::ResolutionDepth::Transitive
+        );
+        assert_eq!(resolved.direct_only_reason, None);
+        assert_eq!(resolved.packages.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn cargo_resolver_benchmark_without_lock_sets_benchmark_reason() {
+        let dir = isolated_tempdir();
+        let tmp = dir.path();
+        std::fs::write(tmp.join("Cargo.toml"), "[package]\nname = \"test\"\n")
+            .unwrap();
+
+        let graph = DependencyGraph {
+            packages: vec![vlz_db::Package {
+                name: "serde".to_string(),
+                version: "1.0".to_string(),
+                ecosystem: Some("crates.io".to_string()),
+            }],
+            manifest_path: Some(tmp.join("Cargo.toml")),
+        };
+        let resolver = CargoResolver::new();
+        let ctx = vlz_manifest_parser::ResolveContext {
+            skip_pip_resolution: true,
+            benchmark_mode: true,
+            ..Default::default()
+        };
+        let resolved = resolver.resolve(&graph, &ctx).await.unwrap();
+        assert_eq!(
+            resolved.direct_only_reason,
+            Some(vlz_manifest_parser::DIRECT_ONLY_REASON_BENCHMARK)
+        );
     }
 
     #[tokio::test]
@@ -273,6 +398,11 @@ version = "1.0.2"
         let ctx = vlz_manifest_parser::ResolveContext::default();
         let resolved = resolver.resolve(&graph, &ctx).await.unwrap();
         assert_eq!(resolved.packages.len(), 2);
+        assert_eq!(
+            resolved.depth,
+            vlz_manifest_parser::ResolutionDepth::Transitive
+        );
+        assert_eq!(resolved.direct_only_reason, None);
         assert!(
             resolved
                 .packages
@@ -303,6 +433,10 @@ version = "1.0.2"
         let resolved = resolver.resolve(&graph, &ctx).await.unwrap();
         assert_eq!(resolved.packages.len(), 1);
         assert_eq!(resolved.packages[0].name, "serde");
+        assert_eq!(
+            resolved.direct_only_reason,
+            Some(vlz_manifest_parser::DIRECT_ONLY_REASON_UNAVAILABLE)
+        );
     }
 
     #[test]

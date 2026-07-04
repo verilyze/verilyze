@@ -90,6 +90,43 @@ pub const DIRECT_ONLY_WARNING_REMEDIATION: &str =
 /// Documentation pointer appended to every direct-only warning (NFR-024).
 pub const DIRECT_ONLY_WARNING_DOC_HINT: &str = "See `man vlz` or docs/FAQ.md.";
 
+/// Direct-only reason when `--offline` is active (FR-022a).
+pub const DIRECT_ONLY_REASON_OFFLINE: &str = "offline mode";
+
+/// Direct-only reason when `--benchmark` is active (FR-022a).
+pub const DIRECT_ONLY_REASON_BENCHMARK: &str = "benchmark mode";
+
+/// Direct-only reason when transitive resolution could not be performed.
+pub const DIRECT_ONLY_REASON_UNAVAILABLE: &str =
+    "transitive resolution unavailable";
+
+/// FR-022a reason when `--offline` or `--benchmark` skips package-manager resolution.
+pub fn skip_package_manager_reason(
+    ctx: &ResolveContext,
+) -> Option<&'static str> {
+    if !ctx.skip_pip_resolution {
+        return None;
+    }
+    if ctx.benchmark_mode {
+        Some(DIRECT_ONLY_REASON_BENCHMARK)
+    } else {
+        Some(DIRECT_ONLY_REASON_OFFLINE)
+    }
+}
+
+/// Build a direct-only `ResolveResult` with FR-022a metadata.
+pub fn direct_only_result(
+    packages: Vec<vlz_db::Package>,
+    reason: &'static str,
+) -> ResolveResult {
+    ResolveResult {
+        packages,
+        depth: ResolutionDepth::DirectOnly,
+        direct_only_reason: Some(reason),
+        ..Default::default()
+    }
+}
+
 /// Format an FR-022a direct-only warning for stderr (OP-018).
 pub fn format_direct_only_warning(
     manifest_display: &str,
@@ -149,4 +186,58 @@ pub trait Resolver: Send + Sync {
 
     /// OS-specific hint when the package manager is missing (FR-024).
     fn package_manager_hint(&self) -> &'static str;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn skip_package_manager_reason_offline() {
+        let ctx = ResolveContext {
+            skip_pip_resolution: true,
+            benchmark_mode: false,
+            ..Default::default()
+        };
+        assert_eq!(
+            skip_package_manager_reason(&ctx),
+            Some(DIRECT_ONLY_REASON_OFFLINE)
+        );
+    }
+
+    #[test]
+    fn skip_package_manager_reason_benchmark() {
+        let ctx = ResolveContext {
+            skip_pip_resolution: true,
+            benchmark_mode: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            skip_package_manager_reason(&ctx),
+            Some(DIRECT_ONLY_REASON_BENCHMARK)
+        );
+    }
+
+    #[test]
+    fn skip_package_manager_reason_normal_scan() {
+        let ctx = ResolveContext::default();
+        assert_eq!(skip_package_manager_reason(&ctx), None);
+    }
+
+    #[test]
+    fn direct_only_result_sets_depth_and_reason() {
+        let packages = vec![vlz_db::Package {
+            name: "foo".to_string(),
+            version: "1.0".to_string(),
+            ecosystem: None,
+        }];
+        let result =
+            direct_only_result(packages.clone(), DIRECT_ONLY_REASON_OFFLINE);
+        assert_eq!(result.packages, packages);
+        assert_eq!(result.depth, ResolutionDepth::DirectOnly);
+        assert_eq!(
+            result.direct_only_reason,
+            Some(DIRECT_ONLY_REASON_OFFLINE)
+        );
+    }
 }
