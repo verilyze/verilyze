@@ -208,6 +208,40 @@ We use [Conventional Commits](https://www.conventionalcommits.org/). Format:
 - **Subject line length:** 50 characters or less.
 - **Body:** Optional for trivial changes, but required for any non-trivial
   changes. When adding a body, wrap lines at 72 characters.
+- **Itemized bodies:** When the body lists two or more distinct changes, use
+  `-` bullets (one change per line). A single cohesive change may use one prose
+  paragraph instead. Wrap each bullet at 72 characters; continuation lines
+  indent two spaces (standard Git wrap). A short summary paragraph before the
+  list is fine when it frames the bullets. Leave a blank line between the
+  body or list and `Signed-off-by:`.
+
+  Multi-item example:
+
+  ```
+  feat: include orphan lock files in scan
+
+  - Instead of reporting 0 manifest files found, when a lock file exists
+    on its own, scan the lock file
+  - When multiple lock files exist in the same directory (edge case),
+    scan all of them and print a warning for this unexpected use case
+
+  Signed-off-by: ...
+  ```
+
+  Summary paragraph plus bullets:
+
+  ```
+  fix(ci): add native codespell gate
+
+  Catch spelling issues locally before PR via check-super-linter-native.
+
+  - Rename the typing_extensions import alias to typing_ext in tests
+  - Add scripts/check_codespell.py with .codespellrc parity
+  - Wire codespell into check-super-linter-native and dev deps
+
+  Signed-off-by: ...
+  ```
+
 - **DCO signoff:** All commits must include a `Signed-off-by` line attesting
   to the [Developer Certificate of Origin](https://developercertificate.org/).
   Use `git commit -s` to add it automatically. CI will reject PRs whose commits

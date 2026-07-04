@@ -28,6 +28,12 @@ CONTRIBUTING.md § Test scope and layering, and `.cursor/rules/testing.mdc`.
 Do not use em dashes or en dashes in code comments or documentation.
 Use `--` for em dashes and `-` for en dashes.
 
+# Commit messages
+
+Multi-item commit bodies: `-` bullets, one change per line, 72-char wrap.
+Single cohesive change: prose paragraph, no bullets.
+Full rules: CONTRIBUTING "Commit messages".
+
 # SPDX headers
 
 When adding SPDX headers manually, include a trailing blank line (not a
