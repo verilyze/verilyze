@@ -235,7 +235,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/). Format:
 
   Catch spelling issues locally before PR via check-super-linter-native.
 
-  - Rename typing_extensions alias te to typing_ext in test
+  - Rename the typing_extensions import alias to typing_ext in tests
   - Add scripts/check_codespell.py with .codespellrc parity
   - Wire codespell into check-super-linter-native and dev deps
 
