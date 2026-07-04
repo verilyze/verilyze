@@ -5,7 +5,8 @@ alwaysApply: true
 
 # Protected Files - Do Not Modify
 
-Do not delete or modify the files in the `LICENSES` directory.
+Do not delete or modify the root `LICENSE` file or any files in the
+`LICENSES` directory.
 
 # Project Guidance
 

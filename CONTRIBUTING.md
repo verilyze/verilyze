@@ -778,6 +778,10 @@ copyright and license headers. Default license and copyright are defined in
   Files matched by a `path` in `REUSE.toml` under `[[annotations]]` are not
   passed to `reuse annotate`, consistent with `reuse lint` (license for those
   paths is declared only in `REUSE.toml`).
+- **Protected files:** The root `LICENSE` file must not be modified. The
+  pre-commit hook rejects staged changes to `LICENSE`. Optional: `chmod 444
+  LICENSE` blocks accidental shell edits; use `chmod 644` before a rare
+  intentional update.
 - **Install Git hooks:** Run `make setup-hooks` or `./scripts/install-hooks.sh`
   to add pre-commit (REUSE headers), commit-msg (DCO signoff), and pre-push
   (commit signature verification) hooks. The pre-commit hook inserts headers

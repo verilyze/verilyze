@@ -8,6 +8,7 @@
 
 set -e
 cd "$(git rev-parse --show-toplevel)"
+./scripts/pre-commit-protected-files.sh
 ./scripts/pre-commit-headers.sh
 ./scripts/pre-commit-diagrams.sh
 # Auto-format Rust code; fail if formatting changed files (user must add and recommit)
