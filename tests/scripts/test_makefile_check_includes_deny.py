@@ -6,7 +6,7 @@
 
 """Contract: root Makefile check and check-fast must list deny-check (NFR-009, SEC-012)."""
 
-from pathlib import Path
+import re
 
 from tests.scripts.repo_root import repo_root
 
@@ -46,7 +46,7 @@ def _extract_prerequisite_block(makefile_text: str, target: str) -> str:
 
 def test_check_target_includes_deny_check() -> None:
     text = (repo_root() / "Makefile").read_text(encoding="utf-8")
-    block = _extract_prerequisite_block(text, "check")
+    block = _extract_prerequisite_block(text, "check-parallel")
     assert "deny-check" in block.split(), (
         "make check must depend on deny-check (cargo deny check)"
     )
@@ -54,9 +54,40 @@ def test_check_target_includes_deny_check() -> None:
 
 def test_check_fast_target_includes_deny_check() -> None:
     text = (repo_root() / "Makefile").read_text(encoding="utf-8")
-    block = _extract_prerequisite_block(text, "check-fast")
+    block = _extract_prerequisite_block(text, "check-fast-parallel")
     tokens = block.replace("\\", " ").split()
     assert "deny-check" in tokens, (
         "make check-fast must depend on deny-check (quick local gate; CI runs "
         "make -j check)"
     )
+
+
+def test_check_serializes_check_headers_before_parallel() -> None:
+    text = (repo_root() / "Makefile").read_text(encoding="utf-8")
+    assert re.search(
+        r"^check: setup\n\t@\$\(MAKE\) check-headers\n\t@\$\(MAKE\) -j check-parallel",
+        text,
+        re.MULTILINE,
+    ), (
+        "make check must run check-headers before parallel check-parallel "
+        "(reuse lint races cargo under target/)"
+    )
+    block = _extract_prerequisite_block(text, "check-parallel")
+    tokens = block.replace("\\", " ").split()
+    assert "check-headers" not in tokens
+
+
+def test_check_fast_serializes_check_headers_before_parallel() -> None:
+    text = (repo_root() / "Makefile").read_text(encoding="utf-8")
+    assert re.search(
+        r"^check-fast: setup\n\t@\$\(MAKE\) check-headers\n"
+        r"\t@\$\(MAKE\) -j check-fast-parallel",
+        text,
+        re.MULTILINE,
+    ), (
+        "make check-fast must run check-headers before parallel "
+        "check-fast-parallel (reuse lint races cargo under target/)"
+    )
+    block = _extract_prerequisite_block(text, "check-fast-parallel")
+    tokens = block.replace("\\", " ").split()
+    assert "check-headers" not in tokens

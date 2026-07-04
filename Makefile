@@ -31,7 +31,7 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: help all debug release
 .PHONY: setup setup-hooks setup-dev-tools setup-system-deps
 .PHONY: setup-cargo-deny setup-cargo-about setup-cargo-llvm-cov setup-cargo-afl
-.PHONY: check check-fast check-slow check-dco check-signatures
+.PHONY: check check-parallel check-fast check-fast-parallel check-slow check-dco check-signatures
 .PHONY: check-headers check-header-duplicates headers
 .PHONY: update-doc-diagrams check-doc-diagrams
 .PHONY: cargo-check cargo-test unit-tests test-scripts
@@ -446,9 +446,13 @@ release-notes:
 
 # ---- Check (full CI gate) ----
 # check-fast: headers, build, fmt, clippy, cargo-deny, lint (no coverage/fuzz; ~2-4 min)
-check-fast: setup \
-            check-headers \
-            check-doc-diagrams \
+# check-headers runs before -j parallel work so reuse lint does not race cargo
+# writing under target/ (REUSE.toml annotates target/fake-toolchain/**).
+check-fast: setup
+	@$(MAKE) check-headers
+	@$(MAKE) -j check-fast-parallel
+
+check-fast-parallel: check-doc-diagrams \
             check-config-docs \
             check-manpages \
             check-packaging \
@@ -466,9 +470,11 @@ check-fast: setup \
 check-slow: setup fuzz-then-coverage
 
 # check: full pre-commit/CI gate (NFR-021, NFR-022, DOC-007)
-check: setup \
-       check-headers \
-       check-doc-diagrams \
+check: setup
+	@$(MAKE) check-headers
+	@$(MAKE) -j check-parallel
+
+check-parallel: check-doc-diagrams \
        check-config-docs \
        check-manpages \
        check-packaging \
