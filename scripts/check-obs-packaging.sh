@@ -10,7 +10,6 @@ OBS_ENV="${ROOT_DIR}/packaging/obs/obs-project.env"
 PROJECT_META="${ROOT_DIR}/packaging/obs/project/_meta"
 REPOSITORIES_HELPER="${ROOT_DIR}/scripts/obs_repositories.py"
 SYNC_META_SCRIPT="${ROOT_DIR}/scripts/sync-obs-project-meta.sh"
-DEBIAN_CONTROL="${ROOT_DIR}/packaging/obs/debian/debian/control"
 VLZ_CARGO="${ROOT_DIR}/crates/core/vlz/Cargo.toml"
 OBS_SERVICE="${ROOT_DIR}/packaging/obs/_service"
 OBS_SPEC="${ROOT_DIR}/packaging/obs/rpm/verilyze.spec"
@@ -28,16 +27,6 @@ fi
 
 if ! grep -qE '^OBS_PACKAGE=.+$' "${OBS_ENV}"; then
   echo "ERROR: OBS_PACKAGE must be set in ${OBS_ENV}" >&2
-  exit 1
-fi
-
-if [[ ! -f "${DEBIAN_CONTROL}" ]]; then
-  echo "ERROR: missing Debian control file: ${DEBIAN_CONTROL}" >&2
-  exit 1
-fi
-
-if ! grep -qE '^Package:[[:space:]]+verilyze$' "${DEBIAN_CONTROL}"; then
-  echo "ERROR: Debian package name must remain verilyze." >&2
   exit 1
 fi
 

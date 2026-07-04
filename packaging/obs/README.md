@@ -9,6 +9,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
 This directory contains canonical packaging metadata for builds on
 build.opensuse.org (OBS).
 
+**Scope:** public OBS builds are **RPM-only** (Fedora, openSUSE, SLE). Debian
+and Ubuntu `.deb` packages are published from GitHub Releases via the
+`build-deb` job in [`.github/workflows/release.yml`](../../.github/workflows/release.yml)
+(`cargo-deb` / `make deb`), not from OBS. OBS Debian build VMs have no network
+and distro `rustc` is too old for this workspace; there is no maintained OBS
+Rust toolchain for Debian/Ubuntu targets.
+
 ## Public OBS: upload-driven releases
 
 `build.opensuse.org` does **not** provide the `cargo_vendor` or `tar` source
@@ -142,10 +149,6 @@ Do not edit project repositories in the OBS web UI as the primary workflow.
   - `verilyze.spec` for RPM targets (Fedora, RHEL, Rocky, openSUSE, SLE)
   - `verilyze.changes` seed history for first upload when OBS has no
     `.changes` file yet
-- `packaging/obs/debian`
-  - `_service` symlink to `../_service`
-  - `_meta` for OBS package metadata
-  - `debian/` canonical Debian packaging metadata for Debian and Ubuntu
 
 ## Vendor archive layout
 
@@ -155,8 +158,8 @@ GitHub Actions runs `cargo vendor` and packs `vendor.tar.zst` with:
 - `vendor/`
 - `Cargo.lock`
 
-The RPM spec and Debian `debian/rules` extract `vendor.tar.zst` atop the unpacked
-upstream tree, then run `cargo build --release --locked --offline`.
+The RPM spec extracts `vendor.tar.zst` atop the unpacked upstream tree, then
+runs `cargo build --release --locked --offline`.
 
 Because `vendor.tar.zst` keeps a fixed filename on OBS (unlike the versioned
 upstream tarball), release upload verifies it in two layers:
@@ -172,7 +175,7 @@ Checksum verification closes the packaging handoff gap (stale or mismatched
 vendor bytes on OBS). It does not replace dependency policy checks (`cargo deny`,
 committed `Cargo.lock` curation in CI). Signing `vendor.tar.zst` before upload is
 not used: OBS does not validate maintainer signatures on source files; published
-RPM/DEB trust is covered by OBS repository signing (below).
+RPM trust is covered by OBS repository signing (below).
 
 ## Signing policy and verification
 
@@ -193,13 +196,12 @@ process.
 
 Suggested user verification:
 
-- RPM ecosystems:
+- RPM ecosystems (OBS-published):
   - Import project key from OBS (`osc signkey <OBS_PROJECT> | rpm --import -`)
   - Verify package signature (`rpm --checksig <package.rpm>`)
-- Debian/Ubuntu ecosystems:
-  - Add the OBS project key to an apt keyring and use `signed-by=...` in the
-    source list entry.
-  - Verify repository metadata signatures during `apt update`.
+- Debian/Ubuntu (GitHub Release `.deb` or future apt repos):
+  - Verify artifact checksums from the release page, or use distro packaging
+    tools when installing locally built packages (`make deb`).
 
 Key rotation and expiration:
 
@@ -235,16 +237,16 @@ Use:
 Reassess this approach after 2-3 release cycles. If maintenance cost
 remains high, evaluate moving to an explicit generator-first option workflow.
 
-## cargo-deb convenience path
+## Debian and Ubuntu (`.deb`)
 
-`cargo-deb` remains available for local convenience artifacts (`make deb`), but
-canonical distro Debian metadata for OBS is under
-`packaging/obs/debian/debian`.
+Release `.deb` artifacts come from GitHub Actions (`build-deb` in
+`release.yml`), not from OBS. `cargo-deb` (`make deb`) is the supported local
+build path; metadata lives in `[package.metadata.deb]` in
+`crates/core/vlz/Cargo.toml`.
 
 `make check-obs-packaging` validates:
 
 - OBS coordinates are present in `obs-project.env`
-- Debian package name remains `verilyze`
 - `cargo-deb` metadata block remains present in `crates/core/vlz/Cargo.toml`
 - OBS RPM spec uses offline cargo with `vendor.tar.zst`
 - OBS RPM spec keeps an empty `%changelog` section (history lives in

@@ -198,12 +198,12 @@ sudo zypper in packaging/rpm/RPMS/*/verilyze-*.rpm
 
 Use `ls packaging/rpm/RPMS/*/` to pick the exact file name.
 
-### OBS packaging (RPM and Debian families)
+### OBS packaging (RPM)
 
-Canonical OBS packaging metadata lives under `packaging/obs/`:
-
-- `packaging/obs/rpm` for RPM builds (Fedora, RHEL, Rocky, openSUSE, SLE)
-- `packaging/obs/debian` for Debian builds (Debian, Ubuntu)
+Canonical OBS packaging metadata lives under `packaging/obs/rpm` for RPM
+builds (Fedora, openSUSE, SLE). Public OBS does not build Debian or Ubuntu
+packages; release `.deb` files come from the GitHub Actions `build-deb` job
+(see `.github/workflows/release.yml`).
 
 The OBS project/package coordinates are defined in one file:
 `packaging/obs/obs-project.env`.
@@ -213,8 +213,8 @@ sources to OBS and triggers a rebuild for the configured project/package.
 Set repository secrets `OBS_USER`, `OBS_PASSWORD`, and `OBS_TOKEN_REBUILD`.
 See `packaging/obs/README.md` for details.
 
-`cargo-deb` (`make deb`) remains available as a convenience local build path.
-Canonical Debian metadata for OBS is `packaging/obs/debian/debian`.
+`cargo-deb` (`make deb`) remains available as a local build path and is what
+release automation uses for `.deb` artifacts.
 
 ### Arch Linux (AUR artifacts)
 
