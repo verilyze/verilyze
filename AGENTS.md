@@ -68,6 +68,9 @@ changes that do not affect observable behavior.
   gates for config and wiring. See
   [CONTRIBUTING.md -- Test scope and layering](CONTRIBUTING.md#test-scope-and-layering)
   and [Test-driven development](CONTRIBUTING.md#test-driven-development-tdd).
+- **Commit bodies:** When a commit lists multiple distinct changes, use `-`
+  bullets in the body (72-char wrap). Single-change bodies stay prose. See
+  [CONTRIBUTING -- Commit messages](CONTRIBUTING.md#commit-messages).
 - Follow SOLID and the Unix philosophy as stated in the PRD (design principles).
 - The codebase uses `#![deny(unsafe_code)]`; no new `unsafe` or
   `#[allow(unsafe_code)]` without explicit justification and approval.
