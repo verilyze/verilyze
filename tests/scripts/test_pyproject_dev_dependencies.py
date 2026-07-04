@@ -8,7 +8,8 @@ import re
 import tomllib
 from pathlib import Path
 
-_ROOT = Path(__file__).resolve().parent.parent.parent
+from tests.scripts.repo_root import repo_root
+
 
 # CVE-2025-71176 remediation floor (GHSA-6w46-j5rx-g56g).
 PYTEST_MIN_FLOOR = (9, 0, 3)
@@ -28,12 +29,8 @@ EXPECTED_DEV_PACKAGES = frozenset(
 _FLOOR_RE = re.compile(r"^([a-zA-Z0-9_-]+)\s*>=\s*([\d.]+)\s*$")
 
 
-def _repo_root() -> Path:
-    return _ROOT
-
-
 def _load_pyproject() -> dict:
-    return tomllib.loads((_repo_root() / "pyproject.toml").read_text(encoding="utf-8"))
+    return tomllib.loads((repo_root() / "pyproject.toml").read_text(encoding="utf-8"))
 
 
 def _parse_floor(spec: str) -> tuple[str, tuple[int, ...]]:
@@ -90,7 +87,7 @@ def test_pytest_floor_remediates_cve_2025_71176() -> None:
 
 
 def test_makefile_venv_test_installs_from_pyproject_dev_extra() -> None:
-    text = (_repo_root() / "Makefile").read_text(encoding="utf-8")
+    text = (repo_root() / "Makefile").read_text(encoding="utf-8")
     recipe = _makefile_target_recipe(text, "/bin/pytest:")
     assert 'pip install ".[dev]"' in recipe
     assert 'cd "$(MKFILE_DIR)"' in recipe
@@ -103,7 +100,7 @@ def test_makefile_venv_test_installs_from_pyproject_dev_extra() -> None:
 
 
 def test_makefile_venv_lint_installs_from_pyproject_dev_extra() -> None:
-    text = (_repo_root() / "Makefile").read_text(encoding="utf-8")
+    text = (repo_root() / "Makefile").read_text(encoding="utf-8")
     recipe = _makefile_target_recipe(text, "/bin/black:")
     assert 'pip install ".[dev]"' in recipe
     assert 'cd "$(MKFILE_DIR)"' in recipe
@@ -113,11 +110,11 @@ def test_makefile_venv_lint_installs_from_pyproject_dev_extra() -> None:
 
 
 def test_makefile_has_no_lint_python_packages_variable() -> None:
-    text = (_repo_root() / "Makefile").read_text(encoding="utf-8")
+    text = (repo_root() / "Makefile").read_text(encoding="utf-8")
     assert "LINT_PYTHON_PACKAGES" not in text
 
 
 def test_reuse_toml_annotates_pip_egg_info() -> None:
     """pip install \".[dev]\" creates *.egg-info; REUSE must not require headers."""
-    text = (_repo_root() / "REUSE.toml").read_text(encoding="utf-8")
+    text = (repo_root() / "REUSE.toml").read_text(encoding="utf-8")
     assert 'path = "**/*.egg-info/**"' in text

@@ -14,8 +14,9 @@ from tests.scripts.obs_signing_fixture import (
     obs_signing_env,
     obs_signing_fixture_path,
 )
+from tests.scripts.repo_root import repo_root
 
-_ROOT = Path(__file__).resolve().parent.parent.parent
+_ROOT = repo_root()
 _SCRIPT = _ROOT / "scripts" / "check-obs-signing.sh"
 
 

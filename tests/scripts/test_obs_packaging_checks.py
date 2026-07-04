@@ -9,15 +9,12 @@ import subprocess
 from pathlib import Path
 
 from tests.scripts.obs_signing_fixture import obs_signing_env
-
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parent.parent.parent
+from tests.scripts.repo_root import repo_root
 
 
 def test_check_obs_packaging_passes() -> None:
     """check-obs-packaging.sh validates OBS wiring and packaging invariants."""
-    root = _repo_root()
+    root = repo_root()
     env = os.environ.copy()
     env.update(obs_signing_env())
     subprocess.run(
@@ -31,5 +28,5 @@ def test_check_obs_packaging_passes() -> None:
 def test_obs_project_env_assignment_keys_are_sorted() -> None:
     from scripts.obs_project_env import validate_obs_project_env_key_order
 
-    env_file = _repo_root() / "packaging" / "obs" / "obs-project.env"
+    env_file = repo_root() / "packaging" / "obs" / "obs-project.env"
     validate_obs_project_env_key_order(env_file)

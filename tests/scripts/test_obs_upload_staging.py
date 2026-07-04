@@ -8,7 +8,9 @@ import os
 import subprocess
 from pathlib import Path
 
-_ROOT = Path(__file__).resolve().parent.parent.parent
+from tests.scripts.repo_root import repo_root
+
+_ROOT = repo_root()
 _STAGING_LIB = _ROOT / "scripts" / "lib" / "obs-upload-staging.sh"
 _OSC_LIB = _ROOT / "scripts" / "lib" / "osc-cmd.sh"
 

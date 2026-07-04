@@ -10,13 +10,11 @@ from pathlib import Path
 
 import pytest
 
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parent.parent.parent
+from tests.scripts.repo_root import repo_root
 
 
 def _fuzz_sh_text() -> str:
-    return (_repo_root() / "scripts" / "fuzz.sh").read_text(encoding="utf-8")
+    return (repo_root() / "scripts" / "fuzz.sh").read_text(encoding="utf-8")
 
 
 def test_fuzz_sh_defines_dry_afl_rs_data_dir() -> None:

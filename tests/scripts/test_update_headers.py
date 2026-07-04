@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from tests.scripts.repo_root import repo_root
 from scripts import update_headers
 from scripts.update_headers import (
     email_matches_bot_markers,
@@ -1406,11 +1407,7 @@ def test_main_module_entry_point_print_config() -> None:
     with patch.object(sys, "argv", ["update_headers.py", "--print-config"]):
         with pytest.raises(SystemExit) as exc_info:
             runpy.run_path(
-                str(
-                    Path(__file__).resolve().parent.parent.parent
-                    / "scripts"
-                    / "update_headers.py"
-                ),
+                str(repo_root() / "scripts" / "update_headers.py"),
                 run_name="__main__",
             )
     assert exc_info.value.code == 0

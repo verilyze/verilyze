@@ -13,7 +13,9 @@ from unittest.mock import patch
 
 import pytest
 
-_ROOT = Path(__file__).resolve().parent.parent.parent
+from tests.scripts.repo_root import repo_root
+
+_ROOT = repo_root()
 _FIXTURES = Path(__file__).resolve().parent / "fixtures" / "cursor-hooks"
 _SCRIPT = _ROOT / "scripts" / "cursor_validation.py"
 _HOOK_INPUT = _ROOT / "scripts" / "lib" / "cursor-hook-input.sh"

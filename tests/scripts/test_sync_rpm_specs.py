@@ -15,11 +15,9 @@ from unittest.mock import patch
 
 import pytest
 
-_script_path = (
-    Path(__file__).resolve().parent.parent.parent
-    / "scripts"
-    / "sync_rpm_specs.py"
-)
+from tests.scripts.repo_root import repo_root
+
+_script_path = repo_root() / "scripts" / "sync_rpm_specs.py"
 _spec = importlib.util.spec_from_file_location("sync_rpm_specs", _script_path)
 sync_rpm_specs = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(sync_rpm_specs)  # type: ignore[union-attr]
@@ -44,10 +42,6 @@ cargo build --release --locked --offline
 %install
 install -D foo bar
 """
-
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parent.parent.parent
 
 
 def _setup_spec_tree(
@@ -195,10 +189,10 @@ class TestMainModule:
 
 def test_sync_rpm_specs_check_mode_succeeds_for_committed_files() -> None:
     """The committed local RPM spec must match generated output."""
-    script = _repo_root() / "scripts" / "sync_rpm_specs.py"
+    script = repo_root() / "scripts" / "sync_rpm_specs.py"
     completed = subprocess.run(
         [sys.executable, str(script), "--check"],
-        cwd=_repo_root(),
+        cwd=repo_root(),
         text=True,
         capture_output=True,
         check=False,

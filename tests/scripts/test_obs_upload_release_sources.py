@@ -10,11 +10,10 @@ import subprocess
 import tarfile
 from pathlib import Path
 
+from tests.scripts.repo_root import repo_root
 from tests.scripts.workspace_helpers import (
     obs_changes_version_marker,
-    obs_dry_run_work_dir,
     obs_package_name,
-    repo_root,
     workspace_semver,
 )
 
@@ -43,12 +42,14 @@ def _run_script(
     )
 
 
-def test_obs_upload_script_dry_run_builds_expected_artifacts() -> None:
+def test_obs_upload_script_dry_run_builds_expected_artifacts(
+    obs_dry_run_work_dir: Path,
+) -> None:
     version = workspace_semver()
     package = obs_package_name()
     source_name = f"{package}-{version}.tar.xz"
     archive_prefix = f"{package}-{version}/"
-    work_dir = obs_dry_run_work_dir("dry_run_builds_expected_artifacts")
+    work_dir = obs_dry_run_work_dir
     proc = _run_script(
         [
             str(_UPLOAD_SCRIPT),
@@ -86,10 +87,13 @@ def test_obs_upload_script_dry_run_builds_expected_artifacts() -> None:
     with tarfile.open(source_archive, "r:xz") as tarball:
         names = tarball.getnames()
     assert any(name.startswith(archive_prefix) for name in names)
+    assert not (work_dir / "vendor-build").exists()
 
 
-def test_obs_upload_script_dry_run_vendor_archive_contains_offline_inputs() -> None:
-    work_dir = obs_dry_run_work_dir("dry_run_vendor_archive_offline_inputs")
+def test_obs_upload_script_dry_run_vendor_archive_contains_offline_inputs(
+    obs_dry_run_work_dir: Path,
+) -> None:
+    work_dir = obs_dry_run_work_dir
     proc = _run_script(
         [
             str(_UPLOAD_SCRIPT),
@@ -123,8 +127,28 @@ def test_obs_upload_script_requires_version() -> None:
     assert "--version" in (proc.stderr + proc.stdout)
 
 
-def test_obs_upload_script_dry_run_excludes_rpmlintrc_artifact() -> None:
-    work_dir = obs_dry_run_work_dir("dry_run_excludes_rpmlintrc")
+def test_obs_upload_script_empty_work_dir_uses_mktemp_not_shallow_rm() -> None:
+    proc = _run_script(
+        [
+            str(_UPLOAD_SCRIPT),
+            "--version",
+            workspace_semver(),
+            "--work-dir",
+            "",
+            "--dry-run",
+        ]
+    )
+    output = proc.stdout + proc.stderr
+    assert proc.returncode == 0, output
+    assert "refusing to remove shallow" not in output.lower()
+    assert "/vendor-build" not in output
+    assert "dry-run" in output.lower()
+
+
+def test_obs_upload_script_dry_run_excludes_rpmlintrc_artifact(
+    obs_dry_run_work_dir: Path,
+) -> None:
+    work_dir = obs_dry_run_work_dir
     proc = _run_script(
         [
             str(_UPLOAD_SCRIPT),

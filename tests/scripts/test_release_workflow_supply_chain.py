@@ -7,7 +7,9 @@
 import subprocess
 from pathlib import Path
 
-_ROOT = Path(__file__).resolve().parent.parent.parent
+from tests.scripts.repo_root import repo_root
+
+_ROOT = repo_root()
 _RESTORE_SCRIPT = _ROOT / "scripts" / "release-restore-download-layout.sh"
 
 

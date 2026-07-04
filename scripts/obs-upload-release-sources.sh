@@ -6,6 +6,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# shellcheck source=lib/safe-rm.sh
+. "${SCRIPT_DIR}/lib/safe-rm.sh"
 # shellcheck source=lib/obs-project-env-parse.sh
 . "${SCRIPT_DIR}/lib/obs-project-env-parse.sh"
 # shellcheck source=lib/osc-cmd.sh
@@ -104,8 +107,9 @@ build_vendor_archive() {
   local git_ref="$1"
   local work_dir="$2"
   local output_path="$3"
-  local vendor_root="${work_dir}/vendor-build"
-  rm -rf "${vendor_root}"
+  local vendor_root="${work_dir%/}/vendor-build"
+  validate_vendor_archive_paths "${work_dir}" "${output_path}"
+  safe_rm_rf "${vendor_root}" "vendor-build"
   mkdir -p "${vendor_root}"
   git archive --format=tar "${git_ref}" | tar -x -C "${vendor_root}"
   (
@@ -123,6 +127,7 @@ directory = "vendor"
 EOF
     tar --zstd -cf "${output_path}" .cargo vendor Cargo.lock
   )
+  safe_rm_rf "${vendor_root}" "vendor-build"
 }
 
 render_spec() {
@@ -164,10 +169,10 @@ upload_to_obs() {
   local source_sha256="$3"
   local vendor_sha256="$4"
   local spec_sha256="$5"
-  local checkout_dir="${work_dir}/osc-checkout"
+  local checkout_dir="${work_dir%/}/osc-checkout"
   local source_archive="${OBS_PACKAGE}-${version}.tar.xz"
   local existing_changes=""
-  rm -rf "${checkout_dir}"
+  safe_rm_rf "${checkout_dir}" "osc-checkout"
   mkdir -p "${checkout_dir}"
   (
     cd "${checkout_dir}"
@@ -204,7 +209,6 @@ upload_to_obs() {
   )
 }
 
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 CONFIG_PATH="${DEFAULT_CONFIG_PATH}"
 SPEC_TEMPLATE="${DEFAULT_SPEC_TEMPLATE}"
 SEED_CHANGES_PATH="${DEFAULT_SEED_CHANGES}"
@@ -285,6 +289,7 @@ if [[ -z "${WORK_DIR}" ]]; then
   TEMP_WORK_DIR="$(mktemp -d)"
   WORK_DIR="${TEMP_WORK_DIR}"
 fi
+validate_removable_work_dir "${WORK_DIR}" "work dir"
 mkdir -p "${WORK_DIR}"
 
 require_cmd git
@@ -328,7 +333,7 @@ echo "  changes_sha256=${CHANGES_SHA256}"
 if [[ "${DRY_RUN}" -eq 1 ]]; then
   echo "Dry-run complete (no osc upload)."
   if [[ -n "${TEMP_WORK_DIR}" ]]; then
-    rm -rf "${TEMP_WORK_DIR}"
+    safe_rm_rf "${TEMP_WORK_DIR:?}" "temp work dir"
   fi
   exit 0
 fi
@@ -344,5 +349,5 @@ upload_to_obs \
 echo "OBS source upload completed."
 
 if [[ -n "${TEMP_WORK_DIR}" ]]; then
-  rm -rf "${TEMP_WORK_DIR}"
+  safe_rm_rf "${TEMP_WORK_DIR:?}" "temp work dir"
 fi

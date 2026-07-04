@@ -13,12 +13,10 @@ from unittest.mock import patch
 
 import pytest
 
+from tests.scripts.repo_root import repo_root
+
 # Load generate_packaging_versions module
-_script_path = (
-    Path(__file__).resolve().parent.parent.parent
-    / "scripts"
-    / "generate_packaging_versions.py"
-)
+_script_path = repo_root() / "scripts" / "generate_packaging_versions.py"
 _spec = importlib.util.spec_from_file_location(
     "generate_packaging_versions", _script_path
 )
@@ -256,11 +254,7 @@ class TestMainModule:
 
     def test_main_module_exit_code(self) -> None:
         """Running as __main__ invokes main() and exits with its return code."""
-        script = (
-            Path(__file__).resolve().parent.parent.parent
-            / "scripts"
-            / "generate_packaging_versions.py"
-        )
+        script = repo_root() / "scripts" / "generate_packaging_versions.py"
         with patch("sys.argv", ["gen.py", "--check"]):
             try:
                 runpy.run_path(str(script), run_name="__main__")
