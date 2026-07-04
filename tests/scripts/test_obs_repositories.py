@@ -17,6 +17,7 @@ from scripts.obs_repositories import (
     load_enabled_build_repositories,
     parse_package_disabled_repositories,
     parse_project_repository_names,
+    validate_obs_meta_files,
 )
 
 _PROJECT_META = """\
@@ -42,6 +43,31 @@ _PROJECT_META = """\
 </project>
 """
 
+_PROJECT_META_WITH_MAINTAINER = """\
+<project name="home:example:proj">
+  <title>example</title>
+  <person userid="alice" role="maintainer"/>
+  <repository name="openSUSE_Tumbleweed">
+    <path project="openSUSE:Tumbleweed" repository="standard"/>
+    <arch>x86_64</arch>
+  </repository>
+  <repository name="Fedora_43">
+    <path project="Fedora:43" repository="standard"/>
+    <arch>x86_64</arch>
+  </repository>
+</project>
+"""
+
+_PROJECT_META_NO_MAINTAINER = """\
+<project name="home:example:proj">
+  <title>example</title>
+  <repository name="openSUSE_Tumbleweed">
+    <path project="openSUSE:Tumbleweed" repository="standard"/>
+    <arch>x86_64</arch>
+  </repository>
+</project>
+"""
+
 _PACKAGE_META_NO_DISABLE = """\
 <package name="verilyze" project="home:example:proj">
   <title>verilyze</title>
@@ -53,6 +79,15 @@ _PACKAGE_META_WITH_DISABLE = """\
   <title>verilyze</title>
   <build>
     <disable repository="Fedora_43"/>
+  </build>
+</package>
+"""
+
+_PACKAGE_META_INVALID_DISABLE = """\
+<package name="verilyze" project="home:example:proj">
+  <title>verilyze</title>
+  <build>
+    <disable repository="Fedora_42"/>
   </build>
 </package>
 """
@@ -102,6 +137,48 @@ def test_parse_project_repository_names_raises_when_no_repositories() -> None:
 
 def test_format_repository_list_joins_with_commas() -> None:
     assert format_repository_list(("a", "b")) == "a,b"
+
+
+def test_validate_obs_meta_files_accepts_valid_meta() -> None:
+    validate_obs_meta_files(_PROJECT_META_WITH_MAINTAINER, _PACKAGE_META_WITH_DISABLE)
+
+
+def test_validate_obs_meta_files_accepts_package_without_maintainers() -> None:
+    validate_obs_meta_files(_PROJECT_META_WITH_MAINTAINER, _PACKAGE_META_NO_DISABLE)
+
+
+def test_validate_obs_meta_files_raises_when_project_meta_malformed() -> None:
+    with pytest.raises(ValueError, match="project _meta XML"):
+        validate_obs_meta_files("<project>", _PACKAGE_META_NO_DISABLE)
+
+
+def test_validate_obs_meta_files_raises_when_package_meta_malformed() -> None:
+    with pytest.raises(ValueError, match="package _meta XML"):
+        validate_obs_meta_files(_PROJECT_META_WITH_MAINTAINER, "<package>")
+
+
+def test_validate_obs_meta_files_raises_when_no_project_maintainer() -> None:
+    with pytest.raises(ValueError, match="maintainer"):
+        validate_obs_meta_files(_PROJECT_META_NO_MAINTAINER, _PACKAGE_META_NO_DISABLE)
+
+
+def test_validate_obs_meta_files_raises_when_disable_unknown_repository() -> None:
+    with pytest.raises(ValueError, match="Fedora_42"):
+        validate_obs_meta_files(
+            _PROJECT_META_WITH_MAINTAINER,
+            _PACKAGE_META_INVALID_DISABLE,
+        )
+
+
+def test_validate_obs_meta_files_raises_when_project_has_no_repositories() -> None:
+    no_repos_meta = """\
+<project name="home:empty">
+  <title>empty</title>
+  <person userid="alice" role="maintainer"/>
+</project>
+"""
+    with pytest.raises(ValueError, match="repository definitions"):
+        validate_obs_meta_files(no_repos_meta, _PACKAGE_META_NO_DISABLE)
 
 
 def test_load_enabled_build_repositories_reads_committed_files(
@@ -178,3 +255,29 @@ def test_main_cli_prints_repository_list(tmp_path: Path) -> None:
     with patch.object(sys, "argv", argv), patch.object(sys, "stdout", buf):
         assert main() == 0
     assert buf.getvalue().strip() == format_repository_list(_EXPECTED_ALL_REPOS)
+
+
+def test_main_cli_validate_exits_zero_for_valid_meta(tmp_path: Path) -> None:
+    import sys
+
+    from scripts.obs_repositories import main
+
+    project_meta = tmp_path / "project" / "_meta"
+    package_meta = tmp_path / "rpm" / "_meta"
+    project_meta.parent.mkdir(parents=True)
+    package_meta.parent.mkdir(parents=True)
+    project_meta.write_text(_PROJECT_META_WITH_MAINTAINER, encoding="utf-8")
+    package_meta.write_text(_PACKAGE_META_WITH_DISABLE, encoding="utf-8")
+
+    argv = [
+        "obs_repositories.py",
+        "--validate",
+        "--repo-root",
+        str(tmp_path),
+        "--project-meta",
+        str(project_meta),
+        "--package-meta",
+        str(package_meta),
+    ]
+    with patch.object(sys, "argv", argv):
+        assert main() == 0

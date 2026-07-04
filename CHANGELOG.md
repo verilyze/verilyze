@@ -33,6 +33,10 @@ this file **before** creating the release tag.
   source file (catches delete-without-reupload commits).
 - Disable OBS `Fedora_43` builds: worker Rust 1.90 cannot compile v0.3.0
   (Ruff-based setup.py support requires Rust 1.94+).
+- Reconcile OBS `_meta` with git as single source of truth: product-focused
+  titles and descriptions, package `_meta` omits redundant maintainers
+  (project ACL is authoritative), and offline validation gates malformed XML
+  and invalid build-disable references on PRs.
 - OBS meta sync pushes both project and package `_meta` to build.opensuse.org;
   a dedicated workflow syncs on every `main` push that touches
   `packaging/obs/**/_meta`.

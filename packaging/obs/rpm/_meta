@@ -1,6 +1,7 @@
 <package name="verilyze" project="home:tpost:verilyze">
-  <title>verilyze</title>
-  <description>OBS RPM package for verilyze.</description>
+  <title>Fast, modular Software Composition Analysis tool</title>
+  <description>verilyze (vlz) scans codebases for vulnerable dependencies and can generate reports in multiple output formats.</description>
+  <url>https://github.com/verilyze/verilyze</url>
   <build>
     <disable repository="Fedora_43"/>
   </build>

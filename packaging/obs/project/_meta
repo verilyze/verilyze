@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="home:tpost:verilyze">
   <title>verilyze</title>
-  <description>OBS build project for verilyze.</description>
+  <description>Multi-distribution OBS builds for verilyze, a fast modular Software Composition Analysis (SCA) tool.</description>
   <person userid="tpost" role="maintainer"/>
   <person userid="verilyze-obs-bot" role="maintainer"/>
   <person userid="tpost" role="bugowner"/>
