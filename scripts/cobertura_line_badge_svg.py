@@ -20,6 +20,10 @@ _COLOR_GREEN = "#4c1"
 _COLOR_ORANGE = "#fe7d37"
 _COLOR_RED = "#e05d44"
 
+# Shields.io grey when coverage metrics are unavailable.
+COLOR_UNKNOWN = "#9f9f9f"
+UNKNOWN_BADGE_MESSAGE = "unknown"
+
 
 _LINE_RATE_RE = re.compile(
     r"<coverage\b[^>]*\bline-rate=\"([0-9]+(?:\.[0-9]+)?)\"",
@@ -47,15 +51,12 @@ def badge_color_for_percent(percent: float) -> str:
     return _COLOR_RED
 
 
-def render_badge_svg(label: str, percent: float) -> str:
-    """Two-part flat badge: gray label + colored percent."""
-    color = badge_color_for_percent(percent)
-    pct_text = f"{percent:.2f}%"
-    # Approximate widths (px) for 11px DejaVu / sans text.
+def _render_badge_svg(label: str, right_text: str, color: str) -> str:
+    """Two-part flat badge: gray label + colored right segment."""
     lw = 7 * len(label) + 18
-    rw = 7 * len(pct_text) + 16
+    rw = 7 * len(right_text) + 16
     total = lw + rw
-    aria = f"{label} coverage {pct_text}"
+    aria = f"{label} coverage {right_text}"
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{total}" '
         f'height="20" role="img" aria-label="{aria}">\n'
@@ -73,10 +74,24 @@ def render_badge_svg(label: str, percent: float) -> str:
         f'    <text x="{lw // 2}" y="15" text-anchor="middle">{label}'
         "</text>\n"
         f'    <text x="{lw + rw // 2}" y="15" text-anchor="middle">'
-        f"{pct_text}</text>\n"
+        f"{right_text}</text>\n"
         "  </g>\n"
         "</svg>\n"
     )
+
+
+def render_badge_svg(label: str, percent: float) -> str:
+    """Two-part flat badge: gray label + colored percent."""
+    color = badge_color_for_percent(percent)
+    pct_text = f"{percent:.2f}%"
+    return _render_badge_svg(label, pct_text, color)
+
+
+def render_unknown_badge_svg(
+    label: str, message: str = UNKNOWN_BADGE_MESSAGE
+) -> str:
+    """Grey Shields-style badge when coverage metrics are unavailable."""
+    return _render_badge_svg(label, message, COLOR_UNKNOWN)
 
 
 def write_badge_from_cobertura(
@@ -85,6 +100,12 @@ def write_badge_from_cobertura(
     """Read Cobertura XML and write an SVG badge to ``output_path``."""
     pct = parse_line_rate_percent(cobertura_path)
     svg = render_badge_svg(label, pct)
+    output_path.write_text(svg, encoding="utf-8")
+
+
+def write_unknown_badge(label: str, output_path: Path) -> None:
+    """Write a grey unknown-coverage SVG badge to ``output_path``."""
+    svg = render_unknown_badge_svg(label)
     output_path.write_text(svg, encoding="utf-8")
 
 
@@ -97,9 +118,13 @@ def main(argv: list[str] | None = None) -> int:
         "--label", required=True, help="Left segment, e.g. rust"
     )
     parser.add_argument(
+        "--unknown",
+        action="store_true",
+        help="Write a grey unknown badge (Shields.io style)",
+    )
+    parser.add_argument(
         "-i",
         "--input",
-        required=True,
         type=Path,
         help="Cobertura XML path",
     )
@@ -111,6 +136,25 @@ def main(argv: list[str] | None = None) -> int:
         help="Output .svg path",
     )
     args = parser.parse_args(argv)
+    if args.unknown and args.input is not None:
+        print(
+            "cobertura_line_badge_svg: --unknown cannot be used with --input",
+            file=sys.stderr,
+        )
+        return 1
+    if args.unknown:
+        try:
+            write_unknown_badge(args.label, args.output)
+        except OSError as e:
+            print(f"cobertura_line_badge_svg: {e}", file=sys.stderr)
+            return 1
+        return 0
+    if args.input is None:
+        print(
+            "cobertura_line_badge_svg: --input is required unless --unknown",
+            file=sys.stderr,
+        )
+        return 1
     try:
         write_badge_from_cobertura(args.input, args.label, args.output)
     except (OSError, ValueError) as e:
