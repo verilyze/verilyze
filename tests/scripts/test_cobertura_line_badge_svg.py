@@ -180,6 +180,29 @@ class TestMain:
         captured = capsys.readouterr()
         assert "cobertura_line_badge_svg:" in captured.err
 
+    def test_missing_input_without_unknown_returns_1(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        out = tmp_path / "out.svg"
+        argv = ["--label", "rust cov", "-o", str(out)]
+        assert cobertura_line_badge_svg.main(argv) == 1
+        captured = capsys.readouterr()
+        assert "--input is required unless --unknown" in captured.err
+
+    def test_unknown_oserror_returns_1(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        out = tmp_path / "out.svg"
+        argv = ["--label", "rust cov", "--unknown", "-o", str(out)]
+        with patch.object(
+            cobertura_line_badge_svg,
+            "write_unknown_badge",
+            side_effect=OSError("disk full"),
+        ):
+            assert cobertura_line_badge_svg.main(argv) == 1
+        captured = capsys.readouterr()
+        assert "disk full" in captured.err
+
 
 class TestMainModule:
     def test_main_module_exit_code(self, tmp_path: Path) -> None:
