@@ -89,6 +89,18 @@ class TestRenderBadgeSvg:
         assert "coverage" in svg.lower()
 
 
+class TestRenderUnknownBadgeSvg:
+    def test_uses_unknown_message_and_grey(self) -> None:
+        svg = cobertura_line_badge_svg.render_unknown_badge_svg("rust cov")
+        assert cobertura_line_badge_svg.UNKNOWN_BADGE_MESSAGE in svg
+        assert cobertura_line_badge_svg.COLOR_UNKNOWN.upper() in svg.upper()
+        assert "rust cov" in svg
+
+    def test_accessibility_title(self) -> None:
+        svg = cobertura_line_badge_svg.render_unknown_badge_svg("python cov")
+        assert "python cov coverage unknown" in svg.lower()
+
+
 class TestWriteBadgeFromCobertura:
     def test_writes_svg_file(self, tmp_path: Path) -> None:
         c = tmp_path / "cobertura.xml"
@@ -100,6 +112,15 @@ class TestWriteBadgeFromCobertura:
         text = out.read_text(encoding="utf-8")
         assert "<svg" in text
         assert "85.33" in text
+
+
+class TestWriteUnknownBadge:
+    def test_writes_unknown_svg(self, tmp_path: Path) -> None:
+        out = tmp_path / "out.svg"
+        cobertura_line_badge_svg.write_unknown_badge("rust cov", out)
+        text = out.read_text(encoding="utf-8")
+        assert "<svg" in text
+        assert cobertura_line_badge_svg.UNKNOWN_BADGE_MESSAGE in text
 
 
 class TestMain:
@@ -131,6 +152,56 @@ class TestMain:
         assert cobertura_line_badge_svg.main(argv) == 1
         captured = capsys.readouterr()
         assert "cobertura_line_badge_svg:" in captured.err
+
+    def test_unknown_writes_svg(self, tmp_path: Path) -> None:
+        out = tmp_path / "out.svg"
+        argv = ["--label", "rust cov", "--unknown", "-o", str(out)]
+        assert cobertura_line_badge_svg.main(argv) == 0
+        assert cobertura_line_badge_svg.UNKNOWN_BADGE_MESSAGE in out.read_text(
+            encoding="utf-8"
+        )
+
+    def test_unknown_with_input_returns_1(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        c = tmp_path / "cobertura.xml"
+        c.write_text(MIN_COBERTURA, encoding="utf-8")
+        out = tmp_path / "out.svg"
+        argv = [
+            "--label",
+            "rust cov",
+            "--unknown",
+            "-i",
+            str(c),
+            "-o",
+            str(out),
+        ]
+        assert cobertura_line_badge_svg.main(argv) == 1
+        captured = capsys.readouterr()
+        assert "cobertura_line_badge_svg:" in captured.err
+
+    def test_missing_input_without_unknown_returns_1(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        out = tmp_path / "out.svg"
+        argv = ["--label", "rust cov", "-o", str(out)]
+        assert cobertura_line_badge_svg.main(argv) == 1
+        captured = capsys.readouterr()
+        assert "--input is required unless --unknown" in captured.err
+
+    def test_unknown_oserror_returns_1(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        out = tmp_path / "out.svg"
+        argv = ["--label", "rust cov", "--unknown", "-o", str(out)]
+        with patch.object(
+            cobertura_line_badge_svg,
+            "write_unknown_badge",
+            side_effect=OSError("disk full"),
+        ):
+            assert cobertura_line_badge_svg.main(argv) == 1
+        captured = capsys.readouterr()
+        assert "disk full" in captured.err
 
 
 class TestMainModule:
