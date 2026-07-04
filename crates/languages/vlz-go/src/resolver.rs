@@ -8,9 +8,9 @@ use std::sync::Mutex;
 
 use async_trait::async_trait;
 use vlz_manifest_parser::{
-    DIRECT_ONLY_REASON_UNAVAILABLE, DependencyGraph, ResolutionDepth,
-    ResolveContext, ResolveResult, Resolver, ResolverError,
-    direct_only_result, skip_package_manager_reason,
+    DependencyGraph, ResolutionDepth, ResolveContext, ResolveResult, Resolver,
+    ResolverError, direct_only_result, fr022_transitive_error,
+    require_transitive_or_fallback, skip_package_manager_reason,
 };
 
 use crate::parser::GO_ECOSYSTEM;
@@ -108,7 +108,6 @@ impl Resolver for GoResolver {
                 let cache_key = work_dir.to_string_lossy().to_string();
                 if let Ok(cache) = self.list_cache.lock()
                     && let Some(cached) = cache.get(&cache_key)
-                    && !cached.is_empty()
                 {
                     return Ok(ResolveResult {
                         packages: cached.clone(),
@@ -134,27 +133,45 @@ impl Resolver for GoResolver {
                     .map_err(ResolverError::Io)?;
                     if output.status.success() {
                         let stdout = String::from_utf8_lossy(&output.stdout);
-                        if let Ok(packages) = parse_go_list_m_all(&stdout)
-                            && !packages.is_empty()
-                        {
-                            if let Ok(mut cache) = self.list_cache.lock() {
-                                cache.insert(cache_key, packages.clone());
+                        match parse_go_list_m_all(&stdout) {
+                            Ok(packages) => {
+                                if let Ok(mut cache) = self.list_cache.lock() {
+                                    cache.insert(cache_key, packages.clone());
+                                }
+                                return Ok(ResolveResult {
+                                    packages,
+                                    depth: ResolutionDepth::Transitive,
+                                    direct_only_reason: None,
+                                    ..Default::default()
+                                });
                             }
-                            return Ok(ResolveResult {
-                                packages,
-                                depth: ResolutionDepth::Transitive,
-                                direct_only_reason: None,
-                                ..Default::default()
-                            });
+                            Err(parse_err) => {
+                                return require_transitive_or_fallback(
+                                    graph,
+                                    ctx,
+                                    Some(parse_err),
+                                );
+                            }
                         }
+                    } else {
+                        let stderr = String::from_utf8_lossy(&output.stderr);
+                        let snippet = stderr.trim();
+                        let cause_msg = if snippet.is_empty() {
+                            format!("go list exited with {}", output.status)
+                        } else {
+                            format!("go list failed: {snippet}")
+                        };
+                        return require_transitive_or_fallback(
+                            graph,
+                            ctx,
+                            Some(ResolverError::Resolve(cause_msg)),
+                        );
                     }
                 }
+                return require_transitive_or_fallback(graph, ctx, None);
             }
         }
-        Ok(direct_only_result(
-            graph.packages.clone(),
-            DIRECT_ONLY_REASON_UNAVAILABLE,
-        ))
+        Err(fr022_transitive_error())
     }
 
     fn package_manager_available(&self) -> bool {
@@ -202,7 +219,7 @@ github.com/stretchr/testify v1.8.0
     }
 
     #[tokio::test]
-    async fn go_resolver_returns_graph_when_no_manifest_path() {
+    async fn go_resolver_returns_fr022_when_no_manifest_path() {
         let graph = DependencyGraph {
             packages: vec![vlz_db::Package {
                 name: "github.com/foo/bar".to_string(),
@@ -212,15 +229,14 @@ github.com/stretchr/testify v1.8.0
             manifest_path: None,
         };
         let resolver = GoResolver::new();
-        let resolved = resolver
+        let err = resolver
             .resolve(&graph, &vlz_manifest_parser::ResolveContext::default())
             .await
-            .unwrap();
-        assert_eq!(resolved.packages.len(), 1);
-        assert_eq!(resolved.packages[0].name, "github.com/foo/bar");
-        assert_eq!(
-            resolved.direct_only_reason,
-            Some(vlz_manifest_parser::DIRECT_ONLY_REASON_UNAVAILABLE)
+            .unwrap_err();
+        assert!(
+            err.to_string().contains(
+                vlz_manifest_parser::FR_022_TRANSITIVE_ERROR_MESSAGE
+            )
         );
     }
 
@@ -285,7 +301,7 @@ github.com/stretchr/testify v1.8.0
     }
 
     #[tokio::test]
-    async fn go_resolver_fallback_to_graph() {
+    async fn go_resolver_without_go_returns_fr022_or_transitive() {
         let dir = tempfile::tempdir().unwrap();
         let tmp = dir.path();
         std::fs::create_dir_all(tmp).unwrap();
@@ -301,17 +317,22 @@ github.com/stretchr/testify v1.8.0
             manifest_path: Some(tmp.join("go.mod")),
         };
         let resolver = GoResolver::new();
-        let resolved = resolver
+        match resolver
             .resolve(&graph, &vlz_manifest_parser::ResolveContext::default())
             .await
-            .unwrap();
-        assert!(!resolved.packages.is_empty());
-        assert!(
-            resolved
-                .packages
-                .iter()
-                .any(|p| p.name == "github.com/gin-gonic/gin")
-        );
+        {
+            Ok(resolved) => {
+                assert_eq!(
+                    resolved.depth,
+                    vlz_manifest_parser::ResolutionDepth::Transitive
+                );
+            }
+            Err(err) => {
+                assert!(err.to_string().contains(
+                    vlz_manifest_parser::FR_022_TRANSITIVE_ERROR_MESSAGE
+                ));
+            }
+        }
     }
 
     #[test]

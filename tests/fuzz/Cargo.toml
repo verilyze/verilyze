@@ -61,6 +61,10 @@ name = "fuzz_cargo_lock"
 path = "fuzz_targets/cargo_lock.rs"
 
 [[bin]]
+name = "fuzz_cargo_metadata"
+path = "fuzz_targets/cargo_metadata.rs"
+
+[[bin]]
 name = "fuzz_go_mod"
 path = "fuzz_targets/go_mod.rs"
 

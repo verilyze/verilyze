@@ -4,11 +4,13 @@
 
 #![deny(unsafe_code)]
 
+mod cargo_metadata;
 mod finder;
 mod parser;
 mod reachability;
 mod resolver;
 
+pub use cargo_metadata::{parse_cargo_metadata_packages, run_cargo_metadata};
 pub use finder::{RUST_MANIFEST_NAME, RustManifestFinder};
 pub use parser::{CargoTomlParser, parse_cargo_toml};
 pub use reachability::RustTierBAnalyzer;

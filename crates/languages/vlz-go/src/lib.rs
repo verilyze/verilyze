@@ -10,6 +10,9 @@ mod reachability;
 mod resolver;
 
 pub use finder::{GO_MANIFEST_NAME, GoManifestFinder};
-pub use parser::{GoModParser, parse_go_mod};
+pub use parser::{GO_ECOSYSTEM, GoModParser, parse_go_mod};
 pub use reachability::GoTierBAnalyzer;
-pub use resolver::{GoResolver, find_go_mod_dir, parse_go_list_m_all};
+pub use resolver::{
+    GoResolver, find_go_mod_dir, go_package_manager_available,
+    parse_go_list_m_all,
+};
