@@ -100,6 +100,46 @@ pub const DIRECT_ONLY_REASON_BENCHMARK: &str = "benchmark mode";
 pub const DIRECT_ONLY_REASON_UNAVAILABLE: &str =
     "transitive resolution unavailable";
 
+/// FR-022 exit-2 message (exact PRD string, NFR-024).
+pub const FR_022_TRANSITIVE_ERROR_MESSAGE: &str = "Unable to detect transitive dependencies. Try installing the package manager or generate a lock file before running vlz.";
+
+/// Direct-only reason when `allow_direct_only_fallback` is enabled (FR-022a).
+pub const DIRECT_ONLY_REASON_FALLBACK_ON_FAILURE: &str =
+    "transitive resolution failed; direct-only fallback enabled";
+
+/// Build FR-022 resolver error for mandatory transitive resolution failure.
+pub fn fr022_transitive_error() -> ResolverError {
+    ResolverError::Resolve(FR_022_TRANSITIVE_ERROR_MESSAGE.to_string())
+}
+
+/// FR-022 error with nested cause for verbose diagnostics (NFR-018).
+pub fn fr022_transitive_error_with_cause(
+    cause: ResolverError,
+) -> ResolverError {
+    ResolverError::ResolveWithCause {
+        message: FR_022_TRANSITIVE_ERROR_MESSAGE.to_string(),
+        cause: Box::new(cause),
+    }
+}
+
+/// Exit 2 unless `allow_direct_only_fallback` permits direct-only scan (FR-022, FR-022a).
+pub fn require_transitive_or_fallback(
+    graph: &DependencyGraph,
+    ctx: &ResolveContext,
+    cause: Option<ResolverError>,
+) -> Result<ResolveResult, ResolverError> {
+    if ctx.allow_direct_only_fallback && !graph.packages.is_empty() {
+        Ok(direct_only_result(
+            graph.packages.clone(),
+            DIRECT_ONLY_REASON_FALLBACK_ON_FAILURE,
+        ))
+    } else if let Some(cause) = cause {
+        Err(fr022_transitive_error_with_cause(cause))
+    } else {
+        Err(fr022_transitive_error())
+    }
+}
+
 /// FR-022a reason when `--offline` or `--benchmark` skips package-manager resolution.
 pub fn skip_package_manager_reason(
     ctx: &ResolveContext,
@@ -239,5 +279,66 @@ mod tests {
             result.direct_only_reason,
             Some(DIRECT_ONLY_REASON_OFFLINE)
         );
+    }
+
+    fn sample_graph() -> DependencyGraph {
+        DependencyGraph {
+            packages: vec![vlz_db::Package {
+                name: "foo".to_string(),
+                version: "1.0".to_string(),
+                ecosystem: None,
+            }],
+            manifest_path: None,
+        }
+    }
+
+    #[test]
+    fn require_transitive_or_fallback_exits_fr022() {
+        let graph = sample_graph();
+        let ctx = ResolveContext::default();
+        let err =
+            require_transitive_or_fallback(&graph, &ctx, None).unwrap_err();
+        assert!(
+            err.to_string().contains(FR_022_TRANSITIVE_ERROR_MESSAGE),
+            "got: {err}"
+        );
+    }
+
+    #[test]
+    fn require_transitive_or_fallback_with_cause_chains() {
+        let graph = sample_graph();
+        let ctx = ResolveContext::default();
+        let inner = ResolverError::Resolve("cargo failed".to_string());
+        let err = require_transitive_or_fallback(&graph, &ctx, Some(inner))
+            .unwrap_err();
+        assert!(err.to_string().contains(FR_022_TRANSITIVE_ERROR_MESSAGE));
+    }
+
+    #[test]
+    fn require_transitive_or_fallback_allows_direct_only_when_flag_set() {
+        let graph = sample_graph();
+        let ctx = ResolveContext {
+            allow_direct_only_fallback: true,
+            ..Default::default()
+        };
+        let result =
+            require_transitive_or_fallback(&graph, &ctx, None).unwrap();
+        assert_eq!(result.depth, ResolutionDepth::DirectOnly);
+        assert_eq!(
+            result.direct_only_reason,
+            Some(DIRECT_ONLY_REASON_FALLBACK_ON_FAILURE)
+        );
+    }
+
+    #[test]
+    fn require_transitive_or_fallback_empty_graph_still_exits_fr022() {
+        let graph = DependencyGraph::default();
+        let ctx = ResolveContext {
+            allow_direct_only_fallback: true,
+            ..Default::default()
+        };
+        let err =
+            require_transitive_or_fallback(&graph, &ctx, None).unwrap_err();
+        assert!(err.to_string().contains(FR_022_TRANSITIVE_ERROR_MESSAGE));
     }
 }

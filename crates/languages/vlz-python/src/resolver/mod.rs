@@ -21,7 +21,8 @@ use std::sync::Mutex;
 use async_trait::async_trait;
 use vlz_manifest_parser::{
     DependencyGraph, ParserError, ResolutionDepth, ResolveContext,
-    ResolveResult, Resolver, ResolverError, skip_package_manager_reason,
+    ResolveResult, Resolver, ResolverError, fr022_transitive_error,
+    require_transitive_or_fallback, skip_package_manager_reason,
 };
 
 use crate::lock_names::manifest_is_lock_file;
@@ -39,20 +40,14 @@ use pip_lock::{
 };
 use pip_version::pip_supports_lock;
 
-/// FR-022 exit-2 message (exact PRD string, NFR-024).
-pub const FR_022_TRANSITIVE_ERROR_MESSAGE: &str = "Unable to detect transitive dependencies. Try installing the package manager or generate a lock file before running vlz.";
-
 pub use vlz_manifest_parser::{
-    DIRECT_ONLY_REASON_OFFLINE, DIRECT_ONLY_REASON_UNAVAILABLE,
+    DIRECT_ONLY_REASON_FALLBACK_ON_FAILURE, DIRECT_ONLY_REASON_OFFLINE,
+    DIRECT_ONLY_REASON_UNAVAILABLE, FR_022_TRANSITIVE_ERROR_MESSAGE,
 };
 
 /// Direct-only reason when executable resolution is disabled (SEC-023).
 pub const DIRECT_ONLY_REASON_EXEC_DISABLED: &str =
     "executable dependency resolution is disabled";
-
-/// Direct-only reason when `allow_direct_only_fallback` is enabled (FR-022a).
-pub const DIRECT_ONLY_REASON_FALLBACK_ON_FAILURE: &str =
-    "transitive resolution failed; direct-only fallback enabled";
 
 /// Resolver for Python manifests (FR-022, FR-023, FR-022a, SEC-023).
 #[derive(Debug)]
@@ -74,36 +69,6 @@ impl DirectOnlyResolver {
     /// Create a new resolver.
     pub fn new() -> Self {
         Self::default()
-    }
-
-    fn fr022_transitive_error() -> ResolverError {
-        ResolverError::Resolve(FR_022_TRANSITIVE_ERROR_MESSAGE.to_string())
-    }
-
-    fn fr022_transitive_error_with_cause(
-        cause: ResolverError,
-    ) -> ResolverError {
-        ResolverError::ResolveWithCause {
-            message: FR_022_TRANSITIVE_ERROR_MESSAGE.to_string(),
-            cause: Box::new(cause),
-        }
-    }
-
-    fn require_transitive_or_fallback(
-        graph: &DependencyGraph,
-        ctx: &ResolveContext,
-        cause: Option<ResolverError>,
-    ) -> Result<ResolveResult, ResolverError> {
-        if ctx.allow_direct_only_fallback && !graph.packages.is_empty() {
-            Ok(Self::direct_only_result(
-                graph.packages.clone(),
-                DIRECT_ONLY_REASON_FALLBACK_ON_FAILURE,
-            ))
-        } else if let Some(cause) = cause {
-            Err(Self::fr022_transitive_error_with_cause(cause))
-        } else {
-            Err(Self::fr022_transitive_error())
-        }
     }
 
     fn transitive_result(
@@ -228,7 +193,7 @@ impl DirectOnlyResolver {
         pip_resolution_attempted: bool,
     ) -> Result<ResolveResult, ResolverError> {
         if graph.packages.is_empty() {
-            return Err(Self::fr022_transitive_error());
+            return Err(fr022_transitive_error());
         }
 
         let reason = if let Some(r) = skip_package_manager_reason(ctx) {
@@ -239,7 +204,7 @@ impl DirectOnlyResolver {
             || manifest_is_requirements_txt(manifest_path)
             || manifest_is_pipfile(manifest_path)
         {
-            return Self::require_transitive_or_fallback(graph, ctx, None);
+            return require_transitive_or_fallback(graph, ctx, None);
         } else {
             DIRECT_ONLY_REASON_UNAVAILABLE
         };
@@ -275,7 +240,7 @@ impl DirectOnlyResolver {
         let manifest_path = graph
             .manifest_path
             .as_deref()
-            .ok_or_else(Self::fr022_transitive_error)?;
+            .ok_or_else(fr022_transitive_error)?;
 
         if manifest_is_lock_file(manifest_path) {
             if let Some(dir) = manifest_path.parent() {
@@ -300,7 +265,7 @@ impl DirectOnlyResolver {
         }
 
         let project_dir = find_manifest_project_dir(manifest_path)
-            .ok_or_else(Self::fr022_transitive_error)?;
+            .ok_or_else(fr022_transitive_error)?;
 
         if ctx.skip_pip_resolution {
             return Self::direct_only_policy(graph, manifest_path, ctx, false);
@@ -316,9 +281,9 @@ impl DirectOnlyResolver {
                         Ok(Self::transitive_result_simple(packages))
                     }
                     Ok(None) => {
-                        Self::require_transitive_or_fallback(graph, ctx, None)
+                        require_transitive_or_fallback(graph, ctx, None)
                     }
-                    Err(pip_err) => Self::require_transitive_or_fallback(
+                    Err(pip_err) => require_transitive_or_fallback(
                         graph,
                         ctx,
                         Some(pip_err),
@@ -352,11 +317,7 @@ impl DirectOnlyResolver {
                             cause: Box::new(pip_err),
                         }
                     });
-                    Self::require_transitive_or_fallback(
-                        graph,
-                        ctx,
-                        Some(cause),
-                    )
+                    require_transitive_or_fallback(graph, ctx, Some(cause))
                 }
             };
         }

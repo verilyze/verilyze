@@ -293,8 +293,9 @@ later if the failure was transient.
 **Cause:** Transitive dependency resolution was not performed for the listed
 manifest. Common reasons:
 
-- **`offline mode` or `benchmark mode`:** `--offline` and `--benchmark` skip pip
-  network resolution (FR-031, FR-029).
+- **`offline mode` or `benchmark mode`:** `--offline` and `--benchmark` skip
+  package-manager network resolution (pip, `cargo metadata`, `go list`) (FR-031,
+  FR-029).
 - **`executable dependency resolution is disabled`:** Secure default (SEC-023).
   `vlz` does not run `pip install` or `pip lock -e` on local projects unless
   you opt in.
@@ -324,6 +325,19 @@ opt-in pip fallback, or `--allow-direct-only-fallback` (direct-only scan with
 FR-022a warning). Without those, the scan exits **2** with the FR-022 message
 below.
 
+**Rust without `Cargo.lock`:** `Cargo.toml` without an adjacent or workspace
+`Cargo.lock` uses `cargo metadata` for transitive resolution when not in
+offline or benchmark mode. Resolved versions reflect the latest compatible
+crates at scan time with **default Cargo features only**; commit `Cargo.lock`
+for reproducibility. If `cargo` is missing or metadata fails (registry or
+network unavailable), the scan exits **2** unless
+`--allow-direct-only-fallback` is set. Use `-v` to see the underlying cause
+when `cargo` is present but resolution fails.
+
+**Go `go.mod`:** Transitive resolution uses `go list -m all` (not `go.sum`).
+If `go` is missing from PATH or `go list` fails, the scan exits **2** unless
+`--allow-direct-only-fallback` is set.
+
 ### Unable to detect transitive dependencies (exit 2)
 
 **Message:** `Unable to detect transitive dependencies. Try installing the
@@ -331,19 +345,25 @@ package manager or generate a lock file before running vlz.`
 
 **Cause:** Transitive resolution was required but could not be completed
 (FR-022). Typical cases: `requirements.txt` or `Pipfile` without a lock file
-and without working pip resolution; explicit pip resolution failed after
+and without working pip resolution; `Cargo.toml` without `Cargo.lock` when
+`cargo metadata` fails; `go.mod` when `go list -m all` fails or `go` is not
+on PATH; explicit pip resolution failed after
 `--allow-dependency-code-execution`; or the parser found no dependencies.
 
 **Remediation:**
 
-1. Commit an adjacent lock file (preferred).
+1. Commit an adjacent lock file (preferred): `Cargo.lock`, `go.sum` (with
+   `go.mod`), or Python lock formats per Appendix A.
 2. Ensure pip >= 25.1 is on PATH for safe `pip lock -r` on `requirements.txt`.
-3. For local projects, use `--allow-dependency-code-execution` only in trusted
+3. For Rust lock-less scans, ensure `cargo` is on PATH and the crates.io
+   registry is reachable (or use `--offline` with a committed `Cargo.lock`).
+4. For Go module projects, ensure `go` is on PATH.
+5. For local Python projects, use `--allow-dependency-code-execution` only in trusted
    CI or workspaces (see SECURITY.md).
-4. When you accept direct-only scanning without transitive coverage, use
+6. When you accept direct-only scanning without transitive coverage, use
    `--allow-direct-only-fallback`, `VLZ_ALLOW_DIRECT_ONLY_FALLBACK=1`, or
    `allow_direct_only_fallback = true` in config.
-5. Use `--offline` or `--benchmark` only when you accept direct-only scanning
+7. Use `--offline` or `--benchmark` only when you accept direct-only scanning
    (warnings will be emitted for affected manifests).
 
 See also `man vlz` for configuration keys `keep_ephemeral_venv`,

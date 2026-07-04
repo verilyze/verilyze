@@ -79,7 +79,7 @@ complete -c vlz -n "__fish_vlz_using_subcommand scan" -l benchmark -d 'Benchmark
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l package-manager-required -d 'Require package manager on PATH; exit 3 with hint if missing'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l keep-ephemeral-venv -d 'Do not remove ephemeral Python venv after scan (FR-023 debug)'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l allow-dependency-code-execution -d 'Allow pip to execute dependency build code during resolution (SEC-023)'
-complete -c vlz -n "__fish_vlz_using_subcommand scan" -l allow-direct-only-fallback -d 'Fall back to direct-only scan with warning when transitive resolution fails (FR-022a)'
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l allow-direct-only-fallback -d 'Fall back to direct-only scan with warning when transitive resolution fails (FR-022a). Applies to Python requirements.txt/Pipfile, Rust Cargo.toml without Cargo.lock, and Go go.mod when go list or cargo metadata cannot run'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l fail-fast -d 'Stop on first manifest parse/resolution failure; skip CVE lookup (FR-037)'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand list" -s c -l config -d 'Override configuration file location' -r

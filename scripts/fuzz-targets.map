@@ -17,5 +17,6 @@ setup_cfg=crates/languages/vlz-python/src/parser/setup_cfg.rs
 setup_py=crates/languages/vlz-python/src/parser/setup_py.rs
 cargo_toml=crates/languages/vlz-rust/src/parser.rs
 cargo_lock=crates/languages/vlz-rust/src/resolver.rs
+cargo_metadata=crates/languages/vlz-rust/src/cargo_metadata.rs
 go_mod=crates/languages/vlz-go/src/parser.rs
 pip_freeze=crates/languages/vlz-python/src/resolver/pip_freeze.rs

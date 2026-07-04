@@ -88,7 +88,20 @@ default: disabled).
 .It Fl -allow-direct-only-fallback
 When transitive resolution is required but cannot be satisfied, fall back to
 direct-only scanning with an FR-022a warning instead of exit 2 (default:
-disabled).
+disabled). Applies to Python
+.Pa requirements.txt ,
+.Pa Pipfile ,
+Rust
+.Pa Cargo.toml
+without
+.Pa Cargo.lock ,
+and Go
+.Pa go.mod
+when
+.Nm go list
+or
+.Nm cargo metadata
+cannot run.
 .It Fl -fail-fast
 Stop on first manifest parse/resolution failure; skip CVE lookup (FR-037).
 .It Fl -backoff-base Ar ms

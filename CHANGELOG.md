@@ -14,6 +14,15 @@ this file **before** creating the release tag.
 
 ## [0.3.0] - 2026-07-03
 
+### Changed
+
+- Go: `go.mod` scans without `go` on PATH or when `go list -m all` fails now
+  exit 2 (FR-022) instead of continuing with a direct-only warning, unless
+  `--allow-direct-only-fallback` is set.
+- Rust: `Cargo.toml` without `Cargo.lock` now attempts `cargo metadata` for
+  transitive resolution; exit 2 when `cargo` is unavailable or metadata fails
+  (unless `--allow-direct-only-fallback`).
+
 ### Added
 
 - Python transitive dependency resolution when no lock file is found, with

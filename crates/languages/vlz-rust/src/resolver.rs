@@ -8,10 +8,12 @@ use std::sync::Mutex;
 
 use async_trait::async_trait;
 use vlz_manifest_parser::{
-    DIRECT_ONLY_REASON_UNAVAILABLE, DependencyGraph, ResolutionDepth,
-    ResolveContext, ResolveResult, Resolver, ResolverError,
-    direct_only_result, skip_package_manager_reason,
+    DependencyGraph, ResolutionDepth, ResolveContext, ResolveResult, Resolver,
+    ResolverError, direct_only_result, require_transitive_or_fallback,
+    skip_package_manager_reason,
 };
+
+use crate::cargo_metadata::run_cargo_metadata;
 
 /// Find Cargo.lock next to the manifest or in parent dirs (workspace root).
 pub fn find_lock_file(manifest_path: &Path) -> Option<std::path::PathBuf> {
@@ -63,12 +65,14 @@ pub fn parse_cargo_lock(
 #[derive(Debug)]
 pub struct CargoResolver {
     lock_cache: Mutex<HashMap<String, Vec<vlz_db::Package>>>,
+    metadata_cache: Mutex<HashMap<String, Vec<vlz_db::Package>>>,
 }
 
 impl Default for CargoResolver {
     fn default() -> Self {
         Self {
             lock_cache: Mutex::new(HashMap::new()),
+            metadata_cache: Mutex::new(HashMap::new()),
         }
     }
 }
@@ -147,10 +151,43 @@ impl Resolver for CargoResolver {
             return Ok(direct_only_result(graph.packages.clone(), reason));
         }
 
-        Ok(direct_only_result(
-            graph.packages.clone(),
-            DIRECT_ONLY_REASON_UNAVAILABLE,
-        ))
+        let manifest_path = graph
+            .manifest_path
+            .as_ref()
+            .ok_or_else(vlz_manifest_parser::fr022_transitive_error)?;
+
+        if !cargo_package_manager_available() {
+            return require_transitive_or_fallback(graph, ctx, None);
+        }
+
+        let cache_key = manifest_path.to_string_lossy().to_string();
+        if let Ok(cache) = self.metadata_cache.lock()
+            && let Some(cached) = cache.get(&cache_key)
+        {
+            return Ok(ResolveResult {
+                packages: cached.clone(),
+                depth: ResolutionDepth::Transitive,
+                direct_only_reason: None,
+                ..Default::default()
+            });
+        }
+
+        let manifest_abs = std::fs::canonicalize(manifest_path)
+            .unwrap_or_else(|_| manifest_path.clone());
+        match run_cargo_metadata(&manifest_abs).await {
+            Ok(packages) => {
+                if let Ok(mut cache) = self.metadata_cache.lock() {
+                    cache.insert(cache_key, packages.clone());
+                }
+                Ok(ResolveResult {
+                    packages,
+                    depth: ResolutionDepth::Transitive,
+                    direct_only_reason: None,
+                    ..Default::default()
+                })
+            }
+            Err(err) => require_transitive_or_fallback(graph, ctx, Some(err)),
+        }
     }
 
     fn package_manager_available(&self) -> bool {
@@ -226,7 +263,7 @@ version = "1.0"
     }
 
     #[tokio::test]
-    async fn cargo_resolver_returns_graph_when_no_lock() {
+    async fn cargo_resolver_returns_fr022_when_no_manifest_path() {
         let graph = DependencyGraph {
             packages: vec![vlz_db::Package {
                 name: "serde".to_string(),
@@ -237,16 +274,11 @@ version = "1.0"
         };
         let resolver = CargoResolver::new();
         let ctx = vlz_manifest_parser::ResolveContext::default();
-        let resolved = resolver.resolve(&graph, &ctx).await.unwrap();
-        assert_eq!(resolved.packages.len(), 1);
-        assert_eq!(resolved.packages[0].name, "serde");
-        assert_eq!(
-            resolved.depth,
-            vlz_manifest_parser::ResolutionDepth::DirectOnly
-        );
-        assert_eq!(
-            resolved.direct_only_reason,
-            Some(vlz_manifest_parser::DIRECT_ONLY_REASON_UNAVAILABLE)
+        let err = resolver.resolve(&graph, &ctx).await.unwrap_err();
+        assert!(
+            err.to_string().contains(
+                vlz_manifest_parser::FR_022_TRANSITIVE_ERROR_MESSAGE
+            )
         );
     }
 
@@ -413,11 +445,18 @@ version = "1.0.2"
     }
 
     #[tokio::test]
-    async fn cargo_resolver_fallback_when_lock_empty() {
-        let dir = tempfile::tempdir().unwrap();
+    async fn cargo_resolver_empty_lock_falls_through_to_metadata_or_fr022() {
+        let dir = isolated_tempdir();
         let tmp = dir.path();
         std::fs::create_dir_all(tmp).unwrap();
-        std::fs::write(tmp.join("Cargo.toml"), "[package]\n").unwrap();
+        std::fs::write(
+            tmp.join("Cargo.toml"),
+            r#"[package]
+name = "test"
+version = "0.1.0"
+"#,
+        )
+        .unwrap();
         std::fs::write(tmp.join("Cargo.lock"), "version = 3\n").unwrap();
 
         let graph = DependencyGraph {
@@ -430,13 +469,19 @@ version = "1.0.2"
         };
         let resolver = CargoResolver::new();
         let ctx = vlz_manifest_parser::ResolveContext::default();
-        let resolved = resolver.resolve(&graph, &ctx).await.unwrap();
-        assert_eq!(resolved.packages.len(), 1);
-        assert_eq!(resolved.packages[0].name, "serde");
-        assert_eq!(
-            resolved.direct_only_reason,
-            Some(vlz_manifest_parser::DIRECT_ONLY_REASON_UNAVAILABLE)
-        );
+        match resolver.resolve(&graph, &ctx).await {
+            Ok(resolved) => {
+                assert_eq!(
+                    resolved.depth,
+                    vlz_manifest_parser::ResolutionDepth::Transitive
+                );
+            }
+            Err(err) => {
+                assert!(err.to_string().contains(
+                    vlz_manifest_parser::FR_022_TRANSITIVE_ERROR_MESSAGE
+                ));
+            }
+        }
     }
 
     #[test]
