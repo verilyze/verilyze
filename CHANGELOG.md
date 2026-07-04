@@ -12,7 +12,7 @@ The GitHub Release body is generated from the matching `## [version]` section
 below when you push a `v*` tag (see `.github/workflows/release.yml`). Update
 this file **before** creating the release tag.
 
-## [0.3.0] - 2026-07-03
+## [0.3.1] - 2026-07-04
 
 ### Changed
 
@@ -22,6 +22,28 @@ this file **before** creating the release tag.
 - Rust: `Cargo.toml` without `Cargo.lock` now attempts `cargo metadata` for
   transitive resolution; exit 2 when `cargo` is unavailable or metadata fails
   (unless `--allow-direct-only-fallback`).
+- Rust and Go resolvers emit FR-022a `direct_only_reason` warnings and honor
+  offline/benchmark `ResolveContext` (parity with Python).
+
+### Fixed
+
+- OBS `_meta` reconciliation: product-focused titles, package `_meta` omits
+  redundant maintainers, offline validation gates malformed XML, and a workflow
+  syncs `packaging/obs/**/_meta` on every `main` push.
+- OBS release upload ignores and cleans stale `vendor.tar.zst` artifacts.
+- Parallel `make -j check` no longer races on `check-headers`.
+- Cursor agent sandbox no longer triggers git errors on protected LICENSE
+  paths during commit.
+- OBS integration tests use sandbox-safe cleanup paths.
+
+### Added
+
+- Shared FR-022 helpers in `vlz-manifest-parser` for cross-language resolver
+  policy.
+- Integration tests for Rust and Go FR-022 resolver behavior.
+- Fuzz target for `cargo metadata` JSON parsing.
+
+## [0.3.0] - 2026-07-03
 
 ### Added
 
@@ -42,13 +64,6 @@ this file **before** creating the release tag.
   source file (catches delete-without-reupload commits).
 - Disable OBS `Fedora_43` builds: worker Rust 1.90 cannot compile v0.3.0
   (Ruff-based setup.py support requires Rust 1.94+).
-- Reconcile OBS `_meta` with git as single source of truth: product-focused
-  titles and descriptions, package `_meta` omits redundant maintainers
-  (project ACL is authoritative), and offline validation gates malformed XML
-  and invalid build-disable references on PRs.
-- OBS meta sync pushes both project and package `_meta` to build.opensuse.org;
-  a dedicated workflow syncs on every `main` push that touches
-  `packaging/obs/**/_meta`.
 - Cursor agent validation no longer runs on read-only turns (plans, questions,
   reviews with no file edits).
 - CI header and super-linter failures.
