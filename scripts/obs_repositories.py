@@ -54,6 +54,70 @@ def enabled_build_repositories(
     return tuple(name for name in project_repos if name not in disabled)
 
 
+def _parse_meta_xml(label: str, meta_xml: str) -> ET.Element:
+    """Parse OBS _meta XML or raise ValueError with a stable label."""
+    try:
+        return ET.fromstring(meta_xml)  # nosec B314
+    except ET.ParseError as exc:
+        msg = f"OBS {label} _meta XML is not well-formed: {exc}"
+        raise ValueError(msg) from exc
+
+
+def parse_project_maintainer_userids(project_meta_xml: str) -> tuple[str, ...]:
+    """Return sorted unique maintainer userids from OBS project _meta XML."""
+    root = _parse_meta_xml("project", project_meta_xml)
+    userids: set[str] = set()
+    for person in root.findall("person"):
+        role = (person.get("role") or "").strip()
+        userid = (person.get("userid") or "").strip()
+        if role == "maintainer" and userid:
+            userids.add(userid)
+    return tuple(sorted(userids))
+
+
+def validate_obs_meta_files(
+    project_meta_xml: str,
+    package_meta_xml: str,
+) -> None:
+    """Validate committed OBS project and package _meta files offline."""
+    _parse_meta_xml("project", project_meta_xml)
+    _parse_meta_xml("package", package_meta_xml)
+
+    maintainers = parse_project_maintainer_userids(project_meta_xml)
+    if not maintainers:
+        msg = "OBS project _meta must contain at least one maintainer"
+        raise ValueError(msg)
+
+    project_repos = frozenset(parse_project_repository_names(project_meta_xml))
+    disabled = parse_package_disabled_repositories(package_meta_xml)
+    unknown = sorted(name for name in disabled if name not in project_repos)
+    if unknown:
+        joined = ", ".join(unknown)
+        msg = "OBS package _meta disables unknown repositories: " f"{joined}"
+        raise ValueError(msg)
+
+
+def load_and_validate_obs_meta_files(
+    repo_root: Path,
+    *,
+    project_meta_path: Path | None = None,
+    package_meta_path: Path | None = None,
+) -> None:
+    """Load and validate committed OBS _meta files from disk."""
+    project_path = project_meta_path or (repo_root / DEFAULT_PROJECT_META_REL)
+    package_path = package_meta_path or (repo_root / DEFAULT_PACKAGE_META_REL)
+    if not project_path.is_file():
+        msg = f"OBS project _meta not found: {project_path}"
+        raise FileNotFoundError(msg)
+    if not package_path.is_file():
+        msg = f"OBS package _meta not found: {package_path}"
+        raise FileNotFoundError(msg)
+    validate_obs_meta_files(
+        project_path.read_text(encoding="utf-8"),
+        package_path.read_text(encoding="utf-8"),
+    )
+
+
 def load_enabled_build_repositories(
     repo_root: Path,
     *,
@@ -106,7 +170,22 @@ def main() -> int:
             "(default: packaging/obs/rpm/_meta)"
         ),
     )
+    parser.add_argument(
+        "--validate",
+        action="store_true",
+        help=(
+            "Validate committed OBS _meta files "
+            "instead of listing repositories"
+        ),
+    )
     args = parser.parse_args()
+    if args.validate:
+        load_and_validate_obs_meta_files(
+            args.repo_root,
+            project_meta_path=args.project_meta,
+            package_meta_path=args.package_meta,
+        )
+        return 0
     repositories = load_enabled_build_repositories(
         args.repo_root,
         project_meta_path=args.project_meta,

@@ -162,6 +162,17 @@ if [[ ! -f "${PROJECT_META}" ]]; then
   exit 1
 fi
 
+PACKAGE_META="${ROOT_DIR}/packaging/obs/rpm/_meta"
+if [[ ! -f "${PACKAGE_META}" ]]; then
+  echo "ERROR: missing OBS package meta file: ${PACKAGE_META}" >&2
+  exit 1
+fi
+
+if ! python3 "${REPOSITORIES_HELPER}" --repo-root "${ROOT_DIR}" --validate; then
+  echo "ERROR: committed OBS _meta files failed validation" >&2
+  exit 1
+fi
+
 if [[ ! -x "${SYNC_META_SCRIPT}" ]]; then
   echo "ERROR: missing OBS project meta sync script: ${SYNC_META_SCRIPT}" >&2
   exit 1
