@@ -15,7 +15,7 @@ from tests.scripts.test_makefile_check_includes_deny import _extract_prerequisit
 
 def test_check_lists_fuzz_then_coverage_not_separate_fuzz_and_coverage() -> None:
     text = (repo_root() / "Makefile").read_text(encoding="utf-8")
-    block = _extract_prerequisite_block(text, "check")
+    block = _extract_prerequisite_block(text, "check-parallel")
     tokens = block.replace("\\", " ").split()
     assert "fuzz-then-coverage" in tokens, (
         "make check must depend on fuzz-then-coverage so cargo afl and "
