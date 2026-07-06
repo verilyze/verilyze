@@ -36,7 +36,7 @@ fi
 
 bash "${ROOT}/scripts/generate-third-party-licenses.sh"
 
-# SEC-019: refresh committed workspace SBOM when Cargo.lock changes.
+# SEC-019: refresh committed workspace SBOM (Cargo and pep621 post-upgrade hooks).
 if [[ -f "${ROOT}/Cargo.lock" ]]; then
   if ! command -v make >/dev/null 2>&1; then
     echo "ERROR: make not on PATH (required for generate-sbom)" >&2

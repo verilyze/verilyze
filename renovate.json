@@ -145,12 +145,25 @@
       "rangeStrategy": "bump"
     },
     {
+      "description": "pyproject.toml PEP 621: regenerate workspace SBOM after dev dep updates",
+      "matchManagers": ["pep621"],
+      "matchFileNames": ["pyproject.toml"],
+      "postUpgradeTasks": {
+        "commands": ["bash scripts/renovate-post-upgrade-sbom.sh"],
+        "executionMode": "branch",
+        "fileFilters": ["sbom/**"],
+        "installTools": {
+          "rust": {}
+        }
+      }
+    },
+    {
       "description": "Rust workspace: regenerate THIRD-PARTY-LICENSES after Cargo updates",
       "matchManagers": ["cargo"],
       "postUpgradeTasks": {
         "commands": ["bash scripts/renovate-post-upgrade-licenses.sh"],
         "executionMode": "branch",
-        "fileFilters": ["THIRD-PARTY-LICENSES"],
+        "fileFilters": ["THIRD-PARTY-LICENSES", "sbom/**"],
         "installTools": {
           "rust": {},
           "python": {}

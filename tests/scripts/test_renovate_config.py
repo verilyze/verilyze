@@ -135,3 +135,48 @@ def test_renovate_pep621_pypi_range_strategy_bump() -> None:
         "packageRules must set rangeStrategy bump for pep621 PyPI deps "
         "in pyproject.toml"
     )
+
+
+def test_renovate_pep621_post_upgrade_regenerates_sbom() -> None:
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    rules = data.get("packageRules", [])
+    match = next(
+        (
+            r
+            for r in rules
+            if r.get("matchManagers") == ["pep621"]
+            and r.get("matchFileNames") == ["pyproject.toml"]
+            and "postUpgradeTasks" in r
+        ),
+        None,
+    )
+    assert match is not None, (
+        "packageRules must run postUpgradeTasks for pep621 pyproject.toml"
+    )
+    tasks = match["postUpgradeTasks"]
+    assert tasks["commands"] == ["bash scripts/renovate-post-upgrade-sbom.sh"]
+    assert tasks["fileFilters"] == ["sbom/**"]
+    assert tasks["executionMode"] == "branch"
+
+
+def test_renovate_cargo_post_upgrade_commits_sbom() -> None:
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    rules = data.get("packageRules", [])
+    match = next(
+        (
+            r
+            for r in rules
+            if r.get("matchManagers") == ["cargo"] and "postUpgradeTasks" in r
+        ),
+        None,
+    )
+    assert match is not None
+    filters = match["postUpgradeTasks"]["fileFilters"]
+    assert "THIRD-PARTY-LICENSES" in filters
+    assert "sbom/**" in filters
+
+
+def test_renovate_workflow_allows_post_upgrade_sbom_script() -> None:
+    text = (_ROOT / ".github/workflows/renovate.yml").read_text(encoding="utf-8")
+    assert "renovate-post-upgrade-sbom" in text
+    assert "renovate-post-upgrade-licenses" in text
