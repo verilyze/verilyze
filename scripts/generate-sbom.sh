@@ -84,6 +84,9 @@ scan_args+=(
 # SEC-019: component inventory SBOM (deterministic; no network/CVE lookup).
 "${VLZ}" "${scan_args[@]}"
 
+PYTHONPATH="${ROOT}" python3 "${ROOT}/scripts/normalize_sbom.py" \
+  "${CYCLONEDX_PATH}" "${SPDX_PATH}"
+
 if [[ ! -s "${CYCLONEDX_PATH}" ]]; then
   echo "ERROR: CycloneDX SBOM was not written: ${CYCLONEDX_PATH}" >&2
   exit 1

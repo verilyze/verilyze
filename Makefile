@@ -243,6 +243,7 @@ $(VENV_TEST)/bin/pytest:
 	@if [ -x "$(VENV_TEST)/bin/pytest" ] && \
 	      "$(VENV_TEST)/bin/python" -m pytest --version >/dev/null 2>&1 && \
 	      "$(VENV_TEST)/bin/codespell" --version >/dev/null 2>&1 && \
+	      "$(VENV_TEST)/bin/python" -c "import jsonschema" 2>/dev/null && \
 	      "$(VENV_TEST)/bin/python" -c "import pathlib, coverage; p=pathlib.Path(coverage.__file__).resolve().parent/'htmlfiles'/'index.html'; assert p.is_file(), p" 2>/dev/null; then \
 		exit 0; \
 	fi

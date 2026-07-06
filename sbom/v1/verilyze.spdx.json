@@ -2,7 +2,7 @@
   "@context": "https://spdx.org/rdf/3.0.1/spdx-context.jsonld",
   "@type": "SpdxDocument",
   "creationInfo": {
-    "created": "3996-07-06T05:41:12Z",
+    "created": "1970-01-01T00:00:00Z",
     "createdBy": [
       "urn:spdx.dev:tool-vlz"
     ],
@@ -2443,5 +2443,5 @@
     }
   ],
   "relationship": [],
-  "spdxId": "urn:spdx.dev:doc-1783316472"
+  "spdxId": "urn:spdx.dev:doc-verilyze-workspace"
 }
