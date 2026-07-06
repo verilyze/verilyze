@@ -443,7 +443,7 @@ check-sbom: release
 		(echo "sbom/ is out of sync. Run: make generate-sbom" && exit 1)
 
 # check-report-schema: Validate JSON report schema (DOC-005, NFR-014).
-check-report-schema: setup
+check-report-schema: debug
 	$(SCRIPTS_DIR)/check-report-schema.sh
 
 # check-dco: verify commits have Signed-off-by (DCO); for local use before push
