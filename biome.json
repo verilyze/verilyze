@@ -19,6 +19,7 @@
       "!!**/.mypy_cache",
       "!!**/site-packages",
       "!!**/reports",
+      "!!**/sbom",
       "!!**/node_modules",
       "!!**/super-linter-output"
     ]

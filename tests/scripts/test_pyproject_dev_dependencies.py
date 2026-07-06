@@ -18,6 +18,7 @@ EXPECTED_DEV_PACKAGES = frozenset(
     {
         "pytest",
         "pytest-cov",
+        "jsonschema",
         "black",
         "pylint",
         "mypy",

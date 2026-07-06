@@ -1,0 +1,109 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Example GitHub Actions workflow: scan a repository with vlz (NFR-014).
+# Copy relevant jobs into .github/workflows/ in your project.
+#
+# Prerequisites:
+# - Network access to OSV (or pre-warm cache / use --offline with populated cache)
+# - For SARIF upload: GitHub Advanced Security / code scanning enabled
+
+name: vlz scan example
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  # Required only when uploading SARIF to GitHub Code Scanning:
+  # security-events: write
+
+jobs:
+  # --- Option A: install a release binary (after verifying SHA256SUMS) ---
+  scan-release-binary:
+    if: false # enable when using published releases
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Download vlz release binary
+        env:
+          VERSION: "0.3.1"
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            -o vlz \
+            "https://github.com/verilyze/verilyze/releases/download/v${VERSION}/vlz-linux-x86_64"
+          chmod +x vlz
+          # Verify SHA256SUMS from the same GitHub Release before use in production.
+
+      - name: Scan with vlz
+        run: |
+          set -euo pipefail
+          ./vlz scan . \
+            --project-id "${{ github.repository }}" \
+            --format sarif \
+            --summary-file "sarif:${{ runner.temp }}/vlz.sarif"
+
+      # - uses: github/codeql-action/upload-sarif@v3
+      #   with:
+      #     sarif_file: ${{ runner.temp }}/vlz.sarif
+
+  # --- Option B: build from source (contributors / unreleased) ---
+  scan-build-from-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Install Rust (rust-toolchain.toml)
+        run: |
+          set -euo pipefail
+          rustc -vV
+          cargo -V
+
+      - name: Build vlz
+        run: cargo build --release --locked -p vlz
+
+      - name: Scan with vlz
+        env:
+          REPORT_JSON: ${{ runner.temp }}/vlz-report.json
+          REPORT_SARIF: ${{ runner.temp }}/vlz.sarif
+        run: |
+          set -euo pipefail
+          ./target/release/vlz scan . \
+            --project-id "${{ github.repository }}" \
+            --provider osv \
+            --summary-file "json:${REPORT_JSON}" \
+            --summary-file "sarif:${REPORT_SARIF}"
+          # Exit 86 when CVEs meet min-score/min-count (FR-010, FR-014).
+          # Inspect manifest_coverage in JSON for monorepos (FR-037).
+
+      - name: Upload reports
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: vlz-reports
+          path: |
+            ${{ runner.temp }}/vlz-report.json
+            ${{ runner.temp }}/vlz.sarif
+
+  # --- Option C: offline scan with cached CVE data (air-gapped) ---
+  scan-offline-cached:
+    if: false # enable when cache is pre-seeded
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Restore vlz CVE cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/verilyze
+          key: vlz-osv-cache-${{ runner.os }}-pinned
+
+      - name: Scan offline
+        run: |
+          set -euo pipefail
+          vlz scan . --offline --project-id "${{ github.repository }}"
