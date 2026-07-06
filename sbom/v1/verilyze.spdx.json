@@ -29,9 +29,9 @@
     {
       "@type": "Package",
       "name": "jsonschema",
-      "packageUrl": "pkg:pypi/jsonschema@4.25.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-jsonschema-4-25-0",
-      "versionInfo": "4.25.0"
+      "packageUrl": "pkg:pypi/jsonschema@4.26.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-jsonschema-4-26-0",
+      "versionInfo": "4.26.0"
     },
     {
       "@type": "Package",
