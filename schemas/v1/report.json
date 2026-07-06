@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/verilyze/verilyze/schemas/v1/report.json",
+  "title": "vlz scan report",
+  "description": "JSON output from vlz scan --format json (DOC-005, NFR-014).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "findings", "manifest_coverage"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "https://github.com/verilyze/verilyze/schemas/v1/report.json"
+    },
+    "project_id": {
+      "type": "string",
+      "description": "Present when scan used --project-id (FR-015a)."
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "manifest_coverage": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/manifest_coverage_entry" }
+    }
+  },
+  "$defs": {
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "ecosystem": { "type": "string" }
+      }
+    },
+    "cve_with_severity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description", "severity"],
+      "properties": {
+        "id": { "type": "string" },
+        "description": { "type": "string" },
+        "cvss_score": { "type": "number" },
+        "cvss_version": {
+          "type": "string",
+          "enum": ["v2", "v3", "v4"]
+        },
+        "reachable": { "type": "boolean" },
+        "severity": {
+          "type": "string",
+          "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"]
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["package", "manifest_paths", "cves"],
+      "properties": {
+        "package": { "$ref": "#/$defs/package" },
+        "manifest_paths": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "cves": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/cve_with_severity" }
+        }
+      }
+    },
+    "manifest_coverage_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "language", "status"],
+      "properties": {
+        "path": { "type": "string" },
+        "language": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": [
+            "scanned_transitive",
+            "scanned_direct_only",
+            "failed_parse",
+            "failed_resolution"
+          ]
+        },
+        "direct_only_reason": { "type": "string" },
+        "error": { "type": "string" }
+      }
+    }
+  }
+}

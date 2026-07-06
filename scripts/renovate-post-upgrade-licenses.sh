@@ -35,3 +35,12 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 
 bash "${ROOT}/scripts/generate-third-party-licenses.sh"
+
+# SEC-019: refresh committed workspace SBOM when Cargo.lock changes.
+if [[ -f "${ROOT}/Cargo.lock" ]]; then
+  if ! command -v make >/dev/null 2>&1; then
+    echo "ERROR: make not on PATH (required for generate-sbom)" >&2
+    exit 1
+  fi
+  make -C "${ROOT}" -f "${ROOT}/Makefile" generate-sbom
+fi

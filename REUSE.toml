@@ -28,6 +28,27 @@ precedence = "override"
 SPDX-FileCopyrightText = "The verilyze contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
+# Generated workspace SBOM (vlz scan output; SEC-019; no SPDX in file)
+[[annotations]]
+path = "sbom/v1/*.json"
+precedence = "override"
+SPDX-FileCopyrightText = "The verilyze contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# Golden JSON fixture for report schema tests
+[[annotations]]
+path = "tests/scripts/fixtures/report-schema-golden.json"
+precedence = "override"
+SPDX-FileCopyrightText = "The verilyze contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# JSON Schema for vlz scan reports (DOC-005; no SPDX in file)
+[[annotations]]
+path = "schemas/v1/report.json"
+precedence = "override"
+SPDX-FileCopyrightText = "The verilyze contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
 # ShellCheck config for completions/ (authored; SPDX in file)
 [[annotations]]
 path = "completions/.shellcheckrc"

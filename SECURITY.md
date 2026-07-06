@@ -130,6 +130,8 @@ and [COMPLIANCE.md](COMPLIANCE.md) for credential-handling controls.
 - **Compliance checklist:** [COMPLIANCE.md](COMPLIANCE.md) in the repository
   root maps controls to implementation (SOC 2 / ISO 27001 / CMMC); refer to the
   PRD (SEC-010, DOC-008) for requirements.
+- **JSON report schema:** [schemas/v1/report.json](schemas/v1/report.json)
+  (DOC-005); validate with `make check-report-schema`.
 
 ## Regular expressions (ReDoS)
 
@@ -187,9 +189,13 @@ for remediation when scans warn about partial (direct-only) resolution.
   `./scripts/fuzz.sh` (requires cargo-afl and AFL++). Results and coverage can
   be linked here or from CI artifacts when available.
 - **Latest `vlz scan` (dogfooding):** SEC-015 requires the project to be
-  scannable by the latest stable verilyze with exit 0. When CI or release
-  artifacts include a latest-scan report, it will be linked here (e.g. from the
-  repository Releases or a dedicated docs path).
+  scannable by the latest stable verilyze with exit 0. CI workflow
+  [.github/workflows/supply-chain.yml](.github/workflows/supply-chain.yml)
+  runs a daily and dependency-triggered **dogfood** job; download the
+  `dogfood-reports` artifact (JSON + SARIF) from the latest successful run.
+- **Workspace SBOM (SEC-019):** Committed CycloneDX and SPDX inventories live
+  under [sbom/v1/](sbom/v1/). Regenerate with `make generate-sbom`; CI enforces
+  via `make check-sbom`.
 
 ## For users
 

@@ -1,0 +1,112 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+---
+# Supply-chain trust checks: workspace SBOM freshness (SEC-019) and dogfooding
+# scan with live CVE lookup (SEC-015).
+
+name: Supply chain
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - Cargo.lock
+      - "**/Cargo.toml"
+      - pyproject.toml
+      - scripts/requirements*.txt
+      - sbom/**
+      - scripts/generate-sbom.sh
+      - scripts/lib/workspace-scan-excludes.sh
+  pull_request:
+    branches: [main]
+    paths:
+      - Cargo.lock
+      - "**/Cargo.toml"
+      - pyproject.toml
+      - scripts/requirements*.txt
+      - sbom/**
+      - scripts/generate-sbom.sh
+      - scripts/lib/workspace-scan-excludes.sh
+  merge_group:
+    types: [checks_requested]
+  schedule:
+  # Daily dogfooding after release (SEC-015).
+    - cron: "0 6 * * *"
+
+permissions: {}
+
+jobs:
+  sbom:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Install Rust (rust-toolchain.toml)
+        run: |
+          set -euo pipefail
+          rustc -vV
+          cargo -V
+
+      - name: Verify committed workspace SBOM (SEC-019)
+        run: make check-sbom
+
+  dogfood:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Install Rust (rust-toolchain.toml)
+        run: |
+          set -euo pipefail
+          rustc -vV
+          cargo -V
+
+      - name: Cache OSV CVE cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/verilyze
+          key: >-
+            vlz-osv-cache-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            vlz-osv-cache-${{ runner.os }}-
+
+      - name: Build vlz
+        run: make release
+
+      - name: Dogfood scan (SEC-015)
+        env:
+          REPORT_JSON: ${{ runner.temp }}/dogfood-report.json
+          REPORT_SARIF: ${{ runner.temp }}/dogfood.sarif
+        run: |
+          set -euo pipefail
+          scan_args=(
+            scan "${GITHUB_WORKSPACE}"
+            --project-id verilyze-ci
+            --provider osv
+            --format json
+            --summary-file "json:${REPORT_JSON}"
+            --summary-file "sarif:${REPORT_SARIF}"
+          )
+          for dir in target .venv-lint .venv-test .venv-reuse; do
+            scan_args+=(--scan-exclude-dir "${dir}")
+          done
+          ./target/release/vlz "${scan_args[@]}"
+
+      - name: Upload dogfood reports
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dogfood-reports
+          path: |
+            ${{ runner.temp }}/dogfood-report.json
+            ${{ runner.temp }}/dogfood.sarif
+          retention-days: 90

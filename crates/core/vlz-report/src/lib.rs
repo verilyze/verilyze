@@ -9,6 +9,10 @@ use async_trait::async_trait;
 /// Project repository URL; used in SARIF informationUri and elsewhere (DRY).
 pub const VLZ_REPOSITORY_URL: &str = "https://github.com/verilyze/verilyze";
 
+/// JSON Schema `$id` for `--format json` reports (DOC-005).
+pub const REPORT_JSON_SCHEMA_ID: &str =
+    "https://github.com/verilyze/verilyze/schemas/v1/report.json";
+
 use serde::Serialize;
 use std::io::Write;
 use std::path::PathBuf;
@@ -367,6 +371,8 @@ impl Reporter for DefaultReporter {
 /// FR-015a: project_id included when scan used --project-id.
 #[derive(Serialize)]
 struct JsonReport<'a> {
+    #[serde(rename = "$schema")]
+    schema: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     project_id: Option<&'a str>,
     manifest_coverage: Vec<JsonManifestCoverageEntry<'a>>,
@@ -421,6 +427,7 @@ impl Reporter for JsonReporter {
         w: &mut (dyn std::io::Write + Send),
     ) -> Result<(), ReportError> {
         let report = JsonReport {
+            schema: REPORT_JSON_SCHEMA_ID,
             project_id: data.project_id.as_deref(),
             manifest_coverage: json_manifest_coverage_entries(
                 &data.manifest_coverage,
@@ -1166,6 +1173,23 @@ mod tests {
             error: None,
         }];
         assert!(!manifest_coverage_needs_section(&coverage));
+    }
+
+    #[tokio::test]
+    async fn json_reporter_includes_schema_reference_doc005() {
+        let data = sample_report_data_empty();
+        let mut buf = Vec::new();
+        JsonReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim())
+                .unwrap();
+        assert_eq!(
+            parsed.get("$schema").and_then(|v| v.as_str()),
+            Some(REPORT_JSON_SCHEMA_ID)
+        );
     }
 
     #[tokio::test]

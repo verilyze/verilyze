@@ -772,6 +772,12 @@ copyright and license headers. Default license and copyright are defined in
   copies deny.toml [licenses] allow to about.toml; it runs automatically
   before license generation. `make check-third-party-licenses` verifies the
   committed file is up to date.
+- **Workspace SBOM (SEC-019):** Committed CycloneDX/SPDX files under `sbom/v1/`
+  from `make generate-sbom` (dogfoods `vlz scan`). `make check-sbom` verifies
+  they match a fresh scan. CI: `.github/workflows/supply-chain.yml`.
+- **JSON report schema (DOC-005):** [schemas/v1/report.json](schemas/v1/report.json);
+  `make check-report-schema` validates schema and live output.
+- **CI scan example (NFR-014):** [examples/github-action-vlz-scan.yml](examples/github-action-vlz-scan.yml).
 - **Check headers:** `make check-headers` (runs `check-header-duplicates` and
   `reuse lint`)
 - **Add/update headers:** `make headers` (runs `scripts/update_headers.py`).

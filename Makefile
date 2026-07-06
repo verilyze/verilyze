@@ -47,6 +47,8 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: sync-license-config check-license-config deny-check
 .PHONY: generate-third-party-licenses generate-third-party-licenses-docker
 .PHONY: check-third-party-licenses
+.PHONY: generate-sbom check-sbom
+.PHONY: check-report-schema
 .PHONY: deb rpm aur apk docker
 .PHONY: install clean distclean
 
@@ -97,6 +99,9 @@ help:
 	@echo "    make deny-check       - cargo deny check (licenses, advisories, bans, sources)"
 	@echo "    make generate-third-party-licenses - Generate THIRD-PARTY-LICENSES for packaging"
 	@echo "    make check-third-party-licenses - Verify THIRD-PARTY-LICENSES is up to date"
+	@echo "    make generate-sbom    - Generate workspace SBOM under sbom/v1/ (SEC-019)"
+	@echo "    make check-sbom       - Verify committed SBOM is up to date"
+	@echo "    make check-report-schema - Validate JSON report schema (DOC-005)"
 	@echo "    make fmt-check      - Verify Rust formatting (cargo fmt --check)"
 	@echo "    make fmt           - Auto-format Rust code (cargo fmt)"
 	@echo "    make clippy        - Run Clippy lints (all-targets, all-features)"
@@ -132,7 +137,7 @@ help:
 # Prepare dev environment: bootstrap Python venvs and non-system Rust CLI tools.
 # System deps (rust, python3, shellcheck, afl++) must be installed separately;
 # see CONTRIBUTING.md "Quick setup".
-setup: setup-system-deps setup-dev-tools $(VENV_LINT)/bin/black $(VENV_TEST)/bin/pytest
+setup: setup-system-deps setup-dev-tools $(VENV_LINT)/bin/black venv-test-ready
 	@echo "Dev environment ready. Run: make check"
 	@echo "Recommended:"
 	@echo "  make setup-hooks # git hooks (REUSE headers, DCO signoff, signature check)"
@@ -238,6 +243,7 @@ $(VENV_TEST)/bin/pytest:
 	@if [ -x "$(VENV_TEST)/bin/pytest" ] && \
 	      "$(VENV_TEST)/bin/python" -m pytest --version >/dev/null 2>&1 && \
 	      "$(VENV_TEST)/bin/codespell" --version >/dev/null 2>&1 && \
+	      "$(VENV_TEST)/bin/python" -c "import jsonschema" 2>/dev/null && \
 	      "$(VENV_TEST)/bin/python" -c "import pathlib, coverage; p=pathlib.Path(coverage.__file__).resolve().parent/'htmlfiles'/'index.html'; assert p.is_file(), p" 2>/dev/null; then \
 		exit 0; \
 	fi
@@ -426,6 +432,20 @@ check-third-party-licenses:
 	@cd "$(MKFILE_DIR)" && git diff --exit-code THIRD-PARTY-LICENSES || \
 		(echo "THIRD-PARTY-LICENSES is out of sync. Run: make generate-third-party-licenses" && exit 1)
 
+# generate-sbom: Produce CycloneDX + SPDX workspace SBOM via vlz scan (SEC-019).
+generate-sbom: release
+	$(SCRIPTS_DIR)/generate-sbom.sh
+
+# check-sbom: Regenerate sbom/v1/ and fail if it differs from committed.
+check-sbom: release
+	$(SCRIPTS_DIR)/generate-sbom.sh
+	@cd "$(MKFILE_DIR)" && git diff --exit-code sbom/ || \
+		(echo "sbom/ is out of sync. Run: make generate-sbom" && exit 1)
+
+# check-report-schema: Validate JSON report schema (DOC-005, NFR-014).
+check-report-schema: debug
+	$(SCRIPTS_DIR)/check-report-schema.sh
+
 # check-dco: verify commits have Signed-off-by (DCO); for local use before push
 check-dco:
 	@cd "$(MKFILE_DIR)" && ./scripts/check-dco.sh
@@ -483,6 +503,8 @@ check-parallel: check-doc-diagrams \
        check-license-config \
        deny-check \
        check-third-party-licenses \
+       check-sbom \
+       check-report-schema \
        cargo-check \
        fmt-check \
        clippy \
