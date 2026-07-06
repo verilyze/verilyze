@@ -1002,7 +1002,10 @@ releases](#versioning-and-releases) below.
   **`bash scripts/renovate-post-upgrade-licenses.sh`** once per branch
   (**`executionMode: branch`**). That wrapper installs **`cargo-about`** if
   needed, then runs **`scripts/generate-third-party-licenses.sh`**, the same
-  script invoked by **`make generate-third-party-licenses`**. Containerbase
+  script invoked by **`make generate-third-party-licenses`**, and
+  **`make generate-sbom`** (commits **`sbom/**`** with **`THIRD-PARTY-LICENSES`**).
+  After **`pyproject.toml`** PEP 621 dev dep updates, **`postUpgradeTasks`** run
+  **`bash scripts/renovate-post-upgrade-sbom.sh`** to refresh **`sbom/**`** only. Containerbase
   **`installTools`** (**`rust`**, **`python`**) supplies the toolchain; the
   **`cargo-about`** pin matches
   [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
