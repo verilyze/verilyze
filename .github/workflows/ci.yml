@@ -235,7 +235,7 @@ jobs:
 
       # Versions: deny matches CONTRIBUTING Quick setup; others pinned for CI.
       - name: Install cargo tooling (llvm-cov, deny, afl, about)
-        uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2.82.7
+        uses: taiki-e/install-action@4684b8405694ae9dd42c9f39ba901a70ae83f4a3 # v2.82.9
         with:
           tool: >-
             cargo-llvm-cov@0.8.5,cargo-deny@0.19.0,cargo-afl@0.18.0,cargo-about@0.9.0
@@ -306,7 +306,7 @@ jobs:
           thresholds: '85 90'
 
       - name: Post coverage summary on PR
-        uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0 # v3.0.4
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
         with:
           header: cobertura-summary
           recreate: true
