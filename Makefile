@@ -137,7 +137,7 @@ help:
 # Prepare dev environment: bootstrap Python venvs and non-system Rust CLI tools.
 # System deps (rust, python3, shellcheck, afl++) must be installed separately;
 # see CONTRIBUTING.md "Quick setup".
-setup: setup-system-deps setup-dev-tools $(VENV_LINT)/bin/black $(VENV_TEST)/bin/pytest
+setup: setup-system-deps setup-dev-tools $(VENV_LINT)/bin/black venv-test-ready
 	@echo "Dev environment ready. Run: make check"
 	@echo "Recommended:"
 	@echo "  make setup-hooks # git hooks (REUSE headers, DCO signoff, signature check)"
