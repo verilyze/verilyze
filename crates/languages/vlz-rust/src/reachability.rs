@@ -5,6 +5,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
+use vlz_db::CRATES_IO_ECOSYSTEM;
 
 use vlz_reachability_trait::{
     ReachabilityAnalyzer, TierBContext, TierBDecision, list_files_with_ext,
@@ -172,7 +173,7 @@ impl ReachabilityAnalyzer for RustTierBAnalyzer {
     }
 
     fn ecosystems(&self) -> &'static [&'static str] {
-        &["crates.io"]
+        &[CRATES_IO_ECOSYSTEM]
     }
 
     fn analyze_tier_b(&self, context: &TierBContext<'_>) -> TierBDecision {
@@ -265,7 +266,7 @@ mod tests {
         let package = vlz_db::Package {
             name: package_name.to_string(),
             version: "1.0.0".to_string(),
-            ecosystem: Some("crates.io".to_string()),
+            ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
         };
         let exclude = Box::leak(Box::new(HashSet::new()));
         TierBContext {
@@ -436,7 +437,7 @@ mod tests {
         let package = vlz_db::Package {
             name: "serde".to_string(),
             version: "1.0.0".to_string(),
-            ecosystem: Some("crates.io".to_string()),
+            ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
         };
         let ctx = TierBContext {
             scan_root: dir.path(),

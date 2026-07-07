@@ -401,7 +401,7 @@ mod tests {
             packages: vec![vlz_db::Package {
                 name: "demo".to_string(),
                 version: "1.0.0".to_string(),
-                ecosystem: Some("PyPI".to_string()),
+                ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.to_string()),
             }],
             manifest_path: Some(manifest),
         }
@@ -455,7 +455,7 @@ mod tests {
             packages: vec![vlz_db::Package {
                 name: "myproj".to_string(),
                 version: "0.1.0".to_string(),
-                ecosystem: Some("PyPI".to_string()),
+                ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.to_string()),
             }],
             manifest_path: Some(PathBuf::from("/tmp/testproj/setup.py")),
         };
@@ -475,7 +475,7 @@ mod tests {
             packages: vec![vlz_db::Package {
                 name: "a".to_string(),
                 version: "1".to_string(),
-                ecosystem: Some("PyPI".to_string()),
+                ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.to_string()),
             }],
             manifest_path: Some(PathBuf::from("/tmp/testproj/setup.py")),
         };
@@ -529,7 +529,7 @@ mod tests {
             packages: vec![vlz_db::Package {
                 name: "a".to_string(),
                 version: "1".to_string(),
-                ecosystem: Some("PyPI".to_string()),
+                ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.to_string()),
             }],
             manifest_path: None,
         };

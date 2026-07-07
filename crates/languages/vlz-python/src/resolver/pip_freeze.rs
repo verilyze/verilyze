@@ -4,6 +4,7 @@
 
 //! Parse `pip freeze` stdout into packages (FR-023 fallback path).
 
+use vlz_db::PYPI_ECOSYSTEM;
 use vlz_manifest_parser::ResolverError;
 
 /// Maximum line length accepted from `pip freeze` output (NFR-020).
@@ -11,8 +12,6 @@ pub const PIP_FREEZE_MAX_LINE_LEN: usize = 4096;
 
 /// Maximum number of lines accepted from `pip freeze` output (NFR-020).
 pub const PIP_FREEZE_MAX_LINES: usize = 100_000;
-
-const PYPI_ECOSYSTEM: &str = "PyPI";
 
 /// Parse `pip freeze` stdout into packages (`name==version` lines).
 pub fn parse_pip_freeze(

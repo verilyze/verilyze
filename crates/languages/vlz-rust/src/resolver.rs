@@ -5,6 +5,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
+use vlz_db::CRATES_IO_ECOSYSTEM;
 
 use async_trait::async_trait;
 use vlz_manifest_parser::{
@@ -51,7 +52,7 @@ pub fn parse_cargo_lock(
                 packages.push(vlz_db::Package {
                     name: name.to_string(),
                     version,
-                    ecosystem: Some("crates.io".to_string()),
+                    ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
                 });
             }
         }
@@ -268,7 +269,7 @@ version = "1.0"
             packages: vec![vlz_db::Package {
                 name: "serde".to_string(),
                 version: "1.0".to_string(),
-                ecosystem: Some("crates.io".to_string()),
+                ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
             }],
             manifest_path: None,
         };
@@ -302,7 +303,7 @@ serde = "1.0"
             packages: vec![vlz_db::Package {
                 name: "serde".to_string(),
                 version: "1.0".to_string(),
-                ecosystem: Some("crates.io".to_string()),
+                ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
             }],
             manifest_path: Some(tmp.join("Cargo.toml")),
         };
@@ -341,7 +342,7 @@ version = "1.0.2"
             packages: vec![vlz_db::Package {
                 name: "serde".to_string(),
                 version: "1.0".to_string(),
-                ecosystem: Some("crates.io".to_string()),
+                ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
             }],
             manifest_path: Some(tmp.join("Cargo.toml")),
         };
@@ -370,7 +371,7 @@ version = "1.0.2"
             packages: vec![vlz_db::Package {
                 name: "serde".to_string(),
                 version: "1.0".to_string(),
-                ecosystem: Some("crates.io".to_string()),
+                ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
             }],
             manifest_path: Some(tmp.join("Cargo.toml")),
         };
@@ -422,7 +423,7 @@ version = "1.0.2"
             packages: vec![vlz_db::Package {
                 name: "serde".to_string(),
                 version: "1.0".to_string(),
-                ecosystem: Some("crates.io".to_string()),
+                ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
             }],
             manifest_path: Some(tmp.join("Cargo.toml")),
         };
@@ -463,7 +464,7 @@ version = "0.1.0"
             packages: vec![vlz_db::Package {
                 name: "serde".to_string(),
                 version: "1.0".to_string(),
-                ecosystem: Some("crates.io".to_string()),
+                ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
             }],
             manifest_path: Some(tmp.join("Cargo.toml")),
         };

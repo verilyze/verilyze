@@ -8,7 +8,7 @@ use std::path::Path;
 use vlz_manifest_parser::{DependencyGraph, Parser, ParserError};
 
 /// Go ecosystem for OSV.dev (PRD MOD-002, OSV schema).
-pub const GO_ECOSYSTEM: &str = "Go";
+pub use vlz_db::GO_ECOSYSTEM;
 
 /// Parse go.mod content into a list of packages from require blocks.
 /// Excludes modules listed in replace and exclude directives.

@@ -6,6 +6,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
+use vlz_db::PYPI_ECOSYSTEM;
 use vlz_reachability_trait::{
     ReachabilityAnalyzer, TierBContext, TierBDecision, list_files_with_ext,
     note_tier_b_file_read_attempt,
@@ -166,7 +167,7 @@ impl ReachabilityAnalyzer for PythonTierBAnalyzer {
     }
 
     fn ecosystems(&self) -> &'static [&'static str] {
-        &["PyPI"]
+        &[PYPI_ECOSYSTEM]
     }
 
     fn analyze_tier_b(&self, context: &TierBContext<'_>) -> TierBDecision {
@@ -259,7 +260,7 @@ mod tests {
         let package = vlz_db::Package {
             name: package_name.to_string(),
             version: "1.0.0".to_string(),
-            ecosystem: Some("PyPI".to_string()),
+            ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
         };
         TierBContext {
             scan_root: root,
@@ -391,7 +392,7 @@ mod tests {
         let package = vlz_db::Package {
             name: "requests".to_string(),
             version: "1.0.0".to_string(),
-            ecosystem: Some("PyPI".to_string()),
+            ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
         };
         let ctx = TierBContext {
             scan_root: dir.path(),

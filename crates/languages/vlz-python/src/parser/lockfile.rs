@@ -4,6 +4,7 @@
 
 use std::path::Path;
 
+use vlz_db::PYPI_ECOSYSTEM;
 use vlz_manifest_parser::ParserError;
 
 /// Parse a lock file into packages. Detects format by filename and content.
@@ -59,7 +60,7 @@ pub fn parse_pylock_toml(
                 packages.push(vlz_db::Package {
                     name: name.to_string(),
                     version,
-                    ecosystem: Some("PyPI".to_string()),
+                    ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
                 });
             }
         }
@@ -89,7 +90,7 @@ pub fn parse_poetry_lock(
                 packages.push(vlz_db::Package {
                     name: name.to_string(),
                     version,
-                    ecosystem: Some("PyPI".to_string()),
+                    ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
                 });
             }
         }
@@ -120,7 +121,7 @@ pub fn parse_pipfile_lock(
                     packages.push(vlz_db::Package {
                         name: name.clone(),
                         version,
-                        ecosystem: Some("PyPI".to_string()),
+                        ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
                     });
                 }
             }
@@ -151,7 +152,7 @@ pub fn parse_uv_lock(
                 packages.push(vlz_db::Package {
                     name: name.to_string(),
                     version,
-                    ecosystem: Some("PyPI".to_string()),
+                    ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
                 });
             }
         }

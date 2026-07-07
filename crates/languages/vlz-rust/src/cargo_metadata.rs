@@ -5,6 +5,7 @@
 //! Lock-less transitive resolution via `cargo metadata` (FR-022, SEC-023).
 
 use std::path::Path;
+use vlz_db::CRATES_IO_ECOSYSTEM;
 
 use vlz_manifest_parser::{ResolverError, fr022_transitive_error_with_cause};
 
@@ -28,7 +29,7 @@ pub fn parse_cargo_metadata_packages(
                 packages.push(vlz_db::Package {
                     name: name.to_string(),
                     version: version.to_string(),
-                    ecosystem: Some("crates.io".to_string()),
+                    ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
                 });
             }
         }

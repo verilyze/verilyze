@@ -71,2374 +71,2374 @@
     {
       "@type": "Package",
       "name": "afl",
-      "packageUrl": "pkg:pypi/afl@0.17.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-afl-0-17-1",
+      "packageUrl": "pkg:cargo/afl@0.17.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-afl-0-17-1",
       "versionInfo": "0.17.1"
     },
     {
       "@type": "Package",
       "name": "aho-corasick",
-      "packageUrl": "pkg:pypi/aho-corasick@1.1.4",
-      "spdxId": "urn:spdx.dev:pkg-pypi-aho-corasick-1-1-4",
+      "packageUrl": "pkg:cargo/aho-corasick@1.1.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-aho-corasick-1-1-4",
       "versionInfo": "1.1.4"
     },
     {
       "@type": "Package",
       "name": "anstream",
-      "packageUrl": "pkg:pypi/anstream@1.0.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-anstream-1-0-0",
+      "packageUrl": "pkg:cargo/anstream@1.0.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-anstream-1-0-0",
       "versionInfo": "1.0.0"
     },
     {
       "@type": "Package",
       "name": "anstyle",
-      "packageUrl": "pkg:pypi/anstyle@1.0.14",
-      "spdxId": "urn:spdx.dev:pkg-pypi-anstyle-1-0-14",
+      "packageUrl": "pkg:cargo/anstyle@1.0.14",
+      "spdxId": "urn:spdx.dev:pkg-cargo-anstyle-1-0-14",
       "versionInfo": "1.0.14"
     },
     {
       "@type": "Package",
       "name": "anstyle-parse",
-      "packageUrl": "pkg:pypi/anstyle-parse@1.0.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-anstyle-parse-1-0-0",
+      "packageUrl": "pkg:cargo/anstyle-parse@1.0.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-anstyle-parse-1-0-0",
       "versionInfo": "1.0.0"
     },
     {
       "@type": "Package",
       "name": "anstyle-query",
-      "packageUrl": "pkg:pypi/anstyle-query@1.1.5",
-      "spdxId": "urn:spdx.dev:pkg-pypi-anstyle-query-1-1-5",
+      "packageUrl": "pkg:cargo/anstyle-query@1.1.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-anstyle-query-1-1-5",
       "versionInfo": "1.1.5"
     },
     {
       "@type": "Package",
       "name": "anstyle-wincon",
-      "packageUrl": "pkg:pypi/anstyle-wincon@3.0.11",
-      "spdxId": "urn:spdx.dev:pkg-pypi-anstyle-wincon-3-0-11",
+      "packageUrl": "pkg:cargo/anstyle-wincon@3.0.11",
+      "spdxId": "urn:spdx.dev:pkg-cargo-anstyle-wincon-3-0-11",
       "versionInfo": "3.0.11"
     },
     {
       "@type": "Package",
       "name": "anyhow",
-      "packageUrl": "pkg:pypi/anyhow@1.0.103",
-      "spdxId": "urn:spdx.dev:pkg-pypi-anyhow-1-0-103",
+      "packageUrl": "pkg:cargo/anyhow@1.0.103",
+      "spdxId": "urn:spdx.dev:pkg-cargo-anyhow-1-0-103",
       "versionInfo": "1.0.103"
     },
     {
       "@type": "Package",
       "name": "arrayvec",
-      "packageUrl": "pkg:pypi/arrayvec@0.7.7",
-      "spdxId": "urn:spdx.dev:pkg-pypi-arrayvec-0-7-7",
+      "packageUrl": "pkg:cargo/arrayvec@0.7.7",
+      "spdxId": "urn:spdx.dev:pkg-cargo-arrayvec-0-7-7",
       "versionInfo": "0.7.7"
     },
     {
       "@type": "Package",
       "name": "asn1-rs",
-      "packageUrl": "pkg:pypi/asn1-rs@0.7.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-asn1-rs-0-7-1",
+      "packageUrl": "pkg:cargo/asn1-rs@0.7.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-asn1-rs-0-7-1",
       "versionInfo": "0.7.1"
     },
     {
       "@type": "Package",
       "name": "asn1-rs-derive",
-      "packageUrl": "pkg:pypi/asn1-rs-derive@0.6.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-asn1-rs-derive-0-6-0",
+      "packageUrl": "pkg:cargo/asn1-rs-derive@0.6.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-asn1-rs-derive-0-6-0",
       "versionInfo": "0.6.0"
     },
     {
       "@type": "Package",
       "name": "asn1-rs-impl",
-      "packageUrl": "pkg:pypi/asn1-rs-impl@0.2.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-asn1-rs-impl-0-2-0",
+      "packageUrl": "pkg:cargo/asn1-rs-impl@0.2.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-asn1-rs-impl-0-2-0",
       "versionInfo": "0.2.0"
     },
     {
       "@type": "Package",
       "name": "assert-json-diff",
-      "packageUrl": "pkg:pypi/assert-json-diff@2.0.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-assert-json-diff-2-0-2",
+      "packageUrl": "pkg:cargo/assert-json-diff@2.0.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-assert-json-diff-2-0-2",
       "versionInfo": "2.0.2"
     },
     {
       "@type": "Package",
       "name": "async-trait",
-      "packageUrl": "pkg:pypi/async-trait@0.1.89",
-      "spdxId": "urn:spdx.dev:pkg-pypi-async-trait-0-1-89",
+      "packageUrl": "pkg:cargo/async-trait@0.1.89",
+      "spdxId": "urn:spdx.dev:pkg-cargo-async-trait-0-1-89",
       "versionInfo": "0.1.89"
     },
     {
       "@type": "Package",
       "name": "atomic-waker",
-      "packageUrl": "pkg:pypi/atomic-waker@1.1.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-atomic-waker-1-1-2",
+      "packageUrl": "pkg:cargo/atomic-waker@1.1.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-atomic-waker-1-1-2",
       "versionInfo": "1.1.2"
     },
     {
       "@type": "Package",
       "name": "attribute-derive",
-      "packageUrl": "pkg:pypi/attribute-derive@0.10.5",
-      "spdxId": "urn:spdx.dev:pkg-pypi-attribute-derive-0-10-5",
+      "packageUrl": "pkg:cargo/attribute-derive@0.10.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-attribute-derive-0-10-5",
       "versionInfo": "0.10.5"
     },
     {
       "@type": "Package",
       "name": "attribute-derive-macro",
-      "packageUrl": "pkg:pypi/attribute-derive-macro@0.10.5",
-      "spdxId": "urn:spdx.dev:pkg-pypi-attribute-derive-macro-0-10-5",
+      "packageUrl": "pkg:cargo/attribute-derive-macro@0.10.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-attribute-derive-macro-0-10-5",
       "versionInfo": "0.10.5"
     },
     {
       "@type": "Package",
       "name": "autocfg",
-      "packageUrl": "pkg:pypi/autocfg@1.5.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-autocfg-1-5-0",
+      "packageUrl": "pkg:cargo/autocfg@1.5.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-autocfg-1-5-0",
       "versionInfo": "1.5.0"
     },
     {
       "@type": "Package",
       "name": "base64",
-      "packageUrl": "pkg:pypi/base64@0.22.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-base64-0-22-1",
+      "packageUrl": "pkg:cargo/base64@0.22.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-base64-0-22-1",
       "versionInfo": "0.22.1"
     },
     {
       "@type": "Package",
       "name": "bit-vec",
-      "packageUrl": "pkg:pypi/bit-vec@0.9.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-bit-vec-0-9-1",
+      "packageUrl": "pkg:cargo/bit-vec@0.9.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-bit-vec-0-9-1",
       "versionInfo": "0.9.1"
     },
     {
       "@type": "Package",
       "name": "bitflags",
-      "packageUrl": "pkg:pypi/bitflags@2.11.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-bitflags-2-11-1",
+      "packageUrl": "pkg:cargo/bitflags@2.11.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-bitflags-2-11-1",
       "versionInfo": "2.11.1"
     },
     {
       "@type": "Package",
       "name": "block-buffer",
-      "packageUrl": "pkg:pypi/block-buffer@0.12.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-block-buffer-0-12-0",
+      "packageUrl": "pkg:cargo/block-buffer@0.12.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-block-buffer-0-12-0",
       "versionInfo": "0.12.0"
     },
     {
       "@type": "Package",
       "name": "bstr",
-      "packageUrl": "pkg:pypi/bstr@1.12.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-bstr-1-12-3",
+      "packageUrl": "pkg:cargo/bstr@1.12.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-bstr-1-12-3",
       "versionInfo": "1.12.3"
     },
     {
       "@type": "Package",
       "name": "bumpalo",
-      "packageUrl": "pkg:pypi/bumpalo@3.20.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-bumpalo-3-20-2",
+      "packageUrl": "pkg:cargo/bumpalo@3.20.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-bumpalo-3-20-2",
       "versionInfo": "3.20.2"
     },
     {
       "@type": "Package",
       "name": "bytes",
-      "packageUrl": "pkg:pypi/bytes@1.11.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-bytes-1-11-1",
+      "packageUrl": "pkg:cargo/bytes@1.11.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-bytes-1-11-1",
       "versionInfo": "1.11.1"
     },
     {
       "@type": "Package",
       "name": "castaway",
-      "packageUrl": "pkg:pypi/castaway@0.2.4",
-      "spdxId": "urn:spdx.dev:pkg-pypi-castaway-0-2-4",
+      "packageUrl": "pkg:cargo/castaway@0.2.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-castaway-0-2-4",
       "versionInfo": "0.2.4"
     },
     {
       "@type": "Package",
       "name": "cc",
-      "packageUrl": "pkg:pypi/cc@1.2.60",
-      "spdxId": "urn:spdx.dev:pkg-pypi-cc-1-2-60",
+      "packageUrl": "pkg:cargo/cc@1.2.60",
+      "spdxId": "urn:spdx.dev:pkg-cargo-cc-1-2-60",
       "versionInfo": "1.2.60"
     },
     {
       "@type": "Package",
       "name": "cesu8",
-      "packageUrl": "pkg:pypi/cesu8@1.1.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-cesu8-1-1-0",
+      "packageUrl": "pkg:cargo/cesu8@1.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-cesu8-1-1-0",
       "versionInfo": "1.1.0"
     },
     {
       "@type": "Package",
       "name": "cfg-if",
-      "packageUrl": "pkg:pypi/cfg-if@1.0.4",
-      "spdxId": "urn:spdx.dev:pkg-pypi-cfg-if-1-0-4",
+      "packageUrl": "pkg:cargo/cfg-if@1.0.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-cfg-if-1-0-4",
       "versionInfo": "1.0.4"
     },
     {
       "@type": "Package",
       "name": "clap",
-      "packageUrl": "pkg:pypi/clap@4.6.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-clap-4-6-1",
+      "packageUrl": "pkg:cargo/clap@4.6.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-4-6-1",
       "versionInfo": "4.6.1"
     },
     {
       "@type": "Package",
       "name": "clap_builder",
-      "packageUrl": "pkg:pypi/clap_builder@4.6.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-clap-builder-4-6-0",
+      "packageUrl": "pkg:cargo/clap_builder@4.6.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-builder-4-6-0",
       "versionInfo": "4.6.0"
     },
     {
       "@type": "Package",
       "name": "clap_complete",
-      "packageUrl": "pkg:pypi/clap_complete@4.6.7",
-      "spdxId": "urn:spdx.dev:pkg-pypi-clap-complete-4-6-7",
+      "packageUrl": "pkg:cargo/clap_complete@4.6.7",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-complete-4-6-7",
       "versionInfo": "4.6.7"
     },
     {
       "@type": "Package",
       "name": "clap_derive",
-      "packageUrl": "pkg:pypi/clap_derive@4.6.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-clap-derive-4-6-1",
+      "packageUrl": "pkg:cargo/clap_derive@4.6.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-derive-4-6-1",
       "versionInfo": "4.6.1"
     },
     {
       "@type": "Package",
       "name": "clap_lex",
-      "packageUrl": "pkg:pypi/clap_lex@1.1.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-clap-lex-1-1-0",
+      "packageUrl": "pkg:cargo/clap_lex@1.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-lex-1-1-0",
       "versionInfo": "1.1.0"
     },
     {
       "@type": "Package",
       "name": "clap_mangen",
-      "packageUrl": "pkg:pypi/clap_mangen@0.3.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-clap-mangen-0-3-0",
+      "packageUrl": "pkg:cargo/clap_mangen@0.3.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-mangen-0-3-0",
       "versionInfo": "0.3.0"
     },
     {
       "@type": "Package",
       "name": "collection_literals",
-      "packageUrl": "pkg:pypi/collection_literals@1.0.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-collection-literals-1-0-3",
+      "packageUrl": "pkg:cargo/collection_literals@1.0.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-collection-literals-1-0-3",
       "versionInfo": "1.0.3"
     },
     {
       "@type": "Package",
       "name": "colorchoice",
-      "packageUrl": "pkg:pypi/colorchoice@1.0.5",
-      "spdxId": "urn:spdx.dev:pkg-pypi-colorchoice-1-0-5",
+      "packageUrl": "pkg:cargo/colorchoice@1.0.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-colorchoice-1-0-5",
       "versionInfo": "1.0.5"
     },
     {
       "@type": "Package",
       "name": "combine",
-      "packageUrl": "pkg:pypi/combine@4.6.7",
-      "spdxId": "urn:spdx.dev:pkg-pypi-combine-4-6-7",
+      "packageUrl": "pkg:cargo/combine@4.6.7",
+      "spdxId": "urn:spdx.dev:pkg-cargo-combine-4-6-7",
       "versionInfo": "4.6.7"
     },
     {
       "@type": "Package",
       "name": "compact_str",
-      "packageUrl": "pkg:pypi/compact_str@0.9.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-compact-str-0-9-1",
+      "packageUrl": "pkg:cargo/compact_str@0.9.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-compact-str-0-9-1",
       "versionInfo": "0.9.1"
     },
     {
       "@type": "Package",
       "name": "const-oid",
-      "packageUrl": "pkg:pypi/const-oid@0.10.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-const-oid-0-10-2",
+      "packageUrl": "pkg:cargo/const-oid@0.10.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-const-oid-0-10-2",
       "versionInfo": "0.10.2"
     },
     {
       "@type": "Package",
       "name": "core-foundation",
-      "packageUrl": "pkg:pypi/core-foundation@0.9.4",
-      "spdxId": "urn:spdx.dev:pkg-pypi-core-foundation-0-9-4",
+      "packageUrl": "pkg:cargo/core-foundation@0.9.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-core-foundation-0-9-4",
       "versionInfo": "0.9.4"
     },
     {
       "@type": "Package",
       "name": "core-foundation",
-      "packageUrl": "pkg:pypi/core-foundation@0.10.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-core-foundation-0-10-1",
+      "packageUrl": "pkg:cargo/core-foundation@0.10.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-core-foundation-0-10-1",
       "versionInfo": "0.10.1"
     },
     {
       "@type": "Package",
       "name": "core-foundation-sys",
-      "packageUrl": "pkg:pypi/core-foundation-sys@0.8.7",
-      "spdxId": "urn:spdx.dev:pkg-pypi-core-foundation-sys-0-8-7",
+      "packageUrl": "pkg:cargo/core-foundation-sys@0.8.7",
+      "spdxId": "urn:spdx.dev:pkg-cargo-core-foundation-sys-0-8-7",
       "versionInfo": "0.8.7"
     },
     {
       "@type": "Package",
       "name": "cpufeatures",
-      "packageUrl": "pkg:pypi/cpufeatures@0.3.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-cpufeatures-0-3-0",
+      "packageUrl": "pkg:cargo/cpufeatures@0.3.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-cpufeatures-0-3-0",
       "versionInfo": "0.3.0"
     },
     {
       "@type": "Package",
       "name": "crypto-common",
-      "packageUrl": "pkg:pypi/crypto-common@0.2.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-crypto-common-0-2-1",
+      "packageUrl": "pkg:cargo/crypto-common@0.2.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-crypto-common-0-2-1",
       "versionInfo": "0.2.1"
     },
     {
       "@type": "Package",
       "name": "cvssrust",
-      "packageUrl": "pkg:pypi/cvssrust@1.1.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-cvssrust-1-1-0",
+      "packageUrl": "pkg:cargo/cvssrust@1.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-cvssrust-1-1-0",
       "versionInfo": "1.1.0"
     },
     {
       "@type": "Package",
       "name": "data-encoding",
-      "packageUrl": "pkg:pypi/data-encoding@2.10.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-data-encoding-2-10-0",
+      "packageUrl": "pkg:cargo/data-encoding@2.10.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-data-encoding-2-10-0",
       "versionInfo": "2.10.0"
     },
     {
       "@type": "Package",
       "name": "deadpool",
-      "packageUrl": "pkg:pypi/deadpool@0.12.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-deadpool-0-12-3",
+      "packageUrl": "pkg:cargo/deadpool@0.12.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-deadpool-0-12-3",
       "versionInfo": "0.12.3"
     },
     {
       "@type": "Package",
       "name": "deadpool-runtime",
-      "packageUrl": "pkg:pypi/deadpool-runtime@0.1.4",
-      "spdxId": "urn:spdx.dev:pkg-pypi-deadpool-runtime-0-1-4",
+      "packageUrl": "pkg:cargo/deadpool-runtime@0.1.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-deadpool-runtime-0-1-4",
       "versionInfo": "0.1.4"
     },
     {
       "@type": "Package",
       "name": "der-parser",
-      "packageUrl": "pkg:pypi/der-parser@10.0.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-der-parser-10-0-0",
+      "packageUrl": "pkg:cargo/der-parser@10.0.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-der-parser-10-0-0",
       "versionInfo": "10.0.0"
     },
     {
       "@type": "Package",
       "name": "deranged",
-      "packageUrl": "pkg:pypi/deranged@0.5.8",
-      "spdxId": "urn:spdx.dev:pkg-pypi-deranged-0-5-8",
+      "packageUrl": "pkg:cargo/deranged@0.5.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-deranged-0-5-8",
       "versionInfo": "0.5.8"
     },
     {
       "@type": "Package",
       "name": "derive-where",
-      "packageUrl": "pkg:pypi/derive-where@1.6.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-derive-where-1-6-1",
+      "packageUrl": "pkg:cargo/derive-where@1.6.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-derive-where-1-6-1",
       "versionInfo": "1.6.1"
     },
     {
       "@type": "Package",
       "name": "digest",
-      "packageUrl": "pkg:pypi/digest@0.11.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-digest-0-11-2",
+      "packageUrl": "pkg:cargo/digest@0.11.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-digest-0-11-2",
       "versionInfo": "0.11.2"
     },
     {
       "@type": "Package",
       "name": "displaydoc",
-      "packageUrl": "pkg:pypi/displaydoc@0.2.5",
-      "spdxId": "urn:spdx.dev:pkg-pypi-displaydoc-0-2-5",
+      "packageUrl": "pkg:cargo/displaydoc@0.2.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-displaydoc-0-2-5",
       "versionInfo": "0.2.5"
     },
     {
       "@type": "Package",
       "name": "either",
-      "packageUrl": "pkg:pypi/either@1.16.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-either-1-16-0",
+      "packageUrl": "pkg:cargo/either@1.16.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-either-1-16-0",
       "versionInfo": "1.16.0"
     },
     {
       "@type": "Package",
       "name": "env_filter",
-      "packageUrl": "pkg:pypi/env_filter@2.0.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-env-filter-2-0-0",
+      "packageUrl": "pkg:cargo/env_filter@2.0.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-env-filter-2-0-0",
       "versionInfo": "2.0.0"
     },
     {
       "@type": "Package",
       "name": "env_logger",
-      "packageUrl": "pkg:pypi/env_logger@0.11.11",
-      "spdxId": "urn:spdx.dev:pkg-pypi-env-logger-0-11-11",
+      "packageUrl": "pkg:cargo/env_logger@0.11.11",
+      "spdxId": "urn:spdx.dev:pkg-cargo-env-logger-0-11-11",
       "versionInfo": "0.11.11"
     },
     {
       "@type": "Package",
       "name": "equivalent",
-      "packageUrl": "pkg:pypi/equivalent@1.0.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-equivalent-1-0-2",
+      "packageUrl": "pkg:cargo/equivalent@1.0.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-equivalent-1-0-2",
       "versionInfo": "1.0.2"
     },
     {
       "@type": "Package",
       "name": "errno",
-      "packageUrl": "pkg:pypi/errno@0.3.14",
-      "spdxId": "urn:spdx.dev:pkg-pypi-errno-0-3-14",
+      "packageUrl": "pkg:cargo/errno@0.3.14",
+      "spdxId": "urn:spdx.dev:pkg-cargo-errno-0-3-14",
       "versionInfo": "0.3.14"
     },
     {
       "@type": "Package",
       "name": "fastrand",
-      "packageUrl": "pkg:pypi/fastrand@2.4.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-fastrand-2-4-1",
+      "packageUrl": "pkg:cargo/fastrand@2.4.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-fastrand-2-4-1",
       "versionInfo": "2.4.1"
     },
     {
       "@type": "Package",
       "name": "find-msvc-tools",
-      "packageUrl": "pkg:pypi/find-msvc-tools@0.1.9",
-      "spdxId": "urn:spdx.dev:pkg-pypi-find-msvc-tools-0-1-9",
+      "packageUrl": "pkg:cargo/find-msvc-tools@0.1.9",
+      "spdxId": "urn:spdx.dev:pkg-cargo-find-msvc-tools-0-1-9",
       "versionInfo": "0.1.9"
     },
     {
       "@type": "Package",
       "name": "fnv",
-      "packageUrl": "pkg:pypi/fnv@1.0.7",
-      "spdxId": "urn:spdx.dev:pkg-pypi-fnv-1-0-7",
+      "packageUrl": "pkg:cargo/fnv@1.0.7",
+      "spdxId": "urn:spdx.dev:pkg-cargo-fnv-1-0-7",
       "versionInfo": "1.0.7"
     },
     {
       "@type": "Package",
       "name": "foldhash",
-      "packageUrl": "pkg:pypi/foldhash@0.1.5",
-      "spdxId": "urn:spdx.dev:pkg-pypi-foldhash-0-1-5",
+      "packageUrl": "pkg:cargo/foldhash@0.1.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-foldhash-0-1-5",
       "versionInfo": "0.1.5"
     },
     {
       "@type": "Package",
       "name": "form_urlencoded",
-      "packageUrl": "pkg:pypi/form_urlencoded@1.2.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-form-urlencoded-1-2-2",
+      "packageUrl": "pkg:cargo/form_urlencoded@1.2.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-form-urlencoded-1-2-2",
       "versionInfo": "1.2.2"
     },
     {
       "@type": "Package",
       "name": "futures",
-      "packageUrl": "pkg:pypi/futures@0.3.32",
-      "spdxId": "urn:spdx.dev:pkg-pypi-futures-0-3-32",
+      "packageUrl": "pkg:cargo/futures@0.3.32",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-0-3-32",
       "versionInfo": "0.3.32"
     },
     {
       "@type": "Package",
       "name": "futures-channel",
-      "packageUrl": "pkg:pypi/futures-channel@0.3.32",
-      "spdxId": "urn:spdx.dev:pkg-pypi-futures-channel-0-3-32",
+      "packageUrl": "pkg:cargo/futures-channel@0.3.32",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-channel-0-3-32",
       "versionInfo": "0.3.32"
     },
     {
       "@type": "Package",
       "name": "futures-core",
-      "packageUrl": "pkg:pypi/futures-core@0.3.32",
-      "spdxId": "urn:spdx.dev:pkg-pypi-futures-core-0-3-32",
+      "packageUrl": "pkg:cargo/futures-core@0.3.32",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-core-0-3-32",
       "versionInfo": "0.3.32"
     },
     {
       "@type": "Package",
       "name": "futures-executor",
-      "packageUrl": "pkg:pypi/futures-executor@0.3.32",
-      "spdxId": "urn:spdx.dev:pkg-pypi-futures-executor-0-3-32",
+      "packageUrl": "pkg:cargo/futures-executor@0.3.32",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-executor-0-3-32",
       "versionInfo": "0.3.32"
     },
     {
       "@type": "Package",
       "name": "futures-io",
-      "packageUrl": "pkg:pypi/futures-io@0.3.32",
-      "spdxId": "urn:spdx.dev:pkg-pypi-futures-io-0-3-32",
+      "packageUrl": "pkg:cargo/futures-io@0.3.32",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-io-0-3-32",
       "versionInfo": "0.3.32"
     },
     {
       "@type": "Package",
       "name": "futures-macro",
-      "packageUrl": "pkg:pypi/futures-macro@0.3.32",
-      "spdxId": "urn:spdx.dev:pkg-pypi-futures-macro-0-3-32",
+      "packageUrl": "pkg:cargo/futures-macro@0.3.32",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-macro-0-3-32",
       "versionInfo": "0.3.32"
     },
     {
       "@type": "Package",
       "name": "futures-sink",
-      "packageUrl": "pkg:pypi/futures-sink@0.3.32",
-      "spdxId": "urn:spdx.dev:pkg-pypi-futures-sink-0-3-32",
+      "packageUrl": "pkg:cargo/futures-sink@0.3.32",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-sink-0-3-32",
       "versionInfo": "0.3.32"
     },
     {
       "@type": "Package",
       "name": "futures-task",
-      "packageUrl": "pkg:pypi/futures-task@0.3.32",
-      "spdxId": "urn:spdx.dev:pkg-pypi-futures-task-0-3-32",
+      "packageUrl": "pkg:cargo/futures-task@0.3.32",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-task-0-3-32",
       "versionInfo": "0.3.32"
     },
     {
       "@type": "Package",
       "name": "futures-util",
-      "packageUrl": "pkg:pypi/futures-util@0.3.32",
-      "spdxId": "urn:spdx.dev:pkg-pypi-futures-util-0-3-32",
+      "packageUrl": "pkg:cargo/futures-util@0.3.32",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-util-0-3-32",
       "versionInfo": "0.3.32"
     },
     {
       "@type": "Package",
       "name": "get-size-derive2",
-      "packageUrl": "pkg:pypi/get-size-derive2@0.10.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-get-size-derive2-0-10-1",
+      "packageUrl": "pkg:cargo/get-size-derive2@0.10.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-get-size-derive2-0-10-1",
       "versionInfo": "0.10.1"
     },
     {
       "@type": "Package",
       "name": "get-size2",
-      "packageUrl": "pkg:pypi/get-size2@0.10.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-get-size2-0-10-1",
+      "packageUrl": "pkg:cargo/get-size2@0.10.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-get-size2-0-10-1",
       "versionInfo": "0.10.1"
     },
     {
       "@type": "Package",
       "name": "getopts",
-      "packageUrl": "pkg:pypi/getopts@0.2.24",
-      "spdxId": "urn:spdx.dev:pkg-pypi-getopts-0-2-24",
+      "packageUrl": "pkg:cargo/getopts@0.2.24",
+      "spdxId": "urn:spdx.dev:pkg-cargo-getopts-0-2-24",
       "versionInfo": "0.2.24"
     },
     {
       "@type": "Package",
       "name": "getrandom",
-      "packageUrl": "pkg:pypi/getrandom@0.2.17",
-      "spdxId": "urn:spdx.dev:pkg-pypi-getrandom-0-2-17",
+      "packageUrl": "pkg:cargo/getrandom@0.2.17",
+      "spdxId": "urn:spdx.dev:pkg-cargo-getrandom-0-2-17",
       "versionInfo": "0.2.17"
     },
     {
       "@type": "Package",
       "name": "getrandom",
-      "packageUrl": "pkg:pypi/getrandom@0.4.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-getrandom-0-4-2",
+      "packageUrl": "pkg:cargo/getrandom@0.4.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-getrandom-0-4-2",
       "versionInfo": "0.4.2"
     },
     {
       "@type": "Package",
       "name": "h2",
-      "packageUrl": "pkg:pypi/h2@0.4.13",
-      "spdxId": "urn:spdx.dev:pkg-pypi-h2-0-4-13",
+      "packageUrl": "pkg:cargo/h2@0.4.13",
+      "spdxId": "urn:spdx.dev:pkg-cargo-h2-0-4-13",
       "versionInfo": "0.4.13"
     },
     {
       "@type": "Package",
       "name": "hashbrown",
-      "packageUrl": "pkg:pypi/hashbrown@0.15.5",
-      "spdxId": "urn:spdx.dev:pkg-pypi-hashbrown-0-15-5",
+      "packageUrl": "pkg:cargo/hashbrown@0.15.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-hashbrown-0-15-5",
       "versionInfo": "0.15.5"
     },
     {
       "@type": "Package",
       "name": "hashbrown",
-      "packageUrl": "pkg:pypi/hashbrown@0.17.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-hashbrown-0-17-0",
+      "packageUrl": "pkg:cargo/hashbrown@0.17.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-hashbrown-0-17-0",
       "versionInfo": "0.17.0"
     },
     {
       "@type": "Package",
       "name": "heck",
-      "packageUrl": "pkg:pypi/heck@0.5.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-heck-0-5-0",
+      "packageUrl": "pkg:cargo/heck@0.5.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-heck-0-5-0",
       "versionInfo": "0.5.0"
     },
     {
       "@type": "Package",
       "name": "hermit-abi",
-      "packageUrl": "pkg:pypi/hermit-abi@0.5.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-hermit-abi-0-5-2",
+      "packageUrl": "pkg:cargo/hermit-abi@0.5.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-hermit-abi-0-5-2",
       "versionInfo": "0.5.2"
     },
     {
       "@type": "Package",
       "name": "home",
-      "packageUrl": "pkg:pypi/home@0.5.12",
-      "spdxId": "urn:spdx.dev:pkg-pypi-home-0-5-12",
+      "packageUrl": "pkg:cargo/home@0.5.12",
+      "spdxId": "urn:spdx.dev:pkg-cargo-home-0-5-12",
       "versionInfo": "0.5.12"
     },
     {
       "@type": "Package",
       "name": "http",
-      "packageUrl": "pkg:pypi/http@1.4.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-http-1-4-0",
+      "packageUrl": "pkg:cargo/http@1.4.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-http-1-4-0",
       "versionInfo": "1.4.0"
     },
     {
       "@type": "Package",
       "name": "http-body",
-      "packageUrl": "pkg:pypi/http-body@1.0.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-http-body-1-0-1",
+      "packageUrl": "pkg:cargo/http-body@1.0.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-http-body-1-0-1",
       "versionInfo": "1.0.1"
     },
     {
       "@type": "Package",
       "name": "http-body-util",
-      "packageUrl": "pkg:pypi/http-body-util@0.1.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-http-body-util-0-1-3",
+      "packageUrl": "pkg:cargo/http-body-util@0.1.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-http-body-util-0-1-3",
       "versionInfo": "0.1.3"
     },
     {
       "@type": "Package",
       "name": "httparse",
-      "packageUrl": "pkg:pypi/httparse@1.10.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-httparse-1-10-1",
+      "packageUrl": "pkg:cargo/httparse@1.10.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-httparse-1-10-1",
       "versionInfo": "1.10.1"
     },
     {
       "@type": "Package",
       "name": "httpdate",
-      "packageUrl": "pkg:pypi/httpdate@1.0.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-httpdate-1-0-3",
+      "packageUrl": "pkg:cargo/httpdate@1.0.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-httpdate-1-0-3",
       "versionInfo": "1.0.3"
     },
     {
       "@type": "Package",
       "name": "hybrid-array",
-      "packageUrl": "pkg:pypi/hybrid-array@0.4.10",
-      "spdxId": "urn:spdx.dev:pkg-pypi-hybrid-array-0-4-10",
+      "packageUrl": "pkg:cargo/hybrid-array@0.4.10",
+      "spdxId": "urn:spdx.dev:pkg-cargo-hybrid-array-0-4-10",
       "versionInfo": "0.4.10"
     },
     {
       "@type": "Package",
       "name": "hyper",
-      "packageUrl": "pkg:pypi/hyper@1.9.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-hyper-1-9-0",
+      "packageUrl": "pkg:cargo/hyper@1.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-hyper-1-9-0",
       "versionInfo": "1.9.0"
     },
     {
       "@type": "Package",
       "name": "hyper-rustls",
-      "packageUrl": "pkg:pypi/hyper-rustls@0.27.9",
-      "spdxId": "urn:spdx.dev:pkg-pypi-hyper-rustls-0-27-9",
+      "packageUrl": "pkg:cargo/hyper-rustls@0.27.9",
+      "spdxId": "urn:spdx.dev:pkg-cargo-hyper-rustls-0-27-9",
       "versionInfo": "0.27.9"
     },
     {
       "@type": "Package",
       "name": "hyper-util",
-      "packageUrl": "pkg:pypi/hyper-util@0.1.20",
-      "spdxId": "urn:spdx.dev:pkg-pypi-hyper-util-0-1-20",
+      "packageUrl": "pkg:cargo/hyper-util@0.1.20",
+      "spdxId": "urn:spdx.dev:pkg-cargo-hyper-util-0-1-20",
       "versionInfo": "0.1.20"
     },
     {
       "@type": "Package",
       "name": "icu_collections",
-      "packageUrl": "pkg:pypi/icu_collections@2.2.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-icu-collections-2-2-0",
+      "packageUrl": "pkg:cargo/icu_collections@2.2.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-icu-collections-2-2-0",
       "versionInfo": "2.2.0"
     },
     {
       "@type": "Package",
       "name": "icu_locale_core",
-      "packageUrl": "pkg:pypi/icu_locale_core@2.2.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-icu-locale-core-2-2-0",
+      "packageUrl": "pkg:cargo/icu_locale_core@2.2.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-icu-locale-core-2-2-0",
       "versionInfo": "2.2.0"
     },
     {
       "@type": "Package",
       "name": "icu_normalizer",
-      "packageUrl": "pkg:pypi/icu_normalizer@2.2.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-icu-normalizer-2-2-0",
+      "packageUrl": "pkg:cargo/icu_normalizer@2.2.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-icu-normalizer-2-2-0",
       "versionInfo": "2.2.0"
     },
     {
       "@type": "Package",
       "name": "icu_normalizer_data",
-      "packageUrl": "pkg:pypi/icu_normalizer_data@2.2.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-icu-normalizer-data-2-2-0",
+      "packageUrl": "pkg:cargo/icu_normalizer_data@2.2.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-icu-normalizer-data-2-2-0",
       "versionInfo": "2.2.0"
     },
     {
       "@type": "Package",
       "name": "icu_properties",
-      "packageUrl": "pkg:pypi/icu_properties@2.2.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-icu-properties-2-2-0",
+      "packageUrl": "pkg:cargo/icu_properties@2.2.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-icu-properties-2-2-0",
       "versionInfo": "2.2.0"
     },
     {
       "@type": "Package",
       "name": "icu_properties_data",
-      "packageUrl": "pkg:pypi/icu_properties_data@2.2.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-icu-properties-data-2-2-0",
+      "packageUrl": "pkg:cargo/icu_properties_data@2.2.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-icu-properties-data-2-2-0",
       "versionInfo": "2.2.0"
     },
     {
       "@type": "Package",
       "name": "icu_provider",
-      "packageUrl": "pkg:pypi/icu_provider@2.2.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-icu-provider-2-2-0",
+      "packageUrl": "pkg:cargo/icu_provider@2.2.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-icu-provider-2-2-0",
       "versionInfo": "2.2.0"
     },
     {
       "@type": "Package",
       "name": "id-arena",
-      "packageUrl": "pkg:pypi/id-arena@2.3.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-id-arena-2-3-0",
+      "packageUrl": "pkg:cargo/id-arena@2.3.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-id-arena-2-3-0",
       "versionInfo": "2.3.0"
     },
     {
       "@type": "Package",
       "name": "idna",
-      "packageUrl": "pkg:pypi/idna@1.1.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-idna-1-1-0",
+      "packageUrl": "pkg:cargo/idna@1.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-idna-1-1-0",
       "versionInfo": "1.1.0"
     },
     {
       "@type": "Package",
       "name": "idna_adapter",
-      "packageUrl": "pkg:pypi/idna_adapter@1.2.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-idna-adapter-1-2-1",
+      "packageUrl": "pkg:cargo/idna_adapter@1.2.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-idna-adapter-1-2-1",
       "versionInfo": "1.2.1"
     },
     {
       "@type": "Package",
       "name": "indexmap",
-      "packageUrl": "pkg:pypi/indexmap@2.14.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-indexmap-2-14-0",
+      "packageUrl": "pkg:cargo/indexmap@2.14.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-indexmap-2-14-0",
       "versionInfo": "2.14.0"
     },
     {
       "@type": "Package",
       "name": "interpolator",
-      "packageUrl": "pkg:pypi/interpolator@0.5.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-interpolator-0-5-0",
+      "packageUrl": "pkg:cargo/interpolator@0.5.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-interpolator-0-5-0",
       "versionInfo": "0.5.0"
     },
     {
       "@type": "Package",
       "name": "ipnet",
-      "packageUrl": "pkg:pypi/ipnet@2.12.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-ipnet-2-12-0",
+      "packageUrl": "pkg:cargo/ipnet@2.12.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ipnet-2-12-0",
       "versionInfo": "2.12.0"
     },
     {
       "@type": "Package",
       "name": "iri-string",
-      "packageUrl": "pkg:pypi/iri-string@0.7.12",
-      "spdxId": "urn:spdx.dev:pkg-pypi-iri-string-0-7-12",
+      "packageUrl": "pkg:cargo/iri-string@0.7.12",
+      "spdxId": "urn:spdx.dev:pkg-cargo-iri-string-0-7-12",
       "versionInfo": "0.7.12"
     },
     {
       "@type": "Package",
       "name": "is-macro",
-      "packageUrl": "pkg:pypi/is-macro@0.3.7",
-      "spdxId": "urn:spdx.dev:pkg-pypi-is-macro-0-3-7",
+      "packageUrl": "pkg:cargo/is-macro@0.3.7",
+      "spdxId": "urn:spdx.dev:pkg-cargo-is-macro-0-3-7",
       "versionInfo": "0.3.7"
     },
     {
       "@type": "Package",
       "name": "is_terminal_polyfill",
-      "packageUrl": "pkg:pypi/is_terminal_polyfill@1.70.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-is-terminal-polyfill-1-70-2",
+      "packageUrl": "pkg:cargo/is_terminal_polyfill@1.70.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-is-terminal-polyfill-1-70-2",
       "versionInfo": "1.70.2"
     },
     {
       "@type": "Package",
       "name": "itertools",
-      "packageUrl": "pkg:pypi/itertools@0.15.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-itertools-0-15-0",
+      "packageUrl": "pkg:cargo/itertools@0.15.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-itertools-0-15-0",
       "versionInfo": "0.15.0"
     },
     {
       "@type": "Package",
       "name": "itoa",
-      "packageUrl": "pkg:pypi/itoa@1.0.18",
-      "spdxId": "urn:spdx.dev:pkg-pypi-itoa-1-0-18",
+      "packageUrl": "pkg:cargo/itoa@1.0.18",
+      "spdxId": "urn:spdx.dev:pkg-cargo-itoa-1-0-18",
       "versionInfo": "1.0.18"
     },
     {
       "@type": "Package",
       "name": "jiff",
-      "packageUrl": "pkg:pypi/jiff@0.2.23",
-      "spdxId": "urn:spdx.dev:pkg-pypi-jiff-0-2-23",
+      "packageUrl": "pkg:cargo/jiff@0.2.23",
+      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-0-2-23",
       "versionInfo": "0.2.23"
     },
     {
       "@type": "Package",
       "name": "jiff-static",
-      "packageUrl": "pkg:pypi/jiff-static@0.2.23",
-      "spdxId": "urn:spdx.dev:pkg-pypi-jiff-static-0-2-23",
+      "packageUrl": "pkg:cargo/jiff-static@0.2.23",
+      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-static-0-2-23",
       "versionInfo": "0.2.23"
     },
     {
       "@type": "Package",
       "name": "jni",
-      "packageUrl": "pkg:pypi/jni@0.21.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-jni-0-21-1",
+      "packageUrl": "pkg:cargo/jni@0.21.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-jni-0-21-1",
       "versionInfo": "0.21.1"
     },
     {
       "@type": "Package",
       "name": "jni-sys",
-      "packageUrl": "pkg:pypi/jni-sys@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-jni-sys-0-3-1",
+      "packageUrl": "pkg:cargo/jni-sys@0.3.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-jni-sys-0-3-1",
       "versionInfo": "0.3.1"
     },
     {
       "@type": "Package",
       "name": "jni-sys",
-      "packageUrl": "pkg:pypi/jni-sys@0.4.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-jni-sys-0-4-1",
+      "packageUrl": "pkg:cargo/jni-sys@0.4.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-jni-sys-0-4-1",
       "versionInfo": "0.4.1"
     },
     {
       "@type": "Package",
       "name": "jni-sys-macros",
-      "packageUrl": "pkg:pypi/jni-sys-macros@0.4.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-jni-sys-macros-0-4-1",
+      "packageUrl": "pkg:cargo/jni-sys-macros@0.4.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-jni-sys-macros-0-4-1",
       "versionInfo": "0.4.1"
     },
     {
       "@type": "Package",
       "name": "js-sys",
-      "packageUrl": "pkg:pypi/js-sys@0.3.95",
-      "spdxId": "urn:spdx.dev:pkg-pypi-js-sys-0-3-95",
+      "packageUrl": "pkg:cargo/js-sys@0.3.95",
+      "spdxId": "urn:spdx.dev:pkg-cargo-js-sys-0-3-95",
       "versionInfo": "0.3.95"
     },
     {
       "@type": "Package",
       "name": "lazy_static",
-      "packageUrl": "pkg:pypi/lazy_static@1.5.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-lazy-static-1-5-0",
+      "packageUrl": "pkg:cargo/lazy_static@1.5.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-lazy-static-1-5-0",
       "versionInfo": "1.5.0"
     },
     {
       "@type": "Package",
       "name": "leb128fmt",
-      "packageUrl": "pkg:pypi/leb128fmt@0.1.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-leb128fmt-0-1-0",
+      "packageUrl": "pkg:cargo/leb128fmt@0.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-leb128fmt-0-1-0",
       "versionInfo": "0.1.0"
     },
     {
       "@type": "Package",
       "name": "libc",
-      "packageUrl": "pkg:pypi/libc@0.2.185",
-      "spdxId": "urn:spdx.dev:pkg-pypi-libc-0-2-185",
+      "packageUrl": "pkg:cargo/libc@0.2.185",
+      "spdxId": "urn:spdx.dev:pkg-cargo-libc-0-2-185",
       "versionInfo": "0.2.185"
     },
     {
       "@type": "Package",
       "name": "linux-raw-sys",
-      "packageUrl": "pkg:pypi/linux-raw-sys@0.12.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-linux-raw-sys-0-12-1",
+      "packageUrl": "pkg:cargo/linux-raw-sys@0.12.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-linux-raw-sys-0-12-1",
       "versionInfo": "0.12.1"
     },
     {
       "@type": "Package",
       "name": "litemap",
-      "packageUrl": "pkg:pypi/litemap@0.8.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-litemap-0-8-2",
+      "packageUrl": "pkg:cargo/litemap@0.8.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-litemap-0-8-2",
       "versionInfo": "0.8.2"
     },
     {
       "@type": "Package",
       "name": "lock_api",
-      "packageUrl": "pkg:pypi/lock_api@0.4.14",
-      "spdxId": "urn:spdx.dev:pkg-pypi-lock-api-0-4-14",
+      "packageUrl": "pkg:cargo/lock_api@0.4.14",
+      "spdxId": "urn:spdx.dev:pkg-cargo-lock-api-0-4-14",
       "versionInfo": "0.4.14"
     },
     {
       "@type": "Package",
       "name": "log",
-      "packageUrl": "pkg:pypi/log@0.4.33",
-      "spdxId": "urn:spdx.dev:pkg-pypi-log-0-4-33",
+      "packageUrl": "pkg:cargo/log@0.4.33",
+      "spdxId": "urn:spdx.dev:pkg-cargo-log-0-4-33",
       "versionInfo": "0.4.33"
     },
     {
       "@type": "Package",
       "name": "manyhow",
-      "packageUrl": "pkg:pypi/manyhow@0.11.4",
-      "spdxId": "urn:spdx.dev:pkg-pypi-manyhow-0-11-4",
+      "packageUrl": "pkg:cargo/manyhow@0.11.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-manyhow-0-11-4",
       "versionInfo": "0.11.4"
     },
     {
       "@type": "Package",
       "name": "manyhow-macros",
-      "packageUrl": "pkg:pypi/manyhow-macros@0.11.4",
-      "spdxId": "urn:spdx.dev:pkg-pypi-manyhow-macros-0-11-4",
+      "packageUrl": "pkg:cargo/manyhow-macros@0.11.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-manyhow-macros-0-11-4",
       "versionInfo": "0.11.4"
     },
     {
       "@type": "Package",
       "name": "memchr",
-      "packageUrl": "pkg:pypi/memchr@2.8.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-memchr-2-8-0",
+      "packageUrl": "pkg:cargo/memchr@2.8.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-memchr-2-8-0",
       "versionInfo": "2.8.0"
     },
     {
       "@type": "Package",
       "name": "minimal-lexical",
-      "packageUrl": "pkg:pypi/minimal-lexical@0.2.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-minimal-lexical-0-2-1",
+      "packageUrl": "pkg:cargo/minimal-lexical@0.2.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-minimal-lexical-0-2-1",
       "versionInfo": "0.2.1"
     },
     {
       "@type": "Package",
       "name": "mio",
-      "packageUrl": "pkg:pypi/mio@1.2.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-mio-1-2-0",
+      "packageUrl": "pkg:cargo/mio@1.2.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-mio-1-2-0",
       "versionInfo": "1.2.0"
     },
     {
       "@type": "Package",
       "name": "nom",
-      "packageUrl": "pkg:pypi/nom@7.1.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-nom-7-1-3",
+      "packageUrl": "pkg:cargo/nom@7.1.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-nom-7-1-3",
       "versionInfo": "7.1.3"
     },
     {
       "@type": "Package",
       "name": "num-bigint",
-      "packageUrl": "pkg:pypi/num-bigint@0.4.6",
-      "spdxId": "urn:spdx.dev:pkg-pypi-num-bigint-0-4-6",
+      "packageUrl": "pkg:cargo/num-bigint@0.4.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-num-bigint-0-4-6",
       "versionInfo": "0.4.6"
     },
     {
       "@type": "Package",
       "name": "num-conv",
-      "packageUrl": "pkg:pypi/num-conv@0.2.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-num-conv-0-2-1",
+      "packageUrl": "pkg:cargo/num-conv@0.2.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-num-conv-0-2-1",
       "versionInfo": "0.2.1"
     },
     {
       "@type": "Package",
       "name": "num-integer",
-      "packageUrl": "pkg:pypi/num-integer@0.1.46",
-      "spdxId": "urn:spdx.dev:pkg-pypi-num-integer-0-1-46",
+      "packageUrl": "pkg:cargo/num-integer@0.1.46",
+      "spdxId": "urn:spdx.dev:pkg-cargo-num-integer-0-1-46",
       "versionInfo": "0.1.46"
     },
     {
       "@type": "Package",
       "name": "num-traits",
-      "packageUrl": "pkg:pypi/num-traits@0.2.19",
-      "spdxId": "urn:spdx.dev:pkg-pypi-num-traits-0-2-19",
+      "packageUrl": "pkg:cargo/num-traits@0.2.19",
+      "spdxId": "urn:spdx.dev:pkg-cargo-num-traits-0-2-19",
       "versionInfo": "0.2.19"
     },
     {
       "@type": "Package",
       "name": "num_cpus",
-      "packageUrl": "pkg:pypi/num_cpus@1.17.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-num-cpus-1-17-0",
+      "packageUrl": "pkg:cargo/num_cpus@1.17.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-num-cpus-1-17-0",
       "versionInfo": "1.17.0"
     },
     {
       "@type": "Package",
       "name": "oid-registry",
-      "packageUrl": "pkg:pypi/oid-registry@0.8.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-oid-registry-0-8-1",
+      "packageUrl": "pkg:cargo/oid-registry@0.8.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-oid-registry-0-8-1",
       "versionInfo": "0.8.1"
     },
     {
       "@type": "Package",
       "name": "once_cell",
-      "packageUrl": "pkg:pypi/once_cell@1.21.4",
-      "spdxId": "urn:spdx.dev:pkg-pypi-once-cell-1-21-4",
+      "packageUrl": "pkg:cargo/once_cell@1.21.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-once-cell-1-21-4",
       "versionInfo": "1.21.4"
     },
     {
       "@type": "Package",
       "name": "once_cell_polyfill",
-      "packageUrl": "pkg:pypi/once_cell_polyfill@1.70.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-once-cell-polyfill-1-70-2",
+      "packageUrl": "pkg:cargo/once_cell_polyfill@1.70.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-once-cell-polyfill-1-70-2",
       "versionInfo": "1.70.2"
     },
     {
       "@type": "Package",
       "name": "openssl-probe",
-      "packageUrl": "pkg:pypi/openssl-probe@0.2.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-openssl-probe-0-2-1",
+      "packageUrl": "pkg:cargo/openssl-probe@0.2.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-openssl-probe-0-2-1",
       "versionInfo": "0.2.1"
     },
     {
       "@type": "Package",
       "name": "ordermap",
-      "packageUrl": "pkg:pypi/ordermap@1.2.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-ordermap-1-2-0",
+      "packageUrl": "pkg:cargo/ordermap@1.2.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ordermap-1-2-0",
       "versionInfo": "1.2.0"
     },
     {
       "@type": "Package",
       "name": "parking_lot",
-      "packageUrl": "pkg:pypi/parking_lot@0.12.5",
-      "spdxId": "urn:spdx.dev:pkg-pypi-parking-lot-0-12-5",
+      "packageUrl": "pkg:cargo/parking_lot@0.12.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-parking-lot-0-12-5",
       "versionInfo": "0.12.5"
     },
     {
       "@type": "Package",
       "name": "parking_lot_core",
-      "packageUrl": "pkg:pypi/parking_lot_core@0.9.12",
-      "spdxId": "urn:spdx.dev:pkg-pypi-parking-lot-core-0-9-12",
+      "packageUrl": "pkg:cargo/parking_lot_core@0.9.12",
+      "spdxId": "urn:spdx.dev:pkg-cargo-parking-lot-core-0-9-12",
       "versionInfo": "0.9.12"
     },
     {
       "@type": "Package",
       "name": "percent-encoding",
-      "packageUrl": "pkg:pypi/percent-encoding@2.3.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-percent-encoding-2-3-2",
+      "packageUrl": "pkg:cargo/percent-encoding@2.3.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-percent-encoding-2-3-2",
       "versionInfo": "2.3.2"
     },
     {
       "@type": "Package",
       "name": "phf",
-      "packageUrl": "pkg:pypi/phf@0.11.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-phf-0-11-3",
+      "packageUrl": "pkg:cargo/phf@0.11.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-phf-0-11-3",
       "versionInfo": "0.11.3"
     },
     {
       "@type": "Package",
       "name": "phf_codegen",
-      "packageUrl": "pkg:pypi/phf_codegen@0.11.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-phf-codegen-0-11-3",
+      "packageUrl": "pkg:cargo/phf_codegen@0.11.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-phf-codegen-0-11-3",
       "versionInfo": "0.11.3"
     },
     {
       "@type": "Package",
       "name": "phf_generator",
-      "packageUrl": "pkg:pypi/phf_generator@0.11.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-phf-generator-0-11-3",
+      "packageUrl": "pkg:cargo/phf_generator@0.11.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-phf-generator-0-11-3",
       "versionInfo": "0.11.3"
     },
     {
       "@type": "Package",
       "name": "phf_shared",
-      "packageUrl": "pkg:pypi/phf_shared@0.11.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-phf-shared-0-11-3",
+      "packageUrl": "pkg:cargo/phf_shared@0.11.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-phf-shared-0-11-3",
       "versionInfo": "0.11.3"
     },
     {
       "@type": "Package",
       "name": "pin-project-lite",
-      "packageUrl": "pkg:pypi/pin-project-lite@0.2.17",
-      "spdxId": "urn:spdx.dev:pkg-pypi-pin-project-lite-0-2-17",
+      "packageUrl": "pkg:cargo/pin-project-lite@0.2.17",
+      "spdxId": "urn:spdx.dev:pkg-cargo-pin-project-lite-0-2-17",
       "versionInfo": "0.2.17"
     },
     {
       "@type": "Package",
       "name": "portable-atomic",
-      "packageUrl": "pkg:pypi/portable-atomic@1.13.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-portable-atomic-1-13-1",
+      "packageUrl": "pkg:cargo/portable-atomic@1.13.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-portable-atomic-1-13-1",
       "versionInfo": "1.13.1"
     },
     {
       "@type": "Package",
       "name": "portable-atomic-util",
-      "packageUrl": "pkg:pypi/portable-atomic-util@0.2.7",
-      "spdxId": "urn:spdx.dev:pkg-pypi-portable-atomic-util-0-2-7",
+      "packageUrl": "pkg:cargo/portable-atomic-util@0.2.7",
+      "spdxId": "urn:spdx.dev:pkg-cargo-portable-atomic-util-0-2-7",
       "versionInfo": "0.2.7"
     },
     {
       "@type": "Package",
       "name": "potential_utf",
-      "packageUrl": "pkg:pypi/potential_utf@0.1.5",
-      "spdxId": "urn:spdx.dev:pkg-pypi-potential-utf-0-1-5",
+      "packageUrl": "pkg:cargo/potential_utf@0.1.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-potential-utf-0-1-5",
       "versionInfo": "0.1.5"
     },
     {
       "@type": "Package",
       "name": "powerfmt",
-      "packageUrl": "pkg:pypi/powerfmt@0.2.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-powerfmt-0-2-0",
+      "packageUrl": "pkg:cargo/powerfmt@0.2.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-powerfmt-0-2-0",
       "versionInfo": "0.2.0"
     },
     {
       "@type": "Package",
       "name": "ppv-lite86",
-      "packageUrl": "pkg:pypi/ppv-lite86@0.2.21",
-      "spdxId": "urn:spdx.dev:pkg-pypi-ppv-lite86-0-2-21",
+      "packageUrl": "pkg:cargo/ppv-lite86@0.2.21",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ppv-lite86-0-2-21",
       "versionInfo": "0.2.21"
     },
     {
       "@type": "Package",
       "name": "prettyplease",
-      "packageUrl": "pkg:pypi/prettyplease@0.2.37",
-      "spdxId": "urn:spdx.dev:pkg-pypi-prettyplease-0-2-37",
+      "packageUrl": "pkg:cargo/prettyplease@0.2.37",
+      "spdxId": "urn:spdx.dev:pkg-cargo-prettyplease-0-2-37",
       "versionInfo": "0.2.37"
     },
     {
       "@type": "Package",
       "name": "proc-macro-utils",
-      "packageUrl": "pkg:pypi/proc-macro-utils@0.10.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-proc-macro-utils-0-10-0",
+      "packageUrl": "pkg:cargo/proc-macro-utils@0.10.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-proc-macro-utils-0-10-0",
       "versionInfo": "0.10.0"
     },
     {
       "@type": "Package",
       "name": "proc-macro2",
-      "packageUrl": "pkg:pypi/proc-macro2@1.0.106",
-      "spdxId": "urn:spdx.dev:pkg-pypi-proc-macro2-1-0-106",
+      "packageUrl": "pkg:cargo/proc-macro2@1.0.106",
+      "spdxId": "urn:spdx.dev:pkg-cargo-proc-macro2-1-0-106",
       "versionInfo": "1.0.106"
     },
     {
       "@type": "Package",
       "name": "quote",
-      "packageUrl": "pkg:pypi/quote@1.0.46",
-      "spdxId": "urn:spdx.dev:pkg-pypi-quote-1-0-46",
+      "packageUrl": "pkg:cargo/quote@1.0.46",
+      "spdxId": "urn:spdx.dev:pkg-cargo-quote-1-0-46",
       "versionInfo": "1.0.46"
     },
     {
       "@type": "Package",
       "name": "quote-use",
-      "packageUrl": "pkg:pypi/quote-use@0.8.4",
-      "spdxId": "urn:spdx.dev:pkg-pypi-quote-use-0-8-4",
+      "packageUrl": "pkg:cargo/quote-use@0.8.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-quote-use-0-8-4",
       "versionInfo": "0.8.4"
     },
     {
       "@type": "Package",
       "name": "quote-use-macros",
-      "packageUrl": "pkg:pypi/quote-use-macros@0.8.4",
-      "spdxId": "urn:spdx.dev:pkg-pypi-quote-use-macros-0-8-4",
+      "packageUrl": "pkg:cargo/quote-use-macros@0.8.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-quote-use-macros-0-8-4",
       "versionInfo": "0.8.4"
     },
     {
       "@type": "Package",
       "name": "r-efi",
-      "packageUrl": "pkg:pypi/r-efi@6.0.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-r-efi-6-0-0",
+      "packageUrl": "pkg:cargo/r-efi@6.0.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-r-efi-6-0-0",
       "versionInfo": "6.0.0"
     },
     {
       "@type": "Package",
       "name": "rand",
-      "packageUrl": "pkg:pypi/rand@0.8.6",
-      "spdxId": "urn:spdx.dev:pkg-pypi-rand-0-8-6",
+      "packageUrl": "pkg:cargo/rand@0.8.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rand-0-8-6",
       "versionInfo": "0.8.6"
     },
     {
       "@type": "Package",
       "name": "rand_chacha",
-      "packageUrl": "pkg:pypi/rand_chacha@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-rand-chacha-0-3-1",
+      "packageUrl": "pkg:cargo/rand_chacha@0.3.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rand-chacha-0-3-1",
       "versionInfo": "0.3.1"
     },
     {
       "@type": "Package",
       "name": "rand_core",
-      "packageUrl": "pkg:pypi/rand_core@0.6.4",
-      "spdxId": "urn:spdx.dev:pkg-pypi-rand-core-0-6-4",
+      "packageUrl": "pkg:cargo/rand_core@0.6.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rand-core-0-6-4",
       "versionInfo": "0.6.4"
     },
     {
       "@type": "Package",
       "name": "rcgen",
-      "packageUrl": "pkg:pypi/rcgen@0.14.8",
-      "spdxId": "urn:spdx.dev:pkg-pypi-rcgen-0-14-8",
+      "packageUrl": "pkg:cargo/rcgen@0.14.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rcgen-0-14-8",
       "versionInfo": "0.14.8"
     },
     {
       "@type": "Package",
       "name": "redb",
-      "packageUrl": "pkg:pypi/redb@4.1.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-redb-4-1-0",
+      "packageUrl": "pkg:cargo/redb@4.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-redb-4-1-0",
       "versionInfo": "4.1.0"
     },
     {
       "@type": "Package",
       "name": "redox_syscall",
-      "packageUrl": "pkg:pypi/redox_syscall@0.5.18",
-      "spdxId": "urn:spdx.dev:pkg-pypi-redox-syscall-0-5-18",
+      "packageUrl": "pkg:cargo/redox_syscall@0.5.18",
+      "spdxId": "urn:spdx.dev:pkg-cargo-redox-syscall-0-5-18",
       "versionInfo": "0.5.18"
     },
     {
       "@type": "Package",
       "name": "regex",
-      "packageUrl": "pkg:pypi/regex@1.12.4",
-      "spdxId": "urn:spdx.dev:pkg-pypi-regex-1-12-4",
+      "packageUrl": "pkg:cargo/regex@1.12.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-regex-1-12-4",
       "versionInfo": "1.12.4"
     },
     {
       "@type": "Package",
       "name": "regex-automata",
-      "packageUrl": "pkg:pypi/regex-automata@0.4.14",
-      "spdxId": "urn:spdx.dev:pkg-pypi-regex-automata-0-4-14",
+      "packageUrl": "pkg:cargo/regex-automata@0.4.14",
+      "spdxId": "urn:spdx.dev:pkg-cargo-regex-automata-0-4-14",
       "versionInfo": "0.4.14"
     },
     {
       "@type": "Package",
       "name": "regex-syntax",
-      "packageUrl": "pkg:pypi/regex-syntax@0.8.11",
-      "spdxId": "urn:spdx.dev:pkg-pypi-regex-syntax-0-8-11",
+      "packageUrl": "pkg:cargo/regex-syntax@0.8.11",
+      "spdxId": "urn:spdx.dev:pkg-cargo-regex-syntax-0-8-11",
       "versionInfo": "0.8.11"
     },
     {
       "@type": "Package",
       "name": "reqwest",
-      "packageUrl": "pkg:pypi/reqwest@0.13.4",
-      "spdxId": "urn:spdx.dev:pkg-pypi-reqwest-0-13-4",
+      "packageUrl": "pkg:cargo/reqwest@0.13.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-reqwest-0-13-4",
       "versionInfo": "0.13.4"
     },
     {
       "@type": "Package",
       "name": "ring",
-      "packageUrl": "pkg:pypi/ring@0.17.14",
-      "spdxId": "urn:spdx.dev:pkg-pypi-ring-0-17-14",
+      "packageUrl": "pkg:cargo/ring@0.17.14",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ring-0-17-14",
       "versionInfo": "0.17.14"
     },
     {
       "@type": "Package",
       "name": "roff",
-      "packageUrl": "pkg:pypi/roff@1.1.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-roff-1-1-1",
+      "packageUrl": "pkg:cargo/roff@1.1.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-roff-1-1-1",
       "versionInfo": "1.1.1"
     },
     {
       "@type": "Package",
       "name": "ruff_python_ast",
-      "packageUrl": "pkg:pypi/ruff_python_ast@0.0.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-ruff-python-ast-0-0-3",
+      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-3",
       "versionInfo": "0.0.3"
     },
     {
       "@type": "Package",
       "name": "ruff_python_parser",
-      "packageUrl": "pkg:pypi/ruff_python_parser@0.0.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-ruff-python-parser-0-0-3",
+      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-3",
       "versionInfo": "0.0.3"
     },
     {
       "@type": "Package",
       "name": "ruff_python_trivia",
-      "packageUrl": "pkg:pypi/ruff_python_trivia@0.0.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-ruff-python-trivia-0-0-3",
+      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-3",
       "versionInfo": "0.0.3"
     },
     {
       "@type": "Package",
       "name": "ruff_source_file",
-      "packageUrl": "pkg:pypi/ruff_source_file@0.0.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-ruff-source-file-0-0-3",
+      "packageUrl": "pkg:cargo/ruff_source_file@0.0.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-3",
       "versionInfo": "0.0.3"
     },
     {
       "@type": "Package",
       "name": "ruff_text_size",
-      "packageUrl": "pkg:pypi/ruff_text_size@0.0.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-ruff-text-size-0-0-3",
+      "packageUrl": "pkg:cargo/ruff_text_size@0.0.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-3",
       "versionInfo": "0.0.3"
     },
     {
       "@type": "Package",
       "name": "rustc-hash",
-      "packageUrl": "pkg:pypi/rustc-hash@2.1.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-rustc-hash-2-1-2",
+      "packageUrl": "pkg:cargo/rustc-hash@2.1.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustc-hash-2-1-2",
       "versionInfo": "2.1.2"
     },
     {
       "@type": "Package",
       "name": "rustc_version",
-      "packageUrl": "pkg:pypi/rustc_version@0.4.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-rustc-version-0-4-1",
+      "packageUrl": "pkg:cargo/rustc_version@0.4.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustc-version-0-4-1",
       "versionInfo": "0.4.1"
     },
     {
       "@type": "Package",
       "name": "rusticata-macros",
-      "packageUrl": "pkg:pypi/rusticata-macros@4.1.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-rusticata-macros-4-1-0",
+      "packageUrl": "pkg:cargo/rusticata-macros@4.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rusticata-macros-4-1-0",
       "versionInfo": "4.1.0"
     },
     {
       "@type": "Package",
       "name": "rustix",
-      "packageUrl": "pkg:pypi/rustix@1.1.4",
-      "spdxId": "urn:spdx.dev:pkg-pypi-rustix-1-1-4",
+      "packageUrl": "pkg:cargo/rustix@1.1.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustix-1-1-4",
       "versionInfo": "1.1.4"
     },
     {
       "@type": "Package",
       "name": "rustls",
-      "packageUrl": "pkg:pypi/rustls@0.23.41",
-      "spdxId": "urn:spdx.dev:pkg-pypi-rustls-0-23-41",
+      "packageUrl": "pkg:cargo/rustls@0.23.41",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-0-23-41",
       "versionInfo": "0.23.41"
     },
     {
       "@type": "Package",
       "name": "rustls-native-certs",
-      "packageUrl": "pkg:pypi/rustls-native-certs@0.8.4",
-      "spdxId": "urn:spdx.dev:pkg-pypi-rustls-native-certs-0-8-4",
+      "packageUrl": "pkg:cargo/rustls-native-certs@0.8.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-native-certs-0-8-4",
       "versionInfo": "0.8.4"
     },
     {
       "@type": "Package",
       "name": "rustls-pki-types",
-      "packageUrl": "pkg:pypi/rustls-pki-types@1.14.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-rustls-pki-types-1-14-0",
+      "packageUrl": "pkg:cargo/rustls-pki-types@1.14.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-pki-types-1-14-0",
       "versionInfo": "1.14.0"
     },
     {
       "@type": "Package",
       "name": "rustls-platform-verifier",
-      "packageUrl": "pkg:pypi/rustls-platform-verifier@0.6.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-rustls-platform-verifier-0-6-2",
+      "packageUrl": "pkg:cargo/rustls-platform-verifier@0.6.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-platform-verifier-0-6-2",
       "versionInfo": "0.6.2"
     },
     {
       "@type": "Package",
       "name": "rustls-platform-verifier-android",
-      "packageUrl": "pkg:pypi/rustls-platform-verifier-android@0.1.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-rustls-platform-verifier-android-0-1-1",
+      "packageUrl": "pkg:cargo/rustls-platform-verifier-android@0.1.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-platform-verifier-android-0-1-1",
       "versionInfo": "0.1.1"
     },
     {
       "@type": "Package",
       "name": "rustls-webpki",
-      "packageUrl": "pkg:pypi/rustls-webpki@0.103.13",
-      "spdxId": "urn:spdx.dev:pkg-pypi-rustls-webpki-0-103-13",
+      "packageUrl": "pkg:cargo/rustls-webpki@0.103.13",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-webpki-0-103-13",
       "versionInfo": "0.103.13"
     },
     {
       "@type": "Package",
       "name": "rustversion",
-      "packageUrl": "pkg:pypi/rustversion@1.0.22",
-      "spdxId": "urn:spdx.dev:pkg-pypi-rustversion-1-0-22",
+      "packageUrl": "pkg:cargo/rustversion@1.0.22",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustversion-1-0-22",
       "versionInfo": "1.0.22"
     },
     {
       "@type": "Package",
       "name": "ryu",
-      "packageUrl": "pkg:pypi/ryu@1.0.23",
-      "spdxId": "urn:spdx.dev:pkg-pypi-ryu-1-0-23",
+      "packageUrl": "pkg:cargo/ryu@1.0.23",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ryu-1-0-23",
       "versionInfo": "1.0.23"
     },
     {
       "@type": "Package",
       "name": "same-file",
-      "packageUrl": "pkg:pypi/same-file@1.0.6",
-      "spdxId": "urn:spdx.dev:pkg-pypi-same-file-1-0-6",
+      "packageUrl": "pkg:cargo/same-file@1.0.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-same-file-1-0-6",
       "versionInfo": "1.0.6"
     },
     {
       "@type": "Package",
       "name": "schannel",
-      "packageUrl": "pkg:pypi/schannel@0.1.29",
-      "spdxId": "urn:spdx.dev:pkg-pypi-schannel-0-1-29",
+      "packageUrl": "pkg:cargo/schannel@0.1.29",
+      "spdxId": "urn:spdx.dev:pkg-cargo-schannel-0-1-29",
       "versionInfo": "0.1.29"
     },
     {
       "@type": "Package",
       "name": "scopeguard",
-      "packageUrl": "pkg:pypi/scopeguard@1.2.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-scopeguard-1-2-0",
+      "packageUrl": "pkg:cargo/scopeguard@1.2.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-scopeguard-1-2-0",
       "versionInfo": "1.2.0"
     },
     {
       "@type": "Package",
       "name": "security-framework",
-      "packageUrl": "pkg:pypi/security-framework@3.7.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-security-framework-3-7-0",
+      "packageUrl": "pkg:cargo/security-framework@3.7.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-security-framework-3-7-0",
       "versionInfo": "3.7.0"
     },
     {
       "@type": "Package",
       "name": "security-framework-sys",
-      "packageUrl": "pkg:pypi/security-framework-sys@2.17.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-security-framework-sys-2-17-0",
+      "packageUrl": "pkg:cargo/security-framework-sys@2.17.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-security-framework-sys-2-17-0",
       "versionInfo": "2.17.0"
     },
     {
       "@type": "Package",
       "name": "semver",
-      "packageUrl": "pkg:pypi/semver@1.0.28",
-      "spdxId": "urn:spdx.dev:pkg-pypi-semver-1-0-28",
+      "packageUrl": "pkg:cargo/semver@1.0.28",
+      "spdxId": "urn:spdx.dev:pkg-cargo-semver-1-0-28",
       "versionInfo": "1.0.28"
     },
     {
       "@type": "Package",
       "name": "serde",
-      "packageUrl": "pkg:pypi/serde@1.0.228",
-      "spdxId": "urn:spdx.dev:pkg-pypi-serde-1-0-228",
+      "packageUrl": "pkg:cargo/serde@1.0.228",
+      "spdxId": "urn:spdx.dev:pkg-cargo-serde-1-0-228",
       "versionInfo": "1.0.228"
     },
     {
       "@type": "Package",
       "name": "serde_core",
-      "packageUrl": "pkg:pypi/serde_core@1.0.228",
-      "spdxId": "urn:spdx.dev:pkg-pypi-serde-core-1-0-228",
+      "packageUrl": "pkg:cargo/serde_core@1.0.228",
+      "spdxId": "urn:spdx.dev:pkg-cargo-serde-core-1-0-228",
       "versionInfo": "1.0.228"
     },
     {
       "@type": "Package",
       "name": "serde_derive",
-      "packageUrl": "pkg:pypi/serde_derive@1.0.228",
-      "spdxId": "urn:spdx.dev:pkg-pypi-serde-derive-1-0-228",
+      "packageUrl": "pkg:cargo/serde_derive@1.0.228",
+      "spdxId": "urn:spdx.dev:pkg-cargo-serde-derive-1-0-228",
       "versionInfo": "1.0.228"
     },
     {
       "@type": "Package",
       "name": "serde_json",
-      "packageUrl": "pkg:pypi/serde_json@1.0.150",
-      "spdxId": "urn:spdx.dev:pkg-pypi-serde-json-1-0-150",
+      "packageUrl": "pkg:cargo/serde_json@1.0.150",
+      "spdxId": "urn:spdx.dev:pkg-cargo-serde-json-1-0-150",
       "versionInfo": "1.0.150"
     },
     {
       "@type": "Package",
       "name": "serde_spanned",
-      "packageUrl": "pkg:pypi/serde_spanned@1.1.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-serde-spanned-1-1-1",
+      "packageUrl": "pkg:cargo/serde_spanned@1.1.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-serde-spanned-1-1-1",
       "versionInfo": "1.1.1"
     },
     {
       "@type": "Package",
       "name": "serde_urlencoded",
-      "packageUrl": "pkg:pypi/serde_urlencoded@0.7.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-serde-urlencoded-0-7-1",
+      "packageUrl": "pkg:cargo/serde_urlencoded@0.7.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-serde-urlencoded-0-7-1",
       "versionInfo": "0.7.1"
     },
     {
       "@type": "Package",
       "name": "sha2",
-      "packageUrl": "pkg:pypi/sha2@0.11.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-sha2-0-11-0",
+      "packageUrl": "pkg:cargo/sha2@0.11.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-sha2-0-11-0",
       "versionInfo": "0.11.0"
     },
     {
       "@type": "Package",
       "name": "shlex",
-      "packageUrl": "pkg:pypi/shlex@1.3.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-shlex-1-3-0",
+      "packageUrl": "pkg:cargo/shlex@1.3.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-shlex-1-3-0",
       "versionInfo": "1.3.0"
     },
     {
       "@type": "Package",
       "name": "signal-hook-registry",
-      "packageUrl": "pkg:pypi/signal-hook-registry@1.4.8",
-      "spdxId": "urn:spdx.dev:pkg-pypi-signal-hook-registry-1-4-8",
+      "packageUrl": "pkg:cargo/signal-hook-registry@1.4.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-signal-hook-registry-1-4-8",
       "versionInfo": "1.4.8"
     },
     {
       "@type": "Package",
       "name": "siphasher",
-      "packageUrl": "pkg:pypi/siphasher@1.0.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-siphasher-1-0-3",
+      "packageUrl": "pkg:cargo/siphasher@1.0.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-siphasher-1-0-3",
       "versionInfo": "1.0.3"
     },
     {
       "@type": "Package",
       "name": "slab",
-      "packageUrl": "pkg:pypi/slab@0.4.12",
-      "spdxId": "urn:spdx.dev:pkg-pypi-slab-0-4-12",
+      "packageUrl": "pkg:cargo/slab@0.4.12",
+      "spdxId": "urn:spdx.dev:pkg-cargo-slab-0-4-12",
       "versionInfo": "0.4.12"
     },
     {
       "@type": "Package",
       "name": "smallvec",
-      "packageUrl": "pkg:pypi/smallvec@1.15.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-smallvec-1-15-1",
+      "packageUrl": "pkg:cargo/smallvec@1.15.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-smallvec-1-15-1",
       "versionInfo": "1.15.1"
     },
     {
       "@type": "Package",
       "name": "socket2",
-      "packageUrl": "pkg:pypi/socket2@0.6.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-socket2-0-6-3",
+      "packageUrl": "pkg:cargo/socket2@0.6.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-socket2-0-6-3",
       "versionInfo": "0.6.3"
     },
     {
       "@type": "Package",
       "name": "stable_deref_trait",
-      "packageUrl": "pkg:pypi/stable_deref_trait@1.2.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-stable-deref-trait-1-2-1",
+      "packageUrl": "pkg:cargo/stable_deref_trait@1.2.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-stable-deref-trait-1-2-1",
       "versionInfo": "1.2.1"
     },
     {
       "@type": "Package",
       "name": "static_assertions",
-      "packageUrl": "pkg:pypi/static_assertions@1.1.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-static-assertions-1-1-0",
+      "packageUrl": "pkg:cargo/static_assertions@1.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-static-assertions-1-1-0",
       "versionInfo": "1.1.0"
     },
     {
       "@type": "Package",
       "name": "strsim",
-      "packageUrl": "pkg:pypi/strsim@0.11.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-strsim-0-11-1",
+      "packageUrl": "pkg:cargo/strsim@0.11.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-strsim-0-11-1",
       "versionInfo": "0.11.1"
     },
     {
       "@type": "Package",
       "name": "subtle",
-      "packageUrl": "pkg:pypi/subtle@2.6.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-subtle-2-6-1",
+      "packageUrl": "pkg:cargo/subtle@2.6.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-subtle-2-6-1",
       "versionInfo": "2.6.1"
     },
     {
       "@type": "Package",
       "name": "syn",
-      "packageUrl": "pkg:pypi/syn@2.0.118",
-      "spdxId": "urn:spdx.dev:pkg-pypi-syn-2-0-118",
+      "packageUrl": "pkg:cargo/syn@2.0.118",
+      "spdxId": "urn:spdx.dev:pkg-cargo-syn-2-0-118",
       "versionInfo": "2.0.118"
     },
     {
       "@type": "Package",
       "name": "sync_wrapper",
-      "packageUrl": "pkg:pypi/sync_wrapper@1.0.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-sync-wrapper-1-0-2",
+      "packageUrl": "pkg:cargo/sync_wrapper@1.0.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-sync-wrapper-1-0-2",
       "versionInfo": "1.0.2"
     },
     {
       "@type": "Package",
       "name": "synstructure",
-      "packageUrl": "pkg:pypi/synstructure@0.13.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-synstructure-0-13-2",
+      "packageUrl": "pkg:cargo/synstructure@0.13.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-synstructure-0-13-2",
       "versionInfo": "0.13.2"
     },
     {
       "@type": "Package",
       "name": "system-configuration",
-      "packageUrl": "pkg:pypi/system-configuration@0.7.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-system-configuration-0-7-0",
+      "packageUrl": "pkg:cargo/system-configuration@0.7.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-system-configuration-0-7-0",
       "versionInfo": "0.7.0"
     },
     {
       "@type": "Package",
       "name": "system-configuration-sys",
-      "packageUrl": "pkg:pypi/system-configuration-sys@0.6.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-system-configuration-sys-0-6-0",
+      "packageUrl": "pkg:cargo/system-configuration-sys@0.6.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-system-configuration-sys-0-6-0",
       "versionInfo": "0.6.0"
     },
     {
       "@type": "Package",
       "name": "temp-env",
-      "packageUrl": "pkg:pypi/temp-env@0.3.6",
-      "spdxId": "urn:spdx.dev:pkg-pypi-temp-env-0-3-6",
+      "packageUrl": "pkg:cargo/temp-env@0.3.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-temp-env-0-3-6",
       "versionInfo": "0.3.6"
     },
     {
       "@type": "Package",
       "name": "tempfile",
-      "packageUrl": "pkg:pypi/tempfile@3.27.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-tempfile-3-27-0",
+      "packageUrl": "pkg:cargo/tempfile@3.27.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tempfile-3-27-0",
       "versionInfo": "3.27.0"
     },
     {
       "@type": "Package",
       "name": "thin-vec",
-      "packageUrl": "pkg:pypi/thin-vec@0.2.18",
-      "spdxId": "urn:spdx.dev:pkg-pypi-thin-vec-0-2-18",
+      "packageUrl": "pkg:cargo/thin-vec@0.2.18",
+      "spdxId": "urn:spdx.dev:pkg-cargo-thin-vec-0-2-18",
       "versionInfo": "0.2.18"
     },
     {
       "@type": "Package",
       "name": "thiserror",
-      "packageUrl": "pkg:pypi/thiserror@1.0.69",
-      "spdxId": "urn:spdx.dev:pkg-pypi-thiserror-1-0-69",
+      "packageUrl": "pkg:cargo/thiserror@1.0.69",
+      "spdxId": "urn:spdx.dev:pkg-cargo-thiserror-1-0-69",
       "versionInfo": "1.0.69"
     },
     {
       "@type": "Package",
       "name": "thiserror",
-      "packageUrl": "pkg:pypi/thiserror@2.0.18",
-      "spdxId": "urn:spdx.dev:pkg-pypi-thiserror-2-0-18",
+      "packageUrl": "pkg:cargo/thiserror@2.0.18",
+      "spdxId": "urn:spdx.dev:pkg-cargo-thiserror-2-0-18",
       "versionInfo": "2.0.18"
     },
     {
       "@type": "Package",
       "name": "thiserror-impl",
-      "packageUrl": "pkg:pypi/thiserror-impl@1.0.69",
-      "spdxId": "urn:spdx.dev:pkg-pypi-thiserror-impl-1-0-69",
+      "packageUrl": "pkg:cargo/thiserror-impl@1.0.69",
+      "spdxId": "urn:spdx.dev:pkg-cargo-thiserror-impl-1-0-69",
       "versionInfo": "1.0.69"
     },
     {
       "@type": "Package",
       "name": "thiserror-impl",
-      "packageUrl": "pkg:pypi/thiserror-impl@2.0.18",
-      "spdxId": "urn:spdx.dev:pkg-pypi-thiserror-impl-2-0-18",
+      "packageUrl": "pkg:cargo/thiserror-impl@2.0.18",
+      "spdxId": "urn:spdx.dev:pkg-cargo-thiserror-impl-2-0-18",
       "versionInfo": "2.0.18"
     },
     {
       "@type": "Package",
       "name": "time",
-      "packageUrl": "pkg:pypi/time@0.3.47",
-      "spdxId": "urn:spdx.dev:pkg-pypi-time-0-3-47",
+      "packageUrl": "pkg:cargo/time@0.3.47",
+      "spdxId": "urn:spdx.dev:pkg-cargo-time-0-3-47",
       "versionInfo": "0.3.47"
     },
     {
       "@type": "Package",
       "name": "time-core",
-      "packageUrl": "pkg:pypi/time-core@0.1.8",
-      "spdxId": "urn:spdx.dev:pkg-pypi-time-core-0-1-8",
+      "packageUrl": "pkg:cargo/time-core@0.1.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-time-core-0-1-8",
       "versionInfo": "0.1.8"
     },
     {
       "@type": "Package",
       "name": "time-macros",
-      "packageUrl": "pkg:pypi/time-macros@0.2.27",
-      "spdxId": "urn:spdx.dev:pkg-pypi-time-macros-0-2-27",
+      "packageUrl": "pkg:cargo/time-macros@0.2.27",
+      "spdxId": "urn:spdx.dev:pkg-cargo-time-macros-0-2-27",
       "versionInfo": "0.2.27"
     },
     {
       "@type": "Package",
       "name": "tinystr",
-      "packageUrl": "pkg:pypi/tinystr@0.8.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-tinystr-0-8-3",
+      "packageUrl": "pkg:cargo/tinystr@0.8.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tinystr-0-8-3",
       "versionInfo": "0.8.3"
     },
     {
       "@type": "Package",
       "name": "tinyvec",
-      "packageUrl": "pkg:pypi/tinyvec@1.11.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-tinyvec-1-11-0",
+      "packageUrl": "pkg:cargo/tinyvec@1.11.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tinyvec-1-11-0",
       "versionInfo": "1.11.0"
     },
     {
       "@type": "Package",
       "name": "tinyvec_macros",
-      "packageUrl": "pkg:pypi/tinyvec_macros@0.1.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-tinyvec-macros-0-1-1",
+      "packageUrl": "pkg:cargo/tinyvec_macros@0.1.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tinyvec-macros-0-1-1",
       "versionInfo": "0.1.1"
     },
     {
       "@type": "Package",
       "name": "tokio",
-      "packageUrl": "pkg:pypi/tokio@1.52.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-tokio-1-52-3",
+      "packageUrl": "pkg:cargo/tokio@1.52.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-1-52-3",
       "versionInfo": "1.52.3"
     },
     {
       "@type": "Package",
       "name": "tokio-macros",
-      "packageUrl": "pkg:pypi/tokio-macros@2.7.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-tokio-macros-2-7-0",
+      "packageUrl": "pkg:cargo/tokio-macros@2.7.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-macros-2-7-0",
       "versionInfo": "2.7.0"
     },
     {
       "@type": "Package",
       "name": "tokio-rustls",
-      "packageUrl": "pkg:pypi/tokio-rustls@0.26.4",
-      "spdxId": "urn:spdx.dev:pkg-pypi-tokio-rustls-0-26-4",
+      "packageUrl": "pkg:cargo/tokio-rustls@0.26.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-rustls-0-26-4",
       "versionInfo": "0.26.4"
     },
     {
       "@type": "Package",
       "name": "tokio-util",
-      "packageUrl": "pkg:pypi/tokio-util@0.7.18",
-      "spdxId": "urn:spdx.dev:pkg-pypi-tokio-util-0-7-18",
+      "packageUrl": "pkg:cargo/tokio-util@0.7.18",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-util-0-7-18",
       "versionInfo": "0.7.18"
     },
     {
       "@type": "Package",
       "name": "toml",
-      "packageUrl": "pkg:pypi/toml@1.1.2+spec-1.1.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-toml-1-1-2+spec-1-1-0",
+      "packageUrl": "pkg:cargo/toml@1.1.2+spec-1.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-toml-1-1-2+spec-1-1-0",
       "versionInfo": "1.1.2+spec-1.1.0"
     },
     {
       "@type": "Package",
       "name": "toml_datetime",
-      "packageUrl": "pkg:pypi/toml_datetime@1.1.1+spec-1.1.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-toml-datetime-1-1-1+spec-1-1-0",
+      "packageUrl": "pkg:cargo/toml_datetime@1.1.1+spec-1.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-toml-datetime-1-1-1+spec-1-1-0",
       "versionInfo": "1.1.1+spec-1.1.0"
     },
     {
       "@type": "Package",
       "name": "toml_parser",
-      "packageUrl": "pkg:pypi/toml_parser@1.1.2+spec-1.1.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-toml-parser-1-1-2+spec-1-1-0",
+      "packageUrl": "pkg:cargo/toml_parser@1.1.2+spec-1.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-toml-parser-1-1-2+spec-1-1-0",
       "versionInfo": "1.1.2+spec-1.1.0"
     },
     {
       "@type": "Package",
       "name": "toml_writer",
-      "packageUrl": "pkg:pypi/toml_writer@1.1.1+spec-1.1.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-toml-writer-1-1-1+spec-1-1-0",
+      "packageUrl": "pkg:cargo/toml_writer@1.1.1+spec-1.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-toml-writer-1-1-1+spec-1-1-0",
       "versionInfo": "1.1.1+spec-1.1.0"
     },
     {
       "@type": "Package",
       "name": "tower",
-      "packageUrl": "pkg:pypi/tower@0.5.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-tower-0-5-3",
+      "packageUrl": "pkg:cargo/tower@0.5.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tower-0-5-3",
       "versionInfo": "0.5.3"
     },
     {
       "@type": "Package",
       "name": "tower-http",
-      "packageUrl": "pkg:pypi/tower-http@0.6.8",
-      "spdxId": "urn:spdx.dev:pkg-pypi-tower-http-0-6-8",
+      "packageUrl": "pkg:cargo/tower-http@0.6.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tower-http-0-6-8",
       "versionInfo": "0.6.8"
     },
     {
       "@type": "Package",
       "name": "tower-layer",
-      "packageUrl": "pkg:pypi/tower-layer@0.3.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-tower-layer-0-3-3",
+      "packageUrl": "pkg:cargo/tower-layer@0.3.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tower-layer-0-3-3",
       "versionInfo": "0.3.3"
     },
     {
       "@type": "Package",
       "name": "tower-service",
-      "packageUrl": "pkg:pypi/tower-service@0.3.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-tower-service-0-3-3",
+      "packageUrl": "pkg:cargo/tower-service@0.3.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tower-service-0-3-3",
       "versionInfo": "0.3.3"
     },
     {
       "@type": "Package",
       "name": "tracing",
-      "packageUrl": "pkg:pypi/tracing@0.1.44",
-      "spdxId": "urn:spdx.dev:pkg-pypi-tracing-0-1-44",
+      "packageUrl": "pkg:cargo/tracing@0.1.44",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tracing-0-1-44",
       "versionInfo": "0.1.44"
     },
     {
       "@type": "Package",
       "name": "tracing-core",
-      "packageUrl": "pkg:pypi/tracing-core@0.1.36",
-      "spdxId": "urn:spdx.dev:pkg-pypi-tracing-core-0-1-36",
+      "packageUrl": "pkg:cargo/tracing-core@0.1.36",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tracing-core-0-1-36",
       "versionInfo": "0.1.36"
     },
     {
       "@type": "Package",
       "name": "try-lock",
-      "packageUrl": "pkg:pypi/try-lock@0.2.5",
-      "spdxId": "urn:spdx.dev:pkg-pypi-try-lock-0-2-5",
+      "packageUrl": "pkg:cargo/try-lock@0.2.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-try-lock-0-2-5",
       "versionInfo": "0.2.5"
     },
     {
       "@type": "Package",
       "name": "typenum",
-      "packageUrl": "pkg:pypi/typenum@1.20.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-typenum-1-20-0",
+      "packageUrl": "pkg:cargo/typenum@1.20.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-typenum-1-20-0",
       "versionInfo": "1.20.0"
     },
     {
       "@type": "Package",
       "name": "unicode-ident",
-      "packageUrl": "pkg:pypi/unicode-ident@1.0.24",
-      "spdxId": "urn:spdx.dev:pkg-pypi-unicode-ident-1-0-24",
+      "packageUrl": "pkg:cargo/unicode-ident@1.0.24",
+      "spdxId": "urn:spdx.dev:pkg-cargo-unicode-ident-1-0-24",
       "versionInfo": "1.0.24"
     },
     {
       "@type": "Package",
       "name": "unicode-normalization",
-      "packageUrl": "pkg:pypi/unicode-normalization@0.1.25",
-      "spdxId": "urn:spdx.dev:pkg-pypi-unicode-normalization-0-1-25",
+      "packageUrl": "pkg:cargo/unicode-normalization@0.1.25",
+      "spdxId": "urn:spdx.dev:pkg-cargo-unicode-normalization-0-1-25",
       "versionInfo": "0.1.25"
     },
     {
       "@type": "Package",
       "name": "unicode-width",
-      "packageUrl": "pkg:pypi/unicode-width@0.2.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-unicode-width-0-2-2",
+      "packageUrl": "pkg:cargo/unicode-width@0.2.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-unicode-width-0-2-2",
       "versionInfo": "0.2.2"
     },
     {
       "@type": "Package",
       "name": "unicode-xid",
-      "packageUrl": "pkg:pypi/unicode-xid@0.2.6",
-      "spdxId": "urn:spdx.dev:pkg-pypi-unicode-xid-0-2-6",
+      "packageUrl": "pkg:cargo/unicode-xid@0.2.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-unicode-xid-0-2-6",
       "versionInfo": "0.2.6"
     },
     {
       "@type": "Package",
       "name": "unicode_names2",
-      "packageUrl": "pkg:pypi/unicode_names2@1.3.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-unicode-names2-1-3-0",
+      "packageUrl": "pkg:cargo/unicode_names2@1.3.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-unicode-names2-1-3-0",
       "versionInfo": "1.3.0"
     },
     {
       "@type": "Package",
       "name": "unicode_names2_generator",
-      "packageUrl": "pkg:pypi/unicode_names2_generator@1.3.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-unicode-names2-generator-1-3-0",
+      "packageUrl": "pkg:cargo/unicode_names2_generator@1.3.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-unicode-names2-generator-1-3-0",
       "versionInfo": "1.3.0"
     },
     {
       "@type": "Package",
       "name": "untrusted",
-      "packageUrl": "pkg:pypi/untrusted@0.9.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-untrusted-0-9-0",
+      "packageUrl": "pkg:cargo/untrusted@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-untrusted-0-9-0",
       "versionInfo": "0.9.0"
     },
     {
       "@type": "Package",
       "name": "url",
-      "packageUrl": "pkg:pypi/url@2.5.8",
-      "spdxId": "urn:spdx.dev:pkg-pypi-url-2-5-8",
+      "packageUrl": "pkg:cargo/url@2.5.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-url-2-5-8",
       "versionInfo": "2.5.8"
     },
     {
       "@type": "Package",
       "name": "utf8_iter",
-      "packageUrl": "pkg:pypi/utf8_iter@1.0.4",
-      "spdxId": "urn:spdx.dev:pkg-pypi-utf8-iter-1-0-4",
+      "packageUrl": "pkg:cargo/utf8_iter@1.0.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-utf8-iter-1-0-4",
       "versionInfo": "1.0.4"
     },
     {
       "@type": "Package",
       "name": "utf8parse",
-      "packageUrl": "pkg:pypi/utf8parse@0.2.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-utf8parse-0-2-2",
+      "packageUrl": "pkg:cargo/utf8parse@0.2.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-utf8parse-0-2-2",
       "versionInfo": "0.2.2"
     },
     {
       "@type": "Package",
       "name": "vlz",
-      "packageUrl": "pkg:pypi/vlz@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-vlz-0-3-1",
+      "packageUrl": "pkg:cargo/vlz@0.3.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-0-3-1",
       "versionInfo": "0.3.1"
     },
     {
       "@type": "Package",
       "name": "vlz-cve-client",
-      "packageUrl": "pkg:pypi/vlz-cve-client@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-vlz-cve-client-0-3-1",
+      "packageUrl": "pkg:cargo/vlz-cve-client@0.3.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-cve-client-0-3-1",
       "versionInfo": "0.3.1"
     },
     {
       "@type": "Package",
       "name": "vlz-cve-provider-github",
-      "packageUrl": "pkg:pypi/vlz-cve-provider-github@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-vlz-cve-provider-github-0-3-1",
+      "packageUrl": "pkg:cargo/vlz-cve-provider-github@0.3.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-cve-provider-github-0-3-1",
       "versionInfo": "0.3.1"
     },
     {
       "@type": "Package",
       "name": "vlz-cve-provider-nvd",
-      "packageUrl": "pkg:pypi/vlz-cve-provider-nvd@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-vlz-cve-provider-nvd-0-3-1",
+      "packageUrl": "pkg:cargo/vlz-cve-provider-nvd@0.3.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-cve-provider-nvd-0-3-1",
       "versionInfo": "0.3.1"
     },
     {
       "@type": "Package",
       "name": "vlz-cve-provider-sonatype",
-      "packageUrl": "pkg:pypi/vlz-cve-provider-sonatype@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-vlz-cve-provider-sonatype-0-3-1",
+      "packageUrl": "pkg:cargo/vlz-cve-provider-sonatype@0.3.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-cve-provider-sonatype-0-3-1",
       "versionInfo": "0.3.1"
     },
     {
       "@type": "Package",
       "name": "vlz-db",
-      "packageUrl": "pkg:pypi/vlz-db@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-vlz-db-0-3-1",
+      "packageUrl": "pkg:cargo/vlz-db@0.3.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-db-0-3-1",
       "versionInfo": "0.3.1"
     },
     {
       "@type": "Package",
       "name": "vlz-db-redb",
-      "packageUrl": "pkg:pypi/vlz-db-redb@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-vlz-db-redb-0-3-1",
+      "packageUrl": "pkg:cargo/vlz-db-redb@0.3.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-db-redb-0-3-1",
       "versionInfo": "0.3.1"
     },
     {
       "@type": "Package",
       "name": "vlz-fuzz",
-      "packageUrl": "pkg:pypi/vlz-fuzz@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-vlz-fuzz-0-3-1",
+      "packageUrl": "pkg:cargo/vlz-fuzz@0.3.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-fuzz-0-3-1",
       "versionInfo": "0.3.1"
     },
     {
       "@type": "Package",
       "name": "vlz-go",
-      "packageUrl": "pkg:pypi/vlz-go@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-vlz-go-0-3-1",
+      "packageUrl": "pkg:cargo/vlz-go@0.3.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-go-0-3-1",
       "versionInfo": "0.3.1"
     },
     {
       "@type": "Package",
       "name": "vlz-integrity",
-      "packageUrl": "pkg:pypi/vlz-integrity@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-vlz-integrity-0-3-1",
+      "packageUrl": "pkg:cargo/vlz-integrity@0.3.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-integrity-0-3-1",
       "versionInfo": "0.3.1"
     },
     {
       "@type": "Package",
       "name": "vlz-manifest-finder",
-      "packageUrl": "pkg:pypi/vlz-manifest-finder@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-vlz-manifest-finder-0-3-1",
+      "packageUrl": "pkg:cargo/vlz-manifest-finder@0.3.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-manifest-finder-0-3-1",
       "versionInfo": "0.3.1"
     },
     {
       "@type": "Package",
       "name": "vlz-manifest-parser",
-      "packageUrl": "pkg:pypi/vlz-manifest-parser@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-vlz-manifest-parser-0-3-1",
+      "packageUrl": "pkg:cargo/vlz-manifest-parser@0.3.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-manifest-parser-0-3-1",
       "versionInfo": "0.3.1"
     },
     {
       "@type": "Package",
       "name": "vlz-plugin-macro",
-      "packageUrl": "pkg:pypi/vlz-plugin-macro@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-vlz-plugin-macro-0-3-1",
+      "packageUrl": "pkg:cargo/vlz-plugin-macro@0.3.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-plugin-macro-0-3-1",
       "versionInfo": "0.3.1"
     },
     {
       "@type": "Package",
       "name": "vlz-python",
-      "packageUrl": "pkg:pypi/vlz-python@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-vlz-python-0-3-1",
+      "packageUrl": "pkg:cargo/vlz-python@0.3.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-python-0-3-1",
       "versionInfo": "0.3.1"
     },
     {
       "@type": "Package",
       "name": "vlz-reachability",
-      "packageUrl": "pkg:pypi/vlz-reachability@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-vlz-reachability-0-3-1",
+      "packageUrl": "pkg:cargo/vlz-reachability@0.3.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-reachability-0-3-1",
       "versionInfo": "0.3.1"
     },
     {
       "@type": "Package",
       "name": "vlz-reachability-trait",
-      "packageUrl": "pkg:pypi/vlz-reachability-trait@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-vlz-reachability-trait-0-3-1",
+      "packageUrl": "pkg:cargo/vlz-reachability-trait@0.3.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-reachability-trait-0-3-1",
       "versionInfo": "0.3.1"
     },
     {
       "@type": "Package",
       "name": "vlz-report",
-      "packageUrl": "pkg:pypi/vlz-report@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-vlz-report-0-3-1",
+      "packageUrl": "pkg:cargo/vlz-report@0.3.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-report-0-3-1",
       "versionInfo": "0.3.1"
     },
     {
       "@type": "Package",
       "name": "vlz-rust",
-      "packageUrl": "pkg:pypi/vlz-rust@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-vlz-rust-0-3-1",
+      "packageUrl": "pkg:cargo/vlz-rust@0.3.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-rust-0-3-1",
       "versionInfo": "0.3.1"
     },
     {
       "@type": "Package",
       "name": "walkdir",
-      "packageUrl": "pkg:pypi/walkdir@2.5.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-walkdir-2-5-0",
+      "packageUrl": "pkg:cargo/walkdir@2.5.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-walkdir-2-5-0",
       "versionInfo": "2.5.0"
     },
     {
       "@type": "Package",
       "name": "want",
-      "packageUrl": "pkg:pypi/want@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-want-0-3-1",
+      "packageUrl": "pkg:cargo/want@0.3.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-want-0-3-1",
       "versionInfo": "0.3.1"
     },
     {
       "@type": "Package",
       "name": "wasi",
-      "packageUrl": "pkg:pypi/wasi@0.11.1+wasi-snapshot-preview1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-wasi-0-11-1+wasi-snapshot-preview1",
+      "packageUrl": "pkg:cargo/wasi@0.11.1+wasi-snapshot-preview1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wasi-0-11-1+wasi-snapshot-preview1",
       "versionInfo": "0.11.1+wasi-snapshot-preview1"
     },
     {
       "@type": "Package",
       "name": "wasip2",
-      "packageUrl": "pkg:pypi/wasip2@1.0.3+wasi-0.2.9",
-      "spdxId": "urn:spdx.dev:pkg-pypi-wasip2-1-0-3+wasi-0-2-9",
+      "packageUrl": "pkg:cargo/wasip2@1.0.3+wasi-0.2.9",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wasip2-1-0-3+wasi-0-2-9",
       "versionInfo": "1.0.3+wasi-0.2.9"
     },
     {
       "@type": "Package",
       "name": "wasip3",
-      "packageUrl": "pkg:pypi/wasip3@0.4.0+wasi-0.3.0-rc-2026-01-06",
-      "spdxId": "urn:spdx.dev:pkg-pypi-wasip3-0-4-0+wasi-0-3-0-rc-2026-01-06",
+      "packageUrl": "pkg:cargo/wasip3@0.4.0+wasi-0.3.0-rc-2026-01-06",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wasip3-0-4-0+wasi-0-3-0-rc-2026-01-06",
       "versionInfo": "0.4.0+wasi-0.3.0-rc-2026-01-06"
     },
     {
       "@type": "Package",
       "name": "wasm-bindgen",
-      "packageUrl": "pkg:pypi/wasm-bindgen@0.2.118",
-      "spdxId": "urn:spdx.dev:pkg-pypi-wasm-bindgen-0-2-118",
+      "packageUrl": "pkg:cargo/wasm-bindgen@0.2.118",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-0-2-118",
       "versionInfo": "0.2.118"
     },
     {
       "@type": "Package",
       "name": "wasm-bindgen-futures",
-      "packageUrl": "pkg:pypi/wasm-bindgen-futures@0.4.68",
-      "spdxId": "urn:spdx.dev:pkg-pypi-wasm-bindgen-futures-0-4-68",
+      "packageUrl": "pkg:cargo/wasm-bindgen-futures@0.4.68",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-futures-0-4-68",
       "versionInfo": "0.4.68"
     },
     {
       "@type": "Package",
       "name": "wasm-bindgen-macro",
-      "packageUrl": "pkg:pypi/wasm-bindgen-macro@0.2.118",
-      "spdxId": "urn:spdx.dev:pkg-pypi-wasm-bindgen-macro-0-2-118",
+      "packageUrl": "pkg:cargo/wasm-bindgen-macro@0.2.118",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-macro-0-2-118",
       "versionInfo": "0.2.118"
     },
     {
       "@type": "Package",
       "name": "wasm-bindgen-macro-support",
-      "packageUrl": "pkg:pypi/wasm-bindgen-macro-support@0.2.118",
-      "spdxId": "urn:spdx.dev:pkg-pypi-wasm-bindgen-macro-support-0-2-118",
+      "packageUrl": "pkg:cargo/wasm-bindgen-macro-support@0.2.118",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-macro-support-0-2-118",
       "versionInfo": "0.2.118"
     },
     {
       "@type": "Package",
       "name": "wasm-bindgen-shared",
-      "packageUrl": "pkg:pypi/wasm-bindgen-shared@0.2.118",
-      "spdxId": "urn:spdx.dev:pkg-pypi-wasm-bindgen-shared-0-2-118",
+      "packageUrl": "pkg:cargo/wasm-bindgen-shared@0.2.118",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-shared-0-2-118",
       "versionInfo": "0.2.118"
     },
     {
       "@type": "Package",
       "name": "wasm-encoder",
-      "packageUrl": "pkg:pypi/wasm-encoder@0.244.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-wasm-encoder-0-244-0",
+      "packageUrl": "pkg:cargo/wasm-encoder@0.244.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-encoder-0-244-0",
       "versionInfo": "0.244.0"
     },
     {
       "@type": "Package",
       "name": "wasm-metadata",
-      "packageUrl": "pkg:pypi/wasm-metadata@0.244.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-wasm-metadata-0-244-0",
+      "packageUrl": "pkg:cargo/wasm-metadata@0.244.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-metadata-0-244-0",
       "versionInfo": "0.244.0"
     },
     {
       "@type": "Package",
       "name": "wasmparser",
-      "packageUrl": "pkg:pypi/wasmparser@0.244.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-wasmparser-0-244-0",
+      "packageUrl": "pkg:cargo/wasmparser@0.244.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wasmparser-0-244-0",
       "versionInfo": "0.244.0"
     },
     {
       "@type": "Package",
       "name": "web-sys",
-      "packageUrl": "pkg:pypi/web-sys@0.3.95",
-      "spdxId": "urn:spdx.dev:pkg-pypi-web-sys-0-3-95",
+      "packageUrl": "pkg:cargo/web-sys@0.3.95",
+      "spdxId": "urn:spdx.dev:pkg-cargo-web-sys-0-3-95",
       "versionInfo": "0.3.95"
     },
     {
       "@type": "Package",
       "name": "webpki-root-certs",
-      "packageUrl": "pkg:pypi/webpki-root-certs@1.0.7",
-      "spdxId": "urn:spdx.dev:pkg-pypi-webpki-root-certs-1-0-7",
+      "packageUrl": "pkg:cargo/webpki-root-certs@1.0.7",
+      "spdxId": "urn:spdx.dev:pkg-cargo-webpki-root-certs-1-0-7",
       "versionInfo": "1.0.7"
     },
     {
       "@type": "Package",
       "name": "winapi-util",
-      "packageUrl": "pkg:pypi/winapi-util@0.1.11",
-      "spdxId": "urn:spdx.dev:pkg-pypi-winapi-util-0-1-11",
+      "packageUrl": "pkg:cargo/winapi-util@0.1.11",
+      "spdxId": "urn:spdx.dev:pkg-cargo-winapi-util-0-1-11",
       "versionInfo": "0.1.11"
     },
     {
       "@type": "Package",
       "name": "windows-link",
-      "packageUrl": "pkg:pypi/windows-link@0.2.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-link-0-2-1",
+      "packageUrl": "pkg:cargo/windows-link@0.2.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-link-0-2-1",
       "versionInfo": "0.2.1"
     },
     {
       "@type": "Package",
       "name": "windows-registry",
-      "packageUrl": "pkg:pypi/windows-registry@0.6.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-registry-0-6-1",
+      "packageUrl": "pkg:cargo/windows-registry@0.6.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-registry-0-6-1",
       "versionInfo": "0.6.1"
     },
     {
       "@type": "Package",
       "name": "windows-result",
-      "packageUrl": "pkg:pypi/windows-result@0.4.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-result-0-4-1",
+      "packageUrl": "pkg:cargo/windows-result@0.4.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-result-0-4-1",
       "versionInfo": "0.4.1"
     },
     {
       "@type": "Package",
       "name": "windows-strings",
-      "packageUrl": "pkg:pypi/windows-strings@0.5.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-strings-0-5-1",
+      "packageUrl": "pkg:cargo/windows-strings@0.5.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-strings-0-5-1",
       "versionInfo": "0.5.1"
     },
     {
       "@type": "Package",
       "name": "windows-sys",
-      "packageUrl": "pkg:pypi/windows-sys@0.45.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-sys-0-45-0",
+      "packageUrl": "pkg:cargo/windows-sys@0.45.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-sys-0-45-0",
       "versionInfo": "0.45.0"
     },
     {
       "@type": "Package",
       "name": "windows-sys",
-      "packageUrl": "pkg:pypi/windows-sys@0.52.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-sys-0-52-0",
+      "packageUrl": "pkg:cargo/windows-sys@0.52.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-sys-0-52-0",
       "versionInfo": "0.52.0"
     },
     {
       "@type": "Package",
       "name": "windows-sys",
-      "packageUrl": "pkg:pypi/windows-sys@0.61.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-sys-0-61-2",
+      "packageUrl": "pkg:cargo/windows-sys@0.61.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-sys-0-61-2",
       "versionInfo": "0.61.2"
     },
     {
       "@type": "Package",
       "name": "windows-targets",
-      "packageUrl": "pkg:pypi/windows-targets@0.42.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-targets-0-42-2",
+      "packageUrl": "pkg:cargo/windows-targets@0.42.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-targets-0-42-2",
       "versionInfo": "0.42.2"
     },
     {
       "@type": "Package",
       "name": "windows-targets",
-      "packageUrl": "pkg:pypi/windows-targets@0.52.6",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-targets-0-52-6",
+      "packageUrl": "pkg:cargo/windows-targets@0.52.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-targets-0-52-6",
       "versionInfo": "0.52.6"
     },
     {
       "@type": "Package",
       "name": "windows_aarch64_gnullvm",
-      "packageUrl": "pkg:pypi/windows_aarch64_gnullvm@0.42.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-aarch64-gnullvm-0-42-2",
+      "packageUrl": "pkg:cargo/windows_aarch64_gnullvm@0.42.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-aarch64-gnullvm-0-42-2",
       "versionInfo": "0.42.2"
     },
     {
       "@type": "Package",
       "name": "windows_aarch64_gnullvm",
-      "packageUrl": "pkg:pypi/windows_aarch64_gnullvm@0.52.6",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-aarch64-gnullvm-0-52-6",
+      "packageUrl": "pkg:cargo/windows_aarch64_gnullvm@0.52.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-aarch64-gnullvm-0-52-6",
       "versionInfo": "0.52.6"
     },
     {
       "@type": "Package",
       "name": "windows_aarch64_msvc",
-      "packageUrl": "pkg:pypi/windows_aarch64_msvc@0.42.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-aarch64-msvc-0-42-2",
+      "packageUrl": "pkg:cargo/windows_aarch64_msvc@0.42.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-aarch64-msvc-0-42-2",
       "versionInfo": "0.42.2"
     },
     {
       "@type": "Package",
       "name": "windows_aarch64_msvc",
-      "packageUrl": "pkg:pypi/windows_aarch64_msvc@0.52.6",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-aarch64-msvc-0-52-6",
+      "packageUrl": "pkg:cargo/windows_aarch64_msvc@0.52.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-aarch64-msvc-0-52-6",
       "versionInfo": "0.52.6"
     },
     {
       "@type": "Package",
       "name": "windows_i686_gnu",
-      "packageUrl": "pkg:pypi/windows_i686_gnu@0.42.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-i686-gnu-0-42-2",
+      "packageUrl": "pkg:cargo/windows_i686_gnu@0.42.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-i686-gnu-0-42-2",
       "versionInfo": "0.42.2"
     },
     {
       "@type": "Package",
       "name": "windows_i686_gnu",
-      "packageUrl": "pkg:pypi/windows_i686_gnu@0.52.6",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-i686-gnu-0-52-6",
+      "packageUrl": "pkg:cargo/windows_i686_gnu@0.52.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-i686-gnu-0-52-6",
       "versionInfo": "0.52.6"
     },
     {
       "@type": "Package",
       "name": "windows_i686_gnullvm",
-      "packageUrl": "pkg:pypi/windows_i686_gnullvm@0.52.6",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-i686-gnullvm-0-52-6",
+      "packageUrl": "pkg:cargo/windows_i686_gnullvm@0.52.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-i686-gnullvm-0-52-6",
       "versionInfo": "0.52.6"
     },
     {
       "@type": "Package",
       "name": "windows_i686_msvc",
-      "packageUrl": "pkg:pypi/windows_i686_msvc@0.42.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-i686-msvc-0-42-2",
+      "packageUrl": "pkg:cargo/windows_i686_msvc@0.42.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-i686-msvc-0-42-2",
       "versionInfo": "0.42.2"
     },
     {
       "@type": "Package",
       "name": "windows_i686_msvc",
-      "packageUrl": "pkg:pypi/windows_i686_msvc@0.52.6",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-i686-msvc-0-52-6",
+      "packageUrl": "pkg:cargo/windows_i686_msvc@0.52.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-i686-msvc-0-52-6",
       "versionInfo": "0.52.6"
     },
     {
       "@type": "Package",
       "name": "windows_x86_64_gnu",
-      "packageUrl": "pkg:pypi/windows_x86_64_gnu@0.42.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-x86-64-gnu-0-42-2",
+      "packageUrl": "pkg:cargo/windows_x86_64_gnu@0.42.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-x86-64-gnu-0-42-2",
       "versionInfo": "0.42.2"
     },
     {
       "@type": "Package",
       "name": "windows_x86_64_gnu",
-      "packageUrl": "pkg:pypi/windows_x86_64_gnu@0.52.6",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-x86-64-gnu-0-52-6",
+      "packageUrl": "pkg:cargo/windows_x86_64_gnu@0.52.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-x86-64-gnu-0-52-6",
       "versionInfo": "0.52.6"
     },
     {
       "@type": "Package",
       "name": "windows_x86_64_gnullvm",
-      "packageUrl": "pkg:pypi/windows_x86_64_gnullvm@0.42.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-x86-64-gnullvm-0-42-2",
+      "packageUrl": "pkg:cargo/windows_x86_64_gnullvm@0.42.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-x86-64-gnullvm-0-42-2",
       "versionInfo": "0.42.2"
     },
     {
       "@type": "Package",
       "name": "windows_x86_64_gnullvm",
-      "packageUrl": "pkg:pypi/windows_x86_64_gnullvm@0.52.6",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-x86-64-gnullvm-0-52-6",
+      "packageUrl": "pkg:cargo/windows_x86_64_gnullvm@0.52.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-x86-64-gnullvm-0-52-6",
       "versionInfo": "0.52.6"
     },
     {
       "@type": "Package",
       "name": "windows_x86_64_msvc",
-      "packageUrl": "pkg:pypi/windows_x86_64_msvc@0.42.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-x86-64-msvc-0-42-2",
+      "packageUrl": "pkg:cargo/windows_x86_64_msvc@0.42.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-x86-64-msvc-0-42-2",
       "versionInfo": "0.42.2"
     },
     {
       "@type": "Package",
       "name": "windows_x86_64_msvc",
-      "packageUrl": "pkg:pypi/windows_x86_64_msvc@0.52.6",
-      "spdxId": "urn:spdx.dev:pkg-pypi-windows-x86-64-msvc-0-52-6",
+      "packageUrl": "pkg:cargo/windows_x86_64_msvc@0.52.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-x86-64-msvc-0-52-6",
       "versionInfo": "0.52.6"
     },
     {
       "@type": "Package",
       "name": "winnow",
-      "packageUrl": "pkg:pypi/winnow@1.0.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-winnow-1-0-2",
+      "packageUrl": "pkg:cargo/winnow@1.0.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-winnow-1-0-2",
       "versionInfo": "1.0.2"
     },
     {
       "@type": "Package",
       "name": "wiremock",
-      "packageUrl": "pkg:pypi/wiremock@0.6.5",
-      "spdxId": "urn:spdx.dev:pkg-pypi-wiremock-0-6-5",
+      "packageUrl": "pkg:cargo/wiremock@0.6.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wiremock-0-6-5",
       "versionInfo": "0.6.5"
     },
     {
       "@type": "Package",
       "name": "wit-bindgen",
-      "packageUrl": "pkg:pypi/wit-bindgen@0.51.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-wit-bindgen-0-51-0",
+      "packageUrl": "pkg:cargo/wit-bindgen@0.51.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wit-bindgen-0-51-0",
       "versionInfo": "0.51.0"
     },
     {
       "@type": "Package",
       "name": "wit-bindgen",
-      "packageUrl": "pkg:pypi/wit-bindgen@0.57.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-wit-bindgen-0-57-1",
+      "packageUrl": "pkg:cargo/wit-bindgen@0.57.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wit-bindgen-0-57-1",
       "versionInfo": "0.57.1"
     },
     {
       "@type": "Package",
       "name": "wit-bindgen-core",
-      "packageUrl": "pkg:pypi/wit-bindgen-core@0.51.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-wit-bindgen-core-0-51-0",
+      "packageUrl": "pkg:cargo/wit-bindgen-core@0.51.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wit-bindgen-core-0-51-0",
       "versionInfo": "0.51.0"
     },
     {
       "@type": "Package",
       "name": "wit-bindgen-rust",
-      "packageUrl": "pkg:pypi/wit-bindgen-rust@0.51.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-wit-bindgen-rust-0-51-0",
+      "packageUrl": "pkg:cargo/wit-bindgen-rust@0.51.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wit-bindgen-rust-0-51-0",
       "versionInfo": "0.51.0"
     },
     {
       "@type": "Package",
       "name": "wit-bindgen-rust-macro",
-      "packageUrl": "pkg:pypi/wit-bindgen-rust-macro@0.51.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-wit-bindgen-rust-macro-0-51-0",
+      "packageUrl": "pkg:cargo/wit-bindgen-rust-macro@0.51.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wit-bindgen-rust-macro-0-51-0",
       "versionInfo": "0.51.0"
     },
     {
       "@type": "Package",
       "name": "wit-component",
-      "packageUrl": "pkg:pypi/wit-component@0.244.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-wit-component-0-244-0",
+      "packageUrl": "pkg:cargo/wit-component@0.244.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wit-component-0-244-0",
       "versionInfo": "0.244.0"
     },
     {
       "@type": "Package",
       "name": "wit-parser",
-      "packageUrl": "pkg:pypi/wit-parser@0.244.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-wit-parser-0-244-0",
+      "packageUrl": "pkg:cargo/wit-parser@0.244.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wit-parser-0-244-0",
       "versionInfo": "0.244.0"
     },
     {
       "@type": "Package",
       "name": "writeable",
-      "packageUrl": "pkg:pypi/writeable@0.6.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-writeable-0-6-3",
+      "packageUrl": "pkg:cargo/writeable@0.6.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-writeable-0-6-3",
       "versionInfo": "0.6.3"
     },
     {
       "@type": "Package",
       "name": "x509-parser",
-      "packageUrl": "pkg:pypi/x509-parser@0.18.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-x509-parser-0-18-1",
+      "packageUrl": "pkg:cargo/x509-parser@0.18.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-x509-parser-0-18-1",
       "versionInfo": "0.18.1"
     },
     {
       "@type": "Package",
       "name": "xdg",
-      "packageUrl": "pkg:pypi/xdg@3.0.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-xdg-3-0-0",
+      "packageUrl": "pkg:cargo/xdg@3.0.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-xdg-3-0-0",
       "versionInfo": "3.0.0"
     },
     {
       "@type": "Package",
       "name": "yasna",
-      "packageUrl": "pkg:pypi/yasna@0.6.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-yasna-0-6-0",
+      "packageUrl": "pkg:cargo/yasna@0.6.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-yasna-0-6-0",
       "versionInfo": "0.6.0"
     },
     {
       "@type": "Package",
       "name": "yoke",
-      "packageUrl": "pkg:pypi/yoke@0.8.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-yoke-0-8-2",
+      "packageUrl": "pkg:cargo/yoke@0.8.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-yoke-0-8-2",
       "versionInfo": "0.8.2"
     },
     {
       "@type": "Package",
       "name": "yoke-derive",
-      "packageUrl": "pkg:pypi/yoke-derive@0.8.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-yoke-derive-0-8-2",
+      "packageUrl": "pkg:cargo/yoke-derive@0.8.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-yoke-derive-0-8-2",
       "versionInfo": "0.8.2"
     },
     {
       "@type": "Package",
       "name": "zerocopy",
-      "packageUrl": "pkg:pypi/zerocopy@0.8.52",
-      "spdxId": "urn:spdx.dev:pkg-pypi-zerocopy-0-8-52",
+      "packageUrl": "pkg:cargo/zerocopy@0.8.52",
+      "spdxId": "urn:spdx.dev:pkg-cargo-zerocopy-0-8-52",
       "versionInfo": "0.8.52"
     },
     {
       "@type": "Package",
       "name": "zerocopy-derive",
-      "packageUrl": "pkg:pypi/zerocopy-derive@0.8.52",
-      "spdxId": "urn:spdx.dev:pkg-pypi-zerocopy-derive-0-8-52",
+      "packageUrl": "pkg:cargo/zerocopy-derive@0.8.52",
+      "spdxId": "urn:spdx.dev:pkg-cargo-zerocopy-derive-0-8-52",
       "versionInfo": "0.8.52"
     },
     {
       "@type": "Package",
       "name": "zerofrom",
-      "packageUrl": "pkg:pypi/zerofrom@0.1.7",
-      "spdxId": "urn:spdx.dev:pkg-pypi-zerofrom-0-1-7",
+      "packageUrl": "pkg:cargo/zerofrom@0.1.7",
+      "spdxId": "urn:spdx.dev:pkg-cargo-zerofrom-0-1-7",
       "versionInfo": "0.1.7"
     },
     {
       "@type": "Package",
       "name": "zerofrom-derive",
-      "packageUrl": "pkg:pypi/zerofrom-derive@0.1.7",
-      "spdxId": "urn:spdx.dev:pkg-pypi-zerofrom-derive-0-1-7",
+      "packageUrl": "pkg:cargo/zerofrom-derive@0.1.7",
+      "spdxId": "urn:spdx.dev:pkg-cargo-zerofrom-derive-0-1-7",
       "versionInfo": "0.1.7"
     },
     {
       "@type": "Package",
       "name": "zeroize",
-      "packageUrl": "pkg:pypi/zeroize@1.8.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-zeroize-1-8-2",
+      "packageUrl": "pkg:cargo/zeroize@1.8.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-zeroize-1-8-2",
       "versionInfo": "1.8.2"
     },
     {
       "@type": "Package",
       "name": "zerotrie",
-      "packageUrl": "pkg:pypi/zerotrie@0.2.4",
-      "spdxId": "urn:spdx.dev:pkg-pypi-zerotrie-0-2-4",
+      "packageUrl": "pkg:cargo/zerotrie@0.2.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-zerotrie-0-2-4",
       "versionInfo": "0.2.4"
     },
     {
       "@type": "Package",
       "name": "zerovec",
-      "packageUrl": "pkg:pypi/zerovec@0.11.6",
-      "spdxId": "urn:spdx.dev:pkg-pypi-zerovec-0-11-6",
+      "packageUrl": "pkg:cargo/zerovec@0.11.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-zerovec-0-11-6",
       "versionInfo": "0.11.6"
     },
     {
       "@type": "Package",
       "name": "zerovec-derive",
-      "packageUrl": "pkg:pypi/zerovec-derive@0.11.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-zerovec-derive-0-11-3",
+      "packageUrl": "pkg:cargo/zerovec-derive@0.11.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-zerovec-derive-0-11-3",
       "versionInfo": "0.11.3"
     },
     {
       "@type": "Package",
       "name": "zmij",
-      "packageUrl": "pkg:pypi/zmij@1.0.21",
-      "spdxId": "urn:spdx.dev:pkg-pypi-zmij-1-0-21",
+      "packageUrl": "pkg:cargo/zmij@1.0.21",
+      "spdxId": "urn:spdx.dev:pkg-cargo-zmij-1-0-21",
       "versionInfo": "1.0.21"
     }
   ],

@@ -16,7 +16,10 @@ pub const REPORT_JSON_SCHEMA_ID: &str =
 use serde::Serialize;
 use std::io::Write;
 use std::path::PathBuf;
-use vlz_db::{CveRecord, CvssVersion, Package, Severity};
+use vlz_db::{
+    CRATES_IO_ECOSYSTEM, CveRecord, CvssVersion, GO_ECOSYSTEM, PYPI_ECOSYSTEM,
+    Package, Severity,
+};
 
 const DESCRIPTION_MAX_LEN: usize = 60;
 
@@ -692,9 +695,20 @@ fn severity_level_sarif(s: &Severity) -> &'static str {
     }
 }
 
-/// PURL for a Python package (pypi ecosystem; SEC-019 CycloneDX 1.6).
-fn purl_pypi(name: &str, version: &str) -> String {
-    format!("pkg:pypi/{}@{}", name, version)
+/// PURL type for SBOM output from a package ecosystem (SEC-019 CycloneDX 1.6).
+fn purl_type_for_ecosystem(ecosystem: Option<&str>) -> &'static str {
+    match ecosystem {
+        Some(CRATES_IO_ECOSYSTEM) => "cargo",
+        Some(GO_ECOSYSTEM) => "golang",
+        Some(PYPI_ECOSYSTEM) | None => "pypi",
+        _ => "pypi",
+    }
+}
+
+/// PURL for a resolved package (SEC-019 CycloneDX 1.6, SPDX 3.0).
+fn purl_for_package(pkg: &Package) -> String {
+    let purl_type = purl_type_for_ecosystem(pkg.ecosystem.as_deref());
+    format!("pkg:{}/{}@{}", purl_type, pkg.name, pkg.version)
 }
 
 /// RFC 3339 timestamp for BOM metadata (no external deps).
@@ -765,7 +779,7 @@ impl Reporter for CycloneDxReporter {
         let components: Vec<serde_json::Value> = packages
             .iter()
             .map(|p| {
-                let bom_ref = purl_pypi(&p.name, &p.version);
+                let bom_ref = purl_for_package(p);
                 serde_json::json!({
                     "type": "library",
                     "name": p.name,
@@ -780,7 +794,7 @@ impl Reporter for CycloneDxReporter {
             .iter()
             .flat_map(|finding| {
                 finding.cves.iter().map(|(cve, severity)| {
-                    let bom_ref = purl_pypi(&finding.package.name, &finding.package.version);
+                    let bom_ref = purl_for_package(&finding.package);
                     let manifest_paths: Vec<String> = finding
                         .manifest_paths
                         .iter()
@@ -846,12 +860,23 @@ impl Reporter for CycloneDxReporter {
     }
 }
 
-/// SPDX ID for a Python package (SEC-019 SPDX 3.0).
-fn spdx_id_pkg(name: &str, version: &str) -> String {
+/// SPDX ID prefix for a package ecosystem (SEC-019 SPDX 3.0).
+fn spdx_id_prefix_for_ecosystem(ecosystem: Option<&str>) -> &'static str {
+    match purl_type_for_ecosystem(ecosystem) {
+        "cargo" => "pkg-cargo",
+        "golang" => "pkg-golang",
+        _ => "pkg-pypi",
+    }
+}
+
+/// SPDX ID for a package (SEC-019 SPDX 3.0).
+fn spdx_id_pkg(pkg: &Package) -> String {
+    let prefix = spdx_id_prefix_for_ecosystem(pkg.ecosystem.as_deref());
     format!(
-        "urn:spdx.dev:pkg-pypi-{}-{}",
-        name.replace(['.', '-', '_'], "-"),
-        version.replace(['.', '-', '_'], "-")
+        "urn:spdx.dev:{}-{}-{}",
+        prefix,
+        pkg.name.replace(['.', '-', '_'], "-"),
+        pkg.version.replace(['.', '-', '_'], "-")
     )
 }
 
@@ -887,13 +912,13 @@ impl Reporter for SpdxReporter {
         let pkg_elements: Vec<serde_json::Value> = packages
             .iter()
             .map(|p| {
-                let sid = spdx_id_pkg(&p.name, &p.version);
+                let sid = spdx_id_pkg(p);
                 serde_json::json!({
                     "@type": "Package",
                     "spdxId": sid,
                     "name": p.name,
                     "versionInfo": p.version,
-                    "packageUrl": purl_pypi(&p.name, &p.version)
+                    "packageUrl": purl_for_package(p)
                 })
             })
             .collect();
@@ -925,7 +950,7 @@ impl Reporter for SpdxReporter {
                     let mut rel = serde_json::json!({
                         "@type": "Relationship",
                         "relationshipType": "hasAssociatedVulnerability",
-                        "from": spdx_id_pkg(&finding.package.name, &finding.package.version),
+                        "from": spdx_id_pkg(&finding.package),
                         "to": [spdx_id_vuln(&cve.id)]
                     });
                     if !finding.manifest_paths.is_empty() {
@@ -1096,12 +1121,12 @@ mod tests {
         let pkg_foo = Package {
             name: "foo".to_string(),
             version: "1.0".to_string(),
-            ..Default::default()
+            ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
         };
         let pkg_bar = Package {
             name: "bar".to_string(),
             version: "2.0".to_string(),
-            ..Default::default()
+            ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
         };
         let cve = CveRecord {
             id: "CVE-2023-1234".to_string(),
@@ -1504,14 +1529,12 @@ mod tests {
             .collect();
         assert!(names.contains(&"foo"));
         assert!(names.contains(&"bar"));
-        assert!(
-            components[0]
-                .get("bom-ref")
-                .unwrap()
-                .as_str()
-                .unwrap()
-                .starts_with("pkg:pypi/")
-        );
+        let purls: Vec<&str> = components
+            .iter()
+            .map(|c| c.get("purl").unwrap().as_str().unwrap())
+            .collect();
+        assert!(purls.contains(&"pkg:cargo/foo@1.0"));
+        assert!(purls.contains(&"pkg:pypi/bar@2.0"));
     }
 
     #[tokio::test]
@@ -1530,7 +1553,77 @@ mod tests {
         assert_eq!(vulns[0].get("id").unwrap(), "CVE-2023-1234");
         let affects = vulns[0].get("affects").unwrap().as_array().unwrap();
         assert_eq!(affects.len(), 1);
-        assert_eq!(affects[0].get("ref").unwrap(), "pkg:pypi/foo@1.0");
+        assert_eq!(affects[0].get("ref").unwrap(), "pkg:cargo/foo@1.0");
+    }
+
+    #[tokio::test]
+    async fn cyclonedx_reporter_collision_names_use_cargo_purls() {
+        let collision_crates = [
+            ("ryu", "1.0.23"),
+            ("h2", "0.4.13"),
+            ("idna", "1.1.0"),
+            ("wiremock", "0.6.5"),
+        ];
+        let packages: Vec<Package> = collision_crates
+            .iter()
+            .map(|(name, version)| Package {
+                name: (*name).to_string(),
+                version: (*version).to_string(),
+                ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
+            })
+            .collect();
+        let data = ReportData {
+            findings: vec![],
+            all_packages: Some(packages),
+            project_id: None,
+            root_path: None,
+            manifest_coverage: vec![],
+        };
+        let mut buf = Vec::new();
+        CycloneDxReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim())
+                .unwrap();
+        let components = parsed.get("components").unwrap().as_array().unwrap();
+        for (name, version) in collision_crates {
+            let expected = format!("pkg:cargo/{}@{}", name, version);
+            assert!(
+                components.iter().any(|c| {
+                    c.get("purl").and_then(|p| p.as_str())
+                        == Some(expected.as_str())
+                }),
+                "expected cargo PURL for {name}, not pkg:pypi"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn cyclonedx_reporter_go_packages_use_golang_purls() {
+        let pkg = Package {
+            name: "github.com/example/mod".to_string(),
+            version: "v1.2.3".to_string(),
+            ecosystem: Some(GO_ECOSYSTEM.to_string()),
+        };
+        let data = ReportData {
+            findings: vec![],
+            all_packages: Some(vec![pkg]),
+            project_id: None,
+            root_path: None,
+            manifest_coverage: vec![],
+        };
+        let mut buf = Vec::new();
+        CycloneDxReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim())
+                .unwrap();
+        let purl = parsed["components"][0]["purl"].as_str().unwrap();
+        assert_eq!(purl, "pkg:golang/github.com/example/mod@v1.2.3");
     }
 
     #[tokio::test]
@@ -1594,6 +1687,18 @@ mod tests {
             })
             .count();
         assert!(pkg_count >= 2);
+        let pkg_urls: Vec<&str> = elements
+            .iter()
+            .filter_map(|e| {
+                if e.get("@type").and_then(|t| t.as_str()) == Some("Package") {
+                    e.get("packageUrl").and_then(|u| u.as_str())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        assert!(pkg_urls.contains(&"pkg:cargo/foo@1.0"));
+        assert!(pkg_urls.contains(&"pkg:pypi/bar@2.0"));
     }
 
     #[tokio::test]
