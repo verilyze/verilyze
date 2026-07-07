@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use vlz_db::PYPI_ECOSYSTEM;
+
 /// Parse a PEP 508 dependency string into Package (name, version).
 pub fn parse_pep508_dependency(spec: &str) -> Option<vlz_db::Package> {
     let spec = spec.trim();
@@ -24,7 +26,7 @@ pub fn parse_pep508_dependency(spec: &str) -> Option<vlz_db::Package> {
     Some(vlz_db::Package {
         name,
         version,
-        ecosystem: Some("PyPI".to_string()),
+        ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
     })
 }
 

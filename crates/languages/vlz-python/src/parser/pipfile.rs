@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use vlz_db::PYPI_ECOSYSTEM;
 use vlz_manifest_parser::ParserError;
 
 /// Parse Pipfile content into a list of packages (name, version).
@@ -38,7 +39,7 @@ fn parse_pipfile_dep(
         return Some(vlz_db::Package {
             name: name.to_string(),
             version,
-            ecosystem: Some("PyPI".to_string()),
+            ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
         });
     }
     if let Some(tbl) = val.as_table() {
@@ -50,7 +51,7 @@ fn parse_pipfile_dep(
         return Some(vlz_db::Package {
             name: name.to_string(),
             version,
-            ecosystem: Some("PyPI".to_string()),
+            ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
         });
     }
     None

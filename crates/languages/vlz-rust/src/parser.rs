@@ -4,6 +4,7 @@
 
 use async_trait::async_trait;
 use std::path::Path;
+use vlz_db::CRATES_IO_ECOSYSTEM;
 
 use vlz_manifest_parser::{DependencyGraph, Parser, ParserError};
 
@@ -41,7 +42,7 @@ fn parse_dependency_entry(
         return Some(vlz_db::Package {
             name: name.to_string(),
             version,
-            ecosystem: Some("crates.io".to_string()),
+            ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
         });
     }
     if let Some(tbl) = val.as_table() {
@@ -49,7 +50,7 @@ fn parse_dependency_entry(
             return Some(vlz_db::Package {
                 name: name.to_string(),
                 version: "any".to_string(),
-                ecosystem: Some("crates.io".to_string()),
+                ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
             });
         }
         let version = tbl
@@ -60,7 +61,7 @@ fn parse_dependency_entry(
         return Some(vlz_db::Package {
             name: name.to_string(),
             version,
-            ecosystem: Some("crates.io".to_string()),
+            ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
         });
     }
     None

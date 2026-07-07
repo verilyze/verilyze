@@ -7,6 +7,15 @@
 use async_trait::async_trait;
 //use std::path::PathBuf;
 
+/// OSV / package ecosystem for PyPI (Python).
+pub const PYPI_ECOSYSTEM: &str = "PyPI";
+
+/// OSV / package ecosystem for crates.io (Rust).
+pub const CRATES_IO_ECOSYSTEM: &str = "crates.io";
+
+/// OSV / package ecosystem for Go modules.
+pub const GO_ECOSYSTEM: &str = "Go";
+
 #[derive(
     Debug,
     Clone,

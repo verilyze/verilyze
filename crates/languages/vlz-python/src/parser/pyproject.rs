@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use super::pep508::parse_pep508_dependency;
+use vlz_db::PYPI_ECOSYSTEM;
 use vlz_manifest_parser::ParserError;
 
 /// Parse pyproject.toml content into a list of packages (name, version).
@@ -63,7 +64,7 @@ pub fn parse_pyproject_toml(
                 packages.push(vlz_db::Package {
                     name: name.clone(),
                     version,
-                    ecosystem: Some("PyPI".to_string()),
+                    ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
                 });
             } else if let Some(tbl) = val.as_table() {
                 if let Some(version) =
@@ -72,13 +73,13 @@ pub fn parse_pyproject_toml(
                     packages.push(vlz_db::Package {
                         name: name.clone(),
                         version: extract_version_from_constraint(version),
-                        ecosystem: Some("PyPI".to_string()),
+                        ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
                     });
                 } else {
                     packages.push(vlz_db::Package {
                         name: name.clone(),
                         version: "any".to_string(),
-                        ecosystem: Some("PyPI".to_string()),
+                        ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
                     });
                 }
             }

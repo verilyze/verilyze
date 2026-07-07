@@ -239,7 +239,7 @@ install_requires =
             vlz_db::Package {
                 name: "pkg".into(),
                 version: "1.0".into(),
-                ecosystem: Some("PyPI".into())
+                ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.into())
             }
         );
         assert_eq!(
@@ -247,7 +247,7 @@ install_requires =
             vlz_db::Package {
                 name: "a".into(),
                 version: "2.0".into(),
-                ecosystem: Some("PyPI".into())
+                ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.into())
             }
         );
         assert_eq!(
@@ -255,7 +255,7 @@ install_requires =
             vlz_db::Package {
                 name: "b".into(),
                 version: "3.0".into(),
-                ecosystem: Some("PyPI".into())
+                ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.into())
             }
         );
         assert_eq!(
@@ -263,7 +263,7 @@ install_requires =
             vlz_db::Package {
                 name: "c".into(),
                 version: "4.0".into(),
-                ecosystem: Some("PyPI".into())
+                ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.into())
             }
         );
         assert_eq!(
@@ -271,7 +271,7 @@ install_requires =
             vlz_db::Package {
                 name: "d".into(),
                 version: "5.0".into(),
-                ecosystem: Some("PyPI".into())
+                ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.into())
             }
         );
         assert_eq!(
@@ -279,7 +279,7 @@ install_requires =
             vlz_db::Package {
                 name: "e".into(),
                 version: "6.0".into(),
-                ecosystem: Some("PyPI".into())
+                ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.into())
             }
         );
     }
