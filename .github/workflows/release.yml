@@ -27,6 +27,8 @@ env:
   CARGO_TERM_COLOR: always
   RELEASE_CHECKOUT_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
   RELEASE_GIT_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref_name }}
+  # slsa-verifier validates generator workflow refs by version tag (not SHA).
+  SLSA_GENERATOR_REF: v2.1.0
 
 defaults:
   run:
@@ -76,6 +78,10 @@ jobs:
             artifact_name: vlz-windows-x86_64
             binary_path: target/release/vlz.exe
     runs-on: ${{ matrix.os }}
+    outputs:
+      hash-ubuntu-latest: ${{ steps.hash.outputs.hash-ubuntu-latest }}
+      hash-macos-latest: ${{ steps.hash.outputs.hash-macos-latest }}
+      hash-windows-latest: ${{ steps.hash.outputs.hash-windows-latest }}
     # actions: write -- upload-artifact uses the Actions artifacts API.
     permissions:
       contents: read
@@ -99,11 +105,46 @@ jobs:
       - name: Build release binary
         run: cargo build --release --locked -p vlz
 
+      - name: Generate provenance subject hash (SEC-021)
+        id: hash
+        run: |
+          set -euo pipefail
+          rel="${{ matrix.artifact_name }}/$(basename "${{ matrix.binary_path }}")"
+          (sha256sum -t "${{ matrix.binary_path }}" \
+            || shasum -a 256 "${{ matrix.binary_path }}") \
+            | awk -v name="${rel}" '{print $1 " " name}' > checksum
+          echo "hash-${{ matrix.os }}=$(base64 -w0 checksum 2>/dev/null || base64 checksum)" \
+            >> "${GITHUB_OUTPUT}"
+
       - name: Upload binary artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.binary_path }}
+
+  binary-slsa-provenance:
+    if: github.event_name == 'push'
+    needs: [preflight-release, build-binary]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: vlz-linux-x86_64
+          - os: macos-latest
+            artifact_name: vlz-macos-aarch64
+          - os: windows-latest
+            artifact_name: vlz-windows-x86_64
+    permissions:
+      actions: read
+      id-token: write
+      contents: read
+    # zizmor: reusable workflow must use a version tag for slsa-verifier (not SHA).
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0  # zizmor: ignore[unpinned-uses]
+    with:
+      base64-subjects: "${{ needs.build-binary.outputs[format('hash-{0}', matrix.os)] }}"
+      provenance-name: "slsa-${{ matrix.artifact_name }}.intoto.jsonl"
+      compile-generator: true
 
   build-deb:
     needs: [preflight-release, build-binary]
@@ -263,7 +304,14 @@ jobs:
 
   create-release:
     if: github.event_name == 'push'
-    needs: [preflight-release, build-binary, build-deb, build-rpm, build-docker, wait-obs-builds]
+    needs:
+      - preflight-release
+      - build-binary
+      - binary-slsa-provenance
+      - build-deb
+      - build-rpm
+      - build-docker
+      - wait-obs-builds
     runs-on: ubuntu-latest
     # contents: write -- GitHub Release and asset upload; actions: read -- download-artifact.
     permissions:
@@ -280,6 +328,11 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: release-artifacts
+
+      - name: Merge SLSA binary provenance (SEC-021)
+        run: |
+          set -euo pipefail
+          ./scripts/release-merge-slsa-binary-provenance.sh release-artifacts
 
       - name: Build release notes from CHANGELOG.md
         env:
@@ -323,6 +376,11 @@ jobs:
         run: |
           set -euo pipefail
           while IFS= read -r rel_path; do
+            case "${rel_path}" in
+              vlz-linux-x86_64/vlz|vlz-macos-aarch64/vlz|vlz-windows-x86_64/vlz.exe)
+                continue
+                ;;
+            esac
             file="release-artifacts/${rel_path}"
             digest="$(sha256sum "${file}" | awk '{print $1}')"
             predicate_file="${file}.provenance.json"
@@ -362,6 +420,7 @@ jobs:
       - name: Verify signatures, attestations, and checksums (local)
         env:
           EXPECTED_BUILDER_REGEX: ^https://github\.com/${{ github.repository }}/\.github/workflows/release\.yml@
+          SLSA_GENERATOR_BUILDER_REGEX: ^https://github\.com/slsa-framework/slsa-github-generator/\.github/workflows/generator_generic_slsa3\.yml@v2\.1\.0$
         run: |
           set -euo pipefail
           ./scripts/release-verify-bundle.sh release-artifacts

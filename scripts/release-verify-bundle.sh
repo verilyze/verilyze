@@ -14,6 +14,24 @@ set -euo pipefail
 
 readonly OIDC_ISSUER="https://token.actions.githubusercontent.com"
 
+# slsa-verifier matches the generator reusable workflow by version tag.
+readonly SLSA_GENERATOR_BUILDER_REGEX_DEFAULT='^https://github\.com/slsa-framework/slsa-github-generator/\.github/workflows/generator_generic_slsa3\.yml@v2\.1\.0$'
+
+SLSA_GENERATOR_BUILDER_REGEX="${SLSA_GENERATOR_BUILDER_REGEX:-${SLSA_GENERATOR_BUILDER_REGEX_DEFAULT}}"
+
+is_slsa_binary_artifact() {
+  case "$1" in
+    vlz-linux-x86_64/vlz \
+    | vlz-macos-aarch64/vlz \
+    | vlz-windows-x86_64/vlz.exe)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 usage() {
   echo "usage: $0 <artifact-root-dir>" >&2
   echo "  EXPECTED_BUILDER_REGEX must be set (certificate identity regexp)." >&2
@@ -75,11 +93,16 @@ while IFS= read -r rel_path; do
     --certificate-oidc-issuer "${OIDC_ISSUER}" \
     "${file}"
 
+  builder_regex="${EXPECTED_BUILDER_REGEX}"
+  if is_slsa_binary_artifact "${rel_path}"; then
+    builder_regex="${SLSA_GENERATOR_BUILDER_REGEX}"
+  fi
+
   cosign verify-blob-attestation \
     --bundle "${file}.intoto.jsonl" \
     --new-bundle-format \
     --type slsaprovenance \
-    --certificate-identity-regexp "${EXPECTED_BUILDER_REGEX}" \
+    --certificate-identity-regexp "${builder_regex}" \
     --certificate-oidc-issuer "${OIDC_ISSUER}" \
     "${file}"
 done < "${list_file}"
