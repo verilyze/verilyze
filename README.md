@@ -199,6 +199,9 @@ false-negatives in CI.
 | 5    | CVE provider fetch failed (network, API error, auth, etc.)                      |
 | 86   | One or more CVEs meet threshold (overridable via `--exit-code-on-cve`)          |
 
+Automated scenarios for each code: [`crates/core/vlz/tests/exit_code_matrix.rs`](crates/core/vlz/tests/exit_code_matrix.rs)
+(DOC-004) and subprocess smoke tests in [`tests/scripts/test_exit_codes.py`](tests/scripts/test_exit_codes.py).
+
 ## Bug reports and feedback
 
 Report bugs, regressions, or feature ideas via

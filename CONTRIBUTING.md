@@ -1120,6 +1120,13 @@ Stderr can stay as `eprintln!` or `log::error!`.
   The `vlz/testing` feature enables mocks and registry helpers for integration
   tests; release builds omit it for a smaller binary. To test a single crate
   (see MOD-005): `cargo test -p <crate>` (e.g. `cargo test -p vlz-cve-client`).
+- **Exit-code matrix (DOC-004, FR-010):** Each standard exit code (0, 1, 2, 3,
+  4, 5, 86) has a named integration test in
+  [`crates/core/vlz/tests/exit_code_matrix.rs`](crates/core/vlz/tests/exit_code_matrix.rs).
+  Subprocess smoke tests live in
+  [`tests/scripts/test_exit_codes.py`](tests/scripts/test_exit_codes.py).
+  Run `cargo test -p vlz --features vlz/testing exit_code_matrix` or
+  `make test-scripts` (pytest includes exit-code tests).
 - **Generate coverage (cargo-llvm-cov, XML for CI):** Use `cargo-llvm-cov` on
   the stable toolchain (default `rustup` toolchain) so instrumentation matches CI.
   1. Install cargo-llvm-cov: `cargo install cargo-llvm-cov --locked`
