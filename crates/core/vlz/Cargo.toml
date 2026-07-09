@@ -78,6 +78,10 @@ temp-env.workspace = true
 name = "run_inprocess"
 required-features = ["testing"]
 
+[[test]]
+name = "exit_code_matrix"
+required-features = ["testing"]
+
 # Feature gating – matches MOD‑003, MOD‑009
 [features]
 runtime = ["redb", "python", "rust", "go"]
