@@ -48,6 +48,7 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: generate-third-party-licenses generate-third-party-licenses-docker
 .PHONY: check-third-party-licenses
 .PHONY: generate-sbom check-sbom
+.PHONY: benchmark-gate
 .PHONY: check-report-schema
 .PHONY: deb rpm aur apk docker
 .PHONY: install clean distclean
@@ -445,6 +446,10 @@ check-sbom: release
 # check-report-schema: Validate JSON report schema (DOC-005, NFR-014).
 check-report-schema: debug
 	$(SCRIPTS_DIR)/check-report-schema.sh
+
+# benchmark-gate: NFR-001 performance gate via --benchmark on multi-manifest fixture.
+benchmark-gate: release setup
+	$(SCRIPTS_DIR)/benchmark-gate.sh
 
 # check-dco: verify commits have Signed-off-by (DCO); for local use before push
 check-dco:

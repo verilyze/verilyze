@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use crate::benchmark_metrics::BenchmarkMetrics;
 use anyhow::{Context, Result, anyhow};
 #[cfg(feature = "completions")]
 use clap::CommandFactory as _;
@@ -1153,6 +1154,8 @@ async fn run_scan(
     };
     info!("Scanning root: {}", root_path.display());
 
+    let benchmark_start = effective.benchmark.then(Instant::now);
+
     // -----------------------------------------------------------------
     // b) Choose the plug-ins we will use (all registered finder/parser/resolver triplets)
     // -----------------------------------------------------------------
@@ -1975,10 +1978,10 @@ async fn run_scan(
     // k) Benchmark mode handling (FR-029)
     // -----------------------------------------------------------------
     if effective.benchmark {
-        write_stdout(
-            "{{\"benchmark\":{{\"duration_ms\":0,\"cpu_percent\":0,\"mem_mb\":0}}}}",
-        );
-        write_stdout("\n");
+        let start =
+            benchmark_start.expect("benchmark_start set when benchmark");
+        let metrics = BenchmarkMetrics::from_start(start);
+        write_stdout(&format!("{}\n", metrics.to_json_line()));
     }
 
     // -----------------------------------------------------------------

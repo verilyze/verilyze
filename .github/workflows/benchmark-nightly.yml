@@ -1,0 +1,59 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+---
+# Nightly benchmark gate (NFR-001, FR-029).
+
+name: Benchmark nightly
+
+on:
+  schedule:
+    - cron: "0 8 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  benchmark-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        id: python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.14"
+
+      - name: Cache Python venvs
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .venv-test
+          key: >-
+            ${{ format('{0}-python-{1}-venvs-test-{2}', runner.os,
+            steps.python.outputs.python-version, hashFiles('Makefile',
+            'pyproject.toml')) }}
+          restore-keys: |
+            ${{ runner.os }}-python-${{ steps.python.outputs.python-version }}-venvs-test-
+
+      - name: Install Rust (rust-toolchain.toml)
+        run: |
+          set -euo pipefail
+          rustc -vV
+          cargo -V
+
+      - name: Bootstrap test venv
+        run: make setup
+
+      - name: Build vlz release
+        run: make release
+
+      - name: Run benchmark gate (NFR-001)
+        run: make benchmark-gate
