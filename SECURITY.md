@@ -63,7 +63,7 @@ into the default binary, which supports static musl builds (FR-025).
   used here). This is **not** a FIPS 140 validation claim; see below.
 - **Verification:** Server certificates and hostnames are **always validated**. There
   is **no** CLI switch to disable TLS verification (SEC-002, NFR-004, OP-010).
-- **Revocation (SEC-021):** **Windows** and **macOS** use **rustls-platform-verifier**, which
+- **Revocation (SEC-024):** **Windows** and **macOS** use **rustls-platform-verifier**, which
   delegates trust and revocation checks to the OS where applicable. **Linux** uses a **webpki**
   verifier path by default **without** automatic CRL fetching from issuer CDP URLs in this
   release. Operators who need CRL enforcement on Linux MAY set **tls_crl_bundle** (TOML),

@@ -143,7 +143,7 @@ pub struct EffectiveConfig {
     pub provider_http_connect_timeout_secs: u64,
     /// CVE provider HTTPS total request timeout in seconds (OP-010).
     pub provider_http_request_timeout_secs: u64,
-    /// PEM file of CRLs for Linux TLS revocation checking (SEC-021); `None` = default verifier.
+    /// PEM file of CRLs for Linux TLS revocation checking (SEC-024); `None` = default verifier.
     pub tls_crl_bundle: Option<PathBuf>,
     pub config_file: Option<PathBuf>,
     /// Configurable CVSS severity thresholds per version (FR-013).
@@ -1207,7 +1207,7 @@ pub fn env_provider_http_request_timeout_secs() -> Option<u64> {
         .and_then(|s| s.parse().ok())
 }
 
-/// Read `VLZ_TLS_CRL_BUNDLE` (SEC-021, CFG-005): PEM CRL bundle path (Linux only).
+/// Read `VLZ_TLS_CRL_BUNDLE` (SEC-024, CFG-005): PEM CRL bundle path (Linux only).
 pub fn env_tls_crl_bundle() -> Option<PathBuf> {
     std::env::var_os("VLZ_TLS_CRL_BUNDLE").map(PathBuf::from)
 }

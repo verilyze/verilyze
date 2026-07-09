@@ -9,7 +9,7 @@ useDefault = true
 
 # Global allowlist (gitleaks v8): path regexes match detected file paths.
 [allowlist]
-description = "TLS test fixture PEM (SEC-021); not a production secret"
+description = "TLS test fixture PEM (SEC-024); not a production secret"
 paths = [
   '''.*tests/fixtures/tls_crl/server\.key''',
 ]
