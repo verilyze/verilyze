@@ -104,6 +104,42 @@ jobs:
           ./scripts/check-signatures.sh --presence-only "$MERGE_GROUP_BASE_SHA"
           "$MERGE_GROUP_HEAD_SHA"
 
+  build-matrix:
+    name: build-${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Install Rust (rust-toolchain.toml)
+        run: |
+          set -euo pipefail
+          rustc -vV
+          cargo -V
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          cache-workspace-crates: true
+          cache-on-failure: true
+
+      - name: Build vlz (NFR-007)
+        run: cargo build --locked -p vlz
+
+      - name: Run vlz library tests
+        run: cargo test -p vlz --features vlz/testing --lib
+
   check:
     runs-on: ubuntu-latest
     needs: [check-dco, check-signatures]

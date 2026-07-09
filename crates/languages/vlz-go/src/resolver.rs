@@ -181,6 +181,10 @@ impl Resolver for GoResolver {
     fn package_manager_hint(&self) -> &'static str {
         go_package_manager_hint()
     }
+
+    fn language_name(&self) -> &'static str {
+        "go"
+    }
 }
 
 #[cfg(test)]

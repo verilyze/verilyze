@@ -374,6 +374,10 @@ impl Resolver for DirectOnlyResolver {
     fn package_manager_hint(&self) -> &'static str {
         python_package_manager_hint()
     }
+
+    fn language_name(&self) -> &'static str {
+        "python"
+    }
 }
 
 #[cfg(test)]

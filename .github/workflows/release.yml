@@ -28,6 +28,10 @@ env:
   RELEASE_CHECKOUT_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
   RELEASE_GIT_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref_name }}
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   preflight-release:
     runs-on: ubuntu-latest
@@ -58,7 +62,20 @@ jobs:
 
   build-binary:
     needs: preflight-release
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: vlz-linux-x86_64
+            binary_path: target/release/vlz
+          - os: macos-latest
+            artifact_name: vlz-macos-aarch64
+            binary_path: target/release/vlz
+          - os: windows-latest
+            artifact_name: vlz-windows-x86_64
+            binary_path: target/release/vlz.exe
+    runs-on: ${{ matrix.os }}
     # actions: write -- upload-artifact uses the Actions artifacts API.
     permissions:
       contents: read
@@ -69,6 +86,9 @@ jobs:
           ref: ${{ env.RELEASE_CHECKOUT_REF }}
           persist-credentials: false
 
+      - name: Normalize git line endings
+        run: git config --global core.autocrlf input
+
       # Provision toolchain from rust-toolchain.toml (see zizmor superfluous-actions).
       - name: Install Rust (rust-toolchain.toml)
         run: |
@@ -77,13 +97,13 @@ jobs:
           cargo -V
 
       - name: Build release binary
-        run: cargo build --release --locked
+        run: cargo build --release --locked -p vlz
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: vlz-linux-x86_64
-          path: target/release/vlz
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.binary_path }}
 
   build-deb:
     needs: [preflight-release, build-binary]
@@ -357,6 +377,12 @@ jobs:
             release-artifacts/vlz-linux-x86_64/vlz
             release-artifacts/vlz-linux-x86_64/vlz.sigstore.json
             release-artifacts/vlz-linux-x86_64/vlz.intoto.jsonl
+            release-artifacts/vlz-macos-aarch64/vlz
+            release-artifacts/vlz-macos-aarch64/vlz.sigstore.json
+            release-artifacts/vlz-macos-aarch64/vlz.intoto.jsonl
+            release-artifacts/vlz-windows-x86_64/vlz.exe
+            release-artifacts/vlz-windows-x86_64/vlz.exe.sigstore.json
+            release-artifacts/vlz-windows-x86_64/vlz.exe.intoto.jsonl
             release-artifacts/deb-package/*.deb
             release-artifacts/deb-package/*.deb.sigstore.json
             release-artifacts/deb-package/*.deb.intoto.jsonl

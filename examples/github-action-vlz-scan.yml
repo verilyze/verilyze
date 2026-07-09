@@ -35,9 +35,24 @@ jobs:
           VERSION: "0.3.1"
         run: |
           set -euo pipefail
+          case "${{ runner.os }}" in
+            Linux)
+              asset="vlz-linux-x86_64"
+              ;;
+            macOS)
+              asset="vlz-macos-aarch64"
+              ;;
+            Windows)
+              asset="vlz-windows-x86_64.exe"
+              ;;
+            *)
+              echo "unsupported runner OS: ${{ runner.os }}" >&2
+              exit 1
+              ;;
+          esac
           curl -fsSL \
             -o vlz \
-            "https://github.com/verilyze/verilyze/releases/download/v${VERSION}/vlz-linux-x86_64"
+            "https://github.com/verilyze/verilyze/releases/download/v${VERSION}/${asset}"
           chmod +x vlz
           # Verify SHA256SUMS from the same GitHub Release before use in production.
 

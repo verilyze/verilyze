@@ -10,6 +10,8 @@ set -euo pipefail
 
 readonly ARTIFACT_PATTERNS=(
   "vlz-linux-x86_64/vlz"
+  "vlz-macos-aarch64/vlz"
+  "vlz-windows-x86_64/vlz.exe"
   "deb-package/*.deb"
   "rpm-package/**/*.rpm"
 )
