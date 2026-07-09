@@ -138,7 +138,7 @@ default = "120"
 
 [tls_crl_bundle]
 description = """
-Optional PEM CRL bundle path for Linux CVE provider TLS (SEC-021);
+Optional PEM CRL bundle path for Linux CVE provider TLS (SEC-024);
 empty disables
 """
 type = "string"

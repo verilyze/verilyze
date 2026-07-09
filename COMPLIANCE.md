@@ -24,7 +24,7 @@ It is **not** a certification or audit attestation.
 | Dependency inventory (SBOM) | NTIA minimum elements | SEC-019 | [sbom/v1/](sbom/v1/), `make generate-sbom`, `make check-sbom`, [.github/workflows/supply-chain.yml](.github/workflows/supply-chain.yml) `sbom` job |
 | Vulnerability monitoring | SOC 2 CC7, ISO 27001 A.12 | SEC-015, SEC-016 | `dogfood` job in supply-chain workflow, `make deny-check`, [deny.toml](deny.toml), [CodeQL](.github/workflows/codeql.yml) |
 | License compliance | SOC 2 CC9 | SEC-012, DOC-012 | `make deny-check`, [THIRD-PARTY-LICENSES](THIRD-PARTY-LICENSES), REUSE (`make check-headers`) |
-| Secure communications | ISO 27001 A.13, CMMC SC | SEC-002, NFR-004, SEC-021 | [vlz-cve-client](crates/core/vlz-cve-client/) TLS 1.3 + cert validation; optional Linux CRL bundle |
+| Secure communications | ISO 27001 A.13, CMMC SC | SEC-002, NFR-004, SEC-024 | [vlz-cve-client](crates/core/vlz-cve-client/) TLS 1.3 + cert validation; optional Linux CRL bundle |
 | Credential handling | SOC 2 CC6 | SEC-008, SEC-020 | Env-only provider tokens; no secrets in logs/errors |
 | Data protection (local cache) | SOC 2 CC6, CMMC MP | SEC-014, OP-003 | XDG cache paths, restrictive DB permissions, `vlz db verify` |
 | Auditability | SOC 2 CC7 | SEC-009, NFR-013, FR-010 | Deterministic exit codes; stderr diagnostics; dogfood JSON/SARIF artifacts |

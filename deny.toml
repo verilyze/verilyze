@@ -209,7 +209,7 @@ skip = [
     # removed one-at-a-time. Keep these until upstream convergence is available.
     # Requirements linkage:
     # - OP-018 keeps reqwest system-proxy behavior, which keeps some macOS paths.
-    # - SEC-021 requires platform verifier behavior on Windows/macOS.
+    # - SEC-024 optional Linux CRL bundle; platform verifier on Windows/macOS.
     # - Rustls/ring stack currently requires mixed major versions for some crates.
     { crate = "core-foundation@0.9.4", reason = "legacy macOS system-configuration dependency from hyper-util stack" },
     { crate = "getrandom@0.2.17", reason = "required by ring and rustls transitive dependencies" },

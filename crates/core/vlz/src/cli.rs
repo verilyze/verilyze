@@ -163,7 +163,7 @@ pub enum Commands {
         #[arg(long, value_name = "SECS")]
         provider_http_request_timeout_secs: Option<u64>,
 
-        /// PEM file of CRLs for optional Linux TLS certificate revocation (SEC-021)
+        /// PEM file of CRLs for optional Linux TLS certificate revocation (SEC-024)
         #[arg(long, value_name = "PATH")]
         tls_crl_bundle: Option<String>,
 
