@@ -530,6 +530,35 @@ fn run_scan_offline_exits_0() {
 }
 
 #[test]
+fn run_scan_benchmark_emits_nonzero_duration() {
+    let _ = env_logger::try_init();
+    let dir = tempfile::tempdir().expect("tempdir");
+    let xdg = tempfile::tempdir().expect("tempdir");
+    let root = dir.path().to_str().unwrap();
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_vlz"))
+        .args(["scan", root, "--offline", "--benchmark"])
+        .env("XDG_CACHE_HOME", xdg.path())
+        .env("XDG_DATA_HOME", xdg.path())
+        .env("XDG_CONFIG_HOME", xdg.path())
+        .output()
+        .expect("spawn vlz");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let line = stdout
+        .lines()
+        .find(|l| l.contains(r#""benchmark""#))
+        .expect("benchmark json line on stdout");
+    let parsed: serde_json::Value =
+        serde_json::from_str(line).expect("parse benchmark json");
+    let duration = parsed["benchmark"]["duration_ms"]
+        .as_u64()
+        .expect("duration_ms");
+    assert!(
+        duration > 0,
+        "FR-029: duration_ms must be > 0, got {duration}"
+    );
+}
+
+#[test]
 fn run_scan_no_root_uses_cwd() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {

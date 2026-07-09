@@ -13,6 +13,10 @@ pub mod registry;
 pub mod run;
 pub mod scan;
 
+mod benchmark_metrics;
+
+pub use benchmark_metrics::BENCHMARK_MAX_MS;
+
 #[cfg(any(test, feature = "testing"))]
 pub mod mocks;
 
