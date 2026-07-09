@@ -198,6 +198,10 @@ impl Resolver for CargoResolver {
     fn package_manager_hint(&self) -> &'static str {
         cargo_package_manager_hint()
     }
+
+    fn language_name(&self) -> &'static str {
+        "rust"
+    }
 }
 
 #[cfg(test)]

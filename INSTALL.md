@@ -7,7 +7,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 # Installing verilyze (vlz)
 
 For tagged releases, GitHub publishes:
-- GitHub Release assets (Linux binary, `.deb`, `.rpm`)
+- GitHub Release assets: `vlz-linux-x86_64`, `vlz-macos-aarch64`,
+  `vlz-windows-x86_64.exe`, `.deb`, `.rpm` (NFR-007)
 - Public GHCR container images
 - `SHA256SUMS` plus keyless Sigstore bundles (`*.sigstore.json`) and
   provenance bundles (`*.intoto.jsonl`) for release assets
@@ -122,6 +123,15 @@ cargo build --release -p vlz
 
 This skips the Makefile’s `check-headers` step. Prefer `make release` for a
 normal clone workflow.
+
+## Portability (NFR-007)
+
+CI builds and tests `vlz` on **Linux**, **macOS**, and **Windows**. Release
+assets include per-OS binaries (see tagged GitHub Releases). Python manifest
+resolution (`pip lock`, virtualenv) requires a working **Python 3** and **pip**
+on `PATH` when scanning Python projects; Windows and macOS CI runners provide
+these, but minimal containers may not. Use `--offline` with a populated cache or
+`--benchmark` for parse/resolve timing without network CVE lookup.
 
 ## HTTP proxy for CVE providers (OP-018)
 

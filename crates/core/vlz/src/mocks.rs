@@ -66,6 +66,10 @@ impl<R: Resolver + Send + Sync> Resolver for ConditionalFailingResolver<R> {
     fn package_manager_hint(&self) -> &'static str {
         self.inner.package_manager_hint()
     }
+
+    fn language_name(&self) -> &'static str {
+        self.inner.language_name()
+    }
 }
 
 /// Python resolver that fails only for manifests under a `broken` path segment.
@@ -109,6 +113,10 @@ impl Resolver for FailingResolver {
 
     fn package_manager_hint(&self) -> &'static str {
         "test mock"
+    }
+
+    fn language_name(&self) -> &'static str {
+        "mock"
     }
 }
 

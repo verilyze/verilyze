@@ -144,18 +144,15 @@ pub fn ensure_default_parser() {
 pub fn ensure_default_resolver() {
     let mut r = resolvers().lock().unwrap();
     #[cfg(feature = "python")]
-    if !r.iter().any(|x| x.package_manager_hint().contains("pip")) {
+    if !r.iter().any(|x| x.language_name() == "python") {
         r.push(Box::new(vlz_python::DirectOnlyResolver::new()));
     }
     #[cfg(feature = "rust")]
-    if !r.iter().any(|x| x.package_manager_hint().contains("cargo")) {
+    if !r.iter().any(|x| x.language_name() == "rust") {
         r.push(Box::new(vlz_rust::CargoResolver::new()));
     }
     #[cfg(feature = "go")]
-    if !r
-        .iter()
-        .any(|x| x.package_manager_hint().contains("golang"))
-    {
+    if !r.iter().any(|x| x.language_name() == "go") {
         r.push(Box::new(vlz_go::GoResolver::new()));
     }
 }

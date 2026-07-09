@@ -226,6 +226,9 @@ pub trait Resolver: Send + Sync {
 
     /// OS-specific hint when the package manager is missing (FR-024).
     fn package_manager_hint(&self) -> &'static str;
+
+    /// Stable language identifier for registry deduplication (NFR-007).
+    fn language_name(&self) -> &'static str;
 }
 
 #[cfg(test)]
