@@ -8,8 +8,8 @@ use std::sync::{Mutex, OnceLock};
 use vlz_db::CRATES_IO_ECOSYSTEM;
 
 use vlz_reachability_trait::{
-    ReachabilityAnalyzer, TierBContext, TierBDecision, list_files_with_ext,
-    note_tier_b_file_read_attempt,
+    ReachabilityAnalyzer, TierBContext, TierBDecision, TierCDecision,
+    list_files_with_ext, note_tier_b_file_read_attempt,
 };
 
 #[derive(Debug, Default)]
@@ -122,7 +122,88 @@ fn collect_rust_import_roots(context: &TierBContext<'_>) -> HashSet<String> {
     roots
 }
 
+fn collect_rust_use_prefixes(context: &TierBContext<'_>) -> HashSet<String> {
+    let mut prefixes = HashSet::new();
+    for path in list_rust_files(context) {
+        let Ok(content) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        for line in content.lines() {
+            prefixes.extend(rust_use_prefixes_from_line(line));
+        }
+    }
+    prefixes
+}
+
+fn rust_use_prefixes_from_line(line: &str) -> Vec<String> {
+    let t = line.trim_start();
+    let Some(rest) = t.strip_prefix("use ") else {
+        return Vec::new();
+    };
+    let rest = rest.trim_start();
+    if let Some(inner) = rest
+        .strip_prefix('{')
+        .and_then(|r| r.split_once('}'))
+        .map(|(a, _)| a)
+    {
+        return inner
+            .split(',')
+            .filter_map(|part| rust_use_path_from_part(part.trim()))
+            .collect();
+    }
+    if rest.starts_with('{') {
+        return Vec::new();
+    }
+    rest.split(',')
+        .filter_map(|part| rust_use_path_from_part(part.trim()))
+        .collect()
+}
+
+fn rust_use_path_from_part(part: &str) -> Option<String> {
+    let part = part.trim().trim_start_matches("::");
+    if part.is_empty() {
+        return None;
+    }
+    let path = part.split(" as ").next()?.trim();
+    if path.is_empty()
+        || skip_first_segment(path.split("::").next().unwrap_or(""))
+    {
+        return None;
+    }
+    Some(path.to_string())
+}
+
+fn rust_symbol_matches_use_prefixes(
+    sym: &str,
+    prefixes: &HashSet<String>,
+) -> bool {
+    let norm_sym = normalize_crate_name(sym);
+    for prefix in prefixes {
+        let norm_prefix = normalize_crate_name(prefix);
+        if norm_sym == norm_prefix
+            || norm_sym.starts_with(&format!("{norm_prefix}::"))
+            || norm_prefix.starts_with(&format!("{norm_sym}::"))
+        {
+            return true;
+        }
+        if let Some((sym_mod, _)) = norm_sym.rsplit_once("::")
+            && (norm_prefix == sym_mod
+                || norm_prefix.starts_with(&format!("{sym_mod}::")))
+        {
+            return true;
+        }
+    }
+    false
+}
+
 fn rust_import_roots_cache() -> &'static Mutex<HashMap<String, HashSet<String>>>
+{
+    static CACHE: OnceLock<Mutex<HashMap<String, HashSet<String>>>> =
+        OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn rust_use_prefixes_cache() -> &'static Mutex<HashMap<String, HashSet<String>>>
 {
     static CACHE: OnceLock<Mutex<HashMap<String, HashSet<String>>>> =
         OnceLock::new();
@@ -140,6 +221,24 @@ fn import_roots_cache_key(context: &TierBContext<'_>) -> String {
             .collect::<Vec<_>>()
             .join(";")
     )
+}
+
+fn cached_rust_use_prefixes(context: &TierBContext<'_>) -> HashSet<String> {
+    let key = import_roots_cache_key(context);
+    if let Some(cached) = rust_use_prefixes_cache()
+        .lock()
+        .expect("rust use prefixes cache lock poisoned")
+        .get(&key)
+        .cloned()
+    {
+        return cached;
+    }
+    let prefixes = collect_rust_use_prefixes(context);
+    rust_use_prefixes_cache()
+        .lock()
+        .expect("rust use prefixes cache lock poisoned")
+        .insert(key, prefixes.clone());
+    prefixes
 }
 
 fn cached_rust_import_roots(context: &TierBContext<'_>) -> HashSet<String> {
@@ -193,6 +292,31 @@ impl ReachabilityAnalyzer for RustTierBAnalyzer {
             TierBDecision::NotReachable
         } else {
             TierBDecision::Unknown
+        }
+    }
+
+    fn supports_tier_c(&self) -> bool {
+        true
+    }
+
+    fn analyze_tier_c(
+        &self,
+        context: &TierBContext<'_>,
+        advisory_symbols: &[String],
+    ) -> TierCDecision {
+        let prefixes = cached_rust_use_prefixes(context);
+        if prefixes.is_empty() {
+            return TierCDecision::Unknown;
+        }
+        for sym in advisory_symbols {
+            if rust_symbol_matches_use_prefixes(sym, &prefixes) {
+                return TierCDecision::Reachable;
+            }
+        }
+        if rust_name_allows_confident_absence(&context.package.name) {
+            TierCDecision::NotReachable
+        } else {
+            TierCDecision::Unknown
         }
     }
 }
@@ -448,5 +572,33 @@ mod tests {
         };
         let analyzer = RustTierBAnalyzer::new();
         assert_eq!(analyzer.analyze_tier_b(&ctx), TierBDecision::NotReachable);
+    }
+
+    #[test]
+    fn analyze_tier_c_reachable_for_matching_use_prefix() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir_all(dir.path().join("src")).expect("mkdir");
+        std::fs::write(dir.path().join("src/main.rs"), "use http::a::Vuln;\n")
+            .expect("write");
+        let analyzer = RustTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "http");
+        assert_eq!(
+            analyzer.analyze_tier_c(&ctx, &["http::a::vuln".to_string()]),
+            TierCDecision::Reachable
+        );
+    }
+
+    #[test]
+    fn analyze_tier_c_not_reachable_for_different_module_path() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir_all(dir.path().join("src")).expect("mkdir");
+        std::fs::write(dir.path().join("src/main.rs"), "use http::a::Vuln;\n")
+            .expect("write");
+        let analyzer = RustTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "http");
+        assert_eq!(
+            analyzer.analyze_tier_c(&ctx, &["http::b::safe".to_string()]),
+            TierCDecision::NotReachable
+        );
     }
 }

@@ -88,6 +88,16 @@ regex = "^go\\.mod$"
 Use `vlz config --set python.regex="^requirements\\.txt$"` to set via CLI.
 First match wins when multiple patterns could match.
 
+## Reachability (FR-032)
+
+`reachability_mode` accepts `off`, `tier-b`, or `best-available`. The
+`best-available` value enables Tier C (advisory symbol/path metadata) where the
+language analyzer supports it.
+
+Environment-only: set `VLZ_REACHABILITY_PERSIST_CACHE=1` (or `true`/`yes`) to
+persist Tier B and per-CVE Tier C decisions under `.vlz/reachability-cache.json`
+in the scan root. See `man vlz` ENVIRONMENT and CONTRIBUTING.md.
+
 ## See also
 
 - [verilyze.conf.example](../verilyze.conf.example) -- commented example (or run `vlz config --example` for a personalized copy)

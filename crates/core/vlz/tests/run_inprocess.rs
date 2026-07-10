@@ -6,7 +6,9 @@ use clap::Parser;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use vlz::cli::Cli;
-use vlz::mocks::{CountingCveProvider, CveReturningProvider};
+use vlz::mocks::{
+    CountingCveProvider, CveReturningProvider, TierCReachabilityProvider,
+};
 use vlz_db::{DatabaseBackend, Package};
 
 fn with_temp_xdg<F, R>(f: F) -> R
@@ -337,6 +339,59 @@ fn run_preload_provider_failure_exits_5() {
             vlz::mocks::FailingCveProvider::new(),
         )));
         assert_eq!(run_async(&["preload", root]), 5);
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_json_tier_c_per_cve_reachable_divergence() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
+        std::fs::write(dir.path().join("main.py"), "import pkg\n")
+            .expect("write main.py");
+        let out_path = dir.path().join("tier-c-report.json");
+        let root = dir.path().to_str().unwrap();
+
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            TierCReachabilityProvider::new(),
+        )));
+        #[cfg(feature = "redb")]
+        reregister_db_backend();
+
+        let code = run_async(&[
+            "scan",
+            root,
+            "--format",
+            "json",
+            "--summary-file",
+            &format!("json:{}", out_path.display()),
+            "--provider",
+            "tier_c_reachability",
+            "--reachability-mode",
+            "best-available",
+        ]);
+        assert_eq!(code, 86, "two CVEs should trigger default CVE exit");
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&out_path).unwrap())
+                .unwrap();
+        let findings = parsed["findings"].as_array().expect("findings");
+        assert_eq!(findings.len(), 1, "one package finding");
+        let cves = findings[0]["cves"].as_array().expect("cves");
+        assert_eq!(cves.len(), 2);
+        let mut reachable: Vec<bool> = cves
+            .iter()
+            .filter_map(|c| c.get("reachable").and_then(|v| v.as_bool()))
+            .collect();
+        reachable.sort();
+        assert_eq!(
+            reachable,
+            vec![false, true],
+            "Tier C must diverge per CVE on the same package"
+        );
     });
 }
 
