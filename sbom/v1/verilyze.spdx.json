@@ -1240,9 +1240,9 @@
     {
       "@type": "Package",
       "name": "regex",
-      "packageUrl": "pkg:cargo/regex@1.12.4",
-      "spdxId": "urn:spdx.dev:pkg-cargo-regex-1-12-4",
-      "versionInfo": "1.12.4"
+      "packageUrl": "pkg:cargo/regex@1.13.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-regex-1-13-0",
+      "versionInfo": "1.13.0"
     },
     {
       "@type": "Package",
@@ -1282,37 +1282,37 @@
     {
       "@type": "Package",
       "name": "ruff_python_ast",
-      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-3",
-      "versionInfo": "0.0.3"
+      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-4",
+      "versionInfo": "0.0.4"
     },
     {
       "@type": "Package",
       "name": "ruff_python_parser",
-      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-3",
-      "versionInfo": "0.0.3"
+      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-4",
+      "versionInfo": "0.0.4"
     },
     {
       "@type": "Package",
       "name": "ruff_python_trivia",
-      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-3",
-      "versionInfo": "0.0.3"
+      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-4",
+      "versionInfo": "0.0.4"
     },
     {
       "@type": "Package",
       "name": "ruff_source_file",
-      "packageUrl": "pkg:cargo/ruff_source_file@0.0.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-3",
-      "versionInfo": "0.0.3"
+      "packageUrl": "pkg:cargo/ruff_source_file@0.0.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-4",
+      "versionInfo": "0.0.4"
     },
     {
       "@type": "Package",
       "name": "ruff_text_size",
-      "packageUrl": "pkg:cargo/ruff_text_size@0.0.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-3",
-      "versionInfo": "0.0.3"
+      "packageUrl": "pkg:cargo/ruff_text_size@0.0.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-4",
+      "versionInfo": "0.0.4"
     },
     {
       "@type": "Package",
