@@ -34,7 +34,7 @@ complete -c vlz -n "__fish_vlz_needs_command" -f -a "list" -d 'List registered l
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "config" -d 'Show or set configuration values'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "db" -d 'Database sub‑commands (stats, verify, migrate, list-providers, …)'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "fp" -d 'False-positive markings'
-complete -c vlz -n "__fish_vlz_needs_command" -f -a "preload" -d 'Pre-populate CVE cache from remote provider (placeholder)'
+complete -c vlz -n "__fish_vlz_needs_command" -f -a "preload" -d 'Pre-populate CVE cache from remote provider (FR-021)'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "help" -d 'Show manual page'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "generate-completions" -d 'Generate shell completion scripts'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l format -d 'Output format (plain, json, sarif, cyclonedx, spdx)' -r
@@ -126,7 +126,26 @@ complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_f
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from mark" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from unmark" -s c -l config -d 'Override configuration file location' -r
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from unmark" -s h -l help -d 'Print help'
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -l provider -d 'Force a particular CVE provider' -r
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -l parallel -d 'Parallel query limit (default 10, max 50)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -l parallel-resolutions -d 'Parallel dependency resolution limit (default: CPU count, max 32)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -l cache-db -d 'Override cache database path' -r
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -l scan-exclude-dir -d 'Exclude directory name from manifest discovery (repeatable)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -l lock-file -d 'Only discover/merge listed Python lock file basenames (repeatable)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -l cache-ttl-secs -d 'Default TTL in seconds for new cache entries (default: 432000 = 5 days)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -l backoff-base -d 'Base delay in ms for retry backoff (default 100)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -l backoff-max -d 'Maximum delay in ms for retry backoff (default 30000)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -l max-retries -d 'Maximum retries for transient errors (default 5)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -l provider-http-connect-timeout-secs -d 'CVE provider HTTPS connect timeout in seconds (default 15)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -l provider-http-request-timeout-secs -d 'CVE provider HTTPS total request timeout in seconds (default 120)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -l tls-crl-bundle -d 'PEM file of CRLs for optional Linux TLS certificate revocation (SEC-024)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand preload" -s c -l config -d 'Override configuration file location' -r
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -l offline -d 'Disable network access'
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -l package-manager-required -d 'Require package manager on PATH; exit 3 with hint if missing'
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -l keep-ephemeral-venv -d 'Do not remove ephemeral Python venv after resolution (FR-023 debug)'
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -l allow-dependency-code-execution -d 'Allow pip to execute dependency build code during resolution (SEC-023)'
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -l allow-direct-only-fallback -d 'Fall back to direct-only resolution with warning when transitive resolution fails (FR-022a)'
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -l fail-fast -d 'Stop on first manifest parse/resolution failure (FR-037)'
 complete -c vlz -n "__fish_vlz_using_subcommand preload" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand help" -s c -l config -d 'Override configuration file location' -r
 complete -c vlz -n "__fish_vlz_using_subcommand help" -s h -l help -d 'Print help'

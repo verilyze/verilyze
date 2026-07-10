@@ -244,6 +244,14 @@ impl DatabaseBackend for FailingDbBackend {
         Ok(None)
     }
 
+    async fn get_raw_vulns(
+        &self,
+        _: &Package,
+        _: &str,
+    ) -> Result<Option<Vec<serde_json::Value>>, DatabaseError> {
+        Ok(None)
+    }
+
     async fn put(
         &self,
         _: &Package,

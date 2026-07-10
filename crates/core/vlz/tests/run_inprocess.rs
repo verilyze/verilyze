@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use clap::Parser;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use vlz::cli::Cli;
 use vlz::mocks::{CountingCveProvider, CveReturningProvider};
@@ -73,6 +73,15 @@ fn ensure_registries_for_run() {
     }
 }
 
+#[cfg(feature = "redb")]
+fn reregister_db_backend() {
+    let cache_path = vlz::config::default_cache_path();
+    let _ = vlz::registry::ensure_default_db_backend_with_path(
+        cache_path,
+        vlz::config::DEFAULT_CACHE_TTL_SECS,
+    );
+}
+
 fn run_async(args: &[&str]) -> i32 {
     let _guard = vlz::registry::registry_test_mutex()
         .lock()
@@ -106,6 +115,229 @@ fn run_list_exits_0() {
 fn run_preload_exits_0() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| assert_eq!(run_async(&["preload"]), 0));
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_preload_populates_cache_for_fixture() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
+        let root = dir.path().to_str().unwrap();
+
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            CveReturningProvider::new(),
+        )));
+
+        let code =
+            run_async(&["preload", root, "--provider", "cve_returning"]);
+        assert_eq!(code, 0);
+
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            CveReturningProvider::new(),
+        )));
+        #[cfg(feature = "redb")]
+        reregister_db_backend();
+
+        let code = run_async(&[
+            "scan",
+            root,
+            "--offline",
+            "--provider",
+            "cve_returning",
+        ]);
+        assert_eq!(code, 0, "offline scan should hit preloaded cache");
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_preload_offline_miss_exits_4() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
+        let root = dir.path().to_str().unwrap();
+        assert_eq!(run_async(&["preload", root, "--offline"]), 4);
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_preload_and_scan_resolve_same_packages_with_matching_flags() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
+        let root = dir.path().to_str().unwrap();
+        let scan_cache = dir.path().join("scan-only-cache.redb");
+        let scan_cache_arg = scan_cache.to_string_lossy().into_owned();
+
+        let preload_counts: Arc<Mutex<HashMap<String, usize>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            CountingCveProvider::new(preload_counts.clone()),
+        )));
+        #[cfg(feature = "redb")]
+        reregister_db_backend();
+
+        assert_eq!(
+            run_async(&[
+                "preload",
+                root,
+                "--provider",
+                "counting",
+                "--scan-exclude-dir",
+                "vendor",
+            ]),
+            0
+        );
+        let preload_keys: HashSet<String> =
+            preload_counts.lock().unwrap().keys().cloned().collect();
+        assert!(
+            !preload_keys.is_empty(),
+            "preload should warm at least one package"
+        );
+
+        let scan_counts: Arc<Mutex<HashMap<String, usize>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            CountingCveProvider::new(scan_counts.clone()),
+        )));
+        #[cfg(feature = "redb")]
+        {
+            let _ = vlz::registry::ensure_default_db_backend_with_path(
+                scan_cache,
+                vlz::config::DEFAULT_CACHE_TTL_SECS,
+            );
+        }
+
+        assert_eq!(
+            run_async(&[
+                "scan",
+                root,
+                "--provider",
+                "counting",
+                "--cache-db",
+                &scan_cache_arg,
+                "--scan-exclude-dir",
+                "vendor",
+                "--format",
+                "plain",
+            ]),
+            0
+        );
+        let scan_keys: HashSet<String> =
+            scan_counts.lock().unwrap().keys().cloned().collect();
+        assert_eq!(
+            preload_keys, scan_keys,
+            "preload and scan must resolve the same package keys with identical flags"
+        );
+    });
+}
+
+#[cfg(all(feature = "python", feature = "redb"))]
+#[test]
+fn run_preload_then_db_show_lists_cached_entry() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
+        let root = dir.path().to_str().unwrap();
+
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            CveReturningProvider::new(),
+        )));
+        reregister_db_backend();
+
+        assert_eq!(
+            run_async(&["preload", root, "--provider", "cve_returning"]),
+            0
+        );
+
+        reregister_db_backend();
+        let rt = tokio::runtime::Runtime::new().expect("runtime");
+        let entries = {
+            let mut backends = vlz::registry::db_backends()
+                .lock()
+                .expect("db backends lock");
+            let backend = backends.remove(0);
+            rt.block_on(backend.list_entries(false))
+                .expect("list cache entries")
+        };
+        assert!(
+            !entries.is_empty(),
+            "preload should populate at least one cache entry"
+        );
+        assert!(
+            entries.iter().any(|e| e.cve_count > 0),
+            "preloaded entry should include CVE data"
+        );
+
+        vlz::registry::clear_providers();
+        vlz::registry::ensure_default_cve_provider(
+            &vlz::config::EffectiveConfig::default(),
+        );
+        reregister_db_backend();
+
+        assert_eq!(run_async(&["db", "show", "--full"]), 0);
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_preload_partial_manifest_warms_then_exits_2() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_partial_manifest_fixture(dir.path());
+        let root = dir.path().to_str().unwrap();
+
+        register_conditional_failing_resolver();
+        let fetch_counts: Arc<Mutex<HashMap<String, usize>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            CountingCveProvider::new(fetch_counts.clone()),
+        )));
+        #[cfg(feature = "redb")]
+        reregister_db_backend();
+
+        let code = run_async(&["preload", root, "--provider", "counting"]);
+        assert_eq!(
+            code, 2,
+            "partial manifest failure should exit 2 after warming good manifests"
+        );
+        assert!(
+            fetch_counts
+                .lock()
+                .unwrap()
+                .contains_key("partial-pkg::1.0"),
+            "preload should warm packages from successfully resolved manifests"
+        );
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_preload_provider_failure_exits_5() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
+        let root = dir.path().to_str().unwrap();
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            vlz::mocks::FailingCveProvider::new(),
+        )));
+        assert_eq!(run_async(&["preload", root]), 5);
+    });
 }
 
 #[test]
