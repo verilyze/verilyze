@@ -9,6 +9,8 @@ mod lock_names;
 mod parser;
 mod reachability;
 mod resolver;
+#[cfg(feature = "tier-d")]
+mod tier_d;
 
 pub use finder::{PYTHON_MANIFEST_NAMES, PythonManifestFinder};
 pub use lock_names::{
