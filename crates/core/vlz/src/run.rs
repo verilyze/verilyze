@@ -1390,6 +1390,21 @@ async fn run_scan(
         );
     }
 
+    #[cfg(feature = "python-tier-d")]
+    if should_apply_tier_c(effective.reachability_mode) {
+        let reachability_analyzers = crate::registry::reachability_analyzers()
+            .lock()
+            .expect("REACHABILITY_ANALYZERS lock poisoned");
+        vlz_reachability::apply_tier_d_to_findings(
+            &root_path,
+            &exclude_dirs,
+            &mut findings,
+            &pkg_contexts,
+            &reachability_analyzers,
+            &raw_vulns_by_package,
+        );
+    }
+
     let real_cve_count: usize = findings.iter().map(|(_, r)| r.len()).sum();
     if had_any_cves_before_fp_filter && real_cve_count == 0 {
         let _ = db_backend.stats().await;

@@ -231,6 +231,41 @@ impl ReachabilityAnalyzer for PythonTierBAnalyzer {
             TierCDecision::NotReachable
         }
     }
+
+    fn supports_tier_d(&self) -> bool {
+        cfg!(feature = "tier-d")
+    }
+
+    fn analyze_tier_d(
+        &self,
+        context: &TierBContext<'_>,
+        advisory_symbols: &[String],
+    ) -> TierCDecision {
+        #[cfg(not(feature = "tier-d"))]
+        {
+            let _ = (context, advisory_symbols);
+            return TierCDecision::Unknown;
+        }
+        #[cfg(feature = "tier-d")]
+        {
+            use crate::tier_d::file_references_symbol;
+            let files = list_python_files(context);
+            if files.is_empty() || advisory_symbols.is_empty() {
+                return TierCDecision::Unknown;
+            }
+            for path in files {
+                let Ok(content) = std::fs::read_to_string(&path) else {
+                    continue;
+                };
+                for sym in advisory_symbols {
+                    if file_references_symbol(&content, sym) {
+                        return TierCDecision::Reachable;
+                    }
+                }
+            }
+            TierCDecision::Unknown
+        }
+    }
 }
 
 fn python_file_cache() -> &'static Mutex<HashMap<String, Vec<PathBuf>>> {
