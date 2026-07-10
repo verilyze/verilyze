@@ -219,6 +219,63 @@ impl CveProvider for CveReturningProvider {
     }
 }
 
+/// CVE provider returning two CVEs with Tier C advisory metadata for PyPI `pkg`.
+#[derive(Debug, Default)]
+pub struct TierCReachabilityProvider;
+
+impl TierCReachabilityProvider {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[async_trait]
+impl CveProvider for TierCReachabilityProvider {
+    fn name(&self) -> &'static str {
+        "tier_c_reachability"
+    }
+
+    async fn fetch(
+        &self,
+        pkg: &Package,
+    ) -> Result<FetchedCves, ProviderError> {
+        let pkg_name = &pkg.name;
+        let record_a = CveRecord {
+            id: "CVE-TIER-C-A".to_string(),
+            cvss_score: Some(7.0),
+            cvss_version: Some(vlz_db::CvssVersion::V3),
+            description: "Tier C reachable symbol".to_string(),
+            reachable: None,
+        };
+        let record_b = CveRecord {
+            id: "CVE-TIER-C-B".to_string(),
+            cvss_score: Some(6.0),
+            cvss_version: Some(vlz_db::CvssVersion::V3),
+            description: "Tier C other symbol".to_string(),
+            reachable: None,
+        };
+        Ok(FetchedCves {
+            raw_vulns: vec![
+                serde_json::json!({
+                    "id": record_a.id,
+                    "affected": [{
+                        "package": { "name": pkg_name, "ecosystem": "PyPI" },
+                        "ecosystem_specific": { "modules": [pkg_name] }
+                    }]
+                }),
+                serde_json::json!({
+                    "id": record_b.id,
+                    "affected": [{
+                        "package": { "name": pkg_name, "ecosystem": "PyPI" },
+                        "ecosystem_specific": { "modules": ["othermod"] }
+                    }]
+                }),
+            ],
+            records: vec![record_a, record_b],
+        })
+    }
+}
+
 /// Database backend where verify_integrity and set_ttl fail. Covers 335-336,
 /// 407-409.
 #[derive(Debug, Default)]

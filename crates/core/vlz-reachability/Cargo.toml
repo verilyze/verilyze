@@ -14,6 +14,7 @@ publish = false
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 vlz-db = { path = "../vlz-db" }
+vlz-cve-client = { path = "../vlz-cve-client" }
 vlz-reachability-trait = { path = "../vlz-reachability-trait" }
 
 [features]

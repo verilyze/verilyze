@@ -506,8 +506,11 @@ unknown over false.
 Runtime selection currently supports `off`, `tier-b`, and
 `best-available` via config `reachability_mode`, env
 `VLZ_REACHABILITY_MODE`, or CLI `--reachability-mode`.
-`best-available` maps to Tier B today and is reserved for higher tiers in
-future releases.
+`best-available` applies Tier C (advisory symbol/path metadata) where the
+language analyzer supports it, and Tier B otherwise.
+
+Set `VLZ_REACHABILITY_PERSIST_CACHE=1` (or `true`/`yes`) to persist Tier B and
+per-CVE Tier C decisions under `.vlz/reachability-cache.json` in the scan root.
 
 ### Reachability analyzer plugin
 

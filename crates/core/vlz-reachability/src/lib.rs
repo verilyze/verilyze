@@ -11,9 +11,12 @@ use std::path::PathBuf;
 use std::time::UNIX_EPOCH;
 
 use serde::{Deserialize, Serialize};
+use vlz_cve_client::{
+    AdvisorySymbols, advisory_fingerprint, extract_advisory_symbols,
+};
 use vlz_db::{CveRecord, Package};
 pub use vlz_reachability_trait::{
-    ReachabilityAnalyzer, TierBContext, TierBDecision,
+    ReachabilityAnalyzer, TierBContext, TierBDecision, TierCDecision,
     note_tier_b_file_read_attempt, reset_tier_b_counters,
     snapshot_tier_b_counters,
 };
@@ -114,9 +117,34 @@ fn persistent_cache_enabled() -> bool {
 }
 
 fn decision_cache_path(scan_root: &std::path::Path) -> PathBuf {
-    scan_root
-        .join(".vlz")
-        .join("reachability-tier-b-cache.json")
+    scan_root.join(".vlz").join("reachability-cache.json")
+}
+
+/// Bump when persisted reachability cache key shape changes (Tier C per-CVE keys).
+pub const PERSISTED_REACHABILITY_CACHE_VERSION: &str = "2";
+
+/// Persisted Tier B decision key (package-level).
+pub fn tier_b_persisted_cache_key(
+    package: &Package,
+    context: Option<&PackageContext>,
+) -> String {
+    format!(
+        "v{PERSISTED_REACHABILITY_CACHE_VERSION}|tier-b|{}",
+        decision_cache_key(package, context)
+    )
+}
+
+/// Persisted Tier C decision key (per CVE + advisory fingerprint).
+pub fn tier_c_persisted_cache_key(
+    cve_id: &str,
+    package: &Package,
+    advisory_fingerprint: &str,
+    context: Option<&PackageContext>,
+) -> String {
+    format!(
+        "v{PERSISTED_REACHABILITY_CACHE_VERSION}|tier-c|{cve_id}|{}|{advisory_fingerprint}",
+        decision_cache_key(package, context)
+    )
 }
 
 fn load_decision_cache(
@@ -191,7 +219,8 @@ pub fn apply_tier_b_to_findings(
     let mut dirty = false;
     for (pkg, recs) in findings.iter_mut() {
         let decision = *cache.entry(pkg.clone()).or_insert_with(|| {
-            let key = decision_cache_key(pkg, package_contexts.get(pkg));
+            let key =
+                tier_b_persisted_cache_key(pkg, package_contexts.get(pkg));
             if let Some(p) = persistent_cache.get(&key) {
                 return p.decision.into();
             }
@@ -204,7 +233,8 @@ pub fn apply_tier_b_to_findings(
             )
         });
         if persist {
-            let key = decision_cache_key(pkg, package_contexts.get(pkg));
+            let key =
+                tier_b_persisted_cache_key(pkg, package_contexts.get(pkg));
             if let std::collections::hash_map::Entry::Vacant(entry) =
                 persistent_cache.entry(key)
             {
@@ -221,6 +251,252 @@ pub fn apply_tier_b_to_findings(
     }
     if persist && dirty {
         save_decision_cache(scan_root, &persistent_cache);
+    }
+}
+
+fn choose_tier_c_decision(
+    scan_root: &std::path::Path,
+    exclude_dir_names: &HashSet<String>,
+    package: &Package,
+    context: Option<&PackageContext>,
+    analyzers: &[Box<dyn ReachabilityAnalyzer>],
+    advisory_symbols: &[String],
+) -> TierCDecision {
+    let Some(ctx) = context else {
+        return TierCDecision::Unknown;
+    };
+    if ctx.languages.is_empty() || advisory_symbols.is_empty() {
+        return TierCDecision::Unknown;
+    }
+    let Some(ecosystem) = package.ecosystem.as_deref() else {
+        return TierCDecision::Unknown;
+    };
+
+    let mut saw_unknown = false;
+    let mut saw_not_reachable = false;
+    for language in &ctx.languages {
+        let analyzer = analyzers.iter().find(|analyzer| {
+            analyzer.language_name() == language.as_str()
+                && analyzer.ecosystems().contains(&ecosystem)
+                && analyzer.supports_tier_c()
+        });
+        let Some(analyzer) = analyzer else {
+            saw_unknown = true;
+            continue;
+        };
+        let context = TierBContext {
+            scan_root,
+            exclude_dir_names,
+            package,
+            language,
+            manifest_paths: &ctx.manifest_paths,
+        };
+        match analyzer.analyze_tier_c(&context, advisory_symbols) {
+            TierCDecision::Reachable => return TierCDecision::Reachable,
+            TierCDecision::NotReachable => saw_not_reachable = true,
+            TierCDecision::Unknown => saw_unknown = true,
+        }
+    }
+    if saw_unknown {
+        TierCDecision::Unknown
+    } else if saw_not_reachable {
+        TierCDecision::NotReachable
+    } else {
+        TierCDecision::Unknown
+    }
+}
+
+fn vuln_for_cve_id<'a>(
+    raw_vulns: &'a [serde_json::Value],
+    cve_id: &str,
+) -> Option<&'a serde_json::Value> {
+    raw_vulns.iter().find(|v| {
+        v.get("id")
+            .and_then(|id| id.as_str())
+            .is_some_and(|id| id == cve_id)
+    })
+}
+
+/// Apply Tier C per-CVE reachability when advisory symbol data is present (FR-032 phase 2a).
+/// When a CVE has no symbol metadata, the existing Tier B `reachable` value is preserved.
+pub fn apply_tier_c_to_findings(
+    scan_root: &std::path::Path,
+    exclude_dir_names: &HashSet<String>,
+    findings: &mut [(Package, Vec<CveRecord>)],
+    package_contexts: &HashMap<Package, PackageContext>,
+    analyzers: &[Box<dyn ReachabilityAnalyzer>],
+    raw_vulns_by_package: &HashMap<Package, Vec<serde_json::Value>>,
+) {
+    let persist = persistent_cache_enabled();
+    let mut persistent_cache = if persist {
+        load_decision_cache(scan_root)
+    } else {
+        HashMap::new()
+    };
+    let mut dirty = false;
+    for (pkg, recs) in findings.iter_mut() {
+        let Some(raw_vulns) = raw_vulns_by_package.get(pkg) else {
+            continue;
+        };
+        let ctx = package_contexts.get(pkg);
+        for rec in recs.iter_mut() {
+            let tier_b_reachable = rec.reachable;
+            let Some(vuln) = vuln_for_cve_id(raw_vulns, &rec.id) else {
+                continue;
+            };
+            let advisory = extract_advisory_symbols(vuln, pkg);
+            if !advisory.has_symbol_data {
+                continue;
+            }
+            let fingerprint = advisory_fingerprint(&advisory);
+            let decision = if persist {
+                let key = tier_c_persisted_cache_key(
+                    &rec.id,
+                    pkg,
+                    &fingerprint,
+                    ctx,
+                );
+                if let Some(p) = persistent_cache.get(&key) {
+                    p.decision.into()
+                } else {
+                    let computed = choose_tier_c_decision(
+                        scan_root,
+                        exclude_dir_names,
+                        pkg,
+                        ctx,
+                        analyzers,
+                        &advisory.symbols,
+                    );
+                    if let std::collections::hash_map::Entry::Vacant(entry) =
+                        persistent_cache.entry(key)
+                    {
+                        entry.insert(PersistedDecision {
+                            decision: computed.into(),
+                        });
+                        dirty = true;
+                    }
+                    computed
+                }
+            } else {
+                choose_tier_c_decision(
+                    scan_root,
+                    exclude_dir_names,
+                    pkg,
+                    ctx,
+                    analyzers,
+                    &advisory.symbols,
+                )
+            };
+            match decision {
+                TierCDecision::Reachable => rec.reachable = Some(true),
+                TierCDecision::NotReachable => rec.reachable = Some(false),
+                TierCDecision::Unknown => {
+                    if tier_b_reachable.is_none() {
+                        rec.reachable = None;
+                    }
+                }
+            }
+        }
+    }
+    if persist && dirty {
+        save_decision_cache(scan_root, &persistent_cache);
+    }
+}
+
+/// Refine Tier C unknowns using Tier D analyzers when enabled (optional stretch).
+pub fn apply_tier_d_to_findings(
+    scan_root: &std::path::Path,
+    exclude_dir_names: &HashSet<String>,
+    findings: &mut [(Package, Vec<CveRecord>)],
+    package_contexts: &HashMap<Package, PackageContext>,
+    analyzers: &[Box<dyn ReachabilityAnalyzer>],
+    raw_vulns_by_package: &HashMap<Package, Vec<serde_json::Value>>,
+) {
+    for (pkg, recs) in findings.iter_mut() {
+        let Some(raw_vulns) = raw_vulns_by_package.get(pkg) else {
+            continue;
+        };
+        let ctx = package_contexts.get(pkg);
+        for rec in recs.iter_mut() {
+            if rec.reachable.is_some() {
+                continue;
+            }
+            let Some(vuln) = vuln_for_cve_id(raw_vulns, &rec.id) else {
+                continue;
+            };
+            let AdvisorySymbols {
+                symbols,
+                has_symbol_data,
+            } = extract_advisory_symbols(vuln, pkg);
+            if !has_symbol_data {
+                continue;
+            }
+            let tier_d = choose_tier_d_decision(
+                scan_root,
+                exclude_dir_names,
+                pkg,
+                ctx,
+                analyzers,
+                &symbols,
+            );
+            match tier_d {
+                TierCDecision::Reachable => rec.reachable = Some(true),
+                TierCDecision::NotReachable => rec.reachable = Some(false),
+                TierCDecision::Unknown => {}
+            }
+        }
+    }
+}
+
+fn choose_tier_d_decision(
+    scan_root: &std::path::Path,
+    exclude_dir_names: &HashSet<String>,
+    package: &Package,
+    context: Option<&PackageContext>,
+    analyzers: &[Box<dyn ReachabilityAnalyzer>],
+    advisory_symbols: &[String],
+) -> TierCDecision {
+    let Some(ctx) = context else {
+        return TierCDecision::Unknown;
+    };
+    if ctx.languages.is_empty() || advisory_symbols.is_empty() {
+        return TierCDecision::Unknown;
+    }
+    let Some(ecosystem) = package.ecosystem.as_deref() else {
+        return TierCDecision::Unknown;
+    };
+
+    let mut saw_not_reachable = false;
+    let mut saw_unknown = false;
+    for language in &ctx.languages {
+        let analyzer = analyzers.iter().find(|analyzer| {
+            analyzer.language_name() == language.as_str()
+                && analyzer.ecosystems().contains(&ecosystem)
+                && analyzer.supports_tier_d()
+        });
+        let Some(analyzer) = analyzer else {
+            saw_unknown = true;
+            continue;
+        };
+        let context = TierBContext {
+            scan_root,
+            exclude_dir_names,
+            package,
+            language,
+            manifest_paths: &ctx.manifest_paths,
+        };
+        match analyzer.analyze_tier_d(&context, advisory_symbols) {
+            TierCDecision::Reachable => return TierCDecision::Reachable,
+            TierCDecision::NotReachable => saw_not_reachable = true,
+            TierCDecision::Unknown => saw_unknown = true,
+        }
+    }
+    if saw_unknown {
+        TierCDecision::Unknown
+    } else if saw_not_reachable {
+        TierCDecision::NotReachable
+    } else {
+        TierCDecision::Unknown
     }
 }
 
@@ -496,7 +772,7 @@ mod tests {
     fn decision_cache_path_appends_vlz_file() {
         let root = std::path::Path::new("/tmp/example");
         let path = decision_cache_path(root);
-        assert!(path.ends_with(".vlz/reachability-tier-b-cache.json"));
+        assert!(path.ends_with(".vlz/reachability-cache.json"));
     }
 
     #[test]
@@ -607,5 +883,505 @@ mod tests {
         assert_eq!(calls.load(Ordering::Relaxed), 1);
         assert_eq!(findings[0].1[0].reachable, Some(false));
         assert_eq!(findings[1].1[0].reachable, Some(false));
+    }
+
+    struct TierCAnalyzer {
+        reachable_symbols: HashSet<String>,
+    }
+
+    impl ReachabilityAnalyzer for TierCAnalyzer {
+        fn language_name(&self) -> &'static str {
+            "python"
+        }
+
+        fn ecosystems(&self) -> &'static [&'static str] {
+            &["PyPI"]
+        }
+
+        fn analyze_tier_b(&self, _: &TierBContext<'_>) -> TierBDecision {
+            TierBDecision::Reachable
+        }
+
+        fn supports_tier_c(&self) -> bool {
+            true
+        }
+
+        fn analyze_tier_c(
+            &self,
+            _: &TierBContext<'_>,
+            advisory_symbols: &[String],
+        ) -> TierCDecision {
+            if advisory_symbols
+                .iter()
+                .any(|s| self.reachable_symbols.contains(s))
+            {
+                TierCDecision::Reachable
+            } else {
+                TierCDecision::NotReachable
+            }
+        }
+    }
+
+    #[test]
+    fn apply_tier_c_diverges_per_cve_on_same_package() {
+        let package = Package {
+            name: "http".to_string(),
+            version: "1.0".to_string(),
+            ecosystem: Some("PyPI".to_string()),
+        };
+        let mut contexts = HashMap::new();
+        contexts.insert(
+            package.clone(),
+            PackageContext {
+                languages: HashSet::from(["python".to_string()]),
+                manifest_paths: vec![],
+            },
+        );
+        let analyzers: Vec<Box<dyn ReachabilityAnalyzer>> =
+            vec![Box::new(TierCAnalyzer {
+                reachable_symbols: HashSet::from(["safe_fn".to_string()]),
+            })];
+        let mut findings = vec![(
+            package.clone(),
+            vec![
+                CveRecord {
+                    id: "CVE-A".to_string(),
+                    cvss_score: None,
+                    cvss_version: None,
+                    description: String::new(),
+                    reachable: Some(true),
+                },
+                CveRecord {
+                    id: "CVE-B".to_string(),
+                    cvss_score: None,
+                    cvss_version: None,
+                    description: String::new(),
+                    reachable: Some(true),
+                },
+            ],
+        )];
+        let raw_vulns = HashMap::from([(
+            package.clone(),
+            vec![
+                serde_json::json!({
+                    "id": "CVE-A",
+                    "affected": [{
+                        "package": { "name": "http", "ecosystem": "PyPI" },
+                        "ecosystem_specific": { "affected_functions": ["safe_fn"] }
+                    }]
+                }),
+                serde_json::json!({
+                    "id": "CVE-B",
+                    "affected": [{
+                        "package": { "name": "http", "ecosystem": "PyPI" },
+                        "ecosystem_specific": { "affected_functions": ["other_fn"] }
+                    }]
+                }),
+            ],
+        )]);
+        apply_tier_c_to_findings(
+            std::path::Path::new("."),
+            &HashSet::new(),
+            &mut findings,
+            &contexts,
+            &analyzers,
+            &raw_vulns,
+        );
+        assert_eq!(findings[0].1[0].reachable, Some(true));
+        assert_eq!(findings[0].1[1].reachable, Some(false));
+    }
+
+    #[test]
+    fn tier_c_persisted_cache_key_differs_from_tier_b_for_same_package() {
+        let package = pkg("http", Some("PyPI"));
+        let context = PackageContext {
+            languages: HashSet::from(["python".to_string()]),
+            manifest_paths: vec![],
+        };
+        let tier_b = tier_b_persisted_cache_key(&package, Some(&context));
+        let tier_c = tier_c_persisted_cache_key(
+            "CVE-2024-1",
+            &package,
+            "safe_fn|other_fn",
+            Some(&context),
+        );
+        assert_ne!(tier_b, tier_c);
+        assert!(tier_b.contains("|tier-b|"));
+        assert!(tier_c.contains("|tier-c|"));
+        assert!(tier_c.contains("CVE-2024-1"));
+    }
+
+    #[test]
+    fn apply_tier_c_preserves_tier_b_when_no_symbol_data() {
+        let package = pkg("requests", Some("PyPI"));
+        let mut contexts = HashMap::new();
+        contexts.insert(
+            package.clone(),
+            PackageContext {
+                languages: HashSet::from(["python".to_string()]),
+                manifest_paths: vec![],
+            },
+        );
+        let analyzers: Vec<Box<dyn ReachabilityAnalyzer>> =
+            vec![Box::new(TierCAnalyzer {
+                reachable_symbols: HashSet::new(),
+            })];
+        let mut findings = vec![(
+            package.clone(),
+            vec![CveRecord {
+                id: "CVE-NO-SYM".to_string(),
+                cvss_score: None,
+                cvss_version: None,
+                description: String::new(),
+                reachable: Some(true),
+            }],
+        )];
+        let raw_vulns = HashMap::from([(
+            package.clone(),
+            vec![serde_json::json!({
+                "id": "CVE-NO-SYM",
+                "affected": [{
+                    "package": { "name": "requests", "ecosystem": "PyPI" },
+                    "ecosystem_specific": { "severity": "HIGH" }
+                }]
+            })],
+        )]);
+        apply_tier_c_to_findings(
+            std::path::Path::new("."),
+            &HashSet::new(),
+            &mut findings,
+            &contexts,
+            &analyzers,
+            &raw_vulns,
+        );
+        assert_eq!(
+            findings[0].1[0].reachable,
+            Some(true),
+            "Tier B reachable must be kept when advisory has no symbol data"
+        );
+    }
+
+    struct TierCUnknownAnalyzer;
+
+    impl ReachabilityAnalyzer for TierCUnknownAnalyzer {
+        fn language_name(&self) -> &'static str {
+            "python"
+        }
+
+        fn ecosystems(&self) -> &'static [&'static str] {
+            &["PyPI"]
+        }
+
+        fn analyze_tier_b(&self, _: &TierBContext<'_>) -> TierBDecision {
+            TierBDecision::Reachable
+        }
+
+        fn supports_tier_c(&self) -> bool {
+            true
+        }
+
+        fn analyze_tier_c(
+            &self,
+            _: &TierBContext<'_>,
+            _: &[String],
+        ) -> TierCDecision {
+            TierCDecision::Unknown
+        }
+    }
+
+    #[test]
+    fn apply_tier_c_unknown_preserves_tier_b_when_set() {
+        let package = pkg("http", Some("PyPI"));
+        let mut contexts = HashMap::new();
+        contexts.insert(
+            package.clone(),
+            PackageContext {
+                languages: HashSet::from(["python".to_string()]),
+                manifest_paths: vec![],
+            },
+        );
+        let analyzers: Vec<Box<dyn ReachabilityAnalyzer>> =
+            vec![Box::new(TierCUnknownAnalyzer)];
+        let mut findings = vec![(
+            package.clone(),
+            vec![CveRecord {
+                id: "CVE-UNK".to_string(),
+                cvss_score: None,
+                cvss_version: None,
+                description: String::new(),
+                reachable: Some(true),
+            }],
+        )];
+        let raw_vulns = HashMap::from([(
+            package.clone(),
+            vec![serde_json::json!({
+                "id": "CVE-UNK",
+                "affected": [{
+                    "package": { "name": "http", "ecosystem": "PyPI" },
+                    "ecosystem_specific": { "modules": ["http.mod"] }
+                }]
+            })],
+        )]);
+        apply_tier_c_to_findings(
+            std::path::Path::new("."),
+            &HashSet::new(),
+            &mut findings,
+            &contexts,
+            &analyzers,
+            &raw_vulns,
+        );
+        assert_eq!(findings[0].1[0].reachable, Some(true));
+    }
+
+    struct TierDAnalyzer {
+        reachable_symbols: HashSet<String>,
+    }
+
+    impl ReachabilityAnalyzer for TierDAnalyzer {
+        fn language_name(&self) -> &'static str {
+            "python"
+        }
+
+        fn ecosystems(&self) -> &'static [&'static str] {
+            &["PyPI"]
+        }
+
+        fn analyze_tier_b(&self, _: &TierBContext<'_>) -> TierBDecision {
+            TierBDecision::Unknown
+        }
+
+        fn supports_tier_c(&self) -> bool {
+            true
+        }
+
+        fn analyze_tier_c(
+            &self,
+            _: &TierBContext<'_>,
+            _: &[String],
+        ) -> TierCDecision {
+            TierCDecision::Unknown
+        }
+
+        fn supports_tier_d(&self) -> bool {
+            true
+        }
+
+        fn analyze_tier_d(
+            &self,
+            _: &TierBContext<'_>,
+            advisory_symbols: &[String],
+        ) -> TierCDecision {
+            if advisory_symbols
+                .iter()
+                .any(|s| self.reachable_symbols.contains(s))
+            {
+                TierCDecision::Reachable
+            } else {
+                TierCDecision::NotReachable
+            }
+        }
+    }
+
+    #[test]
+    fn apply_tier_d_refines_unknown_tier_c() {
+        let package = pkg("http", Some("PyPI"));
+        let mut contexts = HashMap::new();
+        contexts.insert(
+            package.clone(),
+            PackageContext {
+                languages: HashSet::from(["python".to_string()]),
+                manifest_paths: vec![],
+            },
+        );
+        let analyzers: Vec<Box<dyn ReachabilityAnalyzer>> =
+            vec![Box::new(TierDAnalyzer {
+                reachable_symbols: HashSet::from(["deep_fn".to_string()]),
+            })];
+        let mut findings = vec![(
+            package.clone(),
+            vec![CveRecord {
+                id: "CVE-D".to_string(),
+                cvss_score: None,
+                cvss_version: None,
+                description: String::new(),
+                reachable: None,
+            }],
+        )];
+        let raw_vulns = HashMap::from([(
+            package.clone(),
+            vec![serde_json::json!({
+                "id": "CVE-D",
+                "affected": [{
+                    "package": { "name": "http", "ecosystem": "PyPI" },
+                    "ecosystem_specific": { "affected_functions": ["deep_fn"] }
+                }]
+            })],
+        )]);
+        apply_tier_d_to_findings(
+            std::path::Path::new("."),
+            &HashSet::new(),
+            &mut findings,
+            &contexts,
+            &analyzers,
+            &raw_vulns,
+        );
+        assert_eq!(findings[0].1[0].reachable, Some(true));
+    }
+
+    #[test]
+    fn apply_tier_b_persists_decisions_when_enabled() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let package = pkg("serde", Some("crates.io"));
+        let mut contexts = HashMap::new();
+        contexts.insert(
+            package.clone(),
+            PackageContext {
+                languages: HashSet::from(["rust".to_string()]),
+                manifest_paths: vec![],
+            },
+        );
+        let analyzers: Vec<Box<dyn ReachabilityAnalyzer>> =
+            vec![Box::new(StubAnalyzer {
+                language: "rust",
+                ecosystems: &["crates.io"],
+                decision: TierBDecision::NotReachable,
+            })];
+        let mut findings = vec![(
+            package.clone(),
+            vec![CveRecord {
+                id: "CVE-P".to_string(),
+                cvss_score: None,
+                cvss_version: None,
+                description: String::new(),
+                reachable: None,
+            }],
+        )];
+        temp_env::with_var(
+            "VLZ_REACHABILITY_PERSIST_CACHE",
+            Some("yes"),
+            || {
+                apply_tier_b_to_findings(
+                    dir.path(),
+                    &HashSet::new(),
+                    &mut findings,
+                    &contexts,
+                    &analyzers,
+                );
+                let cache = load_decision_cache(dir.path());
+                assert!(!cache.is_empty());
+                assert_eq!(findings[0].1[0].reachable, Some(false));
+            },
+        );
+    }
+
+    #[test]
+    fn apply_tier_c_persists_decisions_when_enabled() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let package = pkg("http", Some("PyPI"));
+        let mut contexts = HashMap::new();
+        contexts.insert(
+            package.clone(),
+            PackageContext {
+                languages: HashSet::from(["python".to_string()]),
+                manifest_paths: vec![],
+            },
+        );
+        let calls = Arc::new(AtomicUsize::new(0));
+        struct CountingTierCAnalyzer {
+            calls: Arc<AtomicUsize>,
+        }
+        impl ReachabilityAnalyzer for CountingTierCAnalyzer {
+            fn language_name(&self) -> &'static str {
+                "python"
+            }
+            fn ecosystems(&self) -> &'static [&'static str] {
+                &["PyPI"]
+            }
+            fn analyze_tier_b(&self, _: &TierBContext<'_>) -> TierBDecision {
+                TierBDecision::Reachable
+            }
+            fn supports_tier_c(&self) -> bool {
+                true
+            }
+            fn analyze_tier_c(
+                &self,
+                _: &TierBContext<'_>,
+                _: &[String],
+            ) -> TierCDecision {
+                self.calls.fetch_add(1, Ordering::Relaxed);
+                TierCDecision::NotReachable
+            }
+        }
+        let analyzers: Vec<Box<dyn ReachabilityAnalyzer>> =
+            vec![Box::new(CountingTierCAnalyzer {
+                calls: calls.clone(),
+            })];
+        let mut findings = vec![(
+            package.clone(),
+            vec![CveRecord {
+                id: "CVE-C".to_string(),
+                cvss_score: None,
+                cvss_version: None,
+                description: String::new(),
+                reachable: None,
+            }],
+        )];
+        let raw_vulns = HashMap::from([(
+            package.clone(),
+            vec![serde_json::json!({
+                "id": "CVE-C",
+                "affected": [{
+                    "package": { "name": "http", "ecosystem": "PyPI" },
+                    "ecosystem_specific": { "modules": ["pkg.sub"] }
+                }]
+            })],
+        )]);
+        temp_env::with_var(
+            "VLZ_REACHABILITY_PERSIST_CACHE",
+            Some("yes"),
+            || {
+                apply_tier_c_to_findings(
+                    dir.path(),
+                    &HashSet::new(),
+                    &mut findings,
+                    &contexts,
+                    &analyzers,
+                    &raw_vulns,
+                );
+                assert_eq!(calls.load(Ordering::Relaxed), 1);
+                assert_eq!(findings[0].1[0].reachable, Some(false));
+                apply_tier_c_to_findings(
+                    dir.path(),
+                    &HashSet::new(),
+                    &mut findings,
+                    &contexts,
+                    &analyzers,
+                    &raw_vulns,
+                );
+                assert_eq!(
+                    calls.load(Ordering::Relaxed),
+                    1,
+                    "second run should load Tier C from persistent cache"
+                );
+                let cache = load_decision_cache(dir.path());
+                assert!(
+                    cache.keys().any(|k| k.contains("|tier-c|")),
+                    "cache should contain Tier C key"
+                );
+            },
+        );
+    }
+
+    #[test]
+    fn tier_b_decision_disk_roundtrip_all_variants() {
+        for decision in [
+            TierBDecision::Reachable,
+            TierBDecision::NotReachable,
+            TierBDecision::Unknown,
+        ] {
+            let disk: TierBDecisionDisk = decision.into();
+            let back: TierBDecision = disk.into();
+            assert_eq!(back, decision);
+        }
     }
 }

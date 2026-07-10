@@ -11,6 +11,7 @@ import pytest
 
 from scripts.obs_upload_verify import (
     extract_cargo_lock_from_vendor_archive,
+    git_show_cargo_lock,
     parse_obs_file_checksums,
     sha256_file,
     verify_obs_upload_checksums,
@@ -51,7 +52,7 @@ def test_extract_cargo_lock_from_vendor_archive(tmp_path: Path) -> None:
 def test_verify_vendor_lockfile_matches_git_ref_accepts_matching_lockfile(
     tmp_path: Path,
 ) -> None:
-    cargo_lock = (_ROOT / "Cargo.lock").read_bytes()
+    cargo_lock = git_show_cargo_lock(_ROOT, "HEAD")
     archive = tmp_path / _VENDOR_ARCHIVE
     _write_vendor_archive(archive, cargo_lock)
     verify_vendor_lockfile_matches_git_ref(
@@ -196,8 +197,6 @@ def test_extract_cargo_lock_raises_when_archive_invalid(tmp_path: Path) -> None:
 
 
 def test_git_show_cargo_lock_raises_on_invalid_ref(tmp_path: Path) -> None:
-    from scripts.obs_upload_verify import git_show_cargo_lock
-
     with pytest.raises(ValueError, match="unable to read Cargo.lock"):
         git_show_cargo_lock(tmp_path, "not-a-real-ref-xyz")
 
@@ -239,7 +238,7 @@ def test_parse_obs_file_checksums_skips_file_without_name(tmp_path: Path) -> Non
 def test_main_vendor_lockfile_cli_success(tmp_path: Path) -> None:
     from scripts.obs_upload_verify import main
 
-    cargo_lock = (_ROOT / "Cargo.lock").read_bytes()
+    cargo_lock = git_show_cargo_lock(_ROOT, "HEAD")
     archive = tmp_path / _VENDOR_ARCHIVE
     _write_vendor_archive(archive, cargo_lock)
     assert (

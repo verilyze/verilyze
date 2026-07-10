@@ -36,6 +36,14 @@
           "cvss_version": "v3",
           "reachable": false,
           "severity": "HIGH"
+        },
+        {
+          "id": "CVE-2024-0002",
+          "description": "Second CVE on the same package with divergent reachability.",
+          "cvss_score": 5.0,
+          "cvss_version": "v3",
+          "reachable": true,
+          "severity": "MEDIUM"
         }
       ]
     }

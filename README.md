@@ -175,7 +175,9 @@ uses the installed man page. Source: [man/vlz.1](man/vlz.1).
 `--provider osv|nvd|github|sonatype`, `--parallel N`, `--project-id ID`,
 `--cache-ttl-secs SECS`, `--offline`, `--benchmark`, `--min-score`, `--min-count`,
 `--exit-code-on-cve`, `--fp-exit-code`, `--cache-db`, `--ignore-db`,
-`--reachability-mode off|tier-b|best-available`.
+`--reachability-mode off|tier-b|best-available` (`best-available` enables Tier C
+where supported). `VLZ_REACHABILITY_PERSIST_CACHE=1` persists reachability
+decisions under `.vlz/` in the scan root.
 
 ### Project-scoped false-positives
 

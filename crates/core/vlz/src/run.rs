@@ -150,6 +150,10 @@ fn should_apply_tier_b(mode: crate::config::ReachabilityMode) -> bool {
     }
 }
 
+fn should_apply_tier_c(mode: crate::config::ReachabilityMode) -> bool {
+    matches!(mode, crate::config::ReachabilityMode::BestAvailable)
+}
+
 async fn select_provider_impl(
     provider: Option<String>,
     effective: &crate::config::EffectiveConfig,
@@ -1276,6 +1280,7 @@ async fn run_scan(
     let mut offline_cache_miss = false;
     let mut provider_fetch_failed = false;
     let mut findings = Vec::new();
+    let mut raw_vulns_by_package = std::collections::HashMap::new();
 
     if !skip_cve_phase {
         let warm = warm_cache_for_packages(
@@ -1292,6 +1297,7 @@ async fn run_scan(
         offline_cache_miss = warm.summary.offline_cache_miss;
         provider_fetch_failed = warm.summary.provider_fetch_failed;
         findings = warm.findings;
+        raw_vulns_by_package = warm.raw_vulns_by_package;
         if provider_fetch_failed && _verbosity > 0 {
             error!(
                 "One or more CVE provider fetches failed during cache warm"
@@ -1368,6 +1374,20 @@ async fn run_scan(
                 info!("{}", line);
             }
         }
+    }
+
+    if should_apply_tier_c(effective.reachability_mode) {
+        let reachability_analyzers = crate::registry::reachability_analyzers()
+            .lock()
+            .expect("REACHABILITY_ANALYZERS lock poisoned");
+        vlz_reachability::apply_tier_c_to_findings(
+            &root_path,
+            &exclude_dirs,
+            &mut findings,
+            &pkg_contexts,
+            &reachability_analyzers,
+            &raw_vulns_by_package,
+        );
     }
 
     let real_cve_count: usize = findings.iter().map(|(_, r)| r.len()).sum();

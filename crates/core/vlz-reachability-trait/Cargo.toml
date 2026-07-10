@@ -15,3 +15,6 @@ vlz-db = { path = "../vlz-db" }
 
 [features]
 perf-instrumentation = []
+
+[dev-dependencies]
+tempfile.workspace = true

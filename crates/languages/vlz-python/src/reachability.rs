@@ -8,8 +8,8 @@ use std::sync::{Mutex, OnceLock};
 
 use vlz_db::PYPI_ECOSYSTEM;
 use vlz_reachability_trait::{
-    ReachabilityAnalyzer, TierBContext, TierBDecision, list_files_with_ext,
-    note_tier_b_file_read_attempt,
+    ReachabilityAnalyzer, TierBContext, TierBDecision, TierCDecision,
+    list_files_with_ext, note_tier_b_file_read_attempt,
 };
 
 #[derive(Debug, Default)]
@@ -31,6 +31,23 @@ fn first_segment(module_path: &str) -> Option<String> {
         return None;
     }
     Some(s.split('.').next().unwrap_or("").to_string())
+}
+
+fn python_symbol_matches_import_roots(
+    sym: &str,
+    roots: &HashSet<String>,
+) -> bool {
+    let head = sym.split('.').next().unwrap_or(sym);
+    let norm = normalize_pypi_name(head);
+    if roots.contains(&norm) {
+        return true;
+    }
+    for root in roots {
+        if sym == root.as_str() || sym.starts_with(&format!("{root}.")) {
+            return true;
+        }
+    }
+    false
 }
 
 fn pypi_name_is_ambiguous(name: &str) -> bool {
@@ -187,6 +204,31 @@ impl ReachabilityAnalyzer for PythonTierBAnalyzer {
             TierBDecision::Unknown
         } else {
             TierBDecision::NotReachable
+        }
+    }
+
+    fn supports_tier_c(&self) -> bool {
+        true
+    }
+
+    fn analyze_tier_c(
+        &self,
+        context: &TierBContext<'_>,
+        advisory_symbols: &[String],
+    ) -> TierCDecision {
+        let roots = cached_python_import_roots(context);
+        if roots.is_empty() {
+            return TierCDecision::Unknown;
+        }
+        for sym in advisory_symbols {
+            if python_symbol_matches_import_roots(sym, &roots) {
+                return TierCDecision::Reachable;
+            }
+        }
+        if pypi_name_is_ambiguous(&context.package.name) {
+            TierCDecision::Unknown
+        } else {
+            TierCDecision::NotReachable
         }
     }
 }
@@ -403,5 +445,31 @@ mod tests {
         };
         let analyzer = PythonTierBAnalyzer::new();
         assert_eq!(analyzer.analyze_tier_b(&ctx), TierBDecision::NotReachable);
+    }
+
+    #[test]
+    fn analyze_tier_c_reachable_for_matching_module_prefix() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join("app.py"), "import pkg.submod\n")
+            .expect("write");
+        let analyzer = PythonTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "pkg");
+        assert_eq!(
+            analyzer.analyze_tier_c(&ctx, &["pkg.submod.vuln_fn".to_string()]),
+            TierCDecision::Reachable
+        );
+    }
+
+    #[test]
+    fn analyze_tier_c_not_reachable_without_substring_false_positive() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join("app.py"), "import urllib\n")
+            .expect("write");
+        let analyzer = PythonTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "requests");
+        assert_eq!(
+            analyzer.analyze_tier_c(&ctx, &["requests.auth".to_string()]),
+            TierCDecision::NotReachable
+        );
     }
 }

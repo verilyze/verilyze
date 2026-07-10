@@ -7,8 +7,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
 use vlz_reachability_trait::{
-    ReachabilityAnalyzer, TierBContext, TierBDecision, list_files_with_ext,
-    note_tier_b_file_read_attempt,
+    ReachabilityAnalyzer, TierBContext, TierBDecision, TierCDecision,
+    list_files_with_ext, note_tier_b_file_read_attempt,
 };
 
 #[derive(Debug, Default)]
@@ -144,6 +144,31 @@ fn module_used(import_paths: &HashSet<String>, module_path: &str) -> bool {
     })
 }
 
+fn go_import_path_matches(sym: &str, import: &str) -> bool {
+    sym == import
+        || import.starts_with(&format!("{sym}/"))
+        || sym.starts_with(&format!("{import}/"))
+}
+
+fn go_symbol_referenced_in_sources(
+    files: &[PathBuf],
+    symbol: &str,
+    imports: &HashSet<String>,
+) -> bool {
+    for path in files {
+        let Ok(content) = std::fs::read_to_string(path) else {
+            continue;
+        };
+        if !imports.iter().any(|imp| content.contains(imp.as_str())) {
+            continue;
+        }
+        if content.contains(symbol) {
+            return true;
+        }
+    }
+    false
+}
+
 fn go_module_path_ambiguous(path: &str) -> bool {
     if path.contains("/v0.") {
         return true;
@@ -184,6 +209,36 @@ impl ReachabilityAnalyzer for GoTierBAnalyzer {
             TierBDecision::Unknown
         } else {
             TierBDecision::NotReachable
+        }
+    }
+
+    fn supports_tier_c(&self) -> bool {
+        true
+    }
+
+    fn analyze_tier_c(
+        &self,
+        context: &TierBContext<'_>,
+        advisory_symbols: &[String],
+    ) -> TierCDecision {
+        let imports = cached_go_import_paths(context);
+        if imports.is_empty() {
+            return TierCDecision::Unknown;
+        }
+        let files = list_go_files(context);
+        for sym in advisory_symbols {
+            if sym.contains('/') {
+                if imports.iter().any(|imp| go_import_path_matches(sym, imp)) {
+                    return TierCDecision::Reachable;
+                }
+            } else if go_symbol_referenced_in_sources(&files, sym, &imports) {
+                return TierCDecision::Reachable;
+            }
+        }
+        if go_module_path_ambiguous(&context.package.name) {
+            TierCDecision::Unknown
+        } else {
+            TierCDecision::NotReachable
         }
     }
 }
@@ -417,5 +472,55 @@ mod tests {
         };
         let analyzer = GoTierBAnalyzer::new();
         assert_eq!(analyzer.analyze_tier_b(&ctx), TierBDecision::NotReachable);
+    }
+
+    #[test]
+    fn analyze_tier_c_reachable_for_matching_import_path() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("main.go"),
+            "package main\nimport \"github.com/foo/bar/sub\"\n",
+        )
+        .expect("write");
+        let analyzer = GoTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "github.com/foo/bar");
+        assert_eq!(
+            analyzer
+                .analyze_tier_c(&ctx, &["github.com/foo/bar/sub".to_string()]),
+            TierCDecision::Reachable
+        );
+    }
+
+    #[test]
+    fn analyze_tier_c_not_reachable_for_unrelated_import_path() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("main.go"),
+            "package main\nimport \"fmt\"\n",
+        )
+        .expect("write");
+        let analyzer = GoTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "github.com/foo/bar");
+        assert_eq!(
+            analyzer
+                .analyze_tier_c(&ctx, &["github.com/foo/bar/sub".to_string()]),
+            TierCDecision::NotReachable
+        );
+    }
+
+    #[test]
+    fn analyze_tier_c_reachable_for_symbol_reference() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("main.go"),
+            "package main\nimport \"github.com/foo/bar\"\nfunc main() { bar.VulnFn() }\n",
+        )
+        .expect("write");
+        let analyzer = GoTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "github.com/foo/bar");
+        assert_eq!(
+            analyzer.analyze_tier_c(&ctx, &["VulnFn".to_string()]),
+            TierCDecision::Reachable
+        );
     }
 }

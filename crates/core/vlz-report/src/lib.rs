@@ -616,6 +616,10 @@ impl Reporter for SarifReporter {
                             "manifest_paths": manifest_uris
                         }
                     });
+                    if let Some(reachable) = cve.reachable {
+                        result["properties"]["reachable"] =
+                            serde_json::json!(reachable);
+                    }
                     if !locations.is_empty() {
                         result["locations"] =
                             serde_json::Value::Array(locations);

@@ -36,10 +36,43 @@ pub struct TierBContext<'a> {
     pub manifest_paths: &'a [PathBuf],
 }
 
+/// Per-CVE reachability decision (Tier C); same semantics as [`TierBDecision`].
+pub type TierCDecision = TierBDecision;
+
 pub trait ReachabilityAnalyzer: Send + Sync {
     fn language_name(&self) -> &'static str;
     fn ecosystems(&self) -> &'static [&'static str];
     fn analyze_tier_b(&self, context: &TierBContext<'_>) -> TierBDecision;
+
+    /// True when this analyzer can match advisory symbols (Tier C, FR-032 phase 2a).
+    fn supports_tier_c(&self) -> bool {
+        false
+    }
+
+    /// Match OSV `ecosystem_specific` symbols against consumer import evidence.
+    fn analyze_tier_c(
+        &self,
+        context: &TierBContext<'_>,
+        advisory_symbols: &[String],
+    ) -> TierCDecision {
+        let _ = (context, advisory_symbols);
+        TierCDecision::Unknown
+    }
+
+    /// True when this analyzer can refine Tier C unknowns with deeper source inspection.
+    fn supports_tier_d(&self) -> bool {
+        false
+    }
+
+    /// Refine reachability for Tier C unknowns using consumer source inspection (Tier D).
+    fn analyze_tier_d(
+        &self,
+        context: &TierBContext<'_>,
+        advisory_symbols: &[String],
+    ) -> TierCDecision {
+        let _ = (context, advisory_symbols);
+        TierCDecision::Unknown
+    }
 }
 
 #[cfg(feature = "perf-instrumentation")]
@@ -162,6 +195,103 @@ mod tests {
         reset_tier_b_counters();
         note_tier_b_file_read_attempt(true);
         assert_eq!(snapshot_tier_b_counters(), (0, 0, 0, 0));
+    }
+
+    #[test]
+    fn tier_b_decision_as_option_bool() {
+        assert_eq!(TierBDecision::Reachable.as_option_bool(), Some(true));
+        assert_eq!(TierBDecision::NotReachable.as_option_bool(), Some(false));
+        assert_eq!(TierBDecision::Unknown.as_option_bool(), None);
+    }
+
+    #[test]
+    fn should_skip_dir_matches_exclude_set() {
+        let mut exclude = HashSet::new();
+        exclude.insert(".git".to_string());
+        assert!(should_skip_dir(Path::new("/proj/.git"), &exclude));
+        assert!(!should_skip_dir(Path::new("/proj/src"), &exclude));
+        assert!(!should_skip_dir(Path::new("/"), &exclude));
+    }
+
+    struct DefaultsOnlyAnalyzer;
+
+    impl ReachabilityAnalyzer for DefaultsOnlyAnalyzer {
+        fn language_name(&self) -> &'static str {
+            "test"
+        }
+
+        fn ecosystems(&self) -> &'static [&'static str] {
+            &["PyPI"]
+        }
+
+        fn analyze_tier_b(&self, _: &TierBContext<'_>) -> TierBDecision {
+            TierBDecision::Unknown
+        }
+    }
+
+    #[test]
+    fn default_tier_c_and_tier_d_trait_methods() {
+        let analyzer = DefaultsOnlyAnalyzer;
+        assert!(!analyzer.supports_tier_c());
+        assert!(!analyzer.supports_tier_d());
+        let pkg = Package {
+            name: "pkg".to_string(),
+            version: "1.0".to_string(),
+            ecosystem: Some("PyPI".to_string()),
+        };
+        let exclude = HashSet::new();
+        let ctx = TierBContext {
+            scan_root: Path::new("."),
+            exclude_dir_names: &exclude,
+            package: &pkg,
+            language: "python",
+            manifest_paths: &[],
+        };
+        assert_eq!(
+            analyzer.analyze_tier_c(&ctx, &["sym".to_string()]),
+            TierCDecision::Unknown
+        );
+        assert_eq!(
+            analyzer.analyze_tier_d(&ctx, &["sym".to_string()]),
+            TierCDecision::Unknown
+        );
+    }
+
+    #[test]
+    fn list_files_with_ext_finds_matching_and_skips_excluded_dirs() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join("main.py"), "import x").expect("write");
+        let excluded = dir.path().join("node_modules");
+        std::fs::create_dir(&excluded).expect("mkdir");
+        std::fs::write(excluded.join("skip.py"), "x").expect("write");
+        let mut exclude = HashSet::new();
+        exclude.insert("node_modules".to_string());
+        let files =
+            list_files_with_ext(dir.path(), &exclude, "py").expect("list");
+        assert_eq!(files.len(), 1);
+        assert!(files[0].ends_with("main.py"));
+    }
+
+    #[test]
+    fn list_files_with_ext_missing_root_returns_empty() {
+        let exclude = HashSet::new();
+        let files = list_files_with_ext(
+            Path::new("/nonexistent/vlz-reachability-trait-root"),
+            &exclude,
+            "py",
+        )
+        .expect("list");
+        assert!(files.is_empty());
+    }
+
+    #[test]
+    fn list_files_with_ext_skips_non_matching_extension() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join("readme.txt"), "x").expect("write");
+        let exclude = HashSet::new();
+        let files =
+            list_files_with_ext(dir.path(), &exclude, "py").expect("list");
+        assert!(files.is_empty());
     }
 
     #[cfg(feature = "perf-instrumentation")]
