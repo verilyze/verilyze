@@ -1227,11 +1227,11 @@
       "version": "0.5.18"
     },
     {
-      "bom-ref": "pkg:cargo/regex@1.12.4",
+      "bom-ref": "pkg:cargo/regex@1.13.0",
       "name": "regex",
-      "purl": "pkg:cargo/regex@1.12.4",
+      "purl": "pkg:cargo/regex@1.13.0",
       "type": "library",
-      "version": "1.12.4"
+      "version": "1.13.0"
     },
     {
       "bom-ref": "pkg:cargo/regex-automata@0.4.14",
@@ -1269,39 +1269,39 @@
       "version": "1.1.1"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_python_ast@0.0.3",
+      "bom-ref": "pkg:cargo/ruff_python_ast@0.0.4",
       "name": "ruff_python_ast",
-      "purl": "pkg:cargo/ruff_python_ast@0.0.3",
+      "purl": "pkg:cargo/ruff_python_ast@0.0.4",
       "type": "library",
-      "version": "0.0.3"
+      "version": "0.0.4"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_python_parser@0.0.3",
+      "bom-ref": "pkg:cargo/ruff_python_parser@0.0.4",
       "name": "ruff_python_parser",
-      "purl": "pkg:cargo/ruff_python_parser@0.0.3",
+      "purl": "pkg:cargo/ruff_python_parser@0.0.4",
       "type": "library",
-      "version": "0.0.3"
+      "version": "0.0.4"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_python_trivia@0.0.3",
+      "bom-ref": "pkg:cargo/ruff_python_trivia@0.0.4",
       "name": "ruff_python_trivia",
-      "purl": "pkg:cargo/ruff_python_trivia@0.0.3",
+      "purl": "pkg:cargo/ruff_python_trivia@0.0.4",
       "type": "library",
-      "version": "0.0.3"
+      "version": "0.0.4"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_source_file@0.0.3",
+      "bom-ref": "pkg:cargo/ruff_source_file@0.0.4",
       "name": "ruff_source_file",
-      "purl": "pkg:cargo/ruff_source_file@0.0.3",
+      "purl": "pkg:cargo/ruff_source_file@0.0.4",
       "type": "library",
-      "version": "0.0.3"
+      "version": "0.0.4"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_text_size@0.0.3",
+      "bom-ref": "pkg:cargo/ruff_text_size@0.0.4",
       "name": "ruff_text_size",
-      "purl": "pkg:cargo/ruff_text_size@0.0.3",
+      "purl": "pkg:cargo/ruff_text_size@0.0.4",
       "type": "library",
-      "version": "0.0.3"
+      "version": "0.0.4"
     },
     {
       "bom-ref": "pkg:cargo/rustc-hash@2.1.2",
