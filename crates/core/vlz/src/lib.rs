@@ -6,9 +6,11 @@
 
 use clap::Parser;
 
+pub mod cache_warm;
 pub mod cli;
 pub mod config;
 pub mod config_example;
+pub mod package_resolve;
 pub mod registry;
 pub mod run;
 pub mod scan;

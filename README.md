@@ -162,6 +162,7 @@ uses the installed man page. Source: [man/vlz.1](man/vlz.1).
 | `vlz db show [--format FORMAT] [--full]` | Display cache entries (key, TTL, added-at, CVE summary or full payload) |
 | `vlz db set-ttl SECS [--entry KEY] [--all] [--pattern PATTERN] [--entries KEYS]` | Update TTL for existing cache entries |
 | `vlz db verify`              | Verify database integrity (SHA-256)                           |
+| `vlz preload [path]`         | Pre-populate CVE cache without a scan report (FR-021)           |
 | `vlz db migrate`             | Run migrations                                                |
 | `vlz fp mark CVE-ID [--comment ...] [--project-id ID]` | Mark CVE as false positive (optional project scope) |
 | `vlz fp unmark CVE-ID`       | Remove false-positive marking                                 |

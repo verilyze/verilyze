@@ -7,14 +7,15 @@ use anyhow::{Context, Result, anyhow};
 #[cfg(feature = "completions")]
 use clap::CommandFactory as _;
 use log::{LevelFilter, error, info};
-use std::collections::HashSet;
 use std::io::Write;
 use std::sync::Arc;
 use std::time::Instant;
-use tokio::sync::Semaphore;
-use vlz_manifest_finder::ManifestFinder;
 
+use crate::cache_warm::{
+    CacheWarmOptions, OFFLINE_CACHE_MISS_MESSAGE, warm_cache_for_packages,
+};
 use crate::cli::{Cli, Commands, FpCommands};
+use crate::package_resolve::resolve_packages_for_path;
 
 /// Write all bytes to `w`; propagates I/O errors (e.g. BrokenPipe).
 /// Used by write_stdout and by tests with a buffer.
@@ -109,37 +110,6 @@ pub fn log_level_from_verbosity_count(count: usize) -> LevelFilter {
     }
 }
 
-/// Deduplicate packages by (name, version). Keeps first occurrence.
-fn deduplicate_packages(packages: &[vlz_db::Package]) -> Vec<vlz_db::Package> {
-    let mut seen = std::collections::HashSet::new();
-    packages
-        .iter()
-        .filter(|p| seen.insert((p.name.as_str(), p.version.as_str())))
-        .cloned()
-        .collect()
-}
-
-fn normalized_exclude_dir_names(
-    entries: &[String],
-) -> std::collections::HashSet<String> {
-    entries
-        .iter()
-        .map(|entry| entry.trim())
-        .filter(|entry| !entry.is_empty())
-        .map(ToOwned::to_owned)
-        .collect()
-}
-
-fn should_skip_dir(
-    path: &std::path::Path,
-    exclude: &std::collections::HashSet<String>,
-) -> bool {
-    path.file_name()
-        .and_then(|name| name.to_str())
-        .map(|name| exclude.contains(name))
-        .unwrap_or(false)
-}
-
 #[cfg_attr(not(feature = "perf-instrumentation"), allow(dead_code))]
 fn tier_b_metrics_line(
     elapsed_ms: u128,
@@ -180,110 +150,44 @@ fn should_apply_tier_b(mode: crate::config::ReachabilityMode) -> bool {
     }
 }
 
-type ManifestDiscoveryResult = (
-    std::collections::HashMap<String, Vec<std::path::PathBuf>>,
-    Vec<(std::path::PathBuf, Vec<String>)>,
-);
-
-fn discover_manifests_one_pass(
-    root: &std::path::Path,
-    exclude_dirs: &std::collections::HashSet<String>,
-    #[cfg(feature = "python")] lock_file_allowlist: &[String],
-) -> std::io::Result<ManifestDiscoveryResult> {
-    let mut out: std::collections::HashMap<String, Vec<std::path::PathBuf>> =
-        std::collections::HashMap::new();
-    #[cfg(feature = "python")]
-    let mut python_manifests: Vec<std::path::PathBuf> = Vec::new();
-    #[cfg(feature = "python")]
-    let mut python_locks: Vec<std::path::PathBuf> = Vec::new();
-    #[cfg(feature = "python")]
-    let mut python_lock_dirs: HashSet<std::path::PathBuf> = HashSet::new();
-    let mut stack = vec![root.to_path_buf()];
-    while let Some(dir) = stack.pop() {
-        for entry in std::fs::read_dir(&dir)? {
-            let entry = entry?;
-            let file_type = entry.file_type()?;
-            if file_type.is_dir() {
-                let path = entry.path();
-                if !should_skip_dir(&path, exclude_dirs) {
-                    stack.push(path);
-                }
-                continue;
-            }
-            if !file_type.is_file() {
-                continue;
-            }
-            let file_name = entry.file_name();
-            let Some(name) = file_name.to_str() else {
-                continue;
-            };
-            #[cfg(feature = "python")]
-            {
-                if vlz_python::PYTHON_MANIFEST_NAMES.contains(&name) {
-                    python_manifests.push(entry.path());
-                    continue;
-                }
-                if vlz_python::is_python_lock_file(name) {
-                    if let Some(parent) = entry.path().parent() {
-                        python_lock_dirs.insert(parent.to_path_buf());
-                    }
-                    if vlz_python::lock_name_matches_allowlist(
-                        name,
-                        lock_file_allowlist,
-                    ) {
-                        python_locks.push(entry.path());
-                    }
-                    continue;
-                }
-            }
-            #[cfg(feature = "rust")]
-            if name == vlz_rust::RUST_MANIFEST_NAME {
-                out.entry("rust".to_string())
-                    .or_default()
-                    .push(entry.path());
-                continue;
-            }
-            #[cfg(feature = "go")]
-            if name == vlz_go::GO_MANIFEST_NAME {
-                out.entry("go".to_string()).or_default().push(entry.path());
+async fn select_provider_impl(
+    provider: Option<String>,
+    effective: &crate::config::EffectiveConfig,
+) -> Result<Arc<Box<dyn vlz_cve_client::CveProvider + Send + Sync + 'static>>>
+{
+    let mut prov = crate::registry::providers()
+        .lock()
+        .expect("PROVIDERS lock poisoned");
+    if prov.is_empty() {
+        error!("No CveProvider plug-in registered");
+        return Err(anyhow!("No CveProvider plug-in registered"));
+    }
+    let inner = if let Some(ref name) = provider {
+        let pos = prov.iter().position(|p| p.name() == name.as_str());
+        match pos {
+            Some(i) => prov.remove(i),
+            None => {
+                error!(
+                    "Unknown provider: {} (use `vlz db list-providers` to list)",
+                    name
+                );
+                return Err(anyhow!(
+                    "Unknown provider: {} (use `vlz db list-providers` to list)",
+                    name
+                ));
             }
         }
-    }
-    #[cfg(feature = "python")]
-    {
-        if !lock_file_allowlist.is_empty() {
-            for dir in &python_lock_dirs {
-                vlz_python::verify_lock_allowlist_for_dir(
-                    dir,
-                    lock_file_allowlist,
-                )
-                .map_err(|message| {
-                    std::io::Error::new(
-                        std::io::ErrorKind::InvalidInput,
-                        message,
-                    )
-                })?;
-            }
-        }
-        let orphans =
-            vlz_python::filter_orphan_locks(&python_manifests, &python_locks);
-        python_manifests.extend(orphans);
-        python_manifests.sort();
-        python_manifests.dedup();
-        out.insert("python".to_string(), python_manifests);
-    }
-    for manifests in out.values_mut() {
-        manifests.sort();
-    }
-    #[cfg(feature = "python")]
-    let orphan_multi_lock_warnings =
-        vlz_python::orphan_multi_lock_warning_dirs(
-            out.get("python").map_or(&[][..], |v| v.as_slice()),
-            &python_locks,
-        );
-    #[cfg(not(feature = "python"))]
-    let orphan_multi_lock_warnings = Vec::new();
-    Ok((out, orphan_multi_lock_warnings))
+    } else {
+        prov.remove(0)
+    };
+    let backoff_config = vlz_cve_client::BackoffConfig {
+        base_ms: effective.backoff_base_ms,
+        max_ms: effective.backoff_max_ms,
+        max_retries: effective.max_retries,
+    };
+    let wrapped =
+        vlz_cve_client::RetryingCveProvider::new(inner, backoff_config);
+    Ok(Arc::new(Box::new(wrapped)))
 }
 
 /// MOD-009, DOC-013: Show man page via `vlz help` or `vlz help <subcommand>`.
@@ -377,6 +281,11 @@ pub async fn run(args: Cli) -> Result<i32> {
             project_id.clone(),
             reachability_mode.clone(),
         ),
+        Commands::Preload {
+            cache_ttl_secs,
+            cache_db,
+            ..
+        } => (*cache_ttl_secs, cache_db.clone(), None, None, None),
         Commands::Fp { .. } => (None, None, None, None, None),
         _ => (None, None, None, None, None),
     };
@@ -398,6 +307,12 @@ pub async fn run(args: Cli) -> Result<i32> {
         cli_tls_crl_bundle,
     ) = match &args.cmd {
         Commands::Scan {
+            provider_http_connect_timeout_secs,
+            provider_http_request_timeout_secs,
+            tls_crl_bundle,
+            ..
+        }
+        | Commands::Preload {
             provider_http_connect_timeout_secs,
             provider_http_request_timeout_secs,
             tls_crl_bundle,
@@ -1113,12 +1028,97 @@ pub async fn run(args: Cli) -> Result<i32> {
             }
         }
 
-        Commands::Preload => {
-            // FR-021: placeholder; future: connect to remote CVE DB and populate cache
-            write_stdout(
-                "vlz preload is a placeholder; cache is populated on demand during scan.\n",
-            );
-            Ok(0)
+        Commands::Preload {
+            root,
+            provider,
+            parallel: cli_parallel,
+            parallel_resolutions: cli_parallel_resolutions,
+            cache_db: cli_cache_db_preload,
+            scan_exclude_dir: cli_scan_exclude_dir_preload,
+            lock_file: cli_lock_files_preload,
+            cache_ttl_secs: cli_cache_ttl_secs_preload,
+            offline,
+            package_manager_required,
+            keep_ephemeral_venv,
+            allow_dependency_code_execution,
+            allow_direct_only_fallback,
+            fail_fast,
+            backoff_base: cli_backoff_base,
+            backoff_max: cli_backoff_max,
+            max_retries: cli_max_retries,
+            provider_http_connect_timeout_secs:
+                cli_provider_http_connect_preload,
+            provider_http_request_timeout_secs:
+                cli_provider_http_request_preload,
+            tls_crl_bundle: cli_tls_crl_bundle_preload,
+        } => {
+            let mut effective =
+                crate::config::load_with_reachability_overrides(
+                    args.config.as_deref(),
+                    crate::config::env_parallel(),
+                    crate::config::env_parallel_resolutions(),
+                    crate::config::env_cache_db(),
+                    None,
+                    crate::config::env_cache_ttl_secs(),
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    crate::config::env_backoff_base_ms(),
+                    crate::config::env_backoff_max_ms(),
+                    crate::config::env_max_retries(),
+                    crate::config::env_provider_http_connect_timeout_secs(),
+                    crate::config::env_provider_http_request_timeout_secs(),
+                    crate::config::env_tls_crl_bundle(),
+                    cli_parallel,
+                    cli_parallel_resolutions,
+                    cli_cache_db_preload.as_deref(),
+                    None,
+                    cli_cache_ttl_secs_preload,
+                    offline,
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    package_manager_required,
+                    cli_backoff_base,
+                    cli_backoff_max,
+                    cli_max_retries,
+                    cli_provider_http_connect_preload,
+                    cli_provider_http_request_preload,
+                    cli_tls_crl_bundle_preload,
+                    None,
+                    None,
+                    keep_ephemeral_venv,
+                    allow_dependency_code_execution,
+                    allow_direct_only_fallback,
+                    fail_fast,
+                    crate::config::env_severity_overrides(),
+                    crate::config::SeverityOverrides::default(),
+                )
+                .map_err(|e| {
+                    error!("{}", e);
+                    anyhow!(e)
+                })?;
+            if !cli_scan_exclude_dir_preload.is_empty() {
+                effective.scan_exclude_dirs = cli_scan_exclude_dir_preload;
+            }
+            #[cfg(feature = "python")]
+            if !cli_lock_files_preload.is_empty() {
+                effective.python_lock_files =
+                    vlz_python::normalize_lock_file_allowlist(
+                        &cli_lock_files_preload,
+                    )
+                    .map_err(|message| {
+                        error!("{}", message);
+                        anyhow!(message)
+                    })?;
+            }
+            run_preload(root, provider, effective, args.verbose, db_backend)
+                .await
         }
 
         Commands::Help { .. } => {
@@ -1134,6 +1134,78 @@ pub async fn run(args: Cli) -> Result<i32> {
     }
 }
 
+/// FR-021: resolve manifests and warm the CVE cache without reporting.
+async fn run_preload(
+    root: Option<String>,
+    provider: Option<String>,
+    effective: crate::config::EffectiveConfig,
+    verbosity: u8,
+    db_backend: Arc<Box<dyn vlz_db::DatabaseBackend + Send + Sync + 'static>>,
+) -> Result<i32> {
+    let resolved =
+        resolve_packages_for_path(root, &effective, verbosity).await?;
+    if resolved.package_manager_missing {
+        return Ok(3);
+    }
+
+    let blocking = crate::scan::count_blocking_manifest_failures(
+        &resolved.manifest_coverage,
+    );
+    if blocking > 0
+        && let Some(summary) = crate::scan::format_manifest_failure_summary(
+            &resolved.manifest_coverage,
+            Some(&resolved.root_path),
+        )
+    {
+        eprintln!("{}", summary);
+    }
+    if resolved.skip_cve_phase {
+        return Ok(2);
+    }
+
+    let provider_impl = select_provider_impl(provider, &effective).await?;
+    let parallel = if effective.parallel_queries == 0 {
+        crate::config::DEFAULT_PARALLEL_QUERIES
+    } else {
+        effective.parallel_queries
+    };
+    let warm = warm_cache_for_packages(
+        &resolved.packages_to_check,
+        db_backend,
+        provider_impl,
+        &CacheWarmOptions {
+            parallel,
+            offline: effective.offline,
+            benchmark: false,
+        },
+    )
+    .await?;
+
+    write_stdout(&format!(
+        "Preloaded {} package(s): {} cache hit(s), {} fetched, {} with CVE data.\n",
+        warm.summary.packages_checked,
+        warm.summary.cache_hits,
+        warm.summary.fetched,
+        warm.findings.iter().filter(|(_, r)| !r.is_empty()).count(),
+    ));
+
+    if warm.summary.offline_cache_miss {
+        eprintln!("{}", OFFLINE_CACHE_MISS_MESSAGE);
+    }
+    if warm.summary.provider_fetch_failed {
+        eprintln!(
+            "Unable to fetch CVE data from provider. Run with -v for details."
+        );
+    }
+
+    Ok(crate::scan::pick_exit_code(
+        blocking,
+        warm.summary.offline_cache_miss,
+        warm.summary.provider_fetch_failed,
+        0,
+    ))
+}
+
 /// Runs the scan pipeline; returns the exit code to use (0, 1, 3, 4, 86, etc.).
 async fn run_scan(
     root: Option<String>,
@@ -1144,174 +1216,22 @@ async fn run_scan(
     _verbosity: u8,
     db_backend: Arc<Box<dyn vlz_db::DatabaseBackend + Send + Sync + 'static>>,
 ) -> Result<i32> {
-    // -----------------------------------------------------------------
-    // a) Resolve the root directory (default = current working dir)
-    // -----------------------------------------------------------------
-    let root_path = match root {
-        Some(p) => std::path::PathBuf::from(p),
-        None => std::env::current_dir()
-            .context("Unable to obtain current directory")?,
-    };
-    info!("Scanning root: {}", root_path.display());
-
     let benchmark_start = effective.benchmark.then(Instant::now);
 
-    // -----------------------------------------------------------------
-    // b) Choose the plug-ins we will use (all registered finder/parser/resolver triplets)
-    // -----------------------------------------------------------------
-    let mut finders = Vec::new();
-    let mut parsers = Vec::new();
-    let mut resolvers = Vec::new();
-
-    if effective.language_regexes.is_empty() {
-        std::mem::swap(
-            &mut *crate::registry::finders().lock().unwrap(),
-            &mut finders,
-        );
-        std::mem::swap(
-            &mut *crate::registry::parsers().lock().unwrap(),
-            &mut parsers,
-        );
-        std::mem::swap(
-            &mut *crate::registry::resolvers().lock().unwrap(),
-            &mut resolvers,
-        );
-    } else {
-        let patterns: Vec<String> = effective
-            .language_regexes
-            .iter()
-            .map(|(_, r)| r.clone())
-            .collect();
-        let first_lang =
-            effective.language_regexes.first().map(|(l, _)| l.as_str());
-        #[cfg(feature = "python")]
-        if first_lang != Some("rust") && first_lang != Some("go") {
-            match vlz_python::PythonManifestFinder::with_patterns(
-                patterns.clone(),
-            ) {
-                Ok(f) => finders.push(Box::new(f.with_lock_file_allowlist(
-                    effective.python_lock_files.clone(),
-                ))),
-                Err(e) => {
-                    error!("Invalid language regex in config: {}", e);
-                    return Err(anyhow!(
-                        "Invalid language regex in config: {}",
-                        e
-                    ));
-                }
-            }
-        }
-        #[cfg(feature = "rust")]
-        if first_lang == Some("rust")
-            || (finders.is_empty() && first_lang != Some("go"))
-        {
-            match vlz_rust::RustManifestFinder::with_patterns(patterns.clone())
-            {
-                Ok(f) => finders.push(Box::new(f)),
-                Err(e) => {
-                    error!("Invalid language regex in config: {}", e);
-                    return Err(anyhow!(
-                        "Invalid language regex in config: {}",
-                        e
-                    ));
-                }
-            }
-        }
-        #[cfg(feature = "go")]
-        if first_lang == Some("go") || finders.is_empty() {
-            match vlz_go::GoManifestFinder::with_patterns(patterns) {
-                Ok(f) => finders.push(Box::new(f)),
-                Err(e) => {
-                    error!("Invalid language regex in config: {}", e);
-                    return Err(anyhow!(
-                        "Invalid language regex in config: {}",
-                        e
-                    ));
-                }
-            }
-        }
-        #[cfg(not(any(
-            feature = "python",
-            feature = "rust",
-            feature = "go"
-        )))]
-        {
-            error!(
-                "Custom language regexes require a language plugin (e.g. python, rust, or go feature)"
-            );
-            return Err(anyhow!(
-                "Custom language regexes require a language plugin"
-            ));
-        }
-        let mut p = crate::registry::parsers().lock().unwrap();
-        let mut r = crate::registry::resolvers().lock().unwrap();
-        let m = finders.len().min(p.len()).min(r.len());
-        for _ in 0..m {
-            parsers.push(p.remove(0));
-            resolvers.push(r.remove(0));
-        }
+    let resolved =
+        resolve_packages_for_path(root, &effective, _verbosity).await?;
+    if resolved.package_manager_missing {
+        return Ok(3);
     }
+    let root_path = resolved.root_path;
+    let exclude_dirs = resolved.exclude_dirs;
+    let packages_with_manifests = resolved.packages_with_manifests;
+    let pkg_contexts = resolved.pkg_contexts;
+    let packages_to_check = resolved.packages_to_check;
+    let manifest_coverage = resolved.manifest_coverage;
+    let skip_cve_phase = resolved.skip_cve_phase;
 
-    let n = finders.len().min(parsers.len()).min(resolvers.len());
-    if n == 0 {
-        error!("No ManifestFinder, Parser, or Resolver plug-in registered");
-        return Err(anyhow!(
-            "No ManifestFinder, Parser, or Resolver plug-in registered"
-        ));
-    }
-
-    // -----------------------------------------------------------------
-    // b2) FR-024: if package manager required, check resolvers and exit 3 with hint if missing
-    // -----------------------------------------------------------------
-    if effective.package_manager_required {
-        for r in resolvers.iter().take(n) {
-            if !r.package_manager_available() {
-                eprintln!(
-                    "Required package manager not found on PATH. {}",
-                    r.package_manager_hint()
-                );
-                return Ok(3);
-            }
-        }
-    }
-
-    let provider_impl: Arc<
-        Box<dyn vlz_cve_client::CveProvider + Send + Sync + 'static>,
-    > = {
-        let mut prov = crate::registry::providers()
-            .lock()
-            .expect("PROVIDERS lock poisoned");
-        if prov.is_empty() {
-            error!("No CveProvider plug-in registered");
-            return Err(anyhow!("No CveProvider plug-in registered"));
-        }
-        let inner = if let Some(ref name) = provider {
-            let pos = prov.iter().position(|p| p.name() == name.as_str());
-            match pos {
-                Some(i) => prov.remove(i),
-                None => {
-                    error!(
-                        "Unknown provider: {} (use `vlz db list-providers` to list)",
-                        name
-                    );
-                    return Err(anyhow!(
-                        "Unknown provider: {} (use `vlz db list-providers` to list)",
-                        name
-                    ));
-                }
-            }
-        } else {
-            prov.remove(0)
-        };
-        let backoff_config = vlz_cve_client::BackoffConfig {
-            base_ms: effective.backoff_base_ms,
-            max_ms: effective.backoff_max_ms,
-            max_retries: effective.max_retries,
-        };
-        let wrapped =
-            vlz_cve_client::RetryingCveProvider::new(inner, backoff_config);
-        Arc::new(Box::new(wrapped))
-    };
+    let provider_impl = select_provider_impl(provider, &effective).await?;
 
     let reporter: Box<dyn vlz_report::Reporter> =
         if format.eq_ignore_ascii_case("json") {
@@ -1341,422 +1261,41 @@ async fn run_scan(
     } else {
         effective.parallel_queries
     };
-    let effective_resolution_parallel = if effective.benchmark {
-        1
-    } else {
-        effective.parallel_resolutions
-    };
-    let use_network = !(effective.offline || effective.benchmark);
 
-    // -----------------------------------------------------------------
-    // d) Scan phase - find manifest files, parse, resolve (per language triplet)
-    // -----------------------------------------------------------------
-    let discovery_started_at = Instant::now();
-    let exclude_dirs =
-        normalized_exclude_dir_names(&effective.scan_exclude_dirs);
-    let mut all_packages_with_manifests: Vec<(
-        vlz_db::Package,
-        std::path::PathBuf,
-        String,
-    )> = Vec::new();
-    let mut direct_only_warned: std::collections::HashSet<(
-        std::path::PathBuf,
-        &'static str,
-    )> = std::collections::HashSet::new();
-    let mut multi_lock_warned: std::collections::HashSet<std::path::PathBuf> =
-        std::collections::HashSet::new();
-    let mut manifest_coverage: Vec<vlz_report::ManifestCoverageEntry> =
-        Vec::new();
-    let mut skip_cve_phase = false;
-    let resolve_ctx = vlz_manifest_parser::ResolveContext {
-        keep_ephemeral_venv: effective.keep_ephemeral_venv,
-        skip_pip_resolution: effective.offline || effective.benchmark,
-        benchmark_mode: effective.benchmark,
-        allow_dependency_code_execution: effective
-            .allow_dependency_code_execution,
-        allow_direct_only_fallback: effective.allow_direct_only_fallback,
-        python_lock_files: effective.python_lock_files.clone(),
-    };
-    let can_use_shared_discovery = effective.language_regexes.is_empty()
-        && finders.iter().take(n).all(|finder| {
-            matches!(finder.language_name(), "python" | "rust" | "go")
-        });
-
-    let (mut manifests_by_language, orphan_multi_lock_warnings) =
-        if can_use_shared_discovery {
-            discover_manifests_one_pass(
-                &root_path,
-                &exclude_dirs,
-                #[cfg(feature = "python")]
-                &effective.python_lock_files,
-            )
-            .context("Failed during manifest discovery")?
-        } else {
-            (std::collections::HashMap::new(), Vec::new())
-        };
-
-    for (dir, lock_names) in &orphan_multi_lock_warnings {
-        eprintln!(
-            "{}",
-            vlz_manifest_parser::format_multi_lock_warning(
-                &dir.display().to_string(),
-                lock_names,
-            )
-        );
-    }
-
-    for i in 0..n {
-        if skip_cve_phase {
-            break;
-        }
-        let language = finders[i].language_name().to_string();
-        let language_discovery_started_at = Instant::now();
-        let mut manifests = if can_use_shared_discovery {
-            manifests_by_language.remove(&language).unwrap_or_default()
-        } else if language == "python" {
-            #[cfg(feature = "python")]
-            {
-                if effective.language_regexes.is_empty() {
-                    vlz_python::PythonManifestFinder::new()
-                        .with_lock_file_allowlist(
-                            effective.python_lock_files.clone(),
-                        )
-                        .find(&root_path)
-                        .await
-                        .context("Failed during manifest discovery")?
-                } else {
-                    finders[i]
-                        .find(&root_path)
-                        .await
-                        .context("Failed during manifest discovery")?
-                }
-            }
-            #[cfg(not(feature = "python"))]
-            Vec::new()
-        } else {
-            finders[i]
-                .find(&root_path)
-                .await
-                .context("Failed during manifest discovery")?
-        };
-        manifests.sort();
-        #[cfg(feature = "python")]
-        if !can_use_shared_discovery && language == "python" {
-            let lock_paths: Vec<std::path::PathBuf> = manifests
-                .iter()
-                .filter(|p| vlz_python::manifest_is_lock_file(p))
-                .cloned()
-                .collect();
-            let manifest_paths: Vec<std::path::PathBuf> = manifests
-                .iter()
-                .filter(|p| !vlz_python::manifest_is_lock_file(p))
-                .cloned()
-                .collect();
-            for (dir, lock_names) in vlz_python::orphan_multi_lock_warning_dirs(
-                &manifest_paths,
-                &lock_paths,
-            ) {
-                eprintln!(
-                    "{}",
-                    vlz_manifest_parser::format_multi_lock_warning(
-                        &dir.display().to_string(),
-                        &lock_names,
-                    )
-                );
-            }
-        }
-        let language_discovery_ms =
-            language_discovery_started_at.elapsed().as_millis();
-        info!(
-            "Found {} manifest(s) for {} in {} ms",
-            manifests.len(),
-            language,
-            language_discovery_ms
-        );
-        let parser = &parsers[i];
-        let resolver = &resolvers[i];
-        let ctx = resolve_ctx.clone();
-        let resolution_semaphore =
-            Arc::new(Semaphore::new(effective_resolution_parallel));
-        let tasks: Vec<_> = manifests
-            .into_iter()
-            .map(|mf| {
-                let language = language.clone();
-                let ctx = ctx.clone();
-                let resolution_sem = resolution_semaphore.clone();
-                async move {
-                    match parser.parse(&mf).await {
-                        Ok(graph) => {
-                            let _permit = resolution_sem.acquire().await;
-                            match resolver.resolve(&graph, &ctx).await {
-                                Ok(resolved) => {
-                                    crate::scan::ManifestTaskOutcome::Success {
-                                        resolved,
-                                        manifest_path: mf,
-                                        language,
-                                    }
-                                }
-                                Err(error) => {
-                                    crate::scan::ManifestTaskOutcome::ResolveFailed {
-                                        manifest_path: mf,
-                                        language,
-                                        error,
-                                    }
-                                }
-                            }
-                        }
-                        Err(error) => {
-                            crate::scan::ManifestTaskOutcome::ParseFailed {
-                                manifest_path: mf,
-                                language,
-                                error,
-                            }
-                        }
-                    }
-                }
-            })
-            .collect();
-        let mut outcomes = futures::future::join_all(tasks).await;
-        outcomes.sort_by(|a, b| a.manifest_path().cmp(b.manifest_path()));
-        for outcome in outcomes {
-            match outcome {
-                crate::scan::ManifestTaskOutcome::Success {
-                    resolved,
-                    manifest_path,
-                    language,
-                } => {
-                    manifest_coverage.push(
-                        crate::scan::coverage_entry_success(
-                            manifest_path.clone(),
-                            language.clone(),
-                            &resolved,
-                        ),
-                    );
-                    if resolved.depth
-                        == vlz_manifest_parser::ResolutionDepth::DirectOnly
-                        && let Some(reason) = resolved.direct_only_reason
-                        && direct_only_warned
-                            .insert((manifest_path.clone(), reason))
-                    {
-                        eprintln!(
-                            "{}",
-                            vlz_manifest_parser::format_direct_only_warning(
-                                &manifest_path.display().to_string(),
-                                reason,
-                            )
-                        );
-                    }
-                    if resolved.resolved_lock_paths.len() > 1
-                        && let Some(dir) = manifest_path.parent()
-                        && multi_lock_warned.insert(dir.to_path_buf())
-                    {
-                        let lock_names: Vec<String> = resolved
-                            .resolved_lock_paths
-                            .iter()
-                            .filter_map(|p| {
-                                p.file_name()
-                                    .and_then(|n| n.to_str())
-                                    .map(str::to_string)
-                            })
-                            .collect();
-                        eprintln!(
-                            "{}",
-                            vlz_manifest_parser::format_multi_lock_warning(
-                                &dir.display().to_string(),
-                                &lock_names,
-                            )
-                        );
-                    }
-                    for pkg in resolved.packages {
-                        if let Some(sources) =
-                            resolved.package_source_paths.get(&pkg)
-                        {
-                            for path in sources {
-                                all_packages_with_manifests.push((
-                                    pkg.clone(),
-                                    path.clone(),
-                                    language.clone(),
-                                ));
-                            }
-                        } else {
-                            all_packages_with_manifests.push((
-                                pkg,
-                                manifest_path.clone(),
-                                language.clone(),
-                            ));
-                        }
-                    }
-                }
-                crate::scan::ManifestTaskOutcome::ParseFailed {
-                    manifest_path,
-                    language,
-                    error,
-                } => {
-                    manifest_coverage.push(
-                        crate::scan::coverage_entry_parse_failure(
-                            manifest_path.clone(),
-                            language,
-                            &error,
-                        ),
-                    );
-                    crate::scan::log_manifest_failure(
-                        &manifest_path,
-                        &error,
-                        _verbosity,
-                    );
-                    if effective.fail_fast {
-                        skip_cve_phase = true;
-                        break;
-                    }
-                }
-                crate::scan::ManifestTaskOutcome::ResolveFailed {
-                    manifest_path,
-                    language,
-                    error,
-                } => {
-                    manifest_coverage.push(
-                        crate::scan::coverage_entry_resolution_failure(
-                            manifest_path.clone(),
-                            language,
-                            &error,
-                        ),
-                    );
-                    crate::scan::log_manifest_failure(
-                        &manifest_path,
-                        &error,
-                        _verbosity,
-                    );
-                    if effective.fail_fast {
-                        skip_cve_phase = true;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    info!(
-        "Manifest discovery finished in {} ms",
-        discovery_started_at.elapsed().as_millis()
-    );
-    info!(
-        "Discovered {} package entries",
-        all_packages_with_manifests.len()
-    );
-
-    // Build package -> manifest paths map (deduplicate paths per package).
     let mut pkg_to_manifests: std::collections::HashMap<
         vlz_db::Package,
         std::collections::HashSet<std::path::PathBuf>,
     > = std::collections::HashMap::new();
-    let mut pkg_contexts: std::collections::HashMap<
-        vlz_db::Package,
-        vlz_reachability::PackageContext,
-    > = std::collections::HashMap::new();
-    for (pkg, path, language) in &all_packages_with_manifests {
+    for (pkg, path, _) in &packages_with_manifests {
         pkg_to_manifests
             .entry(pkg.clone())
             .or_default()
             .insert(path.clone());
-        let entry = pkg_contexts.entry(pkg.clone()).or_default();
-        entry.languages.insert(language.clone());
-        entry.manifest_paths.push(path.clone());
     }
-    let all_packages: Vec<vlz_db::Package> = all_packages_with_manifests
-        .iter()
-        .map(|(p, _, _)| p.clone())
-        .collect();
-    let packages_to_check = deduplicate_packages(&all_packages);
-    info!(
-        "Checking {} unique packages for CVEs",
-        packages_to_check.len()
-    );
 
-    // -----------------------------------------------------------------
-    // f) For each package: try cache -> (optional) network -> store
-    // -----------------------------------------------------------------
-    let mut findings = Vec::new();
     let mut offline_cache_miss = false;
     let mut provider_fetch_failed = false;
+    let mut findings = Vec::new();
 
     if !skip_cve_phase {
-        let semaphore = Arc::new(Semaphore::new(effective_parallel));
-        let mut handles = Vec::new();
-
-        let benchmark_mode = effective.benchmark;
-
-        for pkg in &packages_to_check {
-            let db = db_backend.clone();
-            let prov = provider_impl.clone();
-            let sem = semaphore.clone();
-            let permit = sem.acquire_owned().await.unwrap();
-            let pkg = pkg.clone();
-
-            let fut = async move {
-                let _guard = permit;
-
-                // FR-029: benchmark mode bypasses cache and network entirely so only the
-                // scan/parse/resolve pipeline is timed.
-                if benchmark_mode {
-                    return Ok(benchmark_lookup_result(&pkg));
-                }
-
-                if let Some(cached) =
-                    db.as_ref().get(&pkg, prov.name()).await?
-                {
-                    return Ok((pkg.clone(), cached));
-                }
-
-                if !use_network {
-                    return Err(anyhow!(
-                        "CVE not found in cache, and unable to lookup CVE due to `--offline` argument."
-                    ));
-                }
-
-                let fetched =
-                    prov.as_ref().fetch(&pkg).await.with_context(|| {
-                        format!(
-                            "Fetching CVEs for {}@{}",
-                            pkg.name, pkg.version
-                        )
-                    })?;
-                db.as_ref()
-                    .put(&pkg, prov.name(), &fetched.raw_vulns, None)
-                    .await
-                    .with_context(|| {
-                        format!(
-                            "Storing cache for {}@{}",
-                            pkg.name, pkg.version
-                        )
-                    })?;
-                Ok((pkg.clone(), fetched.records))
-            };
-
-            handles.push(tokio::spawn(fut));
-        }
-
-        // -----------------------------------------------------------------
-        // g) Gather results, apply false-positive filtering & severity map
-        // -----------------------------------------------------------------
-        for h in handles {
-            match h.await? {
-                Ok((pkg, recs)) => {
-                    findings.push((pkg, recs));
-                }
-                Err(e) => {
-                    let msg = e.to_string();
-                    if effective.offline && msg.contains("--offline") {
-                        offline_cache_miss = true;
-                    } else {
-                        provider_fetch_failed = true;
-                        error!("{}", e);
-                        if _verbosity > 0 {
-                            for cause in e.chain().skip(1) {
-                                error!("  Caused by: {}", cause);
-                            }
-                        }
-                    }
-                }
-            }
+        let warm = warm_cache_for_packages(
+            &packages_to_check,
+            db_backend.clone(),
+            provider_impl.clone(),
+            &CacheWarmOptions {
+                parallel: effective_parallel,
+                offline: effective.offline,
+                benchmark: effective.benchmark,
+            },
+        )
+        .await?;
+        offline_cache_miss = warm.summary.offline_cache_miss;
+        provider_fetch_failed = warm.summary.provider_fetch_failed;
+        findings = warm.findings;
+        if provider_fetch_failed && _verbosity > 0 {
+            error!(
+                "One or more CVE provider fetches failed during cache warm"
+            );
         }
     }
 
@@ -2135,31 +1674,6 @@ mod tests {
     }
 
     #[test]
-    fn deduplicate_packages_removes_duplicates() {
-        let packages = vec![
-            vlz_db::Package {
-                name: "foo".to_string(),
-                version: "1.0".to_string(),
-                ecosystem: None,
-            },
-            vlz_db::Package {
-                name: "bar".to_string(),
-                version: "2.0".to_string(),
-                ecosystem: None,
-            },
-            vlz_db::Package {
-                name: "foo".to_string(),
-                version: "1.0".to_string(),
-                ecosystem: None,
-            },
-        ];
-        let deduped = deduplicate_packages(&packages);
-        assert_eq!(deduped.len(), 2);
-        assert_eq!(deduped[0].name, "foo");
-        assert_eq!(deduped[1].name, "bar");
-    }
-
-    #[test]
     fn compute_scan_exit_code_no_trigger() {
         assert_eq!(compute_scan_exit_code(0, 1, Some(99)), 0);
         assert_eq!(compute_scan_exit_code(0, 0, Some(86)), 0);
@@ -2191,20 +1705,6 @@ mod tests {
         assert!(cves.is_empty());
     }
 
-    #[test]
-    fn normalized_exclude_dir_names_trims_and_deduplicates() {
-        let input = vec![
-            ".git".to_string(),
-            " target ".to_string(),
-            "".to_string(),
-            ".git".to_string(),
-        ];
-        let got = normalized_exclude_dir_names(&input);
-        assert!(got.contains(".git"));
-        assert!(got.contains("target"));
-        assert_eq!(got.len(), 2);
-    }
-
     #[cfg(feature = "perf-instrumentation")]
     #[test]
     fn tier_b_metrics_line_present_when_feature_enabled() {
@@ -2220,84 +1720,6 @@ mod tests {
     #[test]
     fn tier_b_metrics_line_absent_when_feature_disabled() {
         assert!(tier_b_metrics_line(12, 3, 4, 5, 6).is_none());
-    }
-
-    #[cfg(feature = "python")]
-    #[test]
-    fn discover_manifests_one_pass_skips_excluded_dir() {
-        let dir = tempfile::tempdir().unwrap();
-        let root = dir.path();
-        std::fs::create_dir_all(root.join(".git")).unwrap();
-        std::fs::write(root.join(".git").join("requirements.txt"), "x==1.0\n")
-            .unwrap();
-        std::fs::write(root.join("requirements.txt"), "y==2.0\n").unwrap();
-        let mut excludes = std::collections::HashSet::new();
-        excludes.insert(".git".to_string());
-        let got = discover_manifests_one_pass(root, &excludes, &[]).unwrap();
-        let manifests = got.0.get("python").cloned().unwrap_or_default();
-        assert_eq!(manifests, vec![root.join("requirements.txt")]);
-    }
-
-    #[cfg(feature = "python")]
-    #[test]
-    fn discover_manifests_one_pass_finds_orphan_pylock() {
-        let dir = tempfile::tempdir().unwrap();
-        let root = dir.path();
-        let pylock = root.join("pylock.toml");
-        std::fs::write(
-            &pylock,
-            "[[packages]]\nname = \"a\"\nversion = \"1.0\"\n",
-        )
-        .unwrap();
-        let got = discover_manifests_one_pass(root, &Default::default(), &[])
-            .unwrap();
-        let manifests = got.0.get("python").cloned().unwrap_or_default();
-        assert_eq!(manifests, vec![pylock]);
-    }
-
-    #[cfg(feature = "python")]
-    #[test]
-    fn discover_manifests_one_pass_lock_allowlist_filters_orphans() {
-        let dir = tempfile::tempdir().unwrap();
-        let root = dir.path();
-        std::fs::write(
-            root.join("pylock.toml"),
-            "[[packages]]\nname = \"a\"\nversion = \"1.0\"\n",
-        )
-        .unwrap();
-        std::fs::write(
-            root.join("poetry.lock"),
-            "[[package]]\nname = \"b\"\nversion = \"2.0\"\n",
-        )
-        .unwrap();
-        let got = discover_manifests_one_pass(
-            root,
-            &Default::default(),
-            &["poetry.lock".to_string()],
-        )
-        .unwrap();
-        let manifests = got.0.get("python").cloned().unwrap_or_default();
-        assert_eq!(manifests, vec![root.join("poetry.lock")]);
-    }
-
-    #[cfg(feature = "python")]
-    #[test]
-    fn discover_manifests_one_pass_lock_allowlist_missing_listed_lock_errors()
-    {
-        let dir = tempfile::tempdir().unwrap();
-        let root = dir.path();
-        std::fs::write(
-            root.join("uv.lock"),
-            "version = 1\n\n[[package]]\nname = \"pkg\"\nversion = \"1.0\"\n",
-        )
-        .unwrap();
-        let err = discover_manifests_one_pass(
-            root,
-            &Default::default(),
-            &["poetry.lock".to_string()],
-        )
-        .unwrap_err();
-        assert!(err.to_string().contains("poetry.lock"));
     }
 
     #[test]

@@ -127,6 +127,14 @@ CVE provider HTTPS total request timeout in seconds (default: 120).
 .It Fl -severity-v4-medium-min Ar score
 .It Fl -severity-v4-low-min Ar score
 CVSS severity thresholds (defaults: 9.0, 7.0, 4.0, 0.1).
+.It Fl -reachability-mode Ar mode
+Reachability analysis mode:
+.Cm off ,
+.Cm tier-b ,
+or
+.Cm best-available
+(Tier C where supported; default:
+.Cm tier-b ) .
 .El
 .It Nm list
 List registered language plugin names.
@@ -177,7 +185,23 @@ Generate shell completion script. Supported shells: bash, zsh, fish.
 Output to stdout; redirect to the appropriate location for your shell.
 .El
 .It Nm preload
-Placeholder; cache is populated on demand during scan.
+.Op Ar path
+Pre-populate the CVE cache for packages discovered under
+.Ar path
+without generating a scan report (FR-021). Uses the same manifest
+discovery and resolution settings as
+.Nm scan
+(cache, provider, offline, lock-file, reachability flags, and related options).
+Warms successfully resolved packages even when other manifests fail (FR-037);
+exit
+.Sy 2
+when blocking manifest failures remain after warm. Exit
+.Sy 4
+when
+.Fl -offline
+is set and a package is not already cached; exit
+.Sy 5
+on provider fetch failure.
 .El
 .Sh EXIT CODES
 .Bl -tag -width Ds
@@ -244,6 +268,21 @@ Max concurrent CVE queries (1-50).
 Max concurrent manifest resolution subprocesses (1-32).
 .It Ev VLZ_SCAN_EXCLUDE_DIRS
 Comma-separated directory names skipped during manifest discovery.
+.It Ev VLZ_REACHABILITY_MODE
+Reachability mode:
+.Cm off ,
+.Cm tier-b ,
+or
+.Cm best-available .
+.It Ev VLZ_REACHABILITY_PERSIST_CACHE
+When set to
+.Cm 1 ,
+.Cm true ,
+or
+.Cm yes ,
+persist Tier B and per-CVE Tier C decisions under
+.Pa .vlz/reachability-cache.json
+in the scan root.
 .It Ev VLZ_CACHE_TTL_SECS
 Default cache TTL in seconds.
 .It Ev VLZ_MIN_SCORE

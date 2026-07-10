@@ -64,8 +64,8 @@ run_cov_bin config --list
 run_cov_bin db stats
 run_cov_bin db verify
 run_cov_bin db show --format json
-run_cov_bin preload
 mkdir -p /tmp/vlz-cov-scan
+run_cov_bin preload /tmp/vlz-cov-scan
 run_cov_bin scan /tmp/vlz-cov-scan --offline --benchmark
 # Error path in main.rs: unknown provider yields exit 2
 run_cov_bin scan /tmp/vlz-cov-scan --offline --provider nonexistentprovider \

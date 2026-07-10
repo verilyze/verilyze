@@ -268,6 +268,17 @@ pub trait DatabaseBackend: Send + Sync {
         Err(DatabaseError::Other("set_ttl not supported".into()))
     }
 
+    /// Retrieve cached raw vuln JSON for reachability Tier C (FR-032).
+    /// Default returns `Ok(None)` when the backend cannot expose raw payloads.
+    async fn get_raw_vulns(
+        &self,
+        pkg: &Package,
+        provider_id: &str,
+    ) -> Result<Option<Vec<serde_json::Value>>, DatabaseError> {
+        let _ = (pkg, provider_id);
+        Ok(None)
+    }
+
     /// Verify integrity of the underlying storage.
     ///
     /// The default implementation simply returns `Ok(())`.  Concrete

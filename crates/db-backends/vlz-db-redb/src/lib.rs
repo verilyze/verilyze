@@ -246,21 +246,12 @@ impl RedbBackend {
         write_txn.commit().map_err(DatabaseError::wrap)?;
         Ok(())
     }
-}
 
-#[async_trait]
-impl DatabaseBackend for RedbBackend {
-    async fn init(&self) -> Result<(), DatabaseError> {
-        vlz_cve_client::ensure_default_decoders();
-        self.purge_expired()
-    }
-
-    async fn get(
+    fn load_stored_entry(
         &self,
         pkg: &Package,
         provider_id: &str,
-    ) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
-        vlz_cve_client::ensure_default_decoders();
+    ) -> Result<Option<StoredEntry>, DatabaseError> {
         let key = pkg_cache_key(pkg, provider_id);
         let read_txn =
             self.inner.db.begin_read().map_err(DatabaseError::wrap)?;
@@ -280,7 +271,7 @@ impl DatabaseBackend for RedbBackend {
             Ok(s) => s,
             Err(_) => {
                 self.inner.misses.fetch_add(1, Ordering::Relaxed);
-                return Ok(None); // wrong schema or corrupt; treat as cache miss
+                return Ok(None);
             }
         };
         normalize_stored_entry(&mut stored, self.inner.ttl_secs);
@@ -292,9 +283,41 @@ impl DatabaseBackend for RedbBackend {
             self.inner.misses.fetch_add(1, Ordering::Relaxed);
             return Ok(None);
         }
+        Ok(Some(stored))
+    }
+}
+
+#[async_trait]
+impl DatabaseBackend for RedbBackend {
+    async fn init(&self) -> Result<(), DatabaseError> {
+        vlz_cve_client::ensure_default_decoders();
+        self.purge_expired()
+    }
+
+    async fn get(
+        &self,
+        pkg: &Package,
+        provider_id: &str,
+    ) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
+        vlz_cve_client::ensure_default_decoders();
+        let Some(stored) = self.load_stored_entry(pkg, provider_id)? else {
+            return Ok(None);
+        };
         let records = decode_raw_vulns(&stored.provider_id, &stored.raw_vulns);
         self.inner.hits.fetch_add(1, Ordering::Relaxed);
         Ok(Some(records))
+    }
+
+    async fn get_raw_vulns(
+        &self,
+        pkg: &Package,
+        provider_id: &str,
+    ) -> Result<Option<Vec<serde_json::Value>>, DatabaseError> {
+        let Some(stored) = self.load_stored_entry(pkg, provider_id)? else {
+            return Ok(None);
+        };
+        self.inner.hits.fetch_add(1, Ordering::Relaxed);
+        Ok(Some(stored.raw_vulns))
     }
 
     async fn put(

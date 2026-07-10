@@ -264,7 +264,7 @@ network calls and the cache has no entries for them (FR-031).
 **Remediation:** Either:
 1. Run a scan without `--offline` once to populate the cache, then use
    `--offline`.
-2. Use `vlz preload` (when implemented) to pre-populate the cache.
+2. Use `vlz preload` to pre-populate the cache before an offline scan.
 3. Remove `--offline` if network access is acceptable.
 
 ---

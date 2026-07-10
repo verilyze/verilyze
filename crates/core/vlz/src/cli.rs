@@ -248,8 +248,88 @@ pub enum Commands {
         sub: FpCommands,
     },
 
-    /// Pre-populate CVE cache from remote provider (placeholder)
-    Preload,
+    /// Pre-populate CVE cache from remote provider (FR-021)
+    Preload {
+        /// Root directory (defaults to current working dir)
+        #[arg(value_name = "PATH")]
+        root: Option<String>,
+
+        /// Force a particular CVE provider
+        #[arg(long)]
+        provider: Option<String>,
+
+        /// Parallel query limit (default 10, max 50)
+        #[arg(long)]
+        parallel: Option<usize>,
+
+        /// Parallel dependency resolution limit (default: CPU count, max 32)
+        #[arg(long, value_name = "N")]
+        parallel_resolutions: Option<usize>,
+
+        /// Override cache database path
+        #[arg(long, value_name = "PATH")]
+        cache_db: Option<String>,
+
+        /// Exclude directory name from manifest discovery (repeatable)
+        #[arg(long, value_name = "DIR")]
+        scan_exclude_dir: Vec<String>,
+
+        /// Only discover/merge listed Python lock file basenames (repeatable)
+        #[arg(long = "lock-file", value_name = "PATH")]
+        lock_file: Vec<String>,
+
+        /// Default TTL in seconds for new cache entries (default: 432000 = 5 days).
+        #[arg(long, value_name = "SECS")]
+        cache_ttl_secs: Option<u64>,
+
+        /// Disable network access
+        #[arg(long)]
+        offline: bool,
+
+        /// Require package manager on PATH; exit 3 with hint if missing
+        #[arg(long)]
+        package_manager_required: bool,
+
+        /// Do not remove ephemeral Python venv after resolution (FR-023 debug)
+        #[arg(long)]
+        keep_ephemeral_venv: bool,
+
+        /// Allow pip to execute dependency build code during resolution (SEC-023)
+        #[arg(long)]
+        allow_dependency_code_execution: bool,
+
+        /// Fall back to direct-only resolution with warning when transitive resolution fails (FR-022a)
+        #[arg(long)]
+        allow_direct_only_fallback: bool,
+
+        /// Stop on first manifest parse/resolution failure (FR-037)
+        #[arg(long)]
+        fail_fast: bool,
+
+        /// Base delay in ms for retry backoff (default 100)
+        #[arg(long, value_name = "MS")]
+        backoff_base: Option<u64>,
+
+        /// Maximum delay in ms for retry backoff (default 30000)
+        #[arg(long, value_name = "MS")]
+        backoff_max: Option<u64>,
+
+        /// Maximum retries for transient errors (default 5)
+        #[arg(long, value_name = "N")]
+        max_retries: Option<u32>,
+
+        /// CVE provider HTTPS connect timeout in seconds (default 15)
+        #[arg(long, value_name = "SECS")]
+        provider_http_connect_timeout_secs: Option<u64>,
+
+        /// CVE provider HTTPS total request timeout in seconds (default 120)
+        #[arg(long, value_name = "SECS")]
+        provider_http_request_timeout_secs: Option<u64>,
+
+        /// PEM file of CRLs for optional Linux TLS certificate revocation (SEC-024)
+        #[arg(long, value_name = "PATH")]
+        tls_crl_bundle: Option<String>,
+    },
 
     /// Show manual page
     Help {
@@ -588,5 +668,96 @@ mod tests {
             panic!("expected help")
         };
         assert_eq!(subcommand.as_deref(), Some("scan"));
+    }
+
+    #[test]
+    fn parse_preload_defaults() {
+        let cli = parse(&["preload"]);
+        let Commands::Preload { root, offline, .. } = &cli.cmd else {
+            panic!("expected preload")
+        };
+        assert!(root.is_none());
+        assert!(!*offline);
+    }
+
+    #[test]
+    fn parse_preload_with_path_and_cache_flags() {
+        let cli = parse(&[
+            "preload",
+            "/tmp/proj",
+            "--provider",
+            "osv",
+            "--parallel",
+            "8",
+            "--cache-db",
+            "/tmp/cache.redb",
+            "--offline",
+            "--package-manager-required",
+            "--allow-direct-only-fallback",
+            "--fail-fast",
+        ]);
+        let Commands::Preload {
+            root,
+            provider,
+            parallel,
+            cache_db,
+            offline,
+            package_manager_required,
+            allow_direct_only_fallback,
+            fail_fast,
+            ..
+        } = &cli.cmd
+        else {
+            panic!("expected preload")
+        };
+        assert_eq!(root.as_deref(), Some("/tmp/proj"));
+        assert_eq!(provider.as_deref(), Some("osv"));
+        assert_eq!(*parallel, Some(8));
+        assert_eq!(cache_db.as_deref(), Some("/tmp/cache.redb"));
+        assert!(*offline);
+        assert!(*package_manager_required);
+        assert!(*allow_direct_only_fallback);
+        assert!(*fail_fast);
+    }
+
+    #[test]
+    fn parse_preload_resolution_and_provider_http_flags() {
+        let cli = parse(&[
+            "preload",
+            "--parallel-resolutions",
+            "4",
+            "--scan-exclude-dir",
+            "node_modules",
+            "--lock-file",
+            "pylock.toml",
+            "--provider-http-connect-timeout-secs",
+            "20",
+            "--provider-http-request-timeout-secs",
+            "90",
+            "--tls-crl-bundle",
+            "/etc/crl.pem",
+            "--backoff-base",
+            "150",
+        ]);
+        let Commands::Preload {
+            parallel_resolutions,
+            scan_exclude_dir,
+            lock_file,
+            provider_http_connect_timeout_secs,
+            provider_http_request_timeout_secs,
+            tls_crl_bundle,
+            backoff_base,
+            ..
+        } = &cli.cmd
+        else {
+            panic!("expected preload")
+        };
+        assert_eq!(*parallel_resolutions, Some(4));
+        assert_eq!(scan_exclude_dir, &vec!["node_modules".to_string()]);
+        assert_eq!(lock_file, &vec!["pylock.toml".to_string()]);
+        assert_eq!(*provider_http_connect_timeout_secs, Some(20));
+        assert_eq!(*provider_http_request_timeout_secs, Some(90));
+        assert_eq!(tls_crl_bundle.as_deref(), Some("/etc/crl.pem"));
+        assert_eq!(*backoff_base, Some(150));
     }
 }
