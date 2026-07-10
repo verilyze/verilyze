@@ -271,7 +271,7 @@ jobs:
 
       # Versions: deny matches CONTRIBUTING Quick setup; others pinned for CI.
       - name: Install cargo tooling (llvm-cov, deny, afl, about)
-        uses: taiki-e/install-action@4684b8405694ae9dd42c9f39ba901a70ae83f4a3 # v2.82.9
+        uses: taiki-e/install-action@c7eb1735f09259a5035e8e5d44b1406b1cddc0fb # v2.83.0
         with:
           tool: >-
             cargo-llvm-cov@0.8.5,cargo-deny@0.20.0,cargo-afl@0.18.0,cargo-about@0.9.0
