@@ -37,11 +37,11 @@
       "version": "4.0.6"
     },
     {
-      "bom-ref": "pkg:pypi/mypy@2.1.0",
+      "bom-ref": "pkg:pypi/mypy@2.2.0",
       "name": "mypy",
-      "purl": "pkg:pypi/mypy@2.1.0",
+      "purl": "pkg:pypi/mypy@2.2.0",
       "type": "library",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "bom-ref": "pkg:pypi/bandit@1.9.4",
