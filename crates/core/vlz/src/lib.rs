@@ -48,9 +48,11 @@ where
         })
         .count();
     let log_filter = run::log_level_from_verbosity_count(verbose_count);
-    env_logger::Builder::from_env(env)
+    // env_logger::init() may only succeed once per process; allow re-entry from
+    // tests that call run_main_from_args more than once.
+    let _ = env_logger::Builder::from_env(env)
         .filter_level(log_filter)
-        .init();
+        .try_init();
 
     let args = match cli::Cli::try_parse_from(args_vec) {
         Ok(a) => a,
@@ -126,5 +128,17 @@ mod tests {
             code, 2,
             "unknown provider should yield exit code 2 (FR-019)"
         );
+    }
+
+    #[tokio::test]
+    async fn run_main_help_exits_0() {
+        let code = run_main_from_args(["vlz", "--help"]).await;
+        assert_eq!(code, 0, "OP-012: --help must exit 0");
+    }
+
+    #[tokio::test]
+    async fn run_main_version_exits_0() {
+        let code = run_main_from_args(["vlz", "--version"]).await;
+        assert_eq!(code, 0, "OP-012: --version must exit 0");
     }
 }

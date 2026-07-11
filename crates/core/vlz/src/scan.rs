@@ -182,7 +182,10 @@ pub fn log_manifest_failure(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use vlz_manifest_parser::ResolverError;
+    use vlz_manifest_parser::{
+        DIRECT_ONLY_REASON_OFFLINE, ParserError, ResolutionDepth,
+        ResolveResult, ResolverError,
+    };
     use vlz_report::{
         MANIFEST_STATUS_FAILED_PARSE, MANIFEST_STATUS_FAILED_RESOLUTION,
     };
@@ -194,6 +197,41 @@ mod tests {
         assert_eq!(pick_exit_code(0, true, false, 86), 4);
         assert_eq!(pick_exit_code(0, false, false, 86), 86);
         assert_eq!(pick_exit_code(0, false, false, 0), 0);
+    }
+
+    #[test]
+    fn count_blocking_manifest_failures_mixed_statuses() {
+        let coverage = vec![
+            ManifestCoverageEntry {
+                path: PathBuf::from("a.txt"),
+                language: "python".to_string(),
+                status: ManifestScanStatus::ScannedTransitive,
+                direct_only_reason: None,
+                error: None,
+            },
+            ManifestCoverageEntry {
+                path: PathBuf::from("b.txt"),
+                language: "python".to_string(),
+                status: ManifestScanStatus::FailedParse,
+                direct_only_reason: None,
+                error: Some("parse".to_string()),
+            },
+            ManifestCoverageEntry {
+                path: PathBuf::from("c.txt"),
+                language: "python".to_string(),
+                status: ManifestScanStatus::FailedResolution,
+                direct_only_reason: None,
+                error: Some("resolve".to_string()),
+            },
+            ManifestCoverageEntry {
+                path: PathBuf::from("d.txt"),
+                language: "python".to_string(),
+                status: ManifestScanStatus::ScannedDirectOnly,
+                direct_only_reason: Some("offline mode".to_string()),
+                error: None,
+            },
+        ];
+        assert_eq!(count_blocking_manifest_failures(&coverage), 2);
     }
 
     #[test]
@@ -234,6 +272,144 @@ mod tests {
         assert!(summary.contains("1 manifest(s) could not be fully analyzed"));
         assert!(summary.contains("broken/requirements.txt: resolve failed"));
         assert!(summary.contains(MANIFEST_FAILURE_SUMMARY_FOOTER));
+    }
+
+    #[test]
+    fn format_manifest_failure_summary_without_root_uses_full_path() {
+        let coverage = vec![ManifestCoverageEntry {
+            path: PathBuf::from("/abs/broken/requirements.txt"),
+            language: "python".to_string(),
+            status: ManifestScanStatus::FailedParse,
+            direct_only_reason: None,
+            error: Some("bad syntax".to_string()),
+        }];
+        let summary =
+            format_manifest_failure_summary(&coverage, None).expect("summary");
+        assert!(summary.contains("/abs/broken/requirements.txt: bad syntax"));
+    }
+
+    #[test]
+    fn format_manifest_failure_summary_strip_prefix_fallback() {
+        let coverage = vec![
+            ManifestCoverageEntry {
+                path: PathBuf::from("/other/broken/requirements.txt"),
+                language: "python".to_string(),
+                status: ManifestScanStatus::FailedParse,
+                direct_only_reason: None,
+                error: None,
+            },
+            ManifestCoverageEntry {
+                path: PathBuf::from("/root/also/broken.txt"),
+                language: "python".to_string(),
+                status: ManifestScanStatus::FailedResolution,
+                direct_only_reason: None,
+                error: Some("resolve".to_string()),
+            },
+        ];
+        let summary = format_manifest_failure_summary(
+            &coverage,
+            Some(Path::new("/root")),
+        )
+        .expect("summary");
+        assert!(summary.contains("2 manifest(s) could not be fully analyzed"));
+        // Path outside root: full path and status.as_str() when error is None.
+        assert!(
+            summary.contains("/other/broken/requirements.txt: failed_parse")
+        );
+        assert!(summary.contains("also/broken.txt: resolve"));
+    }
+
+    #[test]
+    fn coverage_entry_success_transitive() {
+        let resolved = ResolveResult {
+            depth: ResolutionDepth::Transitive,
+            ..Default::default()
+        };
+        let entry = coverage_entry_success(
+            PathBuf::from("req.txt"),
+            "python".to_string(),
+            &resolved,
+        );
+        assert_eq!(entry.status, ManifestScanStatus::ScannedTransitive);
+        assert!(entry.direct_only_reason.is_none());
+        assert!(entry.error.is_none());
+    }
+
+    #[test]
+    fn coverage_entry_success_direct_only_with_reason() {
+        let resolved = ResolveResult {
+            depth: ResolutionDepth::DirectOnly,
+            direct_only_reason: Some(DIRECT_ONLY_REASON_OFFLINE),
+            ..Default::default()
+        };
+        let entry = coverage_entry_success(
+            PathBuf::from("req.txt"),
+            "python".to_string(),
+            &resolved,
+        );
+        assert_eq!(entry.status, ManifestScanStatus::ScannedDirectOnly);
+        assert_eq!(
+            entry.direct_only_reason.as_deref(),
+            Some(DIRECT_ONLY_REASON_OFFLINE)
+        );
+    }
+
+    #[test]
+    fn coverage_entry_parse_failure_includes_error_string() {
+        let err = ParserError::Parse("invalid line".to_string());
+        let entry = coverage_entry_parse_failure(
+            PathBuf::from("req.txt"),
+            "python".to_string(),
+            &err,
+        );
+        assert_eq!(entry.status, ManifestScanStatus::FailedParse);
+        assert!(entry.error.unwrap().contains("invalid line"));
+        assert!(entry.direct_only_reason.is_none());
+    }
+
+    #[test]
+    fn manifest_task_outcome_manifest_path_all_variants() {
+        let path = PathBuf::from("/proj/requirements.txt");
+        let success = ManifestTaskOutcome::Success {
+            resolved: ResolveResult::default(),
+            manifest_path: path.clone(),
+            language: "python".to_string(),
+        };
+        assert_eq!(success.manifest_path(), path.as_path());
+
+        let parse_failed = ManifestTaskOutcome::ParseFailed {
+            manifest_path: path.clone(),
+            language: "python".to_string(),
+            error: ParserError::Parse("x".to_string()),
+        };
+        assert_eq!(parse_failed.manifest_path(), path.as_path());
+
+        let resolve_failed = ManifestTaskOutcome::ResolveFailed {
+            manifest_path: path.clone(),
+            language: "python".to_string(),
+            error: ResolverError::Resolve("y".to_string()),
+        };
+        assert_eq!(resolve_failed.manifest_path(), path.as_path());
+    }
+
+    #[test]
+    fn log_manifest_failure_verbosity_zero_no_cause_chain() {
+        let err = ResolverError::ResolveWithCause {
+            message: "outer".to_string(),
+            cause: Box::new(ResolverError::Resolve("inner".to_string())),
+        };
+        // Exercises the verbosity == 0 branch (no cause loop).
+        log_manifest_failure(Path::new("req.txt"), &err, 0);
+    }
+
+    #[test]
+    fn log_manifest_failure_verbosity_prints_cause_chain() {
+        let err = ResolverError::ResolveWithCause {
+            message: "outer".to_string(),
+            cause: Box::new(ResolverError::Resolve("inner".to_string())),
+        };
+        // Exercises the verbosity > 0 cause-chain loop (NFR-018).
+        log_manifest_failure(Path::new("req.txt"), &err, 1);
     }
 
     #[test]

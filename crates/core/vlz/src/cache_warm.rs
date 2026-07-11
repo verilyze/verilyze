@@ -528,6 +528,7 @@ mod tests {
                 .await
                 .unwrap();
         assert!(outcome.summary.provider_fetch_failed);
+        assert!(!outcome.summary.offline_cache_miss);
         assert!(outcome.findings.is_empty());
     }
 
@@ -550,6 +551,168 @@ mod tests {
                 .await
                 .unwrap();
         assert!(outcome.summary.provider_fetch_failed);
+    }
+
+    struct FailingGetRawVulnsDb;
+
+    #[async_trait]
+    impl DatabaseBackend for FailingGetRawVulnsDb {
+        async fn init(&self) -> Result<(), DatabaseError> {
+            Ok(())
+        }
+
+        async fn get(
+            &self,
+            _pkg: &Package,
+            _provider_id: &str,
+        ) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
+            Ok(None)
+        }
+
+        async fn get_raw_vulns(
+            &self,
+            _pkg: &Package,
+            _provider_id: &str,
+        ) -> Result<Option<Vec<serde_json::Value>>, DatabaseError> {
+            Err(DatabaseError::Other(
+                "simulated get_raw_vulns failure".into(),
+            ))
+        }
+
+        async fn put(
+            &self,
+            _pkg: &Package,
+            _provider_id: &str,
+            _raw_vulns: &[serde_json::Value],
+            _ttl_override: Option<u64>,
+        ) -> Result<(), DatabaseError> {
+            Ok(())
+        }
+
+        async fn stats(&self) -> Result<DatabaseStats, DatabaseError> {
+            Ok(DatabaseStats::default())
+        }
+    }
+
+    #[tokio::test]
+    async fn warm_cache_get_raw_vulns_failure_sets_provider_fetch_failed() {
+        let db = Arc::new(Box::new(FailingGetRawVulnsDb)
+            as Box<dyn DatabaseBackend + Send + Sync + 'static>);
+        let provider = Arc::new(Box::new(StaticProvider {
+            name: "test",
+            calls: Arc::new(Mutex::new(0)),
+        })
+            as Box<dyn CveProvider + Send + Sync + 'static>);
+        let opts = CacheWarmOptions {
+            parallel: 1,
+            offline: false,
+            benchmark: false,
+        };
+        let outcome =
+            warm_cache_for_packages(&[sample_pkg()], db, provider, &opts)
+                .await
+                .unwrap();
+        assert!(outcome.summary.provider_fetch_failed);
+        assert!(outcome.findings.is_empty());
+    }
+
+    #[tokio::test]
+    async fn warm_cache_hit_with_empty_raw_vulns_omits_map_entry() {
+        let map = MapDb::new();
+        map.put(&sample_pkg(), "test", &[], None).await.unwrap();
+        let db =
+            Arc::new(Box::new(map)
+                as Box<dyn DatabaseBackend + Send + Sync + 'static>);
+        let provider = Arc::new(Box::new(StaticProvider {
+            name: "test",
+            calls: Arc::new(Mutex::new(0)),
+        })
+            as Box<dyn CveProvider + Send + Sync + 'static>);
+        let opts = CacheWarmOptions {
+            parallel: 1,
+            offline: false,
+            benchmark: false,
+        };
+        let outcome =
+            warm_cache_for_packages(&[sample_pkg()], db, provider, &opts)
+                .await
+                .unwrap();
+        assert_eq!(outcome.summary.cache_hits, 1);
+        assert!(outcome.raw_vulns_by_package.is_empty());
+        assert_eq!(outcome.findings.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn warm_cache_parallel_fetches_multiple_packages() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        struct CountingProvider {
+            in_flight: Arc<AtomicUsize>,
+            max_in_flight: Arc<AtomicUsize>,
+            calls: Arc<AtomicUsize>,
+        }
+
+        #[async_trait]
+        impl CveProvider for CountingProvider {
+            fn name(&self) -> &'static str {
+                "count"
+            }
+
+            async fn fetch(
+                &self,
+                pkg: &Package,
+            ) -> Result<FetchedCves, ProviderError> {
+                let cur = self.in_flight.fetch_add(1, Ordering::SeqCst) + 1;
+                self.max_in_flight.fetch_max(cur, Ordering::SeqCst);
+                tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                self.in_flight.fetch_sub(1, Ordering::SeqCst);
+                self.calls.fetch_add(1, Ordering::SeqCst);
+                Ok(FetchedCves {
+                    raw_vulns: vec![serde_json::json!({"id": pkg.name})],
+                    records: vec![CveRecord {
+                        id: format!("CVE-{}", pkg.name),
+                        cvss_score: None,
+                        cvss_version: None,
+                        description: "t".to_string(),
+                        reachable: None,
+                    }],
+                })
+            }
+        }
+
+        let in_flight = Arc::new(AtomicUsize::new(0));
+        let max_in_flight = Arc::new(AtomicUsize::new(0));
+        let calls = Arc::new(AtomicUsize::new(0));
+        let provider = Arc::new(Box::new(CountingProvider {
+            in_flight: in_flight.clone(),
+            max_in_flight: max_in_flight.clone(),
+            calls: calls.clone(),
+        })
+            as Box<dyn CveProvider + Send + Sync + 'static>);
+        let db = Arc::new(Box::new(MapDb::new())
+            as Box<dyn DatabaseBackend + Send + Sync + 'static>);
+        let packages: Vec<_> = (0..6)
+            .map(|i| Package {
+                name: format!("pkg{i}"),
+                version: "1.0".to_string(),
+                ecosystem: Some("PyPI".to_string()),
+            })
+            .collect();
+        let opts = CacheWarmOptions {
+            parallel: 4,
+            offline: false,
+            benchmark: false,
+        };
+        let outcome = warm_cache_for_packages(&packages, db, provider, &opts)
+            .await
+            .unwrap();
+        assert_eq!(outcome.summary.packages_checked, 6);
+        assert_eq!(outcome.summary.fetched, 6);
+        assert_eq!(calls.load(Ordering::SeqCst), 6);
+        assert!(
+            max_in_flight.load(Ordering::SeqCst) > 1,
+            "expected concurrent fetches with parallel=4, max_in_flight={}",
+            max_in_flight.load(Ordering::SeqCst)
+        );
     }
 
     #[tokio::test]

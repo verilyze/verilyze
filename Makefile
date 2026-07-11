@@ -37,7 +37,7 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: cargo-check cargo-test unit-tests test-scripts
 .PHONY: fmt fmt-check clippy
 .PHONY: lint-python lint-shell super-linter super-linter-full
-.PHONY: fuzz fuzz-changed fuzz-extended fuzz-then-coverage coverage coverage-quick
+.PHONY: fuzz fuzz-changed fuzz-extended fuzz-then-coverage coverage coverage-quick coverage-extended
 .PHONY: generate-config-example check-config-docs
 .PHONY: generate-manpages check-manpages
 .PHONY: generate-completions completions completions-release check-completions
@@ -117,6 +117,7 @@ help:
 	@echo "    make fuzz-extended - Fuzz all targets, extended timeout (30 min each)"
 	@echo "    make coverage     - Coverage report (runs fuzz first; needs cargo-llvm-cov)"
 	@echo "    make coverage-quick - Coverage without fuzz (faster dev iteration)"
+	@echo "    make coverage-extended - Nightly coverage (fuzz + optional features)"
 	@echo ""
 	@echo "  Packaging (OP-013):"
 	@echo "    make deb        - Build .deb package (needs cargo-deb)"
@@ -145,6 +146,7 @@ setup: setup-system-deps setup-dev-tools $(VENV_LINT)/bin/black venv-test-ready
 	@echo "  make fuzz # needs cargo-afl, AFL++"
 	@echo "  make coverage # runs fuzz first; needs cargo-llvm-cov"
 	@echo "  make coverage-quick # coverage without fuzz (faster)"
+	@echo "  make coverage-extended # nightly: optional features + badges"
 
 setup-hooks:
 	$(SCRIPTS_DIR)/install-hooks.sh
@@ -332,6 +334,12 @@ coverage: setup fuzz
 
 coverage-quick: setup
 	$(COVERAGE_SCRIPT)
+
+# coverage-extended: default coverage plus optional-feature and minimal-feature
+# test passes (perf-instrumentation, python-tier-d, no-default-features). Used by
+# nightly badge publishing; PR CI stays on coverage-quick / make coverage.
+coverage-extended: setup fuzz
+	$(SCRIPTS_DIR)/coverage-extended.sh
 
 # fuzz-then-coverage: run fuzz-changed before coverage-quick. make -j check must not
 # run cargo afl and cargo llvm-cov in parallel (shared target/; mixed RUSTFLAGS; rustc SIGILL).

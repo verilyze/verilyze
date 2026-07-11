@@ -294,6 +294,49 @@ mod tests {
         assert!(files.is_empty());
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn list_files_with_ext_skips_unreadable_subdir() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join("ok.py"), "x").expect("write");
+        let locked = dir.path().join("locked");
+        std::fs::create_dir(&locked).expect("mkdir");
+        std::fs::write(locked.join("hidden.py"), "x").expect("write");
+        std::fs::set_permissions(
+            &locked,
+            std::fs::Permissions::from_mode(0o000),
+        )
+        .expect("chmod");
+        let exclude = HashSet::new();
+        let files =
+            list_files_with_ext(dir.path(), &exclude, "py").expect("list");
+        // Restore perms so tempdir cleanup succeeds.
+        let _ = std::fs::set_permissions(
+            &locked,
+            std::fs::Permissions::from_mode(0o755),
+        );
+        assert_eq!(files.len(), 1);
+        assert!(files[0].ends_with("ok.py"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn list_files_with_ext_skips_symlink_non_file() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join("real.py"), "x").expect("write");
+        let target = dir.path().join("target_dir");
+        std::fs::create_dir(&target).expect("mkdir");
+        std::os::unix::fs::symlink(&target, dir.path().join("link.py"))
+            .expect("symlink");
+        let exclude = HashSet::new();
+        let files =
+            list_files_with_ext(dir.path(), &exclude, "py").expect("list");
+        // Symlink to a directory is not is_file(); only real.py should match.
+        assert_eq!(files.len(), 1);
+        assert!(files[0].ends_with("real.py"));
+    }
+
     #[cfg(feature = "perf-instrumentation")]
     #[test]
     fn counters_record_when_feature_enabled() {
@@ -307,5 +350,26 @@ mod tests {
         assert_eq!(files_enumerated, 3);
         assert_eq!(read_attempts, 1);
         assert_eq!(read_successes, 1);
+    }
+
+    #[cfg(feature = "perf-instrumentation")]
+    #[test]
+    fn note_tier_b_file_read_attempt_false_does_not_increment_success() {
+        reset_tier_b_counters();
+        note_tier_b_file_read_attempt(false);
+        let (_, _, read_attempts, read_successes) = snapshot_tier_b_counters();
+        assert_eq!(read_attempts, 1);
+        assert_eq!(read_successes, 0);
+    }
+
+    #[cfg(feature = "perf-instrumentation")]
+    #[test]
+    fn reset_tier_b_counters_clears_snapshot() {
+        reset_tier_b_counters();
+        note_tier_b_file_enum_call();
+        note_tier_b_files_enumerated(2);
+        note_tier_b_file_read_attempt(true);
+        reset_tier_b_counters();
+        assert_eq!(snapshot_tier_b_counters(), (0, 0, 0, 0));
     }
 }

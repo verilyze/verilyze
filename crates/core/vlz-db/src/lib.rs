@@ -505,6 +505,38 @@ mod tests {
     }
 
     #[test]
+    fn ignore_db_is_marked_and_unmark_round_trip() {
+        let db = MockIgnoreDb::default();
+        assert!(!db.is_marked("CVE-X").unwrap());
+        db.mark("CVE-X", "comment", None).unwrap();
+        assert!(db.is_marked("CVE-X").unwrap());
+        db.unmark("CVE-X").unwrap();
+        assert!(!db.is_marked("CVE-X").unwrap());
+    }
+
+    #[tokio::test]
+    async fn database_backend_default_get_raw_vulns_returns_none() {
+        let backend = MockBackend;
+        let pkg = Package {
+            name: "pkg".to_string(),
+            version: "1.0.0".to_string(),
+            ecosystem: None,
+        };
+        let raw = backend.get_raw_vulns(&pkg, "osv").await.unwrap();
+        assert!(raw.is_none());
+    }
+
+    #[test]
+    fn database_error_wrap_preserves_source_chain() {
+        let io = std::io::Error::other("disk full");
+        let wrapped = DatabaseError::wrap(io);
+        assert!(wrapped.to_string().contains("disk full"));
+        let source = std::error::Error::source(&wrapped)
+            .expect("wrapped error must expose source");
+        assert!(source.to_string().contains("disk full"));
+    }
+
+    #[test]
     fn reject_world_writable_db_missing_file_ok() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("nonexistent.redb");

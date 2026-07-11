@@ -100,9 +100,9 @@ jobs:
           tool: >-
             cargo-llvm-cov@0.8.5,cargo-deny@0.19.0,cargo-afl@0.17.1,cargo-about@0.8.4
 
-      - name: Run make coverage (fuzz + Cobertura)
+      - name: Run make coverage-extended (fuzz + optional features + Cobertura)
         id: coverage
-        run: make coverage
+        run: make coverage-extended
 
       - name: Publish coverage badges to wiki
         if: always() && !cancelled()

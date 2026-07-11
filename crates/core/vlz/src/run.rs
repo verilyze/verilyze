@@ -1765,4 +1765,32 @@ mod tests {
             crate::config::ReachabilityMode::BestAvailable
         ));
     }
+
+    #[test]
+    fn should_apply_tier_c_only_for_best_available() {
+        assert!(!should_apply_tier_c(crate::config::ReachabilityMode::Off));
+        assert!(!should_apply_tier_c(crate::config::ReachabilityMode::TierB));
+        assert!(should_apply_tier_c(
+            crate::config::ReachabilityMode::BestAvailable
+        ));
+    }
+
+    #[tokio::test]
+    #[allow(clippy::await_holding_lock)]
+    async fn select_provider_impl_empty_registry_errors() {
+        let _guard = crate::registry::registry_test_mutex()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        crate::registry::clear_providers();
+        let effective = crate::config::EffectiveConfig::default();
+        let err = match select_provider_impl(None, &effective).await {
+            Ok(_) => panic!("empty providers must error"),
+            Err(e) => e,
+        };
+        assert!(
+            err.to_string()
+                .contains("No CveProvider plug-in registered"),
+            "got: {err}"
+        );
+    }
 }
