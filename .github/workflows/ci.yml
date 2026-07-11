@@ -143,6 +143,9 @@ jobs:
   check:
     runs-on: ubuntu-latest
     needs: [check-dco, check-signatures]
+    env:
+      CC: gcc
+      RUSTFLAGS: -Clink-arg=-fuse-ld=bfd
     # actions: write -- saving Actions cache entries (actions/cache, rust-cache)
     # requires the Actions cache API; see GitHub token permissions for workflows.
     permissions:
@@ -157,7 +160,35 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Fetch base branch (fuzz change detection)
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -euo pipefail
+          _auth="$(printf 'https://x-access-token:%s@github.com/%s.git' \
+            "${GITHUB_TOKEN}" "${GITHUB_REPOSITORY}")"
+          git remote set-url origin "${_auth}"
+          git fetch origin "${GITHUB_BASE_REF}"
+          git remote set-url origin \
+            "https://github.com/${GITHUB_REPOSITORY}.git"
+
+      - name: Fuzz preflight (changed targets)
+        id: fuzz_preflight
+        run: |
+          set -euo pipefail
+          out="$(./scripts/lib/fuzz-resolve-targets.sh --changed --dry-run)"
+          if [[ "$out" == RUN:* ]]; then
+            echo "fuzz_needed=true" >> "$GITHUB_OUTPUT"
+            echo "Fuzz needed: ${out#RUN:}" >&2
+          else
+            echo "fuzz_needed=false" >> "$GITHUB_OUTPUT"
+            echo "Fuzz skipped (${out:-SKIP})" >&2
+          fi
 
       # Pinned interpreter so venvs match restore; Makefile uses
       # python3 on PATH.
@@ -218,7 +249,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-apt-archives-shellcheck-afl++-
 
-      - name: Install ShellCheck and AFL++
+      - name: Install ShellCheck
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
@@ -227,8 +258,22 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             -o Dir::Cache::archives="${_apt_arch}" \
-            shellcheck afl++
-          # Cache only *.deb: drop lock, partial/, and any other apt metadata.
+            shellcheck
+          sudo find "${_apt_arch}" -mindepth 1 -maxdepth 1 \
+            ! -name '*.deb' -exec rm -rf {} +
+          sudo chown -R "$(id -u)":"$(id -g)" "${_apt_arch}"
+
+      - name: Install AFL++
+        if: steps.fuzz_preflight.outputs.fuzz_needed == 'true'
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          _apt_arch="${RUNNER_TEMP}/apt-archives"
+          mkdir -p "${_apt_arch}"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            -o Dir::Cache::archives="${_apt_arch}" \
+            afl++
           sudo find "${_apt_arch}" -mindepth 1 -maxdepth 1 \
             ! -name '*.deb' -exec rm -rf {} +
           sudo chown -R "$(id -u)":"$(id -g)" "${_apt_arch}"
@@ -247,6 +292,7 @@ jobs:
         id: rust_cache
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
+          shared-key: check
           cache-workspace-crates: true
           cache-on-failure: true
 
@@ -257,6 +303,7 @@ jobs:
           echo "Rust cache exact key hit: ${RUST_CACHE_HIT:-false}"
           echo "Python venvs cache exact key hit: ${PYTHON_VENVS_CACHE_HIT:-false}"
           echo "Apt archives cache exact key hit: ${APT_ARCHIVES_CACHE_HIT:-false}"
+          echo "Fuzz needed: ${FUZZ_NEEDED:-unknown}"
           echo "Python venv key inputs: runner_os=${RUNNER_OS_VALUE} python_version=${PYTHON_VERSION} venv_inputs_hash=${VENV_INPUTS_HASH}"
           echo "Apt key input: os_sig=${APT_OS_SIG}"
           echo "For full Rust cache and restore keys, expand the prior step log group: Cache Configuration."
@@ -264,22 +311,29 @@ jobs:
           RUST_CACHE_HIT: ${{ steps.rust_cache.outputs.cache-hit }}
           PYTHON_VENVS_CACHE_HIT: ${{ steps.python_venvs_cache.outputs.cache-hit }}
           APT_ARCHIVES_CACHE_HIT: ${{ steps.apt_archives_cache.outputs.cache-hit }}
+          FUZZ_NEEDED: ${{ steps.fuzz_preflight.outputs.fuzz_needed }}
           PYTHON_VERSION: ${{ steps.python.outputs.python-version }}
           VENV_INPUTS_HASH: ${{ hashFiles('Makefile', 'pyproject.toml', 'scripts/ensure-reuse.sh', 'scripts/requirements-reuse.txt') }}
           APT_OS_SIG: ${{ steps.apt_ci.outputs.os_sig }}
           RUNNER_OS_VALUE: ${{ runner.os }}
 
-      # Versions: deny matches CONTRIBUTING Quick setup; others pinned for CI.
-      - name: Install cargo tooling (llvm-cov, deny, afl, about)
+      - name: Install cargo tooling (llvm-cov, deny, about)
         uses: taiki-e/install-action@2ca9b94c269419b7b0c711c09d0b21c4e1d51145 # v2.83.1
         with:
-          tool: >-
-            cargo-llvm-cov@0.8.5,cargo-deny@0.20.0,cargo-afl@0.18.0,cargo-about@0.9.0
+          tool: cargo-llvm-cov@0.8.5,cargo-about@0.9.0
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@2ca9b94c269419b7b0c711c09d0b21c4e1d51145 # v2.83.1
+        with:
+          tool: cargo-deny@0.20.0
+
+      - name: Install cargo-afl
+        if: steps.fuzz_preflight.outputs.fuzz_needed == 'true'
+        uses: taiki-e/install-action@2ca9b94c269419b7b0c711c09d0b21c4e1d51145 # v2.83.1
+        with:
+          tool: cargo-afl@0.18.0
 
       - name: Run make -j check (full Makefile gate)
-        env:
-          CC: gcc
-          RUSTFLAGS: -Clink-arg=-fuse-ld=bfd
         run: make -j check
 
       - name: Upload Cobertura XML reports

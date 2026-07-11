@@ -4,7 +4,7 @@
 #
 # REUSE-IgnoreStart
 
-"""Contract: fuzz targets must depend on debug before AFL bootstrap (parallel -j check)."""
+"""Contract: fuzz-changed must not depend on debug (lazy AFL skip before bootstrap)."""
 
 from pathlib import Path
 
@@ -16,12 +16,19 @@ from tests.scripts.test_makefile_check_includes_deny import _extract_prerequisit
 
 @pytest.mark.parametrize(
     "target",
-    ("fuzz", "fuzz-changed", "fuzz-extended"),
+    ("fuzz-changed", "fuzz-extended"),
 )
-def test_fuzz_target_depends_on_debug(target: str) -> None:
+def test_lazy_fuzz_targets_do_not_depend_on_debug(target: str) -> None:
     text = (repo_root() / "Makefile").read_text(encoding="utf-8")
     block = _extract_prerequisite_block(text, target)
-    assert "debug" in block.split(), (
-        f"make {target} must depend on debug so AFL is not bootstrapped alongside "
-        "the main cargo build under make -j check"
+    assert "debug" not in block.split(), (
+        f"make {target} must not depend on debug; fuzz.sh skips before AFL when "
+        "no mapped files changed"
     )
+
+
+def test_fuzz_target_has_no_debug_prerequisite() -> None:
+    """make fuzz runs AFL for all targets; still no debug dep (cargo afl build suffices)."""
+    text = (repo_root() / "Makefile").read_text(encoding="utf-8")
+    block = _extract_prerequisite_block(text, "fuzz")
+    assert "debug" not in block.split()

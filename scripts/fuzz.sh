@@ -6,13 +6,14 @@
 
 # Run AFL fuzz targets for verilyze (NFR-020, SEC-017).
 #
-# Prerequisites:
+# Prerequisites (only when targets will run):
 #   - cargo-afl:  cargo install cargo-afl
 #   - AFL++:      https://github.com/AFLplusplus/AFLplusplus
 #
 # Usage:
 #   ./scripts/fuzz.sh              # Smoke test (all targets)
 #   ./scripts/fuzz.sh --changed    # Run only targets for changed code (skip if none)
+#   ./scripts/fuzz.sh --changed --dry-run  # Print RUN:targets or SKIP (no AFL)
 #   ./scripts/fuzz.sh --targets config_toml,requirements_txt  # Explicit subset
 #   ./scripts/fuzz.sh --extended   # Longer timeout (30 min per target)
 #   ./scripts/fuzz.sh --coverage   # Run with cargo-llvm-cov integration
@@ -26,6 +27,8 @@ set -e
 cd "$(dirname "$0")/.." || exit 1
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/fuzz-resolve-targets.sh
+source "${SCRIPT_DIR}/lib/fuzz-resolve-targets.sh"
 
 # FUZZ_TARGETS_FILE: path to target-to-path map (FUZZ_TARGETS_ENV is a legacy alias).
 FUZZ_TARGETS_FILE="${FUZZ_TARGETS_FILE:-${FUZZ_TARGETS_ENV:-$SCRIPT_DIR/fuzz-targets.map}}"
@@ -34,6 +37,7 @@ FUZZ_OUT="${FUZZ_OUT:-/tmp/vlz-fuzz-out}"
 DO_COVERAGE=false
 DO_CHANGED=false
 DO_EXTENDED=false
+DO_DRY_RUN=false
 TARGETS_FILTER=""
 
 for arg in "$@"; do
@@ -41,6 +45,7 @@ for arg in "$@"; do
         --coverage) DO_COVERAGE=true ;;
         --changed) DO_CHANGED=true ;;
         --extended) DO_EXTENDED=true ;;
+        --dry-run) DO_DRY_RUN=true ;;
         --targets=*) TARGETS_FILTER="${arg#--targets=}" ;;
     esac
 done
@@ -57,6 +62,32 @@ fi
 # Preserve args for error hints (functions below would otherwise see empty $*).
 FUZZ_SH_INVOCATION="$*"
 
+# Resolve targets before any AFL bootstrap (fast skip for --changed).
+TARGETS_TO_RUN=""
+if [[ -n "$TARGETS_FILTER" ]]; then
+    TARGETS_TO_RUN=$(fuzz_resolve_targets targets "$TARGETS_FILTER")
+elif "$DO_CHANGED"; then
+    TARGETS_TO_RUN=$(fuzz_resolve_changed_targets)
+else
+    TARGETS_TO_RUN=$(fuzz_resolve_targets all)
+fi
+
+if [[ -z "$TARGETS_TO_RUN" ]]; then
+    if "$DO_COVERAGE"; then
+        command -v cargo-llvm-cov >/dev/null 2>&1 || cargo install cargo-llvm-cov --locked
+        cargo llvm-cov report --lcov 2>/dev/null || true
+    fi
+    if "$DO_DRY_RUN"; then
+        echo "SKIP"
+    fi
+    exit 0
+fi
+
+if "$DO_DRY_RUN"; then
+    echo "RUN:${TARGETS_TO_RUN}"
+    exit 0
+fi
+
 # Ensure cargo-afl is available
 command -v cargo-afl >/dev/null 2>&1 || cargo install cargo-afl
 
@@ -68,7 +99,7 @@ command -v cargo-afl >/dev/null 2>&1 || cargo install cargo-afl
 # After rustup, the LLVM runtime must match the current rustc. We store rustc -vV
 # in a stamp under the same afl.rs dir so we run config --build only when it changes,
 # not on every fuzz run. Plain --build may fail when AFL was already built; then we
-# try --force (see cargo-afl afl config --help).
+# try --force (see cargo afl config --help).
 
 _afl_rs_data="${XDG_DATA_HOME:-$HOME/.local/share}/afl.rs"
 _afl_pp="${_afl_rs_data}/AFLplusplus"
@@ -150,106 +181,6 @@ if [[ "$(uname -m)" == "x86_64" ]] && [[ -z "${VLZ_FUZZ_SKIP_TARGET_CPU:-}" ]]; 
     export RUSTFLAGS="${RUSTFLAGS} -C target-cpu=x86-64-v2"
 fi
 cargo afl build -p vlz-fuzz
-
-# Load target-to-path mapping from fuzz-targets.map.
-# Format: target_name=path (one per line; # for comments)
-# bin = fuzz_${target_name}, corpus = tests/fuzz/corpus/${target_name}
-get_all_targets() {
-    local line
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        line="${line%%#*}"
-        line="${line// }"
-        [[ -z "$line" ]] && continue
-        if [[ "$line" == *=* ]]; then
-            echo "${line%%=*}"
-        fi
-    done < "$FUZZ_TARGETS_FILE"
-}
-
-# Resolve which targets to run.
-TARGETS_TO_RUN=""
-if [[ -n "$TARGETS_FILTER" ]]; then
-    # Explicit --targets=list
-    TARGETS_TO_RUN="$TARGETS_FILTER"
-elif "$DO_CHANGED"; then
-    # Change detection: run only targets whose mapped paths changed, or all if unclear
-    BASE_REF=""
-    if ref=$(git rev-parse --abbrev-ref 'HEAD@{upstream}' 2>/dev/null); then
-        BASE_REF=$(git merge-base HEAD "origin/$ref" 2>/dev/null || true)
-    fi
-    [[ -z "$BASE_REF" ]] && BASE_REF=$(git merge-base HEAD origin/main 2>/dev/null || true)
-    [[ -z "$BASE_REF" ]] && BASE_REF=$(git merge-base HEAD main 2>/dev/null || true)
-    [[ -z "$BASE_REF" ]] && BASE_REF="main"
-
-    CHANGED_FILES=""
-    if [[ -n "$BASE_REF" ]] && git rev-parse --verify "$BASE_REF" >/dev/null 2>&1; then
-        CHANGED_FILES=$(git diff --name-only "$BASE_REF"..HEAD 2>/dev/null || true)
-    fi
-
-    if [[ -z "$CHANGED_FILES" ]] && [[ -z "$BASE_REF" ]]; then
-        echo "Running all fuzz targets (change detection inconclusive)." >&2
-        TARGETS_TO_RUN=$(get_all_targets | tr '\n' ',')
-        TARGETS_TO_RUN="${TARGETS_TO_RUN%,}"
-    elif [[ -n "$CHANGED_FILES" ]]; then
-        # Shared crates: any change triggers "run all"
-        SHARED_PATTERNS="crates/core/vlz-db/ crates/db-backends/vlz-db-redb/ crates/core/vlz-plugin-macro/"
-        RUN_ALL=false
-        for f in $CHANGED_FILES; do
-            for p in $SHARED_PATTERNS; do
-                if [[ "$f" == "$p"* ]]; then
-                    RUN_ALL=true
-                    break 2
-                fi
-            done
-            if [[ "$f" == tests/fuzz/* ]] || [[ "$f" == "Cargo.toml" ]] ||
-                [[ "$f" == "Cargo.lock" ]]; then
-                RUN_ALL=true
-                break
-            fi
-        done
-
-        if "$RUN_ALL"; then
-            echo "Running all fuzz targets (shared/fuzz/crate changes)." >&2
-            TARGETS_TO_RUN=$(get_all_targets | tr '\n' ',')
-            TARGETS_TO_RUN="${TARGETS_TO_RUN%,}"
-        else
-            # Match changed files to target paths
-            matched=""
-            while IFS= read -r line || [[ -n "$line" ]]; do
-                line="${line%%#*}"
-                line="${line// }"
-                [[ -z "$line" ]] || [[ "$line" != *=* ]] && continue
-                target="${line%%=*}"
-                path="${line#*=}"
-                for f in $CHANGED_FILES; do
-                    if [[ "$f" == "$path" ]] || [[ "$f" == "$path"* ]]; then
-                        matched="${matched:+$matched,}$target"
-                        break
-                    fi
-                done
-            done < "$FUZZ_TARGETS_FILE"
-            if [[ -z "$matched" ]]; then
-                echo "No mapped files changed; skipping fuzz (exit 0)." >&2
-                if "$DO_COVERAGE"; then
-                    cargo llvm-cov report --lcov 2>/dev/null || true
-                fi
-                exit 0
-            fi
-            TARGETS_TO_RUN="$matched"
-            echo "Running fuzz targets for changed code: $TARGETS_TO_RUN" >&2
-        fi
-    else
-        echo "No mapped files changed; skipping fuzz (exit 0)." >&2
-        if "$DO_COVERAGE"; then
-            cargo llvm-cov report --lcov 2>/dev/null || true
-        fi
-        exit 0
-    fi
-else
-    # Default: run all targets
-    TARGETS_TO_RUN=$(get_all_targets | tr '\n' ',')
-    TARGETS_TO_RUN="${TARGETS_TO_RUN%,}"
-fi
 
 run_fuzz() {
     local name=$1

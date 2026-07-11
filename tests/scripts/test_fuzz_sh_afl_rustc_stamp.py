@@ -48,3 +48,12 @@ def test_fuzz_sh_rebuilds_afl_when_stamp_mismatches() -> None:
         "fuzz.sh must fall back to cargo afl config --build --force when plain --build fails"
     )
 
+
+def test_fuzz_sh_resolves_targets_before_afl_bootstrap() -> None:
+    text = _fuzz_sh_text()
+    resolve_pos = text.index("fuzz_resolve_changed_targets")
+    afl_install_pos = text.index("command -v cargo-afl")
+    assert resolve_pos < afl_install_pos, (
+        "fuzz.sh must resolve --changed targets before cargo-afl / AFL bootstrap"
+    )
+

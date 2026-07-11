@@ -16,6 +16,10 @@ cd "$(dirname "$0")/.." || exit 1
 RUST_REPORT="reports/rust/html/index.html"
 PYTHON_REPORT="reports/python/index.html"
 
+_vlz_cov_phase() {
+  echo "[coverage] $(date -Iseconds) $*" >&2
+}
+
 # Ensure cargo-llvm-cov and llvm-tools (default/stable toolchain) are available
 command -v cargo-llvm-cov >/dev/null 2>&1 || cargo install cargo-llvm-cov \
   --locked
@@ -42,36 +46,39 @@ if [[ "${VLZ_COVERAGE_USE_BFD:-}" == "1" ]] \
   export RUSTFLAGS="${RUSTFLAGS} -C link-arg=-fuse-ld=bfd"
 fi
 
+# Full clean keeps profraw consistent; skip only after proving warm cache is safe.
+_vlz_cov_phase "llvm-cov clean"
 cargo llvm-cov clean --workspace 2>/dev/null || true
 
 # Build workspace with instrumentation (per show-env docs, use normal cargo).
 # Exclude vlz-fuzz: it requires cargo afl build (AFL linker symbols).
+_vlz_cov_phase "instrumented cargo build --workspace"
 cargo build --workspace --exclude vlz-fuzz
 
 # Run all workspace tests (exclude vlz-fuzz; it uses AFL and is run via make fuzz).
+_vlz_cov_phase "cargo test --workspace"
 cargo test --workspace --exclude vlz-fuzz --features vlz/testing
 
 # Extended pass (nightly / badges): optional features and minimal-feature matrix.
 # Profraw from this pass merges with the default pass above (no llvm-cov clean).
 if [[ "${VLZ_COVERAGE_EXTENDED:-}" == "1" ]]; then
-  echo "coverage-extended: optional features (perf-instrumentation, python-tier-d)"
+  _vlz_cov_phase "coverage-extended optional features"
   cargo test --workspace --exclude vlz-fuzz \
     --features 'vlz/testing,vlz/perf-instrumentation,vlz/python-tier-d'
-  echo "coverage-extended: minimal features (no redb/docs)"
+  _vlz_cov_phase "coverage-extended minimal features"
   cargo test -p vlz --no-default-features --features testing \
     --test minimal_features
 fi
 
 # Run the vlz binary to capture main.rs and run() coverage (binary is not a
 # test target). Use isolated XDG dirs so we do not touch user config or cache.
+# Omit probes already exercised by cli integration tests (list, config --list).
 run_cov_bin() {
   env XDG_CONFIG_HOME=/tmp/vlz-cov-cfg XDG_CACHE_HOME=/tmp/vlz-cov-cache \
     XDG_DATA_HOME=/tmp/vlz-cov-data cargo run --bin vlz -- "$@"
 }
+_vlz_cov_phase "cargo run binary probes"
 run_cov_bin --version
-run_cov_bin -v --version
-run_cov_bin list
-run_cov_bin config --list
 run_cov_bin db stats
 run_cov_bin db verify
 run_cov_bin db show --format json
@@ -85,6 +92,7 @@ run_cov_bin scan /tmp/vlz-cov-scan --offline --provider nonexistentprovider \
 # Generate Rust reports (NFR-017: fail if coverage below threshold)
 # Use || true so script continues to Python coverage even when Rust fails
 ERR=0
+_vlz_cov_phase "llvm-cov report"
 cargo llvm-cov report --html --output-dir reports/rust \
   --fail-under-lines 85 --fail-under-functions 80 --fail-under-regions 85 \
   || ERR=1
@@ -100,6 +108,7 @@ command -v "$PY" >/dev/null 2>&1 \
   || { echo "ERROR: python3 not found." >&2; exit 1; }
 "$PY" -m pytest --version >/dev/null 2>&1 \
   || { echo "ERROR: pytest not found. Run: make setup" >&2; exit 1; }
+_vlz_cov_phase "pytest scripts"
 PYTHONPATH=. "$PY" -m pytest tests/scripts/ \
   --cov=scripts \
   --cov-report=html:reports/python \
