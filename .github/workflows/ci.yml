@@ -309,8 +309,9 @@ jobs:
         with:
           name: cobertura-xml
 
-      # CodeCoverageSummary globs from the container workspace; ensure XML paths
-      # match reports/ even if the artifact extracts with an extra directory level.
+      # CodeCoverageSummary must see each XML once. Artifact download may place
+      # files at the workspace root; normalize into reports/ and point the
+      # action only at that directory (avoid **/ globs that double-count).
       - name: Normalize Cobertura XML under reports/
         shell: bash
         run: |
@@ -331,7 +332,7 @@ jobs:
       - name: Coverage summary (Cobertura)
         uses: irongut/CodeCoverageSummary@51cc3a756ddcd398d447c044c02cb6aa83fdae95 # v1.3.0
         with:
-          filename: '**/cobertura-rust.xml,**/cobertura-python.xml'
+          filename: 'reports/cobertura-rust.xml,reports/cobertura-python.xml'
           badge: true
           fail_below_min: false
           format: markdown
