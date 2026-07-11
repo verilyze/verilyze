@@ -51,108 +51,31 @@ fn assert_broken_pipe_exits_cleanly(args: &[&str]) {
     });
 }
 
-#[test]
-fn broken_pipe_version() {
-    if !vlz_exe_exists() {
-        return;
-    }
-    assert_broken_pipe_exits_cleanly(&["--version"]);
-}
+/// Table-driven broken-pipe cases (write_stdout / SIGPIPE); one process spawn each.
+const BROKEN_PIPE_SIMPLE_CASES: &[&[&str]] = &[
+    &["--version"],
+    &["preload"],
+    &["db", "migrate"],
+    &["db", "show"],
+    &["db", "show", "--full"],
+    &["db", "show", "--format", "json"],
+    &["list"],
+    &["config", "--list"],
+    &["config", "--example"],
+    &["db", "list-providers"],
+    &["db", "stats"],
+    &["db", "verify"],
+    &["db", "set-ttl", "3600", "--all"],
+];
 
 #[test]
-fn broken_pipe_preload() {
+fn broken_pipe_simple_commands_exit_cleanly() {
     if !vlz_exe_exists() {
         return;
     }
-    assert_broken_pipe_exits_cleanly(&["preload"]);
-}
-
-#[test]
-fn broken_pipe_db_migrate() {
-    if !vlz_exe_exists() {
-        return;
+    for args in BROKEN_PIPE_SIMPLE_CASES {
+        assert_broken_pipe_exits_cleanly(args);
     }
-    assert_broken_pipe_exits_cleanly(&["db", "migrate"]);
-}
-
-#[test]
-fn broken_pipe_db_show() {
-    if !vlz_exe_exists() {
-        return;
-    }
-    assert_broken_pipe_exits_cleanly(&["db", "show"]);
-}
-
-#[test]
-fn broken_pipe_db_show_full() {
-    if !vlz_exe_exists() {
-        return;
-    }
-    assert_broken_pipe_exits_cleanly(&["db", "show", "--full"]);
-}
-
-#[test]
-fn broken_pipe_db_show_format_json() {
-    if !vlz_exe_exists() {
-        return;
-    }
-    assert_broken_pipe_exits_cleanly(&["db", "show", "--format", "json"]);
-}
-
-#[test]
-fn broken_pipe_list() {
-    if !vlz_exe_exists() {
-        return;
-    }
-    assert_broken_pipe_exits_cleanly(&["list"]);
-}
-
-#[test]
-fn broken_pipe_config_list() {
-    if !vlz_exe_exists() {
-        return;
-    }
-    assert_broken_pipe_exits_cleanly(&["config", "--list"]);
-}
-
-#[test]
-fn broken_pipe_config_example() {
-    if !vlz_exe_exists() {
-        return;
-    }
-    assert_broken_pipe_exits_cleanly(&["config", "--example"]);
-}
-
-#[test]
-fn broken_pipe_db_list_providers() {
-    if !vlz_exe_exists() {
-        return;
-    }
-    assert_broken_pipe_exits_cleanly(&["db", "list-providers"]);
-}
-
-#[test]
-fn broken_pipe_db_stats() {
-    if !vlz_exe_exists() {
-        return;
-    }
-    assert_broken_pipe_exits_cleanly(&["db", "stats"]);
-}
-
-#[test]
-fn broken_pipe_db_verify() {
-    if !vlz_exe_exists() {
-        return;
-    }
-    assert_broken_pipe_exits_cleanly(&["db", "verify"]);
-}
-
-#[test]
-fn broken_pipe_db_set_ttl_all() {
-    if !vlz_exe_exists() {
-        return;
-    }
-    assert_broken_pipe_exits_cleanly(&["db", "set-ttl", "3600", "--all"]);
 }
 
 #[test]

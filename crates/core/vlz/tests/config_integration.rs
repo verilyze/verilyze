@@ -118,21 +118,15 @@ fn load_user_config_populates_language_regexes() {
 }
 
 #[test]
-fn load_parallel_resolutions_cli_override() {
+fn load_parallel_resolutions_precedence_over_file() {
     let (_dir, path) = temp_config("parallel_resolutions = 2\n");
     let path_str = path.to_string_lossy().into_owned();
-    let cfg =
-        load_for_test(Some(&path_str), None, None, None, Some(6)).unwrap();
-    assert_eq!(cfg.parallel_resolutions, 6);
-}
-
-#[test]
-fn load_parallel_resolutions_env_override() {
-    let (_dir, path) = temp_config("parallel_resolutions = 2\n");
-    let path_str = path.to_string_lossy().into_owned();
-    let cfg =
+    let env_cfg =
         load_for_test(Some(&path_str), None, Some(5), None, None).unwrap();
-    assert_eq!(cfg.parallel_resolutions, 5);
+    assert_eq!(env_cfg.parallel_resolutions, 5);
+    let cli_cfg =
+        load_for_test(Some(&path_str), None, None, None, Some(6)).unwrap();
+    assert_eq!(cli_cfg.parallel_resolutions, 6);
 }
 
 #[test]
