@@ -157,6 +157,12 @@ def test_renovate_pep621_post_upgrade_regenerates_sbom() -> None:
     assert tasks["commands"] == ["bash scripts/renovate-post-upgrade-sbom.sh"]
     assert tasks["fileFilters"] == ["sbom/**"]
     assert tasks["executionMode"] == "branch"
+    tools = tasks["installTools"]
+    assert "rust" in tools
+    assert "python" in tools, (
+        "pep621 postUpgradeTasks need python so ensure-reuse.sh can run "
+        "check-headers during make generate-sbom"
+    )
 
 
 def test_renovate_cargo_post_upgrade_commits_sbom() -> None:
