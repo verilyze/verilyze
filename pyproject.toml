@@ -29,7 +29,7 @@ packages = []
 
 [tool.pytest.ini_options]
 testpaths = ["tests/scripts"]
-addopts = "-v"
+addopts = "-q --tb=short"
 
 [tool.coverage.run]
 source = ["scripts"]

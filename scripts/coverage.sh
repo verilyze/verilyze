@@ -17,7 +17,9 @@ RUST_REPORT="reports/rust/html/index.html"
 PYTHON_REPORT="reports/python/index.html"
 
 _vlz_cov_phase() {
-  echo "[coverage] $(date -Iseconds) $*" >&2
+  if [[ "${VLZ_COVERAGE_VERBOSE:-}" == "1" ]]; then
+    echo "[coverage] $(date -Iseconds) $*" >&2
+  fi
 }
 
 # Ensure cargo-llvm-cov and llvm-tools (default/stable toolchain) are available
@@ -57,17 +59,19 @@ cargo build --workspace --exclude vlz-fuzz
 
 # Run all workspace tests (exclude vlz-fuzz; it uses AFL and is run via make fuzz).
 _vlz_cov_phase "cargo test --workspace"
-cargo test --workspace --exclude vlz-fuzz --features vlz/testing
+cargo test --workspace --exclude vlz-fuzz --features vlz/testing \
+  -- --failure-output=final
 
 # Extended pass (nightly / badges): optional features and minimal-feature matrix.
 # Profraw from this pass merges with the default pass above (no llvm-cov clean).
 if [[ "${VLZ_COVERAGE_EXTENDED:-}" == "1" ]]; then
   _vlz_cov_phase "coverage-extended optional features"
   cargo test --workspace --exclude vlz-fuzz \
-    --features 'vlz/testing,vlz/perf-instrumentation,vlz/python-tier-d'
+    --features 'vlz/testing,vlz/perf-instrumentation,vlz/python-tier-d' \
+    -- --failure-output=final
   _vlz_cov_phase "coverage-extended minimal features"
   cargo test -p vlz --no-default-features --features testing \
-    --test minimal_features
+    --test minimal_features -- --failure-output=final
 fi
 
 # Run the vlz binary to capture main.rs and run() coverage (binary is not a
@@ -109,13 +113,17 @@ command -v "$PY" >/dev/null 2>&1 \
 "$PY" -m pytest --version >/dev/null 2>&1 \
   || { echo "ERROR: pytest not found. Run: make setup" >&2; exit 1; }
 _vlz_cov_phase "pytest scripts"
+_pytest_cov_report=()
+if [[ "${VLZ_COVERAGE_VERBOSE:-}" == "1" ]]; then
+  _pytest_cov_report+=(--cov-report=term-missing:skip-covered)
+fi
 PYTHONPATH=. "$PY" -m pytest tests/scripts/ \
   --cov=scripts \
   --cov-report=html:reports/python \
   --cov-report=xml:reports/cobertura-python.xml \
-  --cov-report=term-missing:skip-covered \
+  "${_pytest_cov_report[@]}" \
   --cov-fail-under=95 \
-  -v || ERR=1
+  -q --tb=short || ERR=1
 
 if [[ "$ERR" -eq 0 ]]; then
   PYTHONPATH=. "$PY" scripts/coverage_per_file_check.py \

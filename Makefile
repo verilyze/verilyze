@@ -239,7 +239,7 @@ check-completions: debug
 
 # ---- Tests ----
 cargo-test:
-	cd "$(MKFILE_DIR)" && cargo test --features vlz/testing
+	cd "$(MKFILE_DIR)" && cargo test --features vlz/testing -- --failure-output=final
 
 # Bootstrap .venv-test with pytest and pytest-cov (NFR-021)
 $(VENV_TEST)/bin/pytest:
@@ -261,7 +261,7 @@ venv-test-ready:
 	@$(MAKE) --always-make $(VENV_TEST)/bin/pytest
 
 test-scripts: venv-test-ready
-	@cd "$(MKFILE_DIR)" && $(VENV_TEST)/bin/python -m pytest tests/scripts/ -v
+	@cd "$(MKFILE_DIR)" && $(VENV_TEST)/bin/python -m pytest tests/scripts/
 
 unit-tests: cargo-test test-scripts
 
@@ -360,8 +360,8 @@ generate-config-example: debug $(VENV_TEST)/bin/pytest
 	$(VENV_TEST)/bin/python $(SCRIPTS_DIR)/generate_config_example.py
 
 # generate-manpages: produce man/vlz.1 from the Clap CLI definition.
+# Use a unique temp file so parallel make jobs do not race.
 generate-manpages:
-	# Use a unique temp file so parallel make jobs do not race.
 	@cd "$(MKFILE_DIR)" && TMP_MANPAGE="$$(mktemp man/vlz.1.tmp.XXXXXX)" && \
 		cargo run -q -p vlz --bin vlz-manpage-gen > "$$TMP_MANPAGE" && \
 		mv "$$TMP_MANPAGE" man/vlz.1
@@ -482,7 +482,7 @@ release-notes:
 # writing under target/ (REUSE.toml annotates target/fake-toolchain/**).
 check-fast: setup
 	@$(MAKE) check-headers
-	@$(MAKE) -j check-fast-parallel
+	@$(MAKE) --output-sync=target -k -j check-fast-parallel
 
 check-fast-parallel: check-doc-diagrams \
             check-config-docs \
@@ -504,7 +504,7 @@ check-slow: setup fuzz-then-coverage
 # check: full pre-commit/CI gate (NFR-021, NFR-022, DOC-007)
 check: setup
 	@$(MAKE) check-headers
-	@$(MAKE) -j check-parallel
+	@$(MAKE) --output-sync=target -k -j check-parallel
 
 check-parallel: check-doc-diagrams \
        check-config-docs \

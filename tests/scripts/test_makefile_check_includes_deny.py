@@ -65,7 +65,8 @@ def test_check_fast_target_includes_deny_check() -> None:
 def test_check_serializes_check_headers_before_parallel() -> None:
     text = (repo_root() / "Makefile").read_text(encoding="utf-8")
     assert re.search(
-        r"^check: setup\n\t@\$\(MAKE\) check-headers\n\t@\$\(MAKE\) -j check-parallel",
+        r"^check: setup\n\t@\$\(MAKE\) check-headers\n"
+        r"\t@\$\(MAKE\) --output-sync=target -k -j check-parallel",
         text,
         re.MULTILINE,
     ), (
@@ -81,7 +82,7 @@ def test_check_fast_serializes_check_headers_before_parallel() -> None:
     text = (repo_root() / "Makefile").read_text(encoding="utf-8")
     assert re.search(
         r"^check-fast: setup\n\t@\$\(MAKE\) check-headers\n"
-        r"\t@\$\(MAKE\) -j check-fast-parallel",
+        r"\t@\$\(MAKE\) --output-sync=target -k -j check-fast-parallel",
         text,
         re.MULTILINE,
     ), (
