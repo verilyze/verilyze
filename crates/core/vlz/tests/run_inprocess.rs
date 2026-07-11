@@ -395,6 +395,66 @@ fn run_scan_json_tier_c_per_cve_reachable_divergence() {
     });
 }
 
+/// Exercises the `python-tier-d` apply_tier_d_to_findings path in run_scan when
+/// reachability mode is best-available (compiled only with that feature).
+#[cfg(all(feature = "python", feature = "python-tier-d"))]
+#[test]
+fn run_scan_best_available_exercises_tier_d_block() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
+        std::fs::write(
+            dir.path().join("main.py"),
+            "import pkg\nfrom pkg import used_sym\n",
+        )
+        .expect("write main.py");
+        let root = dir.path().to_str().unwrap();
+
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            TierCReachabilityProvider::new(),
+        )));
+        #[cfg(feature = "redb")]
+        reregister_db_backend();
+
+        let code = run_async(&[
+            "scan",
+            root,
+            "--offline",
+            "--provider",
+            "tier_c_reachability",
+            "--reachability-mode",
+            "best-available",
+            "--benchmark",
+        ]);
+        // Benchmark skips CVE fetch; exit 0 still runs reachability wiring.
+        assert_eq!(code, 0);
+    });
+}
+
+#[cfg(all(feature = "python", feature = "perf-instrumentation"))]
+#[test]
+fn run_scan_tier_b_with_perf_instrumentation_exits_cleanly() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
+        std::fs::write(dir.path().join("main.py"), "import pkg\n")
+            .expect("write main.py");
+        let root = dir.path().to_str().unwrap();
+        let code = run_async(&[
+            "scan",
+            root,
+            "--offline",
+            "--benchmark",
+            "--reachability-mode",
+            "tier-b",
+        ]);
+        assert_eq!(code, 0);
+    });
+}
+
 #[test]
 fn run_config_list_exits_0() {
     let _ = env_logger::try_init();

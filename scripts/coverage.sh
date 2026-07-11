@@ -51,6 +51,17 @@ cargo build --workspace --exclude vlz-fuzz
 # Run all workspace tests (exclude vlz-fuzz; it uses AFL and is run via make fuzz).
 cargo test --workspace --exclude vlz-fuzz --features vlz/testing
 
+# Extended pass (nightly / badges): optional features and minimal-feature matrix.
+# Profraw from this pass merges with the default pass above (no llvm-cov clean).
+if [[ "${VLZ_COVERAGE_EXTENDED:-}" == "1" ]]; then
+  echo "coverage-extended: optional features (perf-instrumentation, python-tier-d)"
+  cargo test --workspace --exclude vlz-fuzz \
+    --features 'vlz/testing,vlz/perf-instrumentation,vlz/python-tier-d'
+  echo "coverage-extended: minimal features (no redb/docs)"
+  cargo test -p vlz --no-default-features --features testing \
+    --test minimal_features
+fi
+
 # Run the vlz binary to capture main.rs and run() coverage (binary is not a
 # test target). Use isolated XDG dirs so we do not touch user config or cache.
 run_cov_bin() {

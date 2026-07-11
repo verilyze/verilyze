@@ -270,6 +270,102 @@ mod tests {
     }
 
     #[test]
+    fn filter_lock_paths_by_allowlist_empty_returns_clone() {
+        let paths = vec![
+            PathBuf::from("/a/pylock.toml"),
+            PathBuf::from("/a/poetry.lock"),
+        ];
+        let filtered = filter_lock_paths_by_allowlist(&paths, &[]);
+        assert_eq!(filtered, paths);
+    }
+
+    #[test]
+    fn normalize_lock_file_basename_trims_and_uses_file_name() {
+        assert_eq!(
+            normalize_lock_file_basename("  /proj/poetry.lock  "),
+            "poetry.lock"
+        );
+        assert_eq!(normalize_lock_file_basename("uv.lock"), "uv.lock");
+    }
+
+    #[test]
+    fn normalize_lock_file_allowlist_path_dedup_empty_and_error() {
+        let ok = normalize_lock_file_allowlist(&[
+            "/a/poetry.lock".to_string(),
+            "  poetry.lock  ".to_string(),
+            "".to_string(),
+            "   ".to_string(),
+            "uv.lock".to_string(),
+        ])
+        .expect("allowlist");
+        assert_eq!(ok, vec!["poetry.lock".to_string(), "uv.lock".to_string()]);
+
+        let err =
+            normalize_lock_file_allowlist(&["requirements.txt".to_string()])
+                .unwrap_err();
+        assert!(err.contains("unsupported lock file name"));
+    }
+
+    #[test]
+    fn lock_name_matches_allowlist_empty_matches_all() {
+        assert!(lock_name_matches_allowlist("poetry.lock", &[]));
+        assert!(lock_name_matches_allowlist(
+            "poetry.lock",
+            &["poetry.lock".to_string()]
+        ));
+        assert!(!lock_name_matches_allowlist(
+            "uv.lock",
+            &["poetry.lock".to_string()]
+        ));
+    }
+
+    #[test]
+    fn orphan_multi_lock_warning_dirs_lists_basenames() {
+        let manifests = vec![PathBuf::from("/with-manifest/requirements.txt")];
+        let locks = vec![
+            PathBuf::from("/orphan/pylock.toml"),
+            PathBuf::from("/orphan/poetry.lock"),
+            PathBuf::from("/with-manifest/uv.lock"),
+            PathBuf::from("/single/uv.lock"),
+        ];
+        let warnings = orphan_multi_lock_warning_dirs(&manifests, &locks);
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(warnings[0].0, PathBuf::from("/orphan"));
+        assert!(warnings[0].1.contains(&"pylock.toml".to_string()));
+        assert!(warnings[0].1.contains(&"poetry.lock".to_string()));
+    }
+
+    #[test]
+    fn orphan_lock_dirs_with_multiple_locks_returns_multi_dirs() {
+        let manifests = vec![PathBuf::from("/m/requirements.txt")];
+        let locks = vec![
+            PathBuf::from("/orphan/pylock.toml"),
+            PathBuf::from("/orphan/poetry.lock"),
+            PathBuf::from("/m/uv.lock"),
+        ];
+        let dirs = orphan_lock_dirs_with_multiple_locks(&manifests, &locks);
+        assert_eq!(dirs.len(), 1);
+        assert!(dirs.contains(&PathBuf::from("/orphan")));
+    }
+
+    #[test]
+    fn dir_has_any_python_lock_true_false_and_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(!dir_has_any_python_lock(dir.path()));
+        std::fs::write(dir.path().join("poetry.lock"), "x\n").unwrap();
+        assert!(dir_has_any_python_lock(dir.path()));
+        assert!(!dir_has_any_python_lock(Path::new(
+            "/nonexistent/vlz-lock-names-dir"
+        )));
+    }
+
+    #[test]
+    fn verify_lock_allowlist_empty_ok() {
+        let dir = tempfile::tempdir().unwrap();
+        verify_lock_allowlist_for_dir(dir.path(), &[]).unwrap();
+    }
+
+    #[test]
     fn verify_lock_allowlist_skips_dir_without_locks() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("requirements.txt"), "a==1\n").unwrap();
