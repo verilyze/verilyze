@@ -22,12 +22,12 @@ It is **not** a certification or audit attestation.
 | Control area | Standard refs | PRD IDs | Implementation evidence |
 |--------------|---------------|---------|-------------------------|
 | Dependency inventory (SBOM) | NTIA minimum elements | SEC-019 | [sbom/v1/](sbom/v1/), `make generate-sbom`, `make check-sbom`, [.github/workflows/supply-chain.yml](.github/workflows/supply-chain.yml) `sbom` job |
-| Vulnerability monitoring | SOC 2 CC7, ISO 27001 A.12 | SEC-015, SEC-016 | `dogfood` job in supply-chain workflow, `make deny-check`, [deny.toml](deny.toml), [CodeQL](.github/workflows/codeql.yml) |
+| Vulnerability monitoring | SOC 2 CC7, ISO 27001 A.12 | SEC-015, SEC-016 | `verilyze` job in supply-chain workflow, `make deny-check`, [deny.toml](deny.toml), [CodeQL](.github/workflows/codeql.yml) |
 | License compliance | SOC 2 CC9 | SEC-012, DOC-012 | `make deny-check`, [THIRD-PARTY-LICENSES](THIRD-PARTY-LICENSES), REUSE (`make check-headers`) |
 | Secure communications | ISO 27001 A.13, CMMC SC | SEC-002, NFR-004, SEC-024 | [vlz-cve-client](crates/core/vlz-cve-client/) TLS 1.3 + cert validation; optional Linux CRL bundle |
 | Credential handling | SOC 2 CC6 | SEC-008, SEC-020 | Env-only provider tokens; no secrets in logs/errors |
 | Data protection (local cache) | SOC 2 CC6, CMMC MP | SEC-014, OP-003 | XDG cache paths, restrictive DB permissions, `vlz db verify` |
-| Auditability | SOC 2 CC7 | SEC-009, NFR-013, FR-010 | Deterministic exit codes; stderr diagnostics; dogfood JSON/SARIF artifacts |
+| Auditability | SOC 2 CC7 | SEC-009, NFR-013, FR-010 | Deterministic exit codes; stderr diagnostics; verilyze scan JSON/SARIF artifacts |
 | Least privilege | CMMC AC, SEC-003 | OP-001 | No set-UID; runs as invoking user |
 | Release integrity | Supply chain best practice | SEC-021 | [release.yml](.github/workflows/release.yml) SLSA L3 binary provenance via `slsa-github-generator` v2.1.0; Cosign signing for all assets |
 | Input validation | CMMC SI, SEC-017 | NFR-020 | AFL fuzz targets (`make fuzz`), strict config parsing (SEC-006) |
@@ -39,7 +39,7 @@ It is **not** a certification or audit attestation.
 |----------|----------|
 | Workspace SBOM (CycloneDX + SPDX) | [sbom/v1/verilyze.cdx.json](sbom/v1/verilyze.cdx.json), [sbom/v1/verilyze.spdx.json](sbom/v1/verilyze.spdx.json) |
 | Third-party license text | [THIRD-PARTY-LICENSES](THIRD-PARTY-LICENSES) |
-| Dogfood scan reports | GitHub Actions artifact `dogfood-reports` from [supply-chain.yml](.github/workflows/supply-chain.yml) |
+| Verilyze scan reports | GitHub Actions artifact `verilyze-reports` from [supply-chain.yml](.github/workflows/supply-chain.yml) |
 | Threat model | [architecture/PRD.md](architecture/PRD.md) section 11, [SECURITY.md](SECURITY.md) |
 | Sample CI consumer | [examples/github-action-vlz-scan.yml](examples/github-action-vlz-scan.yml) |
 

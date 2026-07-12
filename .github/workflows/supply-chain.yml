@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 ---
-# Supply-chain trust checks: workspace SBOM freshness (SEC-019) and dogfooding
-# scan with live CVE lookup (SEC-015).
+# Supply-chain trust checks: workspace SBOM freshness (SEC-019) and verilyze
+# self-scan with live CVE lookup (SEC-015).
 
 name: Supply chain
 
@@ -32,7 +32,7 @@ on:
   merge_group:
     types: [checks_requested]
   schedule:
-  # Daily dogfooding after release (SEC-015).
+  # Daily verilyze self-scan after release (SEC-015).
     - cron: "0 6 * * *"
 
 permissions: {}
@@ -56,7 +56,7 @@ jobs:
       - name: Verify committed workspace SBOM (SEC-019)
         run: make check-sbom
 
-  dogfood:
+  verilyze:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -83,10 +83,10 @@ jobs:
       - name: Build vlz
         run: make release
 
-      - name: Dogfood scan (SEC-015)
+      - name: Verilyze scan (SEC-015)
         env:
-          REPORT_JSON: ${{ runner.temp }}/dogfood-report.json
-          REPORT_SARIF: ${{ runner.temp }}/dogfood.sarif
+          REPORT_JSON: ${{ runner.temp }}/verilyze-report.json
+          REPORT_SARIF: ${{ runner.temp }}/verilyze.sarif
         run: |
           set -euo pipefail
           scan_args=(
@@ -102,11 +102,11 @@ jobs:
           done
           ./target/release/vlz "${scan_args[@]}"
 
-      - name: Upload dogfood reports
+      - name: Upload verilyze scan reports
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: dogfood-reports
+          name: verilyze-reports
           path: |
-            ${{ runner.temp }}/dogfood-report.json
-            ${{ runner.temp }}/dogfood.sarif
+            ${{ runner.temp }}/verilyze-report.json
+            ${{ runner.temp }}/verilyze.sarif
           retention-days: 90

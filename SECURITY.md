@@ -191,8 +191,8 @@ for remediation when scans warn about partial (direct-only) resolution.
 - **Latest `vlz scan` (dogfooding):** SEC-015 requires the project to be
   scannable by the latest stable verilyze with exit 0. CI workflow
   [.github/workflows/supply-chain.yml](.github/workflows/supply-chain.yml)
-  runs a daily and dependency-triggered **dogfood** job; download the
-  `dogfood-reports` artifact (JSON + SARIF) from the latest successful run.
+  runs a daily and dependency-triggered **verilyze** job; download the
+  `verilyze-reports` artifact (JSON + SARIF) from the latest successful run.
 - **Workspace SBOM (SEC-019):** Committed CycloneDX and SPDX inventories live
   under [sbom/v1/](sbom/v1/). Regenerate with `make generate-sbom`; CI enforces
   via `make check-sbom`.
