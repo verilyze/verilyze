@@ -105,11 +105,7 @@
       "matchManagers": ["custom.regex"],
       "matchDatasources": ["crate"],
       "matchFileNames": [".github/workflows/ci.yml"],
-      "matchPackageNames": [
-        "cargo-llvm-cov",
-        "cargo-afl",
-        "cargo-about"
-      ],
+      "matchPackageNames": ["cargo-llvm-cov", "cargo-afl", "cargo-about"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "ci-cargo-install-tools-minor-patch"
     },
