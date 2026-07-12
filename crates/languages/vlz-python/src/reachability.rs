@@ -326,9 +326,8 @@ fn scoped_roots(context: &TierBContext<'_>) -> Vec<PathBuf> {
 mod tests {
     use super::*;
     use std::path::PathBuf;
-    use vlz_reachability_trait::{
-        reset_tier_b_counters, snapshot_tier_b_counters,
-    };
+    #[cfg(feature = "perf-instrumentation")]
+    use vlz_reachability_trait::measure_tier_b_counters;
 
     fn context_for<'a>(
         root: &'a std::path::Path,
@@ -438,6 +437,7 @@ mod tests {
         assert_eq!(analyzer.analyze_tier_b(&ctx), TierBDecision::Unknown);
     }
 
+    #[cfg(feature = "perf-instrumentation")]
     #[test]
     fn analyze_uses_cached_file_enumeration_across_calls() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -445,12 +445,19 @@ mod tests {
             .expect("write");
         let analyzer = PythonTierBAnalyzer::new();
         let ctx = context_for(dir.path(), "requests");
-        reset_tier_b_counters();
-        assert_eq!(analyzer.analyze_tier_b(&ctx), TierBDecision::Reachable);
-        assert_eq!(analyzer.analyze_tier_b(&ctx), TierBDecision::Reachable);
-        let (enum_calls, _, read_attempts, _) = snapshot_tier_b_counters();
-        assert!(enum_calls == 0 || enum_calls == 1);
-        assert!(read_attempts == 0 || read_attempts == 1);
+        let (_, (enum_calls, _, read_attempts, _)) =
+            measure_tier_b_counters(|| {
+                assert_eq!(
+                    analyzer.analyze_tier_b(&ctx),
+                    TierBDecision::Reachable
+                );
+                assert_eq!(
+                    analyzer.analyze_tier_b(&ctx),
+                    TierBDecision::Reachable
+                );
+            });
+        assert_eq!(enum_calls, 1);
+        assert_eq!(read_attempts, 1);
     }
 
     #[test]

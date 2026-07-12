@@ -107,6 +107,9 @@ testing = ["async-trait"]
 perf-instrumentation = [
     "vlz-reachability/perf-instrumentation",
     "vlz-reachability-trait/perf-instrumentation",
+    "vlz-python?/perf-instrumentation",
+    "vlz-rust?/perf-instrumentation",
+    "vlz-go?/perf-instrumentation",
 ]
 sqlite = []      # placeholder for a future SQLite backend
 mem = []         # placeholder for an in‑memory/mock backend

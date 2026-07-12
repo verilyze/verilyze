@@ -17,8 +17,8 @@ use vlz_cve_client::{
 use vlz_db::{CveRecord, Package};
 pub use vlz_reachability_trait::{
     ReachabilityAnalyzer, TierBContext, TierBDecision, TierCDecision,
-    note_tier_b_file_read_attempt, reset_tier_b_counters,
-    snapshot_tier_b_counters,
+    measure_tier_b_counters, note_tier_b_file_read_attempt,
+    reset_tier_b_counters, snapshot_tier_b_counters,
 };
 
 #[derive(Debug, Clone, Default)]

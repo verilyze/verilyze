@@ -4,10 +4,14 @@
 
 #![deny(unsafe_code)]
 
+#[cfg(feature = "perf-instrumentation")]
+use std::cell::Cell;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 #[cfg(feature = "perf-instrumentation")]
 use std::sync::atomic::{AtomicU64, Ordering};
+#[cfg(feature = "perf-instrumentation")]
+use std::sync::{Mutex, MutexGuard, OnceLock};
 
 use vlz_db::Package;
 
@@ -83,26 +87,71 @@ static TIER_B_FILES_ENUMERATED: AtomicU64 = AtomicU64::new(0);
 static TIER_B_FILE_READ_ATTEMPTS: AtomicU64 = AtomicU64::new(0);
 #[cfg(feature = "perf-instrumentation")]
 static TIER_B_FILE_READ_SUCCESSES: AtomicU64 = AtomicU64::new(0);
+#[cfg(feature = "perf-instrumentation")]
+static TIER_B_COUNTER_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
+
+#[cfg(feature = "perf-instrumentation")]
+thread_local! {
+    static TIER_B_COUNTERS_LOCKED: Cell<bool> = const { Cell::new(false) };
+}
+
+#[cfg(feature = "perf-instrumentation")]
+struct TierBCounterGuard<'a> {
+    _guard: MutexGuard<'a, ()>,
+}
+
+#[cfg(feature = "perf-instrumentation")]
+impl Drop for TierBCounterGuard<'_> {
+    fn drop(&mut self) {
+        TIER_B_COUNTERS_LOCKED.set(false);
+    }
+}
+
+#[cfg(feature = "perf-instrumentation")]
+fn tier_b_counter_mutex() -> &'static Mutex<()> {
+    TIER_B_COUNTER_MUTEX.get_or_init(|| Mutex::new(()))
+}
+
+#[cfg(feature = "perf-instrumentation")]
+fn with_tier_b_counter_lock<R>(f: impl FnOnce() -> R) -> R {
+    if TIER_B_COUNTERS_LOCKED.get() {
+        return f();
+    }
+    let guard = tier_b_counter_mutex()
+        .lock()
+        .expect("tier B counter mutex poisoned");
+    TIER_B_COUNTERS_LOCKED.set(true);
+    let _guard = TierBCounterGuard { _guard: guard };
+    f()
+}
+
+#[cfg(feature = "perf-instrumentation")]
+fn reset_tier_b_counters_unlocked() {
+    TIER_B_FILE_ENUM_CALLS.store(0, Ordering::Relaxed);
+    TIER_B_FILES_ENUMERATED.store(0, Ordering::Relaxed);
+    TIER_B_FILE_READ_ATTEMPTS.store(0, Ordering::Relaxed);
+    TIER_B_FILE_READ_SUCCESSES.store(0, Ordering::Relaxed);
+}
+
+#[cfg(feature = "perf-instrumentation")]
+fn snapshot_tier_b_counters_unlocked() -> (u64, u64, u64, u64) {
+    (
+        TIER_B_FILE_ENUM_CALLS.load(Ordering::Relaxed),
+        TIER_B_FILES_ENUMERATED.load(Ordering::Relaxed),
+        TIER_B_FILE_READ_ATTEMPTS.load(Ordering::Relaxed),
+        TIER_B_FILE_READ_SUCCESSES.load(Ordering::Relaxed),
+    )
+}
 
 pub fn reset_tier_b_counters() {
     #[cfg(feature = "perf-instrumentation")]
-    {
-        TIER_B_FILE_ENUM_CALLS.store(0, Ordering::Relaxed);
-        TIER_B_FILES_ENUMERATED.store(0, Ordering::Relaxed);
-        TIER_B_FILE_READ_ATTEMPTS.store(0, Ordering::Relaxed);
-        TIER_B_FILE_READ_SUCCESSES.store(0, Ordering::Relaxed);
-    }
+    with_tier_b_counter_lock(reset_tier_b_counters_unlocked);
 }
 
 pub fn snapshot_tier_b_counters() -> (u64, u64, u64, u64) {
     #[cfg(feature = "perf-instrumentation")]
     {
-        (
-            TIER_B_FILE_ENUM_CALLS.load(Ordering::Relaxed),
-            TIER_B_FILES_ENUMERATED.load(Ordering::Relaxed),
-            TIER_B_FILE_READ_ATTEMPTS.load(Ordering::Relaxed),
-            TIER_B_FILE_READ_SUCCESSES.load(Ordering::Relaxed),
-        )
+        with_tier_b_counter_lock(snapshot_tier_b_counters_unlocked)
     }
     #[cfg(not(feature = "perf-instrumentation"))]
     {
@@ -110,9 +159,34 @@ pub fn snapshot_tier_b_counters() -> (u64, u64, u64, u64) {
     }
 }
 
+/// Reset Tier B counters, run `f`, and return its result with a counter snapshot.
+///
+/// Holds the counter mutex for the whole call so parallel tests cannot pollute
+/// measurements (nightly `coverage-extended` runs workspace tests in parallel).
+pub fn measure_tier_b_counters<F, R>(f: F) -> (R, (u64, u64, u64, u64))
+where
+    F: FnOnce() -> R,
+{
+    #[cfg(feature = "perf-instrumentation")]
+    {
+        with_tier_b_counter_lock(|| {
+            reset_tier_b_counters_unlocked();
+            let result = f();
+            let snapshot = snapshot_tier_b_counters_unlocked();
+            (result, snapshot)
+        })
+    }
+    #[cfg(not(feature = "perf-instrumentation"))]
+    {
+        (f(), (0, 0, 0, 0))
+    }
+}
+
 #[cfg(feature = "perf-instrumentation")]
 fn note_tier_b_file_enum_call() {
-    TIER_B_FILE_ENUM_CALLS.fetch_add(1, Ordering::Relaxed);
+    with_tier_b_counter_lock(|| {
+        TIER_B_FILE_ENUM_CALLS.fetch_add(1, Ordering::Relaxed);
+    });
 }
 
 #[cfg(not(feature = "perf-instrumentation"))]
@@ -120,7 +194,9 @@ fn note_tier_b_file_enum_call() {}
 
 #[cfg(feature = "perf-instrumentation")]
 fn note_tier_b_files_enumerated(count: usize) {
-    TIER_B_FILES_ENUMERATED.fetch_add(count as u64, Ordering::Relaxed);
+    with_tier_b_counter_lock(|| {
+        TIER_B_FILES_ENUMERATED.fetch_add(count as u64, Ordering::Relaxed);
+    });
 }
 
 #[cfg(not(feature = "perf-instrumentation"))]
@@ -129,12 +205,12 @@ fn note_tier_b_files_enumerated(_count: usize) {}
 pub fn note_tier_b_file_read_attempt(success: bool) {
     let _ = success;
     #[cfg(feature = "perf-instrumentation")]
-    {
+    with_tier_b_counter_lock(|| {
         TIER_B_FILE_READ_ATTEMPTS.fetch_add(1, Ordering::Relaxed);
         if success {
             TIER_B_FILE_READ_SUCCESSES.fetch_add(1, Ordering::Relaxed);
         }
-    }
+    });
 }
 
 pub fn list_files_with_ext(
@@ -340,12 +416,12 @@ mod tests {
     #[cfg(feature = "perf-instrumentation")]
     #[test]
     fn counters_record_when_feature_enabled() {
-        reset_tier_b_counters();
-        note_tier_b_file_enum_call();
-        note_tier_b_files_enumerated(3);
-        note_tier_b_file_read_attempt(true);
-        let (enum_calls, files_enumerated, read_attempts, read_successes) =
-            snapshot_tier_b_counters();
+        let (_, (enum_calls, files_enumerated, read_attempts, read_successes)) =
+            measure_tier_b_counters(|| {
+                note_tier_b_file_enum_call();
+                note_tier_b_files_enumerated(3);
+                note_tier_b_file_read_attempt(true);
+            });
         assert_eq!(enum_calls, 1);
         assert_eq!(files_enumerated, 3);
         assert_eq!(read_attempts, 1);
@@ -355,9 +431,10 @@ mod tests {
     #[cfg(feature = "perf-instrumentation")]
     #[test]
     fn note_tier_b_file_read_attempt_false_does_not_increment_success() {
-        reset_tier_b_counters();
-        note_tier_b_file_read_attempt(false);
-        let (_, _, read_attempts, read_successes) = snapshot_tier_b_counters();
+        let (_, (_, _, read_attempts, read_successes)) =
+            measure_tier_b_counters(|| {
+                note_tier_b_file_read_attempt(false);
+            });
         assert_eq!(read_attempts, 1);
         assert_eq!(read_successes, 0);
     }
@@ -365,11 +442,39 @@ mod tests {
     #[cfg(feature = "perf-instrumentation")]
     #[test]
     fn reset_tier_b_counters_clears_snapshot() {
-        reset_tier_b_counters();
-        note_tier_b_file_enum_call();
-        note_tier_b_files_enumerated(2);
-        note_tier_b_file_read_attempt(true);
+        let (_, snapshot) = measure_tier_b_counters(|| {
+            note_tier_b_file_enum_call();
+            note_tier_b_files_enumerated(2);
+            note_tier_b_file_read_attempt(true);
+        });
+        assert_ne!(snapshot, (0, 0, 0, 0));
         reset_tier_b_counters();
         assert_eq!(snapshot_tier_b_counters(), (0, 0, 0, 0));
+    }
+
+    #[cfg(feature = "perf-instrumentation")]
+    #[test]
+    fn measure_tier_b_counters_excludes_concurrent_increments() {
+        use std::sync::{Arc, Barrier};
+        use std::thread;
+
+        let barrier = Arc::new(Barrier::new(2));
+        let barrier_clone = Arc::clone(&barrier);
+
+        let handle = thread::spawn(move || {
+            barrier_clone.wait();
+            note_tier_b_file_read_attempt(true);
+        });
+
+        let (_, (_, _, read_attempts, read_successes)) =
+            measure_tier_b_counters(|| {
+                barrier.wait();
+                note_tier_b_file_read_attempt(true);
+                thread::sleep(std::time::Duration::from_millis(50));
+            });
+
+        handle.join().expect("join");
+        assert_eq!(read_attempts, 1);
+        assert_eq!(read_successes, 1);
     }
 }
