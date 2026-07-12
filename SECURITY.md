@@ -189,10 +189,14 @@ for remediation when scans warn about partial (direct-only) resolution.
   `./scripts/fuzz.sh` (requires cargo-afl and AFL++). Results and coverage can
   be linked here or from CI artifacts when available.
 - **Latest `vlz scan` (dogfooding):** SEC-015 requires the project to be
-  scannable by the latest stable verilyze with exit 0. CI workflow
-  [.github/workflows/supply-chain.yml](.github/workflows/supply-chain.yml)
-  runs a daily and dependency-triggered **verilyze** job; download the
-  `verilyze-reports` artifact (JSON + SARIF) from the latest successful run.
+  scannable by the latest stable verilyze with exit 0. Nightly CI workflow
+  [.github/workflows/verilyze-nightly.yml](.github/workflows/verilyze-nightly.yml)
+  downloads the latest published Linux `vlz` release, verifies checksums and
+  Cosign attestations, then scans this repository. Dependency-triggered scans
+  build from source in the **verilyze** job in
+  [.github/workflows/supply-chain.yml](.github/workflows/supply-chain.yml).
+  Download the `verilyze-reports` artifact (JSON + SARIF) from the latest
+  successful nightly run.
 - **Workspace SBOM (SEC-019):** Committed CycloneDX and SPDX inventories live
   under [sbom/v1/](sbom/v1/). Regenerate with `make generate-sbom`; CI enforces
   via `make check-sbom`.

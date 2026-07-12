@@ -13,7 +13,7 @@ vulnerabilities. Written in Rust.
 [![Rust coverage](https://raw.githubusercontent.com/wiki/verilyze/verilyze/coverage-rust.svg)](https://github.com/verilyze/verilyze/actions/workflows/coverage-nightly.yml)
 [![Python coverage](https://raw.githubusercontent.com/wiki/verilyze/verilyze/coverage-python.svg)](https://github.com/verilyze/verilyze/actions/workflows/coverage-nightly.yml)
 [![Super-linter](https://github.com/verilyze/verilyze/actions/workflows/super-linter-nightly.yml/badge.svg)](https://github.com/verilyze/verilyze/actions/workflows/super-linter-nightly.yml)
-[![Verilyze](https://github.com/verilyze/verilyze/actions/workflows/supply-chain.yml/badge.svg?query=job%3Averilyze)](https://github.com/verilyze/verilyze/actions/workflows/supply-chain.yml)
+[![Verilyze](https://github.com/verilyze/verilyze/actions/workflows/verilyze-nightly.yml/badge.svg)](https://github.com/verilyze/verilyze/actions/workflows/verilyze-nightly.yml)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12361/badge)](https://www.bestpractices.dev/projects/12361)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/verilyze/verilyze/badge)](https://scorecard.dev/viewer/?uri=github.com/verilyze/verilyze)
 

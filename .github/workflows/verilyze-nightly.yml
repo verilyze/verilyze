@@ -1,0 +1,62 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+---
+# Nightly SEC-015 self-scan with latest published release binary.
+# README badge points at this workflow.
+
+name: verilyze
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verilyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Install verified vlz release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VLZ_RELEASE_DOWNLOAD_DIR: ${{ runner.temp }}/vlz-release
+          EXPECTED_BUILDER_REGEX: ^https://github\.com/${{ github.repository }}/\.github/workflows/release\.yml@
+          SLSA_GENERATOR_BUILDER_REGEX: ^https://github\.com/slsa-framework/slsa-github-generator/\.github/workflows/generator_generic_slsa3\.yml@v2\.1\.0$
+        run: |
+          set -euo pipefail
+          echo "VLZ_BIN=$(./scripts/ci-install-vlz-release.sh)" >> "${GITHUB_ENV}"
+
+      - name: Cache OSV CVE cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/verilyze
+          key: >-
+            vlz-osv-cache-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            vlz-osv-cache-${{ runner.os }}-
+
+      - name: Verilyze scan (SEC-015)
+        env:
+          REPORT_JSON: ${{ runner.temp }}/verilyze-report.json
+          REPORT_SARIF: ${{ runner.temp }}/verilyze.sarif
+        run: ./scripts/ci-verilyze-scan.sh
+
+      - name: Upload verilyze scan reports
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: verilyze-reports
+          path: |
+            ${{ runner.temp }}/verilyze-report.json
+            ${{ runner.temp }}/verilyze.sarif
+          retention-days: 90
