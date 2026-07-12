@@ -174,7 +174,7 @@ if ! "$DO_COVERAGE"; then
         RUSTFLAGS=""
     fi
 fi
-export RUSTFLAGS="${RUSTFLAGS} -C panic=unwind"
+export RUSTFLAGS="${RUSTFLAGS:-} -C panic=unwind"
 # x86_64: portable CPU level avoids SIGILL in proc-macros when AFL uses sanitizer
 # coverage with rustc -C target-cpu=native on some shared runners.
 if [[ "$(uname -m)" == "x86_64" ]] && [[ -z "${VLZ_FUZZ_SKIP_TARGET_CPU:-}" ]]; then

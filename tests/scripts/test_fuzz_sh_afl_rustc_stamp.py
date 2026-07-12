@@ -49,6 +49,14 @@ def test_fuzz_sh_rebuilds_afl_when_stamp_mismatches() -> None:
     )
 
 
+def test_fuzz_sh_rustflags_default_after_sourced_nounset() -> None:
+    """panic=unwind append must tolerate unset RUSTFLAGS (lib uses set -u)."""
+    text = _fuzz_sh_text()
+    assert 'export RUSTFLAGS="${RUSTFLAGS:-} -C panic=unwind"' in text, (
+        "fuzz.sh must default RUSTFLAGS before panic=unwind (fuzz-resolve-targets sets -u)"
+    )
+
+
 def test_fuzz_sh_resolves_targets_before_afl_bootstrap() -> None:
     text = _fuzz_sh_text()
     resolve_pos = text.index("fuzz_resolve_changed_targets")
