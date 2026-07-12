@@ -57,16 +57,18 @@ verify_downloaded_linux_binary() {
     return 1
   fi
 
+  # sha256sum -c and cosign write status to stdout; install script prints only the
+  # binary path on stdout for GITHUB_ENV capture.
   (
     cd "${root}" || exit 1
-    grep -F "${rel_path}" SHA256SUMS | sha256sum -c
+    grep -F "${rel_path}" SHA256SUMS | sha256sum -c >&2
   )
 
   cosign verify-blob \
     --bundle "${file}.sigstore.json" \
     --certificate-identity-regexp "${builder_regex}" \
     --certificate-oidc-issuer "${RELEASE_OIDC_ISSUER}" \
-    "${file}"
+    "${file}" >&2
 
   cosign verify-blob-attestation \
     --bundle "${file}.intoto.jsonl" \
@@ -74,5 +76,5 @@ verify_downloaded_linux_binary() {
     --type slsaprovenance \
     --certificate-identity-regexp "${slsa_regex}" \
     --certificate-oidc-issuer "${RELEASE_OIDC_ISSUER}" \
-    "${file}"
+    "${file}" >&2
 }
