@@ -1857,130 +1857,130 @@
       "version": "0.2.2"
     },
     {
-      "bom-ref": "pkg:cargo/vlz@0.3.1",
+      "bom-ref": "pkg:cargo/vlz@0.4.0",
       "name": "vlz",
-      "purl": "pkg:cargo/vlz@0.3.1",
+      "purl": "pkg:cargo/vlz@0.4.0",
       "type": "library",
-      "version": "0.3.1"
+      "version": "0.4.0"
     },
     {
-      "bom-ref": "pkg:cargo/vlz-cve-client@0.3.1",
+      "bom-ref": "pkg:cargo/vlz-cve-client@0.4.0",
       "name": "vlz-cve-client",
-      "purl": "pkg:cargo/vlz-cve-client@0.3.1",
+      "purl": "pkg:cargo/vlz-cve-client@0.4.0",
       "type": "library",
-      "version": "0.3.1"
+      "version": "0.4.0"
     },
     {
-      "bom-ref": "pkg:cargo/vlz-cve-provider-github@0.3.1",
+      "bom-ref": "pkg:cargo/vlz-cve-provider-github@0.4.0",
       "name": "vlz-cve-provider-github",
-      "purl": "pkg:cargo/vlz-cve-provider-github@0.3.1",
+      "purl": "pkg:cargo/vlz-cve-provider-github@0.4.0",
       "type": "library",
-      "version": "0.3.1"
+      "version": "0.4.0"
     },
     {
-      "bom-ref": "pkg:cargo/vlz-cve-provider-nvd@0.3.1",
+      "bom-ref": "pkg:cargo/vlz-cve-provider-nvd@0.4.0",
       "name": "vlz-cve-provider-nvd",
-      "purl": "pkg:cargo/vlz-cve-provider-nvd@0.3.1",
+      "purl": "pkg:cargo/vlz-cve-provider-nvd@0.4.0",
       "type": "library",
-      "version": "0.3.1"
+      "version": "0.4.0"
     },
     {
-      "bom-ref": "pkg:cargo/vlz-cve-provider-sonatype@0.3.1",
+      "bom-ref": "pkg:cargo/vlz-cve-provider-sonatype@0.4.0",
       "name": "vlz-cve-provider-sonatype",
-      "purl": "pkg:cargo/vlz-cve-provider-sonatype@0.3.1",
+      "purl": "pkg:cargo/vlz-cve-provider-sonatype@0.4.0",
       "type": "library",
-      "version": "0.3.1"
+      "version": "0.4.0"
     },
     {
-      "bom-ref": "pkg:cargo/vlz-db@0.3.1",
+      "bom-ref": "pkg:cargo/vlz-db@0.4.0",
       "name": "vlz-db",
-      "purl": "pkg:cargo/vlz-db@0.3.1",
+      "purl": "pkg:cargo/vlz-db@0.4.0",
       "type": "library",
-      "version": "0.3.1"
+      "version": "0.4.0"
     },
     {
-      "bom-ref": "pkg:cargo/vlz-db-redb@0.3.1",
+      "bom-ref": "pkg:cargo/vlz-db-redb@0.4.0",
       "name": "vlz-db-redb",
-      "purl": "pkg:cargo/vlz-db-redb@0.3.1",
+      "purl": "pkg:cargo/vlz-db-redb@0.4.0",
       "type": "library",
-      "version": "0.3.1"
+      "version": "0.4.0"
     },
     {
-      "bom-ref": "pkg:cargo/vlz-fuzz@0.3.1",
+      "bom-ref": "pkg:cargo/vlz-fuzz@0.4.0",
       "name": "vlz-fuzz",
-      "purl": "pkg:cargo/vlz-fuzz@0.3.1",
+      "purl": "pkg:cargo/vlz-fuzz@0.4.0",
       "type": "library",
-      "version": "0.3.1"
+      "version": "0.4.0"
     },
     {
-      "bom-ref": "pkg:cargo/vlz-go@0.3.1",
+      "bom-ref": "pkg:cargo/vlz-go@0.4.0",
       "name": "vlz-go",
-      "purl": "pkg:cargo/vlz-go@0.3.1",
+      "purl": "pkg:cargo/vlz-go@0.4.0",
       "type": "library",
-      "version": "0.3.1"
+      "version": "0.4.0"
     },
     {
-      "bom-ref": "pkg:cargo/vlz-integrity@0.3.1",
+      "bom-ref": "pkg:cargo/vlz-integrity@0.4.0",
       "name": "vlz-integrity",
-      "purl": "pkg:cargo/vlz-integrity@0.3.1",
+      "purl": "pkg:cargo/vlz-integrity@0.4.0",
       "type": "library",
-      "version": "0.3.1"
+      "version": "0.4.0"
     },
     {
-      "bom-ref": "pkg:cargo/vlz-manifest-finder@0.3.1",
+      "bom-ref": "pkg:cargo/vlz-manifest-finder@0.4.0",
       "name": "vlz-manifest-finder",
-      "purl": "pkg:cargo/vlz-manifest-finder@0.3.1",
+      "purl": "pkg:cargo/vlz-manifest-finder@0.4.0",
       "type": "library",
-      "version": "0.3.1"
+      "version": "0.4.0"
     },
     {
-      "bom-ref": "pkg:cargo/vlz-manifest-parser@0.3.1",
+      "bom-ref": "pkg:cargo/vlz-manifest-parser@0.4.0",
       "name": "vlz-manifest-parser",
-      "purl": "pkg:cargo/vlz-manifest-parser@0.3.1",
+      "purl": "pkg:cargo/vlz-manifest-parser@0.4.0",
       "type": "library",
-      "version": "0.3.1"
+      "version": "0.4.0"
     },
     {
-      "bom-ref": "pkg:cargo/vlz-plugin-macro@0.3.1",
+      "bom-ref": "pkg:cargo/vlz-plugin-macro@0.4.0",
       "name": "vlz-plugin-macro",
-      "purl": "pkg:cargo/vlz-plugin-macro@0.3.1",
+      "purl": "pkg:cargo/vlz-plugin-macro@0.4.0",
       "type": "library",
-      "version": "0.3.1"
+      "version": "0.4.0"
     },
     {
-      "bom-ref": "pkg:cargo/vlz-python@0.3.1",
+      "bom-ref": "pkg:cargo/vlz-python@0.4.0",
       "name": "vlz-python",
-      "purl": "pkg:cargo/vlz-python@0.3.1",
+      "purl": "pkg:cargo/vlz-python@0.4.0",
       "type": "library",
-      "version": "0.3.1"
+      "version": "0.4.0"
     },
     {
-      "bom-ref": "pkg:cargo/vlz-reachability@0.3.1",
+      "bom-ref": "pkg:cargo/vlz-reachability@0.4.0",
       "name": "vlz-reachability",
-      "purl": "pkg:cargo/vlz-reachability@0.3.1",
+      "purl": "pkg:cargo/vlz-reachability@0.4.0",
       "type": "library",
-      "version": "0.3.1"
+      "version": "0.4.0"
     },
     {
-      "bom-ref": "pkg:cargo/vlz-reachability-trait@0.3.1",
+      "bom-ref": "pkg:cargo/vlz-reachability-trait@0.4.0",
       "name": "vlz-reachability-trait",
-      "purl": "pkg:cargo/vlz-reachability-trait@0.3.1",
+      "purl": "pkg:cargo/vlz-reachability-trait@0.4.0",
       "type": "library",
-      "version": "0.3.1"
+      "version": "0.4.0"
     },
     {
-      "bom-ref": "pkg:cargo/vlz-report@0.3.1",
+      "bom-ref": "pkg:cargo/vlz-report@0.4.0",
       "name": "vlz-report",
-      "purl": "pkg:cargo/vlz-report@0.3.1",
+      "purl": "pkg:cargo/vlz-report@0.4.0",
       "type": "library",
-      "version": "0.3.1"
+      "version": "0.4.0"
     },
     {
-      "bom-ref": "pkg:cargo/vlz-rust@0.3.1",
+      "bom-ref": "pkg:cargo/vlz-rust@0.4.0",
       "name": "vlz-rust",
-      "purl": "pkg:cargo/vlz-rust@0.3.1",
+      "purl": "pkg:cargo/vlz-rust@0.4.0",
       "type": "library",
-      "version": "0.3.1"
+      "version": "0.4.0"
     },
     {
       "bom-ref": "pkg:cargo/walkdir@2.5.0",
