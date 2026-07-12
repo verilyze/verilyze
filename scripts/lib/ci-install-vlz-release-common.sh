@@ -13,6 +13,31 @@ readonly RELEASE_OIDC_ISSUER="https://token.actions.githubusercontent.com"
 
 readonly SLSA_GENERATOR_BUILDER_REGEX_DEFAULT='^https://github\.com/slsa-framework/slsa-github-generator/\.github/workflows/generator_generic_slsa3\.yml@v2\.1\.0$'
 
+verify_blob_attestation_with_builder_fallback() {
+  local file="${1:?binary path required}"
+  local bundle="${2:?attestation bundle path required}"
+  local release_regex="${3:?release builder regex required}"
+  local slsa_regex="${4:?slsa builder regex required}"
+
+  if cosign verify-blob-attestation \
+    --bundle "${bundle}" \
+    --new-bundle-format \
+    --type slsaprovenance \
+    --certificate-identity-regexp "${slsa_regex}" \
+    --certificate-oidc-issuer "${RELEASE_OIDC_ISSUER}" \
+    "${file}" >&2; then
+    return 0
+  fi
+
+  cosign verify-blob-attestation \
+    --bundle "${bundle}" \
+    --new-bundle-format \
+    --type slsaprovenance \
+    --certificate-identity-regexp "${release_regex}" \
+    --certificate-oidc-issuer "${RELEASE_OIDC_ISSUER}" \
+    "${file}" >&2
+}
+
 resolve_latest_release_tag() {
   local repo="${1:?repository required}"
   local tag
@@ -70,11 +95,11 @@ verify_downloaded_linux_binary() {
     --certificate-oidc-issuer "${RELEASE_OIDC_ISSUER}" \
     "${file}" >&2
 
-  cosign verify-blob-attestation \
-    --bundle "${file}.intoto.jsonl" \
-    --new-bundle-format \
-    --type slsaprovenance \
-    --certificate-identity-regexp "${slsa_regex}" \
-    --certificate-oidc-issuer "${RELEASE_OIDC_ISSUER}" \
-    "${file}" >&2
+  # Published Linux binaries may carry SLSA generator attestations (current
+  # releases) or release.yml attestations (legacy v0.3.1-style assets).
+  verify_blob_attestation_with_builder_fallback \
+    "${file}" \
+    "${file}.intoto.jsonl" \
+    "${builder_regex}" \
+    "${slsa_regex}"
 }

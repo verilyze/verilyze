@@ -124,3 +124,108 @@ printf 'checksum-only'
         assert proc.returncode == 0, proc.stderr + proc.stdout
         assert proc.stdout == "checksum-only"
         assert f"{rel_path}: OK" in proc.stderr
+
+    def test_verify_blob_attestation_uses_slsa_regex_first(
+        self, tmp_path: Path
+    ) -> None:
+        fake_cosign = tmp_path / "cosign"
+        fake_cosign.write_text(
+            """#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1" != verify-blob-attestation ]]; then
+  exit 9
+fi
+for arg in "$@"; do
+  if [[ "$arg" == *slsa-framework* ]]; then
+    exit 0
+  fi
+done
+exit 1
+""",
+            encoding="utf-8",
+        )
+        fake_cosign.chmod(0o755)
+        binary = tmp_path / "vlz"
+        binary.write_bytes(b"bin")
+        bundle = tmp_path / "vlz.intoto.jsonl"
+        bundle.write_text("{}", encoding="utf-8")
+        script = f"""
+set -euo pipefail
+source "{_COMMON_LIB}"
+verify_blob_attestation_with_builder_fallback \\
+  "{binary}" \\
+  "{bundle}" \\
+  '^release\\.yml@' \\
+  '^slsa-framework/'
+"""
+        proc = _run_bash(script, env={"PATH": f"{tmp_path}:{os.environ['PATH']}"})
+        assert proc.returncode == 0, proc.stderr + proc.stdout
+
+    def test_verify_blob_attestation_falls_back_to_release_regex(
+        self, tmp_path: Path
+    ) -> None:
+        fake_cosign = tmp_path / "cosign"
+        fake_cosign.write_text(
+            """#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1" != verify-blob-attestation ]]; then
+  exit 9
+fi
+for arg in "$@"; do
+  if [[ "$arg" == *slsa-framework* ]]; then
+    exit 1
+  fi
+done
+for arg in "$@"; do
+  if [[ "$arg" == *workflows/release* ]]; then
+    exit 0
+  fi
+done
+exit 1
+""",
+            encoding="utf-8",
+        )
+        fake_cosign.chmod(0o755)
+        binary = tmp_path / "vlz"
+        binary.write_bytes(b"bin")
+        bundle = tmp_path / "vlz.intoto.jsonl"
+        bundle.write_text("{}", encoding="utf-8")
+        script = f"""
+set -euo pipefail
+source "{_COMMON_LIB}"
+verify_blob_attestation_with_builder_fallback \\
+  "{binary}" \\
+  "{bundle}" \\
+  '^https://github\\.com/verilyze/verilyze/\\.github/workflows/release\\.yml@' \\
+  '^https://github\\.com/slsa-framework/'
+"""
+        proc = _run_bash(script, env={"PATH": f"{tmp_path}:{os.environ['PATH']}"})
+        assert proc.returncode == 0, proc.stderr + proc.stdout
+
+    def test_verify_blob_attestation_fails_when_both_identities_reject(
+        self, tmp_path: Path
+    ) -> None:
+        fake_cosign = tmp_path / "cosign"
+        fake_cosign.write_text(
+            "#!/usr/bin/env bash\nexit 1\n",
+            encoding="utf-8",
+        )
+        fake_cosign.chmod(0o755)
+        binary = tmp_path / "vlz"
+        binary.write_bytes(b"bin")
+        bundle = tmp_path / "vlz.intoto.jsonl"
+        bundle.write_text("{}", encoding="utf-8")
+        script = f"""
+set -euo pipefail
+source "{_COMMON_LIB}"
+if verify_blob_attestation_with_builder_fallback \\
+  "{binary}" \\
+  "{bundle}" \\
+  '^release\\.yml@' \\
+  '^slsa-framework/'; then
+  exit 9
+fi
+exit 0
+"""
+        proc = _run_bash(script, env={"PATH": f"{tmp_path}:{os.environ['PATH']}"})
+        assert proc.returncode == 0, proc.stderr + proc.stdout
