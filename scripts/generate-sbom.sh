@@ -82,7 +82,14 @@ scan_args+=(
 )
 
 # SEC-019: component inventory SBOM (deterministic; no network/CVE lookup).
-"${VLZ}" "${scan_args[@]}"
+# shellcheck source=lib/check-quiet-env.sh
+source "${ROOT}/scripts/lib/check-quiet-env.sh"
+vlz_apply_check_log_env
+if vlz_check_verbose_enabled; then
+  "${VLZ}" "${scan_args[@]}"
+else
+  "${VLZ}" "${scan_args[@]}" >/dev/null
+fi
 
 PYTHONPATH="${ROOT}" python3 "${ROOT}/scripts/normalize_sbom.py" \
   "${CYCLONEDX_PATH}" "${SPDX_PATH}"

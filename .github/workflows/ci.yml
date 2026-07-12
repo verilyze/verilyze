@@ -138,7 +138,10 @@ jobs:
         run: cargo build --locked -p vlz
 
       - name: Run vlz library tests
-        run: cargo test -p vlz --features vlz/testing --lib
+        env:
+          RUST_LOG: off
+          RUST_LOG_STYLE: never
+        run: cargo test -p vlz --features vlz/testing --lib --quiet
 
   check:
     runs-on: ubuntu-latest
@@ -334,6 +337,8 @@ jobs:
           tool: cargo-afl@0.18.0
 
       - name: Run make -j check (full Makefile gate)
+        env:
+          VLZ_CHECK_VERBOSE: ${{ runner.debug == '1' && '1' || '' }}
         run: ./scripts/run-check.sh
 
       - name: Upload Cobertura XML reports
