@@ -893,10 +893,15 @@ releases](#versioning-and-releases) below.
   `[ ]`; quote variables (`"${var}"`); use `local` in functions; send error
   messages to stderr (`>&2`). The style guide is authoritative; this is a
   concise summary.
-- **GitHub Actions (`ci.yml`):** Job `check` runs `make -j check` (full Makefile
-  gate: headers, `cargo deny`, third-party license file check, fmt, Clippy,
-  Python and shell lint, fuzz-changed, coverage-quick; same as local
-  `make -j check`). PRs also run DCO and commit signature jobs before `check`.
+- **GitHub Actions (`ci.yml`):** Job `check` runs [`./scripts/run-check.sh`](scripts/run-check.sh)
+  (full Makefile gate via `make check` with `--output-sync=target` and `-k` so
+  independent targets keep running after a failure; batched failure summary at
+  the end of the log and in the GitHub Actions step summary). Same gates as local
+  `make -j check` (headers, `cargo deny`, third-party license file check, fmt,
+  Clippy, Python and shell lint, fuzz-changed, coverage-quick). For a single
+  failing target during local iteration, run that target directly (e.g.
+  `make clippy`) instead of the full check. PRs also run DCO and commit
+  signature jobs before `check`.
   **Merge queue (OP-019):** On `merge_group`, `scripts/check-dco.sh` and
   `scripts/check-signatures.sh` require two **full 40-character lowercase hex**
   SHA-1 values for their positional base/head arguments (after trim and
@@ -1177,6 +1182,14 @@ Stderr can stay as `eprintln!` or `log::error!`.
   `ci.yml` posts a sticky comment with Rust and Python line-coverage summaries
   (Cobertura). Fork PRs skip that job because the head repo is not the base
   repo.
+- **CI check debug output:** [`scripts/run-check.sh`](scripts/run-check.sh) sets
+  `RUST_LOG=error` and quiet pytest defaults for CI. For CI-like local runs with
+  the same settings, use `./scripts/run-check.sh`. Verbose coverage phase markers
+  and the pytest term-missing table: `VLZ_COVERAGE_VERBOSE=1 make coverage-quick`.
+  Verbose AFL config: `VLZ_AFL_VERBOSE=1 ./scripts/fuzz.sh` (or `make fuzz`).
+  Intentional stderr from error-path integration tests: use
+  `cargo test -p vlz --features vlz/testing -- --show-output` when debugging a
+  specific test.
   Comments show **current** coverage for the PR head, not a diff versus
   `main`.
 

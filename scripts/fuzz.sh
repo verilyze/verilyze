@@ -106,7 +106,7 @@ _afl_pp="${_afl_rs_data}/AFLplusplus"
 _rustc_stamp="${_afl_rs_data}/rustc-stamp-for-afl"
 
 _afl_verbose=()
-if [[ "${GITHUB_ACTIONS:-}" == "true" ]] || [[ "${VLZ_AFL_VERBOSE:-}" == "1" ]]; then
+if [[ "${VLZ_AFL_VERBOSE:-}" == "1" ]]; then
     _afl_verbose=(--verbose)
 fi
 

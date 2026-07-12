@@ -334,7 +334,7 @@ jobs:
           tool: cargo-afl@0.18.0
 
       - name: Run make -j check (full Makefile gate)
-        run: make -j check
+        run: ./scripts/run-check.sh
 
       - name: Upload Cobertura XML reports
         if: success()

@@ -50,3 +50,9 @@ def test_check_job_always_installs_llvm_cov_deny_about_not_bundled_afl() -> None
     assert "cargo-afl@0.18.0" not in block.split("Install cargo tooling")[1].split(
         "Install cargo-afl"
     )[0]
+
+
+def test_check_job_runs_via_run_check_script() -> None:
+    block = _check_job_block()
+    assert "./scripts/run-check.sh" in block
+    assert "make -j check" not in block.split("Run make -j check")[1].split("\n")[2]

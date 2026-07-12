@@ -17,7 +17,9 @@ RUST_REPORT="reports/rust/html/index.html"
 PYTHON_REPORT="reports/python/index.html"
 
 _vlz_cov_phase() {
-  echo "[coverage] $(date -Iseconds) $*" >&2
+  if [[ "${VLZ_COVERAGE_VERBOSE:-}" == "1" ]]; then
+    echo "[coverage] $(date -Iseconds) $*" >&2
+  fi
 }
 
 # Ensure cargo-llvm-cov and llvm-tools (default/stable toolchain) are available
@@ -109,13 +111,17 @@ command -v "$PY" >/dev/null 2>&1 \
 "$PY" -m pytest --version >/dev/null 2>&1 \
   || { echo "ERROR: pytest not found. Run: make setup" >&2; exit 1; }
 _vlz_cov_phase "pytest scripts"
+_pytest_cov_report=()
+if [[ "${VLZ_COVERAGE_VERBOSE:-}" == "1" ]]; then
+  _pytest_cov_report+=(--cov-report=term-missing:skip-covered)
+fi
 PYTHONPATH=. "$PY" -m pytest tests/scripts/ \
   --cov=scripts \
   --cov-report=html:reports/python \
   --cov-report=xml:reports/cobertura-python.xml \
-  --cov-report=term-missing:skip-covered \
+  "${_pytest_cov_report[@]}" \
   --cov-fail-under=95 \
-  -v || ERR=1
+  -q --tb=short || ERR=1
 
 if [[ "$ERR" -eq 0 ]]; then
   PYTHONPATH=. "$PY" scripts/coverage_per_file_check.py \
