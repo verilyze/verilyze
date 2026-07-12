@@ -520,97 +520,163 @@ fn config_invalid_file_verbose_logs_to_stderr() {
 
 // FR-028: shell completion generation
 #[cfg(feature = "completions")]
-#[test]
-fn generate_completions_bash_produces_valid_script() {
-    if !vlz_exe_exists() {
-        return;
-    }
-    with_isolated_env(|p| {
-        let out = Command::new(vlz_exe())
-            .args(["generate-completions", "bash"])
-            .env("XDG_CACHE_HOME", p)
-            .env("XDG_DATA_HOME", p)
-            .env("XDG_CONFIG_HOME", p)
-            .output()
-            .expect("run vlz");
-        assert_eq!(out.status.code(), Some(0), "generate-completions bash");
-        let stdout = String::from_utf8_lossy(&out.stdout);
-        assert!(
-            !stdout.is_empty(),
-            "bash completion script must not be empty"
-        );
-        assert!(stdout.contains("vlz"), "script must contain vlz");
-        assert!(
-            stdout.contains("scan"),
-            "script must contain scan subcommand"
-        );
-        assert!(
-            stdout.contains("list"),
-            "script must contain list subcommand"
-        );
-    });
-}
+mod completion_values {
+    use super::*;
+    use vlz::cli_values::{
+        DB_SHOW_FORMATS, SCAN_OUTPUT_FORMATS, provider_names,
+    };
 
-#[cfg(feature = "completions")]
-#[test]
-fn generate_completions_zsh_produces_valid_script() {
-    if !vlz_exe_exists() {
-        return;
+    fn scan_format_bash_word_list() -> String {
+        SCAN_OUTPUT_FORMATS.join(" ")
     }
-    with_isolated_env(|p| {
-        let out = Command::new(vlz_exe())
-            .args(["generate-completions", "zsh"])
-            .env("XDG_CACHE_HOME", p)
-            .env("XDG_DATA_HOME", p)
-            .env("XDG_CONFIG_HOME", p)
-            .output()
-            .expect("run vlz");
-        assert_eq!(out.status.code(), Some(0), "generate-completions zsh");
-        let stdout = String::from_utf8_lossy(&out.stdout);
-        assert!(
-            !stdout.is_empty(),
-            "zsh completion script must not be empty"
-        );
-        assert!(stdout.contains("vlz"), "script must contain vlz");
-        assert!(
-            stdout.contains("scan"),
-            "script must contain scan subcommand"
-        );
-        assert!(
-            stdout.contains("list"),
-            "script must contain list subcommand"
-        );
-    });
-}
 
-#[cfg(feature = "completions")]
-#[test]
-fn generate_completions_fish_produces_valid_script() {
-    if !vlz_exe_exists() {
-        return;
+    fn scan_format_zsh_choices() -> String {
+        format!("({})", SCAN_OUTPUT_FORMATS.join(" "))
     }
-    with_isolated_env(|p| {
-        let out = Command::new(vlz_exe())
-            .args(["generate-completions", "fish"])
-            .env("XDG_CACHE_HOME", p)
-            .env("XDG_DATA_HOME", p)
-            .env("XDG_CONFIG_HOME", p)
-            .output()
-            .expect("run vlz");
-        assert_eq!(out.status.code(), Some(0), "generate-completions fish");
-        let stdout = String::from_utf8_lossy(&out.stdout);
-        assert!(
-            !stdout.is_empty(),
-            "fish completion script must not be empty"
-        );
-        assert!(stdout.contains("vlz"), "script must contain vlz");
-        assert!(
-            stdout.contains("scan"),
-            "script must contain scan subcommand"
-        );
-        assert!(
-            stdout.contains("list"),
-            "script must contain list subcommand"
-        );
-    });
+
+    fn provider_bash_word_list() -> String {
+        provider_names().join(" ")
+    }
+
+    fn provider_zsh_choices() -> String {
+        format!("({})", provider_names().join(" "))
+    }
+
+    #[test]
+    fn generate_completions_bash_produces_valid_script() {
+        if !vlz_exe_exists() {
+            return;
+        }
+        with_isolated_env(|p| {
+            let out = Command::new(vlz_exe())
+                .args(["generate-completions", "bash"])
+                .env("XDG_CACHE_HOME", p)
+                .env("XDG_DATA_HOME", p)
+                .env("XDG_CONFIG_HOME", p)
+                .output()
+                .expect("run vlz");
+            assert_eq!(
+                out.status.code(),
+                Some(0),
+                "generate-completions bash"
+            );
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            assert!(
+                !stdout.is_empty(),
+                "bash completion script must not be empty"
+            );
+            assert!(stdout.contains("vlz"), "script must contain vlz");
+            assert!(
+                stdout.contains("scan"),
+                "script must contain scan subcommand"
+            );
+            assert!(
+                stdout.contains("list"),
+                "script must contain list subcommand"
+            );
+            let formats = scan_format_bash_word_list();
+            assert!(
+                stdout.contains(&format!("compgen -W \"{formats}\"")),
+                "bash must complete scan --format values"
+            );
+            assert!(
+                stdout.contains(&format!(
+                    "compgen -W \"{}\"",
+                    provider_bash_word_list()
+                )),
+                "bash must complete --provider values"
+            );
+            let db_formats = DB_SHOW_FORMATS.join(" ");
+            assert!(
+                stdout.contains(&format!("compgen -W \"{db_formats}\"")),
+                "bash must complete db show --format values"
+            );
+        });
+    }
+
+    #[test]
+    fn generate_completions_zsh_produces_valid_script() {
+        if !vlz_exe_exists() {
+            return;
+        }
+        with_isolated_env(|p| {
+            let out = Command::new(vlz_exe())
+                .args(["generate-completions", "zsh"])
+                .env("XDG_CACHE_HOME", p)
+                .env("XDG_DATA_HOME", p)
+                .env("XDG_CONFIG_HOME", p)
+                .output()
+                .expect("run vlz");
+            assert_eq!(out.status.code(), Some(0), "generate-completions zsh");
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            assert!(
+                !stdout.is_empty(),
+                "zsh completion script must not be empty"
+            );
+            assert!(stdout.contains("vlz"), "script must contain vlz");
+            assert!(
+                stdout.contains("scan"),
+                "script must contain scan subcommand"
+            );
+            assert!(
+                stdout.contains("list"),
+                "script must contain list subcommand"
+            );
+            let choices = scan_format_zsh_choices();
+            assert!(
+                stdout.contains(&format!(":FORMAT:{choices}")),
+                "zsh must complete scan --format values"
+            );
+            assert!(
+                stdout.contains(&format!(
+                    ":PROVIDER:{}",
+                    provider_zsh_choices()
+                )),
+                "zsh must complete --provider values"
+            );
+        });
+    }
+
+    #[test]
+    fn generate_completions_fish_produces_valid_script() {
+        if !vlz_exe_exists() {
+            return;
+        }
+        with_isolated_env(|p| {
+            let out = Command::new(vlz_exe())
+                .args(["generate-completions", "fish"])
+                .env("XDG_CACHE_HOME", p)
+                .env("XDG_DATA_HOME", p)
+                .env("XDG_CONFIG_HOME", p)
+                .output()
+                .expect("run vlz");
+            assert_eq!(
+                out.status.code(),
+                Some(0),
+                "generate-completions fish"
+            );
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            assert!(
+                !stdout.is_empty(),
+                "fish completion script must not be empty"
+            );
+            assert!(stdout.contains("vlz"), "script must contain vlz");
+            assert!(
+                stdout.contains("scan"),
+                "script must contain scan subcommand"
+            );
+            assert!(
+                stdout.contains("list"),
+                "script must contain list subcommand"
+            );
+            assert!(
+                stdout.contains("-a \"plain"),
+                "fish must complete scan --format with plain"
+            );
+            assert!(
+                stdout.contains("-a \"osv"),
+                "fish must complete --provider with osv"
+            );
+        });
+    }
 }
