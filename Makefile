@@ -39,7 +39,8 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: cargo-check cargo-test unit-tests test-scripts
 .PHONY: fmt fmt-check clippy
 .PHONY: lint-python lint-shell super-linter super-linter-full
-.PHONY: fuzz fuzz-changed fuzz-extended fuzz-then-coverage coverage coverage-quick coverage-extended
+.PHONY: fuzz fuzz-changed fuzz-extended fuzz-then-coverage coverage coverage-quick
+.PHONY: coverage-quick-rust coverage-quick-python coverage-new-rust-check coverage-extended
 .PHONY: generate-config-example check-config-docs
 .PHONY: generate-manpages check-manpages
 .PHONY: generate-completions completions completions-release check-completions
@@ -119,6 +120,9 @@ help:
 	@echo "    make fuzz-extended - Fuzz all targets, extended timeout (30 min each)"
 	@echo "    make coverage     - Coverage report (runs fuzz first; needs cargo-llvm-cov)"
 	@echo "    make coverage-quick - Coverage without fuzz (faster dev iteration)"
+	@echo "    make coverage-quick-rust - Rust coverage only (ship-pr scoped gate)"
+	@echo "    make coverage-quick-python - Python coverage only (ship-pr scoped gate)"
+	@echo "    make coverage-new-rust-check - Ship-pr gate for new .rs files (95/90/95)"
 	@echo "    make coverage-extended - Nightly coverage (fuzz + optional features)"
 	@echo ""
 	@echo "  Packaging (OP-013):"
@@ -340,6 +344,18 @@ coverage: setup fuzz
 
 coverage-quick: setup
 	$(COVERAGE_SCRIPT)
+
+coverage-quick-rust: setup
+	VLZ_COVERAGE_SCOPE=rust $(COVERAGE_SCRIPT)
+
+coverage-quick-python: venv-test-ready
+	VLZ_COVERAGE_SCOPE=python $(COVERAGE_SCRIPT)
+
+# Ship-pr only: stricter per-file gate for newly added Rust files (not in make check).
+coverage-new-rust-check: venv-test-ready
+	@cd "$(MKFILE_DIR)" && PYTHONPATH=. $(VENV_TEST)/bin/python \
+	  scripts/coverage_new_rust_check.py reports/cobertura-rust.xml \
+	  --git-base origin/main
 
 # coverage-extended: default coverage plus optional-feature and minimal-feature
 # test passes (perf-instrumentation, python-tier-d, no-default-features). Used by
@@ -609,8 +625,8 @@ docker:
 clean:
 	@cd "$(MKFILE_DIR)" && $(CARGO_FOR_CLEAN) clean
 	@cd "$(MKFILE_DIR)" && $(CARGO_FOR_CLEAN) llvm-cov clean --workspace 2>/dev/null || true
-	@find $(MKFILE_DIR) -type f \( -name "*.profraw" -o \
-                                 -name "vlz-cache.redb" -o \
+	@bash -c '. "$(SCRIPTS_DIR)/lib/coverage-artifacts.sh" && vlz_remove_profraw_files "$(MKFILE_DIR)"'
+	@find $(MKFILE_DIR) -type f \( -name "vlz-cache.redb" -o \
                                  -name "vendor.tar.zst" \) -delete
 	@find $(MKFILE_DIR) -type d -name "__pycache__" -exec rm -rf {} +
 	@find $(MKFILE_DIR) -maxdepth 1 -type d -name "*.egg-info" -exec rm -rf {} +
