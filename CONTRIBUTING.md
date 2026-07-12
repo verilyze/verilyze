@@ -919,11 +919,18 @@ releases](#versioning-and-releases) below.
   host `rustup` (no `dtolnay/rust-toolchain` action) so the first `rustc` / `cargo`
   in the repo root provisions that channel and its components. Cargo
   cache keys stay stable. [Swatinem/rust-cache](https://github.com/Swatinem/rust-cache) restores
-  registry, git, and `target/` data. **Fork PRs** and new branches may miss an
-  exact cache key until `main` or that ref has saved a cache; changing
-  `Cargo.lock` always changes the key (partial restores can still speed up
-  compiles). The workflow logs `Rust cache exact key hit: true|false` after
-  restore.
+  registry, git, `target/`, and `~/.cargo/bin` (`cache-bin: true`). **Cache scope:**
+  a re-run of the same workflow on the same ref can hit a cache saved by the prior
+  attempt; a new PR branch restores from the default branch (`main`) and its own
+  ref only (not other open PR branches). After a PR merges, its cache becomes
+  available on `main`. The `check` job runs on `push` to `main` (not only on PRs)
+  so merges seed the default-branch cache for later PRs. **Fork PRs** and brand-new
+  branches may miss an exact rust-cache key until `main` or that ref has saved one;
+  changing `Cargo.lock` always changes the key (prefix restores can still speed up
+  compiles). `cargo-deny` is installed only when missing from the restored
+  `~/.cargo/bin` (pinned `CARGO_DENY_VERSION` in `ci.yml`; install-action provides
+  a prebuilt binary for cold starts). The workflow logs `Rust cache exact key hit`
+  and `cargo-deny present (skip install)` after restore.
 - **OpenSSF Scorecard (`scorecards.yml`):** Nightly and
   **workflow_dispatch**; runs [OSSF Scorecard](https://github.com/ossf/scorecard-action)
   with SARIF uploaded to GitHub Code Scanning and **publish_results** for the
@@ -983,10 +990,13 @@ releases](#versioning-and-releases) below.
   a **regex** custom manager to open PRs when the digest for
   `ghcr.io/super-linter/super-linter:slim-latest` changes. Another set of
   **regex** rules tracks **crates.io** versions for
-  `cargo-llvm-cov`, `cargo-deny`, `cargo-afl`, and `cargo-about` pinned in the
+  `cargo-llvm-cov`, `cargo-afl`, and `cargo-about` in the
   `taiki-e/install-action` `tool:` line in
   [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (**minor** and **patch**
-  bumps are grouped into one PR). A **regex** rule tracks the stable
+  bumps are grouped into one PR). **`cargo-deny`** is pinned separately as job
+  env `CARGO_DENY_VERSION` in `ci.yml` (install step uses that env) and as
+  `cargo-deny@…` in [`.github/workflows/coverage-nightly.yml`](.github/workflows/coverage-nightly.yml);
+  Renovate bumps both in one PR (`cargo-deny-workflow-pins`). A **regex** rule tracks the stable
   **channel** in [`rust-toolchain.toml`](rust-toolchain.toml) using the
   **github-tags** datasource for `rust-lang/rust` (**minor** and **patch**
   bumps are grouped into one PR; **major** upgrades stay separate). It also manages

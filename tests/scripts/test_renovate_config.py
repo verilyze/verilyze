@@ -182,6 +182,52 @@ def test_renovate_cargo_post_upgrade_commits_sbom() -> None:
     assert "sbom/**" in filters
 
 
+def test_renovate_cargo_deny_manager_matches_ci_env_and_coverage_nightly() -> None:
+    """Renovate must bump CARGO_DENY_VERSION in ci.yml and coverage-nightly pin."""
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    managers = data.get("customManagers", [])
+    deny = next(
+        (
+            m
+            for m in managers
+            if m.get("depNameTemplate") == "cargo-deny"
+            and m.get("datasourceTemplate") == "crate"
+        ),
+        None,
+    )
+    assert deny is not None, "customManagers must include cargo-deny regex manager"
+    patterns = deny.get("managerFilePatterns", [])
+    assert any("ci\\.yml" in p for p in patterns)
+    assert any("coverage-nightly" in p for p in patterns)
+    match_strings = deny.get("matchStrings", [])
+    assert any("CARGO_DENY_VERSION" in s for s in match_strings)
+    assert any("cargo-deny@" in s for s in match_strings)
+    ci_yml = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    env_match = re.search(r'CARGO_DENY_VERSION: "([^"]+)"', ci_yml)
+    assert env_match is not None
+    nightly = (
+        _ROOT / ".github" / "workflows" / "coverage-nightly.yml"
+    ).read_text(encoding="utf-8")
+    assert f"cargo-deny@{env_match.group(1)}" in nightly
+
+
+def test_renovate_package_rule_groups_cargo_deny_workflow_pins() -> None:
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    rules = data.get("packageRules", [])
+    match = next(
+        (
+            r
+            for r in rules
+            if r.get("groupName") == "cargo-deny-workflow-pins"
+            and r.get("matchPackageNames") == ["cargo-deny"]
+        ),
+        None,
+    )
+    assert match is not None, (
+        "packageRules must group cargo-deny pins under cargo-deny-workflow-pins"
+    )
+
+
 def test_renovate_workflow_allows_post_upgrade_sbom_script() -> None:
     text = (_ROOT / ".github/workflows/renovate.yml").read_text(encoding="utf-8")
     assert "renovate-post-upgrade-sbom" in text
