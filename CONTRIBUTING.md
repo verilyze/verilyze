@@ -1182,14 +1182,17 @@ Stderr can stay as `eprintln!` or `log::error!`.
   `ci.yml` posts a sticky comment with Rust and Python line-coverage summaries
   (Cobertura). Fork PRs skip that job because the head repo is not the base
   repo.
-- **CI check debug output:** [`scripts/run-check.sh`](scripts/run-check.sh) sets
-  `RUST_LOG=error` and quiet pytest defaults for CI. For CI-like local runs with
-  the same settings, use `./scripts/run-check.sh`. Verbose coverage phase markers
-  and the pytest term-missing table: `VLZ_COVERAGE_VERBOSE=1 make coverage-quick`.
-  Verbose AFL config: `VLZ_AFL_VERBOSE=1 ./scripts/fuzz.sh` (or `make fuzz`).
-  Intentional stderr from error-path integration tests: use
-  `cargo test -p vlz --features vlz/testing -- --show-output` when debugging a
-  specific test.
+- **CI check debug output:** [`scripts/run-check.sh`](scripts/run-check.sh) uses
+  quiet defaults (`RUST_LOG=off`, `RUST_LOG_STYLE=never`, `cargo test --quiet`).
+  For CI-like local runs, use `./scripts/run-check.sh`. **Verbose check mode**
+  (`VLZ_CHECK_VERBOSE=1`): `RUST_LOG=info`, coverage phase markers, pytest `-v`,
+  and full `cargo test` / probe output. Locally:
+  `VLZ_CHECK_VERBOSE=1 ./scripts/run-check.sh`. On GitHub Actions, re-run the
+  workflow with **Enable debug logging**; the `check` job sets
+  `VLZ_CHECK_VERBOSE=1` when `runner.debug` is `1`. Coverage-only verbose:
+  `VLZ_COVERAGE_VERBOSE=1 make coverage-quick`. AFL verbose:
+  `VLZ_AFL_VERBOSE=1 ./scripts/fuzz.sh` (or `make fuzz`). Debugging a specific
+  test: `RUST_LOG=info cargo test -p vlz --features vlz/testing -- --show-output`.
   Comments show **current** coverage for the PR head, not a diff versus
   `main`.
 

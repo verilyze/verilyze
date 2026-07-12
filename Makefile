@@ -19,6 +19,8 @@ VENV_TEST := $(MKFILE_DIR)/.venv-test
 PIP_TMPDIR := $(MKFILE_DIR)/target/tmp-pip
 # Override for CI or a pinned binary (NFR-009, SEC-012).
 CARGO_DENY ?= cargo deny
+# Match scripts/lib/check-quiet-env.sh (quiet log during cargo test).
+VLZ_QUIET_LOG_ENV := RUST_LOG=off RUST_LOG_STYLE=never
 # Deterministic default linker toolchain; users can override at invocation:
 #   CC=clang RUSTFLAGS="-Clink-arg=-fuse-ld=lld" make debug
 CC ?= gcc
@@ -239,7 +241,12 @@ check-completions: debug
 
 # ---- Tests ----
 cargo-test:
-	cd "$(MKFILE_DIR)" && cargo test --features vlz/testing
+	@cd "$(MKFILE_DIR)" && \
+	  if [ "$${VLZ_CHECK_VERBOSE:-}" = "1" ]; then \
+	    RUST_LOG=info RUST_LOG_STYLE=auto cargo test --features vlz/testing; \
+	  else \
+	    $(VLZ_QUIET_LOG_ENV) cargo test --features vlz/testing --quiet; \
+	  fi
 
 # Bootstrap .venv-test with pytest and pytest-cov (NFR-021)
 $(VENV_TEST)/bin/pytest:

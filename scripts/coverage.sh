@@ -13,13 +13,21 @@ set -e
 
 cd "$(dirname "$0")/.." || exit 1
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/check-quiet-env.sh
+source "${SCRIPT_DIR}/lib/check-quiet-env.sh"
+
 RUST_REPORT="reports/rust/html/index.html"
 PYTHON_REPORT="reports/python/index.html"
 
 _vlz_cov_phase() {
-  if [[ "${VLZ_COVERAGE_VERBOSE:-}" == "1" ]]; then
+  if vlz_check_verbose_enabled; then
     echo "[coverage] $(date -Iseconds) $*" >&2
   fi
+}
+
+_vlz_cov_quiet_log() {
+  vlz_apply_check_log_env
 }
 
 # Ensure cargo-llvm-cov and llvm-tools (default/stable toolchain) are available
@@ -59,25 +67,38 @@ cargo build --workspace --exclude vlz-fuzz
 
 # Run all workspace tests (exclude vlz-fuzz; it uses AFL and is run via make fuzz).
 _vlz_cov_phase "cargo test --workspace"
-cargo test --workspace --exclude vlz-fuzz --features vlz/testing
+_vlz_cov_quiet_log
+# shellcheck disable=SC2046
+cargo test --workspace --exclude vlz-fuzz --features vlz/testing \
+  $(vlz_cargo_test_quiet_arg)
 
 # Extended pass (nightly / badges): optional features and minimal-feature matrix.
 # Profraw from this pass merges with the default pass above (no llvm-cov clean).
 if [[ "${VLZ_COVERAGE_EXTENDED:-}" == "1" ]]; then
   _vlz_cov_phase "coverage-extended optional features"
+  _vlz_cov_quiet_log
+  # shellcheck disable=SC2046
   cargo test --workspace --exclude vlz-fuzz \
-    --features 'vlz/testing,vlz/perf-instrumentation,vlz/python-tier-d'
+    --features 'vlz/testing,vlz/perf-instrumentation,vlz/python-tier-d' \
+    $(vlz_cargo_test_quiet_arg)
   _vlz_cov_phase "coverage-extended minimal features"
+  # shellcheck disable=SC2046
   cargo test -p vlz --no-default-features --features testing \
-    --test minimal_features
+    --test minimal_features $(vlz_cargo_test_quiet_arg)
 fi
 
 # Run the vlz binary to capture main.rs and run() coverage (binary is not a
 # test target). Use isolated XDG dirs so we do not touch user config or cache.
 # Omit probes already exercised by cli integration tests (list, config --list).
 run_cov_bin() {
-  env XDG_CONFIG_HOME=/tmp/vlz-cov-cfg XDG_CACHE_HOME=/tmp/vlz-cov-cache \
-    XDG_DATA_HOME=/tmp/vlz-cov-data cargo run --bin vlz -- "$@"
+  _vlz_cov_quiet_log
+  if vlz_check_verbose_enabled; then
+    env XDG_CONFIG_HOME=/tmp/vlz-cov-cfg XDG_CACHE_HOME=/tmp/vlz-cov-cache \
+      XDG_DATA_HOME=/tmp/vlz-cov-data cargo run --bin vlz -- "$@"
+  else
+    env XDG_CONFIG_HOME=/tmp/vlz-cov-cfg XDG_CACHE_HOME=/tmp/vlz-cov-cache \
+      XDG_DATA_HOME=/tmp/vlz-cov-data cargo run --bin vlz -- "$@" >/dev/null
+  fi
 }
 _vlz_cov_phase "cargo run binary probes"
 run_cov_bin --version
@@ -112,8 +133,10 @@ command -v "$PY" >/dev/null 2>&1 \
   || { echo "ERROR: pytest not found. Run: make setup" >&2; exit 1; }
 _vlz_cov_phase "pytest scripts"
 _pytest_cov_report=()
-if [[ "${VLZ_COVERAGE_VERBOSE:-}" == "1" ]]; then
+_pytest_flags=(-q --tb=short)
+if vlz_check_verbose_enabled; then
   _pytest_cov_report+=(--cov-report=term-missing:skip-covered)
+  _pytest_flags=(-v --tb=long)
 fi
 PYTHONPATH=. "$PY" -m pytest tests/scripts/ \
   --cov=scripts \
@@ -121,7 +144,7 @@ PYTHONPATH=. "$PY" -m pytest tests/scripts/ \
   --cov-report=xml:reports/cobertura-python.xml \
   "${_pytest_cov_report[@]}" \
   --cov-fail-under=95 \
-  -q --tb=short || ERR=1
+  "${_pytest_flags[@]}" || ERR=1
 
 if [[ "$ERR" -eq 0 ]]; then
   PYTHONPATH=. "$PY" scripts/coverage_per_file_check.py \
