@@ -12,6 +12,37 @@ The GitHub Release body is generated from the matching `## [version]` section
 below when you push a `v*` tag (see `.github/workflows/release.yml`). Update
 this file **before** creating the release tag.
 
+## [0.4.0] - 2026-07-12
+
+### Added
+
+- `vlz preload` subcommand to warm the CVE cache without generating a scan
+  report (FR-021).
+- Tier C per-CVE reachability matching with persistent cache (FR-032 phase 2a).
+- Python Tier D AST reachability refinement for Tier C unknowns (FR-032
+  stretch).
+- Shell tab-completion for CLI flag values (e.g. `--format`, `--lang`).
+- SBOM generation and compliance tooling (Trust Milestone 1).
+- Benchmark metrics reporting and CI gate (FR-029, NFR-001).
+- SLSA Level 3 binary provenance attestations on release artifacts.
+- Cross-platform CI build matrix (Linux x86_64, aarch64, macOS, Windows).
+
+### Changed
+
+- Dependency updates: Rust 1.97.0, cargo-deny 0.20.0, GitHub Actions, and
+  Python/Rust tooling.
+- Release workflow publishes draft assets before promotion; OBS `_meta` synced
+  on `main` pushes.
+- CI: quieter default logs with optional verbose debug mode; scoped coverage
+  ship gates.
+
+### Fixed
+
+- SBOM PURLs now use ecosystem-correct package URLs.
+- Renovate post-upgrade SBOM regeneration for PEP 621/Python dependencies.
+- CI reliability: nightly attestation, rust-cache alignment, coverage
+  reporting, and OBS release scan fixes.
+
 ## [0.3.1] - 2026-07-04
 
 ### Changed
