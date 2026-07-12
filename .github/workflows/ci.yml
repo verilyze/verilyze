@@ -149,13 +149,14 @@ jobs:
     env:
       CC: gcc
       RUSTFLAGS: -Clink-arg=-fuse-ld=bfd
+      CARGO_DENY_VERSION: "0.20.2"
     # actions: write -- saving Actions cache entries (actions/cache, rust-cache)
     # requires the Actions cache API; see GitHub token permissions for workflows.
     permissions:
       contents: read
       actions: write
     if: >-
-      (success() || failure())
+      always() && !cancelled()
       && (needs.check-dco.result == 'success'
           || needs.check-dco.result == 'skipped')
       && (needs.check-signatures.result == 'success'
@@ -299,6 +300,32 @@ jobs:
           cache-workspace-crates: true
           cache-on-failure: true
 
+      - name: Install cargo tooling (llvm-cov, about)
+        uses: taiki-e/install-action@2ca9b94c269419b7b0c711c09d0b21c4e1d51145 # v2.83.1
+        with:
+          tool: cargo-llvm-cov@0.8.5,cargo-about@0.9.0
+
+      # rust-cache restores ~/.cargo/bin; skip install-action when the pinned
+      # binary is already present (avoids a ~2 min source rebuild every job).
+      - name: Ensure cargo-deny
+        id: cargo_deny
+        run: |
+          set -euo pipefail
+          if command -v cargo-deny >/dev/null \
+            && cargo deny --version 2>/dev/null \
+              | grep -Fq "cargo-deny ${CARGO_DENY_VERSION}"; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            cargo deny --version
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install cargo-deny
+        if: steps.cargo_deny.outputs.present != 'true'
+        uses: taiki-e/install-action@2ca9b94c269419b7b0c711c09d0b21c4e1d51145 # v2.83.1
+        with:
+          tool: cargo-deny@${{ env.CARGO_DENY_VERSION }}
+
       # actions/cache sets outputs.cache-hit to the string true only on an exact
       # key match; otherwise the output is often omitted (empty), not false.
       - name: Report CI cache diagnostics
@@ -306,6 +333,7 @@ jobs:
           echo "Rust cache exact key hit: ${RUST_CACHE_HIT:-false}"
           echo "Python venvs cache exact key hit: ${PYTHON_VENVS_CACHE_HIT:-false}"
           echo "Apt archives cache exact key hit: ${APT_ARCHIVES_CACHE_HIT:-false}"
+          echo "cargo-deny present (skip install): ${CARGO_DENY_PRESENT:-unknown}"
           echo "Fuzz needed: ${FUZZ_NEEDED:-unknown}"
           echo "Python venv key inputs: runner_os=${RUNNER_OS_VALUE} python_version=${PYTHON_VERSION} venv_inputs_hash=${VENV_INPUTS_HASH}"
           echo "Apt key input: os_sig=${APT_OS_SIG}"
@@ -314,21 +342,12 @@ jobs:
           RUST_CACHE_HIT: ${{ steps.rust_cache.outputs.cache-hit }}
           PYTHON_VENVS_CACHE_HIT: ${{ steps.python_venvs_cache.outputs.cache-hit }}
           APT_ARCHIVES_CACHE_HIT: ${{ steps.apt_archives_cache.outputs.cache-hit }}
+          CARGO_DENY_PRESENT: ${{ steps.cargo_deny.outputs.present }}
           FUZZ_NEEDED: ${{ steps.fuzz_preflight.outputs.fuzz_needed }}
           PYTHON_VERSION: ${{ steps.python.outputs.python-version }}
           VENV_INPUTS_HASH: ${{ hashFiles('Makefile', 'pyproject.toml', 'scripts/ensure-reuse.sh', 'scripts/requirements-reuse.txt') }}
           APT_OS_SIG: ${{ steps.apt_ci.outputs.os_sig }}
           RUNNER_OS_VALUE: ${{ runner.os }}
-
-      - name: Install cargo tooling (llvm-cov, deny, about)
-        uses: taiki-e/install-action@2ca9b94c269419b7b0c711c09d0b21c4e1d51145 # v2.83.1
-        with:
-          tool: cargo-llvm-cov@0.8.5,cargo-about@0.9.0
-
-      - name: Install cargo-deny
-        uses: taiki-e/install-action@2ca9b94c269419b7b0c711c09d0b21c4e1d51145 # v2.83.1
-        with:
-          tool: cargo-deny@0.20.0
 
       - name: Install cargo-afl
         if: steps.fuzz_preflight.outputs.fuzz_needed == 'true'
@@ -414,7 +433,7 @@ jobs:
     permissions:
       contents: read
     if: >-
-      (success() || failure())
+      always() && !cancelled()
       && (needs.check-dco.result == 'success'
           || needs.check-dco.result == 'skipped')
       && (needs.check-signatures.result == 'success'

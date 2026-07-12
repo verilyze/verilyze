@@ -42,9 +42,15 @@
     },
     {
       "customType": "regex",
-      "description": "CI taiki-e/install-action: cargo-deny (ci.yml tool: line)",
-      "managerFilePatterns": ["/^\\.github\\/workflows\\/ci\\.yml$/"],
-      "matchStrings": ["cargo-deny@(?<currentValue>[^,\\s]+)"],
+      "description": "CI cargo-deny: CARGO_DENY_VERSION env (ci.yml) and coverage-nightly tool pin",
+      "managerFilePatterns": [
+        "/^\\.github\\/workflows\\/ci\\.yml$/",
+        "/^\\.github\\/workflows\\/coverage-nightly\\.yml$/"
+      ],
+      "matchStrings": [
+        "CARGO_DENY_VERSION: \"(?<currentValue>[^\"]+)\"",
+        "cargo-deny@(?<currentValue>[^,\\s]+)"
+      ],
       "datasourceTemplate": "crate",
       "depNameTemplate": "cargo-deny",
       "versioningTemplate": "cargo"
@@ -101,12 +107,19 @@
       "matchFileNames": [".github/workflows/ci.yml"],
       "matchPackageNames": [
         "cargo-llvm-cov",
-        "cargo-deny",
         "cargo-afl",
         "cargo-about"
       ],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "ci-cargo-install-tools-minor-patch"
+    },
+    {
+      "description": "cargo-deny: ci.yml CARGO_DENY_VERSION and coverage-nightly tool pin",
+      "matchManagers": ["custom.regex"],
+      "matchDatasources": ["crate"],
+      "matchPackageNames": ["cargo-deny"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "cargo-deny-workflow-pins"
     },
     {
       "description": "rust-toolchain.toml: stable channel minor/patch in one PR",
