@@ -1187,8 +1187,7 @@ Stderr can stay as `eprintln!` or `log::error!`.
   the same settings, use `./scripts/run-check.sh`. Verbose coverage phase markers
   and the pytest term-missing table: `VLZ_COVERAGE_VERBOSE=1 make coverage-quick`.
   Verbose AFL config: `VLZ_AFL_VERBOSE=1 ./scripts/fuzz.sh` (or `make fuzz`).
-  Intentional stderr from error-path integration tests is deferred to the end of
-  a failing `cargo test` run (`--failure-output=final`); use
+  Intentional stderr from error-path integration tests: use
   `cargo test -p vlz --features vlz/testing -- --show-output` when debugging a
   specific test.
   Comments show **current** coverage for the PR head, not a diff versus

@@ -18,7 +18,7 @@ readonly VLZ_CHECK_AGGREGATE_TARGETS=' check check-parallel check-fast check-fas
 vlz_check_summary_failed_targets() {
   local log_file=$1
   grep -oE "$VLZ_CHECK_MAKE_FAIL_REGEX" "$log_file" \
-    | sed -E 's/.*\[([^]]+)\].*/\1/' \
+    | sed -E 's/.*\[(Makefile:[0-9]+: )?([^]]+)\].*/\2/' \
     | sort -u
 }
 

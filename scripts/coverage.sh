@@ -59,19 +59,17 @@ cargo build --workspace --exclude vlz-fuzz
 
 # Run all workspace tests (exclude vlz-fuzz; it uses AFL and is run via make fuzz).
 _vlz_cov_phase "cargo test --workspace"
-cargo test --workspace --exclude vlz-fuzz --features vlz/testing \
-  -- --failure-output=final
+cargo test --workspace --exclude vlz-fuzz --features vlz/testing
 
 # Extended pass (nightly / badges): optional features and minimal-feature matrix.
 # Profraw from this pass merges with the default pass above (no llvm-cov clean).
 if [[ "${VLZ_COVERAGE_EXTENDED:-}" == "1" ]]; then
   _vlz_cov_phase "coverage-extended optional features"
   cargo test --workspace --exclude vlz-fuzz \
-    --features 'vlz/testing,vlz/perf-instrumentation,vlz/python-tier-d' \
-    -- --failure-output=final
+    --features 'vlz/testing,vlz/perf-instrumentation,vlz/python-tier-d'
   _vlz_cov_phase "coverage-extended minimal features"
   cargo test -p vlz --no-default-features --features testing \
-    --test minimal_features -- --failure-output=final
+    --test minimal_features
 fi
 
 # Run the vlz binary to capture main.rs and run() coverage (binary is not a

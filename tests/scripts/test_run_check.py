@@ -56,6 +56,15 @@ make[2]: *** [fmt-check] Error 1
     assert "  make fmt-check" in result.stderr
 
 
+def test_summarize_log_strips_makefile_line_prefix_from_target() -> None:
+    log = "make[2]: *** [Makefile:335: coverage-quick] Error 101\n"
+    result = _summarize(log)
+    assert result.returncode == 0
+    assert "  - coverage-quick" in result.stderr
+    assert "Makefile:335" not in result.stderr
+    assert "  make coverage-quick" in result.stderr
+
+
 def test_summarize_log_no_failures_is_silent() -> None:
     result = _summarize("all good\n")
     assert result.returncode == 0
