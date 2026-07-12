@@ -18,6 +18,9 @@ jobs:
   coverage-wiki-badges:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      CC: gcc
+      RUSTFLAGS: -Clink-arg=-fuse-ld=bfd
     permissions:
       contents: write
     steps:
@@ -91,6 +94,7 @@ jobs:
         id: rust_cache
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
+          shared-key: check
           cache-workspace-crates: true
           cache-on-failure: true
 

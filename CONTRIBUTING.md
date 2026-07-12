@@ -927,7 +927,17 @@ releases](#versioning-and-releases) below.
   so merges seed the default-branch cache for later PRs. **Fork PRs** and brand-new
   branches may miss an exact rust-cache key until `main` or that ref has saved one;
   changing `Cargo.lock` always changes the key (prefix restores can still speed up
-  compiles). `cargo-deny` is installed only when missing from the restored
+  compiles). **Why `push` to `main` is kept:** an optional merge queue on `main`
+  can re-run CI via `merge_group` before merge, but in practice many merges use
+  an admin bypass (unsatisfiable review rules for a sole contributor) and never
+  trigger `merge_group`; for those merges, `push`-triggered CI is the only run
+  against the exact commit on `main`. `merge_group` runs also execute on an
+  ephemeral `gh-readonly-queue/*` ref, not `main`, so they do not seed the
+  `main`-scoped cache that new PR branches restore from; only `push` to `main`
+  and the nightly [`coverage-nightly.yml`](.github/workflows/coverage-nightly.yml)
+  schedule (07:00 UTC) write to that scope. Nightly coverage uses the same
+  `shared-key: check` and `CC` / `RUSTFLAGS` as the `check` job so exact-key
+  rust-cache hits align across PR CI, push CI, and nightly. `cargo-deny` is installed only when missing from the restored
   `~/.cargo/bin` (pinned `CARGO_DENY_VERSION` in `ci.yml`; install-action provides
   a prebuilt binary for cold starts). The workflow logs `Rust cache exact key hit`
   and `cargo-deny present (skip install)` after restore.
