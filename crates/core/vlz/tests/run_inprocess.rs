@@ -90,7 +90,17 @@ fn run_async(args: &[&str]) -> i32 {
         .unwrap_or_else(|e| e.into_inner());
     let mut v = vec!["vlz"];
     v.extend(args.iter().copied());
-    let args = Cli::parse_from(v);
+    let args = match Cli::try_parse_from(v) {
+        Ok(a) => a,
+        Err(e) => {
+            e.print().ok();
+            return match e.kind() {
+                clap::error::ErrorKind::DisplayHelp
+                | clap::error::ErrorKind::DisplayVersion => 0,
+                _ => 2,
+            };
+        }
+    };
     let rt = tokio::runtime::Runtime::new().expect("runtime");
     rt.block_on(vlz::run(args)).unwrap_or(2)
 }

@@ -4,9 +4,14 @@
 
 #[cfg(feature = "completions")]
 use clap::value_parser;
-use clap::{Parser as ClapParser, Subcommand};
+use clap::{Parser as ClapParser, Subcommand, ValueHint};
 #[cfg(feature = "completions")]
 use clap_complete::Shell;
+
+use crate::cli_values::{
+    db_show_format_parser, help_subcommand_parser, provider_parser,
+    scan_format_parser,
+};
 
 /// Parse KEY=VALUE for `config --set`. Returns None if key is empty or no `=` present.
 pub fn parse_config_set_arg(pair: &str) -> Option<(&str, &str)> {
@@ -32,7 +37,7 @@ pub struct Cli {
     pub verbose: u8,
 
     /// Override configuration file location
-    #[arg(short, long, value_name = "PATH", global = true)]
+    #[arg(short, long, value_name = "PATH", global = true, value_hint = ValueHint::FilePath)]
     pub config: Option<String>,
 
     /// Set environment variable overrides (VLZ_*)
@@ -49,11 +54,16 @@ pub enum Commands {
     /// Scan a directory tree for manifests and CVEs
     Scan {
         /// Root directory (defaults to current working dir)
-        #[arg(value_name = "PATH")]
+        #[arg(value_name = "PATH", value_hint = ValueHint::DirPath)]
         root: Option<String>,
 
         /// Output format (plain, json, sarif, cyclonedx, spdx)
-        #[arg(long, default_value = "plain")]
+        #[arg(
+            long,
+            default_value = "plain",
+            value_parser = scan_format_parser(),
+            ignore_case = true,
+        )]
         format: String,
 
         /// Generate additional files: e.g. html:/tmp/out.html,cyclonedx:/tmp/sbom.json
@@ -61,7 +71,7 @@ pub enum Commands {
         summary_file: Vec<String>,
 
         /// Force a particular CVE provider
-        #[arg(long)]
+        #[arg(long, value_parser = provider_parser(), ignore_case = true)]
         provider: Option<String>,
 
         /// Parallel query limit (default 10, max 50)
@@ -73,19 +83,23 @@ pub enum Commands {
         parallel_resolutions: Option<usize>,
 
         /// Override cache database path
-        #[arg(long, value_name = "PATH")]
+        #[arg(long, value_name = "PATH", value_hint = ValueHint::FilePath)]
         cache_db: Option<String>,
 
         /// Override ignore (false-positive) database path
-        #[arg(long, value_name = "PATH")]
+        #[arg(long, value_name = "PATH", value_hint = ValueHint::FilePath)]
         ignore_db: Option<String>,
 
         /// Exclude directory name from manifest discovery (repeatable)
-        #[arg(long, value_name = "DIR")]
+        #[arg(long, value_name = "DIR", value_hint = ValueHint::DirPath)]
         scan_exclude_dir: Vec<String>,
 
         /// Only discover/merge listed Python lock file basenames (repeatable)
-        #[arg(long = "lock-file", value_name = "PATH")]
+        #[arg(
+            long = "lock-file",
+            value_name = "PATH",
+            value_hint = ValueHint::FilePath
+        )]
         lock_file: Vec<String>,
 
         /// Default TTL in seconds for new cache entries (default: 432000 = 5 days).
@@ -164,7 +178,7 @@ pub enum Commands {
         provider_http_request_timeout_secs: Option<u64>,
 
         /// PEM file of CRLs for optional Linux TLS certificate revocation (SEC-024)
-        #[arg(long, value_name = "PATH")]
+        #[arg(long, value_name = "PATH", value_hint = ValueHint::FilePath)]
         tls_crl_bundle: Option<String>,
 
         /// Reachability analysis mode.
@@ -251,11 +265,11 @@ pub enum Commands {
     /// Pre-populate CVE cache from remote provider (FR-021)
     Preload {
         /// Root directory (defaults to current working dir)
-        #[arg(value_name = "PATH")]
+        #[arg(value_name = "PATH", value_hint = ValueHint::DirPath)]
         root: Option<String>,
 
         /// Force a particular CVE provider
-        #[arg(long)]
+        #[arg(long, value_parser = provider_parser(), ignore_case = true)]
         provider: Option<String>,
 
         /// Parallel query limit (default 10, max 50)
@@ -267,15 +281,19 @@ pub enum Commands {
         parallel_resolutions: Option<usize>,
 
         /// Override cache database path
-        #[arg(long, value_name = "PATH")]
+        #[arg(long, value_name = "PATH", value_hint = ValueHint::FilePath)]
         cache_db: Option<String>,
 
         /// Exclude directory name from manifest discovery (repeatable)
-        #[arg(long, value_name = "DIR")]
+        #[arg(long, value_name = "DIR", value_hint = ValueHint::DirPath)]
         scan_exclude_dir: Vec<String>,
 
         /// Only discover/merge listed Python lock file basenames (repeatable)
-        #[arg(long = "lock-file", value_name = "PATH")]
+        #[arg(
+            long = "lock-file",
+            value_name = "PATH",
+            value_hint = ValueHint::FilePath
+        )]
         lock_file: Vec<String>,
 
         /// Default TTL in seconds for new cache entries (default: 432000 = 5 days).
@@ -327,13 +345,17 @@ pub enum Commands {
         provider_http_request_timeout_secs: Option<u64>,
 
         /// PEM file of CRLs for optional Linux TLS certificate revocation (SEC-024)
-        #[arg(long, value_name = "PATH")]
+        #[arg(long, value_name = "PATH", value_hint = ValueHint::FilePath)]
         tls_crl_bundle: Option<String>,
     },
 
     /// Show manual page
     Help {
-        #[arg(value_name = "SUBCOMMAND")]
+        #[arg(
+            value_name = "SUBCOMMAND",
+            value_parser = help_subcommand_parser(),
+            ignore_case = true,
+        )]
         subcommand: Option<String>,
     },
 
@@ -380,7 +402,12 @@ pub enum DbCommands {
     /// Display cache entries with TTL and added timestamp
     Show {
         /// Output format (e.g. json for full payload)
-        #[arg(long, value_name = "FORMAT")]
+        #[arg(
+            long,
+            value_name = "FORMAT",
+            value_parser = db_show_format_parser(),
+            ignore_case = true,
+        )]
         format: Option<String>,
         /// Include full CVE payload for each entry
         #[arg(long)]
@@ -548,6 +575,75 @@ mod tests {
             panic!("expected scan")
         };
         assert_eq!(reachability_mode.as_deref(), Some("best-available"));
+    }
+
+    #[test]
+    fn parse_scan_with_invalid_format_fails() {
+        let result = Cli::try_parse_from(["vlz", "scan", "--format", "html"]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_scan_format_ignore_case() {
+        let cli = parse(&["scan", "--format", "JSON"]);
+        let Commands::Scan { format, .. } = &cli.cmd else {
+            panic!("expected scan")
+        };
+        assert_eq!(format, "JSON");
+    }
+
+    #[test]
+    fn parse_scan_with_invalid_provider_fails() {
+        let result = Cli::try_parse_from([
+            "vlz",
+            "scan",
+            "--provider",
+            "nonexistentprovider",
+        ]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_scan_with_valid_provider() {
+        let cli = parse(&["scan", "--provider", "osv"]);
+        let Commands::Scan { provider, .. } = &cli.cmd else {
+            panic!("expected scan")
+        };
+        assert_eq!(provider.as_deref(), Some("osv"));
+    }
+
+    #[test]
+    fn parse_db_show_format_json() {
+        let cli = parse(&["db", "show", "--format", "json"]);
+        let Commands::Db { sub, .. } = &cli.cmd else {
+            panic!("expected db")
+        };
+        let DbCommands::Show { format, .. } = sub else {
+            panic!("expected show")
+        };
+        assert_eq!(format.as_deref(), Some("json"));
+    }
+
+    #[test]
+    fn parse_db_show_invalid_format_fails() {
+        let result =
+            Cli::try_parse_from(["vlz", "db", "show", "--format", "plain"]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_help_subcommand_valid() {
+        let cli = parse(&["help", "scan"]);
+        let Commands::Help { subcommand } = &cli.cmd else {
+            panic!("expected help")
+        };
+        assert_eq!(subcommand.as_deref(), Some("scan"));
+    }
+
+    #[test]
+    fn parse_help_subcommand_invalid_fails() {
+        let result = Cli::try_parse_from(["vlz", "help", "not-a-command"]);
+        assert!(result.is_err());
     }
 
     #[test]

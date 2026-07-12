@@ -15,8 +15,8 @@ _vlz() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" : \
-'-c+[Override configuration file location]:PATH:_default' \
-'--config=[Override configuration file location]:PATH:_default' \
+'-c+[Override configuration file location]:PATH:_files' \
+'--config=[Override configuration file location]:PATH:_files' \
 '*--env-overrides=[Set environment variable overrides (VLZ_*)]:ENV_OVERRIDES:_default' \
 '*-v[Increase verbosity (multiple times = more detail)]' \
 '*--verbose[Increase verbosity (multiple times = more detail)]' \
@@ -35,15 +35,15 @@ _vlz() {
         case $line[1] in
             (scan)
 _arguments "${_arguments_options[@]}" : \
-'--format=[Output format (plain, json, sarif, cyclonedx, spdx)]:FORMAT:_default' \
+'--format=[Output format (plain, json, sarif, cyclonedx, spdx)]:FORMAT:(plain json sarif cyclonedx spdx)' \
 '*--summary-file=[Generate additional files\: e.g. html\:/tmp/out.html,cyclonedx\:/tmp/sbom.json]:TYPE:PATH:_default' \
-'--provider=[Force a particular CVE provider]:PROVIDER:_default' \
+'--provider=[Force a particular CVE provider]:PROVIDER:(osv)' \
 '--parallel=[Parallel query limit (default 10, max 50)]:PARALLEL:_default' \
 '--parallel-resolutions=[Parallel dependency resolution limit (default\: CPU count, max 32)]:N:_default' \
-'--cache-db=[Override cache database path]:PATH:_default' \
-'--ignore-db=[Override ignore (false-positive) database path]:PATH:_default' \
-'*--scan-exclude-dir=[Exclude directory name from manifest discovery (repeatable)]:DIR:_default' \
-'*--lock-file=[Only discover/merge listed Python lock file basenames (repeatable)]:PATH:_default' \
+'--cache-db=[Override cache database path]:PATH:_files' \
+'--ignore-db=[Override ignore (false-positive) database path]:PATH:_files' \
+'*--scan-exclude-dir=[Exclude directory name from manifest discovery (repeatable)]:DIR:_files -/' \
+'*--lock-file=[Only discover/merge listed Python lock file basenames (repeatable)]:PATH:_files' \
 '--cache-ttl-secs=[Default TTL in seconds for new cache entries (default\: 432000 = 5 days). Does not change existing entries; use \`vlz db set-ttl\` to update those]:SECS:_default' \
 '--min-score=[Minimum CVSS score to count toward exit code]:SCORE:_default' \
 '--min-count=[Minimum count of CVEs meeting min-score to trigger CVE exit code (0 = any)]:N:_default' \
@@ -55,7 +55,7 @@ _arguments "${_arguments_options[@]}" : \
 '--max-retries=[Maximum retries for transient errors (default 5)]:N:_default' \
 '--provider-http-connect-timeout-secs=[CVE provider HTTPS connect timeout in seconds (default 15)]:SECS:_default' \
 '--provider-http-request-timeout-secs=[CVE provider HTTPS total request timeout in seconds (default 120)]:SECS:_default' \
-'--tls-crl-bundle=[PEM file of CRLs for optional Linux TLS certificate revocation (SEC-024)]:PATH:_default' \
+'--tls-crl-bundle=[PEM file of CRLs for optional Linux TLS certificate revocation (SEC-024)]:PATH:_files' \
 '--reachability-mode=[Reachability analysis mode]:MODE:(off tier-b best-available)' \
 '--severity-v2-critical-min=[CVSS v2 critical severity minimum score (default 9.0)]:SCORE:_default' \
 '--severity-v2-high-min=[CVSS v2 high severity minimum score (default 7.0)]:SCORE:_default' \
@@ -69,8 +69,8 @@ _arguments "${_arguments_options[@]}" : \
 '--severity-v4-high-min=[CVSS v4 high severity minimum score (default 7.0)]:SCORE:_default' \
 '--severity-v4-medium-min=[CVSS v4 medium severity minimum score (default 4.0)]:SCORE:_default' \
 '--severity-v4-low-min=[CVSS v4 low severity minimum score (default 0.1)]:SCORE:_default' \
-'-c+[Override configuration file location]:PATH:_default' \
-'--config=[Override configuration file location]:PATH:_default' \
+'-c+[Override configuration file location]:PATH:_files' \
+'--config=[Override configuration file location]:PATH:_files' \
 '--offline[Disable network access]' \
 '--benchmark[Benchmark mode (no cache, no network, parallel=1)]' \
 '--package-manager-required[Require package manager on PATH; exit 3 with hint if missing]' \
@@ -80,13 +80,13 @@ _arguments "${_arguments_options[@]}" : \
 '--fail-fast[Stop on first manifest parse/resolution failure; skip CVE lookup (FR-037)]' \
 '-h[Print help]' \
 '--help[Print help]' \
-'::root -- Root directory (defaults to current working dir):_default' \
+'::root -- Root directory (defaults to current working dir):_files -/' \
 && ret=0
 ;;
 (list)
 _arguments "${_arguments_options[@]}" : \
-'-c+[Override configuration file location]:PATH:_default' \
-'--config=[Override configuration file location]:PATH:_default' \
+'-c+[Override configuration file location]:PATH:_files' \
+'--config=[Override configuration file location]:PATH:_files' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0
@@ -94,8 +94,8 @@ _arguments "${_arguments_options[@]}" : \
 (config)
 _arguments "${_arguments_options[@]}" : \
 '--set=[Set a key (e.g. python.regex="^requirements\\\\.txt\$")]:KEY=VALUE:_default' \
-'-c+[Override configuration file location]:PATH:_default' \
-'--config=[Override configuration file location]:PATH:_default' \
+'-c+[Override configuration file location]:PATH:_files' \
+'--config=[Override configuration file location]:PATH:_files' \
 '--list[]' \
 '--example[Output verilyze.conf.example with effective values for this environment]' \
 '-h[Print help]' \
@@ -105,8 +105,8 @@ _arguments "${_arguments_options[@]}" : \
 (db)
 _arguments "${_arguments_options[@]}" : \
 '--cache-ttl-secs=[Default TTL in seconds when opening the cache (default\: 432000 = 5 days). Does not change existing entries; use \`vlz db set-ttl\` to update those]:SECS:_default' \
-'-c+[Override configuration file location]:PATH:_default' \
-'--config=[Override configuration file location]:PATH:_default' \
+'-c+[Override configuration file location]:PATH:_files' \
+'--config=[Override configuration file location]:PATH:_files' \
 '-h[Print help]' \
 '--help[Print help]' \
 ":: :_vlz__subcmd__db_commands" \
@@ -121,41 +121,41 @@ _arguments "${_arguments_options[@]}" : \
         case $line[1] in
             (stats)
 _arguments "${_arguments_options[@]}" : \
-'-c+[Override configuration file location]:PATH:_default' \
-'--config=[Override configuration file location]:PATH:_default' \
+'-c+[Override configuration file location]:PATH:_files' \
+'--config=[Override configuration file location]:PATH:_files' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0
 ;;
 (verify)
 _arguments "${_arguments_options[@]}" : \
-'-c+[Override configuration file location]:PATH:_default' \
-'--config=[Override configuration file location]:PATH:_default' \
+'-c+[Override configuration file location]:PATH:_files' \
+'--config=[Override configuration file location]:PATH:_files' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0
 ;;
 (migrate)
 _arguments "${_arguments_options[@]}" : \
-'-c+[Override configuration file location]:PATH:_default' \
-'--config=[Override configuration file location]:PATH:_default' \
+'-c+[Override configuration file location]:PATH:_files' \
+'--config=[Override configuration file location]:PATH:_files' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0
 ;;
 (list-providers)
 _arguments "${_arguments_options[@]}" : \
-'-c+[Override configuration file location]:PATH:_default' \
-'--config=[Override configuration file location]:PATH:_default' \
+'-c+[Override configuration file location]:PATH:_files' \
+'--config=[Override configuration file location]:PATH:_files' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0
 ;;
 (show)
 _arguments "${_arguments_options[@]}" : \
-'--format=[Output format (e.g. json for full payload)]:FORMAT:_default' \
-'-c+[Override configuration file location]:PATH:_default' \
-'--config=[Override configuration file location]:PATH:_default' \
+'--format=[Output format (e.g. json for full payload)]:FORMAT:(json)' \
+'-c+[Override configuration file location]:PATH:_files' \
+'--config=[Override configuration file location]:PATH:_files' \
 '--full[Include full CVE payload for each entry]' \
 '-h[Print help]' \
 '--help[Print help]' \
@@ -166,8 +166,8 @@ _arguments "${_arguments_options[@]}" : \
 '--entry=[Update a single entry by key (e.g. "name\:\:version")]:KEY:_default' \
 '--pattern=[Update entries matching pattern]:PATTERN:_default' \
 '--entries=[Update multiple entries (comma-separated keys)]:KEYS:_default' \
-'-c+[Override configuration file location]:PATH:_default' \
-'--config=[Override configuration file location]:PATH:_default' \
+'-c+[Override configuration file location]:PATH:_files' \
+'--config=[Override configuration file location]:PATH:_files' \
 '--all[Update all entries]' \
 '-h[Print help]' \
 '--help[Print help]' \
@@ -180,8 +180,8 @@ esac
 ;;
 (fp)
 _arguments "${_arguments_options[@]}" : \
-'-c+[Override configuration file location]:PATH:_default' \
-'--config=[Override configuration file location]:PATH:_default' \
+'-c+[Override configuration file location]:PATH:_files' \
+'--config=[Override configuration file location]:PATH:_files' \
 '-h[Print help]' \
 '--help[Print help]' \
 ":: :_vlz__subcmd__fp_commands" \
@@ -198,8 +198,8 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '--comment=[Optional comment]:COMMENT:_default' \
 '--project-id=[Optional project scope]:ID:_default' \
-'-c+[Override configuration file location]:PATH:_default' \
-'--config=[Override configuration file location]:PATH:_default' \
+'-c+[Override configuration file location]:PATH:_files' \
+'--config=[Override configuration file location]:PATH:_files' \
 '-h[Print help]' \
 '--help[Print help]' \
 ':cve_id -- CVE ID (e.g. CVE-2023-1234):_default' \
@@ -207,8 +207,8 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (unmark)
 _arguments "${_arguments_options[@]}" : \
-'-c+[Override configuration file location]:PATH:_default' \
-'--config=[Override configuration file location]:PATH:_default' \
+'-c+[Override configuration file location]:PATH:_files' \
+'--config=[Override configuration file location]:PATH:_files' \
 '-h[Print help]' \
 '--help[Print help]' \
 ':cve_id -- CVE ID (e.g. CVE-2023-1234):_default' \
@@ -220,21 +220,21 @@ esac
 ;;
 (preload)
 _arguments "${_arguments_options[@]}" : \
-'--provider=[Force a particular CVE provider]:PROVIDER:_default' \
+'--provider=[Force a particular CVE provider]:PROVIDER:(osv)' \
 '--parallel=[Parallel query limit (default 10, max 50)]:PARALLEL:_default' \
 '--parallel-resolutions=[Parallel dependency resolution limit (default\: CPU count, max 32)]:N:_default' \
-'--cache-db=[Override cache database path]:PATH:_default' \
-'*--scan-exclude-dir=[Exclude directory name from manifest discovery (repeatable)]:DIR:_default' \
-'*--lock-file=[Only discover/merge listed Python lock file basenames (repeatable)]:PATH:_default' \
+'--cache-db=[Override cache database path]:PATH:_files' \
+'*--scan-exclude-dir=[Exclude directory name from manifest discovery (repeatable)]:DIR:_files -/' \
+'*--lock-file=[Only discover/merge listed Python lock file basenames (repeatable)]:PATH:_files' \
 '--cache-ttl-secs=[Default TTL in seconds for new cache entries (default\: 432000 = 5 days)]:SECS:_default' \
 '--backoff-base=[Base delay in ms for retry backoff (default 100)]:MS:_default' \
 '--backoff-max=[Maximum delay in ms for retry backoff (default 30000)]:MS:_default' \
 '--max-retries=[Maximum retries for transient errors (default 5)]:N:_default' \
 '--provider-http-connect-timeout-secs=[CVE provider HTTPS connect timeout in seconds (default 15)]:SECS:_default' \
 '--provider-http-request-timeout-secs=[CVE provider HTTPS total request timeout in seconds (default 120)]:SECS:_default' \
-'--tls-crl-bundle=[PEM file of CRLs for optional Linux TLS certificate revocation (SEC-024)]:PATH:_default' \
-'-c+[Override configuration file location]:PATH:_default' \
-'--config=[Override configuration file location]:PATH:_default' \
+'--tls-crl-bundle=[PEM file of CRLs for optional Linux TLS certificate revocation (SEC-024)]:PATH:_files' \
+'-c+[Override configuration file location]:PATH:_files' \
+'--config=[Override configuration file location]:PATH:_files' \
 '--offline[Disable network access]' \
 '--package-manager-required[Require package manager on PATH; exit 3 with hint if missing]' \
 '--keep-ephemeral-venv[Do not remove ephemeral Python venv after resolution (FR-023 debug)]' \
@@ -243,22 +243,22 @@ _arguments "${_arguments_options[@]}" : \
 '--fail-fast[Stop on first manifest parse/resolution failure (FR-037)]' \
 '-h[Print help]' \
 '--help[Print help]' \
-'::root -- Root directory (defaults to current working dir):_default' \
+'::root -- Root directory (defaults to current working dir):_files -/' \
 && ret=0
 ;;
 (help)
 _arguments "${_arguments_options[@]}" : \
-'-c+[Override configuration file location]:PATH:_default' \
-'--config=[Override configuration file location]:PATH:_default' \
+'-c+[Override configuration file location]:PATH:_files' \
+'--config=[Override configuration file location]:PATH:_files' \
 '-h[Print help]' \
 '--help[Print help]' \
-'::subcommand:_default' \
+'::subcommand:(scan list config db fp preload help generate-completions)' \
 && ret=0
 ;;
 (generate-completions)
 _arguments "${_arguments_options[@]}" : \
-'-c+[Override configuration file location]:PATH:_default' \
-'--config=[Override configuration file location]:PATH:_default' \
+'-c+[Override configuration file location]:PATH:_files' \
+'--config=[Override configuration file location]:PATH:_files' \
 '-h[Print help]' \
 '--help[Print help]' \
 ':shell -- Shell (bash, zsh, fish):(bash elvish fish powershell zsh)' \
