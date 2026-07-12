@@ -37,13 +37,13 @@ jobs:
           set -euo pipefail
           case "${{ runner.os }}" in
             Linux)
-              asset="vlz-linux-x86_64"
+              asset="vlz"
               ;;
             macOS)
-              asset="vlz-macos-aarch64"
+              asset="vlz"
               ;;
             Windows)
-              asset="vlz-windows-x86_64.exe"
+              asset="vlz.exe"
               ;;
             *)
               echo "unsupported runner OS: ${{ runner.os }}" >&2
@@ -54,7 +54,8 @@ jobs:
             -o vlz \
             "https://github.com/verilyze/verilyze/releases/download/v${VERSION}/${asset}"
           chmod +x vlz
-          # Verify SHA256SUMS from the same GitHub Release before use in production.
+          # Verify SHA256SUMS and Sigstore bundles from the same release before
+          # production use (see INSTALL.md).
 
       - name: Scan with vlz
         run: |

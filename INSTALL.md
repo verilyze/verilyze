@@ -6,9 +6,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Installing verilyze (vlz)
 
-For tagged releases, GitHub publishes:
-- GitHub Release assets: `vlz-linux-x86_64`, `vlz-macos-aarch64`,
-  `vlz-windows-x86_64.exe`, `.deb`, `.rpm` (NFR-007)
+For tagged releases, GitHub publishes flat asset basenames on the release page
+(logical paths in `SHA256SUMS` use platform directories after restore):
+- Linux binary: `vlz` (logical path `vlz-linux-x86_64/vlz`)
+- macOS binary: `vlz` (logical path `vlz-macos-aarch64/vlz`)
+- Windows binary: `vlz.exe` (logical path `vlz-windows-x86_64/vlz.exe`)
+- `.deb`, `.rpm`, `SHA256SUMS`, and Sigstore bundles (`*.sigstore.json`,
+  `*.intoto.jsonl`) named after each asset (NFR-007)
 - Public GHCR container images
 - `SHA256SUMS` plus keyless Sigstore bundles (`*.sigstore.json`) and
   provenance bundles (`*.intoto.jsonl`) for release assets

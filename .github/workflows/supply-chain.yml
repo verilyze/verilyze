@@ -18,6 +18,9 @@ on:
       - scripts/requirements*.txt
       - sbom/**
       - scripts/generate-sbom.sh
+      - scripts/ci-verilyze-scan.sh
+      - scripts/ci-install-vlz-release.sh
+      - scripts/lib/ci-install-vlz-release-common.sh
       - scripts/lib/workspace-scan-excludes.sh
   pull_request:
     branches: [main]
@@ -28,12 +31,12 @@ on:
       - scripts/requirements*.txt
       - sbom/**
       - scripts/generate-sbom.sh
+      - scripts/ci-verilyze-scan.sh
+      - scripts/ci-install-vlz-release.sh
+      - scripts/lib/ci-install-vlz-release-common.sh
       - scripts/lib/workspace-scan-excludes.sh
   merge_group:
     types: [checks_requested]
-  schedule:
-  # Daily verilyze self-scan after release (SEC-015).
-    - cron: "0 6 * * *"
 
 permissions: {}
 
@@ -85,22 +88,10 @@ jobs:
 
       - name: Verilyze scan (SEC-015)
         env:
+          VLZ_BIN: ${{ github.workspace }}/target/release/vlz
           REPORT_JSON: ${{ runner.temp }}/verilyze-report.json
           REPORT_SARIF: ${{ runner.temp }}/verilyze.sarif
-        run: |
-          set -euo pipefail
-          scan_args=(
-            scan "${GITHUB_WORKSPACE}"
-            --project-id verilyze-ci
-            --provider osv
-            --format json
-            --summary-file "json:${REPORT_JSON}"
-            --summary-file "sarif:${REPORT_SARIF}"
-          )
-          for dir in target .venv-lint .venv-test .venv-reuse; do
-            scan_args+=(--scan-exclude-dir "${dir}")
-          done
-          ./target/release/vlz "${scan_args[@]}"
+        run: ./scripts/ci-verilyze-scan.sh
 
       - name: Upload verilyze scan reports
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

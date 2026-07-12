@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # Basename directory names skipped when scanning the verilyze workspace root
-# (SEC-019 SBOM, SEC-015 dogfooding). Sourced by shell scripts; keep in sync
-# with workflow --scan-exclude-dir flags in supply-chain.yml (NFR-024).
+# (SEC-019 SBOM, SEC-015 dogfooding). Sourced by scripts/ci-verilyze-scan.sh
+# and related tooling (NFR-024).
 #
 # shellcheck shell=bash
 

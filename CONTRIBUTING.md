@@ -1099,6 +1099,14 @@ releases](#versioning-and-releases) below.
   super-linter JSCPD is off), [`.gitleaks.toml`](.gitleaks.toml),
   [`.hadolint.yaml`](.hadolint.yaml), [`.yamllint`](.yamllint),
   [`.commitlintrc.json`](.commitlintrc.json).
+- **Verilyze self-scan (SEC-015):** PR/push path-filtered scans run in the
+  **verilyze** job in [`.github/workflows/supply-chain.yml`](.github/workflows/supply-chain.yml)
+  (build `vlz` from source, set `VLZ_BIN` to `target/release/vlz`). The nightly
+  schedule and README badge use
+  [`.github/workflows/verilyze-nightly.yml`](.github/workflows/verilyze-nightly.yml)
+  (`name: verilyze`): [`scripts/ci-install-vlz-release.sh`](scripts/ci-install-vlz-release.sh)
+  downloads and verifies the latest published Linux release, then
+  [`scripts/ci-verilyze-scan.sh`](scripts/ci-verilyze-scan.sh) scans the repo.
 - **Mermaid diagrams:** To view them in Cursor/VS Code, install the
   **Markdown Preview Mermaid Support** extension (or accept the workspace
   recommendation). Follow Mermaid diagram guidelines: no explicit colors or
