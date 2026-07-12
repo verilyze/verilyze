@@ -35,7 +35,8 @@ jobs:
           SLSA_GENERATOR_BUILDER_REGEX: ^https://github\.com/slsa-framework/slsa-github-generator/\.github/workflows/generator_generic_slsa3\.yml@v2\.1\.0$
         run: |
           set -euo pipefail
-          echo "VLZ_BIN=$(./scripts/ci-install-vlz-release.sh)" >> "${GITHUB_ENV}"
+          VLZ_BIN="$(./scripts/ci-install-vlz-release.sh)"
+          echo "VLZ_BIN=${VLZ_BIN}" >> "${GITHUB_ENV}"
 
       - name: Cache OSV CVE cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
