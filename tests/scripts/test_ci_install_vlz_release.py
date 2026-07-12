@@ -89,7 +89,38 @@ resolve_latest_release_tag "verilyze/verilyze"
         script = f"""
 set -euo pipefail
 cd "{root}"
-grep -F "vlz-linux-x86_64/vlz" SHA256SUMS | sha256sum -c
+grep -F "vlz-linux-x86_64/vlz" SHA256SUMS | sha256sum -c >&2
 """
         proc = _run_bash(script)
         assert proc.returncode == 0, proc.stderr + proc.stdout
+        assert proc.stdout == ""
+        assert "vlz-linux-x86_64/vlz: OK" in proc.stderr
+
+    def test_verify_checksum_helper_keeps_stdout_clean(self, tmp_path: Path) -> None:
+        """ci-install-vlz-release.sh prints only the binary path on stdout."""
+        root = tmp_path / "release"
+        rel_path = "vlz-linux-x86_64/vlz"
+        binary_dir = root / "vlz-linux-x86_64"
+        binary_dir.mkdir(parents=True)
+        payload = b"vlz-binary-payload"
+        binary_dir.joinpath("vlz").write_bytes(payload)
+        digest = hashlib.sha256(payload).hexdigest()
+        root.joinpath("SHA256SUMS").write_text(
+            f"{digest}  {rel_path}\n",
+            encoding="utf-8",
+        )
+        script = f"""
+set -euo pipefail
+source "{_COMMON_LIB}"
+root="{root}"
+rel_path="{rel_path}"
+(
+  cd "${{root}}" || exit 1
+  grep -F "${{rel_path}}" SHA256SUMS | sha256sum -c >&2
+)
+printf 'checksum-only'
+"""
+        proc = _run_bash(script)
+        assert proc.returncode == 0, proc.stderr + proc.stdout
+        assert proc.stdout == "checksum-only"
+        assert f"{rel_path}: OK" in proc.stderr
