@@ -430,6 +430,11 @@ jobs:
           set -euo pipefail
           ./scripts/release-verify-bundle.sh release-artifacts
 
+      - name: Stage flat binary names for GitHub upload
+        run: |
+          set -euo pipefail
+          ./scripts/release-stage-github-binary-upload.sh release-artifacts
+
       - name: Create draft GitHub Release
         id: draft_release
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1  # zizmor: ignore[superfluous-actions]
@@ -438,15 +443,15 @@ jobs:
           generate_release_notes: false
           body_path: release-body.md
           files: |
-            release-artifacts/vlz-linux-x86_64/vlz#vlz-linux-x86_64
-            release-artifacts/vlz-linux-x86_64/vlz.sigstore.json#vlz-linux-x86_64.sigstore.json
-            release-artifacts/vlz-linux-x86_64/vlz.intoto.jsonl#vlz-linux-x86_64.intoto.jsonl
-            release-artifacts/vlz-macos-aarch64/vlz#vlz-macos-aarch64
-            release-artifacts/vlz-macos-aarch64/vlz.sigstore.json#vlz-macos-aarch64.sigstore.json
-            release-artifacts/vlz-macos-aarch64/vlz.intoto.jsonl#vlz-macos-aarch64.intoto.jsonl
-            release-artifacts/vlz-windows-x86_64/vlz.exe#vlz-windows-x86_64.exe
-            release-artifacts/vlz-windows-x86_64/vlz.exe.sigstore.json#vlz-windows-x86_64.exe.sigstore.json
-            release-artifacts/vlz-windows-x86_64/vlz.exe.intoto.jsonl#vlz-windows-x86_64.exe.intoto.jsonl
+            release-artifacts/github-upload/vlz-linux-x86_64
+            release-artifacts/github-upload/vlz-linux-x86_64.sigstore.json
+            release-artifacts/github-upload/vlz-linux-x86_64.intoto.jsonl
+            release-artifacts/github-upload/vlz-macos-aarch64
+            release-artifacts/github-upload/vlz-macos-aarch64.sigstore.json
+            release-artifacts/github-upload/vlz-macos-aarch64.intoto.jsonl
+            release-artifacts/github-upload/vlz-windows-x86_64.exe
+            release-artifacts/github-upload/vlz-windows-x86_64.exe.sigstore.json
+            release-artifacts/github-upload/vlz-windows-x86_64.exe.intoto.jsonl
             release-artifacts/deb-package/*.deb
             release-artifacts/deb-package/*.deb.sigstore.json
             release-artifacts/deb-package/*.deb.intoto.jsonl

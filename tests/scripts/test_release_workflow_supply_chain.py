@@ -11,6 +11,8 @@ from tests.scripts.repo_root import repo_root
 
 _ROOT = repo_root()
 _RESTORE_SCRIPT = _ROOT / "scripts" / "release-restore-download-layout.sh"
+_STAGE_SCRIPT = _ROOT / "scripts" / "release-stage-github-binary-upload.sh"
+_RELEASE_WORKFLOW = _ROOT / ".github" / "workflows" / "release.yml"
 
 
 def test_release_backfill_workflow_removed() -> None:
@@ -34,6 +36,49 @@ def test_release_restore_download_layout_uses_rpm_x86_64_path(tmp_path: Path) ->
     )
     assert proc.returncode == 0, proc.stderr + proc.stdout
     assert (download_dir / "rpm-package" / "x86_64" / "vlz-0.1.0-1.x86_64.rpm").is_file()
+
+
+def test_release_stage_github_binary_upload_creates_flat_asset_names(
+    tmp_path: Path,
+) -> None:
+    artifacts = tmp_path / "release-artifacts"
+    for rel_path, payload in (
+        ("vlz-linux-x86_64/vlz", b"linux"),
+        ("vlz-macos-aarch64/vlz", b"macos"),
+        ("vlz-windows-x86_64/vlz.exe", b"windows"),
+    ):
+        path = artifacts / rel_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(payload)
+        path.with_suffix(path.suffix + ".sigstore.json").write_bytes(
+            f"{rel_path}-sig".encode()
+        )
+        path.with_suffix(path.suffix + ".intoto.jsonl").write_bytes(
+            f"{rel_path}-att".encode()
+        )
+
+    proc = subprocess.run(
+        [str(_STAGE_SCRIPT), str(artifacts)],
+        cwd=_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr + proc.stdout
+
+    upload_dir = artifacts / "github-upload"
+    assert (upload_dir / "vlz-linux-x86_64").read_bytes() == b"linux"
+    assert (upload_dir / "vlz-macos-aarch64").read_bytes() == b"macos"
+    assert (upload_dir / "vlz-windows-x86_64.exe").read_bytes() == b"windows"
+    assert (upload_dir / "vlz-linux-x86_64.sigstore.json").is_file()
+    assert (upload_dir / "vlz-macos-aarch64.intoto.jsonl").is_file()
+
+
+def test_release_workflow_stages_flat_binary_upload_paths() -> None:
+    workflow = _RELEASE_WORKFLOW.read_text(encoding="utf-8")
+    assert "release-stage-github-binary-upload.sh" in workflow
+    assert "release-artifacts/github-upload/vlz-linux-x86_64" in workflow
+    assert "#vlz-linux-x86_64" not in workflow
 
 
 def test_release_restore_download_layout_cross_platform_asset_names(
