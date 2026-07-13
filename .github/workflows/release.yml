@@ -113,8 +113,8 @@ jobs:
           (sha256sum -t "${{ matrix.binary_path }}" \
             || shasum -a 256 "${{ matrix.binary_path }}") \
             | awk -v name="${rel}" '{print $1 " " name}' > checksum
-          echo "hash-${{ matrix.os }}=$(base64 -w0 checksum 2>/dev/null || base64 checksum)" \
-            >> "${GITHUB_OUTPUT}"
+          hash_b64="$(base64 < checksum | tr -d '\n')"
+          echo "hash-${{ matrix.os }}=${hash_b64}" >> "${GITHUB_OUTPUT}"
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -146,6 +146,7 @@ jobs:
       base64-subjects: "${{ needs.build-binary.outputs[format('hash-{0}', matrix.os)] }}"
       provenance-name: "slsa-${{ matrix.artifact_name }}.intoto.jsonl"
       compile-generator: true
+      private-repository: true
 
   build-deb:
     needs: [preflight-release, build-binary]

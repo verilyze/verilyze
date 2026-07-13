@@ -42,6 +42,8 @@ this file **before** creating the release tag.
 - Renovate post-upgrade SBOM regeneration for PEP 621/Python dependencies.
 - CI reliability: nightly attestation, rust-cache alignment, coverage
   reporting, and OBS release scan fixes.
+- Release workflow: portable `base64` for macOS SLSA subject hashes;
+  `private-repository` for SLSA generator on private repos.
 
 ## [0.3.1] - 2026-07-04
 
