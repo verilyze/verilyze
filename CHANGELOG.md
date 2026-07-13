@@ -44,7 +44,8 @@ this file **before** creating the release tag.
   reporting, and OBS release scan fixes.
 - Release workflow: portable `base64` for macOS SLSA subject hashes;
   `private-repository` for SLSA generator on private repos; slsa-verifier
-  builder regex accepts Renovate-pinned generator SHA.
+  builder regex accepts Renovate-pinned generator SHA; unique GitHub Release
+  asset names for cross-platform binaries.
 
 ## [0.3.1] - 2026-07-04
 

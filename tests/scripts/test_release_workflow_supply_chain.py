@@ -36,6 +36,33 @@ def test_release_restore_download_layout_uses_rpm_x86_64_path(tmp_path: Path) ->
     assert (download_dir / "rpm-package" / "x86_64" / "vlz-0.1.0-1.x86_64.rpm").is_file()
 
 
+def test_release_restore_download_layout_cross_platform_asset_names(
+    tmp_path: Path,
+) -> None:
+    download_dir = tmp_path / "draft-verify"
+    download_dir.mkdir()
+    (download_dir / "vlz-linux-x86_64").write_bytes(b"linux")
+    (download_dir / "vlz-linux-x86_64.sigstore.json").write_bytes(b"linux-sig")
+    (download_dir / "vlz-macos-aarch64").write_bytes(b"macos")
+    (download_dir / "vlz-macos-aarch64.sigstore.json").write_bytes(b"macos-sig")
+    (download_dir / "vlz-windows-x86_64.exe").write_bytes(b"windows")
+    (download_dir / "vlz-windows-x86_64.exe.sigstore.json").write_bytes(b"win-sig")
+
+    proc = subprocess.run(
+        [str(_RESTORE_SCRIPT), str(download_dir)],
+        cwd=_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr + proc.stdout
+    assert (download_dir / "vlz-linux-x86_64" / "vlz").read_bytes() == b"linux"
+    assert (download_dir / "vlz-macos-aarch64" / "vlz").read_bytes() == b"macos"
+    assert (
+        download_dir / "vlz-windows-x86_64" / "vlz.exe"
+    ).read_bytes() == b"windows"
+
+
 def test_release_read_workspace_version_script_matches_cargo_toml() -> None:
     script = _ROOT / "scripts" / "release-read-workspace-version.sh"
     cargo = _ROOT / "Cargo.toml"
