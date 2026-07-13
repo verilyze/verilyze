@@ -490,9 +490,13 @@ check-dco:
 check-signatures:
 	@cd "$(MKFILE_DIR)" && ./scripts/check-signatures.sh
 
-# release-preflight: CHANGELOG, tag/version, OBS and packaging checks before tag push
+# release-preflight: CHANGELOG, tag/version, OBS, packaging, upload round-trip
 release-preflight:
 	$(SCRIPTS_DIR)/release-preflight.sh
+
+# release-verify-upload: local publish layout and SHA256SUMS round-trip (no cosign)
+release-verify-upload:
+	$(SCRIPTS_DIR)/release-verify-upload-roundtrip.sh
 
 # release-notes: preview GitHub Release body for VERSION=x.y.z
 release-notes:

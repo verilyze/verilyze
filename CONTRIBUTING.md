@@ -376,9 +376,14 @@ stripped of symbols (NFR-023) for security and smaller size.
 3. Run `make generate-packaging` to update APKBUILD and PKGBUILD with the
    new version.
 4. Merge to `main` and run `make check`.
-5. Create signed annotated tag: `git tag -s v0.1.0 -m "Release v0.1.0"`.
-6. Push tag: `git push origin v0.1.0`.
-7. Confirm OBS release automation succeeds:
+5. Run `make release-preflight` (CHANGELOG, OBS/packaging, and local publish
+   layout round-trip via
+   [scripts/release-verify-upload-roundtrip.sh](scripts/release-verify-upload-roundtrip.sh)).
+   Re-run after the release PR merges if `release.yml` or `scripts/release-*.sh`
+   changed.
+6. Create signed annotated tag: `git tag -s v0.1.0 -m "Release v0.1.0"`.
+7. Push tag: `git push origin v0.1.0`.
+8. Confirm OBS release automation succeeds:
    - `release.yml` runs OBS signing-key checks in the preflight job (before
      builds), then builds assets, creates a **draft** GitHub Release, verifies
      checksums and Sigstore bundles locally and again after downloading the
@@ -399,6 +404,24 @@ stripped of symbols (NFR-023) for security and smaller size.
    - OBS upload automation also renders `verilyze.changes` from the same
      `CHANGELOG.md` section as the GitHub Release body (no extra manual step
      beyond updating `CHANGELOG.md`).
+
+**Publish constraints** (caught locally by `make release-preflight` and
+`tests/scripts/test_release_workflow_supply_chain.py` when `release.yml`
+changes):
+
+- GitHub Releases require **unique asset basenames** across platforms (for
+  example `vlz-linux-x86_64`, not three assets all named `vlz`).
+- `softprops/action-gh-release` uploads basenames as-is; **rename on disk**
+  before upload (`scripts/release-stage-github-binary-upload.sh`). It does
+  not support `path#name` rename syntax.
+- Draft re-verify downloads **flat** asset names; `release-restore-download-layout.sh`
+  rebuilds the tree expected by `SHA256SUMS`.
+- `slsa-verifier` builder regex must accept both the generator version tag
+  and the Renovate-pinned workflow SHA (`SLSA_GENERATOR_PIN_SHA`).
+
+**Future work:** `workflow_dispatch` on `release.yml` still skips the
+`create-release` job (`if: github.event_name == 'push'`). Local round-trip is
+the pre-tag substitute until a dispatchable publish dry-run exists.
 
 ### Failed release before publish
 
