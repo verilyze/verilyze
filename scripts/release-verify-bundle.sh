@@ -14,8 +14,9 @@ set -euo pipefail
 
 readonly OIDC_ISSUER="https://token.actions.githubusercontent.com"
 
-# slsa-verifier matches the generator reusable workflow by version tag.
-readonly SLSA_GENERATOR_BUILDER_REGEX_DEFAULT='^https://github\.com/slsa-framework/slsa-github-generator/\.github/workflows/generator_generic_slsa3\.yml@v2\.1\.0$'
+# slsa-verifier matches the generator reusable workflow by version tag or Renovate pin SHA.
+readonly SLSA_GENERATOR_PIN_SHA='f7dd8c54c2067bafc12ca7a55595d5ee9b75204a'
+readonly SLSA_GENERATOR_BUILDER_REGEX_DEFAULT="^https://github\\.com/slsa-framework/slsa-github-generator/\\.github/workflows/generator_generic_slsa3\\.yml@(v2\\.1\\.0|${SLSA_GENERATOR_PIN_SHA})\$"
 
 SLSA_GENERATOR_BUILDER_REGEX="${SLSA_GENERATOR_BUILDER_REGEX:-${SLSA_GENERATOR_BUILDER_REGEX_DEFAULT}}"
 
