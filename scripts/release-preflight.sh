@@ -28,6 +28,8 @@ fi
 make check-obs-packaging
 make check-packaging
 
+./scripts/release-verify-upload-roundtrip.sh
+
 cat <<EOF
 
 release-preflight: OK for v${VERSION}

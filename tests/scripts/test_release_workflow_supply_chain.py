@@ -4,6 +4,7 @@
 
 """Tests for release signing and provenance workflow coverage."""
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -12,7 +13,85 @@ from tests.scripts.repo_root import repo_root
 _ROOT = repo_root()
 _RESTORE_SCRIPT = _ROOT / "scripts" / "release-restore-download-layout.sh"
 _STAGE_SCRIPT = _ROOT / "scripts" / "release-stage-github-binary-upload.sh"
+_ROUNDTRIP_SCRIPT = _ROOT / "scripts" / "release-verify-upload-roundtrip.sh"
 _RELEASE_WORKFLOW = _ROOT / ".github" / "workflows" / "release.yml"
+_SLSA_PIN_SHA = "f7dd8c54c2067bafc12ca7a55595d5ee9b75204a"
+
+
+def _release_workflow_text() -> str:
+    return _RELEASE_WORKFLOW.read_text(encoding="utf-8")
+
+
+def _gh_release_files_block(workflow: str) -> str:
+    match = re.search(
+        r"uses: softprops/action-gh-release@[^\n]+\n\s+with:.*?\n\s+files: \|(.*?)(?:\n\s{6}\S|\n\s{4}\S)",
+        workflow,
+        re.DOTALL,
+    )
+    assert match is not None, "softprops/action-gh-release files block not found"
+    return match.group(1)
+
+
+def test_release_workflow_gh_release_files_have_no_hash_rename_syntax() -> None:
+    files_block = _gh_release_files_block(_release_workflow_text())
+    for line in files_block.splitlines():
+        entry = line.strip()
+        if not entry:
+            continue
+        assert "#" not in entry, f"unsupported path#name syntax in files entry: {entry}"
+
+
+def test_release_workflow_stages_binaries_before_draft_release() -> None:
+    workflow = _release_workflow_text()
+    stage_idx = workflow.index("release-stage-github-binary-upload.sh")
+    draft_idx = workflow.index("Create draft GitHub Release")
+    assert stage_idx < draft_idx
+
+
+def test_release_workflow_slsa_regex_includes_renovate_pin_sha() -> None:
+    workflow = _release_workflow_text()
+    assert _SLSA_PIN_SHA in workflow
+    regex_match = re.search(
+        r"SLSA_GENERATOR_BUILDER_REGEX:\s*(.+)$",
+        workflow,
+        re.MULTILINE,
+    )
+    assert regex_match is not None
+    assert _SLSA_PIN_SHA in regex_match.group(1)
+
+
+def test_release_workflow_binary_slsa_job_has_contents_write() -> None:
+    workflow = _release_workflow_text()
+    job_match = re.search(
+        r"binary-slsa-provenance:.*?(?=\n  \S)",
+        workflow,
+        re.DOTALL,
+    )
+    assert job_match is not None
+    assert "contents: write" in job_match.group(0)
+
+
+def test_release_workflow_macos_hash_uses_portable_base64() -> None:
+    workflow = _release_workflow_text()
+    build_job = re.search(
+        r"build-binary:.*?(?=\n  binary-slsa-provenance:)",
+        workflow,
+        re.DOTALL,
+    )
+    assert build_job is not None
+    assert "base64 < checksum" in build_job.group(0)
+
+
+def test_release_verify_upload_roundtrip_script_succeeds() -> None:
+    proc = subprocess.run(
+        [str(_ROUNDTRIP_SCRIPT)],
+        cwd=_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr + proc.stdout
+    assert "round-trip" in (proc.stderr + proc.stdout).lower()
 
 
 def test_release_backfill_workflow_removed() -> None:

@@ -25,7 +25,8 @@ CONTRIBUTING.md and **wait for confirmation** before editing `Cargo.toml`.
 - Working tree clean or only intentional release files staged
 - Commit signing configured (`git config commit.gpgsign`, tag signing enabled)
 - `make -j check` green (or run it now)
-- `make release-preflight` passes
+- `make release-preflight` passes (includes local publish layout round-trip via
+  `scripts/release-verify-upload-roundtrip.sh`)
 
 ## Never push directly to `main`
 
@@ -50,20 +51,23 @@ publish and bypasses project review policy.
    from `git log` since last tag; human may edit before commit
 2. **Version bump** -- `[workspace.package].version` in root `Cargo.toml` only
 3. **`make generate-packaging`**
-4. **`make release-preflight`**
+4. **`make release-preflight`** (CHANGELOG, OBS/packaging, upload round-trip)
 5. **Full gate** -- `make -j check` (use shell subagent in background if helpful)
 6. **Branch and commit** -- create `release/vX.Y.Z` from `main`; signed commit
    when user asked to complete release prep (`chore: prepare vX.Y.Z release`)
 7. **Pull request** -- `git push -u origin release/vX.Y.Z`; `gh pr create`;
    wait for CI green; merge to `main` (do not push `main` directly)
 8. **Sync local `main`** -- `git checkout main && git pull origin main`
-9. **Tag** -- when user explicitly asks to tag or publish:
-   `git tag -s vX.Y.Z -m "Release vX.Y.Z"`
-10. **Push tag** -- only after user confirms publish intent:
+9. **Pre-tag gate (required)** -- on merged `main`, `make release-preflight`
+   must pass before tagging. Re-run if the release PR touched `release.yml` or
+   `scripts/release-*.sh`. Optional alone: `make release-verify-upload`.
+10. **Tag** -- when user explicitly asks to tag or publish:
+    `git tag -s vX.Y.Z -m "Release vX.Y.Z"`
+11. **Push tag** -- only after user confirms publish intent:
     `git push origin vX.Y.Z` (never bundle with `git push origin main`)
-11. **Monitor** -- `gh run watch --workflow=release.yml`; then
+12. **Monitor** -- `gh run watch --workflow=release.yml`; then
     `gh release view vX.Y.Z`
-12. **Preview notes anytime** -- `make release-notes VERSION=x.y.z`
+13. **Preview notes anytime** -- `make release-notes VERSION=x.y.z`
 
 ## Optional deeper checks
 
@@ -79,6 +83,16 @@ gh release delete vX.Y.Z --yes
 ```
 
 Fix root cause; re-tag only after user confirms.
+
+**Symptom guide** (v0.4.0 stabilization lessons):
+
+| Symptom | Likely cause | Check |
+|---------|--------------|-------|
+| SLSA job startup failure | Missing `contents: write` on provenance job | `release.yml` `binary-slsa-provenance` permissions |
+| Empty macOS SLSA hash | Non-portable `base64` in `build-binary` | `base64 < checksum` in hash step |
+| `create-release` cosign/SLSA verify fail | Generator SHA not in builder regex | `SLSA_GENERATOR_PIN_SHA` in `SLSA_GENERATOR_BUILDER_REGEX` |
+| Draft re-verify: missing `vlz-*` paths | Duplicate `vlz` asset names or missing binaries on draft | Staging + restore scripts; `make release-verify-upload` |
+| Draft has deb/rpm only, no binaries | `path#name` in `action-gh-release` `files:` | Contract tests; stage flat names under `github-upload/` |
 
 ## Release stabilization (before first successful publish)
 
@@ -114,8 +128,10 @@ git push origin vX.Y.Z
 | Immutable release or registry artifacts consumed downstream | New patch version only |
 
 **Optional:** Run `workflow_dispatch` on `release.yml` from a branch ref to
-exercise build and OBS jobs without pushing a tag. Tag push remains the
-canonical publish for SemVer artifacts and GitHub Releases.
+exercise build and OBS jobs without pushing a tag. It does **not** run
+`create-release` (tag push only). Use `make release-verify-upload` or
+`make release-preflight` to rehearse publish layout before tagging. Tag push
+remains the canonical publish for SemVer artifacts and GitHub Releases.
 
 ## Agent boundaries
 
