@@ -32,7 +32,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VLZ_RELEASE_DOWNLOAD_DIR: ${{ runner.temp }}/vlz-release
           EXPECTED_BUILDER_REGEX: ^https://github\.com/${{ github.repository }}/\.github/workflows/release\.yml@
-          SLSA_GENERATOR_BUILDER_REGEX: ^https://github\.com/slsa-framework/slsa-github-generator/\.github/workflows/generator_generic_slsa3\.yml@v2\.1\.0$
+          SLSA_GENERATOR_BUILDER_REGEX: ^https://github\.com/slsa-framework/slsa-github-generator/\.github/workflows/generator_generic_slsa3\.yml@(v2\.1\.0|f7dd8c54c2067bafc12ca7a55595d5ee9b75204a)$
         run: |
           set -euo pipefail
           VLZ_BIN="$(./scripts/ci-install-vlz-release.sh)"

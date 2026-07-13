@@ -11,7 +11,8 @@ readonly LINUX_BINARY_REL_PATH="vlz-linux-x86_64/vlz"
 
 readonly RELEASE_OIDC_ISSUER="https://token.actions.githubusercontent.com"
 
-readonly SLSA_GENERATOR_BUILDER_REGEX_DEFAULT='^https://github\.com/slsa-framework/slsa-github-generator/\.github/workflows/generator_generic_slsa3\.yml@v2\.1\.0$'
+readonly SLSA_GENERATOR_PIN_SHA='f7dd8c54c2067bafc12ca7a55595d5ee9b75204a'
+readonly SLSA_GENERATOR_BUILDER_REGEX_DEFAULT="^https://github\\.com/slsa-framework/slsa-github-generator/\\.github/workflows/generator_generic_slsa3\\.yml@(v2\\.1\\.0|${SLSA_GENERATOR_PIN_SHA})\$"
 
 verify_blob_attestation_with_builder_fallback() {
   local file="${1:?binary path required}"
