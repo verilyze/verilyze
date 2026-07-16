@@ -31,13 +31,15 @@ fi
 
 TAG="$(resolve_latest_release_tag "${REPO}")"
 
+download_patterns=()
+while IFS= read -r pattern; do
+  download_patterns+=(--pattern "${pattern}")
+done < <(linux_release_download_patterns)
+
 gh release download "${TAG}" \
   --repo "${REPO}" \
   --dir "${VLZ_RELEASE_DOWNLOAD_DIR}" \
-  --pattern 'vlz' \
-  --pattern 'vlz.sigstore.json' \
-  --pattern 'vlz.intoto.jsonl' \
-  --pattern 'SHA256SUMS'
+  "${download_patterns[@]}"
 
 "${ROOT}/scripts/release-restore-download-layout.sh" "${VLZ_RELEASE_DOWNLOAD_DIR}"
 

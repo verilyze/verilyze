@@ -14,6 +14,9 @@ from tests.scripts.repo_root import repo_root
 _ROOT = repo_root()
 _INSTALL_SCRIPT = _ROOT / "scripts" / "ci-install-vlz-release.sh"
 _COMMON_LIB = _ROOT / "scripts" / "lib" / "ci-install-vlz-release-common.sh"
+_RESTORE_SCRIPT = _ROOT / "scripts" / "release-restore-download-layout.sh"
+_LINUX_FLAT_ASSET_NAME = "vlz-linux-x86_64"
+_LEGACY_LINUX_FLAT_ASSET_NAME = "vlz"
 
 
 def _run_bash(script: str, *, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -58,6 +61,56 @@ exit 0
         proc = _run_bash(script, env={"PATH": f"{tmp_path}:{os.environ['PATH']}"})
         assert proc.returncode == 0, proc.stderr + proc.stdout
         assert "no non-draft, non-prerelease" in proc.stderr
+
+    def test_linux_release_download_patterns_cover_platform_and_legacy(
+        self,
+    ) -> None:
+        script = f"""
+set -euo pipefail
+source "{_COMMON_LIB}"
+linux_release_download_patterns
+"""
+        proc = _run_bash(script)
+        assert proc.returncode == 0, proc.stderr + proc.stdout
+        patterns = [line for line in proc.stdout.splitlines() if line]
+        assert "SHA256SUMS" in patterns
+        assert f"{_LINUX_FLAT_ASSET_NAME}" in patterns
+        assert f"{_LINUX_FLAT_ASSET_NAME}.sigstore.json" in patterns
+        assert f"{_LINUX_FLAT_ASSET_NAME}.intoto.jsonl" in patterns
+        assert f"{_LEGACY_LINUX_FLAT_ASSET_NAME}" in patterns
+        assert f"{_LEGACY_LINUX_FLAT_ASSET_NAME}.sigstore.json" in patterns
+        assert f"{_LEGACY_LINUX_FLAT_ASSET_NAME}.intoto.jsonl" in patterns
+
+    def test_restore_layout_from_platform_named_flat_linux_asset(
+        self, tmp_path: Path
+    ) -> None:
+        download_dir = tmp_path / "release"
+        download_dir.mkdir()
+        payload = b"vlz-linux-x86_64-binary"
+        download_dir.joinpath(_LINUX_FLAT_ASSET_NAME).write_bytes(payload)
+        download_dir.joinpath(f"{_LINUX_FLAT_ASSET_NAME}.sigstore.json").write_text(
+            "{}", encoding="utf-8"
+        )
+        download_dir.joinpath(f"{_LINUX_FLAT_ASSET_NAME}.intoto.jsonl").write_text(
+            "{}", encoding="utf-8"
+        )
+        digest = hashlib.sha256(payload).hexdigest()
+        download_dir.joinpath("SHA256SUMS").write_text(
+            f"{digest}  {_LINUX_FLAT_ASSET_NAME}/vlz\n",
+            encoding="utf-8",
+        )
+        proc = subprocess.run(
+            [str(_RESTORE_SCRIPT), str(download_dir)],
+            cwd=_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert proc.returncode == 0, proc.stderr + proc.stdout
+        binary = download_dir / _LINUX_FLAT_ASSET_NAME / "vlz"
+        assert binary.read_bytes() == payload
+        assert (download_dir / f"{_LINUX_FLAT_ASSET_NAME}/vlz.sigstore.json").is_file()
+        assert (download_dir / f"{_LINUX_FLAT_ASSET_NAME}/vlz.intoto.jsonl").is_file()
 
     def test_resolve_latest_release_tag_returns_tag(self, tmp_path: Path) -> None:
         fake_gh = tmp_path / "gh"

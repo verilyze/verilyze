@@ -9,10 +9,25 @@
 # Logical path in SHA256SUMS after release-restore-download-layout.sh.
 readonly LINUX_BINARY_REL_PATH="vlz-linux-x86_64/vlz"
 
+# Flat GitHub Release asset basenames (v0.4.0+ platform-specific; legacy v0.3.1).
+readonly LINUX_FLAT_ASSET_NAME="vlz-linux-x86_64"
+readonly LEGACY_LINUX_FLAT_ASSET_NAME="vlz"
+
 readonly RELEASE_OIDC_ISSUER="https://token.actions.githubusercontent.com"
 
 readonly SLSA_GENERATOR_PIN_SHA='f7dd8c54c2067bafc12ca7a55595d5ee9b75204a'
 readonly SLSA_GENERATOR_BUILDER_REGEX_DEFAULT="^https://github\\.com/slsa-framework/slsa-github-generator/\\.github/workflows/generator_generic_slsa3\\.yml@(v2\\.1\\.0|${SLSA_GENERATOR_PIN_SHA})\$"
+
+linux_release_download_patterns() {
+  printf '%s\n' \
+    'SHA256SUMS' \
+    "${LINUX_FLAT_ASSET_NAME}" \
+    "${LINUX_FLAT_ASSET_NAME}.sigstore.json" \
+    "${LINUX_FLAT_ASSET_NAME}.intoto.jsonl" \
+    "${LEGACY_LINUX_FLAT_ASSET_NAME}" \
+    "${LEGACY_LINUX_FLAT_ASSET_NAME}.sigstore.json" \
+    "${LEGACY_LINUX_FLAT_ASSET_NAME}.intoto.jsonl"
+}
 
 verify_blob_attestation_with_builder_fallback() {
   local file="${1:?binary path required}"
