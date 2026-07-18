@@ -301,7 +301,7 @@ jobs:
           cache-on-failure: true
 
       - name: Install cargo tooling (llvm-cov, about)
-        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+        uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
         with:
           tool: cargo-llvm-cov@0.8.5,cargo-about@0.9.0
 
@@ -322,7 +322,7 @@ jobs:
 
       - name: Install cargo-deny
         if: steps.cargo_deny.outputs.present != 'true'
-        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+        uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
         with:
           tool: cargo-deny@${{ env.CARGO_DENY_VERSION }}
 
@@ -351,7 +351,7 @@ jobs:
 
       - name: Install cargo-afl
         if: steps.fuzz_preflight.outputs.fuzz_needed == 'true'
-        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+        uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
         with:
           tool: cargo-afl@0.18.0
 
