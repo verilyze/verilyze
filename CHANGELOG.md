@@ -28,6 +28,8 @@ this file **before** creating the release tag.
   `site-packages`, and other common vendor/build directory names.
 - Manifest failure stderr summary groups identical errors; live errors use
   paths relative to the scan root; multi-manifest resolve progress on stderr.
+- Release prep pull requests skip the full AFL matrix when only version,
+  packaging, and SBOM paths change.
 - Plain reports group additional CVE rows under the same package.
 - Dependency updates: Rust 1.97.1, GitHub Actions, super-linter digest,
   and Python tooling (Renovate).
