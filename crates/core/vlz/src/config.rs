@@ -82,7 +82,19 @@ pub const DEFAULT_PARALLEL_QUERIES: usize = 10;
 pub const DEFAULT_CACHE_TTL_SECS: u64 = 5 * 24 * 60 * 60;
 
 /// Default directory names to skip during manifest discovery.
-pub const DEFAULT_SCAN_EXCLUDE_DIRS: &[&str] = &[".git"];
+pub const DEFAULT_SCAN_EXCLUDE_DIRS: &[&str] = &[
+    ".git",
+    ".venv",
+    "venv",
+    "node_modules",
+    "target",
+    "__pycache__",
+    ".tox",
+    ".eggs",
+    "dist",
+    "build",
+    "site-packages",
+];
 
 /// Default backoff base in milliseconds (SEC-007).
 pub const DEFAULT_BACKOFF_BASE_MS: u64 = 100;
@@ -1695,6 +1707,17 @@ mod tests {
                 assert_eq!(env_fp_exit_code(), Some(0));
             },
         );
+    }
+
+    #[test]
+    fn default_scan_exclude_dirs_include_common_vendor_dirs() {
+        let cfg = EffectiveConfig::default();
+        for dir in DEFAULT_SCAN_EXCLUDE_DIRS {
+            assert!(
+                cfg.scan_exclude_dirs.contains(&dir.to_string()),
+                "missing default exclude dir: {dir}"
+            );
+        }
     }
 
     #[test]

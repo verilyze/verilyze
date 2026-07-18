@@ -66,8 +66,8 @@ Env: VLZ_PARALLEL_RESOLUTIONS.
 CLI: --parallel-resolutions.
 
 .It Va scan_exclude_dirs
-Comma-separated directory names to skip during manifest discovery (default: .git).
-Default: .git.
+Comma-separated directory names to skip during manifest discovery (default: .git, .venv, venv, node_modules, target, __pycache__, .tox, .eggs, dist, build, site-packages).
+Default: .git,.venv,venv,node_modules,target,__pycache__,.tox,.eggs,dist,build,site-packages.
 Env: VLZ_SCAN_EXCLUDE_DIRS.
 CLI: --scan-exclude-dir (repeatable).
 

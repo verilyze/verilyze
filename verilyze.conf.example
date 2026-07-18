@@ -15,8 +15,9 @@
 # parallel_resolutions = 4
 
 # Comma-separated directory names to skip during manifest discovery (default:
-# .git)
-# scan_exclude_dirs = .git
+# .git, .venv, venv, node_modules, target, __pycache__, .tox, .eggs, dist,
+# build, site-packages)
+# scan_exclude_dirs = .git,.venv,venv,node_modules,target,__pycache__,.tox,.eggs,dist,build,site-packages
 
 # Reachability mode for scan output: off, tier-b, or best-available (default:
 # tier-b)
