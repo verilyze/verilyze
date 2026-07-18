@@ -4,8 +4,68 @@
 
 use std::path::Path;
 
+use vlz_db::DeclarationKind;
 use vlz_db::PYPI_ECOSYSTEM;
-use vlz_manifest_parser::ParserError;
+use vlz_manifest_parser::{
+    LockStanza, ParsedDependency, ParserError, scan_toml_lock_stanzas,
+};
+
+/// Parse lock file packages and declaration line metadata.
+pub fn parse_lock_file_with_declarations(
+    path: &Path,
+    content: &str,
+) -> Result<(Vec<vlz_db::Package>, Vec<ParsedDependency>), ParserError> {
+    let packages = parse_lock_file(path, content)?;
+    let stanzas = lock_stanzas_for_content(path, content)?;
+    let parsed = stanzas
+        .into_iter()
+        .map(|stanza| ParsedDependency {
+            package: stanza.package,
+            path: path.to_path_buf(),
+            start_line: stanza.start_line,
+            end_line: None,
+            kind: DeclarationKind::Lockfile,
+        })
+        .collect();
+    Ok((packages, parsed))
+}
+
+fn lock_stanzas_for_content(
+    path: &Path,
+    content: &str,
+) -> Result<Vec<LockStanza>, ParserError> {
+    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+
+    if name == "Pipfile.lock" || content.trim_start().starts_with('{') {
+        return Ok(Vec::new());
+    }
+    if name == "pylock.toml"
+        || (name.starts_with("pylock.") && name.ends_with(".toml"))
+        || (content.contains("lock-version")
+            && content.contains("[[packages]]"))
+    {
+        return Ok(scan_toml_lock_stanzas(
+            content,
+            "[[packages]]",
+            PYPI_ECOSYSTEM,
+        ));
+    }
+    if name == "poetry.lock" || content.contains("[[package]]") {
+        return Ok(scan_toml_lock_stanzas(
+            content,
+            "[[package]]",
+            PYPI_ECOSYSTEM,
+        ));
+    }
+    if name == "uv.lock" {
+        return Ok(scan_toml_lock_stanzas(
+            content,
+            "[[package]]",
+            PYPI_ECOSYSTEM,
+        ));
+    }
+    Err(ParserError::Parse("Unknown lock file format".to_string()))
+}
 
 /// Parse a lock file into packages. Detects format by filename and content.
 pub fn parse_lock_file(

@@ -18,7 +18,9 @@ use std::io::Write;
 use std::path::PathBuf;
 use vlz_db::{
     CRATES_IO_ECOSYSTEM, CveEvidenceLocation, CveRecord, CvssVersion,
-    GO_ECOSYSTEM, PYPI_ECOSYSTEM, Package, Severity,
+    DeclarationKind, GO_ECOSYSTEM, MAX_DECLARATIONS_PER_FINDING,
+    PYPI_ECOSYSTEM, Package, PackageDeclarationLocation, Severity,
+    dedupe_sort_declarations,
 };
 
 const DESCRIPTION_MAX_LEN: usize = 60;
@@ -162,17 +164,98 @@ fn format_cve_symbol_details(cve: &CveRecord) -> Option<String> {
     Some(parts.join("; "))
 }
 
+fn format_declarations(
+    declarations: &[PackageDeclarationLocation],
+    root_path: Option<&std::path::Path>,
+) -> String {
+    if declarations.is_empty() {
+        return String::new();
+    }
+    let formatted: Vec<String> = declarations
+        .iter()
+        .map(|decl| {
+            let path = relative_path_string(
+                std::path::Path::new(&decl.path),
+                root_path,
+            );
+            format!("{path}:{}", decl.start_line)
+        })
+        .collect();
+    if formatted.len() <= 2 {
+        formatted.join(", ")
+    } else {
+        format!("{} (+{} more)", formatted[0], formatted.len() - 1)
+    }
+}
+
 fn sarif_physical_location(
     uri: &str,
     start_line: Option<u32>,
+    end_line: Option<u32>,
 ) -> serde_json::Value {
     let mut physical = serde_json::json!({
         "artifactLocation": { "uri": uri }
     });
     if let Some(line) = start_line {
-        physical["region"] = serde_json::json!({ "startLine": line });
+        let mut region = serde_json::json!({ "startLine": line });
+        if let Some(end) = end_line {
+            region["endLine"] = serde_json::json!(end);
+        }
+        physical["region"] = region;
     }
     serde_json::json!({ "physicalLocation": physical })
+}
+
+fn sarif_evidence_location(
+    loc: &CveEvidenceLocation,
+    root: Option<&std::path::Path>,
+) -> serde_json::Value {
+    let mut location = sarif_physical_location(
+        &sarif_uri_for_path(&loc.path, root),
+        Some(loc.start_line),
+        loc.end_line,
+    );
+    location["properties"] = serde_json::json!({
+        "location_kind": "evidence",
+        "symbol": loc.symbol,
+    });
+    location["message"] =
+        serde_json::json!({ "text": "First-party advisory symbol usage" });
+    location
+}
+
+fn sarif_declaration_location(
+    decl: &PackageDeclarationLocation,
+    root: Option<&std::path::Path>,
+) -> serde_json::Value {
+    let mut location = sarif_physical_location(
+        &sarif_uri_for_path(&decl.path, root),
+        Some(decl.start_line),
+        decl.end_line,
+    );
+    location["properties"] = serde_json::json!({
+        "location_kind": "declaration",
+        "declaration_kind": match decl.kind {
+            DeclarationKind::Manifest => "manifest",
+            DeclarationKind::Lockfile => "lockfile",
+        },
+    });
+    location["message"] =
+        serde_json::json!({ "text": "Dependency declaration" });
+    location
+}
+
+fn sarif_declaration_locations(
+    declarations: &[PackageDeclarationLocation],
+    root: Option<&std::path::Path>,
+) -> Vec<serde_json::Value> {
+    let mut sorted = declarations.to_vec();
+    dedupe_sort_declarations(&mut sorted);
+    sorted
+        .into_iter()
+        .take(MAX_DECLARATIONS_PER_FINDING)
+        .map(|decl| sarif_declaration_location(&decl, root))
+        .collect()
 }
 
 fn sarif_uri_for_path(path: &str, root: Option<&std::path::Path>) -> String {
@@ -300,6 +383,8 @@ pub struct Finding {
     pub package: Package,
     /// Manifest file path(s) that introduce this package. Sorted and deduplicated.
     pub manifest_paths: Vec<PathBuf>,
+    /// Declaration line locations (FR-036a Tier 1). Sorted and deduplicated.
+    pub declarations: Vec<PackageDeclarationLocation>,
     pub cves: Vec<(CveRecord, Severity)>,
 }
 
@@ -428,10 +513,18 @@ impl Reporter for DefaultReporter {
         )?;
         writeln!(w, "{}", "-".repeat(100))?;
         for finding in &data.findings {
-            let manifests_display = format_manifest_paths(
+            let mut manifests_display = format_manifest_paths(
                 &finding.manifest_paths,
                 data.root_path.as_deref(),
             );
+            let decl_display = format_declarations(
+                &finding.declarations,
+                data.root_path.as_deref(),
+            );
+            if !decl_display.is_empty() {
+                manifests_display =
+                    format!("{manifests_display}; decl: {decl_display}");
+            }
             for (cve, severity) in &finding.cves {
                 let severity_display = severity.as_str();
                 let mut chars = cve.description.chars();
@@ -481,6 +574,11 @@ struct JsonFinding<'a> {
     package: &'a Package,
     #[serde(serialize_with = "serialize_manifest_paths")]
     manifest_paths: &'a [PathBuf],
+    #[serde(
+        default,
+        skip_serializing_if = "<[PackageDeclarationLocation]>::is_empty"
+    )]
+    declarations: &'a [PackageDeclarationLocation],
     cves: Vec<JsonCveWithSeverity<'a>>,
 }
 
@@ -536,6 +634,7 @@ impl Reporter for JsonReporter {
                 .map(|f| JsonFinding {
                     package: &f.package,
                     manifest_paths: &f.manifest_paths,
+                    declarations: &f.declarations,
                     cves: f
                         .cves
                         .iter()
@@ -694,25 +793,40 @@ impl Reporter for SarifReporter {
                         .evidence
                         .iter()
                         .map(|loc| {
-                            sarif_physical_location(
-                                &sarif_uri_for_path(
-                                    &loc.path,
-                                    data.root_path.as_deref(),
-                                ),
-                                Some(loc.start_line),
+                            sarif_evidence_location(
+                                loc,
+                                data.root_path.as_deref(),
                             )
                         })
                         .collect();
-                    let related_locations: Vec<serde_json::Value> =
+                    let declaration_locations = sarif_declaration_locations(
+                        &finding.declarations,
+                        data.root_path.as_deref(),
+                    );
+                    let manifest_fallback: Vec<serde_json::Value> =
                         manifest_uris
                             .iter()
-                            .map(|uri| sarif_physical_location(uri, None))
+                            .map(|uri| {
+                                sarif_physical_location(uri, None, None)
+                            })
                             .collect();
                     let has_evidence = !evidence_locations.is_empty();
-                    let locations = if evidence_locations.is_empty() {
-                        related_locations.clone()
+                    let has_declarations = !declaration_locations.is_empty();
+                    let locations = if has_evidence {
+                        evidence_locations.clone()
+                    } else if has_declarations {
+                        declaration_locations.clone()
                     } else {
-                        evidence_locations
+                        manifest_fallback.clone()
+                    };
+                    let related_locations = if has_evidence {
+                        if has_declarations {
+                            declaration_locations
+                        } else {
+                            manifest_fallback
+                        }
+                    } else {
+                        Vec::new()
                     };
                     let mut result = serde_json::json!({
                         "ruleId": cve.id,
@@ -1226,6 +1340,7 @@ mod tests {
             findings: vec![Finding {
                 package: pkg,
                 manifest_paths: vec![PathBuf::from("Cargo.toml")],
+                declarations: Vec::new(),
                 cves: vec![(cve, Severity::High)],
             }],
             all_packages: None,
@@ -1285,6 +1400,7 @@ mod tests {
             findings: vec![Finding {
                 package: pkg_foo.clone(),
                 manifest_paths: vec![PathBuf::from("Cargo.toml")],
+                declarations: Vec::new(),
                 cves: vec![(cve, Severity::High)],
             }],
             all_packages: Some(vec![pkg_foo, pkg_bar]),
@@ -1548,6 +1664,7 @@ mod tests {
             findings: vec![Finding {
                 package: pkg,
                 manifest_paths: vec![PathBuf::from("pyproject.toml")],
+                declarations: Vec::new(),
                 cves: vec![(cve, Severity::Medium)],
             }],
             all_packages: None,
@@ -1572,6 +1689,137 @@ mod tests {
         assert_eq!(
             sarif_percent_encode_path("src/my file.rs"),
             "src/my%20file.rs"
+        );
+    }
+
+    #[tokio::test]
+    async fn sarif_reporter_uses_declarations_as_primary_when_no_evidence() {
+        use vlz_db::{DeclarationKind, PackageDeclarationLocation};
+        let pkg = Package {
+            name: "requests".to_string(),
+            version: "2.31.0".to_string(),
+            ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
+        };
+        let cve = CveRecord {
+            id: "CVE-DECL".to_string(),
+            cvss_score: Some(5.0),
+            cvss_version: Some(CvssVersion::V3),
+            description: "Declaration only".to_string(),
+            reachable: None,
+            advisory_symbols: Vec::new(),
+            evidence: Vec::new(),
+            symbol_usage: None,
+        };
+        let data = ReportData {
+            findings: vec![Finding {
+                package: pkg,
+                manifest_paths: vec![PathBuf::from("pyproject.toml")],
+                declarations: vec![
+                    PackageDeclarationLocation::new(
+                        "pyproject.toml",
+                        8,
+                        None,
+                        DeclarationKind::Manifest,
+                    )
+                    .unwrap(),
+                ],
+                cves: vec![(cve, Severity::Medium)],
+            }],
+            all_packages: None,
+            project_id: None,
+            root_path: None,
+            manifest_coverage: vec![],
+        };
+        let mut buf = Vec::new();
+        SarifReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim())
+                .unwrap();
+        let result = &parsed["runs"][0]["results"][0];
+        let location = &result["locations"][0];
+        assert_eq!(
+            location["physicalLocation"]["region"]["startLine"].as_u64(),
+            Some(8)
+        );
+        assert_eq!(
+            location["properties"]["location_kind"].as_str(),
+            Some("declaration")
+        );
+        assert!(result.get("relatedLocations").is_none());
+    }
+
+    #[tokio::test]
+    async fn sarif_reporter_puts_declarations_in_related_when_evidence_present()
+     {
+        use vlz_db::{DeclarationKind, PackageDeclarationLocation};
+        let pkg = Package {
+            name: "foo".to_string(),
+            version: "1.0".to_string(),
+            ecosystem: Some(GO_ECOSYSTEM.to_string()),
+        };
+        let cve = CveRecord {
+            id: "CVE-EVID".to_string(),
+            cvss_score: Some(7.0),
+            cvss_version: Some(CvssVersion::V3),
+            description: "Symbol usage".to_string(),
+            reachable: Some(true),
+            advisory_symbols: vec!["VulnFn".to_string()],
+            evidence: vec![CveEvidenceLocation {
+                path: "main.go".to_string(),
+                start_line: 4,
+                end_line: None,
+                symbol: "VulnFn".to_string(),
+            }],
+            symbol_usage: Some("used".to_string()),
+        };
+        let data = ReportData {
+            findings: vec![Finding {
+                package: pkg,
+                manifest_paths: vec![PathBuf::from("go.mod")],
+                declarations: vec![
+                    PackageDeclarationLocation::new(
+                        "go.mod",
+                        3,
+                        None,
+                        DeclarationKind::Manifest,
+                    )
+                    .unwrap(),
+                ],
+                cves: vec![(cve, Severity::High)],
+            }],
+            all_packages: None,
+            project_id: None,
+            root_path: None,
+            manifest_coverage: vec![],
+        };
+        let mut buf = Vec::new();
+        SarifReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim())
+                .unwrap();
+        let result = &parsed["runs"][0]["results"][0];
+        let location = &result["locations"][0]["physicalLocation"];
+        assert_eq!(
+            location["artifactLocation"]["uri"].as_str(),
+            Some("main.go")
+        );
+        let related = result["relatedLocations"]
+            .as_array()
+            .expect("relatedLocations");
+        assert_eq!(related.len(), 1);
+        assert_eq!(
+            related[0]["physicalLocation"]["region"]["startLine"].as_u64(),
+            Some(3)
+        );
+        assert_eq!(
+            related[0]["properties"]["location_kind"].as_str(),
+            Some("declaration")
         );
     }
 
@@ -1601,6 +1849,7 @@ mod tests {
             findings: vec![Finding {
                 package: pkg,
                 manifest_paths: vec![PathBuf::from("go.mod")],
+                declarations: Vec::new(),
                 cves: vec![(cve, Severity::High)],
             }],
             all_packages: None,

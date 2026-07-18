@@ -25,6 +25,7 @@ fn go_mod_without_go_exits_fr022_error() {
             version: "v1.9.0".to_string(),
             ecosystem: Some(GO_ECOSYSTEM.to_string()),
         }],
+        parsed_dependencies: Vec::new(),
         manifest_path: Some(tmp.join("go.mod")),
     };
     let resolver = GoResolver::new();
@@ -58,6 +59,7 @@ fn go_mod_without_go_fallback_direct_only() {
             version: "v1.9.0".to_string(),
             ecosystem: Some(GO_ECOSYSTEM.to_string()),
         }],
+        parsed_dependencies: Vec::new(),
         manifest_path: Some(tmp.join("go.mod")),
     };
     let resolver = GoResolver::new();
@@ -95,6 +97,7 @@ async fn go_mod_offline_direct_only() {
             version: "v1.9.0".to_string(),
             ecosystem: Some(GO_ECOSYSTEM.to_string()),
         }],
+        parsed_dependencies: Vec::new(),
         manifest_path: Some(tmp.join("go.mod")),
     };
     let resolver = GoResolver::new();
@@ -117,6 +120,7 @@ async fn go_mod_empty_requires_transitive_not_fr022_when_go_available() {
     std::fs::write(tmp.join("go.mod"), "module example.com/test\n").unwrap();
     let graph = vlz_manifest_parser::DependencyGraph {
         packages: vec![],
+        parsed_dependencies: Vec::new(),
         manifest_path: Some(tmp.join("go.mod")),
     };
     let resolver = GoResolver::new();

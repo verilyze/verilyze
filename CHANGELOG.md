@@ -16,6 +16,9 @@ this file **before** creating the release tag.
 
 ### Added
 
+- Optional `declarations[]` on JSON findings with manifest and lockfile
+  declaration lines (`path`, `start_line`, `kind`) per vulnerable package
+  (FR-036a Tier 1). SARIF uses declaration regions when known.
 - `vlz preload` subcommand to warm the CVE cache without generating a scan
   report (FR-021).
 - Tier C per-CVE reachability matching with persistent cache (FR-032 phase 2a).

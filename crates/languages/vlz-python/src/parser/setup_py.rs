@@ -14,7 +14,9 @@ use ruff_python_ast::{
     ExprStringLiteral, Operator, Stmt, StmtAssign,
 };
 use ruff_python_parser::{ParseError, parse_module};
-use vlz_manifest_parser::ParserError;
+use std::path::Path;
+use vlz_db::DeclarationKind;
+use vlz_manifest_parser::{ParsedDependency, ParserError};
 
 use super::pep508::parse_pep508_dependency;
 
@@ -29,6 +31,40 @@ pub const SETUP_PY_MAX_NESTING: usize = 200;
 const DEP_KEY_INSTALL_REQUIRES: &str = "install_requires";
 const DEP_KEY_EXTRAS_REQUIRE: &str = "extras_require";
 const DEP_KEY_TESTS_REQUIRE: &str = "tests_require";
+
+/// Parse setup.py with declaration line metadata when AST ranges are available.
+pub fn parse_setup_py_with_declarations(
+    content: &str,
+    path: &Path,
+) -> Result<Vec<ParsedDependency>, ParserError> {
+    check_setup_py_resource_limits(content)?;
+    let parsed = parse_module(content).map_err(map_parse_error)?;
+    let module = parsed.syntax();
+    let const_map = build_const_map(&module.body);
+    let mut packages = Vec::new();
+    collect_from_body(&module.body, &const_map, &mut packages);
+    let mut parsed_deps = Vec::new();
+    collect_declarations_from_body(
+        content,
+        path,
+        &module.body,
+        &const_map,
+        &mut parsed_deps,
+    );
+    if parsed_deps.is_empty() {
+        parsed_deps = packages
+            .into_iter()
+            .map(|package| ParsedDependency {
+                package,
+                path: path.to_path_buf(),
+                start_line: 1,
+                end_line: None,
+                kind: DeclarationKind::Manifest,
+            })
+            .collect();
+    }
+    Ok(parsed_deps)
+}
 
 /// Parse setup.py content into a list of packages (name, version).
 /// Public for fuzzing (NFR-020).
@@ -164,6 +200,101 @@ fn target_name(expr: &Expr) -> Option<String> {
     match expr {
         Expr::Name(ExprName { id, .. }) => Some(id.to_string()),
         _ => None,
+    }
+}
+
+fn line_number_for_spec(content: &str, spec: &str) -> u32 {
+    for (i, line) in content.lines().enumerate() {
+        if line.contains(spec) {
+            return (i + 1) as u32;
+        }
+    }
+    1
+}
+
+fn collect_declarations_from_body(
+    content: &str,
+    path: &Path,
+    body: &[Stmt],
+    const_map: &HashMap<String, Vec<String>>,
+    out: &mut Vec<ParsedDependency>,
+) {
+    for stmt in body {
+        if let Stmt::Expr(ruff_python_ast::StmtExpr { value, .. }) = stmt
+            && let Expr::Call(call) = value.as_ref()
+            && is_setup_call(&call.func)
+        {
+            extract_setup_call_declarations(
+                content, path, call, const_map, out,
+            );
+        }
+    }
+}
+
+fn extract_setup_call_declarations(
+    content: &str,
+    path: &Path,
+    call: &ExprCall,
+    const_map: &HashMap<String, Vec<String>>,
+    out: &mut Vec<ParsedDependency>,
+) {
+    for kw in &call.arguments.keywords {
+        let Some(arg) = kw.arg.as_ref() else {
+            continue;
+        };
+        match arg.id().as_str() {
+            DEP_KEY_INSTALL_REQUIRES | DEP_KEY_TESTS_REQUIRE => {
+                push_declarations_from_expr(
+                    content, path, &kw.value, const_map, out,
+                );
+            }
+            DEP_KEY_EXTRAS_REQUIRE => {
+                push_extras_declarations_from_expr(
+                    content, path, &kw.value, const_map, out,
+                );
+            }
+            _ => {}
+        }
+    }
+}
+
+fn push_extras_declarations_from_expr(
+    content: &str,
+    path: &Path,
+    expr: &Expr,
+    const_map: &HashMap<String, Vec<String>>,
+    out: &mut Vec<ParsedDependency>,
+) {
+    if let Expr::Dict(dict) = expr {
+        for item in &dict.items {
+            push_declarations_from_expr(
+                content,
+                path,
+                &item.value,
+                const_map,
+                out,
+            );
+        }
+    }
+}
+
+fn push_declarations_from_expr(
+    content: &str,
+    path: &Path,
+    expr: &Expr,
+    const_map: &HashMap<String, Vec<String>>,
+    out: &mut Vec<ParsedDependency>,
+) {
+    for spec in extract_string_list(expr, const_map) {
+        if let Some(pkg) = parse_pep508_dependency(&spec) {
+            out.push(ParsedDependency {
+                package: pkg,
+                path: path.to_path_buf(),
+                start_line: line_number_for_spec(content, &spec),
+                end_line: None,
+                kind: DeclarationKind::Manifest,
+            });
+        }
     }
 }
 

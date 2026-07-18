@@ -5,10 +5,66 @@
 use async_trait::async_trait;
 use std::path::Path;
 
-use vlz_manifest_parser::{DependencyGraph, Parser, ParserError};
+use vlz_manifest_parser::{
+    DependencyGraph, ParsedDependency, Parser, ParserError,
+};
 
+use vlz_db::DeclarationKind;
 /// Go ecosystem for OSV.dev (PRD MOD-002, OSV schema).
 pub use vlz_db::GO_ECOSYSTEM;
+
+/// Parse go.mod content with declaration line metadata.
+pub fn parse_go_mod_with_declarations(
+    content: &str,
+    path: &Path,
+) -> Result<Vec<ParsedDependency>, ParserError> {
+    let (replaced, excluded) = parse_replace_and_exclude(content);
+    let mut parsed = Vec::new();
+
+    let mut in_require = false;
+    for (i, line) in content.lines().enumerate() {
+        let start_line = (i + 1) as u32;
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if trimmed.starts_with("require (") {
+            in_require = true;
+            continue;
+        }
+        if in_require {
+            if trimmed == ")" {
+                in_require = false;
+                continue;
+            }
+            if let Some(pkg) =
+                parse_require_line(trimmed, &replaced, &excluded)
+            {
+                parsed.push(ParsedDependency {
+                    package: pkg,
+                    path: path.to_path_buf(),
+                    start_line,
+                    end_line: None,
+                    kind: DeclarationKind::Manifest,
+                });
+            }
+            continue;
+        }
+        if let Some(rest) = trimmed.strip_prefix("require ").map(str::trim)
+            && let Some(pkg) = parse_require_line(rest, &replaced, &excluded)
+        {
+            parsed.push(ParsedDependency {
+                package: pkg,
+                path: path.to_path_buf(),
+                start_line,
+                end_line: None,
+                kind: DeclarationKind::Manifest,
+            });
+        }
+    }
+
+    Ok(parsed)
+}
 
 /// Parse go.mod content into a list of packages from require blocks.
 /// Excludes modules listed in replace and exclude directives.
@@ -16,37 +72,12 @@ pub use vlz_db::GO_ECOSYSTEM;
 pub fn parse_go_mod(
     content: &str,
 ) -> Result<Vec<vlz_db::Package>, ParserError> {
-    let (replaced, excluded) = parse_replace_and_exclude(content);
-    let mut packages = Vec::new();
-
-    let mut in_require = false;
-    for line in content.lines() {
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-        if line.starts_with("require (") {
-            in_require = true;
-            continue;
-        }
-        if in_require {
-            if line == ")" {
-                in_require = false;
-                continue;
-            }
-            if let Some(pkg) = parse_require_line(line, &replaced, &excluded) {
-                packages.push(pkg);
-            }
-            continue;
-        }
-        if let Some(rest) = line.strip_prefix("require ").map(str::trim)
-            && let Some(pkg) = parse_require_line(rest, &replaced, &excluded)
-        {
-            packages.push(pkg);
-        }
-    }
-
-    Ok(packages)
+    Ok(
+        parse_go_mod_with_declarations(content, Path::new("go.mod"))?
+            .into_iter()
+            .map(|dep| dep.package)
+            .collect(),
+    )
 }
 
 /// Parse a single require line: "module/path v1.2.3" or "module/path v1.2.3 // indirect"
@@ -142,9 +173,15 @@ impl Parser for GoModParser {
         manifest: &Path,
     ) -> Result<DependencyGraph, ParserError> {
         let content = tokio::fs::read_to_string(manifest).await?;
-        let packages = parse_go_mod(&content)?;
+        let parsed_dependencies =
+            parse_go_mod_with_declarations(&content, manifest)?;
+        let packages = parsed_dependencies
+            .iter()
+            .map(|dep| dep.package.clone())
+            .collect();
         Ok(DependencyGraph {
             packages,
+            parsed_dependencies,
             manifest_path: Some(manifest.to_path_buf()),
         })
     }

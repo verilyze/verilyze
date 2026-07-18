@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+mod decl_spans;
 mod lockfile;
 mod pep508;
 mod pipfile;
@@ -12,16 +13,24 @@ mod setup_py;
 
 use async_trait::async_trait;
 
+use decl_spans::{
+    graph_from_packages, graph_from_parsed, parsed_from_packages,
+    scan_toml_dep_keys,
+};
 use vlz_manifest_parser::{DependencyGraph, Parser, ParserError};
 
 use crate::lock_names::is_python_lock_file;
 
-pub use lockfile::{parse_lock_file, parse_pylock_toml};
+pub use lockfile::{
+    parse_lock_file, parse_lock_file_with_declarations, parse_pylock_toml,
+};
 pub use pipfile::parse_pipfile;
 pub use pyproject::parse_pyproject_toml;
-pub use requirements::parse_requirements_txt;
-pub use setup_cfg::parse_setup_cfg;
-pub use setup_py::parse_setup_py;
+pub use requirements::{
+    parse_requirements_txt, parse_requirements_txt_with_declarations,
+};
+pub use setup_cfg::{parse_setup_cfg, parse_setup_cfg_with_declarations};
+pub use setup_py::{parse_setup_py, parse_setup_py_with_declarations};
 
 /// Parser for Python manifest files (requirements.txt, pyproject.toml, etc.).
 /// Dispatches by manifest file name; returns empty graph for unknown types
@@ -47,60 +56,59 @@ impl Parser for RequirementsTxtParser {
 
         if name == "requirements.txt" {
             let content = tokio::fs::read_to_string(manifest).await?;
-            let packages = parse_requirements_txt(&content)?;
-            return Ok(DependencyGraph {
-                packages,
-                manifest_path,
-            });
+            let parsed =
+                parse_requirements_txt_with_declarations(&content, manifest)?;
+            return Ok(graph_from_parsed(parsed, manifest_path));
         }
 
         if name == "pyproject.toml" {
             let content = tokio::fs::read_to_string(manifest).await?;
             let packages = parse_pyproject_toml(&content)?;
-            return Ok(DependencyGraph {
-                packages,
-                manifest_path,
-            });
+            let lines = scan_toml_dep_keys(&content);
+            let parsed =
+                parsed_from_packages(packages.clone(), manifest, &lines);
+            return Ok(graph_from_packages(packages, parsed, manifest_path));
         }
 
         if name == "Pipfile" {
             let content = tokio::fs::read_to_string(manifest).await?;
             let packages = parse_pipfile(&content)?;
-            return Ok(DependencyGraph {
-                packages,
-                manifest_path,
-            });
+            let lines = scan_toml_dep_keys(&content);
+            let parsed =
+                parsed_from_packages(packages.clone(), manifest, &lines);
+            return Ok(graph_from_packages(packages, parsed, manifest_path));
         }
 
         if name == "setup.cfg" {
             let content = tokio::fs::read_to_string(manifest).await?;
-            let packages = parse_setup_cfg(&content)?;
-            return Ok(DependencyGraph {
-                packages,
-                manifest_path,
-            });
+            let parsed =
+                parse_setup_cfg_with_declarations(&content, manifest)?;
+            return Ok(graph_from_parsed(parsed, manifest_path));
         }
 
         if name == "setup.py" {
             let content = tokio::fs::read_to_string(manifest).await?;
-            let packages = parse_setup_py(&content)?;
-            return Ok(DependencyGraph {
-                packages,
-                manifest_path,
-            });
+            let parsed = parse_setup_py_with_declarations(&content, manifest)?;
+            return Ok(graph_from_parsed(parsed, manifest_path));
         }
 
         if is_python_lock_file(name) {
             let content = tokio::fs::read_to_string(manifest).await?;
-            let packages = parse_lock_file(manifest, &content)?;
-            return Ok(DependencyGraph {
-                packages,
-                manifest_path,
-            });
+            let (packages, parsed) =
+                parse_lock_file_with_declarations(manifest, &content)?;
+            if parsed.is_empty() {
+                return Ok(DependencyGraph {
+                    packages,
+                    parsed_dependencies: Vec::new(),
+                    manifest_path,
+                });
+            }
+            return Ok(graph_from_parsed(parsed, manifest_path));
         }
 
         Ok(DependencyGraph {
             packages: Vec::new(),
+            parsed_dependencies: Vec::new(),
             manifest_path,
         })
     }

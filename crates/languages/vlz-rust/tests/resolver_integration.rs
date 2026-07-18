@@ -35,6 +35,7 @@ serde = "1.0"
             version: "1.0".to_string(),
             ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
         }],
+        parsed_dependencies: Vec::new(),
         manifest_path: Some(tmp.join("Cargo.toml")),
     };
     let resolver = CargoResolver::new();
@@ -77,6 +78,7 @@ serde = "1.0"
             version: "1.0".to_string(),
             ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
         }],
+        parsed_dependencies: Vec::new(),
         manifest_path: Some(tmp.join("Cargo.toml")),
     };
     let resolver = CargoResolver::new();
@@ -122,6 +124,7 @@ edition = "2021"
     .unwrap();
     let graph = vlz_manifest_parser::DependencyGraph {
         packages: vec![],
+        parsed_dependencies: Vec::new(),
         manifest_path: Some(tmp.join("Cargo.toml")),
     };
     let resolver = CargoResolver::new();

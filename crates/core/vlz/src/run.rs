@@ -1230,6 +1230,7 @@ async fn run_scan(
     let root_path = resolved.root_path;
     let exclude_dirs = resolved.exclude_dirs;
     let packages_with_manifests = resolved.packages_with_manifests;
+    let pkg_declarations = resolved.pkg_declarations;
     let pkg_contexts = resolved.pkg_contexts;
     let packages_to_check = resolved.packages_to_check;
     let manifest_coverage = resolved.manifest_coverage;
@@ -1464,9 +1465,20 @@ async fn run_scan(
                 })
                 .unwrap_or_default();
             manifest_paths.sort();
+            let mut declarations =
+                pkg_declarations.get(&pkg).cloned().unwrap_or_default();
+            for decl in &mut declarations {
+                let path = std::path::Path::new(&decl.path);
+                decl.path = path
+                    .strip_prefix(&root_path)
+                    .map(|r| r.display().to_string())
+                    .unwrap_or_else(|_| decl.path.clone());
+            }
+            vlz_db::dedupe_sort_declarations(&mut declarations);
             vlz_report::Finding {
                 package: pkg,
                 manifest_paths,
+                declarations,
                 cves: with_severity,
             }
         })

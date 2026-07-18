@@ -4,9 +4,40 @@
 
 use async_trait::async_trait;
 use std::path::Path;
-use vlz_db::CRATES_IO_ECOSYSTEM;
+use vlz_db::{CRATES_IO_ECOSYSTEM, DeclarationKind};
 
-use vlz_manifest_parser::{DependencyGraph, Parser, ParserError};
+use vlz_manifest_parser::{
+    DependencyGraph, ParsedDependency, Parser, ParserError,
+    scan_toml_section_deps,
+};
+
+/// Parse Cargo.toml with declaration line metadata for one manifest file.
+pub fn parse_cargo_toml_with_declarations(
+    content: &str,
+    path: &Path,
+) -> Result<Vec<ParsedDependency>, ParserError> {
+    let packages = parse_cargo_toml(content)?;
+    let scanned = scan_toml_section_deps(
+        content,
+        &["dependencies", "dev-dependencies", "build-dependencies"],
+        CRATES_IO_ECOSYSTEM,
+    );
+    let mut parsed = Vec::new();
+    for pkg in packages {
+        if let Some((line, _, _)) =
+            scanned.iter().find(|(_, name, _)| *name == pkg.name)
+        {
+            parsed.push(ParsedDependency {
+                package: pkg,
+                path: path.to_path_buf(),
+                start_line: *line,
+                end_line: None,
+                kind: DeclarationKind::Manifest,
+            });
+        }
+    }
+    Ok(parsed)
+}
 
 /// Parse Cargo.toml content into a list of packages from [dependencies],
 /// [dev-dependencies], and [build-dependencies]. Public for fuzzing (NFR-020).
@@ -120,7 +151,8 @@ impl Parser for CargoTomlParser {
             ParserError::Parse(format!("Cargo.toml parse error: {}", e))
         })?;
 
-        let mut packages = parse_cargo_toml(&content)?;
+        let mut parsed_dependencies =
+            parse_cargo_toml_with_declarations(&content, manifest)?;
 
         if let Some(workspace) = value.get("workspace")
             && let Some(members) =
@@ -133,21 +165,31 @@ impl Parser for CargoTomlParser {
             for member_manifest in member_paths {
                 if let Ok(c) =
                     tokio::fs::read_to_string(&member_manifest).await
-                    && let Ok(member_packages) = parse_cargo_toml(&c)
                 {
-                    for p in member_packages {
-                        if !packages.iter().any(|x| {
-                            x.name == p.name && x.version == p.version
+                    let member_parsed = parse_cargo_toml_with_declarations(
+                        &c,
+                        &member_manifest,
+                    )?;
+                    for dep in &member_parsed {
+                        if !parsed_dependencies.iter().any(|x| {
+                            x.package.name == dep.package.name
+                                && x.package.version == dep.package.version
                         }) {
-                            packages.push(p);
+                            parsed_dependencies.push(dep.clone());
                         }
                     }
                 }
             }
         }
 
+        let packages = parsed_dependencies
+            .iter()
+            .map(|dep| dep.package.clone())
+            .collect();
+
         Ok(DependencyGraph {
             packages,
+            parsed_dependencies,
             manifest_path: Some(manifest.to_path_buf()),
         })
     }

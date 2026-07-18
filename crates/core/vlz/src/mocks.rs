@@ -363,6 +363,7 @@ mod tests {
         let r =
             ConditionalFailingResolver::new(FailingResolver::new(), "broken");
         let graph = DependencyGraph {
+            parsed_dependencies: Vec::new(),
             manifest_path: Some(std::path::PathBuf::from(
                 "/tmp/broken/requirements.txt",
             )),
@@ -385,6 +386,7 @@ mod tests {
         let r =
             ConditionalFailingResolver::new(FailingResolver::new(), "broken");
         let graph = DependencyGraph {
+            parsed_dependencies: Vec::new(),
             manifest_path: Some(std::path::PathBuf::from(
                 "/tmp/good/requirements.txt",
             )),

@@ -4,9 +4,24 @@
 
 #![deny(unsafe_code)]
 
+mod declarations;
+mod line_scan;
+
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+
+pub use declarations::{
+    CachedResolution, ParsedDependency, build_package_declarations,
+    declarations_for_resolved_package, index_manifest_declarations,
+    lock_declaration, lock_declarations_from_parsed,
+    manifest_declarations_for_packages, manifest_merge_key,
+    merge_declaration_maps, parsed_to_declaration,
+    resolve_declarations_for_packages,
+};
+pub use line_scan::{
+    LockStanza, scan_toml_lock_stanzas, scan_toml_section_deps,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum ParserError {
@@ -79,6 +94,9 @@ pub struct ResolveResult {
     /// When non-empty, FR-036 attribution uses these paths per package instead of
     /// the discovered entry point path (e.g. adjacent lock file sources).
     pub package_source_paths: HashMap<vlz_db::Package, Vec<PathBuf>>,
+    /// Line-level declaration locations per resolved package (FR-036a Tier 1).
+    pub package_declarations:
+        HashMap<vlz_db::Package, Vec<vlz_db::PackageDeclarationLocation>>,
     /// Lock files merged during adjacent resolution; used for multi-lock warnings.
     pub resolved_lock_paths: Vec<PathBuf>,
 }
@@ -129,8 +147,8 @@ pub fn require_transitive_or_fallback(
     cause: Option<ResolverError>,
 ) -> Result<ResolveResult, ResolverError> {
     if ctx.allow_direct_only_fallback && !graph.packages.is_empty() {
-        Ok(direct_only_result(
-            graph.packages.clone(),
+        Ok(direct_only_result_from_graph(
+            graph,
             DIRECT_ONLY_REASON_FALLBACK_ON_FAILURE,
         ))
     } else if let Some(cause) = cause {
@@ -159,12 +177,41 @@ pub fn direct_only_result(
     packages: Vec<vlz_db::Package>,
     reason: &'static str,
 ) -> ResolveResult {
+    direct_only_result_with_declarations(packages, reason, HashMap::new())
+}
+
+/// Direct-only result with optional declaration metadata.
+pub fn direct_only_result_with_declarations(
+    packages: Vec<vlz_db::Package>,
+    reason: &'static str,
+    package_declarations: HashMap<
+        vlz_db::Package,
+        Vec<vlz_db::PackageDeclarationLocation>,
+    >,
+) -> ResolveResult {
     ResolveResult {
         packages,
         depth: ResolutionDepth::DirectOnly,
         direct_only_reason: Some(reason),
+        package_declarations,
         ..Default::default()
     }
+}
+
+/// Direct-only result preserving manifest declarations from the graph.
+pub fn direct_only_result_from_graph(
+    graph: &DependencyGraph,
+    reason: &'static str,
+) -> ResolveResult {
+    let package_declarations = manifest_declarations_for_packages(
+        &graph.parsed_dependencies,
+        &graph.packages,
+    );
+    direct_only_result_with_declarations(
+        graph.packages.clone(),
+        reason,
+        package_declarations,
+    )
 }
 
 /// Format an FR-022a direct-only warning for stderr (OP-018).
@@ -194,6 +241,9 @@ pub fn format_multi_lock_warning(
 #[derive(Debug, Default, Clone)]
 pub struct DependencyGraph {
     pub packages: Vec<vlz_db::Package>,
+
+    /// Parsed dependencies with declaration line metadata (FR-036a Tier 1).
+    pub parsed_dependencies: Vec<ParsedDependency>,
 
     /// Path to the manifest file; used by Resolver for lock file discovery (FR-022).
     pub manifest_path: Option<PathBuf>,
@@ -291,6 +341,7 @@ mod tests {
                 version: "1.0".to_string(),
                 ecosystem: None,
             }],
+            parsed_dependencies: Vec::new(),
             manifest_path: None,
         }
     }

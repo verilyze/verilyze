@@ -22,6 +22,7 @@ fn requirements_txt_without_pip_exits_fr022_error() {
             version: "*".to_string(),
             ecosystem: Some("PyPI".to_string()),
         }],
+        parsed_dependencies: Vec::new(),
         manifest_path: Some(req),
     };
     let resolver = DirectOnlyResolver::new();
@@ -55,6 +56,7 @@ async fn setup_py_secure_default_is_direct_only_with_reason() {
             version: "0.0.0".to_string(),
             ecosystem: Some("PyPI".to_string()),
         }],
+        parsed_dependencies: Vec::new(),
         manifest_path: Some(setup),
     };
     let resolver = DirectOnlyResolver::new();
@@ -84,6 +86,7 @@ async fn offline_mode_direct_only_for_pyproject() {
             version: "*".to_string(),
             ecosystem: Some("PyPI".to_string()),
         }],
+        parsed_dependencies: Vec::new(),
         manifest_path: Some(manifest),
     };
     let resolver = DirectOnlyResolver::new();
@@ -112,6 +115,7 @@ async fn live_pip_lock_requirements_only_binary() {
             version: "2024.7.4".to_string(),
             ecosystem: Some("PyPI".to_string()),
         }],
+        parsed_dependencies: Vec::new(),
         manifest_path: Some(req),
     };
     let resolver = DirectOnlyResolver::new();
@@ -134,6 +138,7 @@ fn requirements_txt_without_pip_fallback_direct_only() {
             version: "*".to_string(),
             ecosystem: Some("PyPI".to_string()),
         }],
+        parsed_dependencies: Vec::new(),
         manifest_path: Some(req),
     };
     let resolver = DirectOnlyResolver::new();

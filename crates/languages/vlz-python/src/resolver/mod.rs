@@ -20,9 +20,11 @@ use std::sync::Mutex;
 
 use async_trait::async_trait;
 use vlz_manifest_parser::{
-    DependencyGraph, ParserError, ResolutionDepth, ResolveContext,
-    ResolveResult, Resolver, ResolverError, fr022_transitive_error,
-    require_transitive_or_fallback, skip_package_manager_reason,
+    CachedResolution, DependencyGraph, ParserError, ResolutionDepth,
+    ResolveContext, ResolveResult, Resolver, ResolverError,
+    direct_only_result_from_graph, fr022_transitive_error,
+    lock_declarations_from_parsed, require_transitive_or_fallback,
+    resolve_declarations_for_packages, skip_package_manager_reason,
 };
 
 use crate::lock_names::manifest_is_lock_file;
@@ -52,8 +54,8 @@ pub const DIRECT_ONLY_REASON_EXEC_DISABLED: &str =
 /// Resolver for Python manifests (FR-022, FR-023, FR-022a, SEC-023).
 #[derive(Debug)]
 pub struct DirectOnlyResolver {
-    pip_lock_cache: Mutex<HashMap<String, Vec<vlz_db::Package>>>,
-    venv_cache: Mutex<HashMap<String, Vec<vlz_db::Package>>>,
+    pip_lock_cache: Mutex<HashMap<String, CachedResolution>>,
+    venv_cache: Mutex<HashMap<String, CachedResolution>>,
 }
 
 impl Default for DirectOnlyResolver {
@@ -74,6 +76,10 @@ impl DirectOnlyResolver {
     fn transitive_result(
         packages: Vec<vlz_db::Package>,
         package_source_paths: HashMap<vlz_db::Package, Vec<PathBuf>>,
+        package_declarations: HashMap<
+            vlz_db::Package,
+            Vec<vlz_db::PackageDeclarationLocation>,
+        >,
         resolved_lock_paths: Vec<PathBuf>,
     ) -> ResolveResult {
         ResolveResult {
@@ -81,27 +87,54 @@ impl DirectOnlyResolver {
             depth: ResolutionDepth::Transitive,
             direct_only_reason: None,
             package_source_paths,
+            package_declarations,
             resolved_lock_paths,
         }
     }
 
+    fn transitive_result_for_graph(
+        graph: &DependencyGraph,
+        packages: Vec<vlz_db::Package>,
+        package_source_paths: HashMap<vlz_db::Package, Vec<PathBuf>>,
+        lock_declarations: HashMap<
+            vlz_db::Package,
+            Vec<vlz_db::PackageDeclarationLocation>,
+        >,
+        resolved_lock_paths: Vec<PathBuf>,
+    ) -> ResolveResult {
+        let package_declarations = resolve_declarations_for_packages(
+            &packages,
+            graph,
+            &lock_declarations,
+        );
+        Self::transitive_result(
+            packages,
+            package_source_paths,
+            package_declarations,
+            resolved_lock_paths,
+        )
+    }
+
     fn transitive_result_simple(
+        graph: &DependencyGraph,
         packages: Vec<vlz_db::Package>,
     ) -> ResolveResult {
-        Self::transitive_result(packages, HashMap::new(), Vec::new())
+        let lock_declarations =
+            lock_declarations_from_parsed(&graph.parsed_dependencies);
+        Self::transitive_result_for_graph(
+            graph,
+            packages,
+            HashMap::new(),
+            lock_declarations,
+            Vec::new(),
+        )
     }
 
     fn direct_only_result(
-        packages: Vec<vlz_db::Package>,
+        graph: &DependencyGraph,
         reason: &'static str,
     ) -> ResolveResult {
-        ResolveResult {
-            packages,
-            depth: ResolutionDepth::DirectOnly,
-            direct_only_reason: Some(reason),
-            package_source_paths: HashMap::new(),
-            resolved_lock_paths: Vec::new(),
-        }
+        direct_only_result_from_graph(graph, reason)
     }
 
     fn lock_parse_to_resolve_err(err: ParserError) -> ResolverError {
@@ -137,9 +170,9 @@ impl DirectOnlyResolver {
         let cache_key = manifest_cache_key(&content, ctx);
         if let Ok(cache) = self.pip_lock_cache.lock()
             && let Some(cached) = cache.get(&cache_key)
-            && !cached.is_empty()
+            && !cached.packages.is_empty()
         {
-            return Ok(cached.clone());
+            return Ok(cached.packages.clone());
         }
         let manifest_path = manifest_path.to_path_buf();
         let project_dir = project_dir.to_path_buf();
@@ -152,7 +185,13 @@ impl DirectOnlyResolver {
             ResolverError::Resolve(format!("pip lock task failed: {e}"))
         })??;
         if let Ok(mut cache) = self.pip_lock_cache.lock() {
-            cache.insert(cache_key, packages.clone());
+            cache.insert(
+                cache_key,
+                CachedResolution {
+                    packages: packages.clone(),
+                    ..Default::default()
+                },
+            );
         }
         Ok(packages)
     }
@@ -166,9 +205,9 @@ impl DirectOnlyResolver {
         let cache_key = project_dir.to_string_lossy().to_string();
         if let Ok(cache) = self.venv_cache.lock()
             && let Some(cached) = cache.get(&cache_key)
-            && !cached.is_empty()
+            && !cached.packages.is_empty()
         {
-            return Ok(cached.clone());
+            return Ok(cached.packages.clone());
         }
         let manifest_path = manifest_path.to_path_buf();
         let project_dir = project_dir.to_path_buf();
@@ -181,7 +220,13 @@ impl DirectOnlyResolver {
             ResolverError::Resolve(format!("pip venv task failed: {e}"))
         })??;
         if let Ok(mut cache) = self.venv_cache.lock() {
-            cache.insert(cache_key, packages.clone());
+            cache.insert(
+                cache_key,
+                CachedResolution {
+                    packages: packages.clone(),
+                    ..Default::default()
+                },
+            );
         }
         Ok(packages)
     }
@@ -209,7 +254,7 @@ impl DirectOnlyResolver {
             DIRECT_ONLY_REASON_UNAVAILABLE
         };
 
-        Ok(Self::direct_only_result(graph.packages.clone(), reason))
+        Ok(Self::direct_only_result(graph, reason))
     }
 
     /// `Ok(Some(_))` on success, `Ok(None)` when pip lock does not apply,
@@ -250,16 +295,21 @@ impl DirectOnlyResolver {
                 )
                 .map_err(ResolverError::Resolve)?;
             }
-            return Ok(Self::transitive_result_simple(graph.packages.clone()));
+            return Ok(Self::transitive_result_simple(
+                graph,
+                graph.packages.clone(),
+            ));
         }
 
         if let Some(resolved) = Self::resolve_adjacent_lock_files(
             manifest_path,
             &ctx.python_lock_files,
         )? {
-            return Ok(Self::transitive_result(
+            return Ok(Self::transitive_result_for_graph(
+                graph,
                 resolved.packages,
                 resolved.package_source_paths,
+                resolved.package_declarations,
                 resolved.lock_paths,
             ));
         }
@@ -278,7 +328,7 @@ impl DirectOnlyResolver {
                     .await
                 {
                     Ok(Some(packages)) => {
-                        Ok(Self::transitive_result_simple(packages))
+                        Ok(Self::transitive_result_simple(graph, packages))
                     }
                     Ok(None) => {
                         require_transitive_or_fallback(graph, ctx, None)
@@ -299,7 +349,9 @@ impl DirectOnlyResolver {
                 .await
             {
                 Ok(Some(packages)) => {
-                    return Ok(Self::transitive_result_simple(packages));
+                    return Ok(Self::transitive_result_simple(
+                        graph, packages,
+                    ));
                 }
                 Ok(None) => None,
                 Err(err) => Some(err),
@@ -308,7 +360,9 @@ impl DirectOnlyResolver {
                 .try_pip_venv_cached(manifest_path, &project_dir, ctx)
                 .await
             {
-                Ok(packages) => Ok(Self::transitive_result_simple(packages)),
+                Ok(packages) => {
+                    Ok(Self::transitive_result_simple(graph, packages))
+                }
                 Err(venv_err) => {
                     let venv_msg = venv_err.to_string();
                     let cause = pip_lock_err.map_or(venv_err, |pip_err| {
@@ -407,6 +461,7 @@ mod tests {
                 version: "1.0.0".to_string(),
                 ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.to_string()),
             }],
+            parsed_dependencies: Vec::new(),
             manifest_path: Some(manifest),
         }
     }
@@ -461,6 +516,7 @@ mod tests {
                 version: "0.1.0".to_string(),
                 ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.to_string()),
             }],
+            parsed_dependencies: Vec::new(),
             manifest_path: Some(PathBuf::from("/tmp/testproj/setup.py")),
         };
         let resolver = DirectOnlyResolver::new();
@@ -481,6 +537,7 @@ mod tests {
                 version: "1".to_string(),
                 ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.to_string()),
             }],
+            parsed_dependencies: Vec::new(),
             manifest_path: Some(PathBuf::from("/tmp/testproj/setup.py")),
         };
         let resolver = DirectOnlyResolver::new();
@@ -517,6 +574,7 @@ mod tests {
     async fn direct_only_resolver_empty_graph_exits_error() {
         let graph = DependencyGraph {
             packages: vec![],
+            parsed_dependencies: Vec::new(),
             manifest_path: Some(PathBuf::from(
                 "/tmp/testproj/requirements.txt",
             )),
@@ -535,6 +593,7 @@ mod tests {
                 version: "1".to_string(),
                 ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.to_string()),
             }],
+            parsed_dependencies: Vec::new(),
             manifest_path: None,
         };
         let resolver = DirectOnlyResolver::new();
@@ -889,6 +948,7 @@ mod tests {
     async fn direct_only_resolver_empty_graph_stays_error_with_fallback() {
         let graph = DependencyGraph {
             packages: vec![],
+            parsed_dependencies: Vec::new(),
             manifest_path: Some(PathBuf::from(
                 "/tmp/testproj/requirements.txt",
             )),
