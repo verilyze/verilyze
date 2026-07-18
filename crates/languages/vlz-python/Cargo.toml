@@ -12,8 +12,8 @@ publish = false
 
 [dependencies]
 async-trait.workspace = true
-ruff_python_ast = "=0.0.4"
-ruff_python_parser = "=0.0.4"
+ruff_python_ast = "=0.0.5"
+ruff_python_parser = "=0.0.5"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 thiserror.workspace = true

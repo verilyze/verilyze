@@ -274,16 +274,16 @@
     {
       "@type": "Package",
       "name": "clap",
-      "packageUrl": "pkg:cargo/clap@4.6.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-4-6-1",
-      "versionInfo": "4.6.1"
+      "packageUrl": "pkg:cargo/clap@4.6.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-4-6-2",
+      "versionInfo": "4.6.2"
     },
     {
       "@type": "Package",
       "name": "clap_builder",
-      "packageUrl": "pkg:cargo/clap_builder@4.6.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-builder-4-6-0",
-      "versionInfo": "4.6.0"
+      "packageUrl": "pkg:cargo/clap_builder@4.6.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-builder-4-6-2",
+      "versionInfo": "4.6.2"
     },
     {
       "@type": "Package",
@@ -448,6 +448,13 @@
     },
     {
       "@type": "Package",
+      "name": "drop_bomb",
+      "packageUrl": "pkg:cargo/drop_bomb@0.1.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-drop-bomb-0-1-5",
+      "versionInfo": "0.1.5"
+    },
+    {
+      "@type": "Package",
       "name": "either",
       "packageUrl": "pkg:cargo/either@1.16.0",
       "spdxId": "urn:spdx.dev:pkg-cargo-either-1-16-0",
@@ -519,65 +526,65 @@
     {
       "@type": "Package",
       "name": "futures",
-      "packageUrl": "pkg:cargo/futures@0.3.32",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-0-3-32",
-      "versionInfo": "0.3.32"
+      "packageUrl": "pkg:cargo/futures@0.3.33",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-0-3-33",
+      "versionInfo": "0.3.33"
     },
     {
       "@type": "Package",
       "name": "futures-channel",
-      "packageUrl": "pkg:cargo/futures-channel@0.3.32",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-channel-0-3-32",
-      "versionInfo": "0.3.32"
+      "packageUrl": "pkg:cargo/futures-channel@0.3.33",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-channel-0-3-33",
+      "versionInfo": "0.3.33"
     },
     {
       "@type": "Package",
       "name": "futures-core",
-      "packageUrl": "pkg:cargo/futures-core@0.3.32",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-core-0-3-32",
-      "versionInfo": "0.3.32"
+      "packageUrl": "pkg:cargo/futures-core@0.3.33",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-core-0-3-33",
+      "versionInfo": "0.3.33"
     },
     {
       "@type": "Package",
       "name": "futures-executor",
-      "packageUrl": "pkg:cargo/futures-executor@0.3.32",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-executor-0-3-32",
-      "versionInfo": "0.3.32"
+      "packageUrl": "pkg:cargo/futures-executor@0.3.33",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-executor-0-3-33",
+      "versionInfo": "0.3.33"
     },
     {
       "@type": "Package",
       "name": "futures-io",
-      "packageUrl": "pkg:cargo/futures-io@0.3.32",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-io-0-3-32",
-      "versionInfo": "0.3.32"
+      "packageUrl": "pkg:cargo/futures-io@0.3.33",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-io-0-3-33",
+      "versionInfo": "0.3.33"
     },
     {
       "@type": "Package",
       "name": "futures-macro",
-      "packageUrl": "pkg:cargo/futures-macro@0.3.32",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-macro-0-3-32",
-      "versionInfo": "0.3.32"
+      "packageUrl": "pkg:cargo/futures-macro@0.3.33",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-macro-0-3-33",
+      "versionInfo": "0.3.33"
     },
     {
       "@type": "Package",
       "name": "futures-sink",
-      "packageUrl": "pkg:cargo/futures-sink@0.3.32",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-sink-0-3-32",
-      "versionInfo": "0.3.32"
+      "packageUrl": "pkg:cargo/futures-sink@0.3.33",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-sink-0-3-33",
+      "versionInfo": "0.3.33"
     },
     {
       "@type": "Package",
       "name": "futures-task",
-      "packageUrl": "pkg:cargo/futures-task@0.3.32",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-task-0-3-32",
-      "versionInfo": "0.3.32"
+      "packageUrl": "pkg:cargo/futures-task@0.3.33",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-task-0-3-33",
+      "versionInfo": "0.3.33"
     },
     {
       "@type": "Package",
       "name": "futures-util",
-      "packageUrl": "pkg:cargo/futures-util@0.3.32",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-util-0-3-32",
-      "versionInfo": "0.3.32"
+      "packageUrl": "pkg:cargo/futures-util@0.3.33",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-util-0-3-33",
+      "versionInfo": "0.3.33"
     },
     {
       "@type": "Package",
@@ -1240,16 +1247,16 @@
     {
       "@type": "Package",
       "name": "regex",
-      "packageUrl": "pkg:cargo/regex@1.13.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-regex-1-13-0",
-      "versionInfo": "1.13.0"
+      "packageUrl": "pkg:cargo/regex@1.13.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-regex-1-13-1",
+      "versionInfo": "1.13.1"
     },
     {
       "@type": "Package",
       "name": "regex-automata",
-      "packageUrl": "pkg:cargo/regex-automata@0.4.14",
-      "spdxId": "urn:spdx.dev:pkg-cargo-regex-automata-0-4-14",
-      "versionInfo": "0.4.14"
+      "packageUrl": "pkg:cargo/regex-automata@0.4.16",
+      "spdxId": "urn:spdx.dev:pkg-cargo-regex-automata-0-4-16",
+      "versionInfo": "0.4.16"
     },
     {
       "@type": "Package",
@@ -1282,37 +1289,37 @@
     {
       "@type": "Package",
       "name": "ruff_python_ast",
-      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.4",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-4",
-      "versionInfo": "0.0.4"
+      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-5",
+      "versionInfo": "0.0.5"
     },
     {
       "@type": "Package",
       "name": "ruff_python_parser",
-      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.4",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-4",
-      "versionInfo": "0.0.4"
+      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-5",
+      "versionInfo": "0.0.5"
     },
     {
       "@type": "Package",
       "name": "ruff_python_trivia",
-      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.4",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-4",
-      "versionInfo": "0.0.4"
+      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-5",
+      "versionInfo": "0.0.5"
     },
     {
       "@type": "Package",
       "name": "ruff_source_file",
-      "packageUrl": "pkg:cargo/ruff_source_file@0.0.4",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-4",
-      "versionInfo": "0.0.4"
+      "packageUrl": "pkg:cargo/ruff_source_file@0.0.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-5",
+      "versionInfo": "0.0.5"
     },
     {
       "@type": "Package",
       "name": "ruff_text_size",
-      "packageUrl": "pkg:cargo/ruff_text_size@0.0.4",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-4",
-      "versionInfo": "0.0.4"
+      "packageUrl": "pkg:cargo/ruff_text_size@0.0.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-5",
+      "versionInfo": "0.0.5"
     },
     {
       "@type": "Package",
@@ -1345,9 +1352,9 @@
     {
       "@type": "Package",
       "name": "rustls",
-      "packageUrl": "pkg:cargo/rustls@0.23.41",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-0-23-41",
-      "versionInfo": "0.23.41"
+      "packageUrl": "pkg:cargo/rustls@0.23.42",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-0-23-42",
+      "versionInfo": "0.23.42"
     },
     {
       "@type": "Package",
@@ -1562,9 +1569,9 @@
     {
       "@type": "Package",
       "name": "syn",
-      "packageUrl": "pkg:cargo/syn@2.0.118",
-      "spdxId": "urn:spdx.dev:pkg-cargo-syn-2-0-118",
-      "versionInfo": "2.0.118"
+      "packageUrl": "pkg:cargo/syn@2.0.119",
+      "spdxId": "urn:spdx.dev:pkg-cargo-syn-2-0-119",
+      "versionInfo": "2.0.119"
     },
     {
       "@type": "Package",
@@ -1688,9 +1695,9 @@
     {
       "@type": "Package",
       "name": "tokio",
-      "packageUrl": "pkg:cargo/tokio@1.52.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-1-52-3",
-      "versionInfo": "1.52.3"
+      "packageUrl": "pkg:cargo/tokio@1.53.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-1-53-0",
+      "versionInfo": "1.53.0"
     },
     {
       "@type": "Package",
@@ -1716,9 +1723,9 @@
     {
       "@type": "Package",
       "name": "toml",
-      "packageUrl": "pkg:cargo/toml@1.1.2+spec-1.1.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-toml-1-1-2+spec-1-1-0",
-      "versionInfo": "1.1.2+spec-1.1.0"
+      "packageUrl": "pkg:cargo/toml@1.1.3+spec-1.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-toml-1-1-3+spec-1-1-0",
+      "versionInfo": "1.1.3+spec-1.1.0"
     },
     {
       "@type": "Package",
@@ -1737,9 +1744,9 @@
     {
       "@type": "Package",
       "name": "toml_writer",
-      "packageUrl": "pkg:cargo/toml_writer@1.1.1+spec-1.1.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-toml-writer-1-1-1+spec-1-1-0",
-      "versionInfo": "1.1.1+spec-1.1.0"
+      "packageUrl": "pkg:cargo/toml_writer@1.1.2+spec-1.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-toml-writer-1-1-2+spec-1-1-0",
+      "versionInfo": "1.1.2+spec-1.1.0"
     },
     {
       "@type": "Package",
