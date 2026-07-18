@@ -43,6 +43,55 @@ pub(crate) fn wrap_comment(text: &str, width: usize) -> Vec<String> {
     result
 }
 
+/// Format a commented scalar assignment, wrapping long comma-separated values.
+pub(crate) fn wrap_scalar_example_lines(
+    key: &str,
+    value: &str,
+    width: usize,
+) -> Vec<String> {
+    let prefix = format!("# {} = ", key);
+    let quoted = format!("\"{value}\"");
+    if prefix.len() + quoted.len() <= width {
+        return vec![format!("{prefix}{quoted}")];
+    }
+    let segments: Vec<&str> = value
+        .split(',')
+        .map(str::trim)
+        .filter(|segment| !segment.is_empty())
+        .collect();
+    let mut lines = Vec::new();
+    let mut current = String::new();
+    for segment in segments {
+        let with_segment = if current.is_empty() {
+            segment.to_string()
+        } else {
+            format!("{current},{segment}")
+        };
+        let trial = if lines.is_empty() {
+            format!("{prefix}\"{with_segment}\"")
+        } else {
+            format!("# \"{with_segment}\"")
+        };
+        if trial.len() <= width {
+            current = with_segment;
+            continue;
+        }
+        if !current.is_empty() {
+            if lines.is_empty() {
+                lines.push(format!("{prefix}\"{current},"));
+            } else {
+                lines.push(format!("# {current},"));
+            }
+        }
+        current = segment.to_string();
+    }
+    if lines.is_empty() {
+        return vec![format!("{prefix}{quoted}")];
+    }
+    lines.push(format!("# {current}\""));
+    lines
+}
+
 /// Parse config-comments.toml to extract key -> description.
 fn parse_descriptions(raw: &str) -> HashMap<String, String> {
     let mut result = HashMap::new();
@@ -163,9 +212,15 @@ pub fn generate_example(cfg: &crate::config::EffectiveConfig) -> String {
         for comment_line in wrap_comment(desc, LINE_LENGTH) {
             lines.push(comment_line);
         }
+        if key == "scan_exclude_dirs" {
+            for line in wrap_scalar_example_lines(key, &value, LINE_LENGTH) {
+                lines.push(line);
+            }
+            lines.push("".to_string());
+            continue;
+        }
         let val_display = if key == "cache_db"
             || key == "ignore_db"
-            || key == "scan_exclude_dirs"
             || key == "tls_crl_bundle"
         {
             format!("\"{}\"", value)
@@ -208,6 +263,7 @@ mod tests {
     use crate::config::{
         DEFAULT_BACKOFF_BASE_MS, DEFAULT_BACKOFF_MAX_MS,
         DEFAULT_CACHE_TTL_SECS, DEFAULT_MAX_RETRIES, DEFAULT_PARALLEL_QUERIES,
+        DEFAULT_SCAN_EXCLUDE_DIRS,
     };
     use std::path::PathBuf;
 
@@ -278,6 +334,23 @@ mod tests {
             79,
             "LINE_LENGTH must match pyproject.toml [tool.verilyze] line-length"
         );
+    }
+
+    #[test]
+    fn wrap_scalar_example_lines_splits_long_scan_exclude_dirs() {
+        let value = DEFAULT_SCAN_EXCLUDE_DIRS.join(",");
+        let lines = super::wrap_scalar_example_lines(
+            "scan_exclude_dirs",
+            &value,
+            super::LINE_LENGTH,
+        );
+        assert!(lines.len() > 1);
+        for line in &lines {
+            assert!(
+                line.len() <= super::LINE_LENGTH,
+                "line exceeds limit: {line:?}"
+            );
+        }
     }
 
     #[test]

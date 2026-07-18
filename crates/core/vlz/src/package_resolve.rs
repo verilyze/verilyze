@@ -418,6 +418,10 @@ pub async fn resolve_packages_for_path(
         let ctx = resolve_ctx.clone();
         let resolution_semaphore =
             Arc::new(Semaphore::new(effective_resolution_parallel));
+        let manifest_count = manifests.len();
+        if manifest_count > 1 {
+            eprintln!("Resolving {manifest_count} {language} manifest(s)...");
+        }
         let tasks: Vec<_> = manifests
             .into_iter()
             .map(|mf| {
@@ -547,6 +551,7 @@ pub async fn resolve_packages_for_path(
                         &manifest_path,
                         &error,
                         verbosity,
+                        Some(root_path.as_path()),
                     );
                     if effective.fail_fast {
                         skip_cve_phase = true;
@@ -569,6 +574,7 @@ pub async fn resolve_packages_for_path(
                         &manifest_path,
                         &error,
                         verbosity,
+                        Some(root_path.as_path()),
                     );
                     if effective.fail_fast {
                         skip_cve_phase = true;
@@ -632,6 +638,30 @@ mod tests {
         assert!(got.contains(".git"));
         assert!(got.contains("target"));
         assert_eq!(got.len(), 2);
+    }
+
+    #[cfg(feature = "python")]
+    #[test]
+    fn discover_manifests_one_pass_skips_venv_by_default() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let venv_setup = root
+            .join(".venv")
+            .join("lib")
+            .join("python3.13")
+            .join("site-packages")
+            .join("pkg")
+            .join("setup.py");
+        std::fs::create_dir_all(venv_setup.parent().unwrap()).unwrap();
+        std::fs::write(&venv_setup, "from setuptools import setup\n").unwrap();
+        std::fs::write(root.join("requirements.txt"), "y==2.0\n").unwrap();
+        let excludes = crate::config::DEFAULT_SCAN_EXCLUDE_DIRS
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect::<HashSet<_>>();
+        let got = discover_manifests_one_pass(root, &excludes, &[]).unwrap();
+        let manifests = got.0.get("python").cloned().unwrap_or_default();
+        assert_eq!(manifests, vec![root.join("requirements.txt")]);
     }
 
     #[cfg(feature = "python")]

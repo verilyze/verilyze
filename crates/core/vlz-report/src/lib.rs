@@ -25,6 +25,12 @@ use vlz_db::{
 
 const DESCRIPTION_MAX_LEN: usize = 60;
 
+/// Plain/HTML message when scan completed with no CVE findings (FR-010).
+pub const NO_VULNERABILITIES_FOUND_MESSAGE: &str = "No vulnerabilities found.";
+/// Plain/HTML message when findings are empty but analysis did not complete (FR-010).
+pub const SCAN_INCOMPLETE_MESSAGE: &str =
+    "Scan incomplete; see manifest coverage and stderr for details.";
+
 /// Format a single path relative to scan root when possible (FR-037).
 fn relative_path_string(
     path: &std::path::Path,
@@ -446,6 +452,31 @@ pub struct ReportData {
     pub root_path: Option<PathBuf>,
     /// Per-manifest scan status (FR-037). Empty when no manifests were discovered.
     pub manifest_coverage: Vec<ManifestCoverageEntry>,
+    /// True when `--offline` blocked a required CVE lookup (FR-031).
+    pub offline_cache_miss: bool,
+    /// True when CVE provider fetch failed after retries (FR-010).
+    pub provider_fetch_failed: bool,
+}
+
+impl ReportData {
+    /// True when the scan did not fully complete (FR-010).
+    pub fn is_analysis_incomplete(&self) -> bool {
+        self.offline_cache_miss
+            || self.provider_fetch_failed
+            || self
+                .manifest_coverage
+                .iter()
+                .any(|e| e.status.is_blocking())
+    }
+
+    /// Message for empty findings in plain/HTML reports (FR-010).
+    pub fn empty_findings_message(&self) -> &'static str {
+        if self.findings.is_empty() && self.is_analysis_incomplete() {
+            SCAN_INCOMPLETE_MESSAGE
+        } else {
+            NO_VULNERABILITIES_FOUND_MESSAGE
+        }
+    }
 }
 
 #[async_trait]
@@ -503,7 +534,7 @@ impl Reporter for DefaultReporter {
             data.root_path.as_deref(),
         )?;
         if data.findings.is_empty() {
-            writeln!(w, "No vulnerabilities found.")?;
+            writeln!(w, "{}", data.empty_findings_message())?;
             w.flush()?;
             return Ok(());
         }
@@ -525,7 +556,7 @@ impl Reporter for DefaultReporter {
                 manifests_display =
                     format!("{manifests_display}; decl: {decl_display}");
             }
-            for (cve, severity) in &finding.cves {
+            for (idx, (cve, severity)) in finding.cves.iter().enumerate() {
                 let severity_display = severity.as_str();
                 let mut chars = cve.description.chars();
                 let truncated: String =
@@ -537,16 +568,24 @@ impl Reporter for DefaultReporter {
                 } else {
                     desc
                 };
-                writeln!(
-                    w,
-                    "{} | {} | {} | {} | {} | {}",
-                    finding.package.name,
-                    finding.package.version,
-                    cve.id,
-                    severity_display,
-                    manifests_display,
-                    desc_display
-                )?;
+                if idx == 0 {
+                    writeln!(
+                        w,
+                        "{} | {} | {} | {} | {} | {}",
+                        finding.package.name,
+                        finding.package.version,
+                        cve.id,
+                        severity_display,
+                        manifests_display,
+                        desc_display
+                    )?;
+                } else {
+                    writeln!(
+                        w,
+                        "  |  | {} | {} |  | {}",
+                        cve.id, severity_display, desc_display
+                    )?;
+                }
                 if let Some(details) = format_cve_symbol_details(cve) {
                     writeln!(w, "  {details}")?;
                 }
@@ -710,7 +749,11 @@ impl Reporter for HtmlReporter {
             writeln!(w, "</tbody></table>")?;
         }
         if data.findings.is_empty() {
-            writeln!(w, "<p>No vulnerabilities found.</p>")?;
+            writeln!(
+                w,
+                "<p>{}</p>",
+                html_escape(data.empty_findings_message())
+            )?;
         } else {
             writeln!(
                 w,
@@ -1317,6 +1360,8 @@ mod tests {
             project_id: None,
             root_path: None,
             manifest_coverage: vec![],
+            offline_cache_miss: false,
+            provider_fetch_failed: false,
         }
     }
 
@@ -1347,6 +1392,8 @@ mod tests {
             project_id: None,
             root_path: None,
             manifest_coverage: vec![],
+            offline_cache_miss: false,
+            provider_fetch_failed: false,
         }
     }
 
@@ -1372,6 +1419,8 @@ mod tests {
                     error: Some("resolve failed".to_string()),
                 },
             ],
+            offline_cache_miss: false,
+            provider_fetch_failed: false,
         }
     }
 
@@ -1407,6 +1456,8 @@ mod tests {
             project_id: None,
             root_path: None,
             manifest_coverage: vec![],
+            offline_cache_miss: false,
+            provider_fetch_failed: false,
         }
     }
 
@@ -1419,7 +1470,20 @@ mod tests {
             .await
             .unwrap();
         let out = String::from_utf8(buf).unwrap();
-        assert!(out.contains("No vulnerabilities found."));
+        assert!(out.contains(NO_VULNERABILITIES_FOUND_MESSAGE));
+    }
+
+    #[tokio::test]
+    async fn default_reporter_incomplete_scan_empty_findings() {
+        let data = sample_report_data_with_manifest_coverage();
+        let mut buf = Vec::new();
+        DefaultReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let out = String::from_utf8(buf).unwrap();
+        assert!(out.contains(SCAN_INCOMPLETE_MESSAGE));
+        assert!(!out.contains(NO_VULNERABILITIES_FOUND_MESSAGE));
     }
 
     #[tokio::test]
@@ -1671,6 +1735,8 @@ mod tests {
             project_id: None,
             root_path: None,
             manifest_coverage: vec![],
+            offline_cache_miss: false,
+            provider_fetch_failed: false,
         };
         let mut buf = Vec::new();
         HtmlReporter::new()
@@ -1729,6 +1795,8 @@ mod tests {
             project_id: None,
             root_path: None,
             manifest_coverage: vec![],
+            offline_cache_miss: false,
+            provider_fetch_failed: false,
         };
         let mut buf = Vec::new();
         SarifReporter::new()
@@ -1794,6 +1862,8 @@ mod tests {
             project_id: None,
             root_path: None,
             manifest_coverage: vec![],
+            offline_cache_miss: false,
+            provider_fetch_failed: false,
         };
         let mut buf = Vec::new();
         SarifReporter::new()
@@ -1856,6 +1926,8 @@ mod tests {
             project_id: None,
             root_path: None,
             manifest_coverage: vec![],
+            offline_cache_miss: false,
+            provider_fetch_failed: false,
         };
         let mut buf = Vec::new();
         SarifReporter::new()
@@ -1962,6 +2034,8 @@ mod tests {
             project_id: None,
             root_path: None,
             manifest_coverage: vec![],
+            offline_cache_miss: false,
+            provider_fetch_failed: false,
         };
         let mut buf = Vec::new();
         CycloneDxReporter::new()
@@ -2046,6 +2120,8 @@ mod tests {
             project_id: None,
             root_path: None,
             manifest_coverage: vec![],
+            offline_cache_miss: false,
+            provider_fetch_failed: false,
         };
         let mut buf = Vec::new();
         CycloneDxReporter::new()
@@ -2081,6 +2157,8 @@ mod tests {
             project_id: None,
             root_path: None,
             manifest_coverage: vec![],
+            offline_cache_miss: false,
+            provider_fetch_failed: false,
         };
         let mut buf = Vec::new();
         CycloneDxReporter::new()
@@ -2120,6 +2198,8 @@ mod tests {
             project_id: None,
             root_path: None,
             manifest_coverage: vec![],
+            offline_cache_miss: false,
+            provider_fetch_failed: false,
         };
         let mut buf = Vec::new();
         SpdxReporter::new()

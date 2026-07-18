@@ -1489,6 +1489,8 @@ async fn run_scan(
         project_id: effective.project_id.clone(),
         root_path: Some(root_path.clone()),
         manifest_coverage,
+        offline_cache_miss,
+        provider_fetch_failed,
     };
     reporter
         .render(&report_data)

@@ -4,6 +4,7 @@
 
 //! Multi-manifest scan orchestration helpers (FR-037, FR-010).
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use vlz_manifest_parser::{
@@ -96,13 +97,21 @@ pub fn format_manifest_failure_summary(
     }
     let mut out = MANIFEST_FAILURE_SUMMARY_HEADER
         .replace("{}", &failures.len().to_string());
+    let mut groups: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for entry in failures {
         let path = relative_manifest_display(&entry.path, root_path);
         let reason = entry
             .error
             .as_deref()
-            .unwrap_or_else(|| entry.status.as_str());
-        out.push_str(&format!("\n  - {path}: {reason}"));
+            .unwrap_or_else(|| entry.status.as_str())
+            .to_string();
+        groups.entry(reason).or_default().push(path);
+    }
+    for (reason, paths) in groups {
+        out.push_str(&format!("\n\n  {reason} ({}):", paths.len()));
+        for path in paths {
+            out.push_str(&format!("\n    - {path}"));
+        }
     }
     out.push('\n');
     out.push_str(MANIFEST_FAILURE_SUMMARY_FOOTER);
@@ -168,8 +177,10 @@ pub fn log_manifest_failure(
     manifest_path: &Path,
     err: &(dyn std::error::Error + 'static),
     verbosity: u8,
+    root_path: Option<&Path>,
 ) {
-    eprintln!("Error: manifest {}: {}", manifest_path.display(), err);
+    let path = relative_manifest_display(manifest_path, root_path);
+    eprintln!("Error: manifest {path}: {err}");
     if verbosity > 0 {
         let mut source = err.source();
         while let Some(cause) = source {
@@ -270,7 +281,8 @@ mod tests {
         )
         .expect("summary");
         assert!(summary.contains("1 manifest(s) could not be fully analyzed"));
-        assert!(summary.contains("broken/requirements.txt: resolve failed"));
+        assert!(summary.contains("resolve failed (1):"));
+        assert!(summary.contains("broken/requirements.txt"));
         assert!(summary.contains(MANIFEST_FAILURE_SUMMARY_FOOTER));
     }
 
@@ -285,7 +297,8 @@ mod tests {
         }];
         let summary =
             format_manifest_failure_summary(&coverage, None).expect("summary");
-        assert!(summary.contains("/abs/broken/requirements.txt: bad syntax"));
+        assert!(summary.contains("/abs/broken/requirements.txt"));
+        assert!(summary.contains("bad syntax (1):"));
     }
 
     #[test]
@@ -313,10 +326,39 @@ mod tests {
         .expect("summary");
         assert!(summary.contains("2 manifest(s) could not be fully analyzed"));
         // Path outside root: full path and status.as_str() when error is None.
-        assert!(
-            summary.contains("/other/broken/requirements.txt: failed_parse")
-        );
-        assert!(summary.contains("also/broken.txt: resolve"));
+        assert!(summary.contains("/other/broken/requirements.txt"));
+        assert!(summary.contains("failed_parse (1):"));
+        assert!(summary.contains("also/broken.txt"));
+        assert!(summary.contains("resolve (1):"));
+    }
+
+    #[test]
+    fn format_manifest_failure_summary_groups_identical_errors() {
+        let coverage = vec![
+            ManifestCoverageEntry {
+                path: PathBuf::from("/root/a/requirements.txt"),
+                language: "python".to_string(),
+                status: ManifestScanStatus::FailedResolution,
+                direct_only_reason: None,
+                error: Some("same error".to_string()),
+            },
+            ManifestCoverageEntry {
+                path: PathBuf::from("/root/b/requirements.txt"),
+                language: "python".to_string(),
+                status: ManifestScanStatus::FailedResolution,
+                direct_only_reason: None,
+                error: Some("same error".to_string()),
+            },
+        ];
+        let summary = format_manifest_failure_summary(
+            &coverage,
+            Some(Path::new("/root")),
+        )
+        .expect("summary");
+        assert!(summary.contains("same error (2):"));
+        assert!(summary.contains("a/requirements.txt"));
+        assert!(summary.contains("b/requirements.txt"));
+        assert_eq!(summary.matches("same error (2):").count(), 1);
     }
 
     #[test]
@@ -399,7 +441,7 @@ mod tests {
             cause: Box::new(ResolverError::Resolve("inner".to_string())),
         };
         // Exercises the verbosity == 0 branch (no cause loop).
-        log_manifest_failure(Path::new("req.txt"), &err, 0);
+        log_manifest_failure(Path::new("req.txt"), &err, 0, None);
     }
 
     #[test]
@@ -409,7 +451,7 @@ mod tests {
             cause: Box::new(ResolverError::Resolve("inner".to_string())),
         };
         // Exercises the verbosity > 0 cause-chain loop (NFR-018).
-        log_manifest_failure(Path::new("req.txt"), &err, 1);
+        log_manifest_failure(Path::new("req.txt"), &err, 1, None);
     }
 
     #[test]
