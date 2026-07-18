@@ -12,6 +12,35 @@ The GitHub Release body is generated from the matching `## [version]` section
 below when you push a `v*` tag (see `.github/workflows/release.yml`). Update
 this file **before** creating the release tag.
 
+## [0.5.0] - 2026-07-18
+
+### Added
+
+- JSON findings may include Tier 1 `declarations[]` with manifest and lockfile
+  declaration lines (`path`, `start_line`, `kind`) per vulnerable package
+  (FR-036a).
+- Reachability symbol evidence locations in scan output (FR-032).
+- Release pre-tag upload round-trip validation (`make release-preflight`).
+
+### Changed
+
+- Default `scan_exclude_dirs` skips `.venv`, `venv`, `node_modules`, `target`,
+  `site-packages`, and other common vendor/build directory names.
+- Manifest failure stderr summary groups identical errors; live errors use
+  paths relative to the scan root; multi-manifest resolve progress on stderr.
+- Plain reports group additional CVE rows under the same package.
+- Dependency updates: Rust 1.97.1, GitHub Actions, super-linter digest,
+  and Python tooling (Renovate).
+
+### Fixed
+
+- Plain and HTML reports no longer print "No vulnerabilities found." when
+  analysis did not complete (FR-010).
+- Super-linter no longer fails on untracked `.vlz/reachability-cache.json`
+  left by local reachability tests.
+- CI nightly download job uses correct v0.4.0 release asset names.
+- Coverage and cargo run probes aligned with test feature flags.
+
 ## [0.4.0] - 2026-07-12
 
 ### Added
