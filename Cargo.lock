@@ -2533,6 +2533,7 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "vlz-db",
+ "vlz-reachability-trait",
  "wiremock",
 ]
 

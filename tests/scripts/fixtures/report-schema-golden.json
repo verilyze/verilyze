@@ -43,6 +43,15 @@
           "cvss_score": 5.0,
           "cvss_version": "v3",
           "reachable": true,
+          "advisory_symbols": ["requests.auth"],
+          "symbol_usage": "used",
+          "evidence": [
+            {
+              "path": "app/client.py",
+              "start_line": 12,
+              "symbol": "requests.auth"
+            }
+          ],
           "severity": "MEDIUM"
         }
       ]

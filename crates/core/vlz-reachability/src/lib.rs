@@ -16,9 +16,12 @@ use vlz_cve_client::{
 };
 use vlz_db::{CveRecord, Package};
 pub use vlz_reachability_trait::{
-    ReachabilityAnalyzer, TierBContext, TierBDecision, TierCDecision,
-    measure_tier_b_counters, note_tier_b_file_read_attempt,
-    reset_tier_b_counters, snapshot_tier_b_counters,
+    MAX_REACHABILITY_EVIDENCE_PER_CVE, ReachabilityAnalyzer,
+    ReachabilityEvidence, SYMBOL_USAGE_NOT_FOUND, SYMBOL_USAGE_UNKNOWN,
+    SYMBOL_USAGE_USED, TierBContext, TierBDecision, TierCDecision,
+    TierCResult, measure_tier_b_counters, note_tier_b_file_read_attempt,
+    reset_tier_b_counters, sanitize_advisory_symbols,
+    snapshot_tier_b_counters,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -77,12 +80,12 @@ fn choose_tier_b_decision(
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct PersistedDecision {
     decision: TierBDecisionDisk,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 enum TierBDecisionDisk {
     Reachable,
     NotReachable,
@@ -254,56 +257,140 @@ pub fn apply_tier_b_to_findings(
     }
 }
 
-fn choose_tier_c_decision(
+fn choose_tier_c_result(
     scan_root: &std::path::Path,
     exclude_dir_names: &HashSet<String>,
     package: &Package,
     context: Option<&PackageContext>,
     analyzers: &[Box<dyn ReachabilityAnalyzer>],
     advisory_symbols: &[String],
-) -> TierCDecision {
+) -> TierCResult {
     let Some(ctx) = context else {
-        return TierCDecision::Unknown;
+        return TierCResult::unknown();
     };
     if ctx.languages.is_empty() || advisory_symbols.is_empty() {
-        return TierCDecision::Unknown;
+        return TierCResult::unknown();
+    }
+    let advisory_symbols = sanitize_advisory_symbols(advisory_symbols);
+    if advisory_symbols.is_empty() {
+        return TierCResult::unknown();
     }
     let Some(ecosystem) = package.ecosystem.as_deref() else {
-        return TierCDecision::Unknown;
+        return TierCResult::unknown();
     };
 
-    let mut saw_unknown = false;
-    let mut saw_not_reachable = false;
-    for language in &ctx.languages {
+    let mut languages: Vec<String> = ctx.languages.iter().cloned().collect();
+    languages.sort();
+    let mut results = Vec::new();
+    for language in languages {
         let analyzer = analyzers.iter().find(|analyzer| {
             analyzer.language_name() == language.as_str()
                 && analyzer.ecosystems().contains(&ecosystem)
                 && analyzer.supports_tier_c()
         });
         let Some(analyzer) = analyzer else {
-            saw_unknown = true;
+            results.push(TierCResult::unknown());
             continue;
         };
         let context = TierBContext {
             scan_root,
             exclude_dir_names,
             package,
-            language,
+            language: &language,
             manifest_paths: &ctx.manifest_paths,
         };
-        match analyzer.analyze_tier_c(&context, advisory_symbols) {
-            TierCDecision::Reachable => return TierCDecision::Reachable,
-            TierCDecision::NotReachable => saw_not_reachable = true,
-            TierCDecision::Unknown => saw_unknown = true,
-        }
+        results.push(analyzer.analyze_tier_c(&context, &advisory_symbols));
     }
-    if saw_unknown {
-        TierCDecision::Unknown
-    } else if saw_not_reachable {
-        TierCDecision::NotReachable
+    vlz_reachability_trait::merge_tier_c_results(results)
+}
+
+fn choose_tier_d_result(
+    scan_root: &std::path::Path,
+    exclude_dir_names: &HashSet<String>,
+    package: &Package,
+    context: Option<&PackageContext>,
+    analyzers: &[Box<dyn ReachabilityAnalyzer>],
+    advisory_symbols: &[String],
+) -> TierCResult {
+    let Some(ctx) = context else {
+        return TierCResult::unknown();
+    };
+    if ctx.languages.is_empty() || advisory_symbols.is_empty() {
+        return TierCResult::unknown();
+    }
+    let advisory_symbols = sanitize_advisory_symbols(advisory_symbols);
+    if advisory_symbols.is_empty() {
+        return TierCResult::unknown();
+    }
+    let Some(ecosystem) = package.ecosystem.as_deref() else {
+        return TierCResult::unknown();
+    };
+
+    let mut languages: Vec<String> = ctx.languages.iter().cloned().collect();
+    languages.sort();
+    let mut results = Vec::new();
+    for language in languages {
+        let analyzer = analyzers.iter().find(|analyzer| {
+            analyzer.language_name() == language.as_str()
+                && analyzer.ecosystems().contains(&ecosystem)
+                && analyzer.supports_tier_d()
+        });
+        let Some(analyzer) = analyzer else {
+            results.push(TierCResult::unknown());
+            continue;
+        };
+        let context = TierBContext {
+            scan_root,
+            exclude_dir_names,
+            package,
+            language: &language,
+            manifest_paths: &ctx.manifest_paths,
+        };
+        results.push(analyzer.analyze_tier_d(&context, &advisory_symbols));
+    }
+    vlz_reachability_trait::merge_tier_c_results(results)
+}
+
+fn evidence_to_db_locations(
+    evidence: &[ReachabilityEvidence],
+    scan_root: &std::path::Path,
+) -> Vec<vlz_db::CveEvidenceLocation> {
+    evidence
+        .iter()
+        .map(|e| {
+            let path = e
+                .path
+                .strip_prefix(scan_root)
+                .map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or_else(|_| e.path.to_string_lossy().into_owned());
+            vlz_db::CveEvidenceLocation {
+                path,
+                start_line: e.start_line,
+                end_line: e.end_line,
+                symbol: e.symbol.clone(),
+            }
+        })
+        .collect()
+}
+
+fn apply_symbol_metadata(
+    rec: &mut CveRecord,
+    advisory_symbols: &[String],
+    result: &TierCResult,
+    scan_root: &std::path::Path,
+) {
+    rec.advisory_symbols = advisory_symbols.to_vec();
+    rec.evidence = evidence_to_db_locations(&result.evidence, scan_root);
+    rec.symbol_usage = Some(if !rec.evidence.is_empty() {
+        SYMBOL_USAGE_USED.to_string()
     } else {
-        TierCDecision::Unknown
-    }
+        match result.decision {
+            TierCDecision::NotReachable => SYMBOL_USAGE_NOT_FOUND.to_string(),
+            TierCDecision::Reachable | TierCDecision::Unknown => {
+                SYMBOL_USAGE_UNKNOWN.to_string()
+            }
+        }
+    });
 }
 
 fn vuln_for_cve_id<'a>(
@@ -349,45 +436,36 @@ pub fn apply_tier_c_to_findings(
                 continue;
             }
             let fingerprint = advisory_fingerprint(&advisory);
-            let decision = if persist {
+            let symbols = sanitize_advisory_symbols(&advisory.symbols);
+            if symbols.is_empty() {
+                continue;
+            }
+            let result = choose_tier_c_result(
+                scan_root,
+                exclude_dir_names,
+                pkg,
+                ctx,
+                analyzers,
+                &symbols,
+            );
+            if persist {
                 let key = tier_c_persisted_cache_key(
                     &rec.id,
                     pkg,
                     &fingerprint,
                     ctx,
                 );
-                if let Some(p) = persistent_cache.get(&key) {
-                    p.decision.into()
-                } else {
-                    let computed = choose_tier_c_decision(
-                        scan_root,
-                        exclude_dir_names,
-                        pkg,
-                        ctx,
-                        analyzers,
-                        &advisory.symbols,
-                    );
-                    if let std::collections::hash_map::Entry::Vacant(entry) =
-                        persistent_cache.entry(key)
-                    {
-                        entry.insert(PersistedDecision {
-                            decision: computed.into(),
-                        });
-                        dirty = true;
-                    }
-                    computed
+                let new_entry = PersistedDecision {
+                    decision: result.decision.into(),
+                };
+                let changed = persistent_cache.get(&key) != Some(&new_entry);
+                if changed {
+                    persistent_cache.insert(key, new_entry);
+                    dirty = true;
                 }
-            } else {
-                choose_tier_c_decision(
-                    scan_root,
-                    exclude_dir_names,
-                    pkg,
-                    ctx,
-                    analyzers,
-                    &advisory.symbols,
-                )
-            };
-            match decision {
+            }
+            apply_symbol_metadata(rec, &symbols, &result, scan_root);
+            match result.decision {
                 TierCDecision::Reachable => rec.reachable = Some(true),
                 TierCDecision::NotReachable => rec.reachable = Some(false),
                 TierCDecision::Unknown => {
@@ -431,7 +509,11 @@ pub fn apply_tier_d_to_findings(
             if !has_symbol_data {
                 continue;
             }
-            let tier_d = choose_tier_d_decision(
+            let symbols = sanitize_advisory_symbols(&symbols);
+            if symbols.is_empty() {
+                continue;
+            }
+            let tier_d = choose_tier_d_result(
                 scan_root,
                 exclude_dir_names,
                 pkg,
@@ -439,64 +521,13 @@ pub fn apply_tier_d_to_findings(
                 analyzers,
                 &symbols,
             );
-            match tier_d {
+            apply_symbol_metadata(rec, &symbols, &tier_d, scan_root);
+            match tier_d.decision {
                 TierCDecision::Reachable => rec.reachable = Some(true),
                 TierCDecision::NotReachable => rec.reachable = Some(false),
                 TierCDecision::Unknown => {}
             }
         }
-    }
-}
-
-fn choose_tier_d_decision(
-    scan_root: &std::path::Path,
-    exclude_dir_names: &HashSet<String>,
-    package: &Package,
-    context: Option<&PackageContext>,
-    analyzers: &[Box<dyn ReachabilityAnalyzer>],
-    advisory_symbols: &[String],
-) -> TierCDecision {
-    let Some(ctx) = context else {
-        return TierCDecision::Unknown;
-    };
-    if ctx.languages.is_empty() || advisory_symbols.is_empty() {
-        return TierCDecision::Unknown;
-    }
-    let Some(ecosystem) = package.ecosystem.as_deref() else {
-        return TierCDecision::Unknown;
-    };
-
-    let mut saw_not_reachable = false;
-    let mut saw_unknown = false;
-    for language in &ctx.languages {
-        let analyzer = analyzers.iter().find(|analyzer| {
-            analyzer.language_name() == language.as_str()
-                && analyzer.ecosystems().contains(&ecosystem)
-                && analyzer.supports_tier_d()
-        });
-        let Some(analyzer) = analyzer else {
-            saw_unknown = true;
-            continue;
-        };
-        let context = TierBContext {
-            scan_root,
-            exclude_dir_names,
-            package,
-            language,
-            manifest_paths: &ctx.manifest_paths,
-        };
-        match analyzer.analyze_tier_d(&context, advisory_symbols) {
-            TierCDecision::Reachable => return TierCDecision::Reachable,
-            TierCDecision::NotReachable => saw_not_reachable = true,
-            TierCDecision::Unknown => saw_unknown = true,
-        }
-    }
-    if saw_unknown {
-        TierCDecision::Unknown
-    } else if saw_not_reachable {
-        TierCDecision::NotReachable
-    } else {
-        TierCDecision::Unknown
     }
 }
 
@@ -576,6 +607,9 @@ mod tests {
                 cvss_version: None,
                 description: String::new(),
                 reachable: Some(true),
+                advisory_symbols: Vec::new(),
+                evidence: Vec::new(),
+                symbol_usage: None,
             }],
         )];
         apply_tier_b_to_findings(
@@ -617,6 +651,9 @@ mod tests {
                 cvss_version: None,
                 description: String::new(),
                 reachable: None,
+                advisory_symbols: Vec::new(),
+                evidence: Vec::new(),
+                symbol_usage: None,
             }],
         )];
         apply_tier_b_to_findings(
@@ -661,6 +698,9 @@ mod tests {
                 cvss_version: None,
                 description: String::new(),
                 reachable: Some(false),
+                advisory_symbols: Vec::new(),
+                evidence: Vec::new(),
+                symbol_usage: None,
             }],
         )];
         apply_tier_b_to_findings(
@@ -860,6 +900,9 @@ mod tests {
                     cvss_version: None,
                     description: String::new(),
                     reachable: None,
+                    advisory_symbols: Vec::new(),
+                    evidence: Vec::new(),
+                    symbol_usage: None,
                 }],
             ),
             (
@@ -870,6 +913,9 @@ mod tests {
                     cvss_version: None,
                     description: String::new(),
                     reachable: None,
+                    advisory_symbols: Vec::new(),
+                    evidence: Vec::new(),
+                    symbol_usage: None,
                 }],
             ),
         ];
@@ -910,14 +956,14 @@ mod tests {
             &self,
             _: &TierBContext<'_>,
             advisory_symbols: &[String],
-        ) -> TierCDecision {
+        ) -> TierCResult {
             if advisory_symbols
                 .iter()
                 .any(|s| self.reachable_symbols.contains(s))
             {
-                TierCDecision::Reachable
+                TierCResult::from_decision(TierCDecision::Reachable)
             } else {
-                TierCDecision::NotReachable
+                TierCResult::from_decision(TierCDecision::NotReachable)
             }
         }
     }
@@ -950,6 +996,9 @@ mod tests {
                     cvss_version: None,
                     description: String::new(),
                     reachable: Some(true),
+                    advisory_symbols: Vec::new(),
+                    evidence: Vec::new(),
+                    symbol_usage: None,
                 },
                 CveRecord {
                     id: "CVE-B".to_string(),
@@ -957,6 +1006,9 @@ mod tests {
                     cvss_version: None,
                     description: String::new(),
                     reachable: Some(true),
+                    advisory_symbols: Vec::new(),
+                    evidence: Vec::new(),
+                    symbol_usage: None,
                 },
             ],
         )];
@@ -1034,6 +1086,9 @@ mod tests {
                 cvss_version: None,
                 description: String::new(),
                 reachable: Some(true),
+                advisory_symbols: Vec::new(),
+                evidence: Vec::new(),
+                symbol_usage: None,
             }],
         )];
         let raw_vulns = HashMap::from([(
@@ -1084,8 +1139,8 @@ mod tests {
             &self,
             _: &TierBContext<'_>,
             _: &[String],
-        ) -> TierCDecision {
-            TierCDecision::Unknown
+        ) -> TierCResult {
+            TierCResult::from_decision(TierCDecision::Unknown)
         }
     }
 
@@ -1110,6 +1165,9 @@ mod tests {
                 cvss_version: None,
                 description: String::new(),
                 reachable: Some(true),
+                advisory_symbols: Vec::new(),
+                evidence: Vec::new(),
+                symbol_usage: None,
             }],
         )];
         let raw_vulns = HashMap::from([(
@@ -1158,8 +1216,8 @@ mod tests {
             &self,
             _: &TierBContext<'_>,
             _: &[String],
-        ) -> TierCDecision {
-            TierCDecision::Unknown
+        ) -> TierCResult {
+            TierCResult::from_decision(TierCDecision::Unknown)
         }
 
         fn supports_tier_d(&self) -> bool {
@@ -1170,14 +1228,14 @@ mod tests {
             &self,
             _: &TierBContext<'_>,
             advisory_symbols: &[String],
-        ) -> TierCDecision {
+        ) -> TierCResult {
             if advisory_symbols
                 .iter()
                 .any(|s| self.reachable_symbols.contains(s))
             {
-                TierCDecision::Reachable
+                TierCResult::from_decision(TierCDecision::Reachable)
             } else {
-                TierCDecision::NotReachable
+                TierCResult::from_decision(TierCDecision::NotReachable)
             }
         }
     }
@@ -1205,6 +1263,9 @@ mod tests {
                 cvss_version: None,
                 description: String::new(),
                 reachable: None,
+                advisory_symbols: Vec::new(),
+                evidence: Vec::new(),
+                symbol_usage: None,
             }],
         )];
         let raw_vulns = HashMap::from([(
@@ -1254,6 +1315,9 @@ mod tests {
                 cvss_version: None,
                 description: String::new(),
                 reachable: None,
+                advisory_symbols: Vec::new(),
+                evidence: Vec::new(),
+                symbol_usage: None,
             }],
         )];
         temp_env::with_var(
@@ -1307,9 +1371,9 @@ mod tests {
                 &self,
                 _: &TierBContext<'_>,
                 _: &[String],
-            ) -> TierCDecision {
+            ) -> TierCResult {
                 self.calls.fetch_add(1, Ordering::Relaxed);
-                TierCDecision::NotReachable
+                TierCResult::from_decision(TierCDecision::NotReachable)
             }
         }
         let analyzers: Vec<Box<dyn ReachabilityAnalyzer>> =
@@ -1324,6 +1388,9 @@ mod tests {
                 cvss_version: None,
                 description: String::new(),
                 reachable: None,
+                advisory_symbols: Vec::new(),
+                evidence: Vec::new(),
+                symbol_usage: None,
             }],
         )];
         let raw_vulns = HashMap::from([(
@@ -1360,8 +1427,8 @@ mod tests {
                 );
                 assert_eq!(
                     calls.load(Ordering::Relaxed),
-                    1,
-                    "second run should load Tier C from persistent cache"
+                    2,
+                    "second run should re-run analyzers for fresh evidence"
                 );
                 let cache = load_decision_cache(dir.path());
                 assert!(

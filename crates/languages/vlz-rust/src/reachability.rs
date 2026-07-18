@@ -8,8 +8,11 @@ use std::sync::{Mutex, OnceLock};
 use vlz_db::CRATES_IO_ECOSYSTEM;
 
 use vlz_reachability_trait::{
-    ReachabilityAnalyzer, TierBContext, TierBDecision, TierCDecision,
-    list_files_with_ext, note_tier_b_file_read_attempt,
+    LineCommentStyle, ReachabilityAnalyzer, ReachabilityEvidence,
+    TierBContext, TierBDecision, TierCDecision, TierCResult,
+    line_code_for_symbol_match, list_files_with_ext,
+    note_tier_b_file_read_attempt, push_reachability_evidence,
+    qualified_symbol_in_code, reachability_evidence_at_cap,
 };
 
 #[derive(Debug, Default)]
@@ -266,6 +269,76 @@ fn rust_name_allows_confident_absence(name: &str) -> bool {
         && n.chars().filter(|c| *c == '_').count() <= 8
 }
 
+fn rust_line_has_symbol_evidence(
+    line: &str,
+    sym: &str,
+    line_prefixes: &HashSet<String>,
+) -> bool {
+    let trimmed = line.trim();
+    if trimmed.is_empty() || trimmed.starts_with("//") {
+        return false;
+    }
+    if trimmed.starts_with("use ") || trimmed.starts_with("extern crate ") {
+        return rust_symbol_matches_use_prefixes(sym, line_prefixes);
+    }
+    let code =
+        line_code_for_symbol_match(trimmed, LineCommentStyle::SlashSlash);
+    qualified_symbol_in_code(&code, sym)
+}
+
+fn collect_rust_symbol_evidence(
+    context: &TierBContext<'_>,
+    advisory_symbols: &[String],
+) -> Vec<ReachabilityEvidence> {
+    let mut evidence = Vec::new();
+    'files: for path in list_rust_files(context) {
+        let Ok(content) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        for (idx, line) in content.lines().enumerate() {
+            let line_prefixes: HashSet<String> =
+                rust_use_prefixes_from_line(line).into_iter().collect();
+            for sym in advisory_symbols {
+                if rust_line_has_symbol_evidence(line, sym, &line_prefixes) {
+                    push_reachability_evidence(
+                        &mut evidence,
+                        path.clone(),
+                        (idx + 1) as u32,
+                        sym,
+                    );
+                }
+                if reachability_evidence_at_cap(&evidence) {
+                    break 'files;
+                }
+            }
+        }
+    }
+    evidence
+}
+
+fn tier_c_result_for_symbols(
+    context: &TierBContext<'_>,
+    advisory_symbols: &[String],
+) -> TierCResult {
+    let prefixes = cached_rust_use_prefixes(context);
+    if prefixes.is_empty() {
+        return TierCResult::unknown();
+    }
+    let evidence = collect_rust_symbol_evidence(context, advisory_symbols);
+    let decision = if !evidence.is_empty()
+        || advisory_symbols
+            .iter()
+            .any(|sym| rust_symbol_matches_use_prefixes(sym, &prefixes))
+    {
+        TierCDecision::Reachable
+    } else if rust_name_allows_confident_absence(&context.package.name) {
+        TierCDecision::NotReachable
+    } else {
+        TierCDecision::Unknown
+    };
+    TierCResult { decision, evidence }
+}
+
 impl ReachabilityAnalyzer for RustTierBAnalyzer {
     fn language_name(&self) -> &'static str {
         "rust"
@@ -303,21 +376,8 @@ impl ReachabilityAnalyzer for RustTierBAnalyzer {
         &self,
         context: &TierBContext<'_>,
         advisory_symbols: &[String],
-    ) -> TierCDecision {
-        let prefixes = cached_rust_use_prefixes(context);
-        if prefixes.is_empty() {
-            return TierCDecision::Unknown;
-        }
-        for sym in advisory_symbols {
-            if rust_symbol_matches_use_prefixes(sym, &prefixes) {
-                return TierCDecision::Reachable;
-            }
-        }
-        if rust_name_allows_confident_absence(&context.package.name) {
-            TierCDecision::NotReachable
-        } else {
-            TierCDecision::Unknown
-        }
+    ) -> TierCResult {
+        tier_c_result_for_symbols(context, advisory_symbols)
     }
 }
 
@@ -590,7 +650,9 @@ mod tests {
         let analyzer = RustTierBAnalyzer::new();
         let ctx = context_for(dir.path(), "http");
         assert_eq!(
-            analyzer.analyze_tier_c(&ctx, &["http::a::vuln".to_string()]),
+            analyzer
+                .analyze_tier_c(&ctx, &["http::a::vuln".to_string()])
+                .decision,
             TierCDecision::Reachable
         );
     }
@@ -604,8 +666,42 @@ mod tests {
         let analyzer = RustTierBAnalyzer::new();
         let ctx = context_for(dir.path(), "http");
         assert_eq!(
-            analyzer.analyze_tier_c(&ctx, &["http::b::safe".to_string()]),
+            analyzer
+                .analyze_tier_c(&ctx, &["http::b::safe".to_string()])
+                .decision,
             TierCDecision::NotReachable
         );
+    }
+
+    #[test]
+    fn analyze_tier_c_records_line_evidence_for_symbol_reference() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir_all(dir.path().join("src")).expect("mkdir");
+        std::fs::write(
+            dir.path().join("src/main.rs"),
+            "use http::a::Vuln;\nfn main() { Vuln::run(); }\n",
+        )
+        .expect("write");
+        let analyzer = RustTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "http");
+        let result = analyzer.analyze_tier_c(&ctx, &["Vuln::run".to_string()]);
+        assert_eq!(result.decision, TierCDecision::Reachable);
+        assert!(!result.evidence.is_empty());
+        assert!(result.evidence.iter().any(|e| e.start_line == 2));
+    }
+
+    #[test]
+    fn analyze_tier_c_no_evidence_for_symbol_in_string_literal() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir_all(dir.path().join("src")).expect("mkdir");
+        std::fs::write(
+            dir.path().join("src/main.rs"),
+            "use http::a::Vuln;\nfn main() { let s = \"Vuln::run\"; }\n",
+        )
+        .expect("write");
+        let analyzer = RustTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "http");
+        let result = analyzer.analyze_tier_c(&ctx, &["Vuln::run".to_string()]);
+        assert!(result.evidence.is_empty());
     }
 }

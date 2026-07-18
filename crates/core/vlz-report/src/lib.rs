@@ -17,8 +17,8 @@ use serde::Serialize;
 use std::io::Write;
 use std::path::PathBuf;
 use vlz_db::{
-    CRATES_IO_ECOSYSTEM, CveRecord, CvssVersion, GO_ECOSYSTEM, PYPI_ECOSYSTEM,
-    Package, Severity,
+    CRATES_IO_ECOSYSTEM, CveEvidenceLocation, CveRecord, CvssVersion,
+    GO_ECOSYSTEM, PYPI_ECOSYSTEM, Package, Severity,
 };
 
 const DESCRIPTION_MAX_LEN: usize = 60;
@@ -131,6 +131,97 @@ fn format_manifest_paths(
     } else {
         format!("{} (+{} more)", formatted[0], formatted.len() - 1)
     }
+}
+
+fn format_evidence_location(loc: &CveEvidenceLocation) -> String {
+    format!("{}:{} ({})", loc.path, loc.start_line, loc.symbol)
+}
+
+fn format_cve_symbol_details(cve: &CveRecord) -> Option<String> {
+    if cve.advisory_symbols.is_empty()
+        && cve.evidence.is_empty()
+        && cve.symbol_usage.is_none()
+    {
+        return None;
+    }
+    let mut parts = Vec::new();
+    if !cve.advisory_symbols.is_empty() {
+        parts.push(format!(
+            "advisory_symbols: {}",
+            cve.advisory_symbols.join(", ")
+        ));
+    }
+    if let Some(usage) = cve.symbol_usage.as_deref() {
+        parts.push(format!("symbol_usage: {usage}"));
+    }
+    if !cve.evidence.is_empty() {
+        let sites: Vec<String> =
+            cve.evidence.iter().map(format_evidence_location).collect();
+        parts.push(format!("evidence: {}", sites.join("; ")));
+    }
+    Some(parts.join("; "))
+}
+
+fn sarif_physical_location(
+    uri: &str,
+    start_line: Option<u32>,
+) -> serde_json::Value {
+    let mut physical = serde_json::json!({
+        "artifactLocation": { "uri": uri }
+    });
+    if let Some(line) = start_line {
+        physical["region"] = serde_json::json!({ "startLine": line });
+    }
+    serde_json::json!({ "physicalLocation": physical })
+}
+
+fn sarif_uri_for_path(path: &str, root: Option<&std::path::Path>) -> String {
+    let rel = if let Some(root) = root {
+        std::path::Path::new(path)
+            .strip_prefix(root)
+            .map(|r| r.to_string_lossy().into_owned())
+            .unwrap_or_else(|_| path.to_string())
+    } else {
+        path.to_string()
+    };
+    sarif_percent_encode_path(&rel)
+}
+
+fn sarif_percent_encode_path(path: &str) -> String {
+    path.replace('\\', "/")
+        .split('/')
+        .map(percent_encode_sarif_segment)
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+fn percent_encode_sarif_segment(segment: &str) -> String {
+    let mut out = String::new();
+    for byte in segment.bytes() {
+        match byte {
+            b'A'..=b'Z'
+            | b'a'..=b'z'
+            | b'0'..=b'9'
+            | b'-'
+            | b'_'
+            | b'.'
+            | b'~'
+            | b'!'
+            | b'$'
+            | b'&'
+            | b'\''
+            | b'('
+            | b')'
+            | b'*'
+            | b'+'
+            | b','
+            | b';'
+            | b'='
+            | b'@' => out.push(byte as char),
+            _ => out.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    out
 }
 
 /// Thresholds for mapping a CVSS score to a severity label (FR-013). Defaults per version.
@@ -363,6 +454,9 @@ impl Reporter for DefaultReporter {
                     manifests_display,
                     desc_display
                 )?;
+                if let Some(details) = format_cve_symbol_details(cve) {
+                    writeln!(w, "  {details}")?;
+                }
             }
         }
         w.flush()?;
@@ -540,6 +634,13 @@ impl Reporter for HtmlReporter {
                         html_escape(&manifests_display),
                         desc_escaped
                     )?;
+                    if let Some(details) = format_cve_symbol_details(cve) {
+                        writeln!(
+                            w,
+                            "<tr><td colspan=\"6\"><em>{}</em></td></tr>",
+                            html_escape(&details)
+                        )?;
+                    }
                 }
             }
             writeln!(w, "</tbody></table>")?;
@@ -583,28 +684,36 @@ impl Reporter for SarifReporter {
                         .manifest_paths
                         .iter()
                         .map(|p| {
-                            let p = p.as_path();
-                            if let Some(root) = data.root_path.as_deref() {
-                                p.strip_prefix(root)
-                                    .map(|r| r.to_string_lossy().into_owned())
-                                    .unwrap_or_else(|_| {
-                                        p.to_string_lossy().into_owned()
-                                    })
-                            } else {
-                                p.to_string_lossy().into_owned()
-                            }
+                            relative_path_string(
+                                p.as_path(),
+                                data.root_path.as_deref(),
+                            )
                         })
                         .collect();
-                    let locations: Vec<serde_json::Value> = manifest_uris
+                    let evidence_locations: Vec<serde_json::Value> = cve
+                        .evidence
                         .iter()
-                        .map(|uri| {
-                            serde_json::json!({
-                                "physicalLocation": {
-                                    "artifactLocation": { "uri": uri }
-                                }
-                            })
+                        .map(|loc| {
+                            sarif_physical_location(
+                                &sarif_uri_for_path(
+                                    &loc.path,
+                                    data.root_path.as_deref(),
+                                ),
+                                Some(loc.start_line),
+                            )
                         })
                         .collect();
+                    let related_locations: Vec<serde_json::Value> =
+                        manifest_uris
+                            .iter()
+                            .map(|uri| sarif_physical_location(uri, None))
+                            .collect();
+                    let has_evidence = !evidence_locations.is_empty();
+                    let locations = if evidence_locations.is_empty() {
+                        related_locations.clone()
+                    } else {
+                        evidence_locations
+                    };
                     let mut result = serde_json::json!({
                         "ruleId": cve.id,
                         "level": severity_level_sarif(severity),
@@ -620,9 +729,36 @@ impl Reporter for SarifReporter {
                         result["properties"]["reachable"] =
                             serde_json::json!(reachable);
                     }
+                    if !cve.advisory_symbols.is_empty() {
+                        result["properties"]["advisory_symbols"] =
+                            serde_json::json!(cve.advisory_symbols);
+                    }
+                    if let Some(ref usage) = cve.symbol_usage {
+                        result["properties"]["symbol_usage"] =
+                            serde_json::json!(usage);
+                    }
+                    if !cve.evidence.is_empty() {
+                        let evidence_json: Vec<serde_json::Value> = cve
+                            .evidence
+                            .iter()
+                            .map(|loc| {
+                                serde_json::json!({
+                                    "path": loc.path,
+                                    "start_line": loc.start_line,
+                                    "symbol": loc.symbol
+                                })
+                            })
+                            .collect();
+                        result["properties"]["evidence"] =
+                            serde_json::json!(evidence_json);
+                    }
                     if !locations.is_empty() {
                         result["locations"] =
                             serde_json::Value::Array(locations);
+                    }
+                    if has_evidence && !related_locations.is_empty() {
+                        result["relatedLocations"] =
+                            serde_json::Value::Array(related_locations);
                     }
                     result
                 })
@@ -1082,6 +1218,9 @@ mod tests {
             cvss_version: Some(CvssVersion::V3),
             description: "A bug".to_string(),
             reachable: None,
+            advisory_symbols: Vec::new(),
+            evidence: Vec::new(),
+            symbol_usage: None,
         };
         ReportData {
             findings: vec![Finding {
@@ -1138,6 +1277,9 @@ mod tests {
             cvss_version: Some(CvssVersion::V3),
             description: "A bug".to_string(),
             reachable: None,
+            advisory_symbols: Vec::new(),
+            evidence: Vec::new(),
+            symbol_usage: None,
         };
         ReportData {
             findings: vec![Finding {
@@ -1398,6 +1540,9 @@ mod tests {
             cvss_version: None,
             description: "a <b> & \"quoted\"".to_string(),
             reachable: None,
+            advisory_symbols: Vec::new(),
+            evidence: Vec::new(),
+            symbol_usage: None,
         };
         let data = ReportData {
             findings: vec![Finding {
@@ -1420,6 +1565,76 @@ mod tests {
         assert!(out.contains("&lt;"));
         assert!(out.contains("&amp;"));
         assert!(out.contains("&quot;"));
+    }
+
+    #[test]
+    fn sarif_percent_encodes_spaces_in_path() {
+        assert_eq!(
+            sarif_percent_encode_path("src/my file.rs"),
+            "src/my%20file.rs"
+        );
+    }
+
+    #[tokio::test]
+    async fn sarif_reporter_uses_evidence_as_primary_location() {
+        let pkg = Package {
+            name: "foo".to_string(),
+            version: "1.0".to_string(),
+            ecosystem: Some(GO_ECOSYSTEM.to_string()),
+        };
+        let cve = CveRecord {
+            id: "CVE-EVID".to_string(),
+            cvss_score: Some(7.0),
+            cvss_version: Some(CvssVersion::V3),
+            description: "Symbol usage".to_string(),
+            reachable: Some(true),
+            advisory_symbols: vec!["VulnFn".to_string()],
+            evidence: vec![CveEvidenceLocation {
+                path: "main.go".to_string(),
+                start_line: 4,
+                end_line: None,
+                symbol: "VulnFn".to_string(),
+            }],
+            symbol_usage: Some("used".to_string()),
+        };
+        let data = ReportData {
+            findings: vec![Finding {
+                package: pkg,
+                manifest_paths: vec![PathBuf::from("go.mod")],
+                cves: vec![(cve, Severity::High)],
+            }],
+            all_packages: None,
+            project_id: None,
+            root_path: None,
+            manifest_coverage: vec![],
+        };
+        let mut buf = Vec::new();
+        SarifReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim())
+                .unwrap();
+        let result = &parsed["runs"][0]["results"][0];
+        let location = &result["locations"][0]["physicalLocation"];
+        assert_eq!(
+            location["artifactLocation"]["uri"].as_str(),
+            Some("main.go")
+        );
+        assert_eq!(location["region"]["startLine"].as_u64(), Some(4));
+        let related = result["relatedLocations"]
+            .as_array()
+            .expect("relatedLocations");
+        assert_eq!(related.len(), 1);
+        assert_eq!(
+            related[0]["physicalLocation"]["artifactLocation"]["uri"].as_str(),
+            Some("go.mod")
+        );
+        assert_eq!(
+            result["properties"]["symbol_usage"].as_str(),
+            Some("used")
+        );
     }
 
     #[tokio::test]

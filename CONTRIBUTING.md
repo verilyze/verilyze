@@ -536,7 +536,30 @@ build time; it refines unknown Tier C results and never downgrades Tier C
 reachable decisions.
 
 Set `VLZ_REACHABILITY_PERSIST_CACHE=1` (or `true`/`yes`) to persist Tier B and
-per-CVE Tier C decisions under `.vlz/reachability-cache.json` in the scan root.
+per-CVE Tier C **decisions** under `.vlz/reachability-cache.json` in the scan root.
+Evidence locations (first-party file and line for advisory symbol matches) are
+recomputed on every scan so line numbers stay current; the persist cache stores
+reachability decisions only, not evidence paths.
+
+#### Symbol avoidance evidence (`best-available`)
+
+When `reachability_mode` is `best-available` and the CVE provider lists advisory
+symbols (OSV `ecosystem_specific`, etc.), JSON and plain/HTML reports may include:
+
+- `advisory_symbols` -- symbol hints from the advisory (what to avoid if you must
+  stay on a vulnerable version)
+- `evidence` -- first-party source lines where those symbols appear (`path`,
+  `start_line`, `symbol`)
+- `symbol_usage` -- `used`, `not_found`, or `unknown` for first-party references
+
+Tier B (the default mode) does not emit symbol-level evidence. Matches are
+reference-site heuristics (imports, names), not proof that a vulnerable code path
+executes. Many advisories lack symbol metadata; when symbols are absent, evidence
+is omitted. Third-party package source and lockfile declaration lines are not
+annotated.
+
+SARIF uploads use consumer source `region.startLine` as the primary location when
+evidence exists; manifest paths appear in `relatedLocations`.
 
 ### Reachability analyzer plugin
 

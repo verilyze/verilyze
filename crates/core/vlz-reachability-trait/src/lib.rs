@@ -4,6 +4,15 @@
 
 #![deny(unsafe_code)]
 
+mod evidence_match;
+
+pub use evidence_match::{
+    LineCommentStyle, MAX_ADVISORY_SYMBOL_LEN, MAX_ADVISORY_SYMBOLS,
+    cap_reachability_evidence, line_code_for_symbol_match,
+    qualified_symbol_in_code, reachability_evidence_at_cap,
+    sanitize_advisory_symbols,
+};
+
 #[cfg(feature = "perf-instrumentation")]
 use std::cell::Cell;
 use std::collections::HashSet;
@@ -43,6 +52,102 @@ pub struct TierBContext<'a> {
 /// Per-CVE reachability decision (Tier C); same semantics as [`TierBDecision`].
 pub type TierCDecision = TierBDecision;
 
+/// Maximum first-party evidence locations emitted per CVE (FR-032 symbol avoidance).
+pub const MAX_REACHABILITY_EVIDENCE_PER_CVE: usize = 10;
+
+/// JSON label when advisory symbols appear in first-party source.
+pub const SYMBOL_USAGE_USED: &str = "used";
+/// JSON label when advisory symbols are absent from first-party source (confident).
+pub const SYMBOL_USAGE_NOT_FOUND: &str = "not_found";
+/// JSON label when symbol usage in first-party source could not be determined.
+pub const SYMBOL_USAGE_UNKNOWN: &str = "unknown";
+
+/// First-party source location referencing an advisory symbol (provider-gated).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReachabilityEvidence {
+    pub path: PathBuf,
+    pub start_line: u32,
+    pub end_line: Option<u32>,
+    pub symbol: String,
+}
+
+/// Tier C/D analysis outcome: reachability decision plus optional first-party evidence.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TierCResult {
+    pub decision: TierCDecision,
+    pub evidence: Vec<ReachabilityEvidence>,
+}
+
+impl TierCResult {
+    pub fn unknown() -> Self {
+        Self {
+            decision: TierCDecision::Unknown,
+            evidence: Vec::new(),
+        }
+    }
+
+    pub fn from_decision(decision: TierCDecision) -> Self {
+        Self {
+            decision,
+            evidence: Vec::new(),
+        }
+    }
+}
+
+/// Record a first-party evidence site when under the per-CVE cap (deduplicated).
+/// Returns `false` when the cap is already reached (callers may stop scanning).
+pub fn push_reachability_evidence(
+    out: &mut Vec<ReachabilityEvidence>,
+    path: PathBuf,
+    start_line: u32,
+    symbol: impl Into<String>,
+) -> bool {
+    if reachability_evidence_at_cap(out) {
+        return false;
+    }
+    let symbol = symbol.into();
+    if out.iter().any(|e| {
+        e.path == path && e.start_line == start_line && e.symbol == symbol
+    }) {
+        return true;
+    }
+    out.push(ReachabilityEvidence {
+        path,
+        start_line,
+        end_line: None,
+        symbol,
+    });
+    true
+}
+
+/// Merge Tier C results from multiple language analyzers (FR-032).
+pub fn merge_tier_c_results(
+    results: impl IntoIterator<Item = TierCResult>,
+) -> TierCResult {
+    let mut merged = TierCResult::unknown();
+    let mut saw_not_reachable = false;
+    let mut saw_unknown = false;
+    for result in results {
+        merged.evidence.extend(result.evidence);
+        match result.decision {
+            TierCDecision::Reachable => {
+                merged.decision = TierCDecision::Reachable
+            }
+            TierCDecision::NotReachable => saw_not_reachable = true,
+            TierCDecision::Unknown => saw_unknown = true,
+        }
+    }
+    if merged.decision != TierCDecision::Reachable {
+        if saw_unknown {
+            merged.decision = TierCDecision::Unknown;
+        } else if saw_not_reachable {
+            merged.decision = TierCDecision::NotReachable;
+        }
+    }
+    cap_reachability_evidence(&mut merged.evidence);
+    merged
+}
+
 pub trait ReachabilityAnalyzer: Send + Sync {
     fn language_name(&self) -> &'static str;
     fn ecosystems(&self) -> &'static [&'static str];
@@ -58,9 +163,9 @@ pub trait ReachabilityAnalyzer: Send + Sync {
         &self,
         context: &TierBContext<'_>,
         advisory_symbols: &[String],
-    ) -> TierCDecision {
+    ) -> TierCResult {
         let _ = (context, advisory_symbols);
-        TierCDecision::Unknown
+        TierCResult::unknown()
     }
 
     /// True when this analyzer can refine Tier C unknowns with deeper source inspection.
@@ -73,9 +178,9 @@ pub trait ReachabilityAnalyzer: Send + Sync {
         &self,
         context: &TierBContext<'_>,
         advisory_symbols: &[String],
-    ) -> TierCDecision {
+    ) -> TierCResult {
         let _ = (context, advisory_symbols);
-        TierCDecision::Unknown
+        TierCResult::unknown()
     }
 }
 
@@ -324,12 +429,18 @@ mod tests {
             manifest_paths: &[],
         };
         assert_eq!(
-            analyzer.analyze_tier_c(&ctx, &["sym".to_string()]),
+            analyzer.analyze_tier_c(&ctx, &["sym".to_string()]).decision,
             TierCDecision::Unknown
         );
         assert_eq!(
-            analyzer.analyze_tier_d(&ctx, &["sym".to_string()]),
+            analyzer.analyze_tier_d(&ctx, &["sym".to_string()]).decision,
             TierCDecision::Unknown
+        );
+        assert!(
+            analyzer
+                .analyze_tier_c(&ctx, &["sym".to_string()])
+                .evidence
+                .is_empty()
         );
     }
 

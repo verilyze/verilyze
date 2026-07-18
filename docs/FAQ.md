@@ -182,6 +182,40 @@ world-writable bits. Do not use `0666` for DB files. Prefer XDG paths
 
 ---
 
+## Reachability evidence
+
+### No `evidence` or `advisory_symbols` in my JSON report
+
+**Cause:** Symbol-level evidence requires `--reachability-mode best-available`
+(or config/env equivalent). The default `tier-b` mode reports package-level
+reachability only.
+
+**Remediation:** Run `vlz scan --reachability-mode best-available`. Evidence
+appears only when the CVE provider lists advisory symbols (mostly OSV-shaped
+data) and your first-party source references them.
+
+### What does `symbol_usage: not_found` mean?
+
+**Meaning:** Under Tier C, the advisory listed symbols but no matching
+first-party references were found with confident absence. This can support
+staying on a pinned vulnerable version for symbol-specific risk, but other
+exposure paths may still exist.
+
+**Limits:** Matching is heuristic (imports, names), not data-flow proof.
+Transitive or runtime-only exposure is not covered.
+
+### SARIF shows manifest paths but no source line
+
+**Cause:** No advisory symbols from the provider, no first-party symbol match,
+or reachability mode is not `best-available`.
+
+**Remediation:** Use `best-available`, ensure OSV provides symbol metadata, and
+confirm your code references the listed symbols. When evidence exists, SARIF
+uses the consumer source line as `locations[0]` and manifest paths in
+`relatedLocations`.
+
+---
+
 ## CVE providers
 
 ### Provider authentication

@@ -48,10 +48,33 @@
           "enum": ["v2", "v3", "v4"]
         },
         "reachable": { "type": "boolean" },
+        "advisory_symbols": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/cve_evidence_location" }
+        },
+        "symbol_usage": {
+          "type": "string",
+          "enum": ["used", "not_found", "unknown"]
+        },
         "severity": {
           "type": "string",
           "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"]
         }
+      }
+    },
+    "cve_evidence_location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "start_line", "symbol"],
+      "properties": {
+        "path": { "type": "string" },
+        "start_line": { "type": "integer", "minimum": 1 },
+        "end_line": { "type": "integer", "minimum": 1 },
+        "symbol": { "type": "string" }
       }
     },
     "finding": {
