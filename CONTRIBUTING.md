@@ -1014,7 +1014,8 @@ releases](#versioning-and-releases) below.
   failure. The script sets `IGNORE_GITIGNORED_FILES=true` and
   `FILTER_REGEX_EXCLUDE` so `target/`, `.git/`, `completions/` (ShellCheck is
   already `make lint-shell` with `completions/.shellcheckrc`), Python venvs
-  (`.venv*/`), `.mypy_cache/`, `site-packages/`, and `super-linter-output/`
+  (`.venv*/`), `.mypy_cache/`, `.vlz/` (reachability cache), `site-packages/`,
+  and `super-linter-output/`
   (artifact tree when `SAVE_SUPER_LINTER_*` is on) are skipped. It sets
   `LINTER_RULES_PATH` to `.` so configs at the repository root apply (the
   default would be `.github/linters`; the workspace mount is `/tmp/lint`). It

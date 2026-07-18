@@ -17,6 +17,7 @@
       "!!**/.venv",
       "!!**/.venv-*",
       "!!**/.mypy_cache",
+      "!!**/.vlz",
       "!!**/site-packages",
       "!!**/reports",
       "!!**/sbom",

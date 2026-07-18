@@ -34,11 +34,11 @@ IMAGE="${SUPER_LINTER_IMAGE:-$DEFAULT_SUPER_LINTER_IMAGE}"
 ALL_CODEBASE="${VALIDATE_ALL_CODEBASE:-false}"
 DEFAULT_BRANCH="${DEFAULT_BRANCH:-main}"
 
-# Match CONTRIBUTING: skip build trees, venvs, completions (ShellCheck via make
-# lint-shell + completions/.shellcheckrc), and site-packages. Trivy uses
-# scan.skip-dirs in trivy.yaml; Checkov uses skip-path in .checkov.yaml (both
-# ignore FILTER_REGEX_EXCLUDE).
-FILTER_REGEX_EXCLUDE='(^|/)(target/|\.git/|completions/|\.venv[^/]*/|\.mypy_cache/|site-packages/|super-linter-output/)'
+# Match CONTRIBUTING: skip build trees, venvs, reachability cache (.vlz),
+# completions (ShellCheck via make lint-shell + completions/.shellcheckrc), and
+# site-packages. Trivy uses scan.skip-dirs in trivy.yaml; Checkov uses
+# skip-path in .checkov.yaml (both ignore FILTER_REGEX_EXCLUDE).
+FILTER_REGEX_EXCLUDE='(^|/)(target/|\.git/|completions/|\.venv[^/]*/|\.mypy_cache/|\.vlz/|site-packages/|super-linter-output/)'
 
 # Validator toggles: Rust/Python/shell/markdown/natural-language off when covered by
 # make -j check (or not part of the project gate). isort is off because lint-python

@@ -18,6 +18,8 @@ scan:
     - .git
     - completions
     - .mypy_cache
+    - .vlz
+    - "**/.vlz"
     - site-packages
     - super-linter-output
     - ".venv"

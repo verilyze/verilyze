@@ -13,6 +13,7 @@ skip-path:
   - .git
   - completions
   - .mypy_cache
+  - .vlz
   - site-packages
   - super-linter-output
   - .venv
