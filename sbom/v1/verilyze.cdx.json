@@ -37,11 +37,11 @@
       "version": "4.0.6"
     },
     {
-      "bom-ref": "pkg:pypi/mypy@2.2.0",
+      "bom-ref": "pkg:pypi/mypy@2.3.0",
       "name": "mypy",
-      "purl": "pkg:pypi/mypy@2.2.0",
+      "purl": "pkg:pypi/mypy@2.3.0",
       "type": "library",
-      "version": "2.2.0"
+      "version": "2.3.0"
     },
     {
       "bom-ref": "pkg:pypi/bandit@1.9.4",
@@ -51,11 +51,11 @@
       "version": "1.9.4"
     },
     {
-      "bom-ref": "pkg:pypi/codespell@2.4.2",
+      "bom-ref": "pkg:pypi/codespell@2.4.3",
       "name": "codespell",
-      "purl": "pkg:pypi/codespell@2.4.2",
+      "purl": "pkg:pypi/codespell@2.4.3",
       "type": "library",
-      "version": "2.4.2"
+      "version": "2.4.3"
     },
     {
       "bom-ref": "pkg:cargo/afl@0.17.1",

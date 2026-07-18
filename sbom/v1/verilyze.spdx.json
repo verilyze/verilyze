@@ -50,9 +50,9 @@
     {
       "@type": "Package",
       "name": "mypy",
-      "packageUrl": "pkg:pypi/mypy@2.2.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-mypy-2-2-0",
-      "versionInfo": "2.2.0"
+      "packageUrl": "pkg:pypi/mypy@2.3.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-mypy-2-3-0",
+      "versionInfo": "2.3.0"
     },
     {
       "@type": "Package",
@@ -64,9 +64,9 @@
     {
       "@type": "Package",
       "name": "codespell",
-      "packageUrl": "pkg:pypi/codespell@2.4.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-codespell-2-4-2",
-      "versionInfo": "2.4.2"
+      "packageUrl": "pkg:pypi/codespell@2.4.3",
+      "spdxId": "urn:spdx.dev:pkg-pypi-codespell-2-4-3",
+      "versionInfo": "2.4.3"
     },
     {
       "@type": "Package",
