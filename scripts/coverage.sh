@@ -114,10 +114,12 @@ _run_rust_coverage() {
     _vlz_cov_quiet_log
     if vlz_check_verbose_enabled; then
       env XDG_CONFIG_HOME=/tmp/vlz-cov-cfg XDG_CACHE_HOME=/tmp/vlz-cov-cache \
-        XDG_DATA_HOME=/tmp/vlz-cov-data cargo run --bin vlz -- "$@"
+        XDG_DATA_HOME=/tmp/vlz-cov-data cargo run --features vlz/testing \
+        --bin vlz -- "$@"
     else
       env XDG_CONFIG_HOME=/tmp/vlz-cov-cfg XDG_CACHE_HOME=/tmp/vlz-cov-cache \
-        XDG_DATA_HOME=/tmp/vlz-cov-data cargo run --bin vlz -- "$@" >/dev/null
+        XDG_DATA_HOME=/tmp/vlz-cov-data cargo run --features vlz/testing \
+        --bin vlz -- "$@" >/dev/null
     fi
   }
   _vlz_cov_phase "cargo run binary probes"
