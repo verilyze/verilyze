@@ -143,6 +143,8 @@ pub struct ResolvePackagesOutput {
     pub root_path: PathBuf,
     pub exclude_dirs: HashSet<String>,
     pub packages_with_manifests: Vec<(Package, PathBuf, String)>,
+    pub pkg_declarations:
+        HashMap<Package, Vec<vlz_db::PackageDeclarationLocation>>,
     pub pkg_contexts: HashMap<Package, PackageContext>,
     pub packages_to_check: Vec<Package>,
     pub manifest_coverage: Vec<ManifestCoverageEntry>,
@@ -275,6 +277,7 @@ pub async fn resolve_packages_for_path(
                     root_path,
                     exclude_dirs: HashSet::new(),
                     packages_with_manifests: Vec::new(),
+                    pkg_declarations: HashMap::new(),
                     pkg_contexts: HashMap::new(),
                     packages_to_check: Vec::new(),
                     manifest_coverage: Vec::new(),
@@ -296,6 +299,10 @@ pub async fn resolve_packages_for_path(
         normalized_exclude_dir_names(&effective.scan_exclude_dirs);
     let mut packages_with_manifests: Vec<(Package, PathBuf, String)> =
         Vec::new();
+    let mut pkg_declarations: HashMap<
+        Package,
+        Vec<vlz_db::PackageDeclarationLocation>,
+    > = HashMap::new();
     let mut direct_only_warned: HashSet<(PathBuf, &'static str)> =
         HashSet::new();
     let mut multi_lock_warned: HashSet<PathBuf> = HashSet::new();
@@ -500,6 +507,10 @@ pub async fn resolve_packages_for_path(
                             )
                         );
                     }
+                    vlz_manifest_parser::merge_declaration_maps(
+                        &mut pkg_declarations,
+                        resolved.package_declarations,
+                    );
                     for pkg in resolved.packages {
                         if let Some(sources) =
                             resolved.package_source_paths.get(&pkg)
@@ -596,6 +607,7 @@ pub async fn resolve_packages_for_path(
         root_path,
         exclude_dirs,
         packages_with_manifests,
+        pkg_declarations,
         pkg_contexts,
         packages_to_check,
         manifest_coverage,

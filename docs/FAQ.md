@@ -207,12 +207,16 @@ Transitive or runtime-only exposure is not covered.
 ### SARIF shows manifest paths but no source line
 
 **Cause:** No advisory symbols from the provider, no first-party symbol match,
-or reachability mode is not `best-available`.
+reachability mode is not `best-available`, or declaration lines could not be
+parsed for that dependency (e.g. `cargo metadata` / pip-freeze paths).
 
 **Remediation:** Use `best-available`, ensure OSV provides symbol metadata, and
-confirm your code references the listed symbols. When evidence exists, SARIF
-uses the consumer source line as `locations[0]` and manifest paths in
-`relatedLocations`.
+confirm your code references the listed symbols. When reachability evidence
+exists, SARIF uses the consumer source line as `locations[0]` and declaration
+lines (when known) or manifest paths in `relatedLocations`. When evidence is
+absent but declaration lines were parsed, SARIF uses declaration `startLine` in
+primary `locations`. `declarations[]` in JSON is separate from `evidence[]`:
+declarations show where a dependency is declared, not where vulnerable code runs.
 
 ---
 

@@ -3,7 +3,42 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use super::pep508::parse_pep508_dependency;
-use vlz_manifest_parser::ParserError;
+use std::path::Path;
+use vlz_db::DeclarationKind;
+use vlz_manifest_parser::{ParsedDependency, ParserError};
+
+/// Parse requirements.txt with declaration line metadata.
+pub fn parse_requirements_txt_with_declarations(
+    content: &str,
+    path: &Path,
+) -> Result<Vec<ParsedDependency>, ParserError> {
+    let mut parsed = Vec::new();
+    for (i, line) in content.lines().enumerate() {
+        let start_line = (i + 1) as u32;
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        if trimmed.starts_with("-r ")
+            || trimmed.starts_with("-e ")
+            || trimmed.starts_with("--")
+            || trimmed.starts_with("-f ")
+            || trimmed.starts_with("-i ")
+        {
+            continue;
+        }
+        if let Some(pkg) = parse_requirement_line(trimmed) {
+            parsed.push(ParsedDependency {
+                package: pkg,
+                path: path.to_path_buf(),
+                start_line,
+                end_line: None,
+                kind: DeclarationKind::Manifest,
+            });
+        }
+    }
+    Ok(parsed)
+}
 
 /// Parse requirements.txt content into a list of packages (name, version).
 /// Skips comments, empty lines, and directive lines (-r, -e, etc.).
@@ -12,25 +47,13 @@ use vlz_manifest_parser::ParserError;
 pub fn parse_requirements_txt(
     content: &str,
 ) -> Result<Vec<vlz_db::Package>, ParserError> {
-    let mut packages = Vec::new();
-    for line in content.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-        if line.starts_with("-r ")
-            || line.starts_with("-e ")
-            || line.starts_with("--")
-            || line.starts_with("-f ")
-            || line.starts_with("-i ")
-        {
-            continue;
-        }
-        if let Some(pkg) = parse_requirement_line(line) {
-            packages.push(pkg);
-        }
-    }
-    Ok(packages)
+    Ok(parse_requirements_txt_with_declarations(
+        content,
+        Path::new("requirements.txt"),
+    )?
+    .into_iter()
+    .map(|dep| dep.package)
+    .collect())
 }
 
 /// Parse a single requirement line into Package (name, version), or None if unparseable.
@@ -49,6 +72,19 @@ fn parse_requirement_line(line: &str) -> Option<vlz_db::Package> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parse_requirements_txt_with_declarations_records_lines() {
+        let content = "# comment\nfoo==1.0\n\nbar>=2.0\n";
+        let deps = parse_requirements_txt_with_declarations(
+            content,
+            std::path::Path::new("requirements.txt"),
+        )
+        .unwrap();
+        assert_eq!(deps.len(), 2);
+        assert_eq!(deps[0].start_line, 2);
+        assert_eq!(deps[1].start_line, 4);
+    }
 
     #[test]
     fn parse_requirement_line_strips_extras() {

@@ -9,8 +9,10 @@ use vlz_db::CRATES_IO_ECOSYSTEM;
 
 use async_trait::async_trait;
 use vlz_manifest_parser::{
-    DependencyGraph, ResolutionDepth, ResolveContext, ResolveResult, Resolver,
-    ResolverError, direct_only_result, require_transitive_or_fallback,
+    CachedResolution, DependencyGraph, ResolutionDepth, ResolveContext,
+    ResolveResult, Resolver, ResolverError, direct_only_result_from_graph,
+    lock_declaration, require_transitive_or_fallback,
+    resolve_declarations_for_packages, scan_toml_lock_stanzas,
     skip_package_manager_reason,
 };
 
@@ -25,6 +27,32 @@ pub fn find_lock_file(manifest_path: &Path) -> Option<std::path::PathBuf> {
     }
     dir.parent()
         .and_then(|p| find_lock_file(&p.join("Cargo.toml")))
+}
+
+type LockParseOutput = (
+    Vec<vlz_db::Package>,
+    HashMap<vlz_db::Package, Vec<vlz_db::PackageDeclarationLocation>>,
+);
+
+/// Parse Cargo.lock content into packages and lock declaration lines.
+pub fn parse_cargo_lock_with_declarations(
+    content: &str,
+    lock_path: &Path,
+) -> Result<LockParseOutput, vlz_manifest_parser::ParserError> {
+    let packages = parse_cargo_lock(content)?;
+    let stanzas =
+        scan_toml_lock_stanzas(content, "[[package]]", CRATES_IO_ECOSYSTEM);
+    let mut lock_declarations = HashMap::new();
+    for stanza in stanzas {
+        if let Some(loc) = lock_declaration(lock_path, stanza.start_line, None)
+        {
+            lock_declarations
+                .entry(stanza.package)
+                .or_insert_with(Vec::new)
+                .push(loc);
+        }
+    }
+    Ok((packages, lock_declarations))
 }
 
 /// Parse Cargo.lock content into a list of packages. Public for fuzzing.
@@ -65,7 +93,7 @@ pub fn parse_cargo_lock(
 /// manifests share the same lock file (e.g. workspace members).
 #[derive(Debug)]
 pub struct CargoResolver {
-    lock_cache: Mutex<HashMap<String, Vec<vlz_db::Package>>>,
+    lock_cache: Mutex<HashMap<String, CachedResolution>>,
     metadata_cache: Mutex<HashMap<String, Vec<vlz_db::Package>>>,
 }
 
@@ -123,33 +151,60 @@ impl Resolver for CargoResolver {
             let cache_key = lock_path.to_string_lossy().to_string();
             if let Ok(cache) = self.lock_cache.lock()
                 && let Some(cached) = cache.get(&cache_key)
-                && !cached.is_empty()
+                && !cached.packages.is_empty()
             {
+                let package_declarations = resolve_declarations_for_packages(
+                    &cached.packages,
+                    graph,
+                    &cached.package_declarations,
+                );
                 return Ok(ResolveResult {
-                    packages: cached.clone(),
+                    packages: cached.packages.clone(),
                     depth: ResolutionDepth::Transitive,
                     direct_only_reason: None,
-                    ..Default::default()
+                    package_source_paths: cached.package_source_paths.clone(),
+                    package_declarations,
+                    resolved_lock_paths: vec![lock_path.clone()],
                 });
             }
             if let Ok(content) = tokio::fs::read_to_string(&lock_path).await
-                && let Ok(packages) = parse_cargo_lock(&content)
+                && let Ok((packages, lock_declarations)) =
+                    parse_cargo_lock_with_declarations(&content, &lock_path)
                 && !packages.is_empty()
             {
-                if let Ok(mut cache) = self.lock_cache.lock() {
-                    cache.insert(cache_key, packages.clone());
+                let mut package_source_paths = HashMap::new();
+                for pkg in &packages {
+                    package_source_paths
+                        .entry(pkg.clone())
+                        .or_insert_with(Vec::new)
+                        .push(lock_path.clone());
                 }
+                let cached = CachedResolution {
+                    packages: packages.clone(),
+                    package_declarations: lock_declarations.clone(),
+                    package_source_paths: package_source_paths.clone(),
+                };
+                if let Ok(mut cache) = self.lock_cache.lock() {
+                    cache.insert(cache_key, cached);
+                }
+                let package_declarations = resolve_declarations_for_packages(
+                    &packages,
+                    graph,
+                    &lock_declarations,
+                );
                 return Ok(ResolveResult {
                     packages,
                     depth: ResolutionDepth::Transitive,
                     direct_only_reason: None,
-                    ..Default::default()
+                    package_source_paths,
+                    package_declarations,
+                    resolved_lock_paths: vec![lock_path],
                 });
             }
         }
 
         if let Some(reason) = skip_package_manager_reason(ctx) {
-            return Ok(direct_only_result(graph.packages.clone(), reason));
+            return Ok(direct_only_result_from_graph(graph, reason));
         }
 
         let manifest_path = graph
@@ -275,6 +330,7 @@ version = "1.0"
                 version: "1.0".to_string(),
                 ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
             }],
+            parsed_dependencies: Vec::new(),
             manifest_path: None,
         };
         let resolver = CargoResolver::new();
@@ -309,6 +365,7 @@ serde = "1.0"
                 version: "1.0".to_string(),
                 ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
             }],
+            parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("Cargo.toml")),
         };
         let resolver = CargoResolver::new();
@@ -348,6 +405,7 @@ version = "1.0.2"
                 version: "1.0".to_string(),
                 ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
             }],
+            parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("Cargo.toml")),
         };
         let resolver = CargoResolver::new();
@@ -377,6 +435,7 @@ version = "1.0.2"
                 version: "1.0".to_string(),
                 ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
             }],
+            parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("Cargo.toml")),
         };
         let resolver = CargoResolver::new();
@@ -429,6 +488,7 @@ version = "1.0.2"
                 version: "1.0".to_string(),
                 ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
             }],
+            parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("Cargo.toml")),
         };
         let resolver = CargoResolver::new();
@@ -470,6 +530,7 @@ version = "0.1.0"
                 version: "1.0".to_string(),
                 ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
             }],
+            parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("Cargo.toml")),
         };
         let resolver = CargoResolver::new();

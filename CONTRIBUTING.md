@@ -555,11 +555,15 @@ symbols (OSV `ecosystem_specific`, etc.), JSON and plain/HTML reports may includ
 Tier B (the default mode) does not emit symbol-level evidence. Matches are
 reference-site heuristics (imports, names), not proof that a vulnerable code path
 executes. Many advisories lack symbol metadata; when symbols are absent, evidence
-is omitted. Third-party package source and lockfile declaration lines are not
-annotated.
+is omitted. Declaration-line spans (Tier 1, FR-036a) are separate from reachability
+evidence: JSON `declarations[]` records where a dependency is declared in a
+manifest or lockfile (`path`, `start_line`, `kind`). They are best-effort metadata,
+not proof of vulnerable code execution.
 
-SARIF uploads use consumer source `region.startLine` as the primary location when
-evidence exists; manifest paths appear in `relatedLocations`.
+SARIF: when reachability `evidence` exists, consumer source lines are primary
+`locations` and declaration lines (when known) appear in `relatedLocations`.
+When evidence is absent but declaration lines are known, declarations are primary
+`locations`; otherwise manifest paths are file-level URIs only.
 
 ### Reachability analyzer plugin
 

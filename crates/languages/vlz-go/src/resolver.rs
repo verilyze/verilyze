@@ -9,8 +9,9 @@ use std::sync::Mutex;
 use async_trait::async_trait;
 use vlz_manifest_parser::{
     DependencyGraph, ResolutionDepth, ResolveContext, ResolveResult, Resolver,
-    ResolverError, direct_only_result, fr022_transitive_error,
-    require_transitive_or_fallback, skip_package_manager_reason,
+    ResolverError, direct_only_result_from_graph, fr022_transitive_error,
+    require_transitive_or_fallback, resolve_declarations_for_packages,
+    skip_package_manager_reason,
 };
 
 use crate::parser::GO_ECOSYSTEM;
@@ -99,7 +100,7 @@ impl Resolver for GoResolver {
         ctx: &ResolveContext,
     ) -> Result<ResolveResult, ResolverError> {
         if let Some(reason) = skip_package_manager_reason(ctx) {
-            return Ok(direct_only_result(graph.packages.clone(), reason));
+            return Ok(direct_only_result_from_graph(graph, reason));
         }
 
         if let Some(ref manifest_path) = graph.manifest_path {
@@ -109,10 +110,17 @@ impl Resolver for GoResolver {
                 if let Ok(cache) = self.list_cache.lock()
                     && let Some(cached) = cache.get(&cache_key)
                 {
+                    let package_declarations =
+                        resolve_declarations_for_packages(
+                            cached,
+                            graph,
+                            &HashMap::new(),
+                        );
                     return Ok(ResolveResult {
                         packages: cached.clone(),
                         depth: ResolutionDepth::Transitive,
                         direct_only_reason: None,
+                        package_declarations,
                         ..Default::default()
                     });
                 }
@@ -138,10 +146,17 @@ impl Resolver for GoResolver {
                                 if let Ok(mut cache) = self.list_cache.lock() {
                                     cache.insert(cache_key, packages.clone());
                                 }
+                                let package_declarations =
+                                    resolve_declarations_for_packages(
+                                        &packages,
+                                        graph,
+                                        &HashMap::new(),
+                                    );
                                 return Ok(ResolveResult {
                                     packages,
                                     depth: ResolutionDepth::Transitive,
                                     direct_only_reason: None,
+                                    package_declarations,
                                     ..Default::default()
                                 });
                             }
@@ -230,6 +245,7 @@ github.com/stretchr/testify v1.8.0
                 version: "v1.0.0".to_string(),
                 ecosystem: Some(GO_ECOSYSTEM.to_string()),
             }],
+            parsed_dependencies: Vec::new(),
             manifest_path: None,
         };
         let resolver = GoResolver::new();
@@ -260,6 +276,7 @@ github.com/stretchr/testify v1.8.0
                 version: "v1.9.0".to_string(),
                 ecosystem: Some(GO_ECOSYSTEM.to_string()),
             }],
+            parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("go.mod")),
         };
         let resolver = GoResolver::new();
@@ -289,6 +306,7 @@ github.com/stretchr/testify v1.8.0
                 version: "v1.9.0".to_string(),
                 ecosystem: Some(GO_ECOSYSTEM.to_string()),
             }],
+            parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("go.mod")),
         };
         let resolver = GoResolver::new();
@@ -318,6 +336,7 @@ github.com/stretchr/testify v1.8.0
                 version: "v1.9.0".to_string(),
                 ecosystem: Some(GO_ECOSYSTEM.to_string()),
             }],
+            parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("go.mod")),
         };
         let resolver = GoResolver::new();

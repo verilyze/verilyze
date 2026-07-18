@@ -77,6 +77,20 @@
         "symbol": { "type": "string" }
       }
     },
+    "manifest_declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "start_line", "kind"],
+      "properties": {
+        "path": { "type": "string" },
+        "start_line": { "type": "integer", "minimum": 1 },
+        "end_line": { "type": "integer", "minimum": 1 },
+        "kind": {
+          "type": "string",
+          "enum": ["manifest", "lockfile"]
+        }
+      }
+    },
     "finding": {
       "type": "object",
       "additionalProperties": false,
@@ -86,6 +100,10 @@
         "manifest_paths": {
           "type": "array",
           "items": { "type": "string" }
+        },
+        "declarations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/manifest_declaration" }
         },
         "cves": {
           "type": "array",

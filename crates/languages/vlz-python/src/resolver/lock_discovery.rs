@@ -5,13 +5,13 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use vlz_manifest_parser::ParserError;
+use vlz_manifest_parser::{ParserError, lock_declarations_from_parsed};
 
 use crate::lock_names::{
     filter_lock_paths_by_allowlist, is_pylock_variant, manifest_is_lock_file,
     verify_lock_allowlist_for_dir,
 };
-use crate::parser::parse_lock_file;
+use crate::parser::parse_lock_file_with_declarations;
 
 /// Basenames searched adjacent to manifests (Appendix A). `pylock.*.toml` via [`collect_pylock_variants`].
 const LOCK_CANDIDATE_BASENAMES: &[&str] =
@@ -78,6 +78,8 @@ pub fn find_lock_file(
 pub struct ResolvedLockFiles {
     pub packages: Vec<vlz_db::Package>,
     pub package_source_paths: HashMap<vlz_db::Package, Vec<PathBuf>>,
+    pub package_declarations:
+        HashMap<vlz_db::Package, Vec<vlz_db::PackageDeclarationLocation>>,
     pub lock_paths: Vec<PathBuf>,
 }
 
@@ -105,6 +107,10 @@ pub fn resolve_lock_files(
     let mut packages = Vec::new();
     let mut package_source_paths: HashMap<vlz_db::Package, Vec<PathBuf>> =
         HashMap::new();
+    let mut package_declarations: HashMap<
+        vlz_db::Package,
+        Vec<vlz_db::PackageDeclarationLocation>,
+    > = HashMap::new();
     let mut seen: HashSet<(String, String)> = HashSet::new();
     let mut any_success = false;
     let mut last_err = None;
@@ -112,14 +118,25 @@ pub fn resolve_lock_files(
     for lock_path in &lock_paths {
         match std::fs::read_to_string(lock_path) {
             Ok(content) => {
-                match parse_lock_file(lock_path.as_path(), &content) {
-                    Ok(pkgs) => {
+                match parse_lock_file_with_declarations(
+                    lock_path.as_path(),
+                    &content,
+                ) {
+                    Ok((pkgs, parsed)) => {
                         any_success = true;
+                        let lock_decls =
+                            lock_declarations_from_parsed(&parsed);
                         for pkg in pkgs {
                             package_source_paths
                                 .entry(pkg.clone())
                                 .or_default()
                                 .push(lock_path.clone());
+                            if let Some(decls) = lock_decls.get(&pkg) {
+                                package_declarations
+                                    .entry(pkg.clone())
+                                    .or_default()
+                                    .extend(decls.iter().cloned());
+                            }
                             let key = (pkg.name.clone(), pkg.version.clone());
                             if seen.insert(key) {
                                 packages.push(pkg);
@@ -146,6 +163,7 @@ pub fn resolve_lock_files(
     Ok(Some(ResolvedLockFiles {
         packages,
         package_source_paths,
+        package_declarations,
         lock_paths,
     }))
 }

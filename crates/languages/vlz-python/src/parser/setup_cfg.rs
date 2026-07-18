@@ -3,7 +3,101 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use super::pep508::parse_pep508_dependency;
-use vlz_manifest_parser::ParserError;
+use std::path::Path;
+use vlz_db::DeclarationKind;
+use vlz_manifest_parser::{ParsedDependency, ParserError};
+
+/// Parse setup.cfg with declaration line metadata.
+pub fn parse_setup_cfg_with_declarations(
+    content: &str,
+    path: &Path,
+) -> Result<Vec<ParsedDependency>, ParserError> {
+    let mut parsed = Vec::new();
+    let mut in_options = false;
+    let mut in_extras = false;
+    let mut in_install_requires = false;
+
+    for (i, line) in content.lines().enumerate() {
+        let start_line = (i + 1) as u32;
+        let trimmed = line.trim();
+        let is_continuation = !line.is_empty()
+            && (line.starts_with(' ') || line.starts_with('\t'))
+            && !trimmed.is_empty();
+
+        if trimmed.is_empty()
+            || trimmed.starts_with('#')
+            || trimmed.starts_with(';')
+        {
+            in_install_requires = false;
+            continue;
+        }
+
+        if trimmed.starts_with('[') {
+            in_options = trimmed == "[options]";
+            in_extras = trimmed == "[options.extras_require]";
+            in_install_requires = false;
+            continue;
+        }
+
+        if in_options {
+            if !is_continuation {
+                if let Some((key, val)) = trimmed.split_once('=') {
+                    let key = key.trim();
+                    let val = val.trim();
+                    if key == "install_requires" {
+                        in_install_requires = true;
+                        for dep in split_deps(val) {
+                            if let Some(pkg) = parse_pep508_dependency(dep) {
+                                parsed.push(ParsedDependency {
+                                    package: pkg,
+                                    path: path.to_path_buf(),
+                                    start_line,
+                                    end_line: None,
+                                    kind: DeclarationKind::Manifest,
+                                });
+                            }
+                        }
+                        if !val.is_empty() && !val.ends_with(',') {
+                            in_install_requires = false;
+                        }
+                    } else {
+                        in_install_requires = false;
+                    }
+                } else {
+                    in_install_requires = false;
+                }
+            } else if in_install_requires {
+                for dep in split_deps(trimmed) {
+                    if let Some(pkg) = parse_pep508_dependency(dep) {
+                        parsed.push(ParsedDependency {
+                            package: pkg,
+                            path: path.to_path_buf(),
+                            start_line,
+                            end_line: None,
+                            kind: DeclarationKind::Manifest,
+                        });
+                    }
+                }
+            }
+        }
+
+        if in_extras && let Some((_, val)) = trimmed.split_once('=') {
+            for dep in split_deps(val.trim()) {
+                if let Some(pkg) = parse_pep508_dependency(dep) {
+                    parsed.push(ParsedDependency {
+                        package: pkg,
+                        path: path.to_path_buf(),
+                        start_line,
+                        end_line: None,
+                        kind: DeclarationKind::Manifest,
+                    });
+                }
+            }
+        }
+    }
+
+    Ok(parsed)
+}
 
 /// Parse setup.cfg content into a list of packages (name, version).
 /// Supports [options] install_requires and [options.extras_require].

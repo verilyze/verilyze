@@ -98,6 +98,99 @@ pub struct CveEvidenceLocation {
     pub symbol: String,
 }
 
+/// Manifest or lockfile origin of a dependency declaration (FR-036a Tier 1).
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+#[serde(rename_all = "lowercase")]
+pub enum DeclarationKind {
+    Manifest,
+    Lockfile,
+}
+
+/// Line-level location where a dependency is declared (FR-036a).
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+)]
+pub struct PackageDeclarationLocation {
+    pub path: String,
+    pub start_line: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_line: Option<u32>,
+    pub kind: DeclarationKind,
+}
+
+/// Cap declaration SARIF locations per result (aligned with evidence cap).
+pub const MAX_DECLARATIONS_PER_FINDING: usize = 10;
+
+impl PackageDeclarationLocation {
+    /// Build a declaration location; returns None when invariants fail.
+    pub fn new(
+        path: impl Into<String>,
+        start_line: u32,
+        end_line: Option<u32>,
+        kind: DeclarationKind,
+    ) -> Option<Self> {
+        let path = path.into();
+        if path.is_empty() || start_line == 0 {
+            return None;
+        }
+        if let Some(end) = end_line
+            && end < start_line
+        {
+            return None;
+        }
+        Some(Self {
+            path,
+            start_line,
+            end_line,
+            kind,
+        })
+    }
+}
+
+/// Dedupe key for declaration locations.
+pub fn declaration_dedupe_key(
+    loc: &PackageDeclarationLocation,
+) -> (DeclarationKind, String, u32, Option<u32>) {
+    (loc.kind, loc.path.clone(), loc.start_line, loc.end_line)
+}
+
+/// Sort declarations: manifest before lockfile, then path, then line.
+pub fn sort_declarations(declarations: &mut [PackageDeclarationLocation]) {
+    declarations.sort_by(|a, b| {
+        let kind_ord = match (a.kind, b.kind) {
+            (DeclarationKind::Manifest, DeclarationKind::Lockfile) => {
+                std::cmp::Ordering::Less
+            }
+            (DeclarationKind::Lockfile, DeclarationKind::Manifest) => {
+                std::cmp::Ordering::Greater
+            }
+            _ => std::cmp::Ordering::Equal,
+        };
+        kind_ord
+            .then_with(|| a.path.cmp(&b.path))
+            .then_with(|| a.start_line.cmp(&b.start_line))
+            .then_with(|| a.end_line.cmp(&b.end_line))
+    });
+}
+
+/// Dedupe and sort declaration locations in place.
+pub fn dedupe_sort_declarations(
+    declarations: &mut Vec<PackageDeclarationLocation>,
+) {
+    let mut seen = std::collections::HashSet::new();
+    declarations.retain(|loc| seen.insert(declaration_dedupe_key(loc)));
+    sort_declarations(declarations);
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CveRecord {
     pub id: String,
@@ -504,6 +597,42 @@ mod tests {
                 .collect();
             Ok(set)
         }
+    }
+
+    #[test]
+    fn package_declaration_location_rejects_invalid_line() {
+        assert!(
+            super::PackageDeclarationLocation::new(
+                "Cargo.toml",
+                0,
+                None,
+                super::DeclarationKind::Manifest,
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn dedupe_sort_declarations_orders_manifest_before_lockfile() {
+        let mut decls = vec![
+            super::PackageDeclarationLocation::new(
+                "poetry.lock",
+                10,
+                None,
+                super::DeclarationKind::Lockfile,
+            )
+            .unwrap(),
+            super::PackageDeclarationLocation::new(
+                "pyproject.toml",
+                5,
+                None,
+                super::DeclarationKind::Manifest,
+            )
+            .unwrap(),
+        ];
+        super::dedupe_sort_declarations(&mut decls);
+        assert_eq!(decls[0].kind, super::DeclarationKind::Manifest);
+        assert_eq!(decls[1].kind, super::DeclarationKind::Lockfile);
     }
 
     #[test]

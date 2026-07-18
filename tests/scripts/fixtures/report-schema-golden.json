@@ -28,6 +28,18 @@
         "ecosystem": "pypi"
       },
       "manifest_paths": ["requirements.txt"],
+      "declarations": [
+        {
+          "path": "pyproject.toml",
+          "start_line": 8,
+          "kind": "manifest"
+        },
+        {
+          "path": "poetry.lock",
+          "start_line": 42,
+          "kind": "lockfile"
+        }
+      ],
       "cves": [
         {
           "id": "CVE-2024-0001",

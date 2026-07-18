@@ -52,6 +52,9 @@ Scan directory tree for manifests and CVEs. Default root is current directory.
 .Bl -tag -width Ds
 .It Fl -format Ar fmt
 Output format: plain, json, sarif, cyclonedx, spdx (default: plain).
+JSON and SARIF may include optional declaration lines (path and start_line)
+where dependencies are declared in manifests or lockfiles; this is separate
+from reachability evidence (FR-032).
 .It Fl -summary-file Ar type:path
 Generate additional files (e.g. html:/tmp/out.html,cyclonedx:/tmp/sbom.json).
 .It Fl -provider Ar name
