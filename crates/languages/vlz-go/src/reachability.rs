@@ -7,8 +7,11 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
 use vlz_reachability_trait::{
-    ReachabilityAnalyzer, TierBContext, TierBDecision, TierCDecision,
-    list_files_with_ext, note_tier_b_file_read_attempt,
+    LineCommentStyle, ReachabilityAnalyzer, ReachabilityEvidence,
+    TierBContext, TierBDecision, TierCDecision, TierCResult,
+    line_code_for_symbol_match, list_files_with_ext,
+    note_tier_b_file_read_attempt, push_reachability_evidence,
+    qualified_symbol_in_code, reachability_evidence_at_cap,
 };
 
 #[derive(Debug, Default)]
@@ -150,23 +153,130 @@ fn go_import_path_matches(sym: &str, import: &str) -> bool {
         || sym.starts_with(&format!("{import}/"))
 }
 
-fn go_symbol_referenced_in_sources(
+fn go_line_has_symbol_evidence(line: &str, symbol: &str) -> bool {
+    let trimmed = line.trim();
+    if trimmed.is_empty() || trimmed.starts_with("//") {
+        return false;
+    }
+    if trimmed.starts_with("import ") {
+        for import_path in quoted_paths_in_line(line) {
+            if go_import_path_matches(symbol, &import_path) {
+                return true;
+            }
+        }
+        return false;
+    }
+    let code =
+        line_code_for_symbol_match(trimmed, LineCommentStyle::SlashSlash);
+    qualified_symbol_in_code(&code, symbol)
+}
+
+fn collect_go_symbol_evidence(
     files: &[PathBuf],
     symbol: &str,
     imports: &HashSet<String>,
-) -> bool {
-    for path in files {
+) -> Vec<ReachabilityEvidence> {
+    let mut evidence = Vec::new();
+    'files: for path in files {
         let Ok(content) = std::fs::read_to_string(path) else {
             continue;
         };
         if !imports.iter().any(|imp| content.contains(imp.as_str())) {
             continue;
         }
-        if content.contains(symbol) {
-            return true;
+        for (idx, line) in content.lines().enumerate() {
+            if go_line_has_symbol_evidence(line, symbol) {
+                push_reachability_evidence(
+                    &mut evidence,
+                    path.clone(),
+                    (idx + 1) as u32,
+                    symbol,
+                );
+            }
+            if reachability_evidence_at_cap(&evidence) {
+                break 'files;
+            }
         }
     }
-    false
+    evidence
+}
+
+fn collect_go_import_path_evidence(
+    files: &[PathBuf],
+    sym: &str,
+) -> Vec<ReachabilityEvidence> {
+    let mut evidence = Vec::new();
+    'files: for path in files {
+        let Ok(content) = std::fs::read_to_string(path) else {
+            continue;
+        };
+        for (idx, line) in content.lines().enumerate() {
+            for import_path in quoted_paths_in_line(line) {
+                if go_import_path_matches(sym, &import_path) {
+                    push_reachability_evidence(
+                        &mut evidence,
+                        path.clone(),
+                        (idx + 1) as u32,
+                        sym,
+                    );
+                }
+            }
+            if reachability_evidence_at_cap(&evidence) {
+                break 'files;
+            }
+        }
+    }
+    evidence
+}
+
+fn tier_c_result_for_symbols(
+    context: &TierBContext<'_>,
+    advisory_symbols: &[String],
+) -> TierCResult {
+    let imports = cached_go_import_paths(context);
+    if imports.is_empty() {
+        return TierCResult::unknown();
+    }
+    let files = list_go_files(context);
+    let mut evidence = Vec::new();
+    let mut saw_reachable = false;
+    for sym in advisory_symbols {
+        if sym.contains('/') {
+            if imports.iter().any(|imp| go_import_path_matches(sym, imp)) {
+                saw_reachable = true;
+            }
+            for item in collect_go_import_path_evidence(&files, sym) {
+                push_reachability_evidence(
+                    &mut evidence,
+                    item.path,
+                    item.start_line,
+                    item.symbol,
+                );
+            }
+        } else {
+            let sym_evidence =
+                collect_go_symbol_evidence(&files, sym, &imports);
+            if !sym_evidence.is_empty() {
+                saw_reachable = true;
+                for item in sym_evidence {
+                    push_reachability_evidence(
+                        &mut evidence,
+                        item.path,
+                        item.start_line,
+                        item.symbol,
+                    );
+                }
+            }
+        }
+    }
+    let decision = if saw_reachable {
+        TierCDecision::Reachable
+    } else if go_module_path_ambiguous(&context.package.name) {
+        TierCDecision::Unknown
+    } else {
+        TierCDecision::NotReachable
+    };
+    TierCResult { decision, evidence }
 }
 
 fn go_module_path_ambiguous(path: &str) -> bool {
@@ -220,26 +330,8 @@ impl ReachabilityAnalyzer for GoTierBAnalyzer {
         &self,
         context: &TierBContext<'_>,
         advisory_symbols: &[String],
-    ) -> TierCDecision {
-        let imports = cached_go_import_paths(context);
-        if imports.is_empty() {
-            return TierCDecision::Unknown;
-        }
-        let files = list_go_files(context);
-        for sym in advisory_symbols {
-            if sym.contains('/') {
-                if imports.iter().any(|imp| go_import_path_matches(sym, imp)) {
-                    return TierCDecision::Reachable;
-                }
-            } else if go_symbol_referenced_in_sources(&files, sym, &imports) {
-                return TierCDecision::Reachable;
-            }
-        }
-        if go_module_path_ambiguous(&context.package.name) {
-            TierCDecision::Unknown
-        } else {
-            TierCDecision::NotReachable
-        }
+    ) -> TierCResult {
+        tier_c_result_for_symbols(context, advisory_symbols)
     }
 }
 
@@ -493,7 +585,8 @@ mod tests {
         let ctx = context_for(dir.path(), "github.com/foo/bar");
         assert_eq!(
             analyzer
-                .analyze_tier_c(&ctx, &["github.com/foo/bar/sub".to_string()]),
+                .analyze_tier_c(&ctx, &["github.com/foo/bar/sub".to_string()])
+                .decision,
             TierCDecision::Reachable
         );
     }
@@ -510,7 +603,8 @@ mod tests {
         let ctx = context_for(dir.path(), "github.com/foo/bar");
         assert_eq!(
             analyzer
-                .analyze_tier_c(&ctx, &["github.com/foo/bar/sub".to_string()]),
+                .analyze_tier_c(&ctx, &["github.com/foo/bar/sub".to_string()])
+                .decision,
             TierCDecision::NotReachable
         );
     }
@@ -525,9 +619,25 @@ mod tests {
         .expect("write");
         let analyzer = GoTierBAnalyzer::new();
         let ctx = context_for(dir.path(), "github.com/foo/bar");
-        assert_eq!(
-            analyzer.analyze_tier_c(&ctx, &["VulnFn".to_string()]),
-            TierCDecision::Reachable
-        );
+        let result = analyzer.analyze_tier_c(&ctx, &["VulnFn".to_string()]);
+        assert_eq!(result.decision, TierCDecision::Reachable);
+        assert_eq!(result.evidence.len(), 1);
+        assert_eq!(result.evidence[0].start_line, 3);
+        assert_eq!(result.evidence[0].symbol, "VulnFn");
+    }
+
+    #[test]
+    fn analyze_tier_c_no_evidence_for_unrelated_quoted_import() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("main.go"),
+            "package main\nimport \"fmt\"\nimport \"github.com/foo/bar\"\n",
+        )
+        .expect("write");
+        let analyzer = GoTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "github.com/foo/bar");
+        let result = analyzer
+            .analyze_tier_c(&ctx, &["github.com/other/pkg".to_string()]);
+        assert!(result.evidence.is_empty());
     }
 }

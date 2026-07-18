@@ -211,6 +211,9 @@ impl CveProvider for CveReturningProvider {
             cvss_version: Some(vlz_db::CvssVersion::V3),
             description: "Test CVE for manifest_paths".to_string(),
             reachable: None,
+            advisory_symbols: Vec::new(),
+            evidence: Vec::new(),
+            symbol_usage: None,
         };
         Ok(FetchedCves {
             raw_vulns: vec![serde_json::json!({"id": record.id})],
@@ -246,6 +249,9 @@ impl CveProvider for TierCReachabilityProvider {
             cvss_version: Some(vlz_db::CvssVersion::V3),
             description: "Tier C reachable symbol".to_string(),
             reachable: None,
+            advisory_symbols: Vec::new(),
+            evidence: Vec::new(),
+            symbol_usage: None,
         };
         let record_b = CveRecord {
             id: "CVE-TIER-C-B".to_string(),
@@ -253,6 +259,9 @@ impl CveProvider for TierCReachabilityProvider {
             cvss_version: Some(vlz_db::CvssVersion::V3),
             description: "Tier C other symbol".to_string(),
             reachable: None,
+            advisory_symbols: Vec::new(),
+            evidence: Vec::new(),
+            symbol_usage: None,
         };
         Ok(FetchedCves {
             raw_vulns: vec![

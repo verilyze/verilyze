@@ -8,8 +8,11 @@ use std::sync::{Mutex, OnceLock};
 
 use vlz_db::PYPI_ECOSYSTEM;
 use vlz_reachability_trait::{
-    ReachabilityAnalyzer, TierBContext, TierBDecision, TierCDecision,
-    list_files_with_ext, note_tier_b_file_read_attempt,
+    LineCommentStyle, ReachabilityAnalyzer, ReachabilityEvidence,
+    TierBContext, TierBDecision, TierCDecision, TierCResult,
+    line_code_for_symbol_match, list_files_with_ext,
+    note_tier_b_file_read_attempt, push_reachability_evidence,
+    qualified_symbol_in_code, reachability_evidence_at_cap,
 };
 
 #[derive(Debug, Default)]
@@ -160,6 +163,112 @@ fn import_roots_cache_key(context: &TierBContext<'_>) -> String {
     )
 }
 
+fn python_line_has_symbol_evidence(line: &str, sym: &str) -> bool {
+    let trimmed = line.trim();
+    if trimmed.is_empty() || trimmed.starts_with('#') {
+        return false;
+    }
+    if trimmed.starts_with("import ") || trimmed.starts_with("from ") {
+        return python_import_line_has_symbol_evidence(trimmed, sym);
+    }
+    let code = line_code_for_symbol_match(trimmed, LineCommentStyle::Hash);
+    qualified_symbol_in_code(&code, sym)
+}
+
+fn python_import_line_has_symbol_evidence(line: &str, sym: &str) -> bool {
+    if let Some(rest) = line.strip_prefix("import ") {
+        for part in split_top_level_commas(rest) {
+            let name = part.split_whitespace().next().unwrap_or("").trim();
+            if name.is_empty() || name == "as" {
+                continue;
+            }
+            if name == sym {
+                return true;
+            }
+        }
+        return false;
+    }
+    let Some(rest) = line.strip_prefix("from ") else {
+        return false;
+    };
+    let rest = rest.trim_start();
+    let Some(space_pos) = rest.find(" import ") else {
+        return false;
+    };
+    let module = rest[..space_pos].trim();
+    let imports = rest[space_pos + " import ".len()..].trim();
+    if module == sym {
+        return true;
+    }
+    let sym_parts: Vec<&str> = sym.split('.').collect();
+    if sym_parts.len() < 2 {
+        return false;
+    }
+    let leaf = sym_parts[sym_parts.len() - 1];
+    let module_path = sym_parts[..sym_parts.len() - 1].join(".");
+    if module != module_path {
+        return false;
+    }
+    for part in split_top_level_commas(imports) {
+        let name = part.split_whitespace().next().unwrap_or("").trim();
+        if name == leaf || name == "*" {
+            return true;
+        }
+    }
+    false
+}
+
+fn collect_python_symbol_evidence(
+    context: &TierBContext<'_>,
+    advisory_symbols: &[String],
+) -> Vec<ReachabilityEvidence> {
+    let mut evidence = Vec::new();
+    'files: for path in list_python_files(context) {
+        let Ok(content) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        for (idx, line) in content.lines().enumerate() {
+            for sym in advisory_symbols {
+                if python_line_has_symbol_evidence(line, sym) {
+                    push_reachability_evidence(
+                        &mut evidence,
+                        path.clone(),
+                        (idx + 1) as u32,
+                        sym,
+                    );
+                }
+                if reachability_evidence_at_cap(&evidence) {
+                    break 'files;
+                }
+            }
+        }
+    }
+    evidence
+}
+
+fn tier_c_result_for_symbols(
+    context: &TierBContext<'_>,
+    advisory_symbols: &[String],
+) -> TierCResult {
+    let roots = cached_python_import_roots(context);
+    if roots.is_empty() {
+        return TierCResult::unknown();
+    }
+    let evidence = collect_python_symbol_evidence(context, advisory_symbols);
+    let decision = if !evidence.is_empty()
+        || advisory_symbols
+            .iter()
+            .any(|sym| python_symbol_matches_import_roots(sym, &roots))
+    {
+        TierCDecision::Reachable
+    } else if pypi_name_is_ambiguous(&context.package.name) {
+        TierCDecision::Unknown
+    } else {
+        TierCDecision::NotReachable
+    };
+    TierCResult { decision, evidence }
+}
+
 fn cached_python_import_roots(context: &TierBContext<'_>) -> HashSet<String> {
     let key = import_roots_cache_key(context);
     if let Some(cached) = python_import_roots_cache()
@@ -215,21 +324,8 @@ impl ReachabilityAnalyzer for PythonTierBAnalyzer {
         &self,
         context: &TierBContext<'_>,
         advisory_symbols: &[String],
-    ) -> TierCDecision {
-        let roots = cached_python_import_roots(context);
-        if roots.is_empty() {
-            return TierCDecision::Unknown;
-        }
-        for sym in advisory_symbols {
-            if python_symbol_matches_import_roots(sym, &roots) {
-                return TierCDecision::Reachable;
-            }
-        }
-        if pypi_name_is_ambiguous(&context.package.name) {
-            TierCDecision::Unknown
-        } else {
-            TierCDecision::NotReachable
-        }
+    ) -> TierCResult {
+        tier_c_result_for_symbols(context, advisory_symbols)
     }
 
     fn supports_tier_d(&self) -> bool {
@@ -240,30 +336,48 @@ impl ReachabilityAnalyzer for PythonTierBAnalyzer {
         &self,
         context: &TierBContext<'_>,
         advisory_symbols: &[String],
-    ) -> TierCDecision {
+    ) -> TierCResult {
         #[cfg(not(feature = "tier-d"))]
         {
             let _ = (context, advisory_symbols);
-            return TierCDecision::Unknown;
+            return TierCResult::unknown();
         }
         #[cfg(feature = "tier-d")]
         {
             use crate::tier_d::file_references_symbol;
             let files = list_python_files(context);
             if files.is_empty() || advisory_symbols.is_empty() {
-                return TierCDecision::Unknown;
+                return TierCResult::unknown();
             }
-            for path in files {
+            let mut evidence = Vec::new();
+            'files: for path in files {
                 let Ok(content) = std::fs::read_to_string(&path) else {
                     continue;
                 };
                 for sym in advisory_symbols {
                     if file_references_symbol(&content, sym) {
-                        return TierCDecision::Reachable;
+                        for (idx, line) in content.lines().enumerate() {
+                            if python_line_has_symbol_evidence(line, sym) {
+                                push_reachability_evidence(
+                                    &mut evidence,
+                                    path.clone(),
+                                    (idx + 1) as u32,
+                                    sym,
+                                );
+                            }
+                            if reachability_evidence_at_cap(&evidence) {
+                                break 'files;
+                            }
+                        }
                     }
                 }
             }
-            TierCDecision::Unknown
+            let decision = if !evidence.is_empty() {
+                TierCDecision::Reachable
+            } else {
+                TierCDecision::Unknown
+            };
+            TierCResult { decision, evidence }
         }
     }
 }
@@ -497,7 +611,9 @@ mod tests {
         let analyzer = PythonTierBAnalyzer::new();
         let ctx = context_for(dir.path(), "pkg");
         assert_eq!(
-            analyzer.analyze_tier_c(&ctx, &["pkg.submod.vuln_fn".to_string()]),
+            analyzer
+                .analyze_tier_c(&ctx, &["pkg.submod.vuln_fn".to_string()])
+                .decision,
             TierCDecision::Reachable
         );
     }
@@ -510,8 +626,55 @@ mod tests {
         let analyzer = PythonTierBAnalyzer::new();
         let ctx = context_for(dir.path(), "requests");
         assert_eq!(
-            analyzer.analyze_tier_c(&ctx, &["requests.auth".to_string()]),
+            analyzer
+                .analyze_tier_c(&ctx, &["requests.auth".to_string()])
+                .decision,
             TierCDecision::NotReachable
         );
+    }
+
+    #[test]
+    fn analyze_tier_c_reachable_without_evidence_for_parent_import_only() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join("app.py"), "import pkg.submod\n")
+            .expect("write");
+        let analyzer = PythonTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "pkg");
+        let result =
+            analyzer.analyze_tier_c(&ctx, &["pkg.submod.vuln_fn".to_string()]);
+        assert_eq!(result.decision, TierCDecision::Reachable);
+        assert!(result.evidence.is_empty());
+    }
+
+    #[test]
+    fn analyze_tier_c_records_line_evidence_for_from_import() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("app.py"),
+            "from pkg.submod import vuln_fn\n",
+        )
+        .expect("write");
+        let analyzer = PythonTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "pkg");
+        let result =
+            analyzer.analyze_tier_c(&ctx, &["pkg.submod.vuln_fn".to_string()]);
+        assert_eq!(result.decision, TierCDecision::Reachable);
+        assert_eq!(result.evidence.len(), 1);
+        assert_eq!(result.evidence[0].start_line, 1);
+    }
+
+    #[test]
+    fn analyze_tier_c_no_evidence_for_symbol_in_string_literal() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("app.py"),
+            "import pkg\nx = \"pkg.submod.vuln_fn\"\n",
+        )
+        .expect("write");
+        let analyzer = PythonTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "pkg");
+        let result =
+            analyzer.analyze_tier_c(&ctx, &["pkg.submod.vuln_fn".to_string()]);
+        assert!(result.evidence.is_empty());
     }
 }

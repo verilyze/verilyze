@@ -86,6 +86,18 @@ impl Severity {
     }
 }
 
+/// First-party source line referencing an advisory symbol (FR-032 evidence).
+#[derive(
+    Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
+pub struct CveEvidenceLocation {
+    pub path: String,
+    pub start_line: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_line: Option<u32>,
+    pub symbol: String,
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CveRecord {
     pub id: String,
@@ -95,7 +107,15 @@ pub struct CveRecord {
     pub cvss_version: Option<CvssVersion>,
     pub description: String,
     pub reachable: Option<bool>, // filled later by reachability analysis
-                                 // …more fields as needed
+    /// OSV advisory symbol hints when present (Tier C, best-available).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub advisory_symbols: Vec<String>,
+    /// First-party source lines referencing advisory symbols (provider-gated).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub evidence: Vec<CveEvidenceLocation>,
+    /// Symbol usage in first-party source: `used`, `not_found`, or `unknown`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub symbol_usage: Option<String>,
 }
 
 #[derive(Debug, Default)]
@@ -323,6 +343,9 @@ mod tests {
             cvss_version: Some(CvssVersion::V3),
             description: "desc".to_string(),
             reachable: Some(false),
+            advisory_symbols: Vec::new(),
+            evidence: Vec::new(),
+            symbol_usage: None,
         };
         assert_eq!(c.id, "CVE-2023-1234");
         assert_eq!(c.cvss_score, Some(7.5));

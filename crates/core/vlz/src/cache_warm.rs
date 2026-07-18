@@ -288,6 +288,9 @@ mod tests {
                     cvss_version: None,
                     description: "test".to_string(),
                     reachable: None,
+                    advisory_symbols: Vec::new(),
+                    evidence: Vec::new(),
+                    symbol_usage: None,
                 }],
             })
         }
@@ -674,6 +677,9 @@ mod tests {
                         cvss_version: None,
                         description: "t".to_string(),
                         reachable: None,
+                        advisory_symbols: Vec::new(),
+                        evidence: Vec::new(),
+                        symbol_usage: None,
                     }],
                 })
             }
