@@ -91,4 +91,6 @@ jobs:
           always() &&
           steps.verilyze-scan.outputs.scan_exit != '' &&
           steps.verilyze-scan.outputs.scan_exit != '0'
-        run: exit "${{ steps.verilyze-scan.outputs.scan_exit }}"
+        env:
+          SCAN_EXIT: ${{ steps.verilyze-scan.outputs.scan_exit }}
+        run: ./scripts/ci-enforce-scan-exit.sh

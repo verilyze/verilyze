@@ -57,7 +57,7 @@ class TestVerilyzeNightlySarifWorkflow:
     def test_nightly_scan_continues_on_error_then_enforces_exit(self) -> None:
         text = _NIGHTLY.read_text(encoding="utf-8")
         assert "continue-on-error: true" in text
-        assert "Enforce scan policy" in text
+        assert "ci-enforce-scan-exit.sh" in text
 
     def test_nightly_verifies_release_binary_version(self) -> None:
         text = _NIGHTLY.read_text(encoding="utf-8")

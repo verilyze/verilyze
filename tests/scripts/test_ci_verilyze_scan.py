@@ -186,6 +186,31 @@ class TestCiVerifyVlzReleaseVersion:
         assert proc.returncode == 0
 
 
+class TestCiEnforceScanExit:
+    def test_propagates_valid_exit_code(self) -> None:
+        proc = subprocess.run(
+            [str(_ROOT / "scripts" / "ci-enforce-scan-exit.sh")],
+            cwd=_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+            env={**os.environ, "SCAN_EXIT": "86"},
+        )
+        assert proc.returncode == 86
+
+    def test_rejects_non_numeric_exit_code(self) -> None:
+        proc = subprocess.run(
+            [str(_ROOT / "scripts" / "ci-enforce-scan-exit.sh")],
+            cwd=_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+            env={**os.environ, "SCAN_EXIT": "86; rm -rf /"},
+        )
+        assert proc.returncode == 1
+        assert "invalid scan exit code" in proc.stderr
+
+
 class TestCiVerilyzeScanMetrics:
     def test_metrics_lib_counts_json_and_sarif(self, tmp_path: Path) -> None:
         report_json = tmp_path / "report.json"

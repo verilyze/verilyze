@@ -96,7 +96,9 @@ jobs:
           always() &&
           steps.vlz-scan.outputs.scan_exit != '' &&
           steps.vlz-scan.outputs.scan_exit != '0'
-        run: exit "${{ steps.vlz-scan.outputs.scan_exit }}"
+        env:
+          SCAN_EXIT: ${{ steps.vlz-scan.outputs.scan_exit }}
+        run: ./scripts/ci-enforce-scan-exit.sh
 
   # --- Option B: build from source (contributors / unreleased) ---
   scan-build-from-source:
@@ -162,7 +164,9 @@ jobs:
           always() &&
           steps.vlz-scan.outputs.scan_exit != '' &&
           steps.vlz-scan.outputs.scan_exit != '0'
-        run: exit "${{ steps.vlz-scan.outputs.scan_exit }}"
+        env:
+          SCAN_EXIT: ${{ steps.vlz-scan.outputs.scan_exit }}
+        run: ./scripts/ci-enforce-scan-exit.sh
 
   # --- Option C: offline scan with cached CVE data (air-gapped) ---
   scan-offline-cached:

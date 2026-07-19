@@ -22,6 +22,7 @@ on:
       - sbom/**
       - scripts/generate-sbom.sh
       - scripts/ci-verilyze-scan.sh
+      - scripts/ci-enforce-scan-exit.sh
       - scripts/ci-install-vlz-release.sh
       - scripts/lib/ci-install-vlz-release-common.sh
       - scripts/lib/workspace-scan-excludes.sh
@@ -38,6 +39,7 @@ on:
       - sbom/**
       - scripts/generate-sbom.sh
       - scripts/ci-verilyze-scan.sh
+      - scripts/ci-enforce-scan-exit.sh
       - scripts/ci-install-vlz-release.sh
       - scripts/lib/ci-install-vlz-release-common.sh
       - scripts/lib/workspace-scan-excludes.sh
@@ -135,4 +137,6 @@ jobs:
           always() &&
           steps.verilyze-scan.outputs.scan_exit != '' &&
           steps.verilyze-scan.outputs.scan_exit != '0'
-        run: exit "${{ steps.verilyze-scan.outputs.scan_exit }}"
+        env:
+          SCAN_EXIT: ${{ steps.verilyze-scan.outputs.scan_exit }}
+        run: ./scripts/ci-enforce-scan-exit.sh
