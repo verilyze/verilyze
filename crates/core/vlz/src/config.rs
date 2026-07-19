@@ -270,6 +270,9 @@ pub enum ConfigError {
     #[error("Parallel resolutions must be at most {max}; got {value}")]
     ParallelResolutionsTooHigh { value: usize, max: usize },
 
+    #[error("Parallel resolutions must be at least {min}; got {value}")]
+    ParallelResolutionsTooLow { value: usize, min: usize },
+
     #[error("Invalid CVE provider HTTP timeouts: {message}")]
     InvalidProviderHttpTimeouts { message: String },
 
@@ -1118,6 +1121,13 @@ pub fn load_with_reachability_overrides(
         });
     }
 
+    if cfg.parallel_resolutions < 1 {
+        return Err(ConfigError::ParallelResolutionsTooLow {
+            value: cfg.parallel_resolutions,
+            min: 1,
+        });
+    }
+
     // FR-013: apply severity threshold overrides (env first, then CLI).
     apply_severity_overrides(&mut cfg.severity, &env_severity);
     apply_severity_overrides(&mut cfg.severity, &cli_severity);
@@ -1593,6 +1603,20 @@ mod tests {
                 value: 33,
                 max: 32
             })
+        ));
+    }
+
+    #[test]
+    fn load_parallel_resolutions_zero_rejected_fr012a() {
+        let r = load_parallel_test(None, None, Some(0), None, None);
+        assert!(matches!(
+            r,
+            Err(ConfigError::ParallelResolutionsTooLow { value: 0, min: 1 })
+        ));
+        let r = load_parallel_test(None, None, None, None, Some(0));
+        assert!(matches!(
+            r,
+            Err(ConfigError::ParallelResolutionsTooLow { value: 0, min: 1 })
         ));
     }
 

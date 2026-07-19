@@ -130,6 +130,15 @@ fn load_parallel_resolutions_precedence_over_file() {
 }
 
 #[test]
+fn load_parallel_resolutions_zero_rejected() {
+    let r = load_for_test(None, None, Some(0), None, None);
+    assert!(matches!(
+        r,
+        Err(ConfigError::ParallelResolutionsTooLow { value: 0, min: 1 })
+    ));
+}
+
+#[test]
 fn load_parallel_resolutions_too_high_rejected() {
     let r = load_for_test(None, None, Some(33), None, None);
     assert!(matches!(
