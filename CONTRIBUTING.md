@@ -1152,12 +1152,21 @@ releases](#versioning-and-releases) below.
   [`.commitlintrc.json`](.commitlintrc.json).
 - **Verilyze self-scan (SEC-015):** PR/push path-filtered scans run in the
   **verilyze** job in [`.github/workflows/supply-chain.yml`](.github/workflows/supply-chain.yml)
-  (build `vlz` from source, set `VLZ_BIN` to `target/release/vlz`). The nightly
+  (build `vlz` from source, set `VLZ_BIN` to `target/release/vlz`; default
+  `VLZ_REACHABILITY_MODE=tier-b` via [`scripts/ci-verilyze-scan.sh`](scripts/ci-verilyze-scan.sh)).
+  Same-repo `pull_request` events may upload SARIF to Code Scanning (`category:
+  verilyze-sca`); fork PRs and `push` to `main` stay artifact-only. The nightly
   schedule and README badge use
   [`.github/workflows/verilyze-nightly.yml`](.github/workflows/verilyze-nightly.yml)
   (`name: verilyze`): [`scripts/ci-install-vlz-release.sh`](scripts/ci-install-vlz-release.sh)
-  downloads and verifies the latest published Linux release, then
-  [`scripts/ci-verilyze-scan.sh`](scripts/ci-verilyze-scan.sh) scans the repo.
+  downloads and verifies the latest published Linux release (minimum v0.5.0 for
+  Tier 1+2 SARIF via [`scripts/ci-verify-vlz-release-version.sh`](scripts/ci-verify-vlz-release-version.sh)),
+  scans with `VLZ_REACHABILITY_MODE=best-available`, and is the sole main-branch
+  `verilyze-sca` producer. Scan steps use `continue-on-error` so exit **86**
+  (FR-010) still uploads JSON/SARIF artifacts and nightly SARIF; a final step
+  re-applies the scan exit code. Downstream consumers: see
+  [examples/github-action-vlz-scan.yml](examples/github-action-vlz-scan.yml)
+  (`security-events: write`; private/internal repos may also need `actions: read`).
 - **Mermaid diagrams:** To view them in Cursor/VS Code, install the
   **Markdown Preview Mermaid Support** extension (or accept the workspace
   recommendation). Follow Mermaid diagram guidelines: no explicit colors or

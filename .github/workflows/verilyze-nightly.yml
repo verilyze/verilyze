@@ -4,6 +4,7 @@
 
 ---
 # Nightly SEC-015 self-scan with latest published release binary.
+# Sole main-branch producer for Code Scanning category verilyze-sca.
 # README badge points at this workflow.
 
 name: verilyze
@@ -19,6 +20,9 @@ permissions:
 jobs:
   verilyze:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -38,6 +42,9 @@ jobs:
           VLZ_BIN="$(./scripts/ci-install-vlz-release.sh)"
           echo "VLZ_BIN=${VLZ_BIN}" >> "${GITHUB_ENV}"
 
+      - name: Verify vlz release version (Tier 1+2 SARIF)
+        run: ./scripts/ci-verify-vlz-release-version.sh "${VLZ_BIN}"
+
       - name: Cache OSV CVE cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -48,12 +55,19 @@ jobs:
             vlz-osv-cache-${{ runner.os }}-
 
       - name: Verilyze scan (SEC-015)
+        id: verilyze-scan
+        continue-on-error: true
         env:
+          VLZ_REACHABILITY_MODE: best-available
           REPORT_JSON: ${{ runner.temp }}/verilyze-report.json
           REPORT_SARIF: ${{ runner.temp }}/verilyze.sarif
         run: ./scripts/ci-verilyze-scan.sh
 
       - name: Upload verilyze scan reports
+        if: >-
+          always() &&
+          steps.verilyze-scan.outcome != 'cancelled' &&
+          steps.verilyze-scan.outputs.scan_exit != ''
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: verilyze-reports
@@ -61,3 +75,22 @@ jobs:
             ${{ runner.temp }}/verilyze-report.json
             ${{ runner.temp }}/verilyze.sarif
           retention-days: 90
+
+      - name: Upload verilyze SARIF to code scanning
+        if: >-
+          always() &&
+          steps.verilyze-scan.outcome != 'cancelled' &&
+          steps.verilyze-scan.outputs.scan_exit != ''
+        uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4.37.1
+        with:
+          sarif_file: ${{ runner.temp }}/verilyze.sarif
+          category: verilyze-sca
+
+      - name: Enforce scan policy (FR-010)
+        if: >-
+          always() &&
+          steps.verilyze-scan.outputs.scan_exit != '' &&
+          steps.verilyze-scan.outputs.scan_exit != '0'
+        env:
+          SCAN_EXIT: ${{ steps.verilyze-scan.outputs.scan_exit }}
+        run: ./scripts/ci-enforce-scan-exit.sh

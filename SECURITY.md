@@ -192,11 +192,17 @@ for remediation when scans warn about partial (direct-only) resolution.
   scannable by the latest stable verilyze with exit 0. Nightly CI workflow
   [.github/workflows/verilyze-nightly.yml](.github/workflows/verilyze-nightly.yml)
   downloads the latest published Linux `vlz` release, verifies checksums and
-  Cosign attestations, then scans this repository. Dependency-triggered scans
-  build from source in the **verilyze** job in
-  [.github/workflows/supply-chain.yml](.github/workflows/supply-chain.yml).
-  Download the `verilyze-reports` artifact (JSON + SARIF) from the latest
-  successful nightly run.
+  Cosign attestations, then scans this repository with
+  `--reachability-mode best-available`. SARIF uploads to GitHub Code Scanning
+  under category `verilyze-sca` (sole main-branch producer). Dependency-triggered
+  scans build from source in the **verilyze** job in
+  [.github/workflows/supply-chain.yml](.github/workflows/supply-chain.yml);
+  same-repo pull requests may upload SARIF for PR annotations; fork PRs and
+  `push` to `main` stay artifact-only so nightly owns the Security tab category.
+  Download the `verilyze-reports` artifact (JSON + SARIF) from workflow runs.
+  CI gating uses scan exit codes (default **86** when policy thresholds are
+  met, FR-010/FR-014); artifact and SARIF upload steps use `always()` so exit
+  86 still publishes reports.
 - **Workspace SBOM (SEC-019):** Committed CycloneDX and SPDX inventories live
   under [sbom/v1/](sbom/v1/). Regenerate with `make generate-sbom`; CI enforces
   via `make check-sbom`.

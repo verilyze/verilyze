@@ -7,7 +7,9 @@
 #
 # Prerequisites:
 # - Network access to OSV (or pre-warm cache / use --offline with populated cache)
-# - For SARIF upload: GitHub Advanced Security / code scanning enabled
+# - Code scanning enabled (Settings -> Code security)
+# - Public github.com repos: Code Scanning without a paid GHAS seat
+# - Private/internal repos: GHAS plus actions: read for upload-sarif
 
 name: vlz scan example
 
@@ -19,31 +21,36 @@ on:
 
 permissions:
   contents: read
-  # Required only when uploading SARIF to GitHub Code Scanning:
-  # security-events: write
+  # Required when uploading SARIF to GitHub Code Scanning:
+  security-events: write
+  # Private/internal repos may also need:
+  # actions: read
 
 jobs:
   # --- Option A: install a release binary (after verifying SHA256SUMS) ---
   scan-release-binary:
     if: false # enable when using published releases
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Download vlz release binary
         env:
-          VERSION: "0.3.1"
+          VERSION: "0.5.0"
         run: |
           set -euo pipefail
           case "${{ runner.os }}" in
             Linux)
-              asset="vlz"
+              asset="vlz-linux-x86_64"
               ;;
             macOS)
-              asset="vlz"
+              asset="vlz-macos-aarch64"
               ;;
             Windows)
-              asset="vlz.exe"
+              asset="vlz-windows-x86_64.exe"
               ;;
             *)
               echo "unsupported runner OS: ${{ runner.os }}" >&2
@@ -58,20 +65,47 @@ jobs:
           # production use (see INSTALL.md).
 
       - name: Scan with vlz
+        id: vlz-scan
+        continue-on-error: true
+        env:
+          VLZ_REACHABILITY_MODE: best-available
         run: |
-          set -euo pipefail
+          set -uo pipefail
           ./vlz scan . \
             --project-id "${{ github.repository }}" \
+            --reachability-mode "${VLZ_REACHABILITY_MODE}" \
             --format sarif \
             --summary-file "sarif:${{ runner.temp }}/vlz.sarif"
+          scan_exit=$?
+          echo "scan_exit=${scan_exit}" >> "${GITHUB_OUTPUT}"
+          exit "${scan_exit}"
 
-      # - uses: github/codeql-action/upload-sarif@v3
-      #   with:
-      #     sarif_file: ${{ runner.temp }}/vlz.sarif
+      - name: Upload SARIF to code scanning
+        if: >-
+          always() &&
+          steps.vlz-scan.outcome != 'cancelled' &&
+          (github.event_name != 'pull_request' ||
+           github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4.37.1
+        with:
+          sarif_file: ${{ runner.temp }}/vlz.sarif
+          category: verilyze-sca
+
+      - name: Enforce scan policy (FR-010)
+        if: >-
+          always() &&
+          steps.vlz-scan.outputs.scan_exit != '' &&
+          steps.vlz-scan.outputs.scan_exit != '0'
+        env:
+          SCAN_EXIT: ${{ steps.vlz-scan.outputs.scan_exit }}
+        run: ./scripts/ci-enforce-scan-exit.sh
 
   # --- Option B: build from source (contributors / unreleased) ---
   scan-build-from-source:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
@@ -85,26 +119,54 @@ jobs:
         run: cargo build --release --locked -p vlz
 
       - name: Scan with vlz
+        id: vlz-scan
+        continue-on-error: true
         env:
           REPORT_JSON: ${{ runner.temp }}/vlz-report.json
           REPORT_SARIF: ${{ runner.temp }}/vlz.sarif
+          VLZ_REACHABILITY_MODE: tier-b
         run: |
-          set -euo pipefail
+          set -uo pipefail
           ./target/release/vlz scan . \
             --project-id "${{ github.repository }}" \
             --provider osv \
+            --reachability-mode "${VLZ_REACHABILITY_MODE}" \
             --summary-file "json:${REPORT_JSON}" \
             --summary-file "sarif:${REPORT_SARIF}"
+          scan_exit=$?
+          echo "scan_exit=${scan_exit}" >> "${GITHUB_OUTPUT}"
+          exit "${scan_exit}"
           # Exit 86 when CVEs meet min-score/min-count (FR-010, FR-014).
           # Inspect manifest_coverage in JSON for monorepos (FR-037).
 
       - name: Upload reports
+        if: always() && steps.vlz-scan.outcome != 'cancelled'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: vlz-reports
           path: |
             ${{ runner.temp }}/vlz-report.json
             ${{ runner.temp }}/vlz.sarif
+
+      - name: Upload SARIF to code scanning
+        if: >-
+          always() &&
+          steps.vlz-scan.outcome != 'cancelled' &&
+          (github.event_name != 'pull_request' ||
+           github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4.37.1
+        with:
+          sarif_file: ${{ runner.temp }}/vlz.sarif
+          category: verilyze-sca
+
+      - name: Enforce scan policy (FR-010)
+        if: >-
+          always() &&
+          steps.vlz-scan.outputs.scan_exit != '' &&
+          steps.vlz-scan.outputs.scan_exit != '0'
+        env:
+          SCAN_EXIT: ${{ steps.vlz-scan.outputs.scan_exit }}
+        run: ./scripts/ci-enforce-scan-exit.sh
 
   # --- Option C: offline scan with cached CVE data (air-gapped) ---
   scan-offline-cached:
