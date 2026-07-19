@@ -17,6 +17,10 @@ set -e
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/check-quiet-env.sh
+source "${SCRIPT_DIR}/lib/check-quiet-env.sh"
+
 V="${VENV_BIN:-.venv-lint/bin}"
 
 # Resolve each tool: venv if runnable, else fall back to system.
@@ -42,11 +46,20 @@ PYTHON=$(resolve_tool python3)
 
 ERR=0
 
-"$PYTHON" scripts/python_modern_style.py || ERR=1
+run_lint() {
+  local label=$1
+  shift
+  if vlz_check_brief_enabled; then
+    "${SCRIPT_DIR}/run-check-command.sh" "$label" -- "$@" || ERR=1
+  else
+    "$@" || ERR=1
+  fi
+}
 
-"$BLACK" scripts/ --check --line-length 79 || ERR=1
-"$PYLINT" scripts/ --max-line-length=79 || ERR=1
-"$MYPY" scripts/ || ERR=1
-"$BANDIT" -r scripts/ || ERR=1
+run_lint python-modern-style "$PYTHON" scripts/python_modern_style.py
+run_lint black "$BLACK" scripts/ --check --line-length 79
+run_lint pylint "$PYLINT" scripts/ --max-line-length=79
+run_lint mypy "$MYPY" scripts/
+run_lint bandit "$BANDIT" -r scripts/
 
 exit "$ERR"
