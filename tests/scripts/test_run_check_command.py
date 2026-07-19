@@ -152,7 +152,8 @@ def test_summarize_omits_diagnostics_without_results_dir() -> None:
 def test_brief_check_brief_enabled_unless_verbose() -> None:
     off = _bash(
         "source scripts/lib/check-quiet-env.sh && "
-        "vlz_check_brief_enabled && echo yes || echo no"
+        "vlz_check_brief_enabled && echo yes || echo no",
+        VLZ_CHECK_BRIEF="0",
     )
     assert off.stdout.strip() == "no"
     on = _bash(
