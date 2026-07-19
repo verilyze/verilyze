@@ -143,11 +143,14 @@ _run_rust_coverage() {
 
   # Generate Rust reports (NFR-017: fail if coverage below threshold)
   _vlz_cov_phase "llvm-cov report"
-  cargo llvm-cov report --html --output-dir reports/rust \
+  if ! cargo llvm-cov report --html --output-dir reports/rust \
     --fail-under-lines "${VLZ_RUST_FAIL_UNDER_LINES}" \
     --fail-under-functions "${VLZ_RUST_FAIL_UNDER_FUNCTIONS}" \
-    --fail-under-regions "${VLZ_RUST_FAIL_UNDER_REGIONS}" \
-    || return 1
+    --fail-under-regions "${VLZ_RUST_FAIL_UNDER_REGIONS}"; then
+    echo "ERROR: Rust HTML report failed or coverage is below threshold:" >&2
+    cargo llvm-cov report --text >&2 || true
+    return 1
+  fi
   if ! cargo llvm-cov report --cobertura --output-path \
     reports/cobertura-rust.xml \
     --fail-under-lines "${VLZ_RUST_FAIL_UNDER_LINES}" \
