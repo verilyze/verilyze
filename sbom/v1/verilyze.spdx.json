@@ -120,9 +120,9 @@
     {
       "@type": "Package",
       "name": "anyhow",
-      "packageUrl": "pkg:cargo/anyhow@1.0.103",
-      "spdxId": "urn:spdx.dev:pkg-cargo-anyhow-1-0-103",
-      "versionInfo": "1.0.103"
+      "packageUrl": "pkg:cargo/anyhow@1.0.104",
+      "spdxId": "urn:spdx.dev:pkg-cargo-anyhow-1-0-104",
+      "versionInfo": "1.0.104"
     },
     {
       "@type": "Package",
@@ -162,9 +162,9 @@
     {
       "@type": "Package",
       "name": "async-trait",
-      "packageUrl": "pkg:cargo/async-trait@0.1.89",
-      "spdxId": "urn:spdx.dev:pkg-cargo-async-trait-0-1-89",
-      "versionInfo": "0.1.89"
+      "packageUrl": "pkg:cargo/async-trait@0.1.91",
+      "spdxId": "urn:spdx.dev:pkg-cargo-async-trait-0-1-91",
+      "versionInfo": "0.1.91"
     },
     {
       "@type": "Package",
@@ -1170,16 +1170,16 @@
     {
       "@type": "Package",
       "name": "proc-macro2",
-      "packageUrl": "pkg:cargo/proc-macro2@1.0.106",
-      "spdxId": "urn:spdx.dev:pkg-cargo-proc-macro2-1-0-106",
-      "versionInfo": "1.0.106"
+      "packageUrl": "pkg:cargo/proc-macro2@1.0.107",
+      "spdxId": "urn:spdx.dev:pkg-cargo-proc-macro2-1-0-107",
+      "versionInfo": "1.0.107"
     },
     {
       "@type": "Package",
       "name": "quote",
-      "packageUrl": "pkg:cargo/quote@1.0.46",
-      "spdxId": "urn:spdx.dev:pkg-cargo-quote-1-0-46",
-      "versionInfo": "1.0.46"
+      "packageUrl": "pkg:cargo/quote@1.0.47",
+      "spdxId": "urn:spdx.dev:pkg-cargo-quote-1-0-47",
+      "versionInfo": "1.0.47"
     },
     {
       "@type": "Package",
@@ -1450,23 +1450,23 @@
     {
       "@type": "Package",
       "name": "serde",
-      "packageUrl": "pkg:cargo/serde@1.0.228",
-      "spdxId": "urn:spdx.dev:pkg-cargo-serde-1-0-228",
-      "versionInfo": "1.0.228"
+      "packageUrl": "pkg:cargo/serde@1.0.229",
+      "spdxId": "urn:spdx.dev:pkg-cargo-serde-1-0-229",
+      "versionInfo": "1.0.229"
     },
     {
       "@type": "Package",
       "name": "serde_core",
-      "packageUrl": "pkg:cargo/serde_core@1.0.228",
-      "spdxId": "urn:spdx.dev:pkg-cargo-serde-core-1-0-228",
-      "versionInfo": "1.0.228"
+      "packageUrl": "pkg:cargo/serde_core@1.0.229",
+      "spdxId": "urn:spdx.dev:pkg-cargo-serde-core-1-0-229",
+      "versionInfo": "1.0.229"
     },
     {
       "@type": "Package",
       "name": "serde_derive",
-      "packageUrl": "pkg:cargo/serde_derive@1.0.228",
-      "spdxId": "urn:spdx.dev:pkg-cargo-serde-derive-1-0-228",
-      "versionInfo": "1.0.228"
+      "packageUrl": "pkg:cargo/serde_derive@1.0.229",
+      "spdxId": "urn:spdx.dev:pkg-cargo-serde-derive-1-0-229",
+      "versionInfo": "1.0.229"
     },
     {
       "@type": "Package",
@@ -1575,6 +1575,13 @@
     },
     {
       "@type": "Package",
+      "name": "syn",
+      "packageUrl": "pkg:cargo/syn@3.0.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-syn-3-0-0",
+      "versionInfo": "3.0.0"
+    },
+    {
+      "@type": "Package",
       "name": "sync_wrapper",
       "packageUrl": "pkg:cargo/sync_wrapper@1.0.2",
       "spdxId": "urn:spdx.dev:pkg-cargo-sync-wrapper-1-0-2",
@@ -1632,9 +1639,9 @@
     {
       "@type": "Package",
       "name": "thiserror",
-      "packageUrl": "pkg:cargo/thiserror@2.0.18",
-      "spdxId": "urn:spdx.dev:pkg-cargo-thiserror-2-0-18",
-      "versionInfo": "2.0.18"
+      "packageUrl": "pkg:cargo/thiserror@2.0.19",
+      "spdxId": "urn:spdx.dev:pkg-cargo-thiserror-2-0-19",
+      "versionInfo": "2.0.19"
     },
     {
       "@type": "Package",
@@ -1646,9 +1653,9 @@
     {
       "@type": "Package",
       "name": "thiserror-impl",
-      "packageUrl": "pkg:cargo/thiserror-impl@2.0.18",
-      "spdxId": "urn:spdx.dev:pkg-cargo-thiserror-impl-2-0-18",
-      "versionInfo": "2.0.18"
+      "packageUrl": "pkg:cargo/thiserror-impl@2.0.19",
+      "spdxId": "urn:spdx.dev:pkg-cargo-thiserror-impl-2-0-19",
+      "versionInfo": "2.0.19"
     },
     {
       "@type": "Package",
