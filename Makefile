@@ -30,6 +30,8 @@ VLZ_QUIET_LOG_ENV := RUST_LOG=off RUST_LOG_STYLE=never
 CC ?= gcc
 VLZ_LINKER_RUSTFLAG ?= -Clink-arg=-fuse-ld=bfd
 RUSTFLAGS ?= $(VLZ_LINKER_RUSTFLAG)
+# Recursive $(MAKE) calls share this repo; suppress Entering/Leaving directory noise.
+MAKEFLAGS += --no-print-directory
 # clean targets use +stable so a broken rust-toolchain.toml install cannot block
 # removing target/ and coverage data (cargo clean does not need the pin).
 CARGO_FOR_CLEAN ?= cargo +stable
@@ -150,6 +152,7 @@ help:
 # System deps (rust, python3, shellcheck, afl++) must be installed separately;
 # see CONTRIBUTING.md "Quick setup".
 setup: setup-system-deps setup-dev-tools $(VENV_LINT)/bin/black venv-test-ready
+ifeq ($(filter setup,$(MAKECMDGOALS)),setup)
 	@echo "Dev environment ready. Run: make check"
 	@echo "Recommended:"
 	@echo "  make setup-hooks # git hooks (REUSE headers, DCO signoff, signature check)"
@@ -157,6 +160,7 @@ setup: setup-system-deps setup-dev-tools $(VENV_LINT)/bin/black venv-test-ready
 	@echo "  make coverage # runs fuzz first; needs cargo-llvm-cov"
 	@echo "  make coverage-quick # coverage without fuzz (faster)"
 	@echo "  make coverage-extended # nightly: optional features + badges"
+endif
 
 setup-hooks:
 	$(SCRIPTS_DIR)/install-hooks.sh

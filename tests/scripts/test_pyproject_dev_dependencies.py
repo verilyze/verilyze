@@ -5,6 +5,7 @@
 """Contract: pyproject.toml dev deps and Makefile venv bootstrap (SSOT)."""
 
 import re
+import subprocess
 import tomllib
 from pathlib import Path
 
@@ -122,3 +123,41 @@ def test_reuse_toml_annotates_pip_egg_info() -> None:
     """pip install \".[dev]\" creates *.egg-info; REUSE must not require headers."""
     text = (repo_root() / "REUSE.toml").read_text(encoding="utf-8")
     assert 'path = "**/*.egg-info/**"' in text
+
+
+def test_setup_banner_only_when_setup_is_explicit_goal() -> None:
+    root = repo_root()
+    explicit = subprocess.run(
+        ["make", "-n", "setup"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert explicit.returncode == 0
+    assert "Dev environment ready" in explicit.stdout
+
+    transitive = subprocess.run(
+        ["make", "-n", "coverage-quick"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert transitive.returncode == 0
+    assert "Dev environment ready" not in transitive.stdout
+
+
+def test_recursive_make_suppresses_entering_directory_chatter() -> None:
+    root = repo_root()
+    result = subprocess.run(
+        ["make", "-n", "venv-test-ready"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0
+    combined = result.stdout + result.stderr
+    assert "Entering directory" not in combined
+    assert "Leaving directory" not in combined
