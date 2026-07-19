@@ -59,8 +59,8 @@ Run scans with the built binary (adjust the path if you use `CARGO_TARGET_DIR`):
 ./target/release/vlz scan --format cyclonedx
 ./target/release/vlz scan -s cyclonedx:sbom.cdx.json,spdx:sbom.spdx.json
 
-# List registered language plugins
-./target/release/vlz list
+# List supported manifest languages
+./target/release/vlz languages
 ```
 
 After `make install` or `cargo install --path ...`, use `vlz` on your PATH
@@ -154,7 +154,7 @@ uses the installed man page. Source: [man/vlz.1](man/vlz.1).
 | Subcommand                   | Description                                                   |
 |------------------------------|---------------------------------------------------------------|
 | `vlz scan [PATH]`            | Scan for manifests and CVEs; optional path (default: cwd)     |
-| `vlz list`                   | List registered language plugins                              |
+| `vlz languages` (`list`)   | List supported manifest languages                             |
 | `vlz config --list`          | Show effective configuration                                  |
 | `vlz config --example`       | Output verilyze.conf.example with effective values for this environment |
 | `vlz config --set KEY=VALUE` | Set a config key (e.g. `python.regex="^requirements\\.txt$"`) |
@@ -171,11 +171,12 @@ uses the installed man page. Source: [man/vlz.1](man/vlz.1).
 | `vlz help [SUBCOMMAND]`      | Show full manual (`vlz.1`) via `man`; subcommand optional   |
 | `vlz --version`              | Print version                                                 |
 
-**Scan options (examples):** `--format plain|json|sarif|cyclonedx|spdx`,
-`--summary-file html:path,cyclonedx:sbom.json,spdx:sbom.spdx.json`,
-`--provider osv|nvd|github|sonatype`, `--parallel N`, `--project-id ID`,
+**Scan options (examples):** `-f`/`--format plain|json|sarif|cyclonedx|spdx`,
+`-o`/`--output PATH` (write primary report to file; no stdout),
+`-s`/`--report TYPE:PATH` (alias `--summary-file`; additional typed files),
+`--provider osv|nvd|github|sonatype`, `-j`/`--parallel N`, `--project-id ID`,
 `--cache-ttl-secs SECS`, `--offline`, `--benchmark`, `--min-score`, `--min-count`,
-`--exit-code-on-cve`, `--fp-exit-code`, `--cache-db`, `--ignore-db`,
+`--exit-code` (alias `--exit-code-on-cve`), `--fp-exit-code`, `--cache-db`, `--ignore-db`,
 `--reachability-mode off|tier-b|best-available` (`best-available` enables Tier C
 where supported). `VLZ_REACHABILITY_PERSIST_CACHE=1` persists reachability
 decisions under `.vlz/` in the scan root.
@@ -201,7 +202,7 @@ false-negatives in CI.
 | 3    | Missing required package manager                                                |
 | 4    | CVE lookup needed but `--offline`                                               |
 | 5    | CVE provider fetch failed (network, API error, auth, etc.)                      |
-| 86   | One or more CVEs meet threshold (overridable via `--exit-code-on-cve`)          |
+| 86   | One or more CVEs meet threshold (overridable via `--exit-code`)                 |
 
 Automated scenarios for each code: [`crates/core/vlz/tests/exit_code_matrix.rs`](crates/core/vlz/tests/exit_code_matrix.rs)
 (DOC-004) and subprocess smoke tests in [`tests/scripts/test_exit_codes.py`](tests/scripts/test_exit_codes.py).

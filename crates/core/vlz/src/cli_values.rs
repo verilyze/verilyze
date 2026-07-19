@@ -14,8 +14,16 @@ pub const SCAN_OUTPUT_FORMATS: &[&str] =
 pub const DB_SHOW_FORMATS: &[&str] = &["json"];
 
 #[cfg(not(feature = "completions"))]
-const HELP_SUBCOMMANDS_BASE: &[&str] =
-    &["scan", "list", "config", "db", "fp", "preload", "help"];
+const HELP_SUBCOMMANDS_BASE: &[&str] = &[
+    "scan",
+    "languages",
+    "list",
+    "config",
+    "db",
+    "fp",
+    "preload",
+    "help",
+];
 
 /// Mock CVE provider names registered only for integration tests.
 #[cfg(feature = "testing")]
@@ -63,6 +71,7 @@ pub fn help_subcommand_names() -> &'static [&'static str] {
     {
         const WITH_COMPLETIONS: &[&str] = &[
             "scan",
+            "languages",
             "list",
             "config",
             "db",

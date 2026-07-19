@@ -83,7 +83,7 @@ cli = "--min-count"
 description = "Exit code when CVEs meet threshold (default 86)"
 type = "integer"
 env = "VLZ_EXIT_CODE_ON_CVE"
-cli = "--exit-code-on-cve"
+cli = "--exit-code"
 default = "86"
 
 [fp_exit_code]

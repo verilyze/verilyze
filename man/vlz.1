@@ -48,18 +48,21 @@ Increase verbosity (repeat for more detail).
 .Bl -tag -width Ds
 .It Nm scan
 .Op Ar path
-Scan directory tree for manifests and CVEs. Default root is current directory.
+Scan project dependencies for known vulnerabilities. Default root is current directory.
 .Bl -tag -width Ds
-.It Fl -format Ar fmt
+.It Fl f Ar fmt , Fl -format Ar fmt
 Output format: plain, json, sarif, cyclonedx, spdx (default: plain).
 JSON and SARIF may include optional declaration lines (path and start_line)
 where dependencies are declared in manifests or lockfiles; this is separate
 from reachability evidence (FR-032).
-.It Fl -summary-file Ar type:path
-Generate additional files (e.g. html:/tmp/out.html,cyclonedx:/tmp/sbom.json).
+.It Fl o Ar path , Fl -output Ar path
+Write primary report to file instead of stdout.
+.It Fl s Ar type:path , Fl -report Ar type:path
+Generate additional typed report files (alias
+.Fl -summary-file ) .
 .It Fl -provider Ar name
-Force CVE provider (osv, nvd, github, sonatype when built with features).
-.It Fl -parallel Ar N
+Force vulnerability provider (osv, nvd, github, sonatype when built with features).
+.It Fl j Ar N , Fl -parallel Ar N
 Parallel query limit (default 10, max 50).
 .It Fl -parallel-resolutions Ar N
 Parallel manifest resolution limit (default: CPU count, max 32).
@@ -79,8 +82,9 @@ Benchmark mode (no cache, no network, parallel=1).
 Minimum CVSS score to count toward exit code (default: 0).
 .It Fl -min-count Ar N
 Minimum CVE count meeting min-score to trigger exit (0 = any).
-.It Fl -exit-code-on-cve Ar code
-Exit code when CVEs meet threshold (default: 86).
+.It Fl -exit-code Ar code
+Exit code when CVEs meet threshold (default: 86; alias
+.Fl -exit-code-on-cve ) .
 .It Fl -fp-exit-code Ar code
 Exit code when only false-positives present (default: 0).
 .It Fl -package-manager-required
@@ -114,9 +118,9 @@ Maximum delay in ms for retry backoff (default: 30000).
 .It Fl -max-retries Ar N
 Maximum retries for transient errors (default: 5).
 .It Fl -provider-http-connect-timeout-secs Ar secs
-CVE provider HTTPS connect timeout in seconds (default: 15).
+Vulnerability provider HTTPS connect timeout in seconds (default: 15).
 .It Fl -provider-http-request-timeout-secs Ar secs
-CVE provider HTTPS total request timeout in seconds (default: 120).
+Vulnerability provider HTTPS total request timeout in seconds (default: 120).
 .It Fl -severity-v2-critical-min Ar score
 .It Fl -severity-v2-high-min Ar score
 .It Fl -severity-v2-medium-min Ar score
@@ -139,8 +143,9 @@ or
 (Tier C where supported; default:
 .Cm tier-b ) .
 .El
-.It Nm list
-List registered language plugin names.
+.It Nm languages
+List supported manifest languages (alias:
+.Nm list ) .
 .It Nm config
 Show or set configuration.
 .Bl -tag -width Ds
@@ -163,7 +168,7 @@ Verify database integrity (SHA-256).
 .It Nm migrate
 Run database migrations.
 .It Nm show
-.Op Fl -format Ar fmt
+.Op Fl f Ar fmt , Fl -format Ar fmt
 .Op Fl -full
 Display cache entries (key, TTL, added-at, CVE summary or full payload).
 .It Nm set-ttl Ar secs
@@ -189,12 +194,18 @@ Output to stdout; redirect to the appropriate location for your shell.
 .El
 .It Nm preload
 .Op Ar path
-Pre-populate the CVE cache for packages discovered under
+Resolve dependencies and warm the vulnerability cache for packages discovered under
 .Ar path
 without generating a scan report (FR-021). Uses the same manifest
 discovery and resolution settings as
 .Nm scan
 (cache, provider, offline, lock-file, reachability flags, and related options).
+Accepts the same short flags as
+.Nm scan
+where applicable (e.g.
+.Fl j
+for
+.Fl -parallel ) .
 Warms successfully resolved packages even when other manifests fail (FR-037);
 exit
 .Sy 2
@@ -224,7 +235,7 @@ was used.
 CVE provider fetch failed (network, API error, auth, etc.).
 .It 86
 One or more CVEs meet threshold (overridable via
-.Fl -exit-code-on-cve ) .
+.Fl -exit-code ) .
 .El
 .Sh FILES
 .Bl -tag -width Ds

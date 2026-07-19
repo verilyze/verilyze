@@ -59,6 +59,7 @@ const BROKEN_PIPE_SIMPLE_CASES: &[&[&str]] = &[
     &["db", "show"],
     &["db", "show", "--full"],
     &["db", "show", "--format", "json"],
+    &["languages"],
     &["list"],
     &["config", "--list"],
     &["config", "--example"],
@@ -244,18 +245,18 @@ fn cli_db_set_ttl_help_succeeds() {
 }
 
 #[test]
-fn list_command_succeeds_and_prints_plugins() {
+fn languages_command_succeeds_and_prints_plugins() {
     if !vlz_exe_exists() {
         return;
     }
     with_isolated_env(|p| {
         let out = Command::new(vlz_exe())
-            .args(["list"])
+            .args(["languages"])
             .env("XDG_CACHE_HOME", p)
             .env("XDG_DATA_HOME", p)
             .env("XDG_CONFIG_HOME", p)
             .output()
-            .expect("run vlz list");
+            .expect("run vlz languages");
         assert!(
             out.status.success(),
             "stderr: {}",
@@ -264,7 +265,20 @@ fn list_command_succeeds_and_prints_plugins() {
         let stdout = String::from_utf8_lossy(&out.stdout);
         assert!(
             stdout.contains("python") || !stdout.is_empty(),
-            "list should print at least plugin names or empty"
+            "languages should print at least plugin names or empty"
+        );
+
+        let out = Command::new(vlz_exe())
+            .args(["list"])
+            .env("XDG_CACHE_HOME", p)
+            .env("XDG_DATA_HOME", p)
+            .env("XDG_CONFIG_HOME", p)
+            .output()
+            .expect("run vlz list alias");
+        assert!(
+            out.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&out.stderr)
         );
     });
 }
@@ -486,7 +500,7 @@ fn config_invalid_file_exits_2() {
         std::fs::write(f.path(), "invalid toml {{{").expect("write");
         let path = f.path().to_str().unwrap();
         let out = Command::new(vlz_exe())
-            .args(["-c", path, "list"])
+            .args(["-c", path, "languages"])
             .env("XDG_CACHE_HOME", p)
             .env("XDG_DATA_HOME", p)
             .env("XDG_CONFIG_HOME", p)
@@ -506,7 +520,7 @@ fn config_invalid_file_verbose_logs_to_stderr() {
         std::fs::write(f.path(), "invalid toml {{{").expect("write");
         let path = f.path().to_str().unwrap();
         let out = Command::new(vlz_exe())
-            .args(["-vv", "-c", path, "list"])
+            .args(["-vv", "-c", path, "languages"])
             .env("XDG_CACHE_HOME", p)
             .env("XDG_DATA_HOME", p)
             .env("XDG_CONFIG_HOME", p)
@@ -571,9 +585,10 @@ mod completion_values {
                 "script must contain scan subcommand"
             );
             assert!(
-                stdout.contains("list"),
-                "script must contain list subcommand"
+                stdout.contains("languages"),
+                "script must contain languages subcommand"
             );
+            assert!(stdout.contains("list"), "script must contain list alias");
             let formats = scan_format_bash_word_list();
             assert!(
                 stdout.contains(&format!("compgen -W \"{formats}\"")),
@@ -619,9 +634,10 @@ mod completion_values {
                 "script must contain scan subcommand"
             );
             assert!(
-                stdout.contains("list"),
-                "script must contain list subcommand"
+                stdout.contains("languages"),
+                "script must contain languages subcommand"
             );
+            assert!(stdout.contains("list"), "script must contain list alias");
             let choices = scan_format_zsh_choices();
             assert!(
                 stdout.contains(&format!(":FORMAT:{choices}")),
@@ -666,9 +682,10 @@ mod completion_values {
                 "script must contain scan subcommand"
             );
             assert!(
-                stdout.contains("list"),
-                "script must contain list subcommand"
+                stdout.contains("languages"),
+                "script must contain languages subcommand"
             );
+            assert!(stdout.contains("list"), "script must contain list alias");
             assert!(
                 stdout.contains("-a \"plain"),
                 "fish must complete scan --format with plain"

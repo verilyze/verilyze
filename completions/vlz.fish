@@ -29,22 +29,24 @@ complete -c vlz -n "__fish_vlz_needs_command" -l env-overrides -d 'Set environme
 complete -c vlz -n "__fish_vlz_needs_command" -s v -l verbose -d 'Increase verbosity (multiple times = more detail)'
 complete -c vlz -n "__fish_vlz_needs_command" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_needs_command" -s V -l version -d 'Print version'
-complete -c vlz -n "__fish_vlz_needs_command" -f -a "scan" -d 'Scan a directory tree for manifests and CVEs'
-complete -c vlz -n "__fish_vlz_needs_command" -f -a "list" -d 'List registered language/plugin names'
+complete -c vlz -n "__fish_vlz_needs_command" -f -a "scan" -d 'Scan project dependencies for known vulnerabilities'
+complete -c vlz -n "__fish_vlz_needs_command" -f -a "languages" -d 'List supported manifest languages'
+complete -c vlz -n "__fish_vlz_needs_command" -f -a "list" -d 'List supported manifest languages'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "config" -d 'Show or set configuration values'
-complete -c vlz -n "__fish_vlz_needs_command" -f -a "db" -d 'Database sub‑commands (stats, verify, migrate, list-providers, …)'
-complete -c vlz -n "__fish_vlz_needs_command" -f -a "fp" -d 'False-positive markings'
-complete -c vlz -n "__fish_vlz_needs_command" -f -a "preload" -d 'Pre-populate CVE cache from remote provider (FR-021)'
-complete -c vlz -n "__fish_vlz_needs_command" -f -a "help" -d 'Show manual page'
+complete -c vlz -n "__fish_vlz_needs_command" -f -a "db" -d 'Inspect and maintain the vulnerability cache'
+complete -c vlz -n "__fish_vlz_needs_command" -f -a "fp" -d 'Manage false-positive vulnerability markings'
+complete -c vlz -n "__fish_vlz_needs_command" -f -a "preload" -d 'Resolve dependencies and warm the vulnerability cache (FR-021)'
+complete -c vlz -n "__fish_vlz_needs_command" -f -a "help" -d 'Open the full manual page'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "generate-completions" -d 'Generate shell completion scripts'
-complete -c vlz -n "__fish_vlz_using_subcommand scan" -l format -d 'Output format (plain, json, sarif, cyclonedx, spdx)' -r -f -a "plain\t''
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -s f -l format -d 'Output format (plain, json, sarif, cyclonedx, spdx)' -r -f -a "plain\t''
 json\t''
 sarif\t''
 cyclonedx\t''
 spdx\t''"
-complete -c vlz -n "__fish_vlz_using_subcommand scan" -l summary-file -d 'Generate additional files: e.g. html:/tmp/out.html,cyclonedx:/tmp/sbom.json' -r
-complete -c vlz -n "__fish_vlz_using_subcommand scan" -l provider -d 'Force a particular CVE provider' -r -f -a "osv\t''"
-complete -c vlz -n "__fish_vlz_using_subcommand scan" -l parallel -d 'Parallel query limit (default 10, max 50)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -s o -l output -d 'Write primary report to file instead of stdout' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -s s -l report -l summary-file -d 'Write additional report files: e.g. html:/tmp/out.html,cyclonedx:/tmp/sbom.json' -r
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l provider -d 'Force a particular vulnerability provider' -r -f -a "osv\t''"
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -s j -l parallel -d 'Parallel query limit (default 10, max 50)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l parallel-resolutions -d 'Parallel dependency resolution limit (default: CPU count, max 32)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l cache-db -d 'Override cache database path' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l ignore-db -d 'Override ignore (false-positive) database path' -r -F
@@ -53,7 +55,7 @@ complete -c vlz -n "__fish_vlz_using_subcommand scan" -l lock-file -d 'Only disc
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l cache-ttl-secs -d 'Default TTL in seconds for new cache entries (default: 432000 = 5 days). Does not change existing entries; use `vlz db set-ttl` to update those' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l min-score -d 'Minimum CVSS score to count toward exit code' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l min-count -d 'Minimum count of CVEs meeting min-score to trigger CVE exit code (0 = any)' -r
-complete -c vlz -n "__fish_vlz_using_subcommand scan" -l exit-code-on-cve -d 'Exit code when CVEs meet threshold (default 86)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l exit-code -l exit-code-on-cve -d 'Exit code when vulnerabilities meet threshold (default 86)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l fp-exit-code -d 'Exit code when only false-positives are present (default 0)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l project-id -d 'Project ID for false-positive scoping (FR-015); only FPs for this project or global apply' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l backoff-base -d 'Base delay in ms for retry backoff (default 100)' -r
@@ -85,16 +87,23 @@ complete -c vlz -n "__fish_vlz_using_subcommand scan" -l keep-ephemeral-venv -d 
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l allow-dependency-code-execution -d 'Allow pip to execute dependency build code during resolution (SEC-023)'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l allow-direct-only-fallback -d 'Fall back to direct-only scan with warning when transitive resolution fails (FR-022a). Applies to Python requirements.txt/Pipfile, Rust Cargo.toml without Cargo.lock, and Go go.mod when go list or cargo metadata cannot run'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l fail-fast -d 'Stop on first manifest parse/resolution failure; skip CVE lookup (FR-037)'
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -s v -l verbose -d 'Increase verbosity (multiple times = more detail)'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -s h -l help -d 'Print help'
+complete -c vlz -n "__fish_vlz_using_subcommand languages" -s c -l config -d 'Override configuration file location' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand languages" -s v -l verbose -d 'Increase verbosity (multiple times = more detail)'
+complete -c vlz -n "__fish_vlz_using_subcommand languages" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand list" -s c -l config -d 'Override configuration file location' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand list" -s v -l verbose -d 'Increase verbosity (multiple times = more detail)'
 complete -c vlz -n "__fish_vlz_using_subcommand list" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand config" -l set -d 'Set a key (e.g. python.regex="^requirements\\\\.txt$")' -r
 complete -c vlz -n "__fish_vlz_using_subcommand config" -s c -l config -d 'Override configuration file location' -r -F
-complete -c vlz -n "__fish_vlz_using_subcommand config" -l list
+complete -c vlz -n "__fish_vlz_using_subcommand config" -l list -d 'List effective configuration values'
 complete -c vlz -n "__fish_vlz_using_subcommand config" -l example -d 'Output verilyze.conf.example with effective values for this environment'
+complete -c vlz -n "__fish_vlz_using_subcommand config" -s v -l verbose -d 'Increase verbosity (multiple times = more detail)'
 complete -c vlz -n "__fish_vlz_using_subcommand config" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -l cache-ttl-secs -d 'Default TTL in seconds when opening the cache (default: 432000 = 5 days). Does not change existing entries; use `vlz db set-ttl` to update those' -r
 complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -s c -l config -d 'Override configuration file location' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -s v -l verbose -d 'Increase verbosity (multiple times = more detail)'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -f -a "stats"
 complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -f -a "verify"
@@ -103,35 +112,44 @@ complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcomma
 complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -f -a "show" -d 'Display cache entries with TTL and added timestamp'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -f -a "set-ttl" -d 'Update TTL for existing cache entries'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from stats" -s c -l config -d 'Override configuration file location' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from stats" -s v -l verbose -d 'Increase verbosity (multiple times = more detail)'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from stats" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from verify" -s c -l config -d 'Override configuration file location' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from verify" -s v -l verbose -d 'Increase verbosity (multiple times = more detail)'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from verify" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from migrate" -s c -l config -d 'Override configuration file location' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from migrate" -s v -l verbose -d 'Increase verbosity (multiple times = more detail)'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from migrate" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from list-providers" -s c -l config -d 'Override configuration file location' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from list-providers" -s v -l verbose -d 'Increase verbosity (multiple times = more detail)'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from list-providers" -s h -l help -d 'Print help'
-complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from show" -l format -d 'Output format (e.g. json for full payload)' -r -f -a "json\t''"
+complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from show" -s f -l format -d 'Output format (e.g. json for full payload)' -r -f -a "json\t''"
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from show" -s c -l config -d 'Override configuration file location' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from show" -l full -d 'Include full CVE payload for each entry'
+complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from show" -s v -l verbose -d 'Increase verbosity (multiple times = more detail)'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from show" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from set-ttl" -l entry -d 'Update a single entry by key (e.g. "name::version")' -r
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from set-ttl" -l pattern -d 'Update entries matching pattern' -r
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from set-ttl" -l entries -d 'Update multiple entries (comma-separated keys)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from set-ttl" -s c -l config -d 'Override configuration file location' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from set-ttl" -l all -d 'Update all entries'
+complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from set-ttl" -s v -l verbose -d 'Increase verbosity (multiple times = more detail)'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from set-ttl" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and not __fish_seen_subcommand_from mark unmark" -s c -l config -d 'Override configuration file location' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand fp; and not __fish_seen_subcommand_from mark unmark" -s v -l verbose -d 'Increase verbosity (multiple times = more detail)'
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and not __fish_seen_subcommand_from mark unmark" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and not __fish_seen_subcommand_from mark unmark" -f -a "mark" -d 'Mark a CVE as false positive'
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and not __fish_seen_subcommand_from mark unmark" -f -a "unmark" -d 'Remove false-positive marking for a CVE'
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from mark" -l comment -d 'Optional comment' -r
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from mark" -l project-id -d 'Optional project scope' -r
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from mark" -s c -l config -d 'Override configuration file location' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from mark" -s v -l verbose -d 'Increase verbosity (multiple times = more detail)'
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from mark" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from unmark" -s c -l config -d 'Override configuration file location' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from unmark" -s v -l verbose -d 'Increase verbosity (multiple times = more detail)'
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from unmark" -s h -l help -d 'Print help'
-complete -c vlz -n "__fish_vlz_using_subcommand preload" -l provider -d 'Force a particular CVE provider' -r -f -a "osv\t''"
-complete -c vlz -n "__fish_vlz_using_subcommand preload" -l parallel -d 'Parallel query limit (default 10, max 50)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -l provider -d 'Force a particular vulnerability provider' -r -f -a "osv\t''"
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -s j -l parallel -d 'Parallel query limit (default 10, max 50)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand preload" -l parallel-resolutions -d 'Parallel dependency resolution limit (default: CPU count, max 32)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand preload" -l cache-db -d 'Override cache database path' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand preload" -l scan-exclude-dir -d 'Exclude directory name from manifest discovery (repeatable)' -r -f -a "(__fish_complete_directories)"
@@ -140,8 +158,8 @@ complete -c vlz -n "__fish_vlz_using_subcommand preload" -l cache-ttl-secs -d 'D
 complete -c vlz -n "__fish_vlz_using_subcommand preload" -l backoff-base -d 'Base delay in ms for retry backoff (default 100)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand preload" -l backoff-max -d 'Maximum delay in ms for retry backoff (default 30000)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand preload" -l max-retries -d 'Maximum retries for transient errors (default 5)' -r
-complete -c vlz -n "__fish_vlz_using_subcommand preload" -l provider-http-connect-timeout-secs -d 'CVE provider HTTPS connect timeout in seconds (default 15)' -r
-complete -c vlz -n "__fish_vlz_using_subcommand preload" -l provider-http-request-timeout-secs -d 'CVE provider HTTPS total request timeout in seconds (default 120)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -l provider-http-connect-timeout-secs -d 'Vulnerability provider HTTPS connect timeout in seconds (default 15)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -l provider-http-request-timeout-secs -d 'Vulnerability provider HTTPS total request timeout in seconds (default 120)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand preload" -l tls-crl-bundle -d 'PEM file of CRLs for optional Linux TLS certificate revocation (SEC-024)' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand preload" -s c -l config -d 'Override configuration file location' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand preload" -l offline -d 'Disable network access'
@@ -150,8 +168,11 @@ complete -c vlz -n "__fish_vlz_using_subcommand preload" -l keep-ephemeral-venv 
 complete -c vlz -n "__fish_vlz_using_subcommand preload" -l allow-dependency-code-execution -d 'Allow pip to execute dependency build code during resolution (SEC-023)'
 complete -c vlz -n "__fish_vlz_using_subcommand preload" -l allow-direct-only-fallback -d 'Fall back to direct-only resolution with warning when transitive resolution fails (FR-022a)'
 complete -c vlz -n "__fish_vlz_using_subcommand preload" -l fail-fast -d 'Stop on first manifest parse/resolution failure (FR-037)'
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -s v -l verbose -d 'Increase verbosity (multiple times = more detail)'
 complete -c vlz -n "__fish_vlz_using_subcommand preload" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand help" -s c -l config -d 'Override configuration file location' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand help" -s v -l verbose -d 'Increase verbosity (multiple times = more detail)'
 complete -c vlz -n "__fish_vlz_using_subcommand help" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand generate-completions" -s c -l config -d 'Override configuration file location' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand generate-completions" -s v -l verbose -d 'Increase verbosity (multiple times = more detail)'
 complete -c vlz -n "__fish_vlz_using_subcommand generate-completions" -s h -l help -d 'Print help'

@@ -23,7 +23,7 @@ pub enum FinderError {
 /// Language plugins implement this to find manifests for their ecosystem.
 #[async_trait]
 pub trait ManifestFinder: Send + Sync {
-    /// Return the language name (e.g. "python", "java") for `vlz list`.
+    /// Return the language name (e.g. "python", "java") for `vlz languages`.
     fn language_name(&self) -> &str;
 
     /// Return a list of manifest file paths for the given `root`.

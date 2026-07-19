@@ -77,8 +77,8 @@ for dir in "${SBOM_SCAN_EXCLUDE_DIRS[@]}"; do
   scan_args+=(--scan-exclude-dir "${dir}")
 done
 scan_args+=(
-  --summary-file "cyclonedx:${CYCLONEDX_PATH}"
-  --summary-file "spdx:${SPDX_PATH}"
+  --report "cyclonedx:${CYCLONEDX_PATH}"
+  --report "spdx:${SPDX_PATH}"
 )
 
 # SEC-019: component inventory SBOM (deterministic; no network/CVE lookup).

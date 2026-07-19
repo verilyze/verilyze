@@ -31,8 +31,11 @@ _vlz() {
             vlz,help)
                 cmd="vlz__subcmd__help"
                 ;;
+            vlz,languages)
+                cmd="vlz__subcmd__languages"
+                ;;
             vlz,list)
-                cmd="vlz__subcmd__list"
+                cmd="vlz__subcmd__languages"
                 ;;
             vlz,preload)
                 cmd="vlz__subcmd__preload"
@@ -71,7 +74,7 @@ _vlz() {
 
     case "${cmd}" in
         vlz)
-            opts="-v -c -h -V --verbose --config --env-overrides --help --version scan list config db fp preload help generate-completions"
+            opts="-v -c -h -V --verbose --config --env-overrides --help --version scan languages list config db fp preload help generate-completions"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -119,7 +122,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__config)
-            opts="-c -h --list --example --set --config --help"
+            opts="-v -c -h --list --example --set --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -167,7 +170,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__db)
-            opts="-c -h --cache-ttl-secs --config --help stats verify migrate list-providers show set-ttl"
+            opts="-v -c -h --cache-ttl-secs --verbose --config --help stats verify migrate list-providers show set-ttl"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -215,7 +218,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__db__subcmd__list__subcmd__providers)
-            opts="-c -h --config --help"
+            opts="-v -c -h --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -259,7 +262,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__db__subcmd__migrate)
-            opts="-c -h --config --help"
+            opts="-v -c -h --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -303,7 +306,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__db__subcmd__set__subcmd__ttl)
-            opts="-c -h --entry --all --pattern --entries --config --help"
+            opts="-v -c -h --entry --all --pattern --entries --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -359,13 +362,17 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__db__subcmd__show)
-            opts="-c -h --format --full --config --help"
+            opts="-f -v -c -h --format --full --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --format)
+                    COMPREPLY=($(compgen -W "json" -- "${cur}"))
+                    return 0
+                    ;;
+                -f)
                     COMPREPLY=($(compgen -W "json" -- "${cur}"))
                     return 0
                     ;;
@@ -407,7 +414,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__db__subcmd__stats)
-            opts="-c -h --config --help"
+            opts="-v -c -h --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -451,7 +458,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__db__subcmd__verify)
-            opts="-c -h --config --help"
+            opts="-v -c -h --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -495,7 +502,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__fp)
-            opts="-c -h --config --help mark unmark"
+            opts="-v -c -h --verbose --config --help mark unmark"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -539,7 +546,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__fp__subcmd__mark)
-            opts="-c -h --comment --project-id --config --help"
+            opts="-v -c -h --comment --project-id --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -591,7 +598,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__fp__subcmd__unmark)
-            opts="-c -h --config --help"
+            opts="-v -c -h --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -635,7 +642,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__generate__subcmd__completions)
-            opts="-c -h --config --help bash elvish fish powershell zsh"
+            opts="-v -c -h --verbose --config --help bash elvish fish powershell zsh"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -679,7 +686,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__help)
-            opts="-c -h --config --help scan list config db fp preload help generate-completions"
+            opts="-v -c -h --verbose --config --help scan languages list config db fp preload help generate-completions"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -722,8 +729,8 @@ _vlz() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        vlz__subcmd__list)
-            opts="-c -h --config --help"
+        vlz__subcmd__languages)
+            opts="-v -c -h --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -767,7 +774,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__preload)
-            opts="-c -h --provider --parallel --parallel-resolutions --cache-db --scan-exclude-dir --lock-file --cache-ttl-secs --offline --package-manager-required --keep-ephemeral-venv --allow-dependency-code-execution --allow-direct-only-fallback --fail-fast --backoff-base --backoff-max --max-retries --provider-http-connect-timeout-secs --provider-http-request-timeout-secs --tls-crl-bundle --config --help"
+            opts="-j -v -c -h --provider --parallel --parallel-resolutions --cache-db --scan-exclude-dir --lock-file --cache-ttl-secs --offline --package-manager-required --keep-ephemeral-venv --allow-dependency-code-execution --allow-direct-only-fallback --fail-fast --backoff-base --backoff-max --max-retries --provider-http-connect-timeout-secs --provider-http-request-timeout-secs --tls-crl-bundle --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -778,6 +785,10 @@ _vlz() {
                     return 0
                     ;;
                 --parallel)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -j)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -899,7 +910,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__scan)
-            opts="-c -h --format --summary-file --provider --parallel --parallel-resolutions --cache-db --ignore-db --scan-exclude-dir --lock-file --cache-ttl-secs --offline --benchmark --min-score --min-count --exit-code-on-cve --fp-exit-code --project-id --package-manager-required --keep-ephemeral-venv --allow-dependency-code-execution --allow-direct-only-fallback --fail-fast --backoff-base --backoff-max --max-retries --provider-http-connect-timeout-secs --provider-http-request-timeout-secs --tls-crl-bundle --reachability-mode --severity-v2-critical-min --severity-v2-high-min --severity-v2-medium-min --severity-v2-low-min --severity-v3-critical-min --severity-v3-high-min --severity-v3-medium-min --severity-v3-low-min --severity-v4-critical-min --severity-v4-high-min --severity-v4-medium-min --severity-v4-low-min --config --help"
+            opts="-f -o -s -j -v -c -h --format --output --summary-file --report --provider --parallel --parallel-resolutions --cache-db --ignore-db --scan-exclude-dir --lock-file --cache-ttl-secs --offline --benchmark --min-score --min-count --exit-code-on-cve --exit-code --fp-exit-code --project-id --package-manager-required --keep-ephemeral-venv --allow-dependency-code-execution --allow-direct-only-fallback --fail-fast --backoff-base --backoff-max --max-retries --provider-http-connect-timeout-secs --provider-http-request-timeout-secs --tls-crl-bundle --reachability-mode --severity-v2-critical-min --severity-v2-high-min --severity-v2-medium-min --severity-v2-low-min --severity-v3-critical-min --severity-v3-high-min --severity-v3-medium-min --severity-v3-low-min --severity-v4-critical-min --severity-v4-high-min --severity-v4-medium-min --severity-v4-low-min --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -909,7 +920,49 @@ _vlz() {
                     COMPREPLY=($(compgen -W "plain json sarif cyclonedx spdx" -- "${cur}"))
                     return 0
                     ;;
+                -f)
+                    COMPREPLY=($(compgen -W "plain json sarif cyclonedx spdx" -- "${cur}"))
+                    return 0
+                    ;;
+                --output)
+                    local oldifs
+                    if [ -n "${IFS+x}" ]; then
+                        oldifs="$IFS"
+                    fi
+                    IFS=$'\n'
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    if [ -n "${oldifs+x}" ]; then
+                        IFS="$oldifs"
+                    fi
+                    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+                        compopt -o filenames
+                    fi
+                    return 0
+                    ;;
+                -o)
+                    local oldifs
+                    if [ -n "${IFS+x}" ]; then
+                        oldifs="$IFS"
+                    fi
+                    IFS=$'\n'
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    if [ -n "${oldifs+x}" ]; then
+                        IFS="$oldifs"
+                    fi
+                    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+                        compopt -o filenames
+                    fi
+                    return 0
+                    ;;
+                --report)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 --summary-file)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -s)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -918,6 +971,10 @@ _vlz() {
                     return 0
                     ;;
                 --parallel)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -j)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -986,6 +1043,10 @@ _vlz() {
                     return 0
                     ;;
                 --min-count)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --exit-code)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
