@@ -946,7 +946,10 @@ releases](#versioning-and-releases) below.
 - **GitHub Actions (`ci.yml`):** Job `check` runs [`./scripts/run-check.sh`](scripts/run-check.sh)
   (full Makefile gate via `make check` with `--output-sync=target` and `-k` so
   independent targets keep running after a failure; batched failure summary at
-  the end of the log and in the GitHub Actions step summary). Same gates as local
+  the end of the log and in the GitHub Actions step summary, including bounded
+  excerpts from failed commands). Default output is brief: each gate prints
+  `[RUN]` / `[PASS]` / `[FAIL]` via [`scripts/run-check-command.sh`](scripts/run-check-command.sh).
+  Same gates as local
   `make -j check` (headers, `cargo deny`, third-party license file check, fmt,
   Clippy, Python and shell lint, fuzz-changed, coverage-quick). For a single
   failing target during local iteration, run that target directly (e.g.
@@ -1271,12 +1274,22 @@ Stderr can stay as `eprintln!` or `log::error!`.
   (Cobertura). Fork PRs skip that job because the head repo is not the base
   repo.
 - **CI check debug output:** [`scripts/run-check.sh`](scripts/run-check.sh) uses
-  quiet defaults (`RUST_LOG=off`, `RUST_LOG_STYLE=never`, `cargo test --quiet`).
-  For CI-like local runs, use `./scripts/run-check.sh`. **Verbose check mode**
-  (`VLZ_CHECK_VERBOSE=1`): `RUST_LOG=info`, coverage phase markers, pytest `-v`,
-  and full `cargo test` / probe output. Locally:
-  `VLZ_CHECK_VERBOSE=1 ./scripts/run-check.sh`. On GitHub Actions, re-run the
-  workflow with **Enable debug logging**; the `check` job sets
+  brief command-level output by default (`[RUN]` / `[PASS]` / `[FAIL]` per make
+  target via [`scripts/run-check-command.sh`](scripts/run-check-command.sh)),
+  plus quiet log defaults (`RUST_LOG=off`, `RUST_LOG_STYLE=never`,
+  `cargo test --quiet`). Successful tool output is suppressed; failures replay
+  full diagnostics and append bounded excerpts to the failure summary. With
+  Make `--output-sync=target`, each recipe's `[RUN]` and `[PASS]`/`[FAIL]`
+  lines appear together after that target finishes (no mid-run progress for long
+  gates such as `clippy` or `coverage-quick`). For CI-like local runs, use
+  `./scripts/run-check.sh`. New Makefile leaf gates that emit tool chatter
+  should call `MAKE_RUN_LEAF` (see the Makefile comment near that variable);
+  do not wrap `lint-python` at the Make level (per-scanner status is inside
+  [`scripts/lint-python.sh`](scripts/lint-python.sh)). **Verbose check mode**
+  (`VLZ_CHECK_VERBOSE=1`): streams full tool output, sets `RUST_LOG=info`,
+  coverage phase markers, pytest `-v`, and full `cargo test` / probe output.
+  Locally: `VLZ_CHECK_VERBOSE=1 ./scripts/run-check.sh`. On GitHub Actions,
+  re-run the workflow with **Enable debug logging**; the `check` job sets
   `VLZ_CHECK_VERBOSE=1` when `runner.debug` is `1`. Coverage-only verbose:
   `VLZ_COVERAGE_VERBOSE=1 make coverage-quick`. AFL verbose:
   `VLZ_AFL_VERBOSE=1 ./scripts/fuzz.sh` (or `make fuzz`). Debugging a specific

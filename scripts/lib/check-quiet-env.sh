@@ -17,6 +17,14 @@ vlz_check_verbose_enabled() {
   [[ "${VLZ_CHECK_VERBOSE:-}" == "1" || "${VLZ_COVERAGE_VERBOSE:-}" == "1" ]]
 }
 
+# Brief command-level output (default for CI check unless verbose).
+vlz_check_brief_enabled() {
+  if vlz_check_verbose_enabled; then
+    return 1
+  fi
+  [[ "${VLZ_CHECK_BRIEF:-0}" == "1" ]]
+}
+
 # Export RUST_LOG/RUST_LOG_STYLE for cargo test and batch vlz probes.
 # Does not affect eprintln! (e.g. vlz warning: FR-022a).
 vlz_export_check_quiet_log_env() {

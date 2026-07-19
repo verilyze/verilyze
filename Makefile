@@ -12,6 +12,10 @@ REUSE_SCRIPT := $(SCRIPTS_DIR)/ensure-reuse.sh
 COVERAGE_SCRIPT := $(SCRIPTS_DIR)/coverage.sh
 FUZZ_SCRIPT := $(SCRIPTS_DIR)/fuzz.sh
 LINT_PYTHON_SCRIPT := $(SCRIPTS_DIR)/lint-python.sh
+MAKE_RUN_LEAF := $(SCRIPTS_DIR)/lib/make-run-leaf.sh
+# New check-* leaf recipes that print tool output should use MAKE_RUN_LEAF so
+# CI brief mode (VLZ_CHECK_BRIEF=1 via scripts/run-check.sh) suppresses success
+# chatter. Do not wrap lint-python (per-scanner status lives in lint-python.sh).
 VENV_LINT := $(MKFILE_DIR)/.venv-lint
 VENV_REUSE := $(MKFILE_DIR)/.venv-reuse
 VENV_TEST := $(MKFILE_DIR)/.venv-test
@@ -176,26 +180,29 @@ setup-system-deps:
 setup-dev-tools: setup-cargo-deny setup-cargo-about setup-cargo-llvm-cov setup-cargo-afl
 
 setup-cargo-deny:
-	@command -v cargo-deny >/dev/null 2>&1 || cargo install cargo-deny --locked
+	@command -v cargo-deny >/dev/null 2>&1 || \
+		$(MAKE_RUN_LEAF) setup-cargo-deny -- cargo install cargo-deny --locked
 
 setup-cargo-about:
-	@command -v cargo-about >/dev/null 2>&1 || cargo install cargo-about --locked
+	@command -v cargo-about >/dev/null 2>&1 || \
+		$(MAKE_RUN_LEAF) setup-cargo-about -- cargo install cargo-about --locked
 
 setup-cargo-llvm-cov:
 	@command -v cargo-llvm-cov >/dev/null 2>&1 || \
-		cargo install cargo-llvm-cov --locked
+		$(MAKE_RUN_LEAF) setup-cargo-llvm-cov -- cargo install cargo-llvm-cov --locked
 
 setup-cargo-afl:
-	@command -v cargo-afl >/dev/null 2>&1 || cargo install cargo-afl
+	@command -v cargo-afl >/dev/null 2>&1 || \
+		$(MAKE_RUN_LEAF) setup-cargo-afl -- cargo install cargo-afl
 
 # ---- Headers ----
 # check-header-duplicates: verify no duplicate copyright holders per .mailmap (DOC-013)
 check-header-duplicates:
-	cd "$(MKFILE_DIR)" && PYTHONPATH="$(MKFILE_DIR)" python3 $(SCRIPTS_DIR)/check_header_duplicates.py
+	@$(MAKE_RUN_LEAF) check-header-duplicates -- bash -c 'cd "$(MKFILE_DIR)" && PYTHONPATH="$(MKFILE_DIR)" python3 "$(SCRIPTS_DIR)/check_header_duplicates.py"'
 
 # check-headers: verify REUSE compliance + no duplicate copyright holders
 check-headers: check-header-duplicates
-	@$(REUSE_SCRIPT) lint
+	@$(MAKE_RUN_LEAF) check-headers -- "$(REUSE_SCRIPT)" lint
 
 # headers: add headers to covered text files (mutates files)
 headers:
@@ -203,7 +210,7 @@ headers:
 
 # ---- Build ----
 cargo-check:
-	cd "$(MKFILE_DIR)" && cargo check
+	@$(MAKE_RUN_LEAF) cargo-check -- bash -c 'cd "$(MKFILE_DIR)" && cargo check'
 
 # Binary path: use cargo metadata to respect CARGO_TARGET_DIR.
 VLZ_DEBUG := $(shell cd "$(MKFILE_DIR)" && cargo metadata --no-deps --format-version 1 2>/dev/null | \
@@ -240,17 +247,16 @@ completions-release: release
 	cd "$(MKFILE_DIR)" && $(SCRIPTS_DIR)/generate_completions.sh "$(VLZ_RELEASE)"
 
 check-completions: debug
-	@cd "$(MKFILE_DIR)" && git diff --exit-code completions/ || \
-		(echo "Completions out of sync; run make generate-completions and commit." && exit 1)
+	@$(MAKE_RUN_LEAF) check-completions -- bash -c 'cd "$(MKFILE_DIR)" && git diff --exit-code completions/ || (echo "Completions out of sync; run make generate-completions and commit." && exit 1)'
 
 # ---- Tests ----
 cargo-test:
-	@cd "$(MKFILE_DIR)" && \
+	@$(MAKE_RUN_LEAF) cargo-test -- bash -c 'cd "$(MKFILE_DIR)" && \
 	  if [ "$${VLZ_CHECK_VERBOSE:-}" = "1" ]; then \
 	    RUST_LOG=info RUST_LOG_STYLE=auto cargo test --features vlz/testing; \
 	  else \
 	    $(VLZ_QUIET_LOG_ENV) cargo test --features vlz/testing --quiet; \
-	  fi
+	  fi'
 
 # Bootstrap .venv-test with pytest and pytest-cov (NFR-021)
 $(VENV_TEST)/bin/pytest:
@@ -263,8 +269,7 @@ $(VENV_TEST)/bin/pytest:
 	fi
 	rm -rf $(VENV_TEST)
 	@mkdir -p $(PIP_TMPDIR)
-	TMPDIR=$(PIP_TMPDIR) python3 -m venv $(VENV_TEST)
-	cd "$(MKFILE_DIR)" && TMPDIR=$(PIP_TMPDIR) $(VENV_TEST)/bin/pip install ".[dev]"
+	@$(MAKE_RUN_LEAF) venv-test -- bash -c 'TMPDIR="$(PIP_TMPDIR)" python3 -m venv "$(VENV_TEST)" && cd "$(MKFILE_DIR)" && TMPDIR="$(PIP_TMPDIR)" "$(VENV_TEST)/bin/pip" install ".[dev]"'
 
 # Re-run .venv-test health check even when $(VENV_TEST)/bin/pytest exists (stale cache).
 .PHONY: venv-test-ready
@@ -272,7 +277,7 @@ venv-test-ready:
 	@$(MAKE) --always-make $(VENV_TEST)/bin/pytest
 
 test-scripts: venv-test-ready
-	@cd "$(MKFILE_DIR)" && $(VENV_TEST)/bin/python -m pytest tests/scripts/
+	@$(MAKE_RUN_LEAF) test-scripts -- bash -c 'cd "$(MKFILE_DIR)" && $(VENV_TEST)/bin/python -m pytest tests/scripts/'
 
 unit-tests: cargo-test test-scripts
 
@@ -289,8 +294,7 @@ $(VENV_LINT)/bin/black:
 	fi
 	rm -rf $(VENV_LINT)
 	@mkdir -p $(PIP_TMPDIR)
-	TMPDIR=$(PIP_TMPDIR) python3 -m venv $(VENV_LINT)
-	cd "$(MKFILE_DIR)" && TMPDIR=$(PIP_TMPDIR) $(VENV_LINT)/bin/pip install ".[dev]"
+	@$(MAKE_RUN_LEAF) venv-lint -- bash -c 'TMPDIR="$(PIP_TMPDIR)" python3 -m venv "$(VENV_LINT)" && cd "$(MKFILE_DIR)" && TMPDIR="$(PIP_TMPDIR)" "$(VENV_LINT)/bin/pip" install ".[dev]"'
 
 # lint-python: modern-style, black, pylint, mypy, bandit (aggregates failures; NFR-021)
 lint-python: $(VENV_LINT)/bin/black
@@ -299,8 +303,7 @@ lint-python: $(VENV_LINT)/bin/black
 # lint-shell: ShellCheck (NFR-022). Requires shellcheck. Run from scripts/ so
 # shellcheck source= paths in repo scripts resolve; -x follows sourced libs.
 lint-shell:
-	cd "$(SCRIPTS_DIR)" && shellcheck -x *.sh lib/*.sh
-	shellcheck "$(MKFILE_DIR)/completions/vlz.bash"
+	@$(MAKE_RUN_LEAF) lint-shell -- bash -c 'cd "$(SCRIPTS_DIR)" && shellcheck -x *.sh lib/*.sh && shellcheck "$(MKFILE_DIR)/completions/vlz.bash"'
 
 # super-linter: Docker slim image; VALIDATE_ALL_CODEBASE=false (changed files only).
 super-linter:
@@ -312,7 +315,7 @@ super-linter-full:
 
 # fmt-check: verify Rust formatting without changes (used by make check)
 fmt-check:
-	cd "$(MKFILE_DIR)" && cargo fmt --check
+	@$(MAKE_RUN_LEAF) fmt-check -- bash -c 'cd "$(MKFILE_DIR)" && cargo fmt --check'
 
 # fmt: auto-format Rust code (run locally; CI uses fmt-check)
 fmt:
@@ -320,21 +323,21 @@ fmt:
 
 # clippy: Rust linter; fail on all warnings (NFR-008)
 clippy:
-	cd "$(MKFILE_DIR)" && RUSTFLAGS="$(RUSTFLAGS) -Dwarnings" cargo clippy --all-targets --all-features
+	@$(MAKE_RUN_LEAF) clippy -- bash -c 'cd "$(MKFILE_DIR)" && RUSTFLAGS="$(RUSTFLAGS) -Dwarnings" cargo clippy --all-targets --all-features'
 
 # ---- Advanced (fuzz, coverage) ----
 # fuzz: AFL smoke test (NFR-020, SEC-017). Requires cargo-afl and AFL++.
 fuzz:
-	$(FUZZ_SCRIPT)
+	@$(MAKE_RUN_LEAF) fuzz -- "$(FUZZ_SCRIPT)"
 
 # fuzz-changed: run only targets whose mapped files changed; skip if none.
 # Does not depend on debug: fuzz.sh resolves targets before AFL bootstrap.
 fuzz-changed:
-	$(FUZZ_SCRIPT) --changed
+	@$(MAKE_RUN_LEAF) fuzz-changed -- "$(FUZZ_SCRIPT)" --changed
 
 # fuzz-extended: run all targets with extended timeout (FUZZ_TIMEOUT=1800 by default).
 fuzz-extended:
-	$(FUZZ_SCRIPT) --extended
+	@$(MAKE_RUN_LEAF) fuzz-extended -- "$(FUZZ_SCRIPT)" --extended
 
 # coverage: Rust + script coverage; runs fuzz first (cargo-llvm-cov + AFL, NFR-012, NFR-020)
 # coverage-quick: same but skips fuzz for faster dev iteration
@@ -343,7 +346,7 @@ coverage: setup fuzz
 	$(COVERAGE_SCRIPT)
 
 coverage-quick: setup
-	$(COVERAGE_SCRIPT)
+	@$(MAKE_RUN_LEAF) coverage-quick -- "$(COVERAGE_SCRIPT)"
 
 coverage-quick-rust: setup
 	VLZ_COVERAGE_SCOPE=rust $(COVERAGE_SCRIPT)
@@ -375,7 +378,7 @@ update-doc-diagrams:
 	python3 $(SCRIPTS_DIR)/embed-diagrams.py README.md CONTRIBUTING.md
 
 check-doc-diagrams:
-	python3 $(SCRIPTS_DIR)/embed-diagrams.py --check README.md CONTRIBUTING.md
+	@$(MAKE_RUN_LEAF) check-doc-diagrams -- python3 "$(SCRIPTS_DIR)/embed-diagrams.py" --check README.md CONTRIBUTING.md
 
 # generate-config-example: produce verilyze.conf.example, docs/configuration.md, man/verilyze.conf.5
 # Uses .venv-test for pytest (generate_config_example uses stdlib tomllib).
@@ -391,12 +394,11 @@ generate-manpages:
 
 # check-manpages: verify CLI man page is in sync (CI/local).
 check-manpages: generate-manpages
-	@cd "$(MKFILE_DIR)" && git diff --exit-code man/vlz.1 || \
-		(echo "man/vlz.1 is out of sync. Run: make generate-manpages" && exit 1)
+	@$(MAKE_RUN_LEAF) check-manpages -- bash -c 'cd "$(MKFILE_DIR)" && git diff --exit-code man/vlz.1 || (echo "man/vlz.1 is out of sync. Run: make generate-manpages" && exit 1)'
 
 # check-config-docs: verify config docs are in sync (CI)
 check-config-docs: debug $(VENV_TEST)/bin/pytest
-	$(VENV_TEST)/bin/python $(SCRIPTS_DIR)/generate_config_example.py --check
+	@$(MAKE_RUN_LEAF) check-config-docs -- "$(VENV_TEST)/bin/python" "$(SCRIPTS_DIR)/generate_config_example.py" --check
 
 # generate-packaging: Update APKBUILD and PKGBUILD with version from Cargo.toml.
 # Run after bumping version; required before make apk.
@@ -405,7 +407,7 @@ generate-packaging:
 
 # check-packaging: Verify packaging spec versions match Cargo.toml.
 check-packaging: check-rpm-spec-sync
-	python3 $(SCRIPTS_DIR)/generate_packaging_versions.py --check
+	@$(MAKE_RUN_LEAF) check-packaging -- python3 "$(SCRIPTS_DIR)/generate_packaging_versions.py" --check
 
 # sync-rpm-specs: Regenerate local RPM spec from OBS RPM spec source of truth.
 sync-rpm-specs:
@@ -413,15 +415,15 @@ sync-rpm-specs:
 
 # check-rpm-spec-sync: Ensure local RPM spec is synced from OBS RPM spec.
 check-rpm-spec-sync:
-	python3 $(SCRIPTS_DIR)/sync_rpm_specs.py --check
+	@$(MAKE_RUN_LEAF) check-rpm-spec-sync -- python3 "$(SCRIPTS_DIR)/sync_rpm_specs.py" --check
 
 # check-obs-packaging: Verify OBS packaging metadata consistency.
 check-obs-packaging:
-	$(SCRIPTS_DIR)/check-obs-packaging.sh
+	@$(MAKE_RUN_LEAF) check-obs-packaging -- "$(SCRIPTS_DIR)/check-obs-packaging.sh"
 
 # check-super-linter-native: ENV key order and Checkov skip parity (no Docker).
 check-super-linter-native: venv-test-ready
-	$(SCRIPTS_DIR)/check-super-linter-native.sh
+	@$(MAKE_RUN_LEAF) check-super-linter-native -- "$(SCRIPTS_DIR)/check-super-linter-native.sh"
 
 # check-obs-signing: Verify OBS project signing key metadata.
 check-obs-signing:
@@ -441,11 +443,11 @@ sync-license-config:
 
 # check-license-config: Fail if about.toml accepted is out of sync with deny.toml.
 check-license-config:
-	cd "$(MKFILE_DIR)" && python3 $(SCRIPTS_DIR)/sync_license_config.py --check
+	@$(MAKE_RUN_LEAF) check-license-config -- bash -c 'cd "$(MKFILE_DIR)" && python3 "$(SCRIPTS_DIR)/sync_license_config.py" --check'
 
 # deny-check: dependency policy via deny.toml (NFR-009, SEC-012).
 deny-check:
-	cd "$(MKFILE_DIR)" && $(CARGO_DENY) check
+	@$(MAKE_RUN_LEAF) deny-check -- bash -c 'cd "$(MKFILE_DIR)" && $(CARGO_DENY) check'
 
 # generate-third-party-licenses: Produce THIRD-PARTY-LICENSES for Docker and packages.
 # Syncs license config first, then runs cargo-about (scripts/generate-third-party-
@@ -459,9 +461,7 @@ generate-third-party-licenses-docker:
 
 # check-third-party-licenses: Regenerate THIRD-PARTY-LICENSES and fail if it differs from committed.
 check-third-party-licenses:
-	$(SCRIPTS_DIR)/generate-third-party-licenses.sh
-	@cd "$(MKFILE_DIR)" && git diff --exit-code THIRD-PARTY-LICENSES || \
-		(echo "THIRD-PARTY-LICENSES is out of sync. Run: make generate-third-party-licenses" && exit 1)
+	@$(MAKE_RUN_LEAF) check-third-party-licenses -- bash -c '$(SCRIPTS_DIR)/generate-third-party-licenses.sh && cd "$(MKFILE_DIR)" && git diff --exit-code THIRD-PARTY-LICENSES || (echo "THIRD-PARTY-LICENSES is out of sync. Run: make generate-third-party-licenses" && exit 1)'
 
 # generate-sbom: Produce CycloneDX + SPDX workspace SBOM via vlz scan (SEC-019).
 generate-sbom: release
@@ -469,13 +469,11 @@ generate-sbom: release
 
 # check-sbom: Regenerate sbom/v1/ and fail if it differs from committed.
 check-sbom: release
-	$(SCRIPTS_DIR)/generate-sbom.sh
-	@cd "$(MKFILE_DIR)" && git diff --exit-code sbom/ || \
-		(echo "sbom/ is out of sync. Run: make generate-sbom" && exit 1)
+	@$(MAKE_RUN_LEAF) check-sbom -- bash -c '$(SCRIPTS_DIR)/generate-sbom.sh && cd "$(MKFILE_DIR)" && git diff --exit-code sbom/ || (echo "sbom/ is out of sync. Run: make generate-sbom" && exit 1)'
 
 # check-report-schema: Validate JSON report schema (DOC-005, NFR-014).
 check-report-schema: debug
-	$(SCRIPTS_DIR)/check-report-schema.sh
+	@$(MAKE_RUN_LEAF) check-report-schema -- "$(SCRIPTS_DIR)/check-report-schema.sh"
 
 # benchmark-gate: NFR-001 performance gate via --benchmark on multi-manifest fixture.
 benchmark-gate: release setup

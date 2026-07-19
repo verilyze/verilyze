@@ -90,7 +90,8 @@ def test_pytest_floor_remediates_cve_2025_71176() -> None:
 def test_makefile_venv_test_installs_from_pyproject_dev_extra() -> None:
     text = (repo_root() / "Makefile").read_text(encoding="utf-8")
     recipe = _makefile_target_recipe(text, "/bin/pytest:")
-    assert 'pip install ".[dev]"' in recipe
+    assert 'install ".[dev]"' in recipe
+    assert "/bin/pip" in recipe or "pip install" in recipe
     assert 'cd "$(MKFILE_DIR)"' in recipe
     assert "pip install pytest" not in recipe
     assert "codespell" in recipe
@@ -104,7 +105,8 @@ def test_makefile_venv_test_installs_from_pyproject_dev_extra() -> None:
 def test_makefile_venv_lint_installs_from_pyproject_dev_extra() -> None:
     text = (repo_root() / "Makefile").read_text(encoding="utf-8")
     recipe = _makefile_target_recipe(text, "/bin/black:")
-    assert 'pip install ".[dev]"' in recipe
+    assert 'install ".[dev]"' in recipe
+    assert "/bin/pip" in recipe or "pip install" in recipe
     assert 'cd "$(MKFILE_DIR)"' in recipe
     assert "pip install black" not in recipe
     assert "codespell" in recipe

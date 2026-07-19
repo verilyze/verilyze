@@ -29,6 +29,7 @@ def test_check_quiet_env_exports_off_and_never() -> None:
     assert "VLZ_QUIET_RUST_LOG_STYLE=never" in text
     assert "VLZ_VERBOSE_RUST_LOG=info" in text
     assert "vlz_check_verbose_enabled" in text
+    assert "vlz_check_brief_enabled" in text
     assert "vlz_apply_check_log_env" in text
 
 
@@ -74,6 +75,9 @@ def test_run_check_sources_check_quiet_env() -> None:
     assert "check-quiet-env.sh" in text
     assert "vlz_apply_check_log_env" in text
     assert "VLZ_CHECK_VERBOSE" in text
+    assert "VLZ_CHECK_BRIEF" in text
+    assert "VLZ_CHECK_RESULTS_DIR" in text
+    assert "check: PASS" in text
     assert "RUST_LOG=error" not in text
 
 
