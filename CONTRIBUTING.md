@@ -891,9 +891,10 @@ Project-scoped Cursor rules, skills, and hooks live under [`.cursor/`](.cursor/)
 **Stop hook:** After each agent turn, the stop hook may auto-submit a follow-up
 only when the agent edited files **this turn** (or when a scoped check failed on
 the previous turn) and required targets have not succeeded yet. It does not
-suggest `make check-fast` on read-only turns. Pending paths clear after all
-scoped checks succeed. The `sessionStart` hook clears edit tracking;
-`afterFileEdit` records agent-edited paths in both pending and per-turn files.
+suggest `make check-pr` or `make check-fast` on read-only turns. Pending paths
+clear after all scoped checks succeed. The `sessionStart` hook clears edit
+tracking; `afterFileEdit` records agent-edited paths in both pending and
+per-turn files.
 
 Hooks opt-out: set `VLZ_CURSOR_HOOKS_DISABLE=1` to skip Cursor hook scripts locally.
 
@@ -911,11 +912,14 @@ releases](#versioning-and-releases) below.
 - If the existing code keeps variables, constants, and imports alphabetized,
   continue with that pattern. Ensure new files use alphabetized variables,
   constants, and imports.
-- Run `make check` before submitting to verify headers, build, tests
-  (`coverage-quick`), fuzz-changed (when relevant), dependency policy
-  (`deny-check`, `cargo deny check`), and linters (fmt-check, clippy,
-  lint-python, lint-shell). Use `make -j check` for faster runs
-  (parallel execution).
+- Run `make check-pr` before opening a PR when production behavior changed
+  (`crates/**`, `scripts/**/*.py` logic). It runs `check-fast` then
+  `coverage-quick` sequentially (cache-dependent cost). For docs/config-only
+  work, `make check-fast` is enough.
+- Run `make check` for full local CI parity (headers, build, tests,
+  `coverage-quick`, fuzz-changed when relevant, dependency policy
+  (`deny-check`, `cargo deny check`), and linters). Use `make -j check` for
+  faster runs (parallel execution).
 - Follow the [Rust Style Guide](https://doc.rust-lang.org/beta/style-guide/index.html).
 - The codebase uses `#![deny(unsafe_code)]`.
 - Run `make fmt` to auto-format Rust code; run `make clippy` to verify lints.
@@ -1008,7 +1012,7 @@ releases](#versioning-and-releases) below.
   The README badge reflects the **nightly** workflow (last full-tree run).
   Locally: `make super-linter` (incremental) or `make super-linter-full` (full
   tree); both call [`scripts/super-linter.sh`](scripts/super-linter.sh) and
-  require Docker. Before opening a PR, `make check-fast` runs
+  require Docker. `make check-fast` (and `make check-pr`) run
   `make check-super-linter-native` (no Docker): OBS env key order, release
   workflow Checkov skip parity, and **codespell** from `.venv-test/bin`
   using [`.codespellrc`](.codespellrc) (same gate as super-linter
@@ -1398,7 +1402,8 @@ cover:
 **Discouraged:** `Path(...).read_text()` plus `assert "some string" in text` on
 non-production files when any of these already apply:
 
-- `make check`, `make check-fast`, `make check-packaging`, `make lint-shell`,
+- `make check`, `make check-fast`, `make check-pr`, `make check-packaging`,
+  `make lint-shell`,
   `make super-linter`
 - Dedicated check scripts (`scripts/check-obs-packaging.sh`, etc.)
 - Schema/linters (ShellCheck, super-linter, Renovate schema)

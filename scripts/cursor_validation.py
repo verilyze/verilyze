@@ -20,6 +20,24 @@ SUPER_LINTER_PATH_RE = re.compile(
 RUST_PATH_RE = re.compile(r"\.rs$")
 PYTHON_SCRIPT_RE = re.compile(r"^(scripts/|tests/scripts/).*\.py$")
 SHELL_SCRIPT_RE = re.compile(r"^scripts/.*\.sh$")
+CARGO_MANIFEST_RE = re.compile(r"(^|/)Cargo\.toml$")
+PYPROJECT_MANIFEST = "pyproject.toml"
+
+
+def touches_cargo_dependency_manifest(paths: list[str]) -> bool:
+    """True when Cargo.toml or Cargo.lock changed."""
+    return any(p == "Cargo.lock" or CARGO_MANIFEST_RE.search(p) for p in paths)
+
+
+def touches_deny_policy(paths: list[str]) -> bool:
+    """True when deny.toml changed."""
+    return "deny.toml" in paths
+
+
+def touches_pyproject_manifest(paths: list[str]) -> bool:
+    """True when pyproject.toml changed."""
+    return PYPROJECT_MANIFEST in paths
+
 
 SESSION_EDIT_PATHS_REL = ".cursor/.agent-edited-paths"
 TURN_EDIT_PATHS_REL = ".cursor/.agent-turn-paths"
@@ -132,11 +150,24 @@ def classify_changed_paths(paths: list[str]) -> list[str]:
             targets.append("make check-manpages")
     if any(p.startswith("packaging/") for p in normalized):
         targets.append("make check-packaging")
-    if any(
-        p in ("Cargo.toml", "deny.toml") or p.endswith("/Cargo.toml")
-        for p in normalized
-    ):
-        targets.append("make deny-check")
+    if touches_cargo_dependency_manifest(normalized):
+        targets.extend(
+            [
+                "make cargo-check-locked",
+                "make deny-check",
+                "make check-third-party-licenses",
+                "make check-sbom",
+            ]
+        )
+    elif touches_deny_policy(normalized):
+        targets.extend(
+            [
+                "make deny-check",
+                "make check-third-party-licenses",
+            ]
+        )
+    if touches_pyproject_manifest(normalized):
+        targets.append("make check-sbom")
     if any(SUPER_LINTER_PATH_RE.search(p) for p in normalized):
         targets.append("make super-linter")
 

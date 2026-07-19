@@ -17,6 +17,7 @@ alwaysApply: false
 |-----------|---------|
 | Single crate | `cargo clippy -p <crate> --all-targets -- -D warnings` |
 | Cross-crate / workspace Cargo.toml | `make clippy` |
-| Before PR | `make check-fast` (includes clippy) |
+| Before PR (production behavior) | `make check-pr` (includes clippy via check-fast) |
+| Before PR (non-behavior) | `make check-fast` (includes clippy) |
 
 Do not run clippy in Cursor hooks.
