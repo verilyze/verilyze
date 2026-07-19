@@ -1563,6 +1563,13 @@
       "version": "2.0.119"
     },
     {
+      "bom-ref": "pkg:cargo/syn@3.0.0",
+      "name": "syn",
+      "purl": "pkg:cargo/syn@3.0.0",
+      "type": "library",
+      "version": "3.0.0"
+    },
+    {
       "bom-ref": "pkg:cargo/sync_wrapper@1.0.2",
       "name": "sync_wrapper",
       "purl": "pkg:cargo/sync_wrapper@1.0.2",

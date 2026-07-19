@@ -1575,6 +1575,13 @@
     },
     {
       "@type": "Package",
+      "name": "syn",
+      "packageUrl": "pkg:cargo/syn@3.0.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-syn-3-0-0",
+      "versionInfo": "3.0.0"
+    },
+    {
+      "@type": "Package",
       "name": "sync_wrapper",
       "packageUrl": "pkg:cargo/sync_wrapper@1.0.2",
       "spdxId": "urn:spdx.dev:pkg-cargo-sync-wrapper-1-0-2",
