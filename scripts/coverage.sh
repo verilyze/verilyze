@@ -148,12 +148,15 @@ _run_rust_coverage() {
     --fail-under-functions "${VLZ_RUST_FAIL_UNDER_FUNCTIONS}" \
     --fail-under-regions "${VLZ_RUST_FAIL_UNDER_REGIONS}" \
     || return 1
-  cargo llvm-cov report --cobertura --output-path \
+  if ! cargo llvm-cov report --cobertura --output-path \
     reports/cobertura-rust.xml \
     --fail-under-lines "${VLZ_RUST_FAIL_UNDER_LINES}" \
     --fail-under-functions "${VLZ_RUST_FAIL_UNDER_FUNCTIONS}" \
-    --fail-under-regions "${VLZ_RUST_FAIL_UNDER_REGIONS}" \
-    || return 1
+    --fail-under-regions "${VLZ_RUST_FAIL_UNDER_REGIONS}"; then
+    echo "ERROR: Rust cobertura report failed or coverage is below threshold:" >&2
+    cargo llvm-cov report --text >&2 || true
+    return 1
+  fi
   return 0
 }
 

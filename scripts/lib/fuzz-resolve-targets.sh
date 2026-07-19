@@ -70,6 +70,7 @@ fuzz_is_release_only_change() {
             CHANGELOG.md | Cargo.toml | Cargo.lock) ;;
             packaging/* | sbom/*) ;;
             scripts/lib/fuzz-resolve-targets.sh) ;;
+            scripts/coverage.sh) ;;
             tests/scripts/test_fuzz_resolve_targets.py) ;;
             Makefile) ;;
             tests/scripts/test_makefile_fuzz_then_coverage.py) ;;
