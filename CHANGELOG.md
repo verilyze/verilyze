@@ -30,6 +30,8 @@ this file **before** creating the release tag.
   paths relative to the scan root; multi-manifest resolve progress on stderr.
 - Release prep pull requests skip the full AFL matrix when only version,
   packaging, and SBOM paths change.
+- `make check` runs fuzz and coverage after parallel gates so llvm-cov does
+  not race other Cargo jobs in CI.
 - Plain reports group additional CVE rows under the same package.
 - Dependency updates: Rust 1.97.1, GitHub Actions, super-linter digest,
   and Python tooling (Renovate).

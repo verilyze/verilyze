@@ -71,6 +71,9 @@ fuzz_is_release_only_change() {
             packaging/* | sbom/*) ;;
             scripts/lib/fuzz-resolve-targets.sh) ;;
             tests/scripts/test_fuzz_resolve_targets.py) ;;
+            Makefile) ;;
+            tests/scripts/test_makefile_fuzz_then_coverage.py) ;;
+            tests/scripts/test_makefile_check_includes_deny.py) ;;
             *) return 1 ;;
         esac
     done

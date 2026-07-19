@@ -115,5 +115,13 @@ def test_ci_fuzz_fix_companion_paths_do_not_trigger_all_fuzz() -> None:
     )
 
 
+def test_makefile_ci_companion_paths_do_not_trigger_all_fuzz() -> None:
+    assert not _trigger_run_all(
+        "Cargo.toml",
+        "Makefile",
+        "tests/scripts/test_makefile_fuzz_then_coverage.py",
+    )
+
+
 def test_cargo_toml_with_crate_change_still_triggers_all_fuzz() -> None:
     assert _trigger_run_all("Cargo.toml", "crates/core/vlz/src/run.rs")
