@@ -107,11 +107,11 @@
       "version": "3.0.11"
     },
     {
-      "bom-ref": "pkg:cargo/anyhow@1.0.103",
+      "bom-ref": "pkg:cargo/anyhow@1.0.104",
       "name": "anyhow",
-      "purl": "pkg:cargo/anyhow@1.0.103",
+      "purl": "pkg:cargo/anyhow@1.0.104",
       "type": "library",
-      "version": "1.0.103"
+      "version": "1.0.104"
     },
     {
       "bom-ref": "pkg:cargo/arrayvec@0.7.7",
@@ -149,11 +149,11 @@
       "version": "2.0.2"
     },
     {
-      "bom-ref": "pkg:cargo/async-trait@0.1.89",
+      "bom-ref": "pkg:cargo/async-trait@0.1.91",
       "name": "async-trait",
-      "purl": "pkg:cargo/async-trait@0.1.89",
+      "purl": "pkg:cargo/async-trait@0.1.91",
       "type": "library",
-      "version": "0.1.89"
+      "version": "0.1.91"
     },
     {
       "bom-ref": "pkg:cargo/atomic-waker@1.1.2",
@@ -1157,18 +1157,18 @@
       "version": "0.10.0"
     },
     {
-      "bom-ref": "pkg:cargo/proc-macro2@1.0.106",
+      "bom-ref": "pkg:cargo/proc-macro2@1.0.107",
       "name": "proc-macro2",
-      "purl": "pkg:cargo/proc-macro2@1.0.106",
+      "purl": "pkg:cargo/proc-macro2@1.0.107",
       "type": "library",
-      "version": "1.0.106"
+      "version": "1.0.107"
     },
     {
-      "bom-ref": "pkg:cargo/quote@1.0.46",
+      "bom-ref": "pkg:cargo/quote@1.0.47",
       "name": "quote",
-      "purl": "pkg:cargo/quote@1.0.46",
+      "purl": "pkg:cargo/quote@1.0.47",
       "type": "library",
-      "version": "1.0.46"
+      "version": "1.0.47"
     },
     {
       "bom-ref": "pkg:cargo/quote-use@0.8.4",
@@ -1437,25 +1437,25 @@
       "version": "1.0.28"
     },
     {
-      "bom-ref": "pkg:cargo/serde@1.0.228",
+      "bom-ref": "pkg:cargo/serde@1.0.229",
       "name": "serde",
-      "purl": "pkg:cargo/serde@1.0.228",
+      "purl": "pkg:cargo/serde@1.0.229",
       "type": "library",
-      "version": "1.0.228"
+      "version": "1.0.229"
     },
     {
-      "bom-ref": "pkg:cargo/serde_core@1.0.228",
+      "bom-ref": "pkg:cargo/serde_core@1.0.229",
       "name": "serde_core",
-      "purl": "pkg:cargo/serde_core@1.0.228",
+      "purl": "pkg:cargo/serde_core@1.0.229",
       "type": "library",
-      "version": "1.0.228"
+      "version": "1.0.229"
     },
     {
-      "bom-ref": "pkg:cargo/serde_derive@1.0.228",
+      "bom-ref": "pkg:cargo/serde_derive@1.0.229",
       "name": "serde_derive",
-      "purl": "pkg:cargo/serde_derive@1.0.228",
+      "purl": "pkg:cargo/serde_derive@1.0.229",
       "type": "library",
-      "version": "1.0.228"
+      "version": "1.0.229"
     },
     {
       "bom-ref": "pkg:cargo/serde_json@1.0.150",
@@ -1563,6 +1563,13 @@
       "version": "2.0.119"
     },
     {
+      "bom-ref": "pkg:cargo/syn@3.0.0",
+      "name": "syn",
+      "purl": "pkg:cargo/syn@3.0.0",
+      "type": "library",
+      "version": "3.0.0"
+    },
+    {
       "bom-ref": "pkg:cargo/sync_wrapper@1.0.2",
       "name": "sync_wrapper",
       "purl": "pkg:cargo/sync_wrapper@1.0.2",
@@ -1619,11 +1626,11 @@
       "version": "1.0.69"
     },
     {
-      "bom-ref": "pkg:cargo/thiserror@2.0.18",
+      "bom-ref": "pkg:cargo/thiserror@2.0.19",
       "name": "thiserror",
-      "purl": "pkg:cargo/thiserror@2.0.18",
+      "purl": "pkg:cargo/thiserror@2.0.19",
       "type": "library",
-      "version": "2.0.18"
+      "version": "2.0.19"
     },
     {
       "bom-ref": "pkg:cargo/thiserror-impl@1.0.69",
@@ -1633,11 +1640,11 @@
       "version": "1.0.69"
     },
     {
-      "bom-ref": "pkg:cargo/thiserror-impl@2.0.18",
+      "bom-ref": "pkg:cargo/thiserror-impl@2.0.19",
       "name": "thiserror-impl",
-      "purl": "pkg:cargo/thiserror-impl@2.0.18",
+      "purl": "pkg:cargo/thiserror-impl@2.0.19",
       "type": "library",
-      "version": "2.0.18"
+      "version": "2.0.19"
     },
     {
       "bom-ref": "pkg:cargo/time@0.3.47",
