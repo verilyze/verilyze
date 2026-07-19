@@ -33,7 +33,7 @@ while (($#)); do
       echo "reachability_mode=$2" >> "{log_path}"
       shift 2
       ;;
-    --summary-file)
+    --report|--summary-file)
       spec="$2"
       target="${{spec#*:}}"
       case "$spec" in
@@ -44,6 +44,10 @@ while (($#)); do
           printf '%s\\n' '{{"version":"2.1.0","$schema":"https://json.schemastore.org/sarif-2.1.0.json","runs":[{{"tool":{{"driver":{{"name":"vlz"}}}},"results":[{{"ruleId":"CVE-TEST-1","locations":[{{"physicalLocation":{{"artifactLocation":{{"uri":"Cargo.toml"}},"region":{{"startLine":3}}}},"properties":{{"location_kind":"declaration"}}}}]}}]}}]}}' > "$target"
           ;;
       esac
+      shift 2
+      ;;
+    --output|-o)
+      printf '%s\\n' '{{"findings":[{{"package":"pkg"}}]}}' > "$2"
       shift 2
       ;;
     *)

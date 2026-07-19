@@ -444,7 +444,8 @@ pub async fn run(args: Cli) -> Result<i32> {
         Commands::Scan {
             root,
             format,
-            summary_file,
+            output,
+            report,
             provider,
             parallel: cli_parallel,
             parallel_resolutions: cli_parallel_resolutions,
@@ -455,7 +456,7 @@ pub async fn run(args: Cli) -> Result<i32> {
             benchmark,
             min_score: cli_min_score,
             min_count: cli_min_count,
-            exit_code_on_cve: cli_exit_code_on_cve,
+            exit_code: cli_exit_code,
             fp_exit_code: cli_fp_exit_code,
             project_id: cli_project_id,
             package_manager_required,
@@ -527,7 +528,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                     benchmark,
                     cli_min_score,
                     cli_min_count,
-                    cli_exit_code_on_cve,
+                    cli_exit_code,
                     cli_fp_exit_code,
                     cli_project_id,
                     package_manager_required,
@@ -567,7 +568,8 @@ pub async fn run(args: Cli) -> Result<i32> {
             let code = run_scan(
                 root,
                 format,
-                summary_file,
+                output,
+                report,
                 provider,
                 effective,
                 args.verbose,
@@ -577,7 +579,7 @@ pub async fn run(args: Cli) -> Result<i32> {
             Ok(code)
         }
 
-        Commands::List => {
+        Commands::Languages => {
             let finders = crate::registry::finders()
                 .lock()
                 .expect("FINDERS lock poisoned");
@@ -1211,10 +1213,12 @@ async fn run_preload(
 }
 
 /// Runs the scan pipeline; returns the exit code to use (0, 1, 3, 4, 86, etc.).
+#[allow(clippy::too_many_arguments)]
 async fn run_scan(
     root: Option<String>,
     format: String,
-    summary_file: Vec<String>,
+    output: Option<String>,
+    report: Vec<String>,
     provider: Option<String>,
     effective: crate::config::EffectiveConfig,
     _verbosity: u8,
@@ -1492,10 +1496,17 @@ async fn run_scan(
         offline_cache_miss,
         provider_fetch_failed,
     };
-    reporter
-        .render(&report_data)
-        .await
-        .context("Failed while rendering the report")?;
+    if let Some(path) = output.as_deref() {
+        reporter
+            .render_to_path(&report_data, std::path::Path::new(path))
+            .await
+            .context("Failed while writing the primary report")?;
+    } else {
+        reporter
+            .render(&report_data)
+            .await
+            .context("Failed while rendering the report")?;
+    }
 
     if let Some(summary) = crate::scan::format_manifest_failure_summary(
         &report_data.manifest_coverage,
@@ -1525,12 +1536,15 @@ async fn run_scan(
     );
 
     // -----------------------------------------------------------------
-    // j) Emit optional secondary files (FR-008 --summary-file)
+    // j) Emit optional secondary files (FR-008 --report / --summary-file)
     // -----------------------------------------------------------------
-    for spec in summary_file {
+    for spec in report {
         let parts: Vec<_> = spec.splitn(2, ':').collect();
         if parts.len() != 2 {
-            error!("Malformed --summary-file argument: {}", spec);
+            error!(
+                "Malformed --report argument (alias --summary-file): {}",
+                spec
+            );
             continue;
         }
         let (fmt, path) = (parts[0].trim().to_lowercase(), parts[1].trim());

@@ -40,9 +40,9 @@ scan_args=(
   --project-id verilyze-ci
   --provider osv
   --format json
+  --output "${REPORT_JSON}"
   --reachability-mode "${VLZ_REACHABILITY_MODE}"
-  --summary-file "json:${REPORT_JSON}"
-  --summary-file "sarif:${REPORT_SARIF}"
+  --report "sarif:${REPORT_SARIF}"
 )
 for dir in "${WORKSPACE_SCAN_EXCLUDE_DIRS[@]}"; do
   scan_args+=(--scan-exclude-dir "${dir}")

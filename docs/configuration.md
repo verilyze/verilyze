@@ -43,7 +43,7 @@ flowchart TD
 | cache_ttl_secs | integer | 432000 | `VLZ_CACHE_TTL_SECS` | `--cache-ttl-secs` |
 | min_score | float | 0 | `VLZ_MIN_SCORE` | `--min-score` |
 | min_count | integer | 0 | `VLZ_MIN_COUNT` | `--min-count` |
-| exit_code_on_cve | integer | 86 | `VLZ_EXIT_CODE_ON_CVE` | `--exit-code-on-cve` |
+| exit_code_on_cve | integer | 86 | `VLZ_EXIT_CODE_ON_CVE` | `--exit-code` |
 | fp_exit_code | integer | 0 | `VLZ_FP_EXIT_CODE` | `--fp-exit-code` |
 | project_id | string |  | `VLZ_PROJECT_ID` | `--project-id` |
 | backoff_base_ms | integer | 100 | `VLZ_BACKOFF_BASE_MS` | `--backoff-base` |

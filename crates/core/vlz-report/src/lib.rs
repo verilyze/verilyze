@@ -481,7 +481,7 @@ impl ReportData {
 
 #[async_trait]
 pub trait Reporter: Send + Sync {
-    /// Render the report to the given writer (used for stdout and --summary-file).
+    /// Render the report to the given writer (used for stdout and --report).
     async fn render_to_writer(
         &self,
         data: &ReportData,
@@ -496,7 +496,7 @@ pub trait Reporter: Send + Sync {
         Ok(())
     }
 
-    /// Render the report to a file (FR-008 --summary-file).
+    /// Render the report to a file (FR-008 --report / --summary-file).
     async fn render_to_path(
         &self,
         data: &ReportData,
@@ -692,7 +692,7 @@ impl Reporter for JsonReporter {
     }
 }
 
-/// Reporter that outputs a minimal HTML table (FR-008 --summary-file html:path).
+/// Reporter that outputs a minimal HTML table (FR-008 --report html:path).
 #[derive(Debug, Default)]
 pub struct HtmlReporter;
 
@@ -800,7 +800,7 @@ fn html_escape(s: &str) -> String {
         .replace('"', "&quot;")
 }
 
-/// Reporter that outputs SARIF 2.1.0 JSON (FR-008 --summary-file sarif:path).
+/// Reporter that outputs SARIF 2.1.0 JSON (FR-008 --report sarif:path).
 #[derive(Debug, Default)]
 pub struct SarifReporter;
 

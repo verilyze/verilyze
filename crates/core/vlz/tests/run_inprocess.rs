@@ -118,7 +118,13 @@ fn run_version_subcommand_is_gone() {
 }
 
 #[test]
-fn run_list_exits_0() {
+fn run_languages_exits_0() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| assert_eq!(run_async(&["languages"]), 0));
+}
+
+#[test]
+fn run_list_alias_exits_0() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| assert_eq!(run_async(&["list"]), 0));
 }
@@ -1880,7 +1886,7 @@ fn run_scan_with_min_count_and_exit_code_on_cve() {
             "--benchmark",
             "--min-count",
             "5",
-            "--exit-code-on-cve",
+            "--exit-code",
             "99",
         ]);
         assert_eq!(code, 0, "no findings so exit 0 despite custom thresholds");
@@ -2003,7 +2009,67 @@ fn run_scan_config_parallel_too_high_exits_2() {
 }
 
 #[test]
-fn run_scan_with_summary_file_exits_0() {
+fn run_scan_with_output_writes_file_not_stdout() {
+    let _ = env_logger::try_init();
+    let dir = tempfile::tempdir().expect("tempdir");
+    let xdg = tempfile::tempdir().expect("tempdir");
+    let root = dir.path().to_str().unwrap();
+    let out_path = dir.path().join("report.json");
+    let out_str = out_path.to_str().unwrap();
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_vlz"))
+        .args([
+            "scan",
+            root,
+            "--offline",
+            "--format",
+            "json",
+            "--output",
+            out_str,
+        ])
+        .env("XDG_CACHE_HOME", xdg.path())
+        .env("XDG_DATA_HOME", xdg.path())
+        .env("XDG_CONFIG_HOME", xdg.path())
+        .output()
+        .expect("spawn vlz");
+    assert_eq!(output.status.code(), Some(0));
+    assert!(
+        output.stdout.is_empty(),
+        "primary report with --output must not print to stdout"
+    );
+    assert!(out_path.is_file(), "output file should exist");
+    let body = std::fs::read_to_string(&out_path).expect("read output");
+    assert!(
+        body.contains("findings"),
+        "output file should contain JSON report"
+    );
+}
+
+#[test]
+fn run_scan_with_report_exits_0() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().to_str().unwrap();
+        let out = dir.path().join("out.json");
+        let out_str = out.to_str().unwrap();
+        let spec = format!("json:{}", out_str);
+        assert_eq!(
+            run_async(&[
+                "scan",
+                root,
+                "--offline",
+                "--benchmark",
+                "--report",
+                &spec,
+            ]),
+            0
+        );
+        assert!(out.exists(), "report file should be created");
+    });
+}
+
+#[test]
+fn run_scan_summary_file_alias_still_works() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -2022,7 +2088,7 @@ fn run_scan_with_summary_file_exits_0() {
             ]),
             0
         );
-        assert!(out.exists(), "summary file should be created");
+        assert!(out.exists(), "summary file alias should still create file");
     });
 }
 

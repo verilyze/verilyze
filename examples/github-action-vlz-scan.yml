@@ -75,7 +75,7 @@ jobs:
             --project-id "${{ github.repository }}" \
             --reachability-mode "${VLZ_REACHABILITY_MODE}" \
             --format sarif \
-            --summary-file "sarif:${{ runner.temp }}/vlz.sarif"
+            --output "${{ runner.temp }}/vlz.sarif"
           scan_exit=$?
           echo "scan_exit=${scan_exit}" >> "${GITHUB_OUTPUT}"
           exit "${scan_exit}"
@@ -131,8 +131,9 @@ jobs:
             --project-id "${{ github.repository }}" \
             --provider osv \
             --reachability-mode "${VLZ_REACHABILITY_MODE}" \
-            --summary-file "json:${REPORT_JSON}" \
-            --summary-file "sarif:${REPORT_SARIF}"
+            --format json \
+            --output "${REPORT_JSON}" \
+            --report "sarif:${REPORT_SARIF}"
           scan_exit=$?
           echo "scan_exit=${scan_exit}" >> "${GITHUB_OUTPUT}"
           exit "${scan_exit}"
