@@ -5,6 +5,9 @@
 ---
 # Supply-chain trust checks: workspace SBOM freshness (SEC-019) and verilyze
 # self-scan with live CVE lookup (SEC-015).
+#
+# Code Scanning upload (category verilyze-sca) runs on same-repo pull_request
+# only. Nightly verilyze.yml owns main-branch uploads; fork PRs stay artifact-only.
 
 name: Supply chain
 
@@ -22,6 +25,9 @@ on:
       - scripts/ci-install-vlz-release.sh
       - scripts/lib/ci-install-vlz-release-common.sh
       - scripts/lib/workspace-scan-excludes.sh
+      - scripts/lib/ci-verilyze-scan-metrics.sh
+      - scripts/ci-verify-vlz-release-version.sh
+      - .github/workflows/supply-chain.yml
   pull_request:
     branches: [main]
     paths:
@@ -35,6 +41,9 @@ on:
       - scripts/ci-install-vlz-release.sh
       - scripts/lib/ci-install-vlz-release-common.sh
       - scripts/lib/workspace-scan-excludes.sh
+      - scripts/lib/ci-verilyze-scan-metrics.sh
+      - scripts/ci-verify-vlz-release-version.sh
+      - .github/workflows/supply-chain.yml
   merge_group:
     types: [checks_requested]
 
@@ -63,6 +72,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -87,6 +97,8 @@ jobs:
         run: make release
 
       - name: Verilyze scan (SEC-015)
+        id: verilyze-scan
+        continue-on-error: true
         env:
           VLZ_BIN: ${{ github.workspace }}/target/release/vlz
           REPORT_JSON: ${{ runner.temp }}/verilyze-report.json
@@ -94,6 +106,10 @@ jobs:
         run: ./scripts/ci-verilyze-scan.sh
 
       - name: Upload verilyze scan reports
+        if: >-
+          always() &&
+          steps.verilyze-scan.outcome != 'cancelled' &&
+          steps.verilyze-scan.outputs.scan_exit != ''
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: verilyze-reports
@@ -101,3 +117,22 @@ jobs:
             ${{ runner.temp }}/verilyze-report.json
             ${{ runner.temp }}/verilyze.sarif
           retention-days: 90
+
+      - name: Upload verilyze SARIF to code scanning
+        if: >-
+          always() &&
+          steps.verilyze-scan.outcome != 'cancelled' &&
+          steps.verilyze-scan.outputs.scan_exit != '' &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4.37.1
+        with:
+          sarif_file: ${{ runner.temp }}/verilyze.sarif
+          category: verilyze-sca
+
+      - name: Enforce scan policy (FR-010)
+        if: >-
+          always() &&
+          steps.verilyze-scan.outputs.scan_exit != '' &&
+          steps.verilyze-scan.outputs.scan_exit != '0'
+        run: exit "${{ steps.verilyze-scan.outputs.scan_exit }}"
