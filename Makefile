@@ -532,6 +532,7 @@ check-slow: setup fuzz-then-coverage
 check: setup
 	@$(MAKE) check-headers
 	@$(MAKE) --output-sync=target -k -j check-parallel
+	@$(MAKE) fuzz-then-coverage
 
 check-parallel: check-doc-diagrams \
        check-config-docs \
@@ -548,8 +549,7 @@ check-parallel: check-doc-diagrams \
        fmt-check \
        clippy \
        lint-python \
-       lint-shell \
-       fuzz-then-coverage
+       lint-shell
 
 # ---- Install ----
 # Optional: install binary, verilyze.conf.example, and man page.

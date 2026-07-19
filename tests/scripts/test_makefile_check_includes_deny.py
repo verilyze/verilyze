@@ -66,12 +66,14 @@ def test_check_serializes_check_headers_before_parallel() -> None:
     text = (repo_root() / "Makefile").read_text(encoding="utf-8")
     assert re.search(
         r"^check: setup\n\t@\$\(MAKE\) check-headers\n"
-        r"\t@\$\(MAKE\) --output-sync=target -k -j check-parallel",
+        r"\t@\$\(MAKE\) --output-sync=target -k -j check-parallel\n"
+        r"\t@\$\(MAKE\) fuzz-then-coverage",
         text,
         re.MULTILINE,
     ), (
         "make check must run check-headers before parallel check-parallel "
-        "(reuse lint races cargo under target/)"
+        "(reuse lint races cargo under target/) and fuzz-then-coverage after "
+        "parallel gates (llvm-cov races other cargo jobs)"
     )
     block = _extract_prerequisite_block(text, "check-parallel")
     tokens = block.replace("\\", " ").split()

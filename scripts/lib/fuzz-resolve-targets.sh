@@ -61,8 +61,31 @@ fuzz_changed_files() {
     printf ''
 }
 
+# Release prep touches these paths only; do not run the full AFL matrix for
+# workspace version bumps (Cargo.toml / Cargo.lock) on pull requests.
+fuzz_is_release_only_change() {
+    local f
+    for f in $1; do
+        case "$f" in
+            CHANGELOG.md | Cargo.toml | Cargo.lock) ;;
+            packaging/* | sbom/*) ;;
+            scripts/lib/fuzz-resolve-targets.sh) ;;
+            scripts/coverage.sh) ;;
+            tests/scripts/test_fuzz_resolve_targets.py) ;;
+            Makefile) ;;
+            tests/scripts/test_makefile_fuzz_then_coverage.py) ;;
+            tests/scripts/test_makefile_check_includes_deny.py) ;;
+            *) return 1 ;;
+        esac
+    done
+    return 0
+}
+
 fuzz_targets_trigger_run_all() {
     local f pat
+    if fuzz_is_release_only_change "$1"; then
+        return 1
+    fi
     for f in $1; do
         for pat in "${FUZZ_SHARED_PATH_PATTERNS[@]}"; do
             if [[ "$f" == "$pat"* ]]; then

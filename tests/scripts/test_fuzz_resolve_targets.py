@@ -75,3 +75,53 @@ def test_resolve_targets_filter() -> None:
     proc = _run_resolve("--targets=config_toml", "--dry-run")
     assert proc.returncode == 0
     assert proc.stdout.strip() == "RUN:config_toml"
+
+
+def _trigger_run_all(*files: str) -> bool:
+    proc = subprocess.run(
+        [
+            "bash",
+            "-c",
+            f"source '{_RESOLVE}'; "
+            'if fuzz_targets_trigger_run_all "$FILES"; then echo ALL; else echo NO; fi',
+        ],
+        cwd=repo_root(),
+        text=True,
+        capture_output=True,
+        check=False,
+        env={**os.environ, "FUZZ_TARGETS_FILE": str(_MAP), "FILES": " ".join(files)},
+    )
+    assert proc.returncode == 0, proc.stderr
+    return proc.stdout.strip() == "ALL"
+
+
+def test_release_only_cargo_toml_does_not_trigger_all_fuzz() -> None:
+    assert not _trigger_run_all("Cargo.toml", "Cargo.lock", "CHANGELOG.md")
+
+
+def test_release_only_packaging_and_sbom_do_not_trigger_all_fuzz() -> None:
+    assert not _trigger_run_all(
+        "packaging/alpine/APKBUILD",
+        "sbom/v1/verilyze.cdx.json",
+        "Cargo.toml",
+    )
+
+
+def test_ci_fuzz_fix_companion_paths_do_not_trigger_all_fuzz() -> None:
+    assert not _trigger_run_all(
+        "Cargo.toml",
+        "scripts/lib/fuzz-resolve-targets.sh",
+        "tests/scripts/test_fuzz_resolve_targets.py",
+    )
+
+
+def test_makefile_ci_companion_paths_do_not_trigger_all_fuzz() -> None:
+    assert not _trigger_run_all(
+        "Cargo.toml",
+        "Makefile",
+        "tests/scripts/test_makefile_fuzz_then_coverage.py",
+    )
+
+
+def test_cargo_toml_with_crate_change_still_triggers_all_fuzz() -> None:
+    assert _trigger_run_all("Cargo.toml", "crates/core/vlz/src/run.rs")

@@ -63,7 +63,11 @@ _run_rust_coverage() {
 
   # Isolate instrumented artifacts from parallel `make -j check` jobs (clippy,
   # cargo-check, release builds) that share the default target/ tree.
-  export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-target/llvm-cov}"
+  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+    export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-target/llvm-cov-${GITHUB_RUN_ID:-ci}}"
+  else
+    export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-target/llvm-cov}"
+  fi
   mkdir -p "${CARGO_TARGET_DIR}"
 
   # Set env for instrumentation; use normal cargo commands per cargo-llvm-cov docs
@@ -143,17 +147,23 @@ _run_rust_coverage() {
 
   # Generate Rust reports (NFR-017: fail if coverage below threshold)
   _vlz_cov_phase "llvm-cov report"
-  cargo llvm-cov report --html --output-dir reports/rust \
+  if ! cargo llvm-cov report --html --output-dir reports/rust \
     --fail-under-lines "${VLZ_RUST_FAIL_UNDER_LINES}" \
     --fail-under-functions "${VLZ_RUST_FAIL_UNDER_FUNCTIONS}" \
-    --fail-under-regions "${VLZ_RUST_FAIL_UNDER_REGIONS}" \
-    || return 1
-  cargo llvm-cov report --cobertura --output-path \
+    --fail-under-regions "${VLZ_RUST_FAIL_UNDER_REGIONS}"; then
+    echo "ERROR: Rust HTML report failed or coverage is below threshold:" >&2
+    cargo llvm-cov report --summary-only >&2 || true
+    return 1
+  fi
+  if ! cargo llvm-cov report --cobertura --output-path \
     reports/cobertura-rust.xml \
     --fail-under-lines "${VLZ_RUST_FAIL_UNDER_LINES}" \
     --fail-under-functions "${VLZ_RUST_FAIL_UNDER_FUNCTIONS}" \
-    --fail-under-regions "${VLZ_RUST_FAIL_UNDER_REGIONS}" \
-    || return 1
+    --fail-under-regions "${VLZ_RUST_FAIL_UNDER_REGIONS}"; then
+    echo "ERROR: Rust cobertura report failed or coverage is below threshold:" >&2
+    cargo llvm-cov report --summary-only >&2 || true
+    return 1
+  fi
   return 0
 }
 
