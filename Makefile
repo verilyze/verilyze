@@ -39,10 +39,10 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: help all debug release
 .PHONY: setup setup-hooks setup-dev-tools setup-system-deps
 .PHONY: setup-cargo-deny setup-cargo-about setup-cargo-llvm-cov setup-cargo-afl
-.PHONY: check check-parallel check-fast check-fast-parallel check-slow check-dco check-signatures
+.PHONY: check check-parallel check-fast check-fast-parallel check-pr check-slow check-dco check-signatures
 .PHONY: check-headers check-header-duplicates headers
 .PHONY: update-doc-diagrams check-doc-diagrams
-.PHONY: cargo-check cargo-test unit-tests test-scripts
+.PHONY: cargo-check cargo-check-locked cargo-test unit-tests test-scripts
 .PHONY: fmt fmt-check clippy
 .PHONY: lint-python lint-shell super-linter super-linter-full
 .PHONY: fuzz fuzz-changed fuzz-extended fuzz-then-coverage coverage coverage-quick
@@ -75,6 +75,7 @@ help:
 	@echo ""
 	@echo "  Quick iteration:"
 	@echo "    make cargo-check - Run cargo check"
+	@echo "    make cargo-check-locked - Run cargo check --locked (dependency manifest changes)"
 	@echo "    make debug       - Build debug binary (after check-headers)"
 	@echo "    make unit-tests  - Run cargo test + script tests"
 	@echo ""
@@ -82,6 +83,7 @@ help:
 	@echo "    make check       - Headers, build, fmt, clippy, cargo-deny, fuzz-changed, coverage-quick, lint"
 	@echo "    make -j check    - Same, faster (runs independent targets in parallel)"
 	@echo "    make check-fast  - Headers, build, fmt, clippy, cargo-deny, lint only (~2-4 min)"
+	@echo "    make check-pr    - check-fast then coverage-quick (production PR gate; sequential)"
 	@echo "    make check-slow  - Fuzz-changed + coverage-quick only (~5-10+ min)"
 	@echo "    make check-dco   - Verify commits have DCO signoff (before push)"
 	@echo "    make check-signatures - Verify commits are signed (before push)"
@@ -215,6 +217,9 @@ headers:
 # ---- Build ----
 cargo-check:
 	@$(MAKE_RUN_LEAF) cargo-check -- bash -c 'cd "$(MKFILE_DIR)" && cargo check'
+
+cargo-check-locked:
+	@$(MAKE_RUN_LEAF) cargo-check-locked -- bash -c 'cd "$(MKFILE_DIR)" && cargo check --locked'
 
 # Binary path: use cargo metadata to respect CARGO_TARGET_DIR.
 VLZ_DEBUG := $(shell cd "$(MKFILE_DIR)" && cargo metadata --no-deps --format-version 1 2>/dev/null | \
@@ -512,6 +517,12 @@ release-notes:
 check-fast: setup
 	@$(MAKE) check-headers
 	@$(MAKE) --output-sync=target -k -j check-fast-parallel
+
+# check-pr: production behavior PR gate. Sequential sub-makes so `make -j check-pr`
+# does not run check-fast and coverage-quick in parallel against shared target/.
+check-pr:
+	@$(MAKE) check-fast
+	@$(MAKE) coverage-quick
 
 check-fast-parallel: check-doc-diagrams \
             check-config-docs \

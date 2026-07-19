@@ -62,6 +62,25 @@ contributors may use TDD but it remains **preferred**, not required (see
 CONTRIBUTING.md). Exceptions for AI: documentation-only, comment/typo fixes, or
 changes that do not affect observable behavior.
 
+## Pre-merge validation
+
+Before commit, push, or opening a PR, run the minimal local gates for what
+changed. Full path-to-target matrix:
+[`.cursor/skills/pre-merge-check/targets.md`](.cursor/skills/pre-merge-check/targets.md).
+
+1. After edits: path-scoped `make` targets from that matrix
+2. Production behavior (`crates/**`, `scripts/**/*.py` logic): `make check-pr`
+   before declaring PR-ready
+3. Non-behavior docs/config-only work: `make check-fast` before declaring
+   PR-ready
+4. Super-linter paths touched: `make super-linter` must exit 0 (Docker)
+5. Dependency manifests (`Cargo.toml`, `Cargo.lock`, `pyproject.toml`): targeted
+   deny, locked Cargo check, license, and SBOM gates from the matrix
+6. Human-only: signed commits + DCO (`make setup-hooks` recommended)
+
+`make check-pr` runs `check-fast` then `coverage-quick` sequentially
+(cache-dependent cost). Full CI parity: `make -j check`.
+
 ## Conventions
 
 - **TDD:** Strict for production Rust and Python script logic; use make/lint
@@ -110,6 +129,7 @@ changes that do not affect observable behavior.
 | Config documentation | CONTRIBUTING "Adding or updating configuration keys"; `make generate-config-example` |
 | Commit messages      | CONTRIBUTING "Commit messages"                           |
 | TDD / test scope     | [CONTRIBUTING.md -- Test scope and layering](CONTRIBUTING.md#test-scope-and-layering); [TDD](CONTRIBUTING.md#test-driven-development-tdd) |
+| Pre-merge validation | This file "Pre-merge validation"; [targets.md](.cursor/skills/pre-merge-check/targets.md) |
 | Security             | PRD section 6 (SEC-*), section 11 (Risk & Threat Model); [SECURITY.md](SECURITY.md); [COMPLIANCE.md](COMPLIANCE.md) |
 | OpenSSF Best Practices | [bestpractices.dev](https://www.bestpractices.dev/en/projects/12361) |
 | Copyright duplicates | `make check-header-duplicates`; CONTRIBUTING "Copyright and licensing"; `.mailmap` |

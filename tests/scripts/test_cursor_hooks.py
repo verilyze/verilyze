@@ -147,9 +147,30 @@ class TestClassifyChangedPaths:
         assert "make check-config-docs" in targets
         assert "make check-manpages" in targets
 
-    def test_cargo_toml_triggers_deny_check(self) -> None:
+    def test_cargo_toml_triggers_dependency_gates(self) -> None:
         targets = cursor_validation.classify_changed_paths(["Cargo.toml"])
-        assert targets == ["make deny-check"]
+        assert "make cargo-check-locked" in targets
+        assert "make deny-check" in targets
+        assert "make check-third-party-licenses" in targets
+        assert "make check-sbom" in targets
+
+    def test_cargo_lock_triggers_dependency_gates(self) -> None:
+        targets = cursor_validation.classify_changed_paths(["Cargo.lock"])
+        assert "make cargo-check-locked" in targets
+        assert "make deny-check" in targets
+        assert "make check-third-party-licenses" in targets
+        assert "make check-sbom" in targets
+
+    def test_deny_toml_triggers_policy_gates(self) -> None:
+        targets = cursor_validation.classify_changed_paths(["deny.toml"])
+        assert targets == [
+            "make deny-check",
+            "make check-third-party-licenses",
+        ]
+
+    def test_pyproject_triggers_check_sbom(self) -> None:
+        targets = cursor_validation.classify_changed_paths(["pyproject.toml"])
+        assert targets == ["make check-sbom"]
 
 
 class TestNeedsSuperLinter:

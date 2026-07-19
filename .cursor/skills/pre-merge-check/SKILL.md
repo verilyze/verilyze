@@ -18,11 +18,14 @@ session. See [agent-workflow.mdc](../../rules/agent-workflow.mdc).
 2. Classify paths from session edits and git diff (`origin/main...HEAD`)
 3. Run the **minimal** target set from [targets.md](targets.md) (not blind `make check`)
 4. On failure, fix and re-run only the failed gate
-5. Behavior changed: `make coverage-quick` (Rust: 85% line/region, 80% function;
-   scripts: 95% line aggregate and per module) but attempt to reach as close as
-   reasonably possible to 100%
-6. Before push/PR with code changes: `make check-fast` (must exit 0)
+5. Production behavior changed: `make check-pr` (Rust: 85% line/region, 80%
+   function; scripts: 95% line aggregate and per module via `coverage-quick`)
+6. Non-behavior changes before push/PR: `make check-fast` (must exit 0)
 7. Remind human-only steps: signed commits, DCO, `git push`
+
+Run `make check-pr` when the user asks to commit, push, open a PR, or assess
+merge readiness on production logic changes. Do not auto-run it from the stop
+hook.
 
 ## Super-linter
 
@@ -42,7 +45,8 @@ When `.rs` files changed:
 
 - Single crate: `cargo clippy -p <crate> --all-targets -- -D warnings`
 - Cross-crate: `make clippy`
-- Before PR: rely on `make check-fast` unless only Rust gates are needed
+- Before PR: rely on `make check-pr` for production behavior; `make check-fast`
+  for non-behavior changes
 
 ## CI failure on existing PR
 
