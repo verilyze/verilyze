@@ -9,6 +9,8 @@ use clap::Parser;
 pub mod cache_warm;
 pub mod cli;
 pub mod cli_values;
+#[cfg(feature = "completions")]
+pub mod completion;
 pub mod config;
 pub mod config_example;
 pub mod package_resolve;

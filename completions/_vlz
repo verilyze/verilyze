@@ -41,7 +41,6 @@ _arguments "${_arguments_options[@]}" : \
 '--output=[Write primary report to file instead of stdout]:PATH:_files' \
 '*-s+[Write additional report files\: e.g. html\:/tmp/out.html,cyclonedx\:/tmp/sbom.json]:TYPE:PATH:_default' \
 '*--report=[Write additional report files\: e.g. html\:/tmp/out.html,cyclonedx\:/tmp/sbom.json]:TYPE:PATH:_default' \
-'*--summary-file=[Write additional report files\: e.g. html\:/tmp/out.html,cyclonedx\:/tmp/sbom.json]:TYPE:PATH:_default' \
 '--provider=[Force a particular vulnerability provider]:PROVIDER:(osv)' \
 '-j+[Parallel query limit (default 10, max 50)]:PARALLEL:_default' \
 '--parallel=[Parallel query limit (default 10, max 50)]:PARALLEL:_default' \
@@ -54,7 +53,6 @@ _arguments "${_arguments_options[@]}" : \
 '--min-score=[Minimum CVSS score to count toward exit code]:SCORE:_default' \
 '--min-count=[Minimum count of CVEs meeting min-score to trigger CVE exit code (0 = any)]:N:_default' \
 '--exit-code=[Exit code when vulnerabilities meet threshold (default 86)]:CODE:_default' \
-'--exit-code-on-cve=[Exit code when vulnerabilities meet threshold (default 86)]:CODE:_default' \
 '--fp-exit-code=[Exit code when only false-positives are present (default 0)]:CODE:_default' \
 '--project-id=[Project ID for false-positive scoping (FR-015); only FPs for this project or global apply]:ID:_default' \
 '--backoff-base=[Base delay in ms for retry backoff (default 100)]:MS:_default' \
@@ -93,16 +91,6 @@ _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (languages)
-_arguments "${_arguments_options[@]}" : \
-'-c+[Override configuration file location]:PATH:_files' \
-'--config=[Override configuration file location]:PATH:_files' \
-'*-v[Increase verbosity (multiple times = more detail)]' \
-'*--verbose[Increase verbosity (multiple times = more detail)]' \
-'-h[Print help]' \
-'--help[Print help]' \
-&& ret=0
-;;
-(list)
 _arguments "${_arguments_options[@]}" : \
 '-c+[Override configuration file location]:PATH:_files' \
 '--config=[Override configuration file location]:PATH:_files' \
@@ -301,7 +289,7 @@ _arguments "${_arguments_options[@]}" : \
 '*--verbose[Increase verbosity (multiple times = more detail)]' \
 '-h[Print help]' \
 '--help[Print help]' \
-'::subcommand:(scan languages list config db fp preload help generate-completions)' \
+'::subcommand:(scan languages config db fp preload help generate-completions)' \
 && ret=0
 ;;
 (generate-completions)
@@ -325,7 +313,6 @@ _vlz_commands() {
     local commands; commands=(
 'scan:Scan project dependencies for known vulnerabilities' \
 'languages:List supported manifest languages' \
-'list:List supported manifest languages' \
 'config:Show or set configuration values' \
 'db:Inspect and maintain the vulnerability cache' \
 'fp:Manage false-positive vulnerability markings' \

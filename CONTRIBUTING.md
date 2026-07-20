@@ -659,7 +659,8 @@ config key:
 3. Run `make generate-config-example` to regenerate `verilyze.conf.example`,
    `docs/configuration.md`, `man/verilyze.conf.5`.
 4. When changing the CLI (subcommands, options), run `make generate-completions`
-   to regenerate shell completions (bash, zsh, fish) in `completions/`.
+   to regenerate shell completions (bash, zsh, fish) in `completions/`, then
+   confirm `make check-completions` passes before commit.
 5. When changing the CLI (subcommands, options), run `make generate-manpages`
    to regenerate `man/vlz.1` used by `vlz help`. The generated manpage SPDX
    header values come from `pyproject.toml` `[tool.vlz-headers]` (`default_*`).

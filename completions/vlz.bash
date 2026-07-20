@@ -34,9 +34,6 @@ _vlz() {
             vlz,languages)
                 cmd="vlz__subcmd__languages"
                 ;;
-            vlz,list)
-                cmd="vlz__subcmd__languages"
-                ;;
             vlz,preload)
                 cmd="vlz__subcmd__preload"
                 ;;
@@ -74,7 +71,7 @@ _vlz() {
 
     case "${cmd}" in
         vlz)
-            opts="-v -c -h -V --verbose --config --env-overrides --help --version scan languages list config db fp preload help generate-completions"
+            opts="-v -c -h -V --verbose --config --env-overrides --help --version scan languages config db fp preload help generate-completions"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -122,7 +119,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__config)
-            opts="-v -c -h --list --example --set --verbose --config --help"
+            opts="-v -c -h --example --set --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -686,7 +683,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__help)
-            opts="-v -c -h --verbose --config --help scan languages list config db fp preload help generate-completions"
+            opts="-v -c -h --verbose --config --help scan languages config db fp preload help generate-completions"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -910,7 +907,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__scan)
-            opts="-f -o -s -j -v -c -h --format --output --summary-file --report --provider --parallel --parallel-resolutions --cache-db --ignore-db --scan-exclude-dir --lock-file --cache-ttl-secs --offline --benchmark --min-score --min-count --exit-code-on-cve --exit-code --fp-exit-code --project-id --package-manager-required --keep-ephemeral-venv --allow-dependency-code-execution --allow-direct-only-fallback --fail-fast --backoff-base --backoff-max --max-retries --provider-http-connect-timeout-secs --provider-http-request-timeout-secs --tls-crl-bundle --reachability-mode --severity-v2-critical-min --severity-v2-high-min --severity-v2-medium-min --severity-v2-low-min --severity-v3-critical-min --severity-v3-high-min --severity-v3-medium-min --severity-v3-low-min --severity-v4-critical-min --severity-v4-high-min --severity-v4-medium-min --severity-v4-low-min --verbose --config --help"
+            opts="-f -o -s -j -v -c -h --format --output --report --provider --parallel --parallel-resolutions --cache-db --ignore-db --scan-exclude-dir --lock-file --cache-ttl-secs --offline --benchmark --min-score --min-count --exit-code --fp-exit-code --project-id --package-manager-required --keep-ephemeral-venv --allow-dependency-code-execution --allow-direct-only-fallback --fail-fast --backoff-base --backoff-max --max-retries --provider-http-connect-timeout-secs --provider-http-request-timeout-secs --tls-crl-bundle --reachability-mode --severity-v2-critical-min --severity-v2-high-min --severity-v2-medium-min --severity-v2-low-min --severity-v3-critical-min --severity-v3-high-min --severity-v3-medium-min --severity-v3-low-min --severity-v4-critical-min --severity-v4-high-min --severity-v4-medium-min --severity-v4-low-min --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -955,10 +952,6 @@ _vlz() {
                     return 0
                     ;;
                 --report)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --summary-file)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -1047,10 +1040,6 @@ _vlz() {
                     return 0
                     ;;
                 --exit-code)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --exit-code-on-cve)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

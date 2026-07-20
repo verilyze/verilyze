@@ -246,12 +246,13 @@ pub async fn run(args: Cli) -> Result<i32> {
     #[cfg(feature = "completions")]
     if let Commands::GenerateCompletions { shell } = &args.cmd {
         let mut cmd = Cli::command();
-        clap_complete::generate(
-            *shell,
-            &mut cmd,
-            "vlz",
-            &mut std::io::stdout(),
-        );
+        let mut buf = Vec::new();
+        clap_complete::generate(*shell, &mut cmd, "vlz", &mut buf);
+        let filtered =
+            crate::completion::filter_completion_output(*shell, &buf);
+        std::io::stdout()
+            .write_all(&filtered)
+            .map_err(|e| anyhow::anyhow!("write completions: {e}"))?;
         return Ok(0);
     }
 
