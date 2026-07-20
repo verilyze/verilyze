@@ -12,6 +12,32 @@ The GitHub Release body is generated from the matching `## [version]` section
 below when you push a `v*` tag (see `.github/workflows/release.yml`). Update
 this file **before** creating the release tag.
 
+## [0.6.0] - 2026-07-20
+
+### Added
+
+- Concurrent Python/Rust/Go manifest resolution when fail-fast and
+  benchmark modes are off, sharing one `parallel_resolutions` semaphore.
+- Scan CLI output refinements: `vlz languages` (alias `list`), primary
+  `--output`/`-o`, canonical `--report`/`-s` (alias `--summary-file`),
+  canonical `--exit-code` (alias `--exit-code-on-cve`), global `-v`, and
+  short flags `-f`/`-j`.
+- CI SARIF upload to GitHub code scanning from nightlies and same-repo
+  pull requests (with fork guard).
+- Local `make check-pr` pre-merge gate (check-fast then coverage-quick).
+
+### Changed
+
+- Shell completions omit deprecated aliases so TAB suggests preferred
+  names; aliases remain accepted at runtime and in `--help`.
+- CI check logs use brief `[RUN]`/`[PASS]`/`[FAIL]` lines with failure
+  replay; quieter recursive make and setup banner behavior.
+
+### Fixed
+
+- Dependency allowlist for syn 3.x pulled by async-trait 0.1.91.
+- Super-linter and scan-exit helpers for SARIF workflow scripts.
+
 ## [0.5.0] - 2026-07-18
 
 ### Added
