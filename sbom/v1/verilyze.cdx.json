@@ -1458,11 +1458,11 @@
       "version": "1.0.229"
     },
     {
-      "bom-ref": "pkg:cargo/serde_json@1.0.150",
+      "bom-ref": "pkg:cargo/serde_json@1.0.151",
       "name": "serde_json",
-      "purl": "pkg:cargo/serde_json@1.0.150",
+      "purl": "pkg:cargo/serde_json@1.0.151",
       "type": "library",
-      "version": "1.0.150"
+      "version": "1.0.151"
     },
     {
       "bom-ref": "pkg:cargo/serde_spanned@1.1.1",
