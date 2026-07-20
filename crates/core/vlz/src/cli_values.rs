@@ -13,6 +13,14 @@ pub const SCAN_OUTPUT_FORMATS: &[&str] =
 /// Output formats for `vlz db show --format`.
 pub const DB_SHOW_FORMATS: &[&str] = &["json"];
 
+/// Deprecated CLI aliases: accepted at runtime and in `--help`, omitted from
+/// shell completions so TAB suggests preferred names only.
+pub const COMPLETION_OMIT_ALIASES: &[&str] = &[
+    "list",             // languages
+    "summary-file",     // --report
+    "exit-code-on-cve", // --exit-code
+];
+
 #[cfg(not(feature = "completions"))]
 const HELP_SUBCOMMANDS_BASE: &[&str] = &[
     "scan",
@@ -154,6 +162,14 @@ mod tests {
         );
         let matches = cmd.try_get_matches_from(["t", value])?;
         Ok(matches.get_one::<String>("subcommand").unwrap().clone())
+    }
+
+    #[test]
+    fn completion_omit_aliases_are_documented() {
+        assert_eq!(
+            COMPLETION_OMIT_ALIASES,
+            &["list", "summary-file", "exit-code-on-cve"]
+        );
     }
 
     #[test]

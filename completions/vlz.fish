@@ -31,7 +31,6 @@ complete -c vlz -n "__fish_vlz_needs_command" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_needs_command" -s V -l version -d 'Print version'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "scan" -d 'Scan project dependencies for known vulnerabilities'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "languages" -d 'List supported manifest languages'
-complete -c vlz -n "__fish_vlz_needs_command" -f -a "list" -d 'List supported manifest languages'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "config" -d 'Show or set configuration values'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "db" -d 'Inspect and maintain the vulnerability cache'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "fp" -d 'Manage false-positive vulnerability markings'
@@ -44,7 +43,7 @@ sarif\t''
 cyclonedx\t''
 spdx\t''"
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -s o -l output -d 'Write primary report to file instead of stdout' -r -F
-complete -c vlz -n "__fish_vlz_using_subcommand scan" -s s -l report -l summary-file -d 'Write additional report files: e.g. html:/tmp/out.html,cyclonedx:/tmp/sbom.json' -r
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -s s -l report -d 'Write additional report files: e.g. html:/tmp/out.html,cyclonedx:/tmp/sbom.json' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l provider -d 'Force a particular vulnerability provider' -r -f -a "osv\t''"
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -s j -l parallel -d 'Parallel query limit (default 10, max 50)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l parallel-resolutions -d 'Parallel dependency resolution limit (default: CPU count, max 32)' -r
@@ -55,7 +54,7 @@ complete -c vlz -n "__fish_vlz_using_subcommand scan" -l lock-file -d 'Only disc
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l cache-ttl-secs -d 'Default TTL in seconds for new cache entries (default: 432000 = 5 days). Does not change existing entries; use `vlz db set-ttl` to update those' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l min-score -d 'Minimum CVSS score to count toward exit code' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l min-count -d 'Minimum count of CVEs meeting min-score to trigger CVE exit code (0 = any)' -r
-complete -c vlz -n "__fish_vlz_using_subcommand scan" -l exit-code -l exit-code-on-cve -d 'Exit code when vulnerabilities meet threshold (default 86)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l exit-code -d 'Exit code when vulnerabilities meet threshold (default 86)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l fp-exit-code -d 'Exit code when only false-positives are present (default 0)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l project-id -d 'Project ID for false-positive scoping (FR-015); only FPs for this project or global apply' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l backoff-base -d 'Base delay in ms for retry backoff (default 100)' -r
@@ -92,9 +91,6 @@ complete -c vlz -n "__fish_vlz_using_subcommand scan" -s h -l help -d 'Print hel
 complete -c vlz -n "__fish_vlz_using_subcommand languages" -s c -l config -d 'Override configuration file location' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand languages" -s v -l verbose -d 'Increase verbosity (multiple times = more detail)'
 complete -c vlz -n "__fish_vlz_using_subcommand languages" -s h -l help -d 'Print help'
-complete -c vlz -n "__fish_vlz_using_subcommand list" -s c -l config -d 'Override configuration file location' -r -F
-complete -c vlz -n "__fish_vlz_using_subcommand list" -s v -l verbose -d 'Increase verbosity (multiple times = more detail)'
-complete -c vlz -n "__fish_vlz_using_subcommand list" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand config" -l set -d 'Set a key (e.g. python.regex="^requirements\\\\.txt$")' -r
 complete -c vlz -n "__fish_vlz_using_subcommand config" -s c -l config -d 'Override configuration file location' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand config" -l list -d 'List effective configuration values'

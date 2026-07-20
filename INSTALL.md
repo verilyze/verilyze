@@ -315,6 +315,12 @@ Use `--user "$(id -u):$(id -g)"` when the process UID/GID must match the host
 After **`make install`**, completions are installed under `PREFIX` for Bash,
 Zsh, and Fish (see the Makefile `install` target).
 
+After upgrading vlz, reinstall or re-source completions so TAB matches the
+current CLI. Stale completion scripts can look like missing subcommands or
+flags even when the binary is up to date. Prefer regenerating with
+`make generate-completions` (or the `vlz generate-completions` one-liners
+below) and replacing the installed scripts.
+
 If you use a binary without `make install`, generate scripts with
 `vlz generate-completions` and install them in the appropriate directory for
 your shell:

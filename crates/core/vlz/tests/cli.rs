@@ -536,8 +536,13 @@ fn config_invalid_file_verbose_logs_to_stderr() {
 #[cfg(feature = "completions")]
 mod completion_values {
     use super::*;
+    #[cfg(not(feature = "testing"))]
+    use std::fs;
+    #[cfg(not(feature = "testing"))]
+    use std::path::PathBuf;
     use vlz::cli_values::{
-        DB_SHOW_FORMATS, SCAN_OUTPUT_FORMATS, provider_names,
+        COMPLETION_OMIT_ALIASES, DB_SHOW_FORMATS, SCAN_OUTPUT_FORMATS,
+        provider_names,
     };
 
     fn scan_format_bash_word_list() -> String {
@@ -556,14 +561,15 @@ mod completion_values {
         format!("({})", provider_names().join(" "))
     }
 
-    #[test]
-    fn generate_completions_bash_produces_valid_script() {
-        if !vlz_exe_exists() {
-            return;
-        }
+    #[cfg(not(feature = "testing"))]
+    fn completions_dir() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../completions")
+    }
+
+    fn generate(shell: &str) -> String {
         with_isolated_env(|p| {
             let out = Command::new(vlz_exe())
-                .args(["generate-completions", "bash"])
+                .args(["generate-completions", shell])
                 .env("XDG_CACHE_HOME", p)
                 .env("XDG_DATA_HOME", p)
                 .env("XDG_CONFIG_HOME", p)
@@ -572,41 +578,139 @@ mod completion_values {
             assert_eq!(
                 out.status.code(),
                 Some(0),
-                "generate-completions bash"
+                "generate-completions {shell}"
             );
-            let stdout = String::from_utf8_lossy(&out.stdout);
-            assert!(
-                !stdout.is_empty(),
-                "bash completion script must not be empty"
-            );
-            assert!(stdout.contains("vlz"), "script must contain vlz");
-            assert!(
-                stdout.contains("scan"),
-                "script must contain scan subcommand"
-            );
-            assert!(
-                stdout.contains("languages"),
-                "script must contain languages subcommand"
-            );
-            assert!(stdout.contains("list"), "script must contain list alias");
-            let formats = scan_format_bash_word_list();
-            assert!(
-                stdout.contains(&format!("compgen -W \"{formats}\"")),
-                "bash must complete scan --format values"
-            );
-            assert!(
-                stdout.contains(&format!(
-                    "compgen -W \"{}\"",
-                    provider_bash_word_list()
-                )),
-                "bash must complete --provider values"
-            );
-            let db_formats = DB_SHOW_FORMATS.join(" ");
-            assert!(
-                stdout.contains(&format!("compgen -W \"{db_formats}\"")),
-                "bash must complete db show --format values"
-            );
-        });
+            String::from_utf8(out.stdout).expect("utf8 completions")
+        })
+    }
+
+    fn assert_preferred_scan_flags(stdout: &str, shell: &str) {
+        assert!(
+            stdout.contains("languages"),
+            "{shell}: completions must include languages subcommand"
+        );
+        match shell {
+            "bash" | "zsh" => {
+                for flag in
+                    ["-j", "-o", "-s", "--report", "--exit-code", "--format"]
+                {
+                    assert!(
+                        stdout.contains(flag),
+                        "{shell}: completions must include {flag}"
+                    );
+                }
+            }
+            "fish" => {
+                // Fish clap_complete emits `-s j` / `-l report` forms.
+                for token in [
+                    "-s j",
+                    "-s o",
+                    "-s s",
+                    "-l report",
+                    "-l exit-code",
+                    "-l format",
+                ] {
+                    assert!(
+                        stdout.contains(token),
+                        "fish: completions must include {token}"
+                    );
+                }
+            }
+            _ => panic!("unexpected shell {shell}"),
+        }
+    }
+
+    fn assert_omits_deprecated_aliases(stdout: &str, shell: &str) {
+        assert!(
+            !stdout.contains("--summary-file"),
+            "{shell}: must omit --summary-file"
+        );
+        assert!(
+            !stdout.contains("--exit-code-on-cve"),
+            "{shell}: must omit --exit-code-on-cve"
+        );
+        assert!(
+            stdout.contains("list-providers"),
+            "{shell}: must keep list-providers"
+        );
+        match shell {
+            "bash" => {
+                assert!(
+                    !stdout.contains("vlz,list)"),
+                    "bash: must omit vlz,list) dispatch"
+                );
+                // Standalone list token in opts word lists (not list-providers).
+                assert!(
+                    !stdout.contains(" languages list "),
+                    "bash: must omit list from opts"
+                );
+            }
+            "zsh" => {
+                assert!(
+                    !stdout.contains("'list:List"),
+                    "zsh: must omit list subcommand entry"
+                );
+                assert!(
+                    !stdout.contains("(list)"),
+                    "zsh: must omit (list) case arm"
+                );
+            }
+            "fish" => {
+                assert!(
+                    !stdout.contains("-a \"list\""),
+                    "fish: must omit -a \"list\""
+                );
+                assert!(
+                    !stdout.contains("-l summary-file"),
+                    "fish: must omit -l summary-file"
+                );
+                assert!(
+                    !stdout.contains("-l exit-code-on-cve"),
+                    "fish: must omit -l exit-code-on-cve"
+                );
+            }
+            _ => panic!("unexpected shell {shell}"),
+        }
+        // Sanity: constant stays the source of omitted names.
+        assert!(COMPLETION_OMIT_ALIASES.contains(&"list"));
+        assert!(COMPLETION_OMIT_ALIASES.contains(&"summary-file"));
+        assert!(COMPLETION_OMIT_ALIASES.contains(&"exit-code-on-cve"));
+    }
+
+    #[test]
+    fn generate_completions_bash_produces_valid_script() {
+        if !vlz_exe_exists() {
+            return;
+        }
+        let stdout = generate("bash");
+        assert!(
+            !stdout.is_empty(),
+            "bash completion script must not be empty"
+        );
+        assert!(stdout.contains("vlz"), "script must contain vlz");
+        assert!(
+            stdout.contains("scan"),
+            "script must contain scan subcommand"
+        );
+        assert_preferred_scan_flags(&stdout, "bash");
+        assert_omits_deprecated_aliases(&stdout, "bash");
+        let formats = scan_format_bash_word_list();
+        assert!(
+            stdout.contains(&format!("compgen -W \"{formats}\"")),
+            "bash must complete scan --format values"
+        );
+        assert!(
+            stdout.contains(&format!(
+                "compgen -W \"{}\"",
+                provider_bash_word_list()
+            )),
+            "bash must complete --provider values"
+        );
+        let db_formats = DB_SHOW_FORMATS.join(" ");
+        assert!(
+            stdout.contains(&format!("compgen -W \"{db_formats}\"")),
+            "bash must complete db show --format values"
+        );
     }
 
     #[test]
@@ -614,43 +718,27 @@ mod completion_values {
         if !vlz_exe_exists() {
             return;
         }
-        with_isolated_env(|p| {
-            let out = Command::new(vlz_exe())
-                .args(["generate-completions", "zsh"])
-                .env("XDG_CACHE_HOME", p)
-                .env("XDG_DATA_HOME", p)
-                .env("XDG_CONFIG_HOME", p)
-                .output()
-                .expect("run vlz");
-            assert_eq!(out.status.code(), Some(0), "generate-completions zsh");
-            let stdout = String::from_utf8_lossy(&out.stdout);
-            assert!(
-                !stdout.is_empty(),
-                "zsh completion script must not be empty"
-            );
-            assert!(stdout.contains("vlz"), "script must contain vlz");
-            assert!(
-                stdout.contains("scan"),
-                "script must contain scan subcommand"
-            );
-            assert!(
-                stdout.contains("languages"),
-                "script must contain languages subcommand"
-            );
-            assert!(stdout.contains("list"), "script must contain list alias");
-            let choices = scan_format_zsh_choices();
-            assert!(
-                stdout.contains(&format!(":FORMAT:{choices}")),
-                "zsh must complete scan --format values"
-            );
-            assert!(
-                stdout.contains(&format!(
-                    ":PROVIDER:{}",
-                    provider_zsh_choices()
-                )),
-                "zsh must complete --provider values"
-            );
-        });
+        let stdout = generate("zsh");
+        assert!(
+            !stdout.is_empty(),
+            "zsh completion script must not be empty"
+        );
+        assert!(stdout.contains("vlz"), "script must contain vlz");
+        assert!(
+            stdout.contains("scan"),
+            "script must contain scan subcommand"
+        );
+        assert_preferred_scan_flags(&stdout, "zsh");
+        assert_omits_deprecated_aliases(&stdout, "zsh");
+        let choices = scan_format_zsh_choices();
+        assert!(
+            stdout.contains(&format!(":FORMAT:{choices}")),
+            "zsh must complete scan --format values"
+        );
+        assert!(
+            stdout.contains(&format!(":PROVIDER:{}", provider_zsh_choices())),
+            "zsh must complete --provider values"
+        );
     }
 
     #[test]
@@ -658,42 +746,49 @@ mod completion_values {
         if !vlz_exe_exists() {
             return;
         }
-        with_isolated_env(|p| {
-            let out = Command::new(vlz_exe())
-                .args(["generate-completions", "fish"])
-                .env("XDG_CACHE_HOME", p)
-                .env("XDG_DATA_HOME", p)
-                .env("XDG_CONFIG_HOME", p)
-                .output()
-                .expect("run vlz");
+        let stdout = generate("fish");
+        assert!(
+            !stdout.is_empty(),
+            "fish completion script must not be empty"
+        );
+        assert!(stdout.contains("vlz"), "script must contain vlz");
+        assert!(
+            stdout.contains("scan"),
+            "script must contain scan subcommand"
+        );
+        assert_preferred_scan_flags(&stdout, "fish");
+        assert_omits_deprecated_aliases(&stdout, "fish");
+        assert!(
+            stdout.contains("-a \"plain"),
+            "fish must complete scan --format with plain"
+        );
+        assert!(
+            stdout.contains("-a \"osv"),
+            "fish must complete --provider with osv"
+        );
+    }
+
+    /// Exact sync against committed scripts (default-feature provider list).
+    /// Skipped when `testing` is enabled: mock providers change `--provider`
+    /// completions. Use `make check-completions` for default-build sync.
+    #[cfg(not(feature = "testing"))]
+    #[test]
+    fn generate_completions_match_committed_scripts() {
+        if !vlz_exe_exists() {
+            return;
+        }
+        let dir = completions_dir();
+        for (shell, filename) in
+            [("bash", "vlz.bash"), ("zsh", "_vlz"), ("fish", "vlz.fish")]
+        {
+            let generated = generate(shell);
+            let path = dir.join(filename);
+            let committed = fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
             assert_eq!(
-                out.status.code(),
-                Some(0),
-                "generate-completions fish"
+                generated, committed,
+                "completions/{filename} out of sync; run make generate-completions"
             );
-            let stdout = String::from_utf8_lossy(&out.stdout);
-            assert!(
-                !stdout.is_empty(),
-                "fish completion script must not be empty"
-            );
-            assert!(stdout.contains("vlz"), "script must contain vlz");
-            assert!(
-                stdout.contains("scan"),
-                "script must contain scan subcommand"
-            );
-            assert!(
-                stdout.contains("languages"),
-                "script must contain languages subcommand"
-            );
-            assert!(stdout.contains("list"), "script must contain list alias");
-            assert!(
-                stdout.contains("-a \"plain"),
-                "fish must complete scan --format with plain"
-            );
-            assert!(
-                stdout.contains("-a \"osv"),
-                "fish must complete --provider with osv"
-            );
-        });
+        }
     }
 }
