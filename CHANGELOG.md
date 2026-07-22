@@ -28,7 +28,10 @@ this file **before** creating the release tag.
   regenerate with `make generate-pylock-dev` / Renovate
   `renovate-post-upgrade-sbom.sh`.
 - FR-022 exit-2 message and FAQ/man remediation aligned with lock-first UX.
-
+- FR-022a direct-only warnings: consolidated end-of-scan stderr summary at
+  default verbosity; per-manifest `vlz warning:` lines with `-v` (NFR-013).
+- Default log filter is Warn (`RUST_LOG=warn`); `-v`/`-vv`/`-vvv` map to
+  Info/Debug/Trace. Empty-findings plain text qualifies degraded coverage.
 ## [0.6.0] - 2026-07-20
 
 ### Added

@@ -1706,6 +1706,146 @@ fn run_scan_manifest_failure_summary_on_stderr() {
 
 #[cfg(feature = "python")]
 #[test]
+fn run_scan_direct_only_summary_on_stderr_default_verbosity() {
+    use std::process::Command;
+
+    let _ = env_logger::try_init();
+    let dir = tempfile::tempdir().expect("tempdir");
+    let xdg = dir.path().join("xdg");
+    std::fs::create_dir_all(&xdg).expect("mkdir xdg");
+    let proj = dir.path().join("proj");
+    std::fs::create_dir_all(&proj).expect("mkdir proj");
+    std::fs::write(proj.join("requirements.txt"), "requests==2.28.0\n")
+        .expect("write requirements.txt");
+    let root_str = proj.to_str().unwrap();
+
+    let out = Command::new(env!("CARGO_BIN_EXE_vlz"))
+        .args([
+            "scan",
+            root_str,
+            "--format",
+            "plain",
+            "--offline",
+            "--benchmark",
+            "--allow-direct-only-fallback",
+        ])
+        .env("XDG_CACHE_HOME", xdg.to_str().unwrap())
+        .env("XDG_DATA_HOME", xdg.to_str().unwrap())
+        .env("XDG_CONFIG_HOME", xdg.to_str().unwrap())
+        .env("RUST_LOG", "off")
+        .output()
+        .expect("run vlz");
+
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "stderr={stderr} stdout={stdout}"
+    );
+    assert!(
+        stderr.contains("manifest(s) scanned with direct dependencies only"),
+        "stderr should include direct-only summary; got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("vlz warning: Only direct dependencies were scanned"),
+        "default verbosity should not emit per-manifest vlz warning:; got: {stderr}"
+    );
+    assert!(
+        stdout.contains(
+            "No vulnerabilities found in scanned packages; see manifest coverage for incomplete resolution."
+        ),
+        "plain report should use degraded empty-findings message; got: {stdout}"
+    );
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_direct_only_per_manifest_warning_with_verbose() {
+    use std::process::Command;
+
+    let _ = env_logger::try_init();
+    let dir = tempfile::tempdir().expect("tempdir");
+    let xdg = dir.path().join("xdg");
+    std::fs::create_dir_all(&xdg).expect("mkdir xdg");
+    let proj = dir.path().join("proj");
+    std::fs::create_dir_all(&proj).expect("mkdir proj");
+    std::fs::write(proj.join("requirements.txt"), "requests==2.28.0\n")
+        .expect("write requirements.txt");
+    let root_str = proj.to_str().unwrap();
+
+    let out = Command::new(env!("CARGO_BIN_EXE_vlz"))
+        .args([
+            "-v",
+            "scan",
+            root_str,
+            "--format",
+            "json",
+            "--offline",
+            "--benchmark",
+            "--allow-direct-only-fallback",
+        ])
+        .env("XDG_CACHE_HOME", xdg.to_str().unwrap())
+        .env("XDG_DATA_HOME", xdg.to_str().unwrap())
+        .env("XDG_CONFIG_HOME", xdg.to_str().unwrap())
+        .output()
+        .expect("run vlz");
+
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(0), "stderr={stderr}");
+    assert!(
+        stderr.contains("manifest(s) scanned with direct dependencies only"),
+        "stderr should include direct-only summary; got: {stderr}"
+    );
+    assert!(
+        stderr.contains("vlz warning: Only direct dependencies were scanned"),
+        "verbose mode should emit per-manifest vlz warning:; got: {stderr}"
+    );
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_preload_direct_only_summary_when_blocking_zero() {
+    use std::process::Command;
+
+    let _ = env_logger::try_init();
+    let dir = tempfile::tempdir().expect("tempdir");
+    let xdg = dir.path().join("xdg");
+    std::fs::create_dir_all(&xdg).expect("mkdir xdg");
+    let proj = dir.path().join("proj");
+    std::fs::create_dir_all(&proj).expect("mkdir proj");
+    std::fs::write(proj.join("requirements.txt"), "requests==2.28.0\n")
+        .expect("write requirements.txt");
+    let root_str = proj.to_str().unwrap();
+
+    let out = Command::new(env!("CARGO_BIN_EXE_vlz"))
+        .args([
+            "preload",
+            root_str,
+            "--offline",
+            "--allow-direct-only-fallback",
+        ])
+        .env("XDG_CACHE_HOME", xdg.to_str().unwrap())
+        .env("XDG_DATA_HOME", xdg.to_str().unwrap())
+        .env("XDG_CONFIG_HOME", xdg.to_str().unwrap())
+        .env("RUST_LOG", "off")
+        .output()
+        .expect("run vlz");
+
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    // Offline preload with packages may exit 4 (cache miss); summary must still appear.
+    assert!(
+        stderr.contains("manifest(s) scanned with direct dependencies only"),
+        "preload stderr should include direct-only summary even when blocking==0; got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("vlz warning: Only direct dependencies were scanned"),
+        "default preload should not emit per-manifest vlz warning:; got: {stderr}"
+    );
+}
+
+#[cfg(feature = "python")]
+#[test]
 fn run_scan_json_includes_manifest_coverage() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {

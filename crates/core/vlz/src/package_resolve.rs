@@ -399,7 +399,6 @@ struct OutcomeSink<'a> {
     packages_with_manifests: &'a mut Vec<(Package, PathBuf, String)>,
     pkg_declarations:
         &'a mut HashMap<Package, Vec<vlz_db::PackageDeclarationLocation>>,
-    direct_only_warned: &'a mut HashSet<(PathBuf, &'static str)>,
     multi_lock_warned: &'a mut HashSet<PathBuf>,
     manifest_coverage: &'a mut Vec<ManifestCoverageEntry>,
 }
@@ -424,21 +423,6 @@ fn apply_language_outcomes(
                         &resolved,
                     ),
                 );
-                if resolved.depth
-                    == vlz_manifest_parser::ResolutionDepth::DirectOnly
-                    && let Some(reason) = resolved.direct_only_reason
-                    && sink
-                        .direct_only_warned
-                        .insert((manifest_path.clone(), reason))
-                {
-                    eprintln!(
-                        "{}",
-                        vlz_manifest_parser::format_direct_only_warning(
-                            &manifest_path.display().to_string(),
-                            reason,
-                        )
-                    );
-                }
                 if resolved.resolved_lock_paths.len() > 1
                     && let Some(dir) = manifest_path.parent()
                     && sink.multi_lock_warned.insert(dir.to_path_buf())
@@ -701,8 +685,6 @@ pub(crate) async fn resolve_packages_with_plugins(
         Package,
         Vec<vlz_db::PackageDeclarationLocation>,
     > = HashMap::new();
-    let mut direct_only_warned: HashSet<(PathBuf, &'static str)> =
-        HashSet::new();
     let mut multi_lock_warned: HashSet<PathBuf> = HashSet::new();
     let mut manifest_coverage: Vec<ManifestCoverageEntry> = Vec::new();
     let mut skip_cve_phase = false;
@@ -785,7 +767,6 @@ pub(crate) async fn resolve_packages_with_plugins(
             effective,
             packages_with_manifests: &mut packages_with_manifests,
             pkg_declarations: &mut pkg_declarations,
-            direct_only_warned: &mut direct_only_warned,
             multi_lock_warned: &mut multi_lock_warned,
             manifest_coverage: &mut manifest_coverage,
         };

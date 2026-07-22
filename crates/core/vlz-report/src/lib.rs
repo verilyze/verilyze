@@ -30,6 +30,8 @@ pub const NO_VULNERABILITIES_FOUND_MESSAGE: &str = "No vulnerabilities found.";
 /// Plain/HTML message when findings are empty but analysis did not complete (FR-010).
 pub const SCAN_INCOMPLETE_MESSAGE: &str =
     "Scan incomplete; see manifest coverage and stderr for details.";
+/// Plain/HTML message when findings are empty but some manifests were direct-only (FR-010, FR-022a).
+pub const DEGRADED_COVERAGE_NO_VULNERABILITIES_MESSAGE: &str = "No vulnerabilities found in scanned packages; see manifest coverage for incomplete resolution.";
 
 /// Format a single path relative to scan root when possible (FR-037).
 fn relative_path_string(
@@ -469,10 +471,19 @@ impl ReportData {
                 .any(|e| e.status.is_blocking())
     }
 
+    /// True when any manifest was scanned with direct dependencies only (FR-022a).
+    pub fn has_degraded_coverage(&self) -> bool {
+        self.manifest_coverage
+            .iter()
+            .any(|e| e.status == ManifestScanStatus::ScannedDirectOnly)
+    }
+
     /// Message for empty findings in plain/HTML reports (FR-010).
     pub fn empty_findings_message(&self) -> &'static str {
-        if self.findings.is_empty() && self.is_analysis_incomplete() {
+        if self.is_analysis_incomplete() {
             SCAN_INCOMPLETE_MESSAGE
+        } else if self.has_degraded_coverage() {
+            DEGRADED_COVERAGE_NO_VULNERABILITIES_MESSAGE
         } else {
             NO_VULNERABILITIES_FOUND_MESSAGE
         }
@@ -1484,6 +1495,94 @@ mod tests {
         let out = String::from_utf8(buf).unwrap();
         assert!(out.contains(SCAN_INCOMPLETE_MESSAGE));
         assert!(!out.contains(NO_VULNERABILITIES_FOUND_MESSAGE));
+        assert!(!out.contains(DEGRADED_COVERAGE_NO_VULNERABILITIES_MESSAGE));
+    }
+
+    #[test]
+    fn empty_findings_message_degraded_coverage() {
+        let data = ReportData {
+            findings: vec![],
+            all_packages: None,
+            project_id: None,
+            root_path: None,
+            manifest_coverage: vec![ManifestCoverageEntry {
+                path: PathBuf::from("pyproject.toml"),
+                language: "python".to_string(),
+                status: ManifestScanStatus::ScannedDirectOnly,
+                direct_only_reason: Some("offline mode".to_string()),
+                error: None,
+            }],
+            offline_cache_miss: false,
+            provider_fetch_failed: false,
+        };
+        assert!(data.has_degraded_coverage());
+        assert!(!data.is_analysis_incomplete());
+        assert_eq!(
+            data.empty_findings_message(),
+            DEGRADED_COVERAGE_NO_VULNERABILITIES_MESSAGE
+        );
+    }
+
+    #[test]
+    fn empty_findings_message_incomplete_overrides_degraded() {
+        let data = ReportData {
+            findings: vec![],
+            all_packages: None,
+            project_id: None,
+            root_path: None,
+            manifest_coverage: vec![
+                ManifestCoverageEntry {
+                    path: PathBuf::from("pyproject.toml"),
+                    language: "python".to_string(),
+                    status: ManifestScanStatus::ScannedDirectOnly,
+                    direct_only_reason: Some("offline mode".to_string()),
+                    error: None,
+                },
+                ManifestCoverageEntry {
+                    path: PathBuf::from("broken.txt"),
+                    language: "python".to_string(),
+                    status: ManifestScanStatus::FailedResolution,
+                    direct_only_reason: None,
+                    error: Some("err".to_string()),
+                },
+            ],
+            offline_cache_miss: false,
+            provider_fetch_failed: false,
+        };
+        assert!(data.has_degraded_coverage());
+        assert!(data.is_analysis_incomplete());
+        assert_eq!(data.empty_findings_message(), SCAN_INCOMPLETE_MESSAGE);
+    }
+
+    #[tokio::test]
+    async fn default_reporter_degraded_coverage_empty_findings() {
+        let data = ReportData {
+            findings: vec![],
+            all_packages: None,
+            project_id: None,
+            root_path: None,
+            manifest_coverage: vec![ManifestCoverageEntry {
+                path: PathBuf::from("requirements.txt"),
+                language: "python".to_string(),
+                status: ManifestScanStatus::ScannedDirectOnly,
+                direct_only_reason: Some(
+                    "transitive resolution failed; direct-only fallback enabled"
+                        .to_string(),
+                ),
+                error: None,
+            }],
+            offline_cache_miss: false,
+            provider_fetch_failed: false,
+        };
+        let mut buf = Vec::new();
+        DefaultReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let out = String::from_utf8(buf).unwrap();
+        assert!(out.contains(DEGRADED_COVERAGE_NO_VULNERABILITIES_MESSAGE));
+        assert!(!out.contains(NO_VULNERABILITIES_FOUND_MESSAGE));
+        assert!(!out.contains(SCAN_INCOMPLETE_MESSAGE));
     }
 
     #[tokio::test]
