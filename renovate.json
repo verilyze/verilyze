@@ -84,6 +84,18 @@
       "packageNameTemplate": "rust-lang/rust",
       "depNameTemplate": "rust-lang/rust",
       "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
+      "description": "upload-sarif digest in examples/github-action-vlz-scan.yml",
+      "managerFilePatterns": ["/^examples\\/github-action-vlz-scan\\.yml$/"],
+      "matchStrings": [
+        "uses: github/codeql-action/upload-sarif@(?<currentDigest>[a-f0-9]{40})\\s+# v(?<currentValue>[^\\s]+)"
+      ],
+      "datasourceTemplate": "github-tags",
+      "packageNameTemplate": "github/codeql-action",
+      "depNameTemplate": "github/codeql-action/upload-sarif",
+      "versioningTemplate": "docker"
     }
   ],
   "packageRules": [
@@ -91,6 +103,14 @@
       "description": "GitHub Actions: one PR for all minor/patch updates",
       "matchManagers": ["github-actions"],
       "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "github-actions-minor-patch"
+    },
+    {
+      "description": "upload-sarif example: same PR as workflow action bumps",
+      "matchManagers": ["custom.regex"],
+      "matchPackageNames": ["github/codeql-action"],
+      "matchFileNames": ["examples/github-action-vlz-scan.yml"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
       "groupName": "github-actions-minor-patch"
     },
     {
