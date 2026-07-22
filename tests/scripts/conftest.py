@@ -35,6 +35,21 @@ from tests.scripts.workspace_helpers import (  # noqa: E402
 )
 
 
+@pytest.fixture(autouse=True)
+def _no_real_github_step_summary(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Prevent subprocess tests from writing to the real CI step summary.
+
+    scripts/lib/check-summary.sh appends to $GITHUB_STEP_SUMMARY when set.
+    GitHub Actions always sets it to a real file, so tests that spawn
+    scripts/run-check.sh as a subprocess would otherwise pollute the job
+    summary.
+
+    Does not help if a future test passes GITHUB_STEP_SUMMARY explicitly in a
+    subprocess env= dict; avoid that pattern in tests/scripts/.
+    """
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+
+
 @pytest.fixture
 def obs_dry_run_work_dir(request: pytest.FixtureRequest) -> Iterator[Path]:
     """Per-test OBS staging dir under target/pytest-obs-work/ with cleanup."""

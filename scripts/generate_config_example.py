@@ -18,7 +18,9 @@ Outputs:
 """
 
 import argparse
+import json
 import os
+import shutil
 import subprocess  # nosec B404
 import sys
 import textwrap
@@ -98,16 +100,75 @@ def parse_config_comments(toml_path: Path) -> dict[str, dict[str, str]]:
     return result
 
 
+_VLZ_BUILD_PROFILES = ("debug", "release")
+
+
+def _cargo_target_directory(repo_root: Path) -> Path | None:
+    """Return Cargo target_directory (honors CARGO_TARGET_DIR), or None."""
+    cargo = shutil.which("cargo")
+    if cargo is None:
+        return None
+    try:
+        proc = subprocess.run(  # nosec B603
+            [cargo, "metadata", "--format-version", "1", "--no-deps"],
+            capture_output=True,
+            text=True,
+            cwd=str(repo_root),
+            check=False,
+        )
+        if proc.returncode != 0:
+            return None
+        data = json.loads(proc.stdout)
+        target_dir = data.get("target_directory")
+        if not target_dir:
+            return None
+        return Path(str(target_dir))
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return None
+
+
+def _vlz_binary_search_dirs(repo_root: Path) -> list[Path]:
+    """Ordered target dirs to search for a built vlz binary."""
+    dirs: list[Path] = []
+    seen: set[Path] = set()
+
+    def add(candidate: Path) -> None:
+        if candidate in seen:
+            return
+        seen.add(candidate)
+        dirs.append(candidate)
+
+    metadata_dir = _cargo_target_directory(repo_root)
+    if metadata_dir is not None:
+        add(metadata_dir)
+
+    target_dir_env = os.environ.get("CARGO_TARGET_DIR")
+    if target_dir_env:
+        candidate = Path(target_dir_env)
+        if not candidate.is_absolute():
+            candidate = repo_root / candidate
+        add(candidate)
+
+    add(repo_root / "target")
+    return dirs
+
+
+def _find_vlz_binary(repo_root: Path) -> Path | str:
+    """Locate vlz under Cargo target dirs; fall back to PATH lookup name."""
+    for target_dir in _vlz_binary_search_dirs(repo_root):
+        for profile in _VLZ_BUILD_PROFILES:
+            candidate = target_dir / profile / "vlz"
+            if candidate.is_file() and os.access(candidate, os.X_OK):
+                return candidate
+    return "vlz"
+
+
 def run_config_list(repo_root: Path) -> dict[str, str]:
     """
     Run vlz config --list in clean env, parse key = value output.
     Returns dict of key -> value.
     """
-    vlz: Path | str = repo_root / "target" / "debug" / "vlz"
-    if isinstance(vlz, Path) and not vlz.exists():
-        vlz = repo_root / "target" / "release" / "vlz"
-    if isinstance(vlz, Path) and not vlz.exists():
-        vlz = "vlz"
+    vlz = _find_vlz_binary(repo_root)
 
     tmp_base = repo_root / ".tmp-empty-xdg"
     tmp_base.mkdir(parents=True, exist_ok=True)

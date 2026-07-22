@@ -143,6 +143,104 @@ class TestParseConfigComments:
         assert result["cache_db"]["env"] == "VLZ_CACHE_DB"
 
 
+def _write_vlz_stub(path: Path, *, executable: bool, body: str = "#!/bin/sh\n") -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(body, encoding="utf-8")
+    path.chmod(0o755 if executable else 0o644)
+
+
+class TestFindVlzBinary:
+    """Tests for _find_vlz_binary (CARGO_TARGET_DIR and cargo metadata)."""
+
+    def test_prefers_cargo_target_dir_debug_when_executable(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        llvm = tmp_path / "llvm-cov-run"
+        _write_vlz_stub(llvm / "debug" / "vlz", executable=True)
+        monkeypatch.setenv("CARGO_TARGET_DIR", str(llvm))
+        with patch.object(
+            generate_config_example, "_cargo_target_directory", return_value=None
+        ):
+            result = generate_config_example._find_vlz_binary(tmp_path)
+        assert result == llvm / "debug" / "vlz"
+
+    def test_resolves_relative_cargo_target_dir_against_repo_root(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        llvm = tmp_path / "target" / "llvm-cov-ci"
+        _write_vlz_stub(llvm / "debug" / "vlz", executable=True)
+        monkeypatch.setenv("CARGO_TARGET_DIR", "target/llvm-cov-ci")
+        with patch.object(
+            generate_config_example, "_cargo_target_directory", return_value=None
+        ):
+            result = generate_config_example._find_vlz_binary(tmp_path)
+        assert result == llvm / "debug" / "vlz"
+
+    def test_falls_back_to_target_debug_when_cargo_target_dir_unset(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        default = tmp_path / "target" / "debug" / "vlz"
+        _write_vlz_stub(default, executable=True)
+        monkeypatch.delenv("CARGO_TARGET_DIR", raising=False)
+        with patch.object(
+            generate_config_example, "_cargo_target_directory", return_value=None
+        ):
+            result = generate_config_example._find_vlz_binary(tmp_path)
+        assert result == default
+
+    def test_falls_back_to_target_release_when_no_debug_binary(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        release = tmp_path / "target" / "release" / "vlz"
+        _write_vlz_stub(release, executable=True)
+        monkeypatch.delenv("CARGO_TARGET_DIR", raising=False)
+        with patch.object(
+            generate_config_example, "_cargo_target_directory", return_value=None
+        ):
+            result = generate_config_example._find_vlz_binary(tmp_path)
+        assert result == release
+
+    def test_skips_non_executable_file(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        llvm = tmp_path / "llvm-cov"
+        _write_vlz_stub(llvm / "debug" / "vlz", executable=False)
+        release = tmp_path / "target" / "release" / "vlz"
+        _write_vlz_stub(release, executable=True)
+        monkeypatch.setenv("CARGO_TARGET_DIR", str(llvm))
+        with patch.object(
+            generate_config_example, "_cargo_target_directory", return_value=None
+        ):
+            result = generate_config_example._find_vlz_binary(tmp_path)
+        assert result == release
+
+    def test_falls_back_to_bare_vlz_when_nothing_executable(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("CARGO_TARGET_DIR", raising=False)
+        with patch.object(
+            generate_config_example, "_cargo_target_directory", return_value=None
+        ):
+            result = generate_config_example._find_vlz_binary(tmp_path)
+        assert result == "vlz"
+
+    def test_uses_cargo_metadata_target_directory_first(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        metadata_dir = tmp_path / "from-metadata"
+        _write_vlz_stub(metadata_dir / "debug" / "vlz", executable=True)
+        other = tmp_path / "other"
+        _write_vlz_stub(other / "debug" / "vlz", executable=True)
+        monkeypatch.setenv("CARGO_TARGET_DIR", str(other))
+        with patch.object(
+            generate_config_example,
+            "_cargo_target_directory",
+            return_value=metadata_dir,
+        ):
+            result = generate_config_example._find_vlz_binary(tmp_path)
+        assert result == metadata_dir / "debug" / "vlz"
+
+
 class TestRunConfigList:
     """Tests for run_config_list."""
 
@@ -194,6 +292,23 @@ class TestRunConfigList:
         assert "ignore_db" in result
         assert "severity_v2_critical_min" in result
         assert result["severity_v2_critical_min"] == "9"
+
+    def test_run_config_list_uses_cargo_target_dir_binary(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        llvm = tmp_path / "llvm-cov"
+        stub = llvm / "debug" / "vlz"
+        _write_vlz_stub(
+            stub,
+            executable=True,
+            body="#!/bin/sh\necho 'parallel_queries = 10'\n",
+        )
+        monkeypatch.setenv("CARGO_TARGET_DIR", str(llvm))
+        with patch.object(
+            generate_config_example, "_cargo_target_directory", return_value=None
+        ):
+            result = generate_config_example.run_config_list(tmp_path)
+        assert result["parallel_queries"] == "10"
 
 
 class TestLanguageKeysFromConfig:
