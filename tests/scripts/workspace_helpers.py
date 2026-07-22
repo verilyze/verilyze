@@ -138,3 +138,41 @@ def obs_dry_run_work_dir(test_key: str) -> Path:
         safe_rmtree_obs_work(work)
     work.mkdir(parents=True)
     return work
+
+
+def resolve_vlz_bin_for_tests() -> Path:
+    """Locate vlz for subprocess smoke tests (honors CARGO_TARGET_DIR)."""
+    import json
+    import shutil
+    import subprocess
+
+    env_bin = os.environ.get("VLZ_BIN")
+    if env_bin:
+        candidate = Path(env_bin)
+        if candidate.is_file():
+            return candidate
+
+    cargo = shutil.which("cargo")
+    if cargo is None:
+        msg = "vlz binary not found; cargo not on PATH"
+        raise RuntimeError(msg)
+
+    proc = subprocess.run(
+        [cargo, "metadata", "--format-version", "1", "--no-deps"],
+        cwd=_REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    target_dir = Path(json.loads(proc.stdout)["target_directory"])
+    search_dirs = [target_dir]
+    default_target = _REPO_ROOT / "target"
+    if default_target != target_dir:
+        search_dirs.append(default_target)
+    for base in search_dirs:
+        for sub in ("release", "debug"):
+            candidate = base / sub / "vlz"
+            if candidate.is_file():
+                return candidate
+    msg = "vlz binary not found; run make release or set VLZ_BIN"
+    raise RuntimeError(msg)

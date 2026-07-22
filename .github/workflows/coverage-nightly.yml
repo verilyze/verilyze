@@ -113,6 +113,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COVERAGE_BADGE_REPO_ROOT: ${{ github.workspace }}
+          COVERAGE_STEP_OUTCOME: ${{ steps.coverage.outcome }}
         run: ./scripts/generate-and-push-coverage-badges.sh
 
       - name: Fail job when coverage did not succeed

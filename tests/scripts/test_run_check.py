@@ -4,7 +4,9 @@
 
 """Tests for scripts/run-check.sh failure summary extraction."""
 
+import os
 import subprocess
+from pathlib import Path
 
 from tests.scripts.repo_root import repo_root
 
@@ -74,3 +76,28 @@ def test_summarize_log_no_failures_is_silent() -> None:
 def test_run_check_script_exists_and_is_executable() -> None:
     assert _RUN_CHECK.is_file()
     assert _RUN_CHECK.stat().st_mode & 0o111
+
+
+def test_summarize_subprocess_does_not_write_github_step_summary(
+    tmp_path: Path,
+) -> None:
+    """Regression: subprocess summarize must not append to GITHUB_STEP_SUMMARY."""
+    assert "GITHUB_STEP_SUMMARY" not in os.environ
+
+    summary_file = tmp_path / "step-summary.md"
+    summary_file.write_text("MARKER\n", encoding="utf-8")
+
+    log = repo_root() / "target" / "test-run-check-summary-isolation.txt"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    log.write_text("make[1]: *** [fmt-check] Error 1\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [_RUN_CHECK, "--summarize-log", str(log)],
+        cwd=repo_root(),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0
+    assert _BANNER in result.stderr
+    assert summary_file.read_text(encoding="utf-8") == "MARKER\n"

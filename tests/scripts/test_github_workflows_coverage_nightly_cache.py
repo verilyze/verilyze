@@ -28,3 +28,11 @@ def test_coverage_nightly_job_sets_linker_env_at_job_level() -> None:
 def test_coverage_nightly_rust_cache_uses_shared_key_check() -> None:
     text = _COVERAGE_NIGHTLY.read_text(encoding="utf-8")
     assert "shared-key: check" in text
+
+
+def test_coverage_nightly_publish_badges_passes_step_outcome() -> None:
+    text = _COVERAGE_NIGHTLY.read_text(encoding="utf-8")
+    start = text.index("      - name: Publish coverage badges to wiki")
+    end = text.index("      - name: Fail job when coverage did not succeed", start)
+    block = text[start:end]
+    assert "COVERAGE_STEP_OUTCOME: ${{ steps.coverage.outcome }}" in block

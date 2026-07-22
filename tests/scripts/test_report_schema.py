@@ -13,6 +13,7 @@ import jsonschema
 import pytest
 
 from tests.scripts.repo_root import repo_root
+from tests.scripts.workspace_helpers import resolve_vlz_bin_for_tests
 
 SCHEMA_PATH = repo_root() / "schemas" / "v1" / "report.json"
 GOLDEN_PATH = (
@@ -33,27 +34,6 @@ def _load_json(path: Path) -> dict:
         return json.load(handle)
 
 
-def _resolve_vlz_bin() -> Path:
-    env_bin = __import__("os").environ.get("VLZ_BIN")
-    if env_bin:
-        candidate = Path(env_bin)
-        if candidate.is_file():
-            return candidate
-    proc = subprocess.run(
-        ["cargo", "metadata", "--format-version", "1", "--no-deps"],
-        cwd=repo_root(),
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    target_dir = Path(json.loads(proc.stdout)["target_directory"])
-    for sub in ("release", "debug"):
-        candidate = target_dir / sub / "vlz"
-        if candidate.is_file():
-            return candidate
-    raise RuntimeError("vlz binary not found; run make release or set VLZ_BIN")
-
-
 class TestReportJsonSchema:
     """Schema file and golden fixture conformance."""
 
@@ -68,7 +48,7 @@ class TestReportJsonSchema:
         jsonschema.validate(document, schema)
 
     def test_live_scan_output_validates_against_schema(self) -> None:
-        vlz = _resolve_vlz_bin()
+        vlz = resolve_vlz_bin_for_tests()
         with tempfile.TemporaryDirectory() as tmp:
             report_path = Path(tmp) / "report.json"
             subprocess.run(
