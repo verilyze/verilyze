@@ -5,7 +5,6 @@
 """Contract tests for GitHub SARIF upload workflows (SEC-015)."""
 
 import re
-from pathlib import Path
 
 from tests.scripts.repo_root import repo_root
 
@@ -13,8 +12,22 @@ _ROOT = repo_root()
 _NIGHTLY = _ROOT / ".github" / "workflows" / "verilyze-nightly.yml"
 _SUPPLY_CHAIN = _ROOT / ".github" / "workflows" / "supply-chain.yml"
 _EXAMPLE = _ROOT / "examples" / "github-action-vlz-scan.yml"
-_UPLOAD_SARIF_SHA = "7188fc363630916deb702c7fdcf4e481b751f97a"
+_UPLOAD_SARIF_REF_RE = re.compile(r"github/codeql-action/upload-sarif@[a-f0-9]{40}")
 _CATEGORY = "verilyze-sca"
+
+
+def _canonical_upload_sarif_ref() -> str:
+    """Digest pin from supply-chain.yml (Renovate github-actions manager source)."""
+    text = _SUPPLY_CHAIN.read_text(encoding="utf-8")
+    match = _UPLOAD_SARIF_REF_RE.search(text)
+    assert match is not None, "supply-chain workflow missing upload-sarif pin"
+    return match.group(0)
+
+
+def _upload_sarif_ref(text: str) -> str:
+    match = _UPLOAD_SARIF_REF_RE.search(text)
+    assert match is not None, "upload-sarif pin not found"
+    return match.group(0)
 
 
 def _verilyze_job_block(workflow_text: str) -> str:
@@ -32,7 +45,7 @@ class TestVerilyzeNightlySarifWorkflow:
         text = _NIGHTLY.read_text(encoding="utf-8")
         job = _verilyze_job_block(text)
         assert "security-events: write" in job
-        assert f"github/codeql-action/upload-sarif@{_UPLOAD_SARIF_SHA}" in job
+        assert _upload_sarif_ref(job) == _canonical_upload_sarif_ref()
         assert f"category: {_CATEGORY}" in job
 
     def test_nightly_uses_best_available_reachability(self) -> None:
@@ -68,7 +81,7 @@ class TestSupplyChainSarifWorkflow:
     def test_supply_chain_upload_only_on_same_repo_pr(self) -> None:
         text = _SUPPLY_CHAIN.read_text(encoding="utf-8")
         job = _verilyze_job_block(text)
-        assert f"github/codeql-action/upload-sarif@{_UPLOAD_SARIF_SHA}" in job
+        assert _upload_sarif_ref(job) == _canonical_upload_sarif_ref()
         upload_match = re.search(
             r"- name: Upload verilyze SARIF to code scanning\n\s+if: >-\n([\s\S]*?)\n\s+uses:",
             text,
@@ -104,7 +117,10 @@ class TestSupplyChainSarifWorkflow:
 class TestGithubActionVlzScanExample:
     def test_example_documents_upload_and_fork_guard(self) -> None:
         text = _EXAMPLE.read_text(encoding="utf-8")
-        assert f"github/codeql-action/upload-sarif@{_UPLOAD_SARIF_SHA}" in text
+        canonical = _canonical_upload_sarif_ref()
+        refs = _UPLOAD_SARIF_REF_RE.findall(text)
+        assert refs, "example workflow missing upload-sarif pin"
+        assert all(ref == canonical for ref in refs)
         assert f"category: {_CATEGORY}" in text
         assert "continue-on-error: true" in text
         assert "github.event.pull_request.head.repo.full_name" in text

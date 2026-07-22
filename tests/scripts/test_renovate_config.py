@@ -112,6 +112,64 @@ def test_renovate_package_rule_groups_github_actions_minor_patch() -> None:
     )
 
 
+def test_renovate_upload_sarif_example_regex_manager() -> None:
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    managers = data.get("customManagers", [])
+    manager = next(
+        (
+            m
+            for m in managers
+            if m.get("depNameTemplate") == "github/codeql-action/upload-sarif"
+        ),
+        None,
+    )
+    assert manager is not None, (
+        "customManagers must track upload-sarif in examples/github-action-vlz-scan.yml"
+    )
+    patterns = manager.get("managerFilePatterns", [])
+    assert any("github-action-vlz-scan" in p for p in patterns)
+    match_strings = manager.get("matchStrings", [])
+    assert match_strings
+    assert "currentDigest" in match_strings[0]
+    assert manager.get("packageNameTemplate") == "github/codeql-action", (
+        "packageNameTemplate must be the real GitHub repo (owner/repo), not "
+        "depNameTemplate's owner/repo/subpath, or the github-tags datasource "
+        "lookup fails silently and Renovate never proposes an update"
+    )
+
+
+def test_renovate_upload_sarif_example_groups_with_github_actions() -> None:
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    rules = data.get("packageRules", [])
+    match = next(
+        (
+            r
+            for r in rules
+            if r.get("groupName") == "github-actions-minor-patch"
+            and r.get("matchPackageNames") == ["github/codeql-action"]
+            and r.get("matchFileNames") == ["examples/github-action-vlz-scan.yml"]
+        ),
+        None,
+    )
+    assert match is not None, (
+        "packageRules must group upload-sarif example pin with "
+        "github-actions-minor-patch, matching the manager's packageNameTemplate "
+        "(github/codeql-action), not its depNameTemplate"
+    )
+
+
+def test_upload_sarif_example_matches_supply_chain_workflow() -> None:
+    supply_chain = (
+        _ROOT / ".github" / "workflows" / "supply-chain.yml"
+    ).read_text(encoding="utf-8")
+    example = (_ROOT / "examples" / "github-action-vlz-scan.yml").read_text(
+        encoding="utf-8"
+    )
+    pin = re.search(r"github/codeql-action/upload-sarif@[a-f0-9]{40}", supply_chain)
+    assert pin is not None
+    assert pin.group(0) in example
+
+
 def test_renovate_osv_vulnerability_alerts_enabled() -> None:
     data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
     assert data.get("osvVulnerabilityAlerts") is True
