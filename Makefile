@@ -56,7 +56,8 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: sync-license-config check-license-config deny-check
 .PHONY: generate-third-party-licenses generate-third-party-licenses-docker
 .PHONY: check-third-party-licenses
-.PHONY: generate-sbom check-sbom
+.PHONY: generate-sbom check-sbom generate-pylock-dev check-pylock-dev
+
 .PHONY: benchmark-gate
 .PHONY: check-report-schema
 .PHONY: deb rpm aur apk docker
@@ -113,6 +114,9 @@ help:
 	@echo "    make check-third-party-licenses - Verify THIRD-PARTY-LICENSES is up to date"
 	@echo "    make generate-sbom    - Generate workspace SBOM under sbom/v1/ (SEC-019)"
 	@echo "    make check-sbom       - Verify committed SBOM is up to date"
+	@echo "    make generate-pylock-dev - Generate pylock.dev.toml (PEP 751, pip >= 25.1)"
+	@echo "    make check-pylock-dev  - Offline validate committed pylock.dev.toml"
+
 	@echo "    make check-report-schema - Validate JSON report schema (DOC-005)"
 	@echo "    make fmt-check      - Verify Rust formatting (cargo fmt --check)"
 	@echo "    make fmt           - Auto-format Rust code (cargo fmt)"
@@ -479,6 +483,14 @@ generate-sbom: release
 # check-sbom: Regenerate sbom/v1/ and fail if it differs from committed.
 check-sbom: release
 	@$(MAKE_RUN_LEAF) check-sbom -- bash -c '$(SCRIPTS_DIR)/generate-sbom.sh && cd "$(MKFILE_DIR)" && git diff --exit-code sbom/ || (echo "sbom/ is out of sync. Run: make generate-sbom" && exit 1)'
+
+# generate-pylock-dev: PEP 751 lock for pyproject.toml [dev] extra (SEC-015).
+generate-pylock-dev:
+	$(SCRIPTS_DIR)/generate-pylock-dev.sh
+
+# check-pylock-dev: Offline structural/parity validation of pylock.dev.toml.
+check-pylock-dev:
+	@$(MAKE_RUN_LEAF) check-pylock-dev -- $(SCRIPTS_DIR)/check-pylock-dev.sh
 
 # check-report-schema: Validate JSON report schema (DOC-005, NFR-014).
 check-report-schema: debug

@@ -22,7 +22,7 @@
 .Nm
 is a fast, modular Software Composition Analysis (SCA) tool for dependency
 vulnerabilities. It scans a directory tree for manifest files (e.g. Python
-requirements.txt, pyproject.toml, setup.cfg, setup.py; Rust Cargo.toml), parses dependencies,
+requirements.txt, pyproject.toml, Pipfile, setup.cfg, setup.py; Rust Cargo.toml), parses dependencies,
 resolves transitive versions via lock files or package managers, queries CVE
 providers (default: OSV.dev), and reports vulnerabilities.
 .Pp
@@ -95,9 +95,12 @@ default: disabled).
 .It Fl -allow-direct-only-fallback
 When transitive resolution is required but cannot be satisfied, fall back to
 direct-only scanning with an FR-022a warning instead of exit 2 (default:
-disabled). Applies to Python
+disabled). Applies to all Python project manifests
 .Pa requirements.txt ,
+.Pa pyproject.toml ,
 .Pa Pipfile ,
+.Pa setup.cfg ,
+.Pa setup.py ,
 Rust
 .Pa Cargo.toml
 without
@@ -109,6 +112,17 @@ when
 or
 .Nm cargo metadata
 cannot run.
+Without an adjacent lock (PEP 751
+.Pa pylock.toml
+/
+.Pa pylock.<name>.toml
+preferred for Python), lock-less Python projects exit 2 unless this flag,
+.Fl -allow-dependency-code-execution ,
+or
+.Fl -offline
+/
+.Fl -benchmark
+applies.
 .It Fl -fail-fast
 Stop on first manifest parse/resolution failure; skip CVE lookup (FR-037).
 .It Fl -backoff-base Ar ms
@@ -224,7 +238,11 @@ Success: analysis completed; no CVEs or only false-positives (per fp-exit-code).
 .It 1
 Panic or internal error.
 .It 2
-Misconfiguration (unknown key, invalid value, etc.).
+Misconfiguration, or required transitive resolution failed (for example a
+lock-less Python project without
+.Fl -allow-direct-only-fallback
+or
+.Fl -allow-dependency-code-execution ) .
 .It 3
 Missing required package manager.
 .It 4

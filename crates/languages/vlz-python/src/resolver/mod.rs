@@ -44,12 +44,8 @@ use pip_version::pip_supports_lock;
 
 pub use vlz_manifest_parser::{
     DIRECT_ONLY_REASON_FALLBACK_ON_FAILURE, DIRECT_ONLY_REASON_OFFLINE,
-    DIRECT_ONLY_REASON_UNAVAILABLE, FR_022_TRANSITIVE_ERROR_MESSAGE,
+    FR_022_TRANSITIVE_ERROR_MESSAGE,
 };
-
-/// Direct-only reason when executable resolution is disabled (SEC-023).
-pub const DIRECT_ONLY_REASON_EXEC_DISABLED: &str =
-    "executable dependency resolution is disabled";
 
 /// Resolver for Python manifests (FR-022, FR-023, FR-022a, SEC-023).
 #[derive(Debug)]
@@ -233,28 +229,19 @@ impl DirectOnlyResolver {
 
     fn direct_only_policy(
         graph: &DependencyGraph,
-        manifest_path: &Path,
+        _manifest_path: &Path,
         ctx: &ResolveContext,
-        pip_resolution_attempted: bool,
+        _pip_resolution_attempted: bool,
     ) -> Result<ResolveResult, ResolverError> {
         if graph.packages.is_empty() {
             return Err(fr022_transitive_error());
         }
 
-        let reason = if let Some(r) = skip_package_manager_reason(ctx) {
-            r
-        } else if !ctx.allow_dependency_code_execution {
-            DIRECT_ONLY_REASON_EXEC_DISABLED
-        } else if pip_resolution_attempted
-            || manifest_is_requirements_txt(manifest_path)
-            || manifest_is_pipfile(manifest_path)
-        {
-            return require_transitive_or_fallback(graph, ctx, None);
-        } else {
-            DIRECT_ONLY_REASON_UNAVAILABLE
-        };
+        if let Some(reason) = skip_package_manager_reason(ctx) {
+            return Ok(Self::direct_only_result(graph, reason));
+        }
 
-        Ok(Self::direct_only_result(graph, reason))
+        require_transitive_or_fallback(graph, ctx, None)
     }
 
     /// `Ok(Some(_))` on success, `Ok(None)` when pip lock does not apply,
@@ -340,7 +327,7 @@ impl DirectOnlyResolver {
                     ),
                 };
             }
-            return Self::direct_only_policy(graph, manifest_path, ctx, false);
+            return require_transitive_or_fallback(graph, ctx, None);
         }
 
         if python_package_manager_available() {
@@ -503,13 +490,12 @@ mod tests {
     fn fr022_error_message_is_exact_prd_string() {
         assert_eq!(
             FR_022_TRANSITIVE_ERROR_MESSAGE,
-            "Unable to detect transitive dependencies. Try installing the package manager or generate a lock file before running vlz."
+            "Unable to detect transitive dependencies. Add an adjacent lock file (pylock.toml preferred for Python), use --allow-dependency-code-execution for full resolution in a trusted environment, or pass --allow-direct-only-fallback to scan direct dependencies only."
         );
     }
 
     #[tokio::test]
-    async fn direct_only_resolver_returns_direct_only_for_setup_py_without_lock()
-     {
+    async fn direct_only_resolver_setup_py_without_lock_exits_fr022() {
         let graph = DependencyGraph {
             packages: vec![vlz_db::Package {
                 name: "myproj".to_string(),
@@ -521,12 +507,8 @@ mod tests {
         };
         let resolver = DirectOnlyResolver::new();
         let ctx = ResolveContext::default();
-        let result = resolver.resolve(&graph, &ctx).await.unwrap();
-        assert_eq!(result.depth, ResolutionDepth::DirectOnly);
-        assert_eq!(
-            result.direct_only_reason,
-            Some(DIRECT_ONLY_REASON_EXEC_DISABLED)
-        );
+        let err = resolver.resolve(&graph, &ctx).await.unwrap_err();
+        assert!(err.to_string().contains(FR_022_TRANSITIVE_ERROR_MESSAGE));
     }
 
     #[tokio::test]
@@ -612,7 +594,7 @@ mod tests {
         std::fs::write(&req, b"requests>=2.0\n").unwrap();
         std::fs::write(
             &pylock,
-            "[[packages]]\nname = \"requests\"\nversion = \"2.31.0\"\n",
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"requests\"\nversion = \"2.31.0\"\n",
         )
         .unwrap();
         let graph = sample_graph(req);
@@ -626,20 +608,24 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn direct_only_resolver_ignores_empty_lock_file() {
+    async fn direct_only_resolver_empty_lock_file_exits_fr022() {
         let dir = tempfile::tempdir().unwrap();
         let setup = dir.path().join("setup.py");
         let pylock = dir.path().join("pylock.toml");
         std::fs::write(&setup, b"from setuptools import setup\nsetup()\n")
             .unwrap();
-        std::fs::write(&pylock, b"packages = []\n").unwrap();
+        std::fs::write(
+            &pylock,
+            b"lock-version = \"1.0\"\ncreated-by = \"test\"\npackages = []\n",
+        )
+        .unwrap();
         let graph = sample_graph(setup);
         let resolver = DirectOnlyResolver::new();
-        let result = resolver
+        let err = resolver
             .resolve(&graph, &ResolveContext::default())
             .await
-            .unwrap();
-        assert_eq!(result.depth, ResolutionDepth::DirectOnly);
+            .unwrap_err();
+        assert!(err.to_string().contains(FR_022_TRANSITIVE_ERROR_MESSAGE));
     }
 
     #[cfg(unix)]
@@ -687,7 +673,7 @@ mod tests {
         std::fs::write(&req, b"requests>=2.0\n").unwrap();
         let graph = sample_graph(req);
         let fake = fake_pip_lock_success(
-            "[[packages]]\nname = \"requests\"\nversion = \"2.31.0\"\n",
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"requests\"\nversion = \"2.31.0\"\n",
         );
         fake.with_path(|| {
             block_on_resolver_test(async {
@@ -709,7 +695,7 @@ mod tests {
         std::fs::write(&req, b"requests>=2.0\n").unwrap();
         let graph = sample_graph(req);
         let fake = fake_pip_lock_success(
-            "[[packages]]\nname = \"requests\"\nversion = \"2.31.0\"\n",
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"requests\"\nversion = \"2.31.0\"\n",
         );
         fake.with_path(|| {
             block_on_resolver_test(async {
@@ -735,8 +721,7 @@ mod tests {
         std::fs::write(&req_a, content).unwrap();
         std::fs::write(&req_b, content).unwrap();
         let counter = dir.path().join("pip_lock_count");
-        let pylock =
-            "[[packages]]\nname = \"requests\"\nversion = \"2.31.0\"\n";
+        let pylock = "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"requests\"\nversion = \"2.31.0\"\n";
         let fake = fake_pip_lock_counting(pylock, &counter);
         let graph_a = sample_graph(req_a);
         let graph_b = sample_graph(req_b);
@@ -816,7 +801,7 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn direct_only_resolver_exec_enabled_pip_unavailable_direct_only() {
+    fn direct_only_resolver_exec_enabled_pip_unavailable_exits_fr022() {
         let fake = empty_path();
         let project = fake.project_dir();
         let setup = project.join("setup.py");
@@ -830,11 +815,9 @@ mod tests {
                     allow_dependency_code_execution: true,
                     ..Default::default()
                 };
-                let result = resolver.resolve(&graph, &ctx).await.unwrap();
-                assert_eq!(result.depth, ResolutionDepth::DirectOnly);
-                assert_eq!(
-                    result.direct_only_reason,
-                    Some(DIRECT_ONLY_REASON_UNAVAILABLE)
+                let err = resolver.resolve(&graph, &ctx).await.unwrap_err();
+                assert!(
+                    err.to_string().contains(FR_022_TRANSITIVE_ERROR_MESSAGE)
                 );
             });
         });

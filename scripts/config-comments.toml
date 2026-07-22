@@ -265,7 +265,9 @@ default = "false"
 [allow_dependency_code_execution]
 description = """
 Allow pip to execute dependency build code during Python resolution (SEC-023;
-default false)
+default false). Without this, lock-less pyproject.toml/setup.py/setup.cfg/Pipfile
+fail closed (exit 2) unless an adjacent lock or allow_direct_only_fallback is set;
+requirements.txt may still use safe pip lock -r when pip >= 25.1
 """
 type = "boolean"
 env = "VLZ_ALLOW_DEPENDENCY_CODE_EXECUTION"
@@ -275,8 +277,10 @@ default = "false"
 [allow_direct_only_fallback]
 description = """
 When transitive resolution is required but cannot be satisfied, fall back to
-direct-only scanning with an FR-022a warning instead of exit 2 (FR-022,
-FR-022a; default false)
+direct-only scanning with an FR-022a warning instead of exit 2. Applies to all
+Python project manifests (requirements.txt, pyproject.toml, Pipfile, setup.cfg,
+setup.py), Rust Cargo.toml without Cargo.lock, and Go go.mod (FR-022, FR-022a;
+default false)
 """
 type = "boolean"
 env = "VLZ_ALLOW_DIRECT_ONLY_FALLBACK"

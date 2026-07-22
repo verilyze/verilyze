@@ -49,7 +49,7 @@ bot_email_markers = ["[bot]"]
 nontrivial_lines = 15
 extensions = ["py", "rs", "toml", "md", "mmd", "sh", "json", "yml", "yaml"]
 literal_names = ["Makefile"]
-exclude_paths = ["Cargo.lock"]
+exclude_paths = ["Cargo.lock", "pylock.dev.toml"]
 
 [tool.verilyze]
 line-length = 79

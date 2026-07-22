@@ -12,6 +12,23 @@ The GitHub Release body is generated from the matching `## [version]` section
 below when you push a `v*` tag (see `.github/workflows/release.yml`). Update
 this file **before** creating the release tag.
 
+## [Unreleased]
+
+### Changed
+
+- **Breaking:** Python project manifests without an adjacent lock
+  (`requirements.txt`, `pyproject.toml`, `Pipfile`, `setup.cfg`, `setup.py`)
+  fail closed and exit 2 by default (FR-022 / SEC-023). There is no soft
+  direct-only default for pyproject/setup/Pipfile. Remediation: commit a PEP
+  751 lock (`pylock.toml` / `pylock.<name>.toml` preferred), use safe
+  `pip lock -r` on requirements.txt (pip >= 25.1),
+  `--allow-dependency-code-execution` in trusted environments, or
+  `--allow-direct-only-fallback` for direct-only with FR-022a warning.
+- Committed `pylock.dev.toml` dogfoods Python `.[dev]` deps (SEC-015);
+  regenerate with `make generate-pylock-dev` / Renovate
+  `renovate-post-upgrade-sbom.sh`.
+- FR-022 exit-2 message and FAQ/man remediation aligned with lock-first UX.
+
 ## [0.6.0] - 2026-07-20
 
 ### Added

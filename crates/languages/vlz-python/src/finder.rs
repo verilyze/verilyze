@@ -174,7 +174,7 @@ mod tests {
         let pylock = dir.path().join("pylock.toml");
         std::fs::write(
             &pylock,
-            "[[packages]]\nname = \"a\"\nversion = \"1.0\"\n",
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"a\"\nversion = \"1.0\"\n",
         )
         .unwrap();
         let finder = PythonManifestFinder::new();
@@ -194,7 +194,7 @@ mod tests {
         let poetry = dir.path().join("poetry.lock");
         std::fs::write(
             &pylock,
-            "[[packages]]\nname = \"a\"\nversion = \"1.0\"\n",
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"a\"\nversion = \"1.0\"\n",
         )
         .unwrap();
         std::fs::write(
@@ -222,7 +222,7 @@ mod tests {
         std::fs::write(&req, "a==1.0\n").unwrap();
         std::fs::write(
             &pylock,
-            "[[packages]]\nname = \"a\"\nversion = \"1.0\"\n",
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"a\"\nversion = \"1.0\"\n",
         )
         .unwrap();
         let finder = PythonManifestFinder::new();
@@ -242,7 +242,7 @@ mod tests {
         let poetry = dir.path().join("poetry.lock");
         std::fs::write(
             &pylock,
-            "[[packages]]\nname = \"a\"\nversion = \"1.0\"\n",
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"a\"\nversion = \"1.0\"\n",
         )
         .unwrap();
         std::fs::write(

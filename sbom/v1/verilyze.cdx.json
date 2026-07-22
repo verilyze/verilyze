@@ -2,6 +2,181 @@
   "bomFormat": "CycloneDX",
   "components": [
     {
+      "bom-ref": "pkg:pypi/ast-serialize@0.6.0",
+      "name": "ast-serialize",
+      "purl": "pkg:pypi/ast-serialize@0.6.0",
+      "type": "library",
+      "version": "0.6.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/astroid@4.0.4",
+      "name": "astroid",
+      "purl": "pkg:pypi/astroid@4.0.4",
+      "type": "library",
+      "version": "4.0.4"
+    },
+    {
+      "bom-ref": "pkg:pypi/attrs@26.1.0",
+      "name": "attrs",
+      "purl": "pkg:pypi/attrs@26.1.0",
+      "type": "library",
+      "version": "26.1.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/bandit@1.9.4",
+      "name": "bandit",
+      "purl": "pkg:pypi/bandit@1.9.4",
+      "type": "library",
+      "version": "1.9.4"
+    },
+    {
+      "bom-ref": "pkg:pypi/black@26.5.1",
+      "name": "black",
+      "purl": "pkg:pypi/black@26.5.1",
+      "type": "library",
+      "version": "26.5.1"
+    },
+    {
+      "bom-ref": "pkg:pypi/click@8.4.2",
+      "name": "click",
+      "purl": "pkg:pypi/click@8.4.2",
+      "type": "library",
+      "version": "8.4.2"
+    },
+    {
+      "bom-ref": "pkg:pypi/codespell@2.4.3",
+      "name": "codespell",
+      "purl": "pkg:pypi/codespell@2.4.3",
+      "type": "library",
+      "version": "2.4.3"
+    },
+    {
+      "bom-ref": "pkg:pypi/coverage@7.15.2",
+      "name": "coverage",
+      "purl": "pkg:pypi/coverage@7.15.2",
+      "type": "library",
+      "version": "7.15.2"
+    },
+    {
+      "bom-ref": "pkg:pypi/dill@0.4.1",
+      "name": "dill",
+      "purl": "pkg:pypi/dill@0.4.1",
+      "type": "library",
+      "version": "0.4.1"
+    },
+    {
+      "bom-ref": "pkg:pypi/iniconfig@2.3.0",
+      "name": "iniconfig",
+      "purl": "pkg:pypi/iniconfig@2.3.0",
+      "type": "library",
+      "version": "2.3.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/isort@8.0.1",
+      "name": "isort",
+      "purl": "pkg:pypi/isort@8.0.1",
+      "type": "library",
+      "version": "8.0.1"
+    },
+    {
+      "bom-ref": "pkg:pypi/jsonschema@4.26.0",
+      "name": "jsonschema",
+      "purl": "pkg:pypi/jsonschema@4.26.0",
+      "type": "library",
+      "version": "4.26.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/jsonschema-specifications@2025.9.1",
+      "name": "jsonschema-specifications",
+      "purl": "pkg:pypi/jsonschema-specifications@2025.9.1",
+      "type": "library",
+      "version": "2025.9.1"
+    },
+    {
+      "bom-ref": "pkg:pypi/librt@0.13.0",
+      "name": "librt",
+      "purl": "pkg:pypi/librt@0.13.0",
+      "type": "library",
+      "version": "0.13.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/markdown-it-py@4.2.0",
+      "name": "markdown-it-py",
+      "purl": "pkg:pypi/markdown-it-py@4.2.0",
+      "type": "library",
+      "version": "4.2.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/mccabe@0.7.0",
+      "name": "mccabe",
+      "purl": "pkg:pypi/mccabe@0.7.0",
+      "type": "library",
+      "version": "0.7.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/mdurl@0.1.2",
+      "name": "mdurl",
+      "purl": "pkg:pypi/mdurl@0.1.2",
+      "type": "library",
+      "version": "0.1.2"
+    },
+    {
+      "bom-ref": "pkg:pypi/mypy@2.3.0",
+      "name": "mypy",
+      "purl": "pkg:pypi/mypy@2.3.0",
+      "type": "library",
+      "version": "2.3.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/mypy-extensions@1.1.0",
+      "name": "mypy-extensions",
+      "purl": "pkg:pypi/mypy-extensions@1.1.0",
+      "type": "library",
+      "version": "1.1.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/packaging@26.2",
+      "name": "packaging",
+      "purl": "pkg:pypi/packaging@26.2",
+      "type": "library",
+      "version": "26.2"
+    },
+    {
+      "bom-ref": "pkg:pypi/pathspec@1.1.1",
+      "name": "pathspec",
+      "purl": "pkg:pypi/pathspec@1.1.1",
+      "type": "library",
+      "version": "1.1.1"
+    },
+    {
+      "bom-ref": "pkg:pypi/platformdirs@4.11.0",
+      "name": "platformdirs",
+      "purl": "pkg:pypi/platformdirs@4.11.0",
+      "type": "library",
+      "version": "4.11.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/pluggy@1.6.0",
+      "name": "pluggy",
+      "purl": "pkg:pypi/pluggy@1.6.0",
+      "type": "library",
+      "version": "1.6.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/pygments@2.20.0",
+      "name": "pygments",
+      "purl": "pkg:pypi/pygments@2.20.0",
+      "type": "library",
+      "version": "2.20.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/pylint@4.0.6",
+      "name": "pylint",
+      "purl": "pkg:pypi/pylint@4.0.6",
+      "type": "library",
+      "version": "4.0.6"
+    },
+    {
       "bom-ref": "pkg:pypi/pytest@9.1.1",
       "name": "pytest",
       "purl": "pkg:pypi/pytest@9.1.1",
@@ -16,46 +191,60 @@
       "version": "7.1.0"
     },
     {
-      "bom-ref": "pkg:pypi/jsonschema@4.26.0",
-      "name": "jsonschema",
-      "purl": "pkg:pypi/jsonschema@4.26.0",
+      "bom-ref": "pkg:pypi/pytokens@0.4.1",
+      "name": "pytokens",
+      "purl": "pkg:pypi/pytokens@0.4.1",
       "type": "library",
-      "version": "4.26.0"
+      "version": "0.4.1"
     },
     {
-      "bom-ref": "pkg:pypi/black@26.5.1",
-      "name": "black",
-      "purl": "pkg:pypi/black@26.5.1",
+      "bom-ref": "pkg:pypi/pyyaml@6.0.3",
+      "name": "pyyaml",
+      "purl": "pkg:pypi/pyyaml@6.0.3",
       "type": "library",
-      "version": "26.5.1"
+      "version": "6.0.3"
     },
     {
-      "bom-ref": "pkg:pypi/pylint@4.0.6",
-      "name": "pylint",
-      "purl": "pkg:pypi/pylint@4.0.6",
+      "bom-ref": "pkg:pypi/referencing@0.37.0",
+      "name": "referencing",
+      "purl": "pkg:pypi/referencing@0.37.0",
       "type": "library",
-      "version": "4.0.6"
+      "version": "0.37.0"
     },
     {
-      "bom-ref": "pkg:pypi/mypy@2.3.0",
-      "name": "mypy",
-      "purl": "pkg:pypi/mypy@2.3.0",
+      "bom-ref": "pkg:pypi/rich@15.0.0",
+      "name": "rich",
+      "purl": "pkg:pypi/rich@15.0.0",
       "type": "library",
-      "version": "2.3.0"
+      "version": "15.0.0"
     },
     {
-      "bom-ref": "pkg:pypi/bandit@1.9.4",
-      "name": "bandit",
-      "purl": "pkg:pypi/bandit@1.9.4",
+      "bom-ref": "pkg:pypi/rpds-py@2026.6.3",
+      "name": "rpds-py",
+      "purl": "pkg:pypi/rpds-py@2026.6.3",
       "type": "library",
-      "version": "1.9.4"
+      "version": "2026.6.3"
     },
     {
-      "bom-ref": "pkg:pypi/codespell@2.4.3",
-      "name": "codespell",
-      "purl": "pkg:pypi/codespell@2.4.3",
+      "bom-ref": "pkg:pypi/stevedore@5.9.0",
+      "name": "stevedore",
+      "purl": "pkg:pypi/stevedore@5.9.0",
       "type": "library",
-      "version": "2.4.3"
+      "version": "5.9.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/tomlkit@0.15.1",
+      "name": "tomlkit",
+      "purl": "pkg:pypi/tomlkit@0.15.1",
+      "type": "library",
+      "version": "0.15.1"
+    },
+    {
+      "bom-ref": "pkg:pypi/typing-extensions@4.16.0",
+      "name": "typing-extensions",
+      "purl": "pkg:pypi/typing-extensions@4.16.0",
+      "type": "library",
+      "version": "4.16.0"
     },
     {
       "bom-ref": "pkg:cargo/afl@0.17.1",

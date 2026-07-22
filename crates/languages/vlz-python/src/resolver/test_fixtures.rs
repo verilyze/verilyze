@@ -254,7 +254,9 @@ exit 1
 /// Fake pip whose `lock` subcommand prints pylock with no packages.
 #[cfg(unix)]
 pub fn fake_pip_lock_no_packages() -> FakeToolchainPath {
-    fake_pip_lock_success("lock-version = \"1.0\"\npackages = []\n")
+    fake_pip_lock_success(
+        "lock-version = \"1.0\"\ncreated-by = \"test\"\npackages = []\n",
+    )
 }
 
 /// Fake python that creates a venv whose pip install/freeze behave as configured.

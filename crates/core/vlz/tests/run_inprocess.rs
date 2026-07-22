@@ -42,7 +42,7 @@ fn write_requirements_with_pylock(
     std::fs::write(
         dir.join("pylock.toml"),
         format!(
-            "lock-version = \"1.0\"\n\n[[packages]]\nname = \"{pkg}\"\nversion = \"{version}\"\n"
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"{pkg}\"\nversion = \"{version}\"\n"
         ),
     )
     .expect("write pylock.toml");
@@ -1123,7 +1123,7 @@ fn run_scan_orphan_pylock_only() {
         let dir = tempfile::tempdir().expect("tempdir");
         std::fs::write(
             dir.path().join("pylock.toml"),
-            "lock-version = \"1.0\"\n\n[[packages]]\nname = \"pkg\"\nversion = \"1.0\"\n",
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"pkg\"\nversion = \"1.0\"\n",
         )
         .expect("write pylock");
         let out_path = dir.path().join("report.json");
@@ -1236,7 +1236,7 @@ fn run_scan_orphan_multi_lock_different_packages() {
         let dir = tempfile::tempdir().expect("tempdir");
         std::fs::write(
             dir.path().join("pylock.toml"),
-            "lock-version = \"1.0\"\n\n[[packages]]\nname = \"pkg-a\"\nversion = \"1.0\"\n",
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"pkg-a\"\nversion = \"1.0\"\n",
         )
         .expect("write pylock");
         std::fs::write(
@@ -1299,7 +1299,7 @@ fn run_scan_orphan_valid_empty_pylock_exit_0() {
         let dir = tempfile::tempdir().expect("tempdir");
         std::fs::write(
             dir.path().join("pylock.toml"),
-            "lock-version = \"1.0\"\npackages = []\n",
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\npackages = []\n",
         )
         .expect("write empty pylock");
         let out_path = dir.path().join("report.json");
@@ -1332,7 +1332,7 @@ fn run_scan_orphan_multi_lock_partial_parse_exit_2() {
         let dir = tempfile::tempdir().expect("tempdir");
         std::fs::write(
             dir.path().join("pylock.toml"),
-            "lock-version = \"1.0\"\n\n[[packages]]\nname = \"good\"\nversion = \"1.0\"\n",
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"good\"\nversion = \"1.0\"\n",
         )
         .expect("write pylock");
         std::fs::write(dir.path().join("poetry.lock"), "not valid poetry")
@@ -1375,7 +1375,7 @@ fn run_scan_adjacent_multi_lock_manifest_paths_per_source() {
             .expect("write requirements");
         std::fs::write(
             dir.path().join("pylock.toml"),
-            "lock-version = \"1.0\"\n\n[[packages]]\nname = \"pkg-a\"\nversion = \"1.0\"\n",
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"pkg-a\"\nversion = \"1.0\"\n",
         )
         .expect("write pylock");
         std::fs::write(
@@ -1433,7 +1433,7 @@ fn run_scan_lock_file_allowlist_ignores_other_locks() {
         let dir = tempfile::tempdir().expect("tempdir");
         std::fs::write(
             dir.path().join("pylock.toml"),
-            "lock-version = \"1.0\"\n\n[[packages]]\nname = \"pkg-a\"\nversion = \"1.0\"\n",
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"pkg-a\"\nversion = \"1.0\"\n",
         )
         .expect("write pylock");
         std::fs::write(

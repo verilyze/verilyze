@@ -27,9 +27,8 @@ pub use parser::{
 };
 pub use reachability::PythonTierBAnalyzer;
 pub use resolver::{
-    DIRECT_ONLY_REASON_EXEC_DISABLED, DIRECT_ONLY_REASON_FALLBACK_ON_FAILURE,
-    DIRECT_ONLY_REASON_OFFLINE, DirectOnlyResolver,
-    FR_022_TRANSITIVE_ERROR_MESSAGE, PipInstallStrategy, find_lock_file,
-    find_lock_files, find_manifest_project_dir, parse_pip_freeze,
-    pip_install_strategy,
+    DIRECT_ONLY_REASON_FALLBACK_ON_FAILURE, DIRECT_ONLY_REASON_OFFLINE,
+    DirectOnlyResolver, FR_022_TRANSITIVE_ERROR_MESSAGE, PipInstallStrategy,
+    find_lock_file, find_lock_files, find_manifest_project_dir,
+    parse_pip_freeze, pip_install_strategy,
 };

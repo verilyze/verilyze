@@ -951,7 +951,7 @@ mod tests {
         let pylock = root.join("pylock.toml");
         std::fs::write(
             &pylock,
-            "[[packages]]\nname = \"a\"\nversion = \"1.0\"\n",
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"a\"\nversion = \"1.0\"\n",
         )
         .unwrap();
         let got = discover_manifests_one_pass(root, &Default::default(), &[])
@@ -967,7 +967,7 @@ mod tests {
         let root = dir.path();
         std::fs::write(
             root.join("pylock.toml"),
-            "[[packages]]\nname = \"a\"\nversion = \"1.0\"\n",
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"a\"\nversion = \"1.0\"\n",
         )
         .unwrap();
         std::fs::write(
