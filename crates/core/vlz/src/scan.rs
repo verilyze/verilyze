@@ -49,6 +49,12 @@ pub const MANIFEST_FAILURE_SUMMARY_HEADER: &str =
 pub const MANIFEST_FAILURE_SUMMARY_FOOTER: &str =
     "Run with -v for full error detail on each manifest above.";
 
+/// Header for consolidated direct-only summary (FR-022a). `{}` is the entry count.
+pub const DIRECT_ONLY_SUMMARY_HEADER: &str =
+    "vlz: {} manifest(s) scanned with direct dependencies only:";
+/// Footer for direct-only summary remediation and verbose hint (FR-022a, NFR-024).
+pub const DIRECT_ONLY_SUMMARY_FOOTER: &str = "Add an adjacent lock file for transitive coverage. See `man vlz` or docs/FAQ.md. Run with -v for per-manifest warning detail.";
+
 /// Exit-code precedence for scan completion (FR-010): 2 > 5 > 4 > cve_exit.
 pub fn pick_exit_code(
     manifest_blocking_count: usize,
@@ -116,6 +122,70 @@ pub fn format_manifest_failure_summary(
     out.push('\n');
     out.push_str(MANIFEST_FAILURE_SUMMARY_FOOTER);
     Some(out)
+}
+
+/// Consolidated stderr summary for direct-only coverage (FR-022a).
+pub fn format_direct_only_summary(
+    coverage: &[ManifestCoverageEntry],
+    root_path: Option<&Path>,
+) -> Option<String> {
+    let entries: Vec<_> = coverage
+        .iter()
+        .filter(|e| e.status == ManifestScanStatus::ScannedDirectOnly)
+        .collect();
+    if entries.is_empty() {
+        return None;
+    }
+    let mut out =
+        DIRECT_ONLY_SUMMARY_HEADER.replace("{}", &entries.len().to_string());
+    let mut groups: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for entry in entries {
+        let path = relative_manifest_display(&entry.path, root_path);
+        let reason = entry
+            .direct_only_reason
+            .as_deref()
+            .unwrap_or_else(|| entry.status.as_str())
+            .to_string();
+        groups.entry(reason).or_default().push(path);
+    }
+    for (reason, paths) in groups {
+        out.push_str(&format!("\n\n  {reason} ({}):", paths.len()));
+        for path in paths {
+            out.push_str(&format!("\n    - {path}"));
+        }
+    }
+    out.push('\n');
+    out.push_str(DIRECT_ONLY_SUMMARY_FOOTER);
+    Some(out)
+}
+
+/// Emit end-of-scan direct-only diagnostics (FR-022a).
+///
+/// Always prints the consolidated summary when non-empty. With `verbosity > 0`,
+/// also prints per-manifest `vlz warning:` lines from coverage.
+pub fn emit_direct_only_diagnostics(
+    coverage: &[ManifestCoverageEntry],
+    root_path: Option<&Path>,
+    verbosity: u8,
+) {
+    if let Some(summary) = format_direct_only_summary(coverage, root_path) {
+        crate::run::user_warning(&summary);
+    }
+    if verbosity == 0 {
+        return;
+    }
+    for entry in coverage
+        .iter()
+        .filter(|e| e.status == ManifestScanStatus::ScannedDirectOnly)
+    {
+        let Some(reason) = entry.direct_only_reason.as_deref() else {
+            continue;
+        };
+        let path = relative_manifest_display(&entry.path, root_path);
+        crate::run::user_warning(
+            &vlz_manifest_parser::format_direct_only_warning(&path, reason),
+        );
+    }
 }
 
 /// Build a coverage entry for a successfully resolved manifest.
@@ -359,6 +429,78 @@ mod tests {
         assert!(summary.contains("a/requirements.txt"));
         assert!(summary.contains("b/requirements.txt"));
         assert_eq!(summary.matches("same error (2):").count(), 1);
+    }
+
+    #[test]
+    fn format_direct_only_summary_empty_when_none() {
+        let coverage = vec![ManifestCoverageEntry {
+            path: PathBuf::from("ok/requirements.txt"),
+            language: "python".to_string(),
+            status: ManifestScanStatus::ScannedTransitive,
+            direct_only_reason: None,
+            error: None,
+        }];
+        assert!(format_direct_only_summary(&coverage, None).is_none());
+    }
+
+    #[test]
+    fn format_direct_only_summary_lists_entries_grouped_by_reason() {
+        let coverage = vec![
+            ManifestCoverageEntry {
+                path: PathBuf::from("/root/a/requirements.txt"),
+                language: "python".to_string(),
+                status: ManifestScanStatus::ScannedDirectOnly,
+                direct_only_reason: Some(
+                    DIRECT_ONLY_REASON_OFFLINE.to_string(),
+                ),
+                error: None,
+            },
+            ManifestCoverageEntry {
+                path: PathBuf::from("/root/b/pyproject.toml"),
+                language: "python".to_string(),
+                status: ManifestScanStatus::ScannedDirectOnly,
+                direct_only_reason: Some(
+                    DIRECT_ONLY_REASON_OFFLINE.to_string(),
+                ),
+                error: None,
+            },
+            ManifestCoverageEntry {
+                path: PathBuf::from("/root/c/Cargo.toml"),
+                language: "rust".to_string(),
+                status: ManifestScanStatus::ScannedTransitive,
+                direct_only_reason: None,
+                error: None,
+            },
+        ];
+        let summary =
+            format_direct_only_summary(&coverage, Some(Path::new("/root")))
+                .expect("summary");
+        assert!(
+            summary.contains(
+                "2 manifest(s) scanned with direct dependencies only"
+            )
+        );
+        assert!(summary.contains("offline mode (2):"));
+        assert!(summary.contains("a/requirements.txt"));
+        assert!(summary.contains("b/pyproject.toml"));
+        assert!(!summary.contains("c/Cargo.toml"));
+        assert!(summary.contains(DIRECT_ONLY_SUMMARY_FOOTER));
+    }
+
+    #[test]
+    fn format_direct_only_summary_without_reason_uses_status() {
+        let coverage = vec![ManifestCoverageEntry {
+            path: PathBuf::from("/root/req.txt"),
+            language: "python".to_string(),
+            status: ManifestScanStatus::ScannedDirectOnly,
+            direct_only_reason: None,
+            error: None,
+        }];
+        let summary =
+            format_direct_only_summary(&coverage, Some(Path::new("/root")))
+                .expect("summary");
+        assert!(summary.contains("scanned_direct_only (1):"));
+        assert!(summary.contains("req.txt"));
     }
 
     #[test]

@@ -201,7 +201,7 @@ mod tests {
         std::fs::write(&req, "pkg==1.0\n").unwrap();
         std::fs::write(
             &pylock,
-            "[[packages]]\nname = \"pkg\"\nversion = \"1.0\"\n",
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"pkg\"\nversion = \"1.0\"\n",
         )
         .unwrap();
         std::fs::write(
@@ -253,7 +253,7 @@ mod tests {
         std::fs::write(&req, "pkg==1.0\n").unwrap();
         std::fs::write(
             &variant,
-            "[[packages]]\nname = \"pkg\"\nversion = \"1.0\"\n",
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"pkg\"\nversion = \"1.0\"\n",
         )
         .unwrap();
         let found = find_lock_files(req.as_path(), &[]);
@@ -268,7 +268,7 @@ mod tests {
         std::fs::write(&req, "pkg==1.0\n").unwrap();
         std::fs::write(
             tmp.join("pylock.toml"),
-            "[[packages]]\nname = \"a\"\nversion = \"1\"\n",
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"a\"\nversion = \"1\"\n",
         )
         .unwrap();
         std::fs::write(
@@ -289,7 +289,7 @@ mod tests {
         std::fs::write(&req, "pkg==1.0\n").unwrap();
         std::fs::write(
             tmp.join("pylock.toml"),
-            "[[packages]]\nname = \"a\"\nversion = \"1\"\n",
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"a\"\nversion = \"1\"\n",
         )
         .unwrap();
         std::fs::write(

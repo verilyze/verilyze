@@ -23,4 +23,5 @@ if ! command -v make >/dev/null 2>&1; then
   exit 1
 fi
 
+make -C "${ROOT}" -f "${ROOT}/Makefile" generate-pylock-dev
 make -C "${ROOT}" -f "${ROOT}/Makefile" generate-sbom

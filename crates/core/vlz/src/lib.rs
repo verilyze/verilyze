@@ -40,7 +40,7 @@ where
     T: Into<std::ffi::OsString> + Clone + AsRef<std::ffi::OsStr>,
 {
     let env = env_logger::Env::default()
-        .filter_or("RUST_LOG", "info")
+        .filter_or("RUST_LOG", "warn")
         .write_style_or("RUST_LOG_STYLE", "always");
     let args_vec: Vec<_> = args.into_iter().collect();
     let verbose_count = args_vec
@@ -94,7 +94,8 @@ mod tests {
     #[test]
     fn resolve_with_cause_preserves_pip_lock_in_anyhow_chain() {
         let err = ResolverError::ResolveWithCause {
-            message: "Unable to detect transitive dependencies. Try installing the package manager or generate a lock file before running vlz.".to_string(),
+            message: vlz_manifest_parser::FR_022_TRANSITIVE_ERROR_MESSAGE
+                .to_string(),
             cause: Box::new(ResolverError::Resolve(
                 "pip lock failed for /proj/requirements.txt: ERROR: No matching distribution".to_string(),
             )),

@@ -155,7 +155,7 @@ def test_renovate_pep621_post_upgrade_regenerates_sbom() -> None:
     )
     tasks = match["postUpgradeTasks"]
     assert tasks["commands"] == ["bash scripts/renovate-post-upgrade-sbom.sh"]
-    assert tasks["fileFilters"] == ["sbom/**"]
+    assert tasks["fileFilters"] == ["pylock.dev.toml", "sbom/**"]
     assert tasks["executionMode"] == "branch"
     tools = tasks["installTools"]
     assert "rust" in tools

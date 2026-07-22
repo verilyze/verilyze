@@ -54,6 +54,11 @@ pub fn write_stdout(s: &str) {
     }
 }
 
+/// Emit a user-facing diagnostic line to stderr (FR-022a, NFR-013).
+pub fn user_warning(line: &str) {
+    eprintln!("{line}");
+}
+
 /// True if cache entry key matches pattern (exact substring or prefix when pattern ends with *).
 /// Used by `db set-ttl --pattern`.
 pub fn entry_key_matches_pattern(key: &str, pattern: &str) -> bool {
@@ -104,8 +109,9 @@ pub fn compute_scan_exit_code(
 /// Map verbosity count (number of `-v` flags) to log level.
 pub fn log_level_from_verbosity_count(count: usize) -> LevelFilter {
     match count {
-        0 => LevelFilter::Info,
-        1 => LevelFilter::Debug,
+        0 => LevelFilter::Warn,
+        1 => LevelFilter::Info,
+        2 => LevelFilter::Debug,
         _ => LevelFilter::Trace,
     }
 }
@@ -1158,15 +1164,18 @@ async fn run_preload(
     let blocking = crate::scan::count_blocking_manifest_failures(
         &resolved.manifest_coverage,
     );
-    if blocking > 0
-        && let Some(summary) = crate::scan::format_manifest_failure_summary(
+    if resolved.skip_cve_phase {
+        crate::scan::emit_direct_only_diagnostics(
             &resolved.manifest_coverage,
             Some(&resolved.root_path),
-        )
-    {
-        eprintln!("{}", summary);
-    }
-    if resolved.skip_cve_phase {
+            verbosity,
+        );
+        if let Some(summary) = crate::scan::format_manifest_failure_summary(
+            &resolved.manifest_coverage,
+            Some(&resolved.root_path),
+        ) {
+            crate::run::user_warning(&summary);
+        }
         return Ok(2);
     }
 
@@ -1196,6 +1205,17 @@ async fn run_preload(
         warm.findings.iter().filter(|(_, r)| !r.is_empty()).count(),
     ));
 
+    crate::scan::emit_direct_only_diagnostics(
+        &resolved.manifest_coverage,
+        Some(&resolved.root_path),
+        verbosity,
+    );
+    if let Some(summary) = crate::scan::format_manifest_failure_summary(
+        &resolved.manifest_coverage,
+        Some(&resolved.root_path),
+    ) {
+        crate::run::user_warning(&summary);
+    }
     if warm.summary.offline_cache_miss {
         eprintln!("{}", OFFLINE_CACHE_MISS_MESSAGE);
     }
@@ -1222,13 +1242,13 @@ async fn run_scan(
     report: Vec<String>,
     provider: Option<String>,
     effective: crate::config::EffectiveConfig,
-    _verbosity: u8,
+    verbosity: u8,
     db_backend: Arc<Box<dyn vlz_db::DatabaseBackend + Send + Sync + 'static>>,
 ) -> Result<i32> {
     let benchmark_start = effective.benchmark.then(Instant::now);
 
     let resolved =
-        resolve_packages_for_path(root, &effective, _verbosity).await?;
+        resolve_packages_for_path(root, &effective, verbosity).await?;
     if resolved.package_manager_missing {
         return Ok(3);
     }
@@ -1304,7 +1324,7 @@ async fn run_scan(
         provider_fetch_failed = warm.summary.provider_fetch_failed;
         findings = warm.findings;
         raw_vulns_by_package = warm.raw_vulns_by_package;
-        if provider_fetch_failed && _verbosity > 0 {
+        if provider_fetch_failed && verbosity > 0 {
             error!(
                 "One or more CVE provider fetches failed during cache warm"
             );
@@ -1509,11 +1529,16 @@ async fn run_scan(
             .context("Failed while rendering the report")?;
     }
 
+    crate::scan::emit_direct_only_diagnostics(
+        &report_data.manifest_coverage,
+        Some(root_path.as_path()),
+        verbosity,
+    );
     if let Some(summary) = crate::scan::format_manifest_failure_summary(
         &report_data.manifest_coverage,
         Some(root_path.as_path()),
     ) {
-        eprintln!("{summary}");
+        crate::run::user_warning(&summary);
     }
     if offline_cache_miss {
         eprintln!(
@@ -1659,18 +1684,23 @@ mod tests {
     }
 
     #[test]
-    fn log_level_from_verbosity_count_zero_is_info() {
-        assert_eq!(log_level_from_verbosity_count(0), log::LevelFilter::Info);
+    fn log_level_from_verbosity_count_zero_is_warn() {
+        assert_eq!(log_level_from_verbosity_count(0), log::LevelFilter::Warn);
     }
 
     #[test]
-    fn log_level_from_verbosity_count_one_is_debug() {
-        assert_eq!(log_level_from_verbosity_count(1), log::LevelFilter::Debug);
+    fn log_level_from_verbosity_count_one_is_info() {
+        assert_eq!(log_level_from_verbosity_count(1), log::LevelFilter::Info);
     }
 
     #[test]
-    fn log_level_from_verbosity_count_two_or_more_is_trace() {
-        assert_eq!(log_level_from_verbosity_count(2), log::LevelFilter::Trace);
+    fn log_level_from_verbosity_count_two_is_debug() {
+        assert_eq!(log_level_from_verbosity_count(2), log::LevelFilter::Debug);
+    }
+
+    #[test]
+    fn log_level_from_verbosity_count_three_or_more_is_trace() {
+        assert_eq!(log_level_from_verbosity_count(3), log::LevelFilter::Trace);
         assert_eq!(
             log_level_from_verbosity_count(100),
             log::LevelFilter::Trace

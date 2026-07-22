@@ -125,7 +125,7 @@ mod tests {
         let pylock = dir.path().join("pylock.toml");
         std::fs::write(
             &pylock,
-            "lock-version = \"1.0\"\n\n[[packages]]\nname = \"pkg\"\nversion = \"1.0\"\n",
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"pkg\"\nversion = \"1.0\"\n",
         )
         .unwrap();
         let parser = RequirementsTxtParser::new();
@@ -138,8 +138,11 @@ mod tests {
     async fn parse_valid_empty_pylock_returns_empty_packages() {
         let dir = tempfile::tempdir().unwrap();
         let pylock = dir.path().join("pylock.toml");
-        std::fs::write(&pylock, "lock-version = \"1.0\"\npackages = []\n")
-            .unwrap();
+        std::fs::write(
+            &pylock,
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\npackages = []\n",
+        )
+        .unwrap();
         let parser = RequirementsTxtParser::new();
         let graph = parser.parse(&pylock).await.unwrap();
         assert!(graph.packages.is_empty());

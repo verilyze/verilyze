@@ -38,7 +38,7 @@ pub fn write_requirements_with_pylock(
     std::fs::write(
         dir.join("pylock.toml"),
         format!(
-            "lock-version = \"1.0\"\n\n[[packages]]\nname = \"{pkg}\"\nversion = \"{version}\"\n"
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"{pkg}\"\nversion = \"{version}\"\n"
         ),
     )
     .expect("write pylock.toml");

@@ -340,7 +340,7 @@ impl ReachabilityAnalyzer for PythonTierBAnalyzer {
         #[cfg(not(feature = "tier-d"))]
         {
             let _ = (context, advisory_symbols);
-            return TierCResult::unknown();
+            TierCResult::unknown()
         }
         #[cfg(feature = "tier-d")]
         {

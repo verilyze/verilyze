@@ -206,7 +206,8 @@ pub enum Commands {
         allow_dependency_code_execution: bool,
 
         /// Fall back to direct-only scan with warning when transitive resolution fails (FR-022a).
-        /// Applies to Python requirements.txt/Pipfile, Rust Cargo.toml without Cargo.lock,
+        /// Applies to all Python project manifests (requirements.txt, pyproject.toml,
+        /// Pipfile, setup.cfg, setup.py), Rust Cargo.toml without Cargo.lock,
         /// and Go go.mod when go list or cargo metadata cannot run.
         #[arg(long, help_heading = HELP_RESOLUTION)]
         allow_direct_only_fallback: bool,
@@ -398,7 +399,10 @@ pub enum Commands {
         #[arg(long, help_heading = HELP_RESOLUTION)]
         allow_dependency_code_execution: bool,
 
-        /// Fall back to direct-only resolution with warning when transitive resolution fails (FR-022a)
+        /// Fall back to direct-only resolution with warning when transitive resolution fails (FR-022a).
+        /// Applies to all Python project manifests (requirements.txt, pyproject.toml,
+        /// Pipfile, setup.cfg, setup.py), Rust Cargo.toml without Cargo.lock,
+        /// and Go go.mod when go list or cargo metadata cannot run.
         #[arg(long, help_heading = HELP_RESOLUTION)]
         allow_direct_only_fallback: bool,
 
