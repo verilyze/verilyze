@@ -14,6 +14,181 @@
   "element": [
     {
       "@type": "Package",
+      "name": "ast-serialize",
+      "packageUrl": "pkg:pypi/ast-serialize@0.6.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-ast-serialize-0-6-0",
+      "versionInfo": "0.6.0"
+    },
+    {
+      "@type": "Package",
+      "name": "astroid",
+      "packageUrl": "pkg:pypi/astroid@4.0.4",
+      "spdxId": "urn:spdx.dev:pkg-pypi-astroid-4-0-4",
+      "versionInfo": "4.0.4"
+    },
+    {
+      "@type": "Package",
+      "name": "attrs",
+      "packageUrl": "pkg:pypi/attrs@26.1.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-attrs-26-1-0",
+      "versionInfo": "26.1.0"
+    },
+    {
+      "@type": "Package",
+      "name": "bandit",
+      "packageUrl": "pkg:pypi/bandit@1.9.4",
+      "spdxId": "urn:spdx.dev:pkg-pypi-bandit-1-9-4",
+      "versionInfo": "1.9.4"
+    },
+    {
+      "@type": "Package",
+      "name": "black",
+      "packageUrl": "pkg:pypi/black@26.5.1",
+      "spdxId": "urn:spdx.dev:pkg-pypi-black-26-5-1",
+      "versionInfo": "26.5.1"
+    },
+    {
+      "@type": "Package",
+      "name": "click",
+      "packageUrl": "pkg:pypi/click@8.4.2",
+      "spdxId": "urn:spdx.dev:pkg-pypi-click-8-4-2",
+      "versionInfo": "8.4.2"
+    },
+    {
+      "@type": "Package",
+      "name": "codespell",
+      "packageUrl": "pkg:pypi/codespell@2.4.3",
+      "spdxId": "urn:spdx.dev:pkg-pypi-codespell-2-4-3",
+      "versionInfo": "2.4.3"
+    },
+    {
+      "@type": "Package",
+      "name": "coverage",
+      "packageUrl": "pkg:pypi/coverage@7.15.2",
+      "spdxId": "urn:spdx.dev:pkg-pypi-coverage-7-15-2",
+      "versionInfo": "7.15.2"
+    },
+    {
+      "@type": "Package",
+      "name": "dill",
+      "packageUrl": "pkg:pypi/dill@0.4.1",
+      "spdxId": "urn:spdx.dev:pkg-pypi-dill-0-4-1",
+      "versionInfo": "0.4.1"
+    },
+    {
+      "@type": "Package",
+      "name": "iniconfig",
+      "packageUrl": "pkg:pypi/iniconfig@2.3.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-iniconfig-2-3-0",
+      "versionInfo": "2.3.0"
+    },
+    {
+      "@type": "Package",
+      "name": "isort",
+      "packageUrl": "pkg:pypi/isort@8.0.1",
+      "spdxId": "urn:spdx.dev:pkg-pypi-isort-8-0-1",
+      "versionInfo": "8.0.1"
+    },
+    {
+      "@type": "Package",
+      "name": "jsonschema",
+      "packageUrl": "pkg:pypi/jsonschema@4.26.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-jsonschema-4-26-0",
+      "versionInfo": "4.26.0"
+    },
+    {
+      "@type": "Package",
+      "name": "jsonschema-specifications",
+      "packageUrl": "pkg:pypi/jsonschema-specifications@2025.9.1",
+      "spdxId": "urn:spdx.dev:pkg-pypi-jsonschema-specifications-2025-9-1",
+      "versionInfo": "2025.9.1"
+    },
+    {
+      "@type": "Package",
+      "name": "librt",
+      "packageUrl": "pkg:pypi/librt@0.13.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-librt-0-13-0",
+      "versionInfo": "0.13.0"
+    },
+    {
+      "@type": "Package",
+      "name": "markdown-it-py",
+      "packageUrl": "pkg:pypi/markdown-it-py@4.2.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-markdown-it-py-4-2-0",
+      "versionInfo": "4.2.0"
+    },
+    {
+      "@type": "Package",
+      "name": "mccabe",
+      "packageUrl": "pkg:pypi/mccabe@0.7.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-mccabe-0-7-0",
+      "versionInfo": "0.7.0"
+    },
+    {
+      "@type": "Package",
+      "name": "mdurl",
+      "packageUrl": "pkg:pypi/mdurl@0.1.2",
+      "spdxId": "urn:spdx.dev:pkg-pypi-mdurl-0-1-2",
+      "versionInfo": "0.1.2"
+    },
+    {
+      "@type": "Package",
+      "name": "mypy",
+      "packageUrl": "pkg:pypi/mypy@2.3.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-mypy-2-3-0",
+      "versionInfo": "2.3.0"
+    },
+    {
+      "@type": "Package",
+      "name": "mypy-extensions",
+      "packageUrl": "pkg:pypi/mypy-extensions@1.1.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-mypy-extensions-1-1-0",
+      "versionInfo": "1.1.0"
+    },
+    {
+      "@type": "Package",
+      "name": "packaging",
+      "packageUrl": "pkg:pypi/packaging@26.2",
+      "spdxId": "urn:spdx.dev:pkg-pypi-packaging-26-2",
+      "versionInfo": "26.2"
+    },
+    {
+      "@type": "Package",
+      "name": "pathspec",
+      "packageUrl": "pkg:pypi/pathspec@1.1.1",
+      "spdxId": "urn:spdx.dev:pkg-pypi-pathspec-1-1-1",
+      "versionInfo": "1.1.1"
+    },
+    {
+      "@type": "Package",
+      "name": "platformdirs",
+      "packageUrl": "pkg:pypi/platformdirs@4.11.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-platformdirs-4-11-0",
+      "versionInfo": "4.11.0"
+    },
+    {
+      "@type": "Package",
+      "name": "pluggy",
+      "packageUrl": "pkg:pypi/pluggy@1.6.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-pluggy-1-6-0",
+      "versionInfo": "1.6.0"
+    },
+    {
+      "@type": "Package",
+      "name": "pygments",
+      "packageUrl": "pkg:pypi/pygments@2.20.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-pygments-2-20-0",
+      "versionInfo": "2.20.0"
+    },
+    {
+      "@type": "Package",
+      "name": "pylint",
+      "packageUrl": "pkg:pypi/pylint@4.0.6",
+      "spdxId": "urn:spdx.dev:pkg-pypi-pylint-4-0-6",
+      "versionInfo": "4.0.6"
+    },
+    {
+      "@type": "Package",
       "name": "pytest",
       "packageUrl": "pkg:pypi/pytest@9.1.1",
       "spdxId": "urn:spdx.dev:pkg-pypi-pytest-9-1-1",
@@ -28,45 +203,59 @@
     },
     {
       "@type": "Package",
-      "name": "jsonschema",
-      "packageUrl": "pkg:pypi/jsonschema@4.26.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-jsonschema-4-26-0",
-      "versionInfo": "4.26.0"
+      "name": "pytokens",
+      "packageUrl": "pkg:pypi/pytokens@0.4.1",
+      "spdxId": "urn:spdx.dev:pkg-pypi-pytokens-0-4-1",
+      "versionInfo": "0.4.1"
     },
     {
       "@type": "Package",
-      "name": "black",
-      "packageUrl": "pkg:pypi/black@26.5.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-black-26-5-1",
-      "versionInfo": "26.5.1"
+      "name": "pyyaml",
+      "packageUrl": "pkg:pypi/pyyaml@6.0.3",
+      "spdxId": "urn:spdx.dev:pkg-pypi-pyyaml-6-0-3",
+      "versionInfo": "6.0.3"
     },
     {
       "@type": "Package",
-      "name": "pylint",
-      "packageUrl": "pkg:pypi/pylint@4.0.6",
-      "spdxId": "urn:spdx.dev:pkg-pypi-pylint-4-0-6",
-      "versionInfo": "4.0.6"
+      "name": "referencing",
+      "packageUrl": "pkg:pypi/referencing@0.37.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-referencing-0-37-0",
+      "versionInfo": "0.37.0"
     },
     {
       "@type": "Package",
-      "name": "mypy",
-      "packageUrl": "pkg:pypi/mypy@2.3.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-mypy-2-3-0",
-      "versionInfo": "2.3.0"
+      "name": "rich",
+      "packageUrl": "pkg:pypi/rich@15.0.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-rich-15-0-0",
+      "versionInfo": "15.0.0"
     },
     {
       "@type": "Package",
-      "name": "bandit",
-      "packageUrl": "pkg:pypi/bandit@1.9.4",
-      "spdxId": "urn:spdx.dev:pkg-pypi-bandit-1-9-4",
-      "versionInfo": "1.9.4"
+      "name": "rpds-py",
+      "packageUrl": "pkg:pypi/rpds-py@2026.6.3",
+      "spdxId": "urn:spdx.dev:pkg-pypi-rpds-py-2026-6-3",
+      "versionInfo": "2026.6.3"
     },
     {
       "@type": "Package",
-      "name": "codespell",
-      "packageUrl": "pkg:pypi/codespell@2.4.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-codespell-2-4-3",
-      "versionInfo": "2.4.3"
+      "name": "stevedore",
+      "packageUrl": "pkg:pypi/stevedore@5.9.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-stevedore-5-9-0",
+      "versionInfo": "5.9.0"
+    },
+    {
+      "@type": "Package",
+      "name": "tomlkit",
+      "packageUrl": "pkg:pypi/tomlkit@0.15.1",
+      "spdxId": "urn:spdx.dev:pkg-pypi-tomlkit-0-15-1",
+      "versionInfo": "0.15.1"
+    },
+    {
+      "@type": "Package",
+      "name": "typing-extensions",
+      "packageUrl": "pkg:pypi/typing-extensions@4.16.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-typing-extensions-4-16-0",
+      "versionInfo": "4.16.0"
     },
     {
       "@type": "Package",
