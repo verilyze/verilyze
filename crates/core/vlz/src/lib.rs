@@ -40,7 +40,7 @@ where
     T: Into<std::ffi::OsString> + Clone + AsRef<std::ffi::OsStr>,
 {
     let env = env_logger::Env::default()
-        .filter_or("RUST_LOG", "info")
+        .filter_or("RUST_LOG", "warn")
         .write_style_or("RUST_LOG_STYLE", "always");
     let args_vec: Vec<_> = args.into_iter().collect();
     let verbose_count = args_vec
