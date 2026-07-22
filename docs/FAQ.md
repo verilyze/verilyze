@@ -329,23 +329,22 @@ later if the failure was transient.
 ### `vlz warning: Only direct dependencies were scanned for ...`
 
 **Cause:** Transitive dependency resolution was not performed for the listed
-manifest. Common reasons:
+manifest. Direct-only coverage is emitted only when explicitly permitted.
+Common reasons:
 
 - **`offline mode` or `benchmark mode`:** `--offline` and `--benchmark` skip
   package-manager network resolution (pip, `cargo metadata`, `go list`) (FR-031,
   FR-029).
-- **`executable dependency resolution is disabled`:** Secure default (SEC-023).
-  `vlz` does not run `pip install` or `pip lock -e` on local projects unless
-  you opt in.
-- **`transitive resolution unavailable`:** No adjacent lock file and pip is not
-  on PATH for a local project manifest (`setup.py`, `pyproject.toml`, etc.).
 - **`transitive resolution failed; direct-only fallback enabled`:** Transitive
   resolution was required but could not be completed; you opted in via
   `allow_direct_only_fallback`.
 
-**Remediation (best):** Add an adjacent lock file for transitive coverage. See
+**Remediation (best):** Add an adjacent lock file for transitive coverage.
+Prefer PEP 751 `pylock.toml` / `pylock.<name>.toml` (for example
+`pylock.dev.toml`) for Python. See
 [Appendix A -- Manifest and lock files](../architecture/PRD.md#appendix-a-manifest-and-lock-files)
-for supported formats (`poetry.lock`, `Pipfile.lock`, `pylock.toml`, etc.).
+for supported formats (`pylock.toml`, `poetry.lock`, `Pipfile.lock`, `uv.lock`,
+etc.).
 
 **Optional (trusted workspaces only):** Enable executable pip resolution:
 
@@ -357,11 +356,14 @@ Or set `VLZ_ALLOW_DEPENDENCY_CODE_EXECUTION=1` or
 `allow_dependency_code_execution = true` in config. This may run local project
 code and third-party build hooks during resolution. See [SECURITY.md](../SECURITY.md).
 
-**Requirements files without pip:** `requirements.txt` requires transitive
-resolution via lock file, safe `pip lock` (when pip >= 25.1), explicit
-opt-in pip fallback, or `--allow-direct-only-fallback` (direct-only scan with
-FR-022a warning). Without those, the scan exits **2** with the FR-022 message
-below.
+**Python project manifests without a lock:** All Python project manifests
+(`requirements.txt`, `pyproject.toml`, `Pipfile`, `setup.cfg`, `setup.py`)
+**fail closed**: transitive resolution is required via an adjacent lock file,
+safe `pip lock -r` (requirements.txt only, when pip >= 25.1), explicit
+`--allow-dependency-code-execution`, or `--allow-direct-only-fallback`
+(direct-only scan with FR-022a warning). Without those, the scan exits **2**
+with the FR-022 message below. `pyproject.toml` / `setup.py` / `setup.cfg` /
+`Pipfile` do not soft-default to direct-only.
 
 **Rust without `Cargo.lock`:** `Cargo.toml` without an adjacent or workspace
 `Cargo.lock` uses `cargo metadata` for transitive resolution when not in
@@ -378,26 +380,28 @@ If `go` is missing from PATH or `go list` fails, the scan exits **2** unless
 
 ### Unable to detect transitive dependencies (exit 2)
 
-**Message:** `Unable to detect transitive dependencies. Try installing the
-package manager or generate a lock file before running vlz.`
+**Message:** `Unable to detect transitive dependencies. Add an adjacent lock
+file (pylock.toml preferred for Python), use --allow-dependency-code-execution
+for full resolution in a trusted environment, or pass
+--allow-direct-only-fallback to scan direct dependencies only.`
 
 **Cause:** Transitive resolution was required but could not be completed
-(FR-022). Typical cases: `requirements.txt` or `Pipfile` without a lock file
-and without working pip resolution; `Cargo.toml` without `Cargo.lock` when
+(FR-022). Typical cases: any Python project manifest without a lock and without
+a successful safe/exec path; `Cargo.toml` without `Cargo.lock` when
 `cargo metadata` fails; `go.mod` when `go list -m all` fails or `go` is not
 on PATH; explicit pip resolution failed after
 `--allow-dependency-code-execution`; or the parser found no dependencies.
 
 **Remediation:**
 
-1. Commit an adjacent lock file (preferred): `Cargo.lock`, `go.sum` (with
-   `go.mod`), or Python lock formats per Appendix A.
+1. Commit an adjacent lock file (preferred): PEP 751 `pylock.toml` /
+   `pylock.<name>.toml` for Python, `Cargo.lock`, or `go.sum` (with `go.mod`).
 2. Ensure pip >= 25.1 is on PATH for safe `pip lock -r` on `requirements.txt`.
 3. For Rust lock-less scans, ensure `cargo` is on PATH and the crates.io
    registry is reachable (or use `--offline` with a committed `Cargo.lock`).
 4. For Go module projects, ensure `go` is on PATH.
-5. For local Python projects, use `--allow-dependency-code-execution` only in trusted
-   CI or workspaces (see SECURITY.md).
+5. For local Python projects, use `--allow-dependency-code-execution` only in
+   trusted CI or workspaces (see SECURITY.md).
 6. When you accept direct-only scanning without transitive coverage, use
    `--allow-direct-only-fallback`, `VLZ_ALLOW_DIRECT_ONLY_FALLBACK=1`, or
    `allow_direct_only_fallback = true` in config.

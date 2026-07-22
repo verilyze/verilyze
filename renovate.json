@@ -160,7 +160,7 @@
       "postUpgradeTasks": {
         "commands": ["bash scripts/renovate-post-upgrade-sbom.sh"],
         "executionMode": "branch",
-        "fileFilters": ["sbom/**"],
+        "fileFilters": ["pylock.dev.toml", "sbom/**"],
         "installTools": {
           "rust": {},
           "python": {}

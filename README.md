@@ -40,7 +40,9 @@ Run scans with the built binary (adjust the path if you use `CARGO_TARGET_DIR`):
 
 ```bash
 # Scan current directory for manifests (Python: requirements.txt, pyproject.toml,
-# setup.cfg, setup.py; Rust: Cargo.toml; Go: go.mod) and check for CVEs
+# Pipfile, setup.cfg, setup.py; Rust: Cargo.toml; Go: go.mod) and check for CVEs
+# Prefer an adjacent PEP 751 pylock.toml / pylock.<name>.toml for Python
+# transitive coverage (lock-less Python projects exit 2 by default).
 ./target/release/vlz scan
 
 # Scan a specific path
@@ -190,15 +192,16 @@ commands must use the same project_id for the FP to apply. When scanning without
 
 ## Exit codes
 
-Exit 0 means the analysis completed successfully and the result is known. Any
-failure (config, network, parsing, etc.) returns a non-zero code to prevent
-false-negatives in CI.
+Exit 0 means the analysis completed successfully with full transitive coverage
+(or an explicit direct-only opt-in) and the result is known. Any failure
+(config, network, parsing, unresolved transitive deps, etc.) returns a
+non-zero code to prevent false-negatives in CI.
 
 | Code | Meaning                                                                         |
 |------|---------------------------------------------------------------------------------|
 | 0    | Success: analysis completed; no CVEs (or only false-positives per fp-exit-code) |
 | 1    | Panic / internal error                                                          |
-| 2    | Misconfiguration (unknown key, invalid value, etc.)                             |
+| 2    | Misconfiguration, or required transitive resolution failed (e.g. lock-less Python project without opt-in) |
 | 3    | Missing required package manager                                                |
 | 4    | CVE lookup needed but `--offline`                                               |
 | 5    | CVE provider fetch failed (network, API error, auth, etc.)                      |
@@ -206,6 +209,14 @@ false-negatives in CI.
 
 Automated scenarios for each code: [`crates/core/vlz/tests/exit_code_matrix.rs`](crates/core/vlz/tests/exit_code_matrix.rs)
 (DOC-004) and subprocess smoke tests in [`tests/scripts/test_exit_codes.py`](tests/scripts/test_exit_codes.py).
+
+Python lock guidance: commit an adjacent PEP 751 lock (`pylock.toml` or
+`pylock.<name>.toml`) for transitive scans. This repository dogfoods Python
+deps via committed [`pylock.dev.toml`](pylock.dev.toml) (see CONTRIBUTING).
+Without a lock, `requirements.txt` may still resolve via safe `pip lock -r`
+(pip >= 25.1); other Python project manifests fail closed (exit 2) unless
+`--allow-dependency-code-execution` or `--allow-direct-only-fallback` is set.
+See [docs/FAQ.md](docs/FAQ.md).
 
 ## Bug reports and feedback
 
@@ -243,5 +254,6 @@ Then run `make check` for the standard pre-commit gate. For fuzz testing
 - **JSON report schema:** [schemas/v1/report.json](schemas/v1/report.json)
 - **CI examples:** [examples/github-action-vlz-scan.yml](examples/github-action-vlz-scan.yml)
 - **Workspace SBOM:** [sbom/v1/](sbom/v1/) (SEC-019; `make generate-sbom`)
+- **Python dogfood lock:** [pylock.dev.toml](pylock.dev.toml) (PEP 751; SEC-015)
 - **Changelog:** [CHANGELOG.md](CHANGELOG.md)
 - **OpenSSF Best Practices:** [bestpractices.dev project entry](https://www.bestpractices.dev/en/projects/12361)

@@ -81,7 +81,7 @@ _arguments "${_arguments_options[@]}" : \
 '--package-manager-required[Require package manager on PATH; exit 3 with hint if missing]' \
 '--keep-ephemeral-venv[Do not remove ephemeral Python venv after scan (FR-023 debug)]' \
 '--allow-dependency-code-execution[Allow pip to execute dependency build code during resolution (SEC-023)]' \
-'--allow-direct-only-fallback[Fall back to direct-only scan with warning when transitive resolution fails (FR-022a). Applies to Python requirements.txt/Pipfile, Rust Cargo.toml without Cargo.lock, and Go go.mod when go list or cargo metadata cannot run]' \
+'--allow-direct-only-fallback[Fall back to direct-only scan with warning when transitive resolution fails (FR-022a). Applies to all Python project manifests (requirements.txt, pyproject.toml, Pipfile, setup.cfg, setup.py), Rust Cargo.toml without Cargo.lock, and Go go.mod when go list or cargo metadata cannot run]' \
 '--fail-fast[Stop on first manifest parse/resolution failure; skip CVE lookup (FR-037)]' \
 '*-v[Increase verbosity (multiple times = more detail)]' \
 '*--verbose[Increase verbosity (multiple times = more detail)]' \
@@ -272,7 +272,7 @@ _arguments "${_arguments_options[@]}" : \
 '--package-manager-required[Require package manager on PATH; exit 3 with hint if missing]' \
 '--keep-ephemeral-venv[Do not remove ephemeral Python venv after resolution (FR-023 debug)]' \
 '--allow-dependency-code-execution[Allow pip to execute dependency build code during resolution (SEC-023)]' \
-'--allow-direct-only-fallback[Fall back to direct-only resolution with warning when transitive resolution fails (FR-022a)]' \
+'--allow-direct-only-fallback[Fall back to direct-only resolution with warning when transitive resolution fails (FR-022a). Applies to all Python project manifests (requirements.txt, pyproject.toml, Pipfile, setup.cfg, setup.py), Rust Cargo.toml without Cargo.lock, and Go go.mod when go list or cargo metadata cannot run]' \
 '--fail-fast[Stop on first manifest parse/resolution failure (FR-037)]' \
 '*-v[Increase verbosity (multiple times = more detail)]' \
 '*--verbose[Increase verbosity (multiple times = more detail)]' \

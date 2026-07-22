@@ -6,9 +6,8 @@
 
 use vlz_manifest_parser::{ResolutionDepth, ResolveContext, Resolver};
 use vlz_python::{
-    DIRECT_ONLY_REASON_EXEC_DISABLED, DIRECT_ONLY_REASON_FALLBACK_ON_FAILURE,
-    DIRECT_ONLY_REASON_OFFLINE, DirectOnlyResolver,
-    FR_022_TRANSITIVE_ERROR_MESSAGE,
+    DIRECT_ONLY_REASON_FALLBACK_ON_FAILURE, DIRECT_ONLY_REASON_OFFLINE,
+    DirectOnlyResolver, FR_022_TRANSITIVE_ERROR_MESSAGE,
 };
 
 #[test]
@@ -42,7 +41,7 @@ fn requirements_txt_without_pip_exits_fr022_error() {
 }
 
 #[tokio::test]
-async fn setup_py_secure_default_is_direct_only_with_reason() {
+async fn setup_py_secure_default_exits_fr022() {
     let dir = tempfile::tempdir().unwrap();
     let setup = dir.path().join("setup.py");
     std::fs::write(
@@ -60,14 +59,71 @@ async fn setup_py_secure_default_is_direct_only_with_reason() {
         manifest_path: Some(setup),
     };
     let resolver = DirectOnlyResolver::new();
-    let result = resolver
+    let err = resolver
         .resolve(&graph, &ResolveContext::default())
         .await
-        .unwrap();
-    assert_eq!(result.depth, ResolutionDepth::DirectOnly);
-    assert_eq!(
-        result.direct_only_reason,
-        Some(DIRECT_ONLY_REASON_EXEC_DISABLED)
+        .unwrap_err();
+    assert!(
+        err.to_string().contains(FR_022_TRANSITIVE_ERROR_MESSAGE),
+        "expected FR-022 message, got: {err}"
+    );
+}
+
+#[tokio::test]
+async fn pyproject_toml_secure_default_exits_fr022() {
+    let dir = tempfile::tempdir().unwrap();
+    let manifest = dir.path().join("pyproject.toml");
+    std::fs::write(
+        &manifest,
+        b"[project]\nname = \"demo\"\ndependencies = [\"requests\"]\n",
+    )
+    .unwrap();
+    let graph = vlz_manifest_parser::DependencyGraph {
+        packages: vec![vlz_db::Package {
+            name: "requests".to_string(),
+            version: "*".to_string(),
+            ecosystem: Some("PyPI".to_string()),
+        }],
+        parsed_dependencies: Vec::new(),
+        manifest_path: Some(manifest),
+    };
+    let resolver = DirectOnlyResolver::new();
+    let err = resolver
+        .resolve(&graph, &ResolveContext::default())
+        .await
+        .unwrap_err();
+    assert!(
+        err.to_string().contains(FR_022_TRANSITIVE_ERROR_MESSAGE),
+        "expected FR-022 message, got: {err}"
+    );
+}
+
+#[tokio::test]
+async fn pipfile_secure_default_exits_fr022() {
+    let dir = tempfile::tempdir().unwrap();
+    let manifest = dir.path().join("Pipfile");
+    std::fs::write(
+        &manifest,
+        b"[[source]]\nurl = \"https://pypi.org/simple\"\n\n[packages]\nrequests = \"*\"\n",
+    )
+    .unwrap();
+    let graph = vlz_manifest_parser::DependencyGraph {
+        packages: vec![vlz_db::Package {
+            name: "requests".to_string(),
+            version: "*".to_string(),
+            ecosystem: Some("PyPI".to_string()),
+        }],
+        parsed_dependencies: Vec::new(),
+        manifest_path: Some(manifest),
+    };
+    let resolver = DirectOnlyResolver::new();
+    let err = resolver
+        .resolve(&graph, &ResolveContext::default())
+        .await
+        .unwrap_err();
+    assert!(
+        err.to_string().contains(FR_022_TRANSITIVE_ERROR_MESSAGE),
+        "expected FR-022 message, got: {err}"
     );
 }
 

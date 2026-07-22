@@ -357,7 +357,7 @@ mod tests {
         std::fs::write(&setup, b"from setuptools import setup\nsetup()\n")
             .unwrap();
         let fake = fake_pip_lock_success(
-            "[[packages]]\nname = \"demo\"\nversion = \"1.0.0\"\n",
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"demo\"\nversion = \"1.0.0\"\n",
         );
         fake.with_path(|| {
             let err =
@@ -373,7 +373,7 @@ mod tests {
         let req = dir.path().join("requirements.txt");
         std::fs::write(&req, b"requests\n").unwrap();
         let fake = fake_pip_lock_success(
-            "[[packages]]\nname = \"requests\"\nversion = \"2.31.0\"\n",
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"requests\"\nversion = \"2.31.0\"\n",
         );
         fake.with_path(|| {
             let packages =
@@ -391,7 +391,7 @@ mod tests {
         std::fs::write(&setup, b"from setuptools import setup\nsetup()\n")
             .unwrap();
         let fake = fake_pip_lock_success(
-            "[[packages]]\nname = \"demo\"\nversion = \"1.0.0\"\n",
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"demo\"\nversion = \"1.0.0\"\n",
         );
         fake.with_path(|| {
             let packages =
@@ -412,7 +412,7 @@ mod tests {
 
     #[test]
     fn extract_pylock_stdout_strips_pip_resolver_progress() {
-        let stdout = "Collecting requests==2.0.1\n  Downloading...\nlock-version = \"1.0\"\n\n[[packages]]\nname = \"requests\"\nversion = \"2.0.1\"\n";
+        let stdout = "Collecting requests==2.0.1\n  Downloading...\nlock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"requests\"\nversion = \"2.0.1\"\n";
         let pylock = extract_pylock_stdout(stdout);
         assert!(pylock.starts_with("lock-version"));
         let packages = parse_pylock_toml(pylock).unwrap();

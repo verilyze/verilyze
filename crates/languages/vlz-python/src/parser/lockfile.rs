@@ -106,24 +106,72 @@ pub fn parse_pylock_toml(
         ParserError::Parse(format!("pylock.toml parse error: {}", e))
     })?;
 
+    let lock_version = value
+        .get("lock-version")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| {
+            ParserError::Parse(
+                "pylock.toml missing required lock-version".to_string(),
+            )
+        })?;
+    let major = lock_version
+        .split('.')
+        .next()
+        .and_then(|s| s.parse::<u32>().ok())
+        .ok_or_else(|| {
+            ParserError::Parse(format!(
+                "pylock.toml unsupported lock-version: {lock_version}"
+            ))
+        })?;
+    if major != 1 {
+        return Err(ParserError::Parse(format!(
+            "pylock.toml unsupported lock-version major: {major}"
+        )));
+    }
+
+    if value.get("created-by").and_then(|v| v.as_str()).is_none() {
+        return Err(ParserError::Parse(
+            "pylock.toml missing required created-by".to_string(),
+        ));
+    }
+
+    let arr = value.get("packages").ok_or_else(|| {
+        ParserError::Parse("pylock.toml missing required packages".to_string())
+    })?;
+    let arr = arr.as_array().ok_or_else(|| {
+        ParserError::Parse("pylock.toml packages must be an array".to_string())
+    })?;
+
     let mut packages = Vec::new();
-    if let Some(arr) = value.get("packages").and_then(|p| p.as_array()) {
-        for entry in arr {
-            if let Some(tbl) = entry.as_table()
-                && let Some(name) = tbl.get("name").and_then(|n| n.as_str())
-            {
-                let version = tbl
-                    .get("version")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("any")
-                    .to_string();
-                packages.push(vlz_db::Package {
-                    name: name.to_string(),
-                    version,
-                    ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
-                });
-            }
+    for entry in arr {
+        let Some(tbl) = entry.as_table() else {
+            return Err(ParserError::Parse(
+                "pylock.toml package entry must be a table".to_string(),
+            ));
+        };
+        let Some(name) = tbl.get("name").and_then(|n| n.as_str()) else {
+            return Err(ParserError::Parse(
+                "pylock.toml package entry missing required name".to_string(),
+            ));
+        };
+        // PEP 751: directory (and similar) entries MUST omit version.
+        // Skip them for CVE queries; do not fabricate a version.
+        if tbl.get("directory").is_some()
+            || tbl.get("vcs").is_some()
+            || tbl.get("archive").is_some()
+        {
+            continue;
         }
+        let Some(version) = tbl.get("version").and_then(|v| v.as_str()) else {
+            return Err(ParserError::Parse(format!(
+                "pylock.toml package {name} missing required version"
+            )));
+        };
+        packages.push(vlz_db::Package {
+            name: name.to_string(),
+            version: version.to_string(),
+            ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
+        });
     }
     Ok(packages)
 }
@@ -320,6 +368,7 @@ version = "2.31.0"
     fn parse_lock_file_detects_pylock_toml() {
         let content = r#"
 lock-version = "1.0"
+created-by = "test"
 
 [[packages]]
 name = "attrs"
@@ -336,6 +385,7 @@ version = "25.1.0"
     fn parse_lock_file_detects_pylock_xxx_toml() {
         let content = r#"
 lock-version = "1.0"
+created-by = "test"
 
 [[packages]]
 name = "foo"
@@ -374,6 +424,7 @@ version = "0.25.0"
     fn parse_lock_file_detects_pylock_by_content() {
         let content = r#"
 lock-version = "1.0"
+created-by = "test"
 
 [[packages]]
 name = "cattrs"
@@ -466,8 +517,11 @@ name = "no-version"
     }
 
     #[test]
-    fn parse_pylock_toml_missing_version() {
+    fn parse_pylock_toml_missing_version_errors() {
         let content = r#"
+lock-version = "1.0"
+created-by = "test"
+
 [[packages]]
 name = "with-version"
 version = "1.0"
@@ -475,9 +529,68 @@ version = "1.0"
 [[packages]]
 name = "no-version"
 "#;
+        let err = parse_pylock_toml(content).unwrap_err();
+        match &err {
+            ParserError::Parse(s) => {
+                assert!(s.contains("missing required version"), "got: {s}")
+            }
+            _ => panic!("expected Parse error"),
+        }
+    }
+
+    #[test]
+    fn parse_pylock_toml_skips_directory_entries() {
+        let content = r#"
+lock-version = "1.0"
+created-by = "test"
+
+[[packages]]
+name = "verilyze"
+directory = "."
+
+[[packages]]
+name = "attrs"
+version = "25.1.0"
+"#;
         let packages = parse_pylock_toml(content).unwrap();
-        assert_eq!(packages.len(), 2);
-        assert_eq!(packages[1].version, "any");
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "attrs");
+    }
+
+    #[test]
+    fn parse_pylock_toml_rejects_missing_lock_version() {
+        let content = r#"
+created-by = "test"
+
+[[packages]]
+name = "attrs"
+version = "25.1.0"
+"#;
+        let err = parse_pylock_toml(content).unwrap_err();
+        match &err {
+            ParserError::Parse(s) => {
+                assert!(s.contains("lock-version"), "got: {s}")
+            }
+            _ => panic!("expected Parse error"),
+        }
+    }
+
+    #[test]
+    fn parse_pylock_toml_rejects_missing_created_by() {
+        let content = r#"
+lock-version = "1.0"
+
+[[packages]]
+name = "attrs"
+version = "25.1.0"
+"#;
+        let err = parse_pylock_toml(content).unwrap_err();
+        match &err {
+            ParserError::Parse(s) => {
+                assert!(s.contains("created-by"), "got: {s}")
+            }
+            _ => panic!("expected Parse error"),
+        }
     }
 
     #[test]
@@ -556,7 +669,8 @@ name = "no-version"
 
     #[test]
     fn parse_pylock_toml_valid_empty_packages_array() {
-        let content = "lock-version = \"1.0\"\npackages = []\n";
+        let content =
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\npackages = []\n";
         let packages = parse_pylock_toml(content).unwrap();
         assert!(packages.is_empty());
     }

@@ -3,5 +3,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 [codespell]
-skip = .git,target,.venv,.venv-*,.mypy_cache,*.key,*/*.key,**/server.key,coverage,reports,.cache,man,packaging/gentoo,**/fixtures/**
+skip = .git,target,.venv,.venv-*,.mypy_cache,*.key,*/*.key,**/server.key,coverage,reports,.cache,man,packaging/gentoo,**/fixtures/**,pylock.dev.toml
 ignore-words-list = doman,nd,unparseable,ot,intoto

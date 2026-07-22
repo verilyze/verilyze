@@ -119,7 +119,7 @@ pub const DIRECT_ONLY_REASON_UNAVAILABLE: &str =
     "transitive resolution unavailable";
 
 /// FR-022 exit-2 message (exact PRD string, NFR-024).
-pub const FR_022_TRANSITIVE_ERROR_MESSAGE: &str = "Unable to detect transitive dependencies. Try installing the package manager or generate a lock file before running vlz.";
+pub const FR_022_TRANSITIVE_ERROR_MESSAGE: &str = "Unable to detect transitive dependencies. Add an adjacent lock file (pylock.toml preferred for Python), use --allow-dependency-code-execution for full resolution in a trusted environment, or pass --allow-direct-only-fallback to scan direct dependencies only.";
 
 /// Direct-only reason when `allow_direct_only_fallback` is enabled (FR-022a).
 pub const DIRECT_ONLY_REASON_FALLBACK_ON_FAILURE: &str =

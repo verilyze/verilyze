@@ -832,6 +832,19 @@ copyright and license headers. Default license and copyright are defined in
 - **Workspace SBOM (SEC-019):** Committed CycloneDX/SPDX files under `sbom/v1/`
   from `make generate-sbom` (dogfoods `vlz scan`). `make check-sbom` verifies
   they match a fresh scan. CI: `.github/workflows/supply-chain.yml`.
+- **Python dogfood lock (SEC-015):** Committed root [`pylock.dev.toml`](pylock.dev.toml)
+  (PEP 751) locks `pyproject.toml` `[project.optional-dependencies].dev` so
+  `vlz scan` of this repo gets transitive Python coverage without
+  `--allow-dependency-code-execution`.
+  - Regenerate: `make generate-pylock-dev` (requires **pip >= 25.1**; runs
+    `pip lock -e ".[dev]" -o pylock.dev.toml`). The lock reflects the host
+    platform where it was generated (for example manylinux x86_64 wheels on
+    Linux CI); regenerate on the same platform class as consumers expect.
+  - Validate offline: `make check-pylock-dev` (structural/parity vs `.[dev]`
+    names; does not re-resolve on the network).
+  - Renovate: after `pyproject.toml` PEP 621 / `.[dev]` updates,
+    [`scripts/renovate-post-upgrade-sbom.sh`](scripts/renovate-post-upgrade-sbom.sh)
+    runs `make generate-pylock-dev` then `make generate-sbom`.
 - **JSON report schema (DOC-005):** [schemas/v1/report.json](schemas/v1/report.json);
   `make check-report-schema` validates schema and live output.
 - **CI scan example (NFR-014):** [examples/github-action-vlz-scan.yml](examples/github-action-vlz-scan.yml).
@@ -1094,11 +1107,13 @@ releases](#versioning-and-releases) below.
   needed, then runs **`scripts/generate-third-party-licenses.sh`**, the same
   script invoked by **`make generate-third-party-licenses`**, and
   **`make generate-sbom`** (commits **`sbom/**`** with **`THIRD-PARTY-LICENSES`**).
-  After **`pyproject.toml`** PEP 621 dev dep updates, **`postUpgradeTasks`** run
-  **`bash scripts/renovate-post-upgrade-sbom.sh`** to refresh **`sbom/**`** only. Containerbase
+  After **`pyproject.toml`** PEP 621 / `.[dev]` dep updates, **`postUpgradeTasks`**
+  run **`bash scripts/renovate-post-upgrade-sbom.sh`** to refresh
+  **`pylock.dev.toml`** (`make generate-pylock-dev`) and **`sbom/**`**. Containerbase
   **`installTools`** (**`rust`**, **`python`**) supplies the toolchain; the
   **`cargo-about`** pin matches
   [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+  Generation of **`pylock.dev.toml`** requires **pip >= 25.1**.
   The workflow sets **`RENOVATE_ALLOWED_COMMANDS`** (Renovate global
   **`allowedCommands`**) so that script is permitted; without it,
   **`postUpgradeTasks`** do not run.

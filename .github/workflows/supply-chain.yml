@@ -18,9 +18,13 @@ on:
       - Cargo.lock
       - "**/Cargo.toml"
       - pyproject.toml
+      - pylock.dev.toml
       - scripts/requirements*.txt
       - sbom/**
       - scripts/generate-sbom.sh
+      - scripts/generate-pylock-dev.sh
+      - scripts/check-pylock-dev.sh
+      - scripts/check_pylock_dev.py
       - scripts/ci-verilyze-scan.sh
       - scripts/ci-enforce-scan-exit.sh
       - scripts/ci-install-vlz-release.sh
@@ -35,9 +39,13 @@ on:
       - Cargo.lock
       - "**/Cargo.toml"
       - pyproject.toml
+      - pylock.dev.toml
       - scripts/requirements*.txt
       - sbom/**
       - scripts/generate-sbom.sh
+      - scripts/generate-pylock-dev.sh
+      - scripts/check-pylock-dev.sh
+      - scripts/check_pylock_dev.py
       - scripts/ci-verilyze-scan.sh
       - scripts/ci-enforce-scan-exit.sh
       - scripts/ci-install-vlz-release.sh
