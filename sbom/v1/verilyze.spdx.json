@@ -1471,9 +1471,9 @@
     {
       "@type": "Package",
       "name": "serde_json",
-      "packageUrl": "pkg:cargo/serde_json@1.0.150",
-      "spdxId": "urn:spdx.dev:pkg-cargo-serde-json-1-0-150",
-      "versionInfo": "1.0.150"
+      "packageUrl": "pkg:cargo/serde_json@1.0.151",
+      "spdxId": "urn:spdx.dev:pkg-cargo-serde-json-1-0-151",
+      "versionInfo": "1.0.151"
     },
     {
       "@type": "Package",
