@@ -16,9 +16,14 @@ this file **before** creating the release tag.
 
 ### Changed
 
+- **Breaking:** Standardized exit codes with numeric precedence
+  `1 > 2 > 3 > 4 > 5 > 6 > 86 > 0`. Resolution/parse failures now exit
+  **4** (was 2). Offline CVE cache miss now exits **6** (was 4). Code **2**
+  is misconfiguration only. Unhandled panics exit **1** (not Rust default
+  101). Update CI scripts that branch on numeric exit codes.
 - **Breaking:** Python project manifests without an adjacent lock
   (`requirements.txt`, `pyproject.toml`, `Pipfile`, `setup.cfg`, `setup.py`)
-  fail closed and exit 2 by default (FR-022 / SEC-023). There is no soft
+  fail closed and exit 4 by default (FR-022 / SEC-023). There is no soft
   direct-only default for pyproject/setup/Pipfile. Remediation: commit a PEP
   751 lock (`pylock.toml` / `pylock.<name>.toml` preferred), use safe
   `pip lock -r` on requirements.txt (pip >= 25.1),
@@ -27,7 +32,7 @@ this file **before** creating the release tag.
 - Committed `pylock.dev.toml` dogfoods Python `.[dev]` deps (SEC-015);
   regenerate with `make generate-pylock-dev` / Renovate
   `renovate-post-upgrade-sbom.sh`.
-- FR-022 exit-2 message and FAQ/man remediation aligned with lock-first UX.
+- FR-022 exit-4 message and FAQ/man remediation aligned with lock-first UX.
 - FR-022a direct-only warnings: consolidated end-of-scan stderr summary at
   default verbosity; per-manifest `vlz warning:` lines with `-v` (NFR-013).
 - Default log filter is Warn (`RUST_LOG=warn`); `-v`/`-vv`/`-vvv` map to

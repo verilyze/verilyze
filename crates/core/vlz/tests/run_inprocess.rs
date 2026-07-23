@@ -173,13 +173,13 @@ fn run_preload_populates_cache_for_fixture() {
 
 #[cfg(feature = "python")]
 #[test]
-fn run_preload_offline_miss_exits_4() {
+fn run_preload_offline_miss_exits_6() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
         let dir = tempfile::tempdir().expect("tempdir");
         write_requirements_with_pylock(dir.path(), "pkg", "1.0");
         let root = dir.path().to_str().unwrap();
-        assert_eq!(run_async(&["preload", root, "--offline"]), 4);
+        assert_eq!(run_async(&["preload", root, "--offline"]), 6);
     });
 }
 
@@ -310,7 +310,7 @@ fn run_preload_then_db_show_lists_cached_entry() {
 
 #[cfg(feature = "python")]
 #[test]
-fn run_preload_partial_manifest_warms_then_exits_2() {
+fn run_preload_partial_manifest_warms_then_exits_4() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -329,8 +329,8 @@ fn run_preload_partial_manifest_warms_then_exits_2() {
 
         let code = run_async(&["preload", root, "--provider", "counting"]);
         assert_eq!(
-            code, 2,
-            "partial manifest failure should exit 2 after warming good manifests"
+            code, 4,
+            "partial manifest failure should exit 4 after warming good manifests"
         );
         assert!(
             fetch_counts
@@ -622,6 +622,61 @@ fn run_db_show_with_cached_entry_and_raw_vulns() {
 
 #[cfg(feature = "redb")]
 #[test]
+fn run_scan_blocking_failure_beats_fp_exit_code() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_partial_manifest_fixture(dir.path());
+        let root = dir.path().to_str().unwrap();
+
+        register_conditional_failing_resolver();
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            CveReturningProvider::new(),
+        )));
+
+        assert_eq!(
+            run_async(&[
+                "scan",
+                root,
+                "--provider",
+                "cve_returning",
+                "--fp-exit-code",
+                "99",
+            ]),
+            4,
+            "blocking manifest failure must beat fp_exit_code"
+        );
+    });
+}
+
+#[test]
+fn run_scan_unknown_provider_before_missing_package_manager_exits_2() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().to_str().unwrap();
+        let empty_dir = tempfile::tempdir().expect("tempdir");
+        let path_without_pip = empty_dir.path().to_string_lossy().into_owned();
+        temp_env::with_var("PATH", Some(&path_without_pip), || {
+            assert_eq!(
+                run_async(&[
+                    "scan",
+                    root,
+                    "--offline",
+                    "--provider",
+                    "nonexistent",
+                    "--package-manager-required",
+                ]),
+                2,
+                "misconfiguration (unknown provider) before missing package manager"
+            );
+        });
+    });
+}
+
+#[cfg(feature = "redb")]
+#[test]
 fn run_scan_fp_exit_code_when_all_cves_marked_fp() {
     let _ = env_logger::try_init();
     let dir = tempfile::tempdir().expect("tempdir");
@@ -655,7 +710,13 @@ fn run_scan_fp_exit_code_when_all_cves_marked_fp() {
                 drop(backend);
                 ensure_registries_for_run();
                 assert_eq!(
-                    run_async(&["scan", root, "--offline"]),
+                    run_async(&[
+                        "scan",
+                        root,
+                        "--offline",
+                        "--provider",
+                        "osv"
+                    ]),
                     86,
                     "scan finds CVE, exits 86"
                 );
@@ -669,11 +730,14 @@ fn run_scan_fp_exit_code_when_all_cves_marked_fp() {
                     ]),
                     0
                 );
+                ensure_registries_for_run();
                 assert_eq!(
                     run_async(&[
                         "scan",
                         root,
                         "--offline",
+                        "--provider",
+                        "osv",
                         "--fp-exit-code",
                         "99",
                     ]),
@@ -928,7 +992,7 @@ fn run_scan_no_root_uses_cwd() {
         let code = run_async(&["scan", "--offline", "--benchmark"]);
         assert!(
             code == 0 || code == 2 || code == 4,
-            "scan without root uses cwd; code={} (0=ok, 2=error, 4=offline with manifests)",
+            "scan without root uses cwd; code={} (0=ok, 2=misconfig, 4=resolution failed)",
             code
         );
     });
@@ -936,7 +1000,7 @@ fn run_scan_no_root_uses_cwd() {
 
 #[cfg(unix)]
 #[test]
-fn run_scan_parse_fails_when_file_unreadable_exits_2() {
+fn run_scan_parse_fails_when_file_unreadable_exits_4() {
     use std::os::unix::fs::PermissionsExt;
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
@@ -955,12 +1019,12 @@ fn run_scan_parse_fails_when_file_unreadable_exits_2() {
             std::fs::Permissions::from_mode(0o644),
         )
         .ok();
-        assert_eq!(code, 2);
+        assert_eq!(code, 4);
     });
 }
 
 #[test]
-fn run_scan_offline_with_manifest_exits_4() {
+fn run_scan_offline_with_manifest_exits_6() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -969,21 +1033,21 @@ fn run_scan_offline_with_manifest_exits_4() {
         let root = dir.path().to_str().unwrap();
         assert_eq!(
             run_async(&["scan", root, "--offline"]),
-            4,
-            "offline scan with manifest but no cache hits exit 4"
+            6,
+            "offline scan with manifest but no cache hits exit 6"
         );
     });
 }
 
 #[test]
-fn run_scan_offline_with_manifest_verbose_exits_4() {
+fn run_scan_offline_with_manifest_verbose_exits_6() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
         let dir = tempfile::tempdir().expect("tempdir");
         std::fs::write(dir.path().join("requirements.txt"), "pkg==1.0\n")
             .expect("write requirements");
         let root = dir.path().to_str().unwrap();
-        assert_eq!(run_async(&["-vv", "scan", root, "--offline"]), 4);
+        assert_eq!(run_async(&["-vv", "scan", root, "--offline"]), 6);
     });
 }
 
@@ -1349,7 +1413,7 @@ fn run_scan_orphan_multi_lock_partial_parse_exit_2() {
             &format!("json:{}", out_path.display()),
             "--offline",
         ]);
-        assert_eq!(code, 2);
+        assert_eq!(code, 4);
 
         let parsed: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(&out_path).unwrap())
@@ -1519,7 +1583,7 @@ fn register_conditional_failing_resolver() {
 
 #[cfg(feature = "python")]
 #[test]
-fn run_scan_partial_manifest_resolution_exits_2_with_report() {
+fn run_scan_partial_manifest_resolution_exits_4_with_report() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -1543,7 +1607,7 @@ fn run_scan_partial_manifest_resolution_exits_2_with_report() {
             "--provider",
             "cve_returning",
         ]);
-        assert_eq!(code, 2, "blocking manifest failure should exit 2");
+        assert_eq!(code, 4, "blocking manifest failure should exit 4");
 
         let content = std::fs::read_to_string(&out_path).expect("read report");
         let parsed: serde_json::Value =
@@ -1606,7 +1670,7 @@ fn run_scan_fail_fast_aborts_before_cve() {
             "--provider",
             "counting",
         ]);
-        assert_eq!(code, 2, "fail-fast manifest failure should exit 2");
+        assert_eq!(code, 4, "fail-fast manifest failure should exit 4");
 
         let counts = fetch_counts.lock().unwrap();
         assert!(
@@ -1639,8 +1703,8 @@ fn run_scan_manifest_failure_and_offline_miss_still_renders_report() {
             &format!("json:{}", out_path.display()),
         ]);
         assert_eq!(
-            code, 2,
-            "manifest blocking failure takes precedence over offline miss (4)"
+            code, 4,
+            "manifest blocking failure takes precedence over offline miss (6)"
         );
 
         let content = std::fs::read_to_string(&out_path).expect("read report");
@@ -1693,7 +1757,7 @@ fn run_scan_manifest_failure_summary_on_stderr() {
         .expect("run vlz");
 
     let stderr = String::from_utf8_lossy(&out.stderr);
-    assert_eq!(out.status.code(), Some(2));
+    assert_eq!(out.status.code(), Some(4));
     assert!(
         stderr.contains("1 manifest(s) could not be fully analyzed"),
         "stderr should include consolidated summary header; got: {stderr}"
@@ -1833,7 +1897,7 @@ fn run_preload_direct_only_summary_when_blocking_zero() {
         .expect("run vlz");
 
     let stderr = String::from_utf8_lossy(&out.stderr);
-    // Offline preload with packages may exit 4 (cache miss); summary must still appear.
+    // Offline preload with packages may exit 6 (cache miss); summary must still appear.
     assert!(
         stderr.contains("manifest(s) scanned with direct dependencies only"),
         "preload stderr should include direct-only summary even when blocking==0; got: {stderr}"
@@ -1870,7 +1934,7 @@ fn run_scan_json_includes_manifest_coverage() {
             "--provider",
             "cve_returning",
         ]);
-        assert_eq!(code, 2);
+        assert_eq!(code, 4);
 
         let parsed: serde_json::Value = serde_json::from_str(
             &std::fs::read_to_string(&out_path).expect("read report"),
@@ -1885,7 +1949,7 @@ fn run_scan_json_includes_manifest_coverage() {
 
 #[cfg(feature = "python")]
 #[test]
-fn run_scan_resolver_fails_exits_2() {
+fn run_scan_resolver_fails_exits_4() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -1906,7 +1970,7 @@ fn run_scan_resolver_fails_exits_2() {
             "--summary-file",
             &format!("json:{}", out_path.display()),
         ]);
-        assert_eq!(code, 2);
+        assert_eq!(code, 4);
 
         let parsed: serde_json::Value = serde_json::from_str(
             &std::fs::read_to_string(&out_path).expect("report must render"),

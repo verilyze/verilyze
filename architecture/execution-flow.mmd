@@ -51,7 +51,10 @@ flowchart TD
     Offline --> Find
     Benchmark --> Find
 
-    Find --> Parse --> Resolve --> CacheCheck
+    Resolve --> ResolveOK{Blocking failure?}
+    ResolveOK -- yes --> ResolveError["Exit 4 – resolution failed (FR-022)"]
+    ResolveError --> End
+    ResolveOK -- no --> CacheCheck
 
     CacheCheck -- hit --> FPFilter
     CacheCheck -- miss --> OfflineCheck
@@ -60,7 +63,7 @@ flowchart TD
     QueryResult -- yes --> CacheWrite["Write result to RedB (TTL, atomic)"] --> FPFilter
     QueryResult -- no --> FetchError["Exit 5 – provider fetch failed (FR-010)"]
     FetchError --> End
-    OfflineCheck -- yes --> OfflineError["Exit 4 – offline cache miss (FR-031)"]
+    OfflineCheck -- yes --> OfflineError["Exit 6 – offline cache miss (FR-031)"]
     OfflineError --> End
 
     FPFilter --> Reachability --> Severity --> Threshold --> ExitDecision

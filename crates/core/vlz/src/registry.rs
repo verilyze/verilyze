@@ -183,7 +183,7 @@ pub fn ensure_default_cve_provider(cfg: &crate::config::EffectiveConfig) {
     let c = cfg.provider_http_connect_timeout_secs;
     let r = cfg.provider_http_request_timeout_secs;
     let crl = cfg.tls_crl_bundle.as_deref();
-    if providers.is_empty() {
+    if !providers.iter().any(|p| p.name() == "osv") {
         providers.push(Box::new(
             OsvProvider::with_base_url_timeouts(OSV_QUERY_URL, c, r, crl)
                 .expect("OsvProvider HTTP client"),
@@ -232,6 +232,13 @@ pub fn ensure_default_cve_provider(cfg: &crate::config::EffectiveConfig) {
                 )
                 .expect("SonatypeProvider HTTP client"),
             ));
+        }
+    }
+    #[cfg(feature = "testing")]
+    {
+        use crate::mocks::PanickingCveProvider;
+        if !providers.iter().any(|p| p.name() == "panicking") {
+            providers.push(Box::new(PanickingCveProvider::new()));
         }
     }
 }
@@ -502,7 +509,8 @@ mod tests {
         let expected_providers = 1
             + if cfg!(feature = "nvd") { 1 } else { 0 }
             + if cfg!(feature = "github") { 1 } else { 0 }
-            + if cfg!(feature = "sonatype") { 1 } else { 0 };
+            + if cfg!(feature = "sonatype") { 1 } else { 0 }
+            + if cfg!(feature = "testing") { 1 } else { 0 };
         assert_eq!(providers().lock().unwrap().len(), expected_providers);
         ensure_default_cve_provider(&cve_cfg);
         assert_eq!(providers().lock().unwrap().len(), expected_providers);

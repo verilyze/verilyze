@@ -141,7 +141,7 @@ pub struct EffectiveConfig {
     /// Allow pip operations that may execute dependency build code (SEC-023).
     pub allow_dependency_code_execution: bool,
     /// When true, FR-022 transitive-resolution failures fall back to direct-only
-    /// scan with FR-022a warning instead of exit 2 (FR-022, FR-022a).
+    /// scan with FR-022a warning instead of exit 4 (FR-022, FR-022a).
     pub allow_direct_only_fallback: bool,
     /// Stop manifest processing on first blocking failure; skip CVE lookup (FR-037).
     pub fail_fast: bool,

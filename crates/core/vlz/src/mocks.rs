@@ -146,6 +146,31 @@ impl CveProvider for FailingCveProvider {
     }
 }
 
+/// CVE provider that panics on fetch. Used to verify panic -> exit 1 (FR-033).
+#[derive(Debug, Default)]
+pub struct PanickingCveProvider;
+
+impl PanickingCveProvider {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[async_trait]
+impl CveProvider for PanickingCveProvider {
+    fn name(&self) -> &'static str {
+        "panicking"
+    }
+
+    async fn fetch(
+        &self,
+        pkg: &Package,
+    ) -> Result<FetchedCves, ProviderError> {
+        let _ = pkg;
+        panic!("mock provider panic");
+    }
+}
+
 /// CVE provider that counts fetch calls per (name, version). Used to verify deduplication.
 #[derive(Clone)]
 pub struct CountingCveProvider {
@@ -449,6 +474,24 @@ mod tests {
     fn failing_cve_provider_name() {
         let p = FailingCveProvider::new();
         assert_eq!(p.name(), "failing");
+    }
+
+    #[test]
+    fn panicking_cve_provider_name() {
+        let p = PanickingCveProvider::new();
+        assert_eq!(p.name(), "panicking");
+    }
+
+    #[tokio::test]
+    #[should_panic(expected = "mock provider panic")]
+    async fn panicking_cve_provider_fetch_panics() {
+        let p = PanickingCveProvider::new();
+        let pkg = Package {
+            name: "pkg".to_string(),
+            version: "1.0".to_string(),
+            ecosystem: None,
+        };
+        let _ = p.fetch(&pkg).await;
     }
 
     #[tokio::test]

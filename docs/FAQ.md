@@ -289,7 +289,7 @@ package manager) is not on PATH (FR-024).
 
 ---
 
-## Exit code 4 (Offline cache miss)
+## Exit code 6 (Offline cache miss)
 
 ### CVE not found in cache, and unable to lookup CVE due to `--offline` argument
 
@@ -370,15 +370,15 @@ with the FR-022 message below. `pyproject.toml` / `setup.py` / `setup.cfg` /
 offline or benchmark mode. Resolved versions reflect the latest compatible
 crates at scan time with **default Cargo features only**; commit `Cargo.lock`
 for reproducibility. If `cargo` is missing or metadata fails (registry or
-network unavailable), the scan exits **2** unless
+network unavailable), the scan exits **4** unless
 `--allow-direct-only-fallback` is set. Use `-v` to see the underlying cause
 when `cargo` is present but resolution fails.
 
 **Go `go.mod`:** Transitive resolution uses `go list -m all` (not `go.sum`).
-If `go` is missing from PATH or `go list` fails, the scan exits **2** unless
+If `go` is missing from PATH or `go list` fails, the scan exits **4** unless
 `--allow-direct-only-fallback` is set.
 
-### Unable to detect transitive dependencies (exit 2)
+### Unable to detect transitive dependencies (exit 4)
 
 **Message:** `Unable to detect transitive dependencies. Add an adjacent lock
 file (pylock.toml preferred for Python), use --allow-dependency-code-execution

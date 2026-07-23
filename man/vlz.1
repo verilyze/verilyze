@@ -75,7 +75,7 @@ Exclude directory name from manifest discovery (repeatable).
 .It Fl -cache-ttl-secs Ar secs
 Default TTL for new cache entries (default: 432000 = 5 days).
 .It Fl -offline
-Disable network; exit 4 if CVE lookup needed.
+Disable network; exit 6 if CVE lookup needed.
 .It Fl -benchmark
 Benchmark mode (no cache, no network, parallel=1).
 .It Fl -min-score Ar score
@@ -94,7 +94,7 @@ Allow pip to execute dependency build code during Python resolution (SEC-023;
 default: disabled).
 .It Fl -allow-direct-only-fallback
 When transitive resolution is required but cannot be satisfied, fall back to
-direct-only scanning with an FR-022a warning instead of exit 2 (default:
+direct-only scanning with an FR-022a warning instead of exit 4 (default:
 disabled). Applies to all Python project manifests
 .Pa requirements.txt ,
 .Pa pyproject.toml ,
@@ -116,7 +116,7 @@ Without an adjacent lock (PEP 751
 .Pa pylock.toml
 /
 .Pa pylock.<name>.toml
-preferred for Python), lock-less Python projects exit 2 unless this flag,
+preferred for Python), lock-less Python projects exit 4 unless this flag,
 .Fl -allow-dependency-code-execution ,
 or
 .Fl -offline
@@ -222,9 +222,9 @@ for
 .Fl -parallel ) .
 Warms successfully resolved packages even when other manifests fail (FR-037);
 exit
-.Sy 2
-when blocking manifest failures remain after warm. Exit
 .Sy 4
+when blocking manifest failures remain after warm. Exit
+.Sy 6
 when
 .Fl -offline
 is set and a package is not already cached; exit
@@ -238,19 +238,17 @@ Success: analysis completed; no CVEs or only false-positives (per fp-exit-code).
 .It 1
 Panic or internal error.
 .It 2
-Misconfiguration, or required transitive resolution failed (for example a
-lock-less Python project without
-.Fl -allow-direct-only-fallback
-or
-.Fl -allow-dependency-code-execution ) .
+Misconfiguration (invalid CLI, unknown provider, bad config).
 .It 3
 Missing required package manager.
 .It 4
+Manifest parse or resolution failure (required transitive resolution not met).
+.It 5
+CVE provider fetch failed (network, API error, auth, etc.).
+.It 6
 CVE lookup needed but
 .Fl -offline
 was used.
-.It 5
-CVE provider fetch failed (network, API error, auth, etc.).
 .It 86
 One or more CVEs meet threshold (overridable via
 .Fl -exit-code ) .
