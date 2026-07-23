@@ -28,7 +28,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SL_SHA="sha256:dfb63f48d77f9388c02e69597678e445be7562e3ed07c8abb8a3cc417d8aa250"
+SL_SHA="sha256:1ef1a7315c72c2132bc391cbb3b2833b2be462ddd43536c36cda0a3fd02eab69"
 DEFAULT_SUPER_LINTER_IMAGE="ghcr.io/super-linter/super-linter@${SL_SHA}"
 IMAGE="${SUPER_LINTER_IMAGE:-$DEFAULT_SUPER_LINTER_IMAGE}"
 ALL_CODEBASE="${VALIDATE_ALL_CODEBASE:-false}"
