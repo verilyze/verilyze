@@ -1243,7 +1243,7 @@ Stderr can stay as `eprintln!` or `log::error!`.
   tests; release builds omit it for a smaller binary. To test a single crate
   (see MOD-005): `cargo test -p <crate>` (e.g. `cargo test -p vlz-cve-client`).
 - **Exit-code matrix (DOC-004, FR-010):** Each standard exit code (0, 1, 2, 3,
-  4, 5, 86) has a named integration test in
+  4, 5, 6, 86) has a named integration test in
   [`crates/core/vlz/tests/exit_code_matrix.rs`](crates/core/vlz/tests/exit_code_matrix.rs).
   Subprocess smoke tests live in
   [`tests/scripts/test_exit_codes.py`](tests/scripts/test_exit_codes.py).

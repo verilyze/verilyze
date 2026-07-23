@@ -74,7 +74,7 @@ pub async fn warm_cache_for_packages(
     }
 
     let semaphore = Arc::new(Semaphore::new(opts.parallel.max(1)));
-    let mut handles = Vec::new();
+    let mut tasks = Vec::new();
     let benchmark_mode = opts.benchmark;
     let use_network = !(opts.offline || opts.benchmark);
 
@@ -82,11 +82,10 @@ pub async fn warm_cache_for_packages(
         let db = db.clone();
         let prov = provider.clone();
         let sem = semaphore.clone();
-        let permit = sem.acquire_owned().await.unwrap();
         let pkg = pkg.clone();
 
-        let fut = async move {
-            let _guard = permit;
+        tasks.push(async move {
+            let _permit = sem.acquire_owned().await.unwrap();
 
             if benchmark_mode {
                 return Ok(WarmPackageResult {
@@ -133,13 +132,11 @@ pub async fn warm_cache_for_packages(
                 cache_hit: false,
                 fetched: true,
             })
-        };
-
-        handles.push(tokio::spawn(fut));
+        });
     }
 
-    for h in handles {
-        match h.await? {
+    for result in futures::future::join_all(tasks).await {
+        match result {
             Ok(result) => {
                 if result.cache_hit {
                     summary.cache_hits += 1;
@@ -643,6 +640,38 @@ mod tests {
         assert_eq!(outcome.summary.cache_hits, 1);
         assert!(outcome.raw_vulns_by_package.is_empty());
         assert_eq!(outcome.findings.len(), 1);
+    }
+
+    #[tokio::test]
+    #[should_panic(expected = "mock warm-cache panic")]
+    async fn warm_cache_panic_propagates_from_provider_fetch() {
+        struct PanickingProvider;
+
+        #[async_trait]
+        impl CveProvider for PanickingProvider {
+            fn name(&self) -> &'static str {
+                "panic"
+            }
+
+            async fn fetch(
+                &self,
+                _pkg: &Package,
+            ) -> Result<FetchedCves, ProviderError> {
+                panic!("mock warm-cache panic");
+            }
+        }
+
+        let db = Arc::new(Box::new(MapDb::new())
+            as Box<dyn DatabaseBackend + Send + Sync + 'static>);
+        let provider = Arc::new(Box::new(PanickingProvider)
+            as Box<dyn CveProvider + Send + Sync + 'static>);
+        let opts = CacheWarmOptions {
+            parallel: 1,
+            offline: false,
+            benchmark: false,
+        };
+        let _ = warm_cache_for_packages(&[sample_pkg()], db, provider, &opts)
+            .await;
     }
 
     #[tokio::test]

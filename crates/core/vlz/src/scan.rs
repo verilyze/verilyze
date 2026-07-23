@@ -55,26 +55,7 @@ pub const DIRECT_ONLY_SUMMARY_HEADER: &str =
 /// Footer for direct-only summary remediation and verbose hint (FR-022a, NFR-024).
 pub const DIRECT_ONLY_SUMMARY_FOOTER: &str = "Add an adjacent lock file for transitive coverage. See `man vlz` or docs/FAQ.md. Run with -v for per-manifest warning detail.";
 
-/// Exit-code precedence for scan completion (FR-010): 2 > 5 > 4 > cve_exit.
-pub fn pick_exit_code(
-    manifest_blocking_count: usize,
-    offline_cache_miss: bool,
-    provider_fetch_failed: bool,
-    cve_exit: i32,
-) -> i32 {
-    if manifest_blocking_count > 0 {
-        return 2;
-    }
-    if provider_fetch_failed {
-        return 5;
-    }
-    if offline_cache_miss {
-        return 4;
-    }
-    cve_exit
-}
-
-/// Count manifest coverage entries that are blocking failures (FR-037).
+/// Exit-code precedence for scan completion (FR-010): see [`crate::exit_code`].
 pub fn count_blocking_manifest_failures(
     coverage: &[ManifestCoverageEntry],
 ) -> usize {
@@ -270,15 +251,6 @@ mod tests {
     use vlz_report::{
         MANIFEST_STATUS_FAILED_PARSE, MANIFEST_STATUS_FAILED_RESOLUTION,
     };
-
-    #[test]
-    fn pick_exit_code_precedence_manifest_over_provider_and_cve() {
-        assert_eq!(pick_exit_code(1, true, true, 86), 2);
-        assert_eq!(pick_exit_code(0, true, true, 86), 5);
-        assert_eq!(pick_exit_code(0, true, false, 86), 4);
-        assert_eq!(pick_exit_code(0, false, false, 86), 86);
-        assert_eq!(pick_exit_code(0, false, false, 0), 0);
-    }
 
     #[test]
     fn count_blocking_manifest_failures_mixed_statuses() {

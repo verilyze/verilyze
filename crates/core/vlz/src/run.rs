@@ -15,6 +15,10 @@ use crate::cache_warm::{
     CacheWarmOptions, OFFLINE_CACHE_MISS_MESSAGE, warm_cache_for_packages,
 };
 use crate::cli::{Cli, Commands, FpCommands};
+use crate::exit_code::{
+    self, DEFAULT_CVE_EXIT_CODE, EXIT_INTERNAL_ERROR, EXIT_MISCONFIGURATION,
+    EXIT_MISSING_PACKAGE_MANAGER, EXIT_SUCCESS, ExitSignals,
+};
 use crate::package_resolve::resolve_packages_for_path;
 
 /// Write all bytes to `w`; propagates I/O errors (e.g. BrokenPipe).
@@ -40,7 +44,7 @@ pub fn is_broken_pipe(e: &anyhow::Error) -> bool {
 /// Handle write failure: exit 0 on BrokenPipe, panic otherwise.
 fn handle_stdout_write_error(e: std::io::Error) -> ! {
     if e.kind() == std::io::ErrorKind::BrokenPipe {
-        std::process::exit(0);
+        std::process::exit(EXIT_SUCCESS);
     }
     panic!("failed printing to stdout: {}", e);
 }
@@ -94,15 +98,10 @@ pub fn compute_scan_exit_code(
     min_count: usize,
     exit_code_on_cve: Option<u8>,
 ) -> i32 {
-    let trigger = if min_count == 0 {
-        meeting_threshold >= 1
+    if exit_code::cve_threshold_met(meeting_threshold, min_count) {
+        exit_code_on_cve.unwrap_or(DEFAULT_CVE_EXIT_CODE) as i32
     } else {
-        meeting_threshold >= min_count
-    };
-    if trigger {
-        exit_code_on_cve.unwrap_or(86) as i32
-    } else {
-        0
+        EXIT_SUCCESS
     }
 }
 
@@ -211,7 +210,7 @@ fn run_help(_subcommand: Option<&str>) -> Result<i32> {
              at {}.",
             crate::cli::DOCS_ONLINE_URL
         );
-        return Ok(2);
+        return Ok(EXIT_MISCONFIGURATION);
     }
 
     #[cfg(feature = "docs")]
@@ -230,7 +229,7 @@ fn run_help(_subcommand: Option<&str>) -> Result<i32> {
             .args(["-l", path.to_str().unwrap_or_default()])
             .status();
         match status {
-            Ok(s) if s.success() => Ok(0),
+            Ok(s) if s.success() => Ok(EXIT_SUCCESS),
             Ok(s) => Ok(s.code().unwrap_or(1)),
             Err(e) => {
                 eprintln!(
@@ -239,7 +238,7 @@ fn run_help(_subcommand: Option<&str>) -> Result<i32> {
                     e,
                     crate::cli::DOCS_ONLINE_URL
                 );
-                Ok(2)
+                Ok(EXIT_MISCONFIGURATION)
             }
         }
     }
@@ -902,7 +901,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                         c.verify(db_backend.as_ref().as_ref()).await
                     {
                         error!("{}", e);
-                        return Ok(1); // FR-033: exit 1 on verify failure
+                        return Ok(EXIT_INTERNAL_ERROR); // FR-033
                     }
                     crate::registry::integrity_checkers()
                         .lock()
@@ -910,7 +909,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                         .insert(0, c);
                 } else if let Err(e) = db_backend.verify_integrity().await {
                     error!("{}", e);
-                    return Ok(1); // FR-033: exit 1 on verify failure
+                    return Ok(EXIT_INTERNAL_ERROR); // FR-033
                 }
                 write_stdout("Database integrity verified (SHA-256)\n"); // FR-033
                 Ok(0)
@@ -1155,10 +1154,11 @@ async fn run_preload(
     verbosity: u8,
     db_backend: Arc<Box<dyn vlz_db::DatabaseBackend + Send + Sync + 'static>>,
 ) -> Result<i32> {
+    let provider_impl = select_provider_impl(provider, &effective).await?;
     let resolved =
         resolve_packages_for_path(root, &effective, verbosity).await?;
     if resolved.package_manager_missing {
-        return Ok(3);
+        return Ok(EXIT_MISSING_PACKAGE_MANAGER);
     }
 
     let blocking = crate::scan::count_blocking_manifest_failures(
@@ -1176,10 +1176,11 @@ async fn run_preload(
         ) {
             crate::run::user_warning(&summary);
         }
-        return Ok(2);
+        return Ok(exit_code::pick_exit_code(&ExitSignals::resolution_only(
+            blocking,
+        )));
     }
 
-    let provider_impl = select_provider_impl(provider, &effective).await?;
     let parallel = if effective.parallel_queries == 0 {
         crate::config::DEFAULT_PARALLEL_QUERIES
     } else {
@@ -1225,12 +1226,17 @@ async fn run_preload(
         );
     }
 
-    Ok(crate::scan::pick_exit_code(
+    Ok(exit_code::pick_exit_code(&ExitSignals::for_scan_end(
         blocking,
-        warm.summary.offline_cache_miss,
         warm.summary.provider_fetch_failed,
+        warm.summary.offline_cache_miss,
         0,
-    ))
+        effective.min_count,
+        effective.exit_code_on_cve,
+        false,
+        0,
+        effective.fp_exit_code,
+    )))
 }
 
 /// Runs the scan pipeline; returns the exit code to use (0, 1, 3, 4, 86, etc.).
@@ -1247,10 +1253,11 @@ async fn run_scan(
 ) -> Result<i32> {
     let benchmark_start = effective.benchmark.then(Instant::now);
 
+    let provider_impl = select_provider_impl(provider, &effective).await?;
     let resolved =
         resolve_packages_for_path(root, &effective, verbosity).await?;
     if resolved.package_manager_missing {
-        return Ok(3);
+        return Ok(EXIT_MISSING_PACKAGE_MANAGER);
     }
     let root_path = resolved.root_path;
     let exclude_dirs = resolved.exclude_dirs;
@@ -1260,8 +1267,6 @@ async fn run_scan(
     let packages_to_check = resolved.packages_to_check;
     let manifest_coverage = resolved.manifest_coverage;
     let skip_cve_phase = resolved.skip_cve_phase;
-
-    let provider_impl = select_provider_impl(provider, &effective).await?;
 
     let reporter: Box<dyn vlz_report::Reporter> =
         if format.eq_ignore_ascii_case("json") {
@@ -1432,10 +1437,6 @@ async fn run_scan(
     }
 
     let real_cve_count: usize = findings.iter().map(|(_, r)| r.len()).sum();
-    if had_any_cves_before_fp_filter && real_cve_count == 0 {
-        let _ = db_backend.stats().await;
-        return Ok(effective.fp_exit_code.unwrap_or(0).into());
-    }
 
     // -----------------------------------------------------------------
     // h) Apply threshold logic (FR-014, FR-010) and decide exit code
@@ -1447,11 +1448,6 @@ async fn run_scan(
             cve_meets_score_threshold(cve.cvss_score, effective.min_score)
         })
         .count();
-    let exit_code = compute_scan_exit_code(
-        meeting_threshold,
-        effective.min_count,
-        effective.exit_code_on_cve,
-    );
     let total_cves: usize = findings.iter().map(|(_, r)| r.len()).sum();
     info!(
         "Total CVEs discovered: {}, meeting threshold (score>={}): {}",
@@ -1554,12 +1550,17 @@ async fn run_scan(
     let manifest_blocking = crate::scan::count_blocking_manifest_failures(
         &report_data.manifest_coverage,
     );
-    let exit_code = crate::scan::pick_exit_code(
+    let exit_code = exit_code::pick_exit_code(&ExitSignals::for_scan_end(
         manifest_blocking,
-        offline_cache_miss,
         provider_fetch_failed,
-        exit_code,
-    );
+        offline_cache_miss,
+        meeting_threshold,
+        effective.min_count,
+        effective.exit_code_on_cve,
+        had_any_cves_before_fp_filter,
+        real_cve_count,
+        effective.fp_exit_code,
+    ));
 
     // -----------------------------------------------------------------
     // j) Emit optional secondary files (FR-008 --report / --summary-file)

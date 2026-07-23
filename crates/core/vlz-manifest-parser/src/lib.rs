@@ -70,7 +70,7 @@ pub struct ResolveContext {
     /// Secure default: false (SEC-023).
     pub allow_dependency_code_execution: bool,
     /// When true, FR-022 transitive-resolution failures fall back to direct-only
-    /// scan with FR-022a warning instead of exit 2 (FR-022, FR-022a).
+    /// scan with FR-022a warning instead of exit 4 (FR-022, FR-022a).
     pub allow_direct_only_fallback: bool,
     /// When non-empty, only discover/merge listed Python lock file basenames.
     pub python_lock_files: Vec<String>,
@@ -118,7 +118,7 @@ pub const DIRECT_ONLY_REASON_BENCHMARK: &str = "benchmark mode";
 pub const DIRECT_ONLY_REASON_UNAVAILABLE: &str =
     "transitive resolution unavailable";
 
-/// FR-022 exit-2 message (exact PRD string, NFR-024).
+/// FR-022 exit-4 message (exact PRD string, NFR-024).
 pub const FR_022_TRANSITIVE_ERROR_MESSAGE: &str = "Unable to detect transitive dependencies. Add an adjacent lock file (pylock.toml preferred for Python), use --allow-dependency-code-execution for full resolution in a trusted environment, or pass --allow-direct-only-fallback to scan direct dependencies only.";
 
 /// Direct-only reason when `allow_direct_only_fallback` is enabled (FR-022a).
@@ -140,7 +140,7 @@ pub fn fr022_transitive_error_with_cause(
     }
 }
 
-/// Exit 2 unless `allow_direct_only_fallback` permits direct-only scan (FR-022, FR-022a).
+/// Exit 4 unless `allow_direct_only_fallback` permits direct-only scan (FR-022, FR-022a).
 pub fn require_transitive_or_fallback(
     graph: &DependencyGraph,
     ctx: &ResolveContext,

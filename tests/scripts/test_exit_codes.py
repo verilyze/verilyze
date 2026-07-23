@@ -14,7 +14,8 @@ import pytest
 from tests.scripts.workspace_helpers import resolve_vlz_bin_for_tests
 
 EXIT_CODE_UNKNOWN_PROVIDER = 2
-EXIT_CODE_OFFLINE_CACHE_MISS = 4
+EXIT_CODE_RESOLUTION_FAILED = 4
+EXIT_CODE_OFFLINE_CACHE_MISS = 6
 
 
 def _xdg_env(tmp: Path) -> dict[str, str]:
@@ -47,7 +48,23 @@ class TestExitCodesSubprocess:
             )
             assert proc.returncode == EXIT_CODE_UNKNOWN_PROVIDER
 
-    def test_offline_cache_miss_exits_4(self) -> None:
+    def test_resolution_failed_exits_4(self) -> None:
+        vlz = resolve_vlz_bin_for_tests()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "pyproject.toml").write_text(
+                "[project\nname = broken\n",
+                encoding="utf-8",
+            )
+            env = {**os.environ, **_xdg_env(root / "xdg")}
+            proc = subprocess.run(
+                [str(vlz), "scan", str(root)],
+                env=env,
+                check=False,
+            )
+            assert proc.returncode == EXIT_CODE_RESOLUTION_FAILED
+
+    def test_offline_cache_miss_exits_6(self) -> None:
         vlz = resolve_vlz_bin_for_tests()
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

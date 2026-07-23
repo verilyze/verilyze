@@ -39,6 +39,7 @@ pub const TESTING_PROVIDER_NAMES: &[&str] = &[
     "failing",
     "counting",
     "cve_returning",
+    "panicking",
     "tier_c_reachability",
 ];
 

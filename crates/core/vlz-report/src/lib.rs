@@ -425,7 +425,7 @@ impl ManifestScanStatus {
         }
     }
 
-    /// True when this status should cause exit 2 (FR-037).
+    /// True when this status should cause exit 4 (FR-037).
     pub fn is_blocking(self) -> bool {
         matches!(self, Self::FailedParse | Self::FailedResolution)
     }

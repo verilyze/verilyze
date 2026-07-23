@@ -12,15 +12,16 @@ mod support;
 use support::{run_async, with_temp_xdg, write_requirements_with_pylock};
 use vlz::mocks::{CveReturningProvider, FailingCveProvider};
 
-/// FR-010 exit codes exercised by this module (excluding panic exit 1 from
-/// unrecoverable internal errors; exit 1 is covered via `vlz db verify`).
+/// FR-010 exit codes exercised by this module (exit 1: `vlz db verify` integrity
+/// failure and unhandled panic via subprocess through `main.rs`).
 const FR_010_MATRIX: &[(i32, &str)] = &[
     (0, "exit_0_scan_success"),
     (1, "exit_1_db_verify_integrity_failure"),
     (2, "exit_2_unknown_provider"),
     (3, "exit_3_missing_package_manager"),
-    (4, "exit_4_offline_cache_miss"),
+    (4, "exit_4_resolution_failed"),
     (5, "exit_5_cve_provider_fetch_failed"),
+    (6, "exit_6_offline_cache_miss"),
     (86, "exit_86_cve_found"),
 ];
 
@@ -28,7 +29,7 @@ const FR_010_MATRIX: &[(i32, &str)] = &[
 fn exit_code_matrix_is_complete() {
     let documented: Vec<i32> =
         FR_010_MATRIX.iter().map(|(code, _)| *code).collect();
-    for code in [0, 1, 2, 3, 4, 5, 86] {
+    for code in [0, 1, 2, 3, 4, 5, 6, 86] {
         assert!(
             documented.contains(&code),
             "FR-010 exit code {code} must have a named test in FR_010_MATRIX"
@@ -64,6 +65,44 @@ fn exit_1_db_verify_integrity_failure() {
             "integrity check failure (FR-033)"
         );
     });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn exit_1_panic_via_subprocess() {
+    use std::process::Command;
+
+    let _ = env_logger::try_init();
+    let dir = tempfile::tempdir().expect("tempdir");
+    let xdg = dir.path().join("xdg");
+    std::fs::create_dir_all(&xdg).expect("mkdir xdg");
+    let proj = dir.path().join("proj");
+    std::fs::create_dir_all(&proj).expect("mkdir proj");
+    write_requirements_with_pylock(proj.as_path(), "pkg", "1.0");
+    let root_str = proj.to_str().unwrap();
+
+    let out = Command::new(env!("CARGO_BIN_EXE_vlz"))
+        .args([
+            "scan",
+            root_str,
+            "--provider",
+            "panicking",
+            "--format",
+            "plain",
+        ])
+        .env("XDG_CACHE_HOME", xdg.to_str().unwrap())
+        .env("XDG_DATA_HOME", xdg.to_str().unwrap())
+        .env("XDG_CONFIG_HOME", xdg.to_str().unwrap())
+        .env("RUST_LOG", "off")
+        .output()
+        .expect("run vlz");
+
+    assert_eq!(
+        out.status.code(),
+        Some(1),
+        "unhandled panic must exit 1 via main.rs boundary (stderr={})",
+        String::from_utf8_lossy(&out.stderr)
+    );
 }
 
 #[test]
@@ -109,18 +148,23 @@ fn exit_3_missing_package_manager() {
     });
 }
 
+#[cfg(feature = "python")]
 #[test]
-fn exit_4_offline_cache_miss() {
+fn exit_4_resolution_failed() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
         let dir = tempfile::tempdir().expect("tempdir");
         std::fs::write(dir.path().join("requirements.txt"), "pkg==1.0\n")
             .expect("write requirements");
         let root = dir.path().to_str().unwrap();
+        vlz::registry::clear_resolvers();
+        vlz::registry::register(vlz::registry::Plugin::Resolver(Box::new(
+            vlz::mocks::FailingResolver::new(),
+        )));
         assert_eq!(
             run_async(&["scan", root, "--offline"]),
             4,
-            "offline mode with uncached CVE lookup (FR-031)"
+            "blocking manifest resolution failure (FR-022)"
         );
     });
 }
@@ -141,6 +185,22 @@ fn exit_5_cve_provider_fetch_failed() {
             run_async(&["scan", root]),
             5,
             "CVE provider fetch failure must not false-negative (FR-010)"
+        );
+    });
+}
+
+#[test]
+fn exit_6_offline_cache_miss() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join("requirements.txt"), "pkg==1.0\n")
+            .expect("write requirements");
+        let root = dir.path().to_str().unwrap();
+        assert_eq!(
+            run_async(&["scan", root, "--offline"]),
+            6,
+            "offline mode with uncached CVE lookup (FR-031)"
         );
     });
 }

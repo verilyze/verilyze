@@ -42,7 +42,7 @@ Run scans with the built binary (adjust the path if you use `CARGO_TARGET_DIR`):
 # Scan current directory for manifests (Python: requirements.txt, pyproject.toml,
 # Pipfile, setup.cfg, setup.py; Rust: Cargo.toml; Go: go.mod) and check for CVEs
 # Prefer an adjacent PEP 751 pylock.toml / pylock.<name>.toml for Python
-# transitive coverage (lock-less Python projects exit 2 by default).
+# transitive coverage (lock-less Python projects exit 4 by default).
 ./target/release/vlz scan
 
 # Scan a specific path
@@ -197,15 +197,23 @@ Exit 0 means the analysis completed successfully with full transitive coverage
 (config, network, parsing, unresolved transitive deps, etc.) returns a
 non-zero code to prevent false-negatives in CI.
 
+Precedence when multiple conditions apply: `1 > 2 > 3 > 4 > 5 > 6 > 86 > 0`
+(or `fp-exit-code`).
+
 | Code | Meaning                                                                         |
 |------|---------------------------------------------------------------------------------|
 | 0    | Success: analysis completed; no CVEs (or only false-positives per fp-exit-code) |
-| 1    | Panic / internal error                                                          |
-| 2    | Misconfiguration, or required transitive resolution failed (e.g. lock-less Python project without opt-in) |
+| 1    | Panic / internal error (including `vlz db verify` failure)                      |
+| 2    | Misconfiguration (invalid CLI, unknown provider, bad config)                    |
 | 3    | Missing required package manager                                                |
-| 4    | CVE lookup needed but `--offline`                                               |
+| 4    | Manifest parse or resolution failure (required transitive resolution not met)   |
 | 5    | CVE provider fetch failed (network, API error, auth, etc.)                      |
+| 6    | CVE lookup needed but `--offline`                                               |
 | 86   | One or more CVEs meet threshold (overridable via `--exit-code`)                 |
+
+Direct-only scans under `--offline`, `--benchmark`, or
+`--allow-direct-only-fallback` exit **0** when no CVEs meet threshold; FR-022a
+warnings report reduced coverage.
 
 Automated scenarios for each code: [`crates/core/vlz/tests/exit_code_matrix.rs`](crates/core/vlz/tests/exit_code_matrix.rs)
 (DOC-004) and subprocess smoke tests in [`tests/scripts/test_exit_codes.py`](tests/scripts/test_exit_codes.py).
@@ -214,7 +222,7 @@ Python lock guidance: commit an adjacent PEP 751 lock (`pylock.toml` or
 `pylock.<name>.toml`) for transitive scans. This repository dogfoods Python
 deps via committed [`pylock.dev.toml`](pylock.dev.toml) (see CONTRIBUTING).
 Without a lock, `requirements.txt` may still resolve via safe `pip lock -r`
-(pip >= 25.1); other Python project manifests fail closed (exit 2) unless
+(pip >= 25.1); other Python project manifests fail closed (exit 4) unless
 `--allow-dependency-code-execution` or `--allow-direct-only-fallback` is set.
 See [docs/FAQ.md](docs/FAQ.md).
 
