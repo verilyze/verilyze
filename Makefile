@@ -56,7 +56,7 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: sync-license-config check-license-config deny-check
 .PHONY: generate-third-party-licenses generate-third-party-licenses-docker
 .PHONY: check-third-party-licenses
-.PHONY: generate-sbom check-sbom generate-pylock-dev check-pylock-dev
+.PHONY: sync-upload-sarif-example check-upload-sarif-example
 
 .PHONY: benchmark-gate
 .PHONY: check-report-schema
@@ -114,6 +114,8 @@ help:
 	@echo "    make check-third-party-licenses - Verify THIRD-PARTY-LICENSES is up to date"
 	@echo "    make generate-sbom    - Generate workspace SBOM under sbom/v1/ (SEC-019)"
 	@echo "    make check-sbom       - Verify committed SBOM is up to date"
+	@echo "    make sync-upload-sarif-example - Sync example workflow upload-sarif pin"
+	@echo "    make check-upload-sarif-example - Verify example pin matches supply-chain"
 	@echo "    make generate-pylock-dev - Generate pylock.dev.toml (PEP 751, pip >= 25.1)"
 	@echo "    make check-pylock-dev  - Offline validate committed pylock.dev.toml"
 
@@ -476,6 +478,14 @@ generate-third-party-licenses-docker:
 check-third-party-licenses:
 	@$(MAKE_RUN_LEAF) check-third-party-licenses -- bash -c '$(SCRIPTS_DIR)/generate-third-party-licenses.sh && cd "$(MKFILE_DIR)" && git diff --exit-code THIRD-PARTY-LICENSES || (echo "THIRD-PARTY-LICENSES is out of sync. Run: make generate-third-party-licenses" && exit 1)'
 
+# sync-upload-sarif-example: align examples/github-action-vlz-scan.yml with supply-chain.yml.
+sync-upload-sarif-example:
+	PYTHONPATH=. python3 $(SCRIPTS_DIR)/upload_sarif_pins.py
+
+# check-upload-sarif-example: fail when example upload-sarif pin drifts from supply-chain.yml.
+check-upload-sarif-example:
+	PYTHONPATH=. python3 $(SCRIPTS_DIR)/upload_sarif_pins.py --check
+
 # generate-sbom: Produce CycloneDX + SPDX workspace SBOM via vlz scan (SEC-019).
 generate-sbom: release
 	$(SCRIPTS_DIR)/generate-sbom.sh
@@ -544,6 +554,7 @@ check-fast-parallel: check-doc-diagrams \
             check-super-linter-native \
             check-completions \
             check-license-config \
+            check-upload-sarif-example \
             deny-check \
             cargo-check fmt-check \
             clippy \

@@ -1086,6 +1086,12 @@ releases](#versioning-and-releases) below.
   immutable commit SHAs with the release tag in a trailing YAML comment
   (`helpers:pinGitHubActionDigests`). **Minor** and **patch** action updates are
   grouped into **one** PR; **major** upgrades stay in **separate** PRs.
+  After **`github/codeql-action/upload-sarif`** updates (any update type),
+  **`postUpgradeTasks`** run **`bash scripts/renovate-post-upgrade-upload-sarif.sh`**
+  to copy the pin from **`.github/workflows/supply-chain.yml`** into
+  **`examples/github-action-vlz-scan.yml`** (same logic as
+  **`make sync-upload-sarif-example`**). **`make check-upload-sarif-example`**
+  is in **`make check-fast`** so pin drift fails before coverage.
   Dockerfile base images still follow the `dockerfile` rules in
   [`renovate.json`](renovate.json).
   The **`pep621`** manager updates [`pyproject.toml`](pyproject.toml) (PEP 621

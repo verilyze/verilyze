@@ -21,6 +21,7 @@ See [agent-workflow.mdc](../../rules/agent-workflow.mdc).
 | `packaging/**` | `make check-packaging` |
 | `Cargo.toml`, `Cargo.lock`, `deny.toml` | `make cargo-check-locked`, `make deny-check`, `make check-third-party-licenses`, `make check-sbom` |
 | `pyproject.toml` | `make check-sbom`, `make check-pylock-dev` |
+| `.github/workflows/**` (upload-sarif) | `make check-upload-sarif-example` |
 | `pylock.dev.toml` | `make check-pylock-dev` |
 | `scripts/generate-pylock-dev.sh`, `scripts/check_pylock_dev.py`, `scripts/check-pylock-dev.sh` | `make check-pylock-dev`, `make lint-shell`, `make lint-python`, `make test-scripts` |
 | New files | `make check-headers` |
