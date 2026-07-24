@@ -304,6 +304,49 @@ fn config_list_succeeds() {
     });
 }
 
+/// Bare `vlz config` lists effective configuration (same as --list).
+#[test]
+fn config_bare_lists_effective_config() {
+    if !vlz_exe_exists() {
+        return;
+    }
+    with_isolated_env(|p| {
+        let env = |cmd: &mut Command| {
+            cmd.env("XDG_CACHE_HOME", p)
+                .env("XDG_DATA_HOME", p)
+                .env("XDG_CONFIG_HOME", p);
+        };
+        let bare = {
+            let mut cmd = Command::new(vlz_exe());
+            env(&mut cmd);
+            cmd.args(["config"]).output().expect("run vlz config")
+        };
+        let with_list = {
+            let mut cmd = Command::new(vlz_exe());
+            env(&mut cmd);
+            cmd.args(["config", "--list"])
+                .output()
+                .expect("run vlz config --list")
+        };
+        assert!(
+            bare.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&bare.stderr)
+        );
+        assert!(
+            with_list.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&with_list.stderr)
+        );
+        assert_eq!(bare.stdout, with_list.stdout);
+        let cfg = parse_config_list_output(&bare.stdout);
+        assert!(
+            cfg.contains_key("cache_db"),
+            "bare config must include cache_db"
+        );
+    });
+}
+
 /// Parse `key = value` lines from config --list stdout. DOC-003: single source.
 fn parse_config_list_output(
     stdout: &[u8],
@@ -620,6 +663,35 @@ mod completion_values {
         }
     }
 
+    fn assert_config_list_flag(stdout: &str, shell: &str) {
+        match shell {
+            "bash" => {
+                assert!(
+                    stdout.contains("vlz__subcmd__config)")
+                        && stdout.contains("--list"),
+                    "bash: config subcommand must include --list"
+                );
+            }
+            "zsh" => {
+                assert!(
+                    stdout.contains(
+                        "'--list[List effective configuration values]'"
+                    ),
+                    "zsh: config subcommand must include --list"
+                );
+            }
+            "fish" => {
+                assert!(
+                    stdout.contains(
+                        "__fish_vlz_using_subcommand config\" -l list"
+                    ),
+                    "fish: config subcommand must include --list"
+                );
+            }
+            _ => panic!("unexpected shell {shell}"),
+        }
+    }
+
     fn assert_omits_deprecated_aliases(stdout: &str, shell: &str) {
         assert!(
             !stdout.contains("--summary-file"),
@@ -693,6 +765,7 @@ mod completion_values {
             "script must contain scan subcommand"
         );
         assert_preferred_scan_flags(&stdout, "bash");
+        assert_config_list_flag(&stdout, "bash");
         assert_omits_deprecated_aliases(&stdout, "bash");
         let formats = scan_format_bash_word_list();
         assert!(
@@ -729,6 +802,7 @@ mod completion_values {
             "script must contain scan subcommand"
         );
         assert_preferred_scan_flags(&stdout, "zsh");
+        assert_config_list_flag(&stdout, "zsh");
         assert_omits_deprecated_aliases(&stdout, "zsh");
         let choices = scan_format_zsh_choices();
         assert!(
@@ -757,6 +831,7 @@ mod completion_values {
             "script must contain scan subcommand"
         );
         assert_preferred_scan_flags(&stdout, "fish");
+        assert_config_list_flag(&stdout, "fish");
         assert_omits_deprecated_aliases(&stdout, "fish");
         assert!(
             stdout.contains("-a \"plain"),

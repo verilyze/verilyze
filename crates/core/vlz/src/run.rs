@@ -602,6 +602,7 @@ pub async fn run(args: Cli) -> Result<i32> {
         }
 
         Commands::Config { list, example, set } => {
+            let should_list = list || (set.is_none() && !example);
             if example {
                 let cfg = crate::config::load(
                     args.config.as_deref(),
@@ -668,7 +669,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                 }
                 write_stdout(&format!("Set {} = {}\n", key, value));
             }
-            if list {
+            if should_list {
                 let cfg = crate::config::load(
                     args.config.as_deref(),
                     crate::config::env_parallel(),
