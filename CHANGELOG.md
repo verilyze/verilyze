@@ -6,11 +6,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Changelog
 
-Human-readable summaries for each release
-([OpenSSF Best Practices `release_notes`](https://bestpractices.dev/en/criteria/0)).
-The GitHub Release body is generated from the matching `## [version]` section
-below when you push a `v*` tag (see `.github/workflows/release.yml`). Update
-this file **before** creating the release tag.
+Human-readable release notes for each version.
 
 ## [Unreleased]
 
