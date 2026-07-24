@@ -35,6 +35,9 @@ this file **before** creating the release tag.
 - FR-022 exit-4 message and FAQ/man remediation aligned with lock-first UX.
 - FR-022a direct-only warnings: consolidated end-of-scan stderr summary at
   default verbosity; per-manifest `vlz warning:` lines with `-v` (NFR-013).
+- FR-022a manifest failures: consolidated end-of-scan stderr summary at
+  default verbosity (grouped by reason); per-manifest `Error: manifest` lines
+  with `-v` (NFR-013).
 - Default log filter is Warn (`RUST_LOG=warn`); `-v`/`-vv`/`-vvv` map to
   Info/Debug/Trace. Empty-findings plain text qualifies degraded coverage.
 ## [0.6.0] - 2026-07-20

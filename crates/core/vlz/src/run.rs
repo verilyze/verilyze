@@ -1156,8 +1156,7 @@ async fn run_preload(
     db_backend: Arc<Box<dyn vlz_db::DatabaseBackend + Send + Sync + 'static>>,
 ) -> Result<i32> {
     let provider_impl = select_provider_impl(provider, &effective).await?;
-    let resolved =
-        resolve_packages_for_path(root, &effective, verbosity).await?;
+    let resolved = resolve_packages_for_path(root, &effective).await?;
     if resolved.package_manager_missing {
         return Ok(EXIT_MISSING_PACKAGE_MANAGER);
     }
@@ -1171,12 +1170,11 @@ async fn run_preload(
             Some(&resolved.root_path),
             verbosity,
         );
-        if let Some(summary) = crate::scan::format_manifest_failure_summary(
+        crate::scan::emit_manifest_failure_diagnostics(
             &resolved.manifest_coverage,
             Some(&resolved.root_path),
-        ) {
-            crate::run::user_warning(&summary);
-        }
+            verbosity,
+        );
         return Ok(exit_code::pick_exit_code(&ExitSignals::resolution_only(
             blocking,
         )));
@@ -1212,12 +1210,11 @@ async fn run_preload(
         Some(&resolved.root_path),
         verbosity,
     );
-    if let Some(summary) = crate::scan::format_manifest_failure_summary(
+    crate::scan::emit_manifest_failure_diagnostics(
         &resolved.manifest_coverage,
         Some(&resolved.root_path),
-    ) {
-        crate::run::user_warning(&summary);
-    }
+        verbosity,
+    );
     if warm.summary.offline_cache_miss {
         eprintln!("{}", OFFLINE_CACHE_MISS_MESSAGE);
     }
@@ -1255,8 +1252,7 @@ async fn run_scan(
     let benchmark_start = effective.benchmark.then(Instant::now);
 
     let provider_impl = select_provider_impl(provider, &effective).await?;
-    let resolved =
-        resolve_packages_for_path(root, &effective, verbosity).await?;
+    let resolved = resolve_packages_for_path(root, &effective).await?;
     if resolved.package_manager_missing {
         return Ok(EXIT_MISSING_PACKAGE_MANAGER);
     }
@@ -1531,12 +1527,11 @@ async fn run_scan(
         Some(root_path.as_path()),
         verbosity,
     );
-    if let Some(summary) = crate::scan::format_manifest_failure_summary(
+    crate::scan::emit_manifest_failure_diagnostics(
         &report_data.manifest_coverage,
         Some(root_path.as_path()),
-    ) {
-        crate::run::user_warning(&summary);
-    }
+        verbosity,
+    );
     if offline_cache_miss {
         eprintln!(
             "CVE not found in cache, and unable to lookup CVE due to `--offline` argument."

@@ -140,6 +140,40 @@ pub fn format_direct_only_summary(
     Some(out)
 }
 
+/// Collect `source()` chain strings for verbose stderr replay (NFR-018).
+pub fn collect_error_causes(
+    err: &(dyn std::error::Error + 'static),
+) -> Vec<String> {
+    let mut causes = Vec::new();
+    let mut source = err.source();
+    while let Some(cause) = source {
+        causes.push(cause.to_string());
+        source = cause.source();
+    }
+    causes
+}
+
+/// Emit end-of-scan manifest-failure diagnostics (FR-022a, FR-037).
+///
+/// Always prints the consolidated summary when non-empty. With `verbosity > 0`,
+/// also prints per-manifest `Error: manifest` lines from coverage.
+pub fn emit_manifest_failure_diagnostics(
+    coverage: &[ManifestCoverageEntry],
+    root_path: Option<&Path>,
+    verbosity: u8,
+) {
+    if let Some(summary) = format_manifest_failure_summary(coverage, root_path)
+    {
+        crate::run::user_warning(&summary);
+    }
+    if verbosity == 0 {
+        return;
+    }
+    for entry in coverage.iter().filter(|e| e.status.is_blocking()) {
+        log_manifest_failure_from_coverage(entry, root_path);
+    }
+}
+
 /// Emit end-of-scan direct-only diagnostics (FR-022a).
 ///
 /// Always prints the consolidated summary when non-empty. With `verbosity > 0`,
@@ -190,6 +224,7 @@ pub fn coverage_entry_success(
         status,
         direct_only_reason,
         error: None,
+        error_causes: Vec::new(),
     }
 }
 
@@ -205,6 +240,7 @@ pub fn coverage_entry_parse_failure(
         status: ManifestScanStatus::FailedParse,
         direct_only_reason: None,
         error: Some(err.to_string()),
+        error_causes: collect_error_causes(err),
     }
 }
 
@@ -220,24 +256,34 @@ pub fn coverage_entry_resolution_failure(
         status: ManifestScanStatus::FailedResolution,
         direct_only_reason: None,
         error: Some(err.to_string()),
+        error_causes: collect_error_causes(err),
     }
 }
 
-/// Log a manifest failure to stderr with optional cause chain (NFR-018).
-pub fn log_manifest_failure(
-    manifest_path: &Path,
-    err: &(dyn std::error::Error + 'static),
-    verbosity: u8,
+/// Lines for verbose per-manifest failure stderr (NFR-018).
+pub fn manifest_failure_detail_lines(
+    entry: &ManifestCoverageEntry,
+    root_path: Option<&Path>,
+) -> Vec<String> {
+    let path = relative_manifest_display(&entry.path, root_path);
+    let message = entry
+        .error
+        .as_deref()
+        .unwrap_or_else(|| entry.status.as_str());
+    let mut lines = vec![format!("Error: manifest {path}: {message}")];
+    for cause in &entry.error_causes {
+        lines.push(format!("  Caused by: {cause}"));
+    }
+    lines
+}
+
+/// Log a blocking manifest failure from coverage (verbose end-of-scan detail).
+pub fn log_manifest_failure_from_coverage(
+    entry: &ManifestCoverageEntry,
     root_path: Option<&Path>,
 ) {
-    let path = relative_manifest_display(manifest_path, root_path);
-    eprintln!("Error: manifest {path}: {err}");
-    if verbosity > 0 {
-        let mut source = err.source();
-        while let Some(cause) = source {
-            eprintln!("  Caused by: {}", cause);
-            source = cause.source();
-        }
+    for line in manifest_failure_detail_lines(entry, root_path) {
+        eprintln!("{line}");
     }
 }
 
@@ -261,6 +307,7 @@ mod tests {
                 status: ManifestScanStatus::ScannedTransitive,
                 direct_only_reason: None,
                 error: None,
+                error_causes: Vec::new(),
             },
             ManifestCoverageEntry {
                 path: PathBuf::from("b.txt"),
@@ -268,6 +315,7 @@ mod tests {
                 status: ManifestScanStatus::FailedParse,
                 direct_only_reason: None,
                 error: Some("parse".to_string()),
+                error_causes: Vec::new(),
             },
             ManifestCoverageEntry {
                 path: PathBuf::from("c.txt"),
@@ -275,6 +323,7 @@ mod tests {
                 status: ManifestScanStatus::FailedResolution,
                 direct_only_reason: None,
                 error: Some("resolve".to_string()),
+                error_causes: Vec::new(),
             },
             ManifestCoverageEntry {
                 path: PathBuf::from("d.txt"),
@@ -282,6 +331,7 @@ mod tests {
                 status: ManifestScanStatus::ScannedDirectOnly,
                 direct_only_reason: Some("offline mode".to_string()),
                 error: None,
+                error_causes: Vec::new(),
             },
         ];
         assert_eq!(count_blocking_manifest_failures(&coverage), 2);
@@ -295,6 +345,7 @@ mod tests {
             status: ManifestScanStatus::ScannedTransitive,
             direct_only_reason: None,
             error: None,
+            error_causes: Vec::new(),
         }];
         assert!(format_manifest_failure_summary(&coverage, None).is_none());
     }
@@ -308,6 +359,7 @@ mod tests {
                 status: ManifestScanStatus::FailedResolution,
                 direct_only_reason: None,
                 error: Some("resolve failed".to_string()),
+                error_causes: Vec::new(),
             },
             ManifestCoverageEntry {
                 path: PathBuf::from("/root/good/requirements.txt"),
@@ -315,6 +367,7 @@ mod tests {
                 status: ManifestScanStatus::ScannedTransitive,
                 direct_only_reason: None,
                 error: None,
+                error_causes: Vec::new(),
             },
         ];
         let summary = format_manifest_failure_summary(
@@ -336,6 +389,7 @@ mod tests {
             status: ManifestScanStatus::FailedParse,
             direct_only_reason: None,
             error: Some("bad syntax".to_string()),
+            error_causes: Vec::new(),
         }];
         let summary =
             format_manifest_failure_summary(&coverage, None).expect("summary");
@@ -352,6 +406,7 @@ mod tests {
                 status: ManifestScanStatus::FailedParse,
                 direct_only_reason: None,
                 error: None,
+                error_causes: Vec::new(),
             },
             ManifestCoverageEntry {
                 path: PathBuf::from("/root/also/broken.txt"),
@@ -359,6 +414,7 @@ mod tests {
                 status: ManifestScanStatus::FailedResolution,
                 direct_only_reason: None,
                 error: Some("resolve".to_string()),
+                error_causes: Vec::new(),
             },
         ];
         let summary = format_manifest_failure_summary(
@@ -383,6 +439,7 @@ mod tests {
                 status: ManifestScanStatus::FailedResolution,
                 direct_only_reason: None,
                 error: Some("same error".to_string()),
+                error_causes: Vec::new(),
             },
             ManifestCoverageEntry {
                 path: PathBuf::from("/root/b/requirements.txt"),
@@ -390,6 +447,7 @@ mod tests {
                 status: ManifestScanStatus::FailedResolution,
                 direct_only_reason: None,
                 error: Some("same error".to_string()),
+                error_causes: Vec::new(),
             },
         ];
         let summary = format_manifest_failure_summary(
@@ -411,6 +469,7 @@ mod tests {
             status: ManifestScanStatus::ScannedTransitive,
             direct_only_reason: None,
             error: None,
+            error_causes: Vec::new(),
         }];
         assert!(format_direct_only_summary(&coverage, None).is_none());
     }
@@ -426,6 +485,7 @@ mod tests {
                     DIRECT_ONLY_REASON_OFFLINE.to_string(),
                 ),
                 error: None,
+                error_causes: Vec::new(),
             },
             ManifestCoverageEntry {
                 path: PathBuf::from("/root/b/pyproject.toml"),
@@ -435,6 +495,7 @@ mod tests {
                     DIRECT_ONLY_REASON_OFFLINE.to_string(),
                 ),
                 error: None,
+                error_causes: Vec::new(),
             },
             ManifestCoverageEntry {
                 path: PathBuf::from("/root/c/Cargo.toml"),
@@ -442,6 +503,7 @@ mod tests {
                 status: ManifestScanStatus::ScannedTransitive,
                 direct_only_reason: None,
                 error: None,
+                error_causes: Vec::new(),
             },
         ];
         let summary =
@@ -467,6 +529,7 @@ mod tests {
             status: ManifestScanStatus::ScannedDirectOnly,
             direct_only_reason: None,
             error: None,
+            error_causes: Vec::new(),
         }];
         let summary =
             format_direct_only_summary(&coverage, Some(Path::new("/root")))
@@ -549,23 +612,62 @@ mod tests {
     }
 
     #[test]
-    fn log_manifest_failure_verbosity_zero_no_cause_chain() {
-        let err = ResolverError::ResolveWithCause {
-            message: "outer".to_string(),
-            cause: Box::new(ResolverError::Resolve("inner".to_string())),
-        };
-        // Exercises the verbosity == 0 branch (no cause loop).
-        log_manifest_failure(Path::new("req.txt"), &err, 0, None);
+    fn manifest_failure_detail_lines_includes_cause_chain() {
+        let entry = coverage_entry_resolution_failure(
+            PathBuf::from("req.txt"),
+            "python".to_string(),
+            &ResolverError::ResolveWithCause {
+                message: "outer".to_string(),
+                cause: Box::new(ResolverError::Resolve("inner".to_string())),
+            },
+        );
+        let lines = manifest_failure_detail_lines(&entry, None);
+        assert_eq!(lines.len(), 2);
+        assert!(lines[0].contains("Error: manifest req.txt:"));
+        assert!(lines[0].contains("outer"));
+        assert_eq!(lines[1], "  Caused by: Resolve error: inner");
     }
 
     #[test]
-    fn log_manifest_failure_verbosity_prints_cause_chain() {
-        let err = ResolverError::ResolveWithCause {
-            message: "outer".to_string(),
-            cause: Box::new(ResolverError::Resolve("inner".to_string())),
+    fn manifest_failure_detail_lines_omits_causes_when_empty() {
+        let entry = ManifestCoverageEntry {
+            path: PathBuf::from("req.txt"),
+            language: "python".to_string(),
+            status: ManifestScanStatus::FailedParse,
+            direct_only_reason: None,
+            error: Some("Parse error: bad".to_string()),
+            error_causes: Vec::new(),
         };
-        // Exercises the verbosity > 0 cause-chain loop (NFR-018).
-        log_manifest_failure(Path::new("req.txt"), &err, 1, None);
+        let lines = manifest_failure_detail_lines(&entry, None);
+        assert_eq!(lines.len(), 1);
+        assert!(lines[0].contains("Parse error: bad"));
+    }
+
+    #[test]
+    fn emit_manifest_failure_diagnostics_verbose_uses_detail_lines() {
+        let entry = coverage_entry_resolution_failure(
+            PathBuf::from("broken/req.txt"),
+            "python".to_string(),
+            &ResolverError::ResolveWithCause {
+                message: "outer".to_string(),
+                cause: Box::new(ResolverError::Resolve("inner".to_string())),
+            },
+        );
+        let coverage = vec![entry];
+        let detail = manifest_failure_detail_lines(
+            &coverage[0],
+            Some(Path::new("/root")),
+        );
+        assert!(
+            detail.iter().any(|line| line.contains("Caused by:")),
+            "verbose detail must include cause chain: {detail:?}"
+        );
+        // Smoke: emit path must not panic (stderr not captured here).
+        emit_manifest_failure_diagnostics(
+            &coverage,
+            Some(Path::new("/root")),
+            1,
+        );
     }
 
     #[test]
@@ -578,6 +680,32 @@ mod tests {
             ManifestScanStatus::FailedResolution.as_str(),
             MANIFEST_STATUS_FAILED_RESOLUTION
         );
+    }
+
+    #[test]
+    fn collect_error_causes_walks_source_chain() {
+        let err = ResolverError::ResolveWithCause {
+            message: "outer".to_string(),
+            cause: Box::new(ResolverError::Resolve("inner".to_string())),
+        };
+        let causes = collect_error_causes(&err);
+        assert_eq!(causes.len(), 1);
+        assert!(causes[0].contains("inner"));
+    }
+
+    #[test]
+    fn coverage_entry_resolution_failure_stores_error_causes() {
+        let err = ResolverError::ResolveWithCause {
+            message: "outer".to_string(),
+            cause: Box::new(ResolverError::Resolve("inner".to_string())),
+        };
+        let entry = coverage_entry_resolution_failure(
+            PathBuf::from("req.txt"),
+            "python".to_string(),
+            &err,
+        );
+        assert_eq!(entry.error_causes.len(), 1);
+        assert!(entry.error_causes[0].contains("inner"));
     }
 
     #[test]

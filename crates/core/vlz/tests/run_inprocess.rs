@@ -1772,6 +1772,165 @@ fn run_scan_manifest_failure_summary_on_stderr() {
         stderr.contains("broken/pyproject.toml"),
         "stderr should list failed manifest path; got: {stderr}"
     );
+    assert!(
+        !stderr.contains("Error: manifest"),
+        "default verbosity should not emit per-manifest Error: lines; got: {stderr}"
+    );
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_manifest_failure_per_manifest_error_with_verbose() {
+    use std::process::Command;
+
+    let _ = env_logger::try_init();
+    let dir = tempfile::tempdir().expect("tempdir");
+    let xdg = dir.path().join("xdg");
+    std::fs::create_dir_all(&xdg).expect("mkdir xdg");
+    write_partial_manifest_fixture_natural_broken(
+        dir.path().join("proj").as_path(),
+    );
+    let root = dir.path().join("proj");
+    let root_str = root.to_str().unwrap();
+
+    let out = Command::new(env!("CARGO_BIN_EXE_vlz"))
+        .args(["scan", root_str, "--format", "json", "--offline", "-v"])
+        .env("XDG_CACHE_HOME", xdg.to_str().unwrap())
+        .env("XDG_DATA_HOME", xdg.to_str().unwrap())
+        .env("XDG_CONFIG_HOME", xdg.to_str().unwrap())
+        .env("RUST_LOG", "off")
+        .output()
+        .expect("run vlz");
+
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(4));
+    assert!(
+        stderr.contains("1 manifest(s) could not be fully analyzed"),
+        "stderr should include consolidated summary; got: {stderr}"
+    );
+    assert!(
+        stderr.contains("Error: manifest broken/pyproject.toml:"),
+        "verbose mode should emit per-manifest Error: line; got: {stderr}"
+    );
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn resolve_failure_verbose_detail_lines_include_cause_chain() {
+    use vlz::scan::manifest_failure_detail_lines;
+
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join("requirements.txt"), "pkg==1.0\n")
+            .expect("write requirements.txt");
+        ensure_registries_for_run();
+        vlz::registry::clear_resolvers();
+        vlz::registry::register(vlz::registry::Plugin::Resolver(Box::new(
+            vlz::mocks::CauseChainFailingResolver::new(),
+        )));
+
+        let rt = tokio::runtime::Runtime::new().expect("runtime");
+        let cfg = vlz::config::EffectiveConfig {
+            benchmark: true,
+            ..Default::default()
+        };
+        let out = rt
+            .block_on(vlz::package_resolve::resolve_packages_for_path(
+                Some(dir.path().to_string_lossy().into_owned()),
+                &cfg,
+            ))
+            .expect("resolve");
+        let failed = out
+            .manifest_coverage
+            .iter()
+            .find(|entry| entry.status.is_blocking())
+            .expect("blocking failure");
+        let lines = manifest_failure_detail_lines(failed, Some(dir.path()));
+        assert!(
+            lines.iter().any(|line| {
+                line.contains("Caused by:")
+                    && line.contains("mock inner resolve cause")
+            }),
+            "detail lines should preserve nested cause for -v stderr: {lines:?}"
+        );
+    });
+}
+
+#[cfg(feature = "python")]
+fn write_two_lockless_pyproject_fixture(root: &std::path::Path) {
+    for sub in ["a", "b"] {
+        let dir = root.join(sub);
+        std::fs::create_dir_all(&dir).expect("mkdir subdir");
+        std::fs::write(
+            dir.join("pyproject.toml"),
+            "[project]\nname = \"pkg\"\nversion = \"0.1.0\"\ndependencies = [\"requests\"]\n",
+        )
+        .expect("write pyproject.toml");
+    }
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_manifest_failure_groups_identical_errors_default_verbosity() {
+    use std::process::Command;
+    use vlz_manifest_parser::FR_022_TRANSITIVE_ERROR_MESSAGE;
+
+    let _ = env_logger::try_init();
+    let dir = tempfile::tempdir().expect("tempdir");
+    let xdg = dir.path().join("xdg");
+    std::fs::create_dir_all(&xdg).expect("mkdir xdg");
+    let proj = dir.path().join("proj");
+    write_two_lockless_pyproject_fixture(proj.as_path());
+    let root_str = proj.to_str().unwrap();
+
+    let out = Command::new(env!("CARGO_BIN_EXE_vlz"))
+        .args(["scan", root_str, "--format", "json"])
+        .env("XDG_CACHE_HOME", xdg.to_str().unwrap())
+        .env("XDG_DATA_HOME", xdg.to_str().unwrap())
+        .env("XDG_CONFIG_HOME", xdg.to_str().unwrap())
+        .env("RUST_LOG", "off")
+        .output()
+        .expect("run vlz");
+
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert_eq!(
+        out.status.code(),
+        Some(4),
+        "stderr={stderr} stdout={stdout}"
+    );
+    assert!(
+        stderr.contains("2 manifest(s) could not be fully analyzed"),
+        "stderr should include consolidated count; got: {stderr}"
+    );
+    assert!(
+        stderr.contains(&format!(
+            "Resolve error: {FR_022_TRANSITIVE_ERROR_MESSAGE} (2):"
+        )),
+        "stderr should group identical FR-022 errors; got: {stderr}"
+    );
+    assert_eq!(
+        stderr.matches("Error: manifest").count(),
+        0,
+        "default verbosity should not repeat per-manifest errors; got: {stderr}"
+    );
+
+    let parsed: serde_json::Value =
+        serde_json::from_str(stdout.trim()).expect("parse json");
+    let coverage = parsed
+        .get("manifest_coverage")
+        .and_then(|v| v.as_array())
+        .expect("manifest_coverage array");
+    assert_eq!(
+        coverage
+            .iter()
+            .filter(|e| e.get("status")
+                == Some(&serde_json::json!("failed_resolution")))
+            .count(),
+        2,
+        "json report should list both failures"
+    );
 }
 
 #[cfg(feature = "python")]
