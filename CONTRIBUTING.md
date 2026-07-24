@@ -367,7 +367,9 @@ Release builds (`make release` or `cargo build --release`) produce binaries
 stripped of symbols (NFR-023) for security and smaller size.
 
 1. Update [CHANGELOG.md](CHANGELOG.md): add a curated `## [X.Y.Z]` section
-   matching the new tag (without `v`). The Release workflow uses
+   matching the new tag (without `v`) **before** creating the release tag.
+   Keep version bullets only; do not add maintainer workflow text to the
+   CHANGELOG header (release mechanics live here). The Release workflow uses
    [scripts/extract-changelog-for-release.sh](scripts/extract-changelog-for-release.sh)
    to populate the GitHub Release body; it **fails** if that section is
    missing (OpenSSF Best Practices `release_notes`).
