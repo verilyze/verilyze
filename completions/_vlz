@@ -18,8 +18,8 @@ _vlz() {
 '-c+[Override configuration file location]:PATH:_files' \
 '--config=[Override configuration file location]:PATH:_files' \
 '*--env-overrides=[Set environment variable overrides (VLZ_*)]:ENV_OVERRIDES:_default' \
-'*-v[Increase verbosity (multiple times = more detail)]' \
-'*--verbose[Increase verbosity (multiple times = more detail)]' \
+'*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 '-V[Print version]' \
@@ -83,8 +83,8 @@ _arguments "${_arguments_options[@]}" : \
 '--allow-dependency-code-execution[Allow pip to execute dependency build code during resolution (SEC-023)]' \
 '--allow-direct-only-fallback[Fall back to direct-only scan with warning when transitive resolution fails (FR-022a). Applies to all Python project manifests (requirements.txt, pyproject.toml, Pipfile, setup.cfg, setup.py), Rust Cargo.toml without Cargo.lock, and Go go.mod when go list or cargo metadata cannot run]' \
 '--fail-fast[Stop on first manifest parse/resolution failure; skip CVE lookup (FR-037)]' \
-'*-v[Increase verbosity (multiple times = more detail)]' \
-'*--verbose[Increase verbosity (multiple times = more detail)]' \
+'*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 '::root -- Root directory (defaults to current working dir):_files -/' \
@@ -94,8 +94,8 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-c+[Override configuration file location]:PATH:_files' \
 '--config=[Override configuration file location]:PATH:_files' \
-'*-v[Increase verbosity (multiple times = more detail)]' \
-'*--verbose[Increase verbosity (multiple times = more detail)]' \
+'*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0
@@ -107,8 +107,8 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[Override configuration file location]:PATH:_files' \
 '--list[List effective configuration values]' \
 '--example[Output verilyze.conf.example with effective values for this environment]' \
-'*-v[Increase verbosity (multiple times = more detail)]' \
-'*--verbose[Increase verbosity (multiple times = more detail)]' \
+'*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0
@@ -118,8 +118,8 @@ _arguments "${_arguments_options[@]}" : \
 '--cache-ttl-secs=[Default TTL in seconds when opening the cache (default\: 432000 = 5 days). Does not change existing entries; use \`vlz db set-ttl\` to update those]:SECS:_default' \
 '-c+[Override configuration file location]:PATH:_files' \
 '--config=[Override configuration file location]:PATH:_files' \
-'*-v[Increase verbosity (multiple times = more detail)]' \
-'*--verbose[Increase verbosity (multiple times = more detail)]' \
+'*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 ":: :_vlz__subcmd__db_commands" \
@@ -136,8 +136,8 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-c+[Override configuration file location]:PATH:_files' \
 '--config=[Override configuration file location]:PATH:_files' \
-'*-v[Increase verbosity (multiple times = more detail)]' \
-'*--verbose[Increase verbosity (multiple times = more detail)]' \
+'*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0
@@ -146,8 +146,8 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-c+[Override configuration file location]:PATH:_files' \
 '--config=[Override configuration file location]:PATH:_files' \
-'*-v[Increase verbosity (multiple times = more detail)]' \
-'*--verbose[Increase verbosity (multiple times = more detail)]' \
+'*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0
@@ -156,8 +156,8 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-c+[Override configuration file location]:PATH:_files' \
 '--config=[Override configuration file location]:PATH:_files' \
-'*-v[Increase verbosity (multiple times = more detail)]' \
-'*--verbose[Increase verbosity (multiple times = more detail)]' \
+'*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0
@@ -166,8 +166,8 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-c+[Override configuration file location]:PATH:_files' \
 '--config=[Override configuration file location]:PATH:_files' \
-'*-v[Increase verbosity (multiple times = more detail)]' \
-'*--verbose[Increase verbosity (multiple times = more detail)]' \
+'*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0
@@ -179,8 +179,8 @@ _arguments "${_arguments_options[@]}" : \
 '-c+[Override configuration file location]:PATH:_files' \
 '--config=[Override configuration file location]:PATH:_files' \
 '--full[Include full CVE payload for each entry]' \
-'*-v[Increase verbosity (multiple times = more detail)]' \
-'*--verbose[Increase verbosity (multiple times = more detail)]' \
+'*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0
@@ -193,8 +193,8 @@ _arguments "${_arguments_options[@]}" : \
 '-c+[Override configuration file location]:PATH:_files' \
 '--config=[Override configuration file location]:PATH:_files' \
 '--all[Update all entries]' \
-'*-v[Increase verbosity (multiple times = more detail)]' \
-'*--verbose[Increase verbosity (multiple times = more detail)]' \
+'*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 ':secs -- New TTL in seconds:_default' \
@@ -208,8 +208,8 @@ esac
 _arguments "${_arguments_options[@]}" : \
 '-c+[Override configuration file location]:PATH:_files' \
 '--config=[Override configuration file location]:PATH:_files' \
-'*-v[Increase verbosity (multiple times = more detail)]' \
-'*--verbose[Increase verbosity (multiple times = more detail)]' \
+'*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 ":: :_vlz__subcmd__fp_commands" \
@@ -228,8 +228,8 @@ _arguments "${_arguments_options[@]}" : \
 '--project-id=[Optional project scope]:ID:_default' \
 '-c+[Override configuration file location]:PATH:_files' \
 '--config=[Override configuration file location]:PATH:_files' \
-'*-v[Increase verbosity (multiple times = more detail)]' \
-'*--verbose[Increase verbosity (multiple times = more detail)]' \
+'*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 ':cve_id -- CVE ID (e.g. CVE-2023-1234):_default' \
@@ -239,8 +239,8 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-c+[Override configuration file location]:PATH:_files' \
 '--config=[Override configuration file location]:PATH:_files' \
-'*-v[Increase verbosity (multiple times = more detail)]' \
-'*--verbose[Increase verbosity (multiple times = more detail)]' \
+'*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 ':cve_id -- CVE ID (e.g. CVE-2023-1234):_default' \
@@ -274,8 +274,8 @@ _arguments "${_arguments_options[@]}" : \
 '--allow-dependency-code-execution[Allow pip to execute dependency build code during resolution (SEC-023)]' \
 '--allow-direct-only-fallback[Fall back to direct-only resolution with warning when transitive resolution fails (FR-022a). Applies to all Python project manifests (requirements.txt, pyproject.toml, Pipfile, setup.cfg, setup.py), Rust Cargo.toml without Cargo.lock, and Go go.mod when go list or cargo metadata cannot run]' \
 '--fail-fast[Stop on first manifest parse/resolution failure (FR-037)]' \
-'*-v[Increase verbosity (multiple times = more detail)]' \
-'*--verbose[Increase verbosity (multiple times = more detail)]' \
+'*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 '::root -- Root directory (defaults to current working dir):_files -/' \
@@ -285,8 +285,8 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-c+[Override configuration file location]:PATH:_files' \
 '--config=[Override configuration file location]:PATH:_files' \
-'*-v[Increase verbosity (multiple times = more detail)]' \
-'*--verbose[Increase verbosity (multiple times = more detail)]' \
+'*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 '::subcommand:(scan languages config db fp preload help generate-completions)' \
@@ -296,8 +296,8 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-c+[Override configuration file location]:PATH:_files' \
 '--config=[Override configuration file location]:PATH:_files' \
-'*-v[Increase verbosity (multiple times = more detail)]' \
-'*--verbose[Increase verbosity (multiple times = more detail)]' \
+'*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 ':shell -- Shell (bash, zsh, fish):(bash elvish fish powershell zsh)' \

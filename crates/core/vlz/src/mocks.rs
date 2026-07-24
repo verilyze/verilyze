@@ -120,6 +120,44 @@ impl Resolver for FailingResolver {
     }
 }
 
+/// Resolver that fails with a nested cause for verbose stderr tests (NFR-018).
+#[derive(Debug, Default)]
+pub struct CauseChainFailingResolver;
+
+impl CauseChainFailingResolver {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[async_trait]
+impl Resolver for CauseChainFailingResolver {
+    async fn resolve(
+        &self,
+        _graph: &DependencyGraph,
+        _ctx: &ResolveContext,
+    ) -> Result<ResolveResult, ResolverError> {
+        Err(ResolverError::ResolveWithCause {
+            message: "mock outer resolve failure".to_string(),
+            cause: Box::new(ResolverError::Resolve(
+                "mock inner resolve cause".to_string(),
+            )),
+        })
+    }
+
+    fn package_manager_available(&self) -> bool {
+        true
+    }
+
+    fn package_manager_hint(&self) -> &'static str {
+        "test mock"
+    }
+
+    fn language_name(&self) -> &'static str {
+        "mock"
+    }
+}
+
 /// CVE provider that always returns an error. Covers fetch `with_context`
 /// (586-587) and Err + verbosity (654-663).
 #[derive(Debug, Default)]

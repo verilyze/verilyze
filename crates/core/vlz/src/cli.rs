@@ -46,7 +46,9 @@ pub struct Cli {
     #[command(subcommand)]
     pub cmd: Commands,
 
-    /// Increase verbosity (multiple times = more detail)
+    /// Increase verbosity (multiple times = more detail). After the scan report,
+    /// also emit per-manifest direct-only warnings and manifest failure detail
+    /// (FR-022a).
     #[arg(short, long, global = true, action = clap::ArgAction::Count)]
     pub verbose: u8,
 

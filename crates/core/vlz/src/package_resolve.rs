@@ -393,8 +393,6 @@ fn finish_resolve_output(
 
 /// Mutable aggregation state for folding per-language outcomes.
 struct OutcomeSink<'a> {
-    root_path: &'a Path,
-    verbosity: u8,
     effective: &'a EffectiveConfig,
     packages_with_manifests: &'a mut Vec<(Package, PathBuf, String)>,
     pkg_declarations:
@@ -480,12 +478,6 @@ fn apply_language_outcomes(
                         &error,
                     ),
                 );
-                crate::scan::log_manifest_failure(
-                    &manifest_path,
-                    &error,
-                    sink.verbosity,
-                    Some(sink.root_path),
-                );
                 if sink.effective.fail_fast {
                     fail_fast_tripped = true;
                     break;
@@ -503,12 +495,6 @@ fn apply_language_outcomes(
                         &error,
                     ),
                 );
-                crate::scan::log_manifest_failure(
-                    &manifest_path,
-                    &error,
-                    sink.verbosity,
-                    Some(sink.root_path),
-                );
                 if sink.effective.fail_fast {
                     fail_fast_tripped = true;
                     break;
@@ -523,7 +509,6 @@ fn apply_language_outcomes(
 pub async fn resolve_packages_for_path(
     root: Option<String>,
     effective: &EffectiveConfig,
-    verbosity: u8,
 ) -> Result<ResolvePackagesOutput> {
     let root_path = match root {
         Some(p) => PathBuf::from(p),
@@ -626,7 +611,7 @@ pub async fn resolve_packages_for_path(
     }
 
     resolve_packages_with_plugins(
-        root_path, effective, verbosity, finders, parsers, resolvers,
+        root_path, effective, finders, parsers, resolvers,
     )
     .await
 }
@@ -635,7 +620,6 @@ pub async fn resolve_packages_for_path(
 pub(crate) async fn resolve_packages_with_plugins(
     root_path: PathBuf,
     effective: &EffectiveConfig,
-    verbosity: u8,
     mut finders: Vec<Box<dyn ManifestFinder>>,
     mut parsers: Vec<Box<dyn Parser>>,
     mut resolvers: Vec<Box<dyn Resolver>>,
@@ -762,8 +746,6 @@ pub(crate) async fn resolve_packages_with_plugins(
 
     {
         let mut sink = OutcomeSink {
-            root_path: root_path.as_path(),
-            verbosity,
             effective,
             packages_with_manifests: &mut packages_with_manifests,
             pkg_declarations: &mut pkg_declarations,
@@ -1182,7 +1164,6 @@ mod tests {
         resolve_packages_with_plugins(
             dir.path().to_path_buf(),
             cfg,
-            0,
             finders,
             parsers,
             resolvers,
@@ -1291,6 +1272,51 @@ mod tests {
         assert!(
             !overlap.load(Ordering::SeqCst),
             "benchmark mode must not overlap language resolves"
+        );
+    }
+
+    #[tokio::test]
+    async fn resolve_failure_stores_error_causes_for_verbose_stderr() {
+        use crate::mocks::CauseChainFailingResolver;
+        use crate::scan::manifest_failure_detail_lines;
+        use std::sync::atomic::AtomicUsize;
+
+        let dir = tempfile::tempdir().unwrap();
+        let manifest = dir.path().join("requirements.txt");
+        std::fs::write(&manifest, "pkg==1.0\n").unwrap();
+        let cfg = EffectiveConfig::default();
+        let out = resolve_packages_with_plugins(
+            dir.path().to_path_buf(),
+            &cfg,
+            vec![Box::new(FakeFinder {
+                language: "lang_a",
+                manifests: vec![manifest],
+                find_calls: Arc::new(AtomicUsize::new(0)),
+            })],
+            vec![Box::new(FakeParser)],
+            vec![Box::new(CauseChainFailingResolver::new())],
+        )
+        .await
+        .expect("resolve");
+
+        let failed = out
+            .manifest_coverage
+            .iter()
+            .find(|entry| entry.status.is_blocking())
+            .expect("blocking manifest failure");
+        assert_eq!(failed.error_causes.len(), 1);
+        assert!(
+            failed.error_causes[0].contains("mock inner resolve cause"),
+            "unexpected causes: {:?}",
+            failed.error_causes
+        );
+        let lines = manifest_failure_detail_lines(failed, Some(dir.path()));
+        assert!(
+            lines.iter().any(|line| {
+                line.contains("Caused by:")
+                    && line.contains("mock inner resolve cause")
+            }),
+            "verbose detail lines should include cause chain: {lines:?}"
         );
     }
 }

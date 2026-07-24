@@ -439,6 +439,9 @@ pub struct ManifestCoverageEntry {
     pub status: ManifestScanStatus,
     pub direct_only_reason: Option<String>,
     pub error: Option<String>,
+    /// Cause chain captured at failure time for verbose stderr replay (NFR-018).
+    /// Omitted from JSON/SARIF reports.
+    pub error_causes: Vec<String>,
 }
 
 /// Simple data structure handed to the reporter. Each CVE has a pre-resolved severity (FR-013).
@@ -1421,6 +1424,7 @@ mod tests {
                     status: ManifestScanStatus::ScannedTransitive,
                     direct_only_reason: None,
                     error: None,
+                    error_causes: Vec::new(),
                 },
                 ManifestCoverageEntry {
                     path: PathBuf::from("/root/broken/requirements.txt"),
@@ -1428,6 +1432,7 @@ mod tests {
                     status: ManifestScanStatus::FailedResolution,
                     direct_only_reason: None,
                     error: Some("resolve failed".to_string()),
+                    error_causes: Vec::new(),
                 },
             ],
             offline_cache_miss: false,
@@ -1511,6 +1516,7 @@ mod tests {
                 status: ManifestScanStatus::ScannedDirectOnly,
                 direct_only_reason: Some("offline mode".to_string()),
                 error: None,
+                error_causes: Vec::new(),
             }],
             offline_cache_miss: false,
             provider_fetch_failed: false,
@@ -1537,6 +1543,7 @@ mod tests {
                     status: ManifestScanStatus::ScannedDirectOnly,
                     direct_only_reason: Some("offline mode".to_string()),
                     error: None,
+                    error_causes: Vec::new(),
                 },
                 ManifestCoverageEntry {
                     path: PathBuf::from("broken.txt"),
@@ -1544,6 +1551,7 @@ mod tests {
                     status: ManifestScanStatus::FailedResolution,
                     direct_only_reason: None,
                     error: Some("err".to_string()),
+                    error_causes: Vec::new(),
                 },
             ],
             offline_cache_miss: false,
@@ -1570,6 +1578,7 @@ mod tests {
                         .to_string(),
                 ),
                 error: None,
+                error_causes: Vec::new(),
             }],
             offline_cache_miss: false,
             provider_fetch_failed: false,
@@ -1609,6 +1618,7 @@ mod tests {
             status: ManifestScanStatus::FailedResolution,
             direct_only_reason: None,
             error: Some("err".to_string()),
+            error_causes: Vec::new(),
         }];
         assert!(manifest_coverage_needs_section(&coverage));
     }
@@ -1621,6 +1631,7 @@ mod tests {
             status: ManifestScanStatus::ScannedTransitive,
             direct_only_reason: None,
             error: None,
+            error_causes: Vec::new(),
         }];
         assert!(!manifest_coverage_needs_section(&coverage));
     }
