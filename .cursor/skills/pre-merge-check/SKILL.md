@@ -52,6 +52,24 @@ When `.rs` files changed:
 
 Use **ci-investigator** on the failed job. For super-linter: download `super-linter-logs` via `gh run download`.
 
+## Companion files
+
+Regenerate and commit companion outputs when source paths change (see
+[targets.md](targets.md)):
+
+| If you changed | Run | Stage outputs |
+|---|---|---|
+| Config keys | `make generate-config-example` | `verilyze.conf.example`, `docs/configuration.md`, `man/verilyze.conf.5` |
+| `Cargo.toml`, `Cargo.lock`, `deny.toml` | `make generate-third-party-licenses`, `make generate-sbom` | `THIRD-PARTY-LICENSES`, `sbom/**` |
+| `pyproject.toml` | `make generate-pylock-dev`, `make generate-sbom` | `pylock.dev.toml`, `sbom/**` |
+| `.github/workflows/*.yml` (upload-sarif) | `make sync-upload-sarif-example` | `examples/github-action-vlz-scan.yml` |
+| `architecture/**/*.mmd` | `make update-doc-diagrams` | `README.md`, `CONTRIBUTING.md` |
+
+When manifests change, also run the matching **check** targets (`make check-sbom`,
+`make check-third-party-licenses`, `make check-pylock-dev`) before push.
+`make check-fast` includes `make check-upload-sarif-example` but not
+`make check-sbom`.
+
 ## After checks pass
 
 User may invoke Bugbot review, a security review subagent, or ask to babysit a PR (triage comments, fix CI).
