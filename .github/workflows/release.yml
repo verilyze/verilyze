@@ -152,7 +152,7 @@ jobs:
       private-repository: true
 
   build-deb:
-    needs: [preflight-release, build-binary]
+    needs: preflight-release
     runs-on: ubuntu-latest
     # actions: write -- upload-artifact uses the Actions artifacts API.
     permissions:
@@ -183,7 +183,7 @@ jobs:
           path: target/debian/*.deb
 
   build-rpm:
-    needs: [preflight-release, build-binary]
+    needs: preflight-release
     runs-on: ubuntu-latest
     # actions: write -- upload-artifact uses the Actions artifacts API.
     permissions:
