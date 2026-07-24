@@ -119,7 +119,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__config)
-            opts="-v -c -h --example --set --verbose --config --help"
+            opts="-v -c -h --list --example --set --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

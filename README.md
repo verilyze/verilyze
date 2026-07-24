@@ -157,7 +157,7 @@ uses the installed man page. Source: [man/vlz.1](man/vlz.1).
 |------------------------------|---------------------------------------------------------------|
 | `vlz scan [PATH]`            | Scan for manifests and CVEs; optional path (default: cwd)     |
 | `vlz languages` (`list`)   | List supported manifest languages                             |
-| `vlz config --list`          | Show effective configuration                                  |
+| `vlz config` (`--list`)     | Show effective configuration                                  |
 | `vlz config --example`       | Output verilyze.conf.example with effective values for this environment |
 | `vlz config --set KEY=VALUE` | Set a config key (e.g. `python.regex="^requirements\\.txt$"`) |
 | `vlz db list-providers`      | List CVE providers (e.g. osv, nvd, github, sonatype when built with respective features) |

@@ -478,6 +478,12 @@ fn run_config_list_exits_0() {
 }
 
 #[test]
+fn run_config_bare_lists_exits_0() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| assert_eq!(run_async(&["config"]), 0));
+}
+
+#[test]
 fn run_config_example_exits_0() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| assert_eq!(run_async(&["config", "--example"]), 0));

@@ -26,6 +26,13 @@ pub fn filter_completion_output(shell: Shell, bytes: &[u8]) -> Vec<u8> {
 
 fn is_omitted_token(token: &str) -> bool {
     for alias in COMPLETION_OMIT_ALIASES {
+        if *alias == "list" {
+            // Omit languages subcommand alias only; keep config --list.
+            if token == "list" {
+                return true;
+            }
+            continue;
+        }
         if token == *alias || token == format!("--{alias}") {
             return true;
         }
@@ -67,6 +74,18 @@ fn skip_case_arm(lines: &[&str], start: usize) -> usize {
     lines.len()
 }
 
+fn ensure_config_list_in_opts(line: &str) -> String {
+    if line.contains("--list") {
+        return line.to_string();
+    }
+    if let Some(idx) = line.find("--example") {
+        let mut out = line.to_string();
+        out.insert_str(idx + "--example".len(), " --list");
+        return out;
+    }
+    line.to_string()
+}
+
 fn filter_bash(text: &str) -> String {
     let lines: Vec<&str> = text.lines().collect();
     let mut out: Vec<String> = Vec::with_capacity(lines.len());
@@ -84,7 +103,12 @@ fn filter_bash(text: &str) -> String {
             continue;
         }
         if lines[i].contains("opts=") {
-            out.push(filter_opts_line(lines[i]));
+            let prev = i.checked_sub(1).map(|j| lines[j].trim()).unwrap_or("");
+            let mut line = filter_opts_line(lines[i]);
+            if prev == "vlz__subcmd__config)" {
+                line = ensure_config_list_in_opts(&line);
+            }
+            out.push(line);
         } else {
             out.push(lines[i].to_string());
         }
@@ -196,6 +220,36 @@ mod tests {
         assert!(COMPLETION_OMIT_ALIASES.contains(&"list"));
         assert!(COMPLETION_OMIT_ALIASES.contains(&"summary-file"));
         assert!(COMPLETION_OMIT_ALIASES.contains(&"exit-code-on-cve"));
+    }
+
+    #[test]
+    fn bash_injects_config_list_when_clap_omits_it() {
+        let input = r#"
+        vlz__subcmd__config)
+            opts="-v -c -h --example --set --verbose --config --help"
+            ;;
+"#;
+        let out = String::from_utf8(filter_completion_output(
+            Shell::Bash,
+            input.as_bytes(),
+        ))
+        .unwrap();
+        assert!(out.contains("--list"));
+    }
+
+    #[test]
+    fn bash_keeps_config_list_flag() {
+        let input = r#"
+        vlz__subcmd__config)
+            opts="-v -c -h --example --list --set --verbose --config --help"
+            ;;
+"#;
+        let out = String::from_utf8(filter_completion_output(
+            Shell::Bash,
+            input.as_bytes(),
+        ))
+        .unwrap();
+        assert!(out.contains("--list"));
     }
 
     #[test]

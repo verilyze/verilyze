@@ -161,10 +161,11 @@ or
 List supported manifest languages (alias:
 .Nm list ) .
 .It Nm config
-Show or set configuration.
+Show or set configuration. With no options, show effective configuration.
 .Bl -tag -width Ds
 .It Fl -list
-Show effective configuration.
+Show effective configuration (same as bare
+.Nm config ) .
 .It Fl -example
 Output verilyze.conf.example with effective values.
 .It Fl -set Ar key=value
