@@ -8,6 +8,7 @@
 # rust-lang/rust tags), GitHub Actions (commit SHA + tag comment; minor/patch
 # grouped in one PR). Post-upgrade: THIRD-PARTY-LICENSES and workspace SBOM via
 # scripts/renovate-post-upgrade-licenses.sh / renovate-post-upgrade-sbom.sh
+# / renovate-post-upgrade-upload-sarif.sh
 # (requires RENOVATE_ALLOWED_COMMANDS).
 # Job runs on ubuntu-latest; Renovate executes inside its container image.
 # See renovate.json. Uses a GitHub App installation token (short-lived), not PAT.
@@ -58,4 +59,4 @@ jobs:
         env:
           RENOVATE_REPOSITORIES: ${{ github.repository }}
           # postUpgradeTasks (THIRD-PARTY-LICENSES, SBOM); global-only in Renovate
-          RENOVATE_ALLOWED_COMMANDS: '["^bash scripts/renovate-post-upgrade-(licenses|sbom)\\.sh$"]'
+          RENOVATE_ALLOWED_COMMANDS: '["^bash scripts/renovate-post-upgrade-(licenses|sbom|upload-sarif)\\.sh$"]'

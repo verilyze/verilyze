@@ -6,26 +6,28 @@
 
 import re
 
+from scripts.upload_sarif_pins import (
+    EXAMPLE_WORKFLOW,
+    SUPPLY_CHAIN_WORKFLOW,
+    UPLOAD_SARIF_REF_RE,
+    canonical_ref,
+)
 from tests.scripts.repo_root import repo_root
 
 _ROOT = repo_root()
 _NIGHTLY = _ROOT / ".github" / "workflows" / "verilyze-nightly.yml"
-_SUPPLY_CHAIN = _ROOT / ".github" / "workflows" / "supply-chain.yml"
-_EXAMPLE = _ROOT / "examples" / "github-action-vlz-scan.yml"
-_UPLOAD_SARIF_REF_RE = re.compile(r"github/codeql-action/upload-sarif@[a-f0-9]{40}")
+_SUPPLY_CHAIN = _ROOT / SUPPLY_CHAIN_WORKFLOW
+_EXAMPLE = _ROOT / EXAMPLE_WORKFLOW
 _CATEGORY = "verilyze-sca"
 
 
 def _canonical_upload_sarif_ref() -> str:
     """Digest pin from supply-chain.yml (Renovate github-actions manager source)."""
-    text = _SUPPLY_CHAIN.read_text(encoding="utf-8")
-    match = _UPLOAD_SARIF_REF_RE.search(text)
-    assert match is not None, "supply-chain workflow missing upload-sarif pin"
-    return match.group(0)
+    return canonical_ref(_SUPPLY_CHAIN.read_text(encoding="utf-8"))
 
 
 def _upload_sarif_ref(text: str) -> str:
-    match = _UPLOAD_SARIF_REF_RE.search(text)
+    match = UPLOAD_SARIF_REF_RE.search(text)
     assert match is not None, "upload-sarif pin not found"
     return match.group(0)
 
@@ -118,7 +120,7 @@ class TestGithubActionVlzScanExample:
     def test_example_documents_upload_and_fork_guard(self) -> None:
         text = _EXAMPLE.read_text(encoding="utf-8")
         canonical = _canonical_upload_sarif_ref()
-        refs = _UPLOAD_SARIF_REF_RE.findall(text)
+        refs = UPLOAD_SARIF_REF_RE.findall(text)
         assert refs, "example workflow missing upload-sarif pin"
         assert all(ref == canonical for ref in refs)
         assert f"category: {_CATEGORY}" in text
