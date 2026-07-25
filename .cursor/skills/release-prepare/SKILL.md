@@ -48,7 +48,9 @@ publish and bypasses project review policy.
 ## Workflow
 
 1. **CHANGELOG** -- Add curated `## [X.Y.Z]` to CHANGELOG.md; draft bullets
-   from `git log` since last tag; human may edit before commit
+   from `git log` since last tag; human may edit before commit. Add version
+   bullets only; do not edit the CHANGELOG header or add maintainer workflow
+   text there (see CONTRIBUTING release checklist step 1).
 2. **Version bump** -- `[workspace.package].version` in root `Cargo.toml` only
 3. **`make generate-packaging`**
 4. **`make release-preflight`** (CHANGELOG, OBS/packaging, upload round-trip)
