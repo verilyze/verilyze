@@ -254,6 +254,14 @@ impl Resolver for CargoResolver {
         cargo_package_manager_hint()
     }
 
+    fn manifest_needs_package_manager(
+        &self,
+        manifest_path: &Path,
+        _ctx: &ResolveContext,
+    ) -> bool {
+        find_lock_file(manifest_path).is_none()
+    }
+
     fn language_name(&self) -> &'static str {
         "rust"
     }
@@ -281,6 +289,31 @@ mod tests {
 
         let found = find_lock_file(tmp.join("Cargo.toml").as_path());
         assert_eq!(found.as_deref(), Some(tmp.join("Cargo.lock").as_path()));
+    }
+
+    #[test]
+    fn manifest_needs_package_manager_false_when_lock_present() {
+        let dir = isolated_tempdir();
+        let tmp = dir.path();
+        std::fs::create_dir_all(tmp).unwrap();
+        std::fs::write(tmp.join("Cargo.toml"), "[package]\n").unwrap();
+        std::fs::write(tmp.join("Cargo.lock"), "version = 3\n").unwrap();
+        let resolver = CargoResolver::new();
+        let manifest = tmp.join("Cargo.toml");
+        let ctx = ResolveContext::default();
+        assert!(!resolver.manifest_needs_package_manager(&manifest, &ctx));
+    }
+
+    #[test]
+    fn manifest_needs_package_manager_true_without_lock() {
+        let dir = isolated_tempdir();
+        let tmp = dir.path();
+        std::fs::create_dir_all(tmp).unwrap();
+        std::fs::write(tmp.join("Cargo.toml"), "[package]\n").unwrap();
+        let resolver = CargoResolver::new();
+        let manifest = tmp.join("Cargo.toml");
+        let ctx = ResolveContext::default();
+        assert!(resolver.manifest_needs_package_manager(&manifest, &ctx));
     }
 
     #[test]

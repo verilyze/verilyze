@@ -416,6 +416,17 @@ impl Resolver for DirectOnlyResolver {
         python_package_manager_hint()
     }
 
+    fn manifest_needs_package_manager(
+        &self,
+        manifest_path: &Path,
+        ctx: &ResolveContext,
+    ) -> bool {
+        if manifest_is_lock_file(manifest_path) {
+            return false;
+        }
+        find_lock_files(manifest_path, &ctx.python_lock_files).is_empty()
+    }
+
     fn language_name(&self) -> &'static str {
         "python"
     }
@@ -479,6 +490,41 @@ mod tests {
         let resolver = DirectOnlyResolver::new();
         let _ = resolver.package_manager_available();
         assert!(!resolver.package_manager_hint().is_empty());
+    }
+
+    #[test]
+    fn manifest_needs_package_manager_false_for_lock_file_manifest() {
+        let resolver = DirectOnlyResolver::new();
+        let ctx = ResolveContext::default();
+        let lock = PathBuf::from("/tmp/proj/poetry.lock");
+        assert!(!resolver.manifest_needs_package_manager(&lock, &ctx));
+    }
+
+    #[test]
+    fn manifest_needs_package_manager_false_when_adjacent_lock_present() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("pyproject.toml"), "[project]\n").unwrap();
+        std::fs::write(
+            root.join("poetry.lock"),
+            "[[package]]\nname = \"a\"\nversion = \"1.0\"\n",
+        )
+        .unwrap();
+        let resolver = DirectOnlyResolver::new();
+        let ctx = ResolveContext::default();
+        let manifest = root.join("pyproject.toml");
+        assert!(!resolver.manifest_needs_package_manager(&manifest, &ctx));
+    }
+
+    #[test]
+    fn manifest_needs_package_manager_true_without_adjacent_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("pyproject.toml"), "[project]\n").unwrap();
+        let resolver = DirectOnlyResolver::new();
+        let ctx = ResolveContext::default();
+        let manifest = root.join("pyproject.toml");
+        assert!(resolver.manifest_needs_package_manager(&manifest, &ctx));
     }
 
     #[test]

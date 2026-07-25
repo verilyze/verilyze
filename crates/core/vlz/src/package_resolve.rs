@@ -159,10 +159,45 @@ fn parallel_languages_enabled(effective: &EffectiveConfig, n: usize) -> bool {
     !effective.fail_fast && !effective.benchmark && n > 1
 }
 
+/// FR-024: language and manifest count when a required package manager is missing.
+struct MissingPackageManager {
+    language: String,
+    hint: &'static str,
+    manifest_count: usize,
+}
+
+fn format_missing_package_manager_message(
+    missing: &MissingPackageManager,
+) -> String {
+    format!(
+        "Required package manager not found on PATH for {} ({} manifest(s) requiring it). {}",
+        missing.language, missing.manifest_count, missing.hint
+    )
+}
+
+fn package_manager_missing_output(
+    root_path: PathBuf,
+    missing: &MissingPackageManager,
+) -> ResolvePackagesOutput {
+    eprintln!("{}", format_missing_package_manager_message(missing));
+    ResolvePackagesOutput {
+        root_path,
+        exclude_dirs: HashSet::new(),
+        packages_with_manifests: Vec::new(),
+        pkg_declarations: HashMap::new(),
+        pkg_contexts: HashMap::new(),
+        packages_to_check: Vec::new(),
+        manifest_coverage: Vec::new(),
+        skip_cve_phase: false,
+        package_manager_missing: true,
+    }
+}
+
 /// Per-language discovery + resolve result before ordered aggregation.
 struct LanguagePhaseResult {
     outcomes: Vec<ManifestTaskOutcome>,
     deferred_messages: Vec<String>,
+    missing_package_manager: Option<MissingPackageManager>,
 }
 
 /// Parse and resolve manifests for one language under a shared resolution semaphore.
@@ -326,18 +361,40 @@ async fn run_language_phase(
             "Resolving {manifest_count} {language} manifest(s)..."
         ));
     }
-    let outcomes = resolve_language_manifests(
-        language,
-        manifests,
-        parser,
-        resolver,
-        resolve_ctx,
-        resolution_semaphore,
-    )
-    .await;
+    let pm_dependent_count = manifests
+        .iter()
+        .filter(|mf| resolver.manifest_needs_package_manager(mf, resolve_ctx))
+        .count();
+    let missing_package_manager = if effective.package_manager_required
+        && !resolve_ctx.skip_pip_resolution
+        && pm_dependent_count > 0
+        && !resolver.package_manager_available()
+    {
+        Some(MissingPackageManager {
+            language: language.clone(),
+            hint: resolver.package_manager_hint(),
+            manifest_count: pm_dependent_count,
+        })
+    } else {
+        None
+    };
+    let outcomes = if missing_package_manager.is_some() {
+        Vec::new()
+    } else {
+        resolve_language_manifests(
+            language,
+            manifests,
+            parser,
+            resolver,
+            resolve_ctx,
+            resolution_semaphore,
+        )
+        .await
+    };
     Ok(LanguagePhaseResult {
         outcomes,
         deferred_messages,
+        missing_package_manager,
     })
 }
 
@@ -632,28 +689,6 @@ pub(crate) async fn resolve_packages_with_plugins(
         ));
     }
 
-    if effective.package_manager_required {
-        for r in resolvers.iter().take(n) {
-            if !r.package_manager_available() {
-                eprintln!(
-                    "Required package manager not found on PATH. {}",
-                    r.package_manager_hint()
-                );
-                return Ok(ResolvePackagesOutput {
-                    root_path,
-                    exclude_dirs: HashSet::new(),
-                    packages_with_manifests: Vec::new(),
-                    pkg_declarations: HashMap::new(),
-                    pkg_contexts: HashMap::new(),
-                    packages_to_check: Vec::new(),
-                    manifest_coverage: Vec::new(),
-                    skip_cve_phase: false,
-                    package_manager_missing: true,
-                });
-            }
-        }
-    }
-
     let effective_resolution_parallel = if effective.benchmark {
         1
     } else {
@@ -786,6 +821,11 @@ pub(crate) async fn resolve_packages_with_plugins(
                 for msg in &phase.deferred_messages {
                     eprintln!("{msg}");
                 }
+                if let Some(missing) = phase.missing_package_manager {
+                    return Ok(package_manager_missing_output(
+                        root_path, &missing,
+                    ));
+                }
                 let _ = apply_language_outcomes(phase.outcomes, &mut sink);
             }
         } else {
@@ -807,6 +847,11 @@ pub(crate) async fn resolve_packages_with_plugins(
                 .await?;
                 for msg in &phase.deferred_messages {
                     eprintln!("{msg}");
+                }
+                if let Some(missing) = phase.missing_package_manager {
+                    return Ok(package_manager_missing_output(
+                        root_path, &missing,
+                    ));
                 }
                 if apply_language_outcomes(phase.outcomes, &mut sink) {
                     skip_cve_phase = true;
@@ -1318,5 +1363,148 @@ mod tests {
             }),
             "verbose detail lines should include cause chain: {lines:?}"
         );
+    }
+
+    async fn run_pm_required_test(
+        mut cfg: EffectiveConfig,
+        jobs: Vec<(&'static str, Vec<PathBuf>, bool, bool)>,
+    ) -> ResolvePackagesOutput {
+        cfg.language_regexes = vec![("custom".to_string(), ".*".to_string())];
+        let dir = tempfile::tempdir().unwrap();
+        let finders: Vec<Box<dyn ManifestFinder>> = jobs
+            .iter()
+            .map(|(language, manifests, _, _)| {
+                Box::new(FakeFinder {
+                    language,
+                    manifests: manifests.clone(),
+                    find_calls: Arc::new(AtomicUsize::new(0)),
+                }) as Box<dyn ManifestFinder>
+            })
+            .collect();
+        let parsers: Vec<Box<dyn Parser>> = (0..jobs.len())
+            .map(|_| Box::new(FakeParser) as Box<dyn Parser>)
+            .collect();
+        let resolvers: Vec<Box<dyn Resolver>> = jobs
+            .into_iter()
+            .map(|(language, _, pm_available, needs_pm)| {
+                Box::new(
+                    crate::mocks::ConfigurablePmResolver::new(
+                        language,
+                        pm_available,
+                        "mock pm hint",
+                    )
+                    .with_manifest_needs_pm(needs_pm),
+                ) as Box<dyn Resolver>
+            })
+            .collect();
+        resolve_packages_with_plugins(
+            dir.path().to_path_buf(),
+            &cfg,
+            finders,
+            parsers,
+            resolvers,
+        )
+        .await
+        .expect("resolve")
+    }
+
+    #[test]
+    fn format_missing_package_manager_message_includes_language_and_count() {
+        let msg =
+            format_missing_package_manager_message(&MissingPackageManager {
+                language: "go".to_string(),
+                hint: "install go",
+                manifest_count: 2,
+            });
+        assert!(msg.contains("go"));
+        assert!(msg.contains("2 manifest(s) requiring it"));
+        assert!(msg.contains("install go"));
+    }
+
+    #[tokio::test]
+    async fn package_manager_required_skips_language_with_no_manifests() {
+        let mut cfg = test_cfg(1);
+        cfg.offline = false;
+        cfg.package_manager_required = true;
+        let dir = tempfile::tempdir().unwrap();
+        let py_mf = dir.path().join("requirements.txt");
+        std::fs::write(&py_mf, "pkg==1.0\n").unwrap();
+        let out = run_pm_required_test(
+            cfg,
+            vec![
+                ("python", vec![py_mf], true, true),
+                ("go", Vec::new(), false, true),
+            ],
+        )
+        .await;
+        assert!(!out.package_manager_missing);
+    }
+
+    #[tokio::test]
+    async fn package_manager_required_exits_when_pm_missing_for_language() {
+        let mut cfg = test_cfg(1);
+        cfg.offline = false;
+        cfg.package_manager_required = true;
+        let dir = tempfile::tempdir().unwrap();
+        let go_mf = dir.path().join("go.mod");
+        std::fs::write(&go_mf, "module example.com/test\n").unwrap();
+        let out =
+            run_pm_required_test(cfg, vec![("go", vec![go_mf], false, true)])
+                .await;
+        assert!(out.package_manager_missing);
+    }
+
+    #[tokio::test]
+    async fn package_manager_required_skips_when_lock_covers_manifest() {
+        let mut cfg = test_cfg(1);
+        cfg.offline = false;
+        cfg.package_manager_required = true;
+        let dir = tempfile::tempdir().unwrap();
+        let rust_mf = dir.path().join("Cargo.toml");
+        std::fs::write(&rust_mf, "[package]\n").unwrap();
+        let out = run_pm_required_test(
+            cfg,
+            vec![("rust", vec![rust_mf], false, false)],
+        )
+        .await;
+        assert!(!out.package_manager_missing);
+    }
+
+    #[tokio::test]
+    async fn package_manager_required_offline_skips_check() {
+        let mut cfg = test_cfg(1);
+        cfg.offline = true;
+        cfg.package_manager_required = true;
+        let dir = tempfile::tempdir().unwrap();
+        let py_mf = dir.path().join("requirements.txt");
+        std::fs::write(&py_mf, "pkg==1.0\n").unwrap();
+        let out = run_pm_required_test(
+            cfg,
+            vec![("python", vec![py_mf], false, true)],
+        )
+        .await;
+        assert!(!out.package_manager_missing);
+    }
+
+    #[tokio::test]
+    async fn package_manager_required_parallel_reports_first_language_in_order()
+     {
+        let mut cfg = test_cfg(4);
+        cfg.offline = false;
+        cfg.package_manager_required = true;
+        let dir = tempfile::tempdir().unwrap();
+        let a_mf = dir.path().join("a.manifest");
+        let b_mf = dir.path().join("b.manifest");
+        std::fs::write(&a_mf, "a").unwrap();
+        std::fs::write(&b_mf, "b").unwrap();
+        let out = run_pm_required_test(
+            cfg,
+            vec![
+                ("lang_a", vec![a_mf], false, true),
+                ("lang_b", vec![b_mf], false, true),
+            ],
+        )
+        .await;
+        assert!(out.package_manager_missing);
     }
 }

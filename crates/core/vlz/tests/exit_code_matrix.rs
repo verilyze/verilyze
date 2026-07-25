@@ -130,17 +130,14 @@ fn exit_3_missing_package_manager() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
         let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join("requirements.txt"), "pkg==1.0\n")
+            .expect("write requirements");
         let root = dir.path().to_str().unwrap();
         let empty_dir = tempfile::tempdir().expect("tempdir");
         let path_without_pip = empty_dir.path().to_string_lossy().into_owned();
         temp_env::with_var("PATH", Some(&path_without_pip), || {
             assert_eq!(
-                run_async(&[
-                    "scan",
-                    root,
-                    "--offline",
-                    "--package-manager-required",
-                ]),
+                run_async(&["scan", root, "--package-manager-required",]),
                 3,
                 "missing required package manager (FR-024)"
             );

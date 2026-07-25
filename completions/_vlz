@@ -78,7 +78,7 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[Override configuration file location]:PATH:_files' \
 '--offline[Disable network access]' \
 '--benchmark[Benchmark mode (no cache, no network, parallel=1)]' \
-'--package-manager-required[Require package manager on PATH; exit 3 with hint if missing]' \
+'--package-manager-required[Require package manager on PATH per language when manifests need it (lock files may satisfy resolution); exit 3 with per-language hint]' \
 '--keep-ephemeral-venv[Do not remove ephemeral Python venv after scan (FR-023 debug)]' \
 '--allow-dependency-code-execution[Allow pip to execute dependency build code during resolution (SEC-023)]' \
 '--allow-direct-only-fallback[Fall back to direct-only scan with warning when transitive resolution fails (FR-022a). Applies to all Python project manifests (requirements.txt, pyproject.toml, Pipfile, setup.cfg, setup.py), Rust Cargo.toml without Cargo.lock, and Go go.mod when go list or cargo metadata cannot run]' \
@@ -269,7 +269,7 @@ _arguments "${_arguments_options[@]}" : \
 '-c+[Override configuration file location]:PATH:_files' \
 '--config=[Override configuration file location]:PATH:_files' \
 '--offline[Disable network access]' \
-'--package-manager-required[Require package manager on PATH; exit 3 with hint if missing]' \
+'--package-manager-required[Require package manager on PATH per language when manifests need it (lock files may satisfy resolution); exit 3 with per-language hint]' \
 '--keep-ephemeral-venv[Do not remove ephemeral Python venv after resolution (FR-023 debug)]' \
 '--allow-dependency-code-execution[Allow pip to execute dependency build code during resolution (SEC-023)]' \
 '--allow-direct-only-fallback[Fall back to direct-only resolution with warning when transitive resolution fails (FR-022a). Applies to all Python project manifests (requirements.txt, pyproject.toml, Pipfile, setup.cfg, setup.py), Rust Cargo.toml without Cargo.lock, and Go go.mod when go list or cargo metadata cannot run]' \

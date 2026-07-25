@@ -274,11 +274,11 @@ See "How do I use NVD?" below.
 
 ### Required package manager not found
 
-**Message:** `Required package manager not found on PATH. Install via: apt-get
-install python3-pip (Debian/Ubuntu) or dnf install python3-pip (Fedora/RHEL).`
+**Message:** `Required package manager not found on PATH for python (1 manifest(s) requiring it). Install via: apt-get install python3-pip (Debian/Ubuntu) or dnf install python3-pip (Fedora/RHEL).`
 
-**Cause:** `--package-manager-required` is set but pip (or the language’s
-package manager) is not on PATH (FR-024).
+**Cause:** `--package-manager-required` is set, manifests were discovered for a
+language that would invoke its package manager (no usable adjacent lock file),
+and that package manager is not on PATH (FR-024).
 
 **Remediation:** Install the package manager for your platform:
 - **Debian/Ubuntu:** `apt-get install python3-pip`

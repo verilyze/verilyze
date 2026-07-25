@@ -195,7 +195,8 @@ pub enum Commands {
         #[arg(long, value_name = "ID", help_heading = HELP_FALSE_POSITIVES)]
         project_id: Option<String>,
 
-        /// Require package manager on PATH; exit 3 with hint if missing
+        /// Require package manager on PATH per language when manifests need it
+        /// (lock files may satisfy resolution); exit 3 with per-language hint
         #[arg(long, help_heading = HELP_RESOLUTION)]
         package_manager_required: bool,
 
@@ -389,7 +390,8 @@ pub enum Commands {
         #[arg(long, help_heading = HELP_PROVIDER_CACHE)]
         offline: bool,
 
-        /// Require package manager on PATH; exit 3 with hint if missing
+        /// Require package manager on PATH per language when manifests need it
+        /// (lock files may satisfy resolution); exit 3 with per-language hint
         #[arg(long, help_heading = HELP_RESOLUTION)]
         package_manager_required: bool,
 

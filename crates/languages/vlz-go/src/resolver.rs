@@ -197,6 +197,10 @@ impl Resolver for GoResolver {
         go_package_manager_hint()
     }
 
+    // Go has no static lock-file path that bypasses the `go` tool; the in-memory
+    // list_cache is run-scoped only. Default `manifest_needs_package_manager` is
+    // correct for go.mod manifests.
+
     fn language_name(&self) -> &'static str {
         "go"
     }

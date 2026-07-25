@@ -9,6 +9,7 @@
 
 use async_trait::async_trait;
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use vlz_cve_client::{CveProvider, FetchedCves, ProviderError};
 use vlz_db::{
@@ -67,6 +68,15 @@ impl<R: Resolver + Send + Sync> Resolver for ConditionalFailingResolver<R> {
         self.inner.package_manager_hint()
     }
 
+    fn manifest_needs_package_manager(
+        &self,
+        manifest_path: &Path,
+        ctx: &ResolveContext,
+    ) -> bool {
+        self.inner
+            .manifest_needs_package_manager(manifest_path, ctx)
+    }
+
     fn language_name(&self) -> &'static str {
         self.inner.language_name()
     }
@@ -117,6 +127,69 @@ impl Resolver for FailingResolver {
 
     fn language_name(&self) -> &'static str {
         "mock"
+    }
+}
+
+/// Resolver with configurable package-manager availability for FR-024 tests.
+#[derive(Debug)]
+pub struct ConfigurablePmResolver {
+    language: &'static str,
+    pm_available: bool,
+    pm_hint: &'static str,
+    needs_pm: bool,
+}
+
+impl ConfigurablePmResolver {
+    pub fn new(
+        language: &'static str,
+        pm_available: bool,
+        pm_hint: &'static str,
+    ) -> Self {
+        Self {
+            language,
+            pm_available,
+            pm_hint,
+            needs_pm: true,
+        }
+    }
+
+    pub fn with_manifest_needs_pm(mut self, needs_pm: bool) -> Self {
+        self.needs_pm = needs_pm;
+        self
+    }
+}
+
+#[async_trait]
+impl Resolver for ConfigurablePmResolver {
+    async fn resolve(
+        &self,
+        graph: &DependencyGraph,
+        _ctx: &ResolveContext,
+    ) -> Result<ResolveResult, ResolverError> {
+        Ok(ResolveResult {
+            packages: graph.packages.clone(),
+            ..Default::default()
+        })
+    }
+
+    fn package_manager_available(&self) -> bool {
+        self.pm_available
+    }
+
+    fn package_manager_hint(&self) -> &'static str {
+        self.pm_hint
+    }
+
+    fn manifest_needs_package_manager(
+        &self,
+        _manifest_path: &Path,
+        _ctx: &ResolveContext,
+    ) -> bool {
+        self.needs_pm
+    }
+
+    fn language_name(&self) -> &'static str {
+        self.language
     }
 }
 
