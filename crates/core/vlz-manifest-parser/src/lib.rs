@@ -271,11 +271,25 @@ pub trait Resolver: Send + Sync {
     ) -> Result<ResolveResult, ResolverError>;
 
     /// Whether the package manager for this language is available on PATH (FR-024).
-    /// When `--package-manager-required` is set, the scan exits with code 3 if this returns false.
+    /// When `--package-manager-required` is set, the scan exits with code 3 if this
+    /// returns false for a language with discovered manifests that would invoke the
+    /// package manager (see [`Self::manifest_needs_package_manager`]).
     fn package_manager_available(&self) -> bool;
 
     /// OS-specific hint when the package manager is missing (FR-024).
     fn package_manager_hint(&self) -> &'static str;
+
+    /// Whether resolving `manifest_path` would require invoking the package manager
+    /// binary (FR-024). Default `true`. Resolvers that can satisfy resolution
+    /// entirely from an adjacent or embedded lock file override this to return
+    /// `false` when such a lock is present.
+    fn manifest_needs_package_manager(
+        &self,
+        _manifest_path: &Path,
+        _ctx: &ResolveContext,
+    ) -> bool {
+        true
+    }
 
     /// Stable language identifier for registry deduplication (NFR-007).
     fn language_name(&self) -> &'static str;

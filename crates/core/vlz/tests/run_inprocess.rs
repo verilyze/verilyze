@@ -1072,19 +1072,42 @@ fn run_scan_package_manager_required_no_pip_exits_3() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
         let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join("requirements.txt"), "pkg==1.0\n")
+            .expect("write requirements");
         let root = dir.path().to_str().unwrap();
         let empty_dir = tempfile::tempdir().expect("tempdir");
         let path_without_pip = empty_dir.path().to_string_lossy().into_owned();
         temp_env::with_var("PATH", Some(&path_without_pip), || {
-            let code = run_async(&[
-                "scan",
-                root,
-                "--offline",
-                "--package-manager-required",
-            ]);
+            let code =
+                run_async(&["scan", root, "--package-manager-required"]);
             assert_eq!(
                 code, 3,
                 "missing pip with --package-manager-required -> exit 3"
+            );
+        });
+    });
+}
+
+#[cfg(feature = "go")]
+#[test]
+fn run_scan_package_manager_required_go_mod_no_go_exits_3() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("go.mod"),
+            "module example.com/test\n\ngo 1.22\n",
+        )
+        .expect("write go.mod");
+        let root = dir.path().to_str().unwrap();
+        let empty_dir = tempfile::tempdir().expect("tempdir");
+        let path_without_go = empty_dir.path().to_string_lossy().into_owned();
+        temp_env::with_var("PATH", Some(&path_without_go), || {
+            let code =
+                run_async(&["scan", root, "--package-manager-required"]);
+            assert_eq!(
+                code, 3,
+                "missing go with go.mod and --package-manager-required -> exit 3"
             );
         });
     });
