@@ -464,11 +464,11 @@
       "version": "0.0.2"
     },
     {
-      "bom-ref": "pkg:cargo/clap@4.6.2",
+      "bom-ref": "pkg:cargo/clap@4.6.4",
       "name": "clap",
-      "purl": "pkg:cargo/clap@4.6.2",
+      "purl": "pkg:cargo/clap@4.6.4",
       "type": "library",
-      "version": "4.6.2"
+      "version": "4.6.4"
     },
     {
       "bom-ref": "pkg:cargo/clap_builder@4.6.2",
@@ -485,11 +485,11 @@
       "version": "4.6.7"
     },
     {
-      "bom-ref": "pkg:cargo/clap_derive@4.6.1",
+      "bom-ref": "pkg:cargo/clap_derive@4.6.4",
       "name": "clap_derive",
-      "purl": "pkg:cargo/clap_derive@4.6.1",
+      "purl": "pkg:cargo/clap_derive@4.6.4",
       "type": "library",
-      "version": "4.6.1"
+      "version": "4.6.4"
     },
     {
       "bom-ref": "pkg:cargo/clap_lex@1.1.0",
@@ -1892,11 +1892,11 @@
       "version": "0.1.1"
     },
     {
-      "bom-ref": "pkg:cargo/tokio@1.53.0",
+      "bom-ref": "pkg:cargo/tokio@1.53.1",
       "name": "tokio",
-      "purl": "pkg:cargo/tokio@1.53.0",
+      "purl": "pkg:cargo/tokio@1.53.1",
       "type": "library",
-      "version": "1.53.0"
+      "version": "1.53.1"
     },
     {
       "bom-ref": "pkg:cargo/tokio-macros@2.7.0",
