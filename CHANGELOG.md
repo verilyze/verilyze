@@ -6,9 +6,21 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Changelog
 
-Human-readable release notes for each version.
+Human-readable summaries for each release
+([OpenSSF Best Practices `release_notes`](https://bestpractices.dev/en/criteria/0)).
+The GitHub Release body is generated from the matching `## [version]` section
+below when you push a `v*` tag (see `.github/workflows/release.yml`). Update
+this file **before** creating the release tag.
 
 ## [Unreleased]
+
+## [0.7.0] - 2026-07-24
+
+### Added
+
+- Committed `pylock.dev.toml` dogfoods Python `.[dev]` deps (SEC-015);
+  regenerate with `make generate-pylock-dev` / Renovate
+  `renovate-post-upgrade-sbom.sh`.
 
 ### Changed
 
@@ -25,9 +37,6 @@ Human-readable release notes for each version.
   `pip lock -r` on requirements.txt (pip >= 25.1),
   `--allow-dependency-code-execution` in trusted environments, or
   `--allow-direct-only-fallback` for direct-only with FR-022a warning.
-- Committed `pylock.dev.toml` dogfoods Python `.[dev]` deps (SEC-015);
-  regenerate with `make generate-pylock-dev` / Renovate
-  `renovate-post-upgrade-sbom.sh`.
 - FR-022 exit-4 message and FAQ/man remediation aligned with lock-first UX.
 - FR-022a direct-only warnings: consolidated end-of-scan stderr summary at
   default verbosity; per-manifest `vlz warning:` lines with `-v` (NFR-013).
@@ -36,6 +45,19 @@ Human-readable release notes for each version.
   with `-v` (NFR-013).
 - Default log filter is Warn (`RUST_LOG=warn`); `-v`/`-vv`/`-vvv` map to
   Info/Debug/Trace. Empty-findings plain text qualifies degraded coverage.
+- `--package-manager-required` checks only languages with discovered manifests
+  that would invoke the package manager; adjacent lock files may satisfy
+  resolution without the tool (FR-024).
+
+### Fixed
+
+- `vlz config` with no subcommand lists settings by default.
+- Manifest failure stderr deferred until after the report (no duplicate errors).
+- Coverage nightly workflow repair.
+- Release workflow parallelizes deb and rpm packaging jobs.
+- Dependency updates: Rust workspace crates, GitHub Actions, and super-linter
+  digests.
+
 ## [0.6.0] - 2026-07-20
 
 ### Added
