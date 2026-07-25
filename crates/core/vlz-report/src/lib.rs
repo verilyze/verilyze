@@ -1054,7 +1054,7 @@ fn days_to_ymd(days: u64) -> (u64, u64, u64) {
     d -= era * 146097;
     let doe = if d >= 0 { d } else { d + 146097 };
     let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
-    let y = (yoe + era * 400) as u64 + 1970;
+    let y = (yoe + era * 400) as u64;
     let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
     let mp = (5 * doy + 2) / 153;
     let d = (doy - (153 * mp + 2) / 5 + 1) as u64;
@@ -1315,6 +1315,41 @@ impl Reporter for SpdxReporter {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn secs_to_ymdhms_unix_epoch() {
+        assert_eq!(secs_to_ymdhms(0), (1970, 1, 1, 0, 0, 0));
+    }
+
+    #[test]
+    fn secs_to_ymdhms_known_recent_instant() {
+        // 2026-07-25T11:02:00Z (seconds computed independently via Python datetime)
+        assert_eq!(secs_to_ymdhms(1_784_977_320), (2026, 7, 25, 11, 2, 0));
+    }
+
+    #[test]
+    fn secs_to_ymdhms_leap_day_and_year_boundaries() {
+        assert_eq!(secs_to_ymdhms(1_709_164_800), (2024, 2, 29, 0, 0, 0));
+        assert_eq!(secs_to_ymdhms(951_782_400), (2000, 2, 29, 0, 0, 0));
+        assert_eq!(secs_to_ymdhms(1_677_628_800), (2023, 3, 1, 0, 0, 0));
+        assert_eq!(secs_to_ymdhms(1_767_225_599), (2025, 12, 31, 23, 59, 59));
+        assert_eq!(secs_to_ymdhms(1_767_225_600), (2026, 1, 1, 0, 0, 0));
+    }
+
+    #[test]
+    fn format_timestamp_rfc3339_matches_current_time() {
+        let secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let (y, m, d, h, min, s) = secs_to_ymdhms(secs);
+        let expected = format!(
+            "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+            y, m, d, h, min, s
+        );
+        assert_eq!(format_timestamp_rfc3339(), expected);
+        assert!((1970..=2100).contains(&y), "year {y} out of sane range");
+    }
 
     #[test]
     fn resolve_severity_none_returns_unknown() {
