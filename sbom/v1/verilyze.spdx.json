@@ -477,9 +477,9 @@
     {
       "@type": "Package",
       "name": "clap",
-      "packageUrl": "pkg:cargo/clap@4.6.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-4-6-2",
-      "versionInfo": "4.6.2"
+      "packageUrl": "pkg:cargo/clap@4.6.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-4-6-4",
+      "versionInfo": "4.6.4"
     },
     {
       "@type": "Package",
@@ -498,9 +498,9 @@
     {
       "@type": "Package",
       "name": "clap_derive",
-      "packageUrl": "pkg:cargo/clap_derive@4.6.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-derive-4-6-1",
-      "versionInfo": "4.6.1"
+      "packageUrl": "pkg:cargo/clap_derive@4.6.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-derive-4-6-4",
+      "versionInfo": "4.6.4"
     },
     {
       "@type": "Package",
@@ -1905,9 +1905,9 @@
     {
       "@type": "Package",
       "name": "tokio",
-      "packageUrl": "pkg:cargo/tokio@1.53.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-1-53-0",
-      "versionInfo": "1.53.0"
+      "packageUrl": "pkg:cargo/tokio@1.53.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-1-53-1",
+      "versionInfo": "1.53.1"
     },
     {
       "@type": "Package",
