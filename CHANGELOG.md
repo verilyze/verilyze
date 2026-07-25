@@ -10,6 +10,13 @@ Human-readable release notes for each version.
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-07-25
+
+### Fixed
+
+- CycloneDX and SPDX SBOM timestamps no longer report incorrect years (for
+  example 3996) due to a calendar conversion bug in `vlz-report`.
+
 ## [0.7.0] - 2026-07-24
 
 ### Added
