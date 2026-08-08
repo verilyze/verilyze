@@ -53,7 +53,7 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: generate-packaging check-packaging check-obs-signing
 .PHONY: sync-rpm-specs check-rpm-spec-sync
 .PHONY: check-obs-packaging check-super-linter-native obs-upload-dry-run
-.PHONY: sync-license-config check-license-config deny-check
+.PHONY: sync-license-config check-license-config sync-deny-skips check-deny-skips deny-check
 .PHONY: generate-third-party-licenses generate-third-party-licenses-docker
 .PHONY: check-third-party-licenses
 .PHONY: sync-upload-sarif-example check-upload-sarif-example
@@ -109,6 +109,8 @@ help:
 	@echo "    make obs-upload-dry-run  - Build OBS source artifacts locally (no upload)"
 	@echo "    make sync-license-config - Sync deny.toml [licenses] allow to about.toml accepted"
 	@echo "    make check-license-config - Verify about.toml accepted matches deny.toml"
+	@echo "    make sync-deny-skips    - Sync deny.toml [bans.skip] pins with Cargo.lock"
+	@echo "    make check-deny-skips   - Verify deny.toml skip pins match Cargo.lock"
 	@echo "    make deny-check       - cargo deny check (licenses, advisories, bans, sources)"
 	@echo "    make generate-third-party-licenses - Generate THIRD-PARTY-LICENSES for packaging"
 	@echo "    make check-third-party-licenses - Verify THIRD-PARTY-LICENSES is up to date"
@@ -459,6 +461,14 @@ sync-license-config:
 # check-license-config: Fail if about.toml accepted is out of sync with deny.toml.
 check-license-config:
 	@$(MAKE_RUN_LEAF) check-license-config -- bash -c 'cd "$(MKFILE_DIR)" && python3 "$(SCRIPTS_DIR)/sync_license_config.py" --check'
+
+# sync-deny-skips: Align deny.toml [bans.skip] version pins with Cargo.lock.
+sync-deny-skips:
+	cd "$(MKFILE_DIR)" && python3 $(SCRIPTS_DIR)/sync_deny_skips.py
+
+# check-deny-skips: Fail when bans.skip pins drift from Cargo.lock.
+check-deny-skips:
+	@$(MAKE_RUN_LEAF) check-deny-skips -- bash -c 'cd "$(MKFILE_DIR)" && python3 "$(SCRIPTS_DIR)/sync_deny_skips.py" --check'
 
 # deny-check: dependency policy via deny.toml (NFR-009, SEC-012).
 deny-check:

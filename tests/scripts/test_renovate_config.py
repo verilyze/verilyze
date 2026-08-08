@@ -205,9 +205,32 @@ def test_renovate_cargo_post_upgrade_commits_sbom() -> None:
         None,
     )
     assert match is not None
-    filters = match["postUpgradeTasks"]["fileFilters"]
+    tasks = match["postUpgradeTasks"]
+    filters = tasks["fileFilters"]
     assert "THIRD-PARTY-LICENSES" in filters
     assert "sbom/**" in filters
+    assert "deny.toml" in filters
+    assert tasks["commands"] == [
+        "bash scripts/renovate-post-upgrade-licenses.sh",
+        "bash scripts/renovate-post-upgrade-deny-skips.sh",
+    ]
+
+
+def test_renovate_cargo_post_upgrade_syncs_deny_skips() -> None:
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    rules = data.get("packageRules", [])
+    match = next(
+        (
+            r
+            for r in rules
+            if r.get("matchManagers") == ["cargo"] and "postUpgradeTasks" in r
+        ),
+        None,
+    )
+    assert match is not None
+    tasks = match["postUpgradeTasks"]
+    assert "bash scripts/renovate-post-upgrade-deny-skips.sh" in tasks["commands"]
+    assert tasks["executionMode"] == "branch"
 
 
 def test_renovate_cargo_deny_manager_matches_ci_env_and_coverage_nightly() -> None:
@@ -261,3 +284,4 @@ def test_renovate_workflow_allows_post_upgrade_sbom_script() -> None:
     assert "renovate-post-upgrade-sbom" in text
     assert "renovate-post-upgrade-licenses" in text
     assert "renovate-post-upgrade-upload-sarif" in text
+    assert "renovate-post-upgrade-deny-skips" in text

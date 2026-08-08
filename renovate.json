@@ -181,9 +181,12 @@
       "description": "Rust workspace: regenerate THIRD-PARTY-LICENSES after Cargo updates",
       "matchManagers": ["cargo"],
       "postUpgradeTasks": {
-        "commands": ["bash scripts/renovate-post-upgrade-licenses.sh"],
+        "commands": [
+          "bash scripts/renovate-post-upgrade-licenses.sh",
+          "bash scripts/renovate-post-upgrade-deny-skips.sh"
+        ],
         "executionMode": "branch",
-        "fileFilters": ["THIRD-PARTY-LICENSES", "sbom/**"],
+        "fileFilters": ["THIRD-PARTY-LICENSES", "sbom/**", "deny.toml"],
         "installTools": {
           "rust": {},
           "python": {}
