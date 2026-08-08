@@ -10,6 +10,7 @@
 
 # shellcheck disable=SC2034  # array consumed by scripts that source this file
 WORKSPACE_SCAN_EXCLUDE_DIRS=(
+  .git
   target
   .venv-lint
   .venv-test
