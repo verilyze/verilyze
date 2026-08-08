@@ -7,6 +7,15 @@ use std::path::Path;
 use vlz_db::DeclarationKind;
 use vlz_manifest_parser::{ParsedDependency, ParserError};
 
+/// Actionable hint for invalid requirement lines (NFR-018, SEC-008).
+pub const REQUIREMENTS_PARSE_LINE_HINT: &str = "invalid requirement syntax; use \
+    PEP 508 operators (==, >=, <=, ~=, !=, >, <, ===)";
+
+/// Format a parse error for a requirements.txt line without echoing line content.
+pub fn format_requirements_line_error(line: u32) -> String {
+    format!("line {line}: {REQUIREMENTS_PARSE_LINE_HINT}")
+}
+
 /// Parse requirements.txt with declaration line metadata.
 pub fn parse_requirements_txt_with_declarations(
     content: &str,
@@ -19,22 +28,22 @@ pub fn parse_requirements_txt_with_declarations(
         if trimmed.is_empty() || trimmed.starts_with('#') {
             continue;
         }
-        if trimmed.starts_with("-r ")
-            || trimmed.starts_with("-e ")
-            || trimmed.starts_with("--")
-            || trimmed.starts_with("-f ")
-            || trimmed.starts_with("-i ")
-        {
+        if is_requirement_directive(trimmed) {
             continue;
         }
-        if let Some(pkg) = parse_requirement_line(trimmed) {
-            parsed.push(ParsedDependency {
+        match parse_requirement_line(trimmed) {
+            Some(pkg) => parsed.push(ParsedDependency {
                 package: pkg,
                 path: path.to_path_buf(),
                 start_line,
                 end_line: None,
                 kind: DeclarationKind::Manifest,
-            });
+            }),
+            None => {
+                return Err(ParserError::Parse(
+                    format_requirements_line_error(start_line),
+                ));
+            }
         }
     }
     Ok(parsed)
@@ -54,6 +63,16 @@ pub fn parse_requirements_txt(
     .into_iter()
     .map(|dep| dep.package)
     .collect())
+}
+
+/// True when the line is a pip requirements-file directive, not a package spec.
+fn is_requirement_directive(trimmed: &str) -> bool {
+    trimmed.starts_with("-r ")
+        || trimmed.starts_with("-e ")
+        || trimmed.starts_with("-c ")
+        || trimmed.starts_with("--")
+        || trimmed.starts_with("-f ")
+        || trimmed.starts_with("-i ")
 }
 
 /// Parse a single requirement line into Package (name, version), or None if unparseable.
@@ -116,5 +135,46 @@ mod tests {
         assert_eq!(packages.len(), 2);
         assert_eq!(packages[0].name, "foo");
         assert_eq!(packages[1].name, "bar");
+    }
+
+    #[test]
+    fn parse_requirements_txt_skips_constraint_directive() {
+        let content = "foo==1.0\n-c constraints.txt\nbar>=2.0\n";
+        let packages = parse_requirements_txt(content).unwrap();
+        assert_eq!(packages.len(), 2);
+    }
+
+    #[test]
+    fn parse_requirements_txt_rejects_lone_equals() {
+        let err = parse_requirements_txt("foo=1.0\n").unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("line 1"));
+        assert!(msg.contains("PEP 508"));
+        assert!(!msg.contains("foo=1.0"));
+    }
+
+    #[test]
+    fn parse_requirements_txt_all_operators() {
+        let content = "\
+pkg==1.0\n\
+arbitrary===1.0.0\n\
+a~=2.0\n\
+b!=3.0\n\
+c>=4.0\n\
+d<=5.0\n\
+e>6.0\n\
+f<7.0\n";
+        let packages = parse_requirements_txt(content).unwrap();
+        assert_eq!(packages.len(), 8);
+        assert_eq!(packages[0].version, "1.0");
+        assert_eq!(packages[1].version, "1.0.0");
+        assert_eq!(packages[4].version, "4.0");
+    }
+
+    #[test]
+    fn format_requirements_line_error_omits_line_content() {
+        let msg = format_requirements_line_error(3);
+        assert!(msg.contains("line 3"));
+        assert!(msg.contains("PEP 508"));
     }
 }

@@ -10,6 +10,13 @@ Human-readable release notes for each version.
 
 ## [Unreleased]
 
+### Fixed
+
+- `requirements.txt` parsing rejects malformed version specifiers (for example
+  `package=version` instead of `package==version`), records `failed_parse` in
+  manifest coverage, and exits 4 (FR-010, FR-037). Supported PEP 508 operators:
+  `==`, `===`, `~=`, `!=`, `>=`, `<=`, `>`, `<`.
+
 ### Changed
 
 - Multi-manifest resolution progress (`Resolving N {language} manifest(s)...`)

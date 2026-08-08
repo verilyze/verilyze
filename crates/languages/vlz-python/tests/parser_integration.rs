@@ -24,23 +24,53 @@ async fn parse_requirements_txt_file() {
           qux~=3.1\n\
           --extra-index-url https://example.com\n\
           pkg[dev]==1.0\n\
-          \t # inline with nothing before\n\
-          ==1.0\n\
-          []\n",
+          ne!=1.0\n\
+          le<=3.0\n\
+          gt>4.0\n\
+          lt<5.0\n\
+          arbitrary===1.0.0\n",
     )
     .unwrap();
     let parser = RequirementsTxtParser::new();
     let graph = parser.parse(&path).await.unwrap();
-    assert_eq!(graph.packages.len(), 5);
+    assert_eq!(graph.packages.len(), 10);
     let names: Vec<_> =
         graph.packages.iter().map(|p| p.name.as_str()).collect();
-    assert_eq!(names, ["foo", "bar", "baz", "qux", "pkg"]);
+    assert_eq!(
+        names,
+        [
+            "foo",
+            "bar",
+            "baz",
+            "qux",
+            "pkg",
+            "ne",
+            "le",
+            "gt",
+            "lt",
+            "arbitrary"
+        ]
+    );
     assert_eq!(graph.packages[0].version, "1.0.0");
     assert_eq!(graph.packages[1].version, "2.0");
     assert_eq!(graph.packages[2].version, "any");
     assert_eq!(graph.packages[3].version, "3.1");
     assert_eq!(graph.packages[4].version, "1.0");
+    assert_eq!(graph.packages[9].version, "1.0.0");
     assert_eq!(graph.manifest_path.as_deref(), Some(path.as_path()));
+}
+
+#[tokio::test]
+async fn parse_requirements_txt_malformed_single_equals_returns_error() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("requirements.txt");
+    std::fs::write(&path, b"foo==1.0\nbar=2.0\n").unwrap();
+    let parser = RequirementsTxtParser::new();
+    let err = parser.parse(&path).await.unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("line 2"), "got: {msg}");
+    assert!(msg.contains("PEP 508"), "got: {msg}");
+    assert!(!msg.contains("bar=2.0"), "must not echo line content");
 }
 
 #[tokio::test]

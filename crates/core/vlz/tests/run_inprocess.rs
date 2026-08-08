@@ -1460,6 +1460,47 @@ fn run_scan_orphan_multi_lock_partial_parse_exit_2() {
 
 #[cfg(feature = "python")]
 #[test]
+fn run_scan_malformed_requirements_txt_failed_parse_exit_4() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let good = dir.path().join("good");
+        let bad = dir.path().join("bad");
+        std::fs::create_dir_all(&good).expect("mkdir good");
+        std::fs::create_dir_all(&bad).expect("mkdir bad");
+        write_requirements_with_pylock(&good, "good-pkg", "1.0");
+        std::fs::write(bad.join("requirements.txt"), "bad-pkg=1.0\n")
+            .expect("write bad requirements");
+        let out_path = dir.path().join("report.json");
+        let root = dir.path().to_str().unwrap();
+
+        let code = run_async(&[
+            "scan",
+            root,
+            "--format",
+            "json",
+            "--summary-file",
+            &format!("json:{}", out_path.display()),
+            "--offline",
+        ]);
+        assert_eq!(code, 4);
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&out_path).unwrap())
+                .unwrap();
+        let coverage = parsed["manifest_coverage"].as_array().unwrap();
+        assert_eq!(coverage.len(), 2);
+        let statuses: Vec<_> = coverage
+            .iter()
+            .map(|e| e["status"].as_str().unwrap())
+            .collect();
+        assert!(statuses.contains(&"scanned_transitive"));
+        assert!(statuses.contains(&"failed_parse"));
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
 fn run_scan_adjacent_multi_lock_manifest_paths_per_source() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
