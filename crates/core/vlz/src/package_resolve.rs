@@ -340,7 +340,7 @@ async fn run_language_phase(
         resolution_semaphore,
     } = args;
     let language_discovery_started_at = Instant::now();
-    let (manifests, mut deferred_messages) = discover_manifests_for_language(
+    let (manifests, deferred_messages) = discover_manifests_for_language(
         &language,
         root_path,
         finder,
@@ -357,9 +357,7 @@ async fn run_language_phase(
     );
     let manifest_count = manifests.len();
     if manifest_count > 1 {
-        deferred_messages.push(format!(
-            "Resolving {manifest_count} {language} manifest(s)..."
-        ));
+        info!("Resolving {manifest_count} {language} manifest(s)...");
     }
     let pm_dependent_count = manifests
         .iter()
