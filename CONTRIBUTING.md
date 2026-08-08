@@ -807,7 +807,11 @@ Use this workflow when `make deny-check` reports duplicate crates:
 6. Re-audit existing `bans.skip` entries periodically by removing one skip at a
    time in a temporary deny config and running `cargo deny check bans`. Remove
    skip entries immediately when they no longer trigger duplicate failures.
-7. For any dependency version or feature change made during convergence, run
+7. When Renovate bumps a skipped crate's patch version in `Cargo.lock`, run
+   `make sync-deny-skips` (or rely on `renovate-post-upgrade-deny-skips.sh` on
+   dependency PRs) so `deny.toml` pins stay aligned. New skips still require a
+   manual edit with a documented `reason`.
+8. For any dependency version or feature change made during convergence, run
    `cargo deny check licenses` (or `make deny-check`) and keep only
    GPL-3.0-or-later-compatible results.
 
@@ -1115,6 +1119,12 @@ releases](#versioning-and-releases) below.
   needed, then runs **`scripts/generate-third-party-licenses.sh`**, the same
   script invoked by **`make generate-third-party-licenses`**, and
   **`make generate-sbom`** (commits **`sbom/**`** with **`THIRD-PARTY-LICENSES`**).
+  The same Cargo hook then runs **`bash scripts/renovate-post-upgrade-deny-skips.sh`**
+  to sync existing **`deny.toml`** **`[bans.skip]`** version pins with
+  **`Cargo.lock`** (via **`scripts/sync_deny_skips.py`**, same logic as
+  **`make sync-deny-skips`**) and **`make deny-check`**. Only pins for skips
+  already listed in **`deny.toml`** are updated; new duplicate versions still
+  require a manual skip entry with a **`reason`**.
   After **`pyproject.toml`** PEP 621 / `.[dev]` dep updates, **`postUpgradeTasks`**
   run **`bash scripts/renovate-post-upgrade-sbom.sh`** to refresh
   **`pylock.dev.toml`** (`make generate-pylock-dev`) and **`sbom/**`**. Containerbase
