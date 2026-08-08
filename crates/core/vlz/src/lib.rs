@@ -70,23 +70,16 @@ where
         .filter_or("RUST_LOG", "warn")
         .write_style_or("RUST_LOG_STYLE", "always");
     let args_vec: Vec<_> = args.into_iter().collect();
-    let verbose_count = args_vec
-        .iter()
-        .filter(|a| {
-            Into::<std::ffi::OsString>::into((*a).clone()).to_string_lossy()
-                == "-v"
-        })
-        .count();
-    let log_filter = run::log_level_from_verbosity_count(verbose_count);
-    // env_logger::init() may only succeed once per process; allow re-entry from
-    // tests that call run_main_from_args more than once.
-    let _ = env_logger::Builder::from_env(env)
-        .filter_level(log_filter)
-        .try_init();
-
     let args = match cli::Cli::try_parse_from(args_vec) {
         Ok(a) => a,
         Err(e) => {
+            let _ = env_logger::Builder::from_env(
+                env_logger::Env::default()
+                    .filter_or("RUST_LOG", "warn")
+                    .write_style_or("RUST_LOG_STYLE", "always"),
+            )
+            .filter_level(run::log_level_from_verbosity_count(0))
+            .try_init();
             e.print().ok();
             // OP-012: --help and --version are informational; exit 0.
             let code = match e.kind() {
@@ -99,6 +92,14 @@ where
             return code;
         }
     };
+    let log_filter =
+        run::log_level_from_verbosity_count(args.verbose as usize);
+    // env_logger::init() may only succeed once per process; allow re-entry from
+    // tests that call run_main_from_args more than once.
+    let _ = env_logger::Builder::from_env(env)
+        .filter_level(log_filter)
+        .try_init();
+
     let verbose = args.verbose;
     run(args).await.unwrap_or_else(|e| {
         if run::is_broken_pipe(&e) {

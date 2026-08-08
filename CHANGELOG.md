@@ -10,6 +10,12 @@ Human-readable release notes for each version.
 
 ## [Unreleased]
 
+### Changed
+
+- Multi-manifest resolution progress (`Resolving N {language} manifest(s)...`)
+  is now logged at info level and appears only with `-v` / `--verbose`
+  (NFR-013). Default scan stderr stays quiet on successful runs.
+
 ## [0.7.1] - 2026-07-25
 
 ### Fixed

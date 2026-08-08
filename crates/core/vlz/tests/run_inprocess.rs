@@ -2096,6 +2096,82 @@ fn run_preload_direct_only_summary_when_blocking_zero() {
     );
 }
 
+#[cfg(feature = "rust")]
+fn write_two_manifest_rust_fixture(root: &std::path::Path) {
+    const LOCK: &str = r#"version = 3
+
+[[package]]
+name = "serde"
+version = "1.0.2"
+"#;
+    std::fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"root\"\nversion = \"0.1.0\"\n",
+    )
+    .expect("write root Cargo.toml");
+    std::fs::write(root.join("Cargo.lock"), LOCK).expect("write Cargo.lock");
+    let member = root.join("crates").join("foo");
+    std::fs::create_dir_all(&member).expect("mkdir crates/foo");
+    std::fs::write(
+        member.join("Cargo.toml"),
+        "[package]\nname = \"foo\"\nversion = \"0.1.0\"\n",
+    )
+    .expect("write member Cargo.toml");
+}
+
+#[cfg(feature = "rust")]
+fn run_scan_multi_manifest_rust(args: &[&str]) -> std::process::Output {
+    use std::process::Command;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let xdg = dir.path().join("xdg");
+    std::fs::create_dir_all(&xdg).expect("mkdir xdg");
+    let proj = dir.path().join("proj");
+    std::fs::create_dir_all(&proj).expect("mkdir proj");
+    write_two_manifest_rust_fixture(&proj);
+    let root_str = proj.to_str().unwrap();
+
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_vlz"));
+    cmd.args(["scan", root_str, "--offline", "--benchmark"])
+        .args(args)
+        .env("XDG_CACHE_HOME", xdg.to_str().unwrap())
+        .env("XDG_DATA_HOME", xdg.to_str().unwrap())
+        .env("XDG_CONFIG_HOME", xdg.to_str().unwrap());
+    let verbose = args.iter().any(|a| *a == "-v" || *a == "--verbose");
+    if !verbose {
+        cmd.env("RUST_LOG", "off");
+    }
+    cmd.output().expect("run vlz")
+}
+
+#[cfg(feature = "rust")]
+#[test]
+fn run_scan_multi_manifest_rust_no_resolution_progress_default_verbosity() {
+    let _ = env_logger::try_init();
+    let out = run_scan_multi_manifest_rust(&[]);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(0), "stderr={stderr}");
+    assert!(
+        !stderr.contains("Resolving 2 rust manifest(s)"),
+        "default verbosity should not emit resolution progress; got: {stderr}"
+    );
+}
+
+#[cfg(feature = "rust")]
+#[test]
+fn run_scan_multi_manifest_rust_resolution_progress_with_verbose() {
+    let _ = env_logger::try_init();
+    for flag in ["-v", "--verbose"] {
+        let out = run_scan_multi_manifest_rust(&[flag]);
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert_eq!(out.status.code(), Some(0), "flag {flag}: stderr={stderr}");
+        assert!(
+            stderr.contains("Resolving 2 rust manifest(s)"),
+            "verbose ({flag}) should emit resolution progress; got: {stderr}"
+        );
+    }
+}
+
 #[cfg(feature = "python")]
 #[test]
 fn run_scan_json_includes_manifest_coverage() {
