@@ -129,7 +129,7 @@ jobs:
           cargo -V
 
       - name: Cache Cargo
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           cache-workspace-crates: true
           cache-on-failure: true
@@ -294,7 +294,7 @@ jobs:
       # before this step so restores stay aligned with the check job.
       - name: Cache Cargo
         id: rust_cache
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: check
           cache-workspace-crates: true
