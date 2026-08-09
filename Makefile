@@ -162,8 +162,8 @@ help:
 
 # ---- Setup & environment ----
 # Prepare dev environment: bootstrap Python venvs and non-system Rust CLI tools.
-# System deps (rust, python3, shellcheck, afl++) must be installed separately;
-# see CONTRIBUTING.md "Quick setup".
+# System deps (rust, python3, shellcheck, gitleaks, afl++) must be installed
+# separately; see CONTRIBUTING.md "Quick setup".
 setup: setup-system-deps setup-dev-tools $(VENV_LINT)/bin/black venv-test-ready
 ifeq ($(filter setup,$(MAKECMDGOALS)),setup)
 	@echo "Dev environment ready. Run: make check"
@@ -193,6 +193,10 @@ setup-system-deps:
 		 echo "Install hint (Fedora): sudo dnf install ShellCheck" >&2 && \
 		 echo "Install hint (openSUSE): sudo zypper install ShellCheck" >&2 && \
 		 exit 1)
+	@command -v gitleaks >/dev/null 2>&1 || \
+		(cd "$(MKFILE_DIR)" && PYTHONPATH="$(MKFILE_DIR)" python3 -c \
+		'from scripts.gitleaks_native import report_missing_gitleaks; \
+		raise SystemExit(report_missing_gitleaks())')
 
 setup-dev-tools: setup-cargo-deny setup-cargo-about setup-cargo-llvm-cov setup-cargo-afl
 
@@ -441,7 +445,8 @@ check-rpm-spec-sync:
 check-obs-packaging:
 	@$(MAKE_RUN_LEAF) check-obs-packaging -- "$(SCRIPTS_DIR)/check-obs-packaging.sh"
 
-# check-super-linter-native: ENV key order and Checkov skip parity (no Docker).
+# check-super-linter-native: ENV key order, Checkov skip, codespell, gitleaks
+# (no Docker). Requires host gitleaks (see setup-system-deps).
 check-super-linter-native: venv-test-ready
 	@$(MAKE_RUN_LEAF) check-super-linter-native -- "$(SCRIPTS_DIR)/check-super-linter-native.sh"
 

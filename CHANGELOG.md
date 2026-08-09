@@ -19,6 +19,11 @@ Human-readable release notes for each version.
 
 ### Changed
 
+- Native gitleaks runs in `make check-super-linter-native` / `make check-fast`
+  via `gitleaks directory --redact` (worktree scan + `.gitleaks.toml`; same
+  command shape as super-linter Gitleaks; host binary may differ from the
+  pinned image). CI installs the pinned binary with
+  `scripts/ci-install-gitleaks.sh`.
 - Multi-manifest resolution progress (`Resolving N {language} manifest(s)...`)
   is now logged at info level and appears only with `-v` / `--verbose`
   (NFR-013). Default scan stderr stays quiet on successful runs.

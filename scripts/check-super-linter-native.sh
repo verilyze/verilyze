@@ -34,3 +34,8 @@ if [[ ! -x "${CODESPELL}" ]]; then
   exit 1
 fi
 "${CODESPELL}"
+
+# Worktree scan + redact (super-linter Gitleaks parity). Install hints live in
+# scripts/gitleaks_native.py and Makefile setup-system-deps.
+PYTHONPATH="${ROOT_DIR}${PYTHONPATH:+:${PYTHONPATH}}" python3 \
+  "${ROOT_DIR}/scripts/gitleaks_native.py" "${ROOT_DIR}"

@@ -267,6 +267,9 @@ jobs:
             ! -name '*.deb' -exec rm -rf {} +
           sudo chown -R "$(id -u)":"$(id -g)" "${_apt_arch}"
 
+      - name: Install gitleaks
+        run: ./scripts/ci-install-gitleaks.sh
+
       - name: Install AFL++
         if: steps.fuzz_preflight.outputs.fuzz_needed == 'true'
         env:

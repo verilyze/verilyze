@@ -35,7 +35,8 @@ When diff touches super-linter paths (see [targets.md](targets.md)):
 - Optional: launch a **shell** subagent with `make super-linter` in background while running other gates
 - After Renovate digest bumps or nightly badge failures: `make super-linter-full`
 
-`make check-fast` includes `check-super-linter-native` (ENV key order and Checkov skip parity without Docker).
+`make check-fast` includes `check-super-linter-native` (ENV key order, Checkov
+skip parity, codespell, and host gitleaks directory/`--redact` without Docker).
 
 Skip local super-linter for Rust-only PRs; CI still runs incremental super-linter.
 
