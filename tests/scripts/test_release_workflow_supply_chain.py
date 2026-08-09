@@ -103,6 +103,17 @@ def test_release_workflow_macos_hash_uses_portable_base64() -> None:
     assert "base64 < checksum" in build_job.group(0)
 
 
+def test_release_workflow_build_binary_denies_rustc_warnings() -> None:
+    workflow = _release_workflow_text()
+    build_job = re.search(
+        r"build-binary:.*?(?=\n  binary-slsa-provenance:)",
+        workflow,
+        re.DOTALL,
+    )
+    assert build_job is not None
+    assert "RUSTFLAGS: -Dwarnings" in build_job.group(0)
+
+
 def test_release_workflow_archive_upload_uses_relative_path() -> None:
     """upload-artifact on Windows does not resolve MSYS absolute paths."""
     workflow = _release_workflow_text()

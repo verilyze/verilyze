@@ -364,8 +364,10 @@ fix = PATCH).
 
 **Release checklist:**
 
-Release builds (`make release` or `cargo build --release`) produce binaries
-stripped of symbols (NFR-023) for security and smaller size.
+Release builds (`make release` or `cargo build --release` via the release
+workflow) produce binaries stripped of symbols (NFR-023) for security and
+smaller size. `make release` and the release/`build-matrix` CI jobs compile
+with `RUSTFLAGS=-Dwarnings` so rustc warnings fail the build.
 
 1. Update [CHANGELOG.md](CHANGELOG.md): add a curated `## [X.Y.Z]` section
    matching the new tag (without `v`) **before** creating the release tag.
@@ -952,6 +954,14 @@ releases](#versioning-and-releases) below.
 - The codebase uses `#![deny(unsafe_code)]`.
 - Run `make fmt` to auto-format Rust code; run `make clippy` to verify lints.
   Both are included in `make check`; fix any failures before submitting.
+  `make clippy` uses `RUSTFLAGS=-Dwarnings` on the host OS. Platform-specific
+  code must be `cfg`-gated so unused helpers do not warn on other targets.
+  Multi-OS CI (`build-matrix` in `.github/workflows/ci.yml`), `make release`,
+  release workflow binary builds, and the packaging Docker image build also
+  set `RUSTFLAGS=-Dwarnings` so rustc warnings fail before merge and before
+  published archives are produced. Alpine `APKBUILD` and OBS RPM specs still
+  invoke bare `cargo build --release` (no `-Dwarnings`); prefer `make release`
+  / the GitHub release workflow when warning-free builds are required.
 - Python scripts in `scripts/` follow PEP 8, use line length 79, and pass
   `make lint-python` (modern-style checker, black, pylint, mypy, bandit).
   The Makefile auto-creates `.venv-lint` and installs the linters if they are

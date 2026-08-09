@@ -21,7 +21,8 @@ WORKDIR /build
 COPY . .
 
 # THIRD-PARTY-LICENSES is committed (default-features variant; superset of docker deps).
-RUN cargo build --release --locked --no-default-features --features docker \
+RUN RUSTFLAGS="${RUSTFLAGS:-} -Dwarnings" \
+    cargo build --release --locked --no-default-features --features docker \
     --target x86_64-unknown-linux-musl && \
     strip target/x86_64-unknown-linux-musl/release/vlz
 

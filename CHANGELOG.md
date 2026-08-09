@@ -26,6 +26,10 @@ Human-readable release notes for each version.
 
 ### Fixed
 
+- Non-Linux release builds no longer emit rustc warnings for Linux-only TLS
+  CRL helpers in `vlz-cve-client` (cfg-gated). Multi-OS CI `build-matrix`,
+  `make release`, release workflow binary builds, and the Docker image build
+  set `RUSTFLAGS=-Dwarnings` so warning-free binaries are required.
 - Release workflow uploads Windows platform archives via a relative
   `dist-archive/` path so `upload-artifact` finds the zip on windows-latest
   (MSYS absolute paths like `/d/a/...` were silently skipped).

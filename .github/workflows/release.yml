@@ -109,6 +109,8 @@ jobs:
           cargo -V
 
       - name: Build release binary
+        env:
+          RUSTFLAGS: -Dwarnings
         run: cargo build --release --locked -p vlz
 
       - name: Setup Python (Windows zip archives)

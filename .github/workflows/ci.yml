@@ -114,6 +114,9 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+    env:
+      # Fail on rustc warnings on every OS (platform-gated dead_code, etc.).
+      RUSTFLAGS: -Dwarnings
     permissions:
       contents: read
       actions: write
