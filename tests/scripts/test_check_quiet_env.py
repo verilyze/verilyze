@@ -93,6 +93,14 @@ def test_build_matrix_library_tests_use_quiet_log_env() -> None:
     assert "--quiet" in step
 
 
+def test_build_matrix_denies_rustc_warnings() -> None:
+    text = _CI.read_text(encoding="utf-8")
+    start = text.index("  build-matrix:")
+    end = text.index("  check:", start)
+    header = text[start:end].split("steps:")[0]
+    assert "RUSTFLAGS: -Dwarnings" in header
+
+
 def test_check_job_sets_verbose_from_runner_debug() -> None:
     text = _CI.read_text(encoding="utf-8")
     start = text.index("  check:")

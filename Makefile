@@ -253,7 +253,7 @@ debug: check-headers
 
 release: check-headers
 	$(MAKE) -C "$(MKFILE_DIR)" -f "$(MKFILE_DIR)/Makefile" generate-manpages
-	cd "$(MKFILE_DIR)" && cargo build --release
+	cd "$(MKFILE_DIR)" && RUSTFLAGS="$(RUSTFLAGS) -Dwarnings" cargo build --release
 
 # ---- Shell completions (FR-028) ----
 # Incremental: only regenerate when binary is newer than completion files.
