@@ -351,9 +351,9 @@
     {
       "@type": "Package",
       "name": "async-trait",
-      "packageUrl": "pkg:cargo/async-trait@0.1.91",
-      "spdxId": "urn:spdx.dev:pkg-cargo-async-trait-0-1-91",
-      "versionInfo": "0.1.91"
+      "packageUrl": "pkg:cargo/async-trait@0.1.92",
+      "spdxId": "urn:spdx.dev:pkg-cargo-async-trait-0-1-92",
+      "versionInfo": "0.1.92"
     },
     {
       "@type": "Package",
@@ -477,23 +477,23 @@
     {
       "@type": "Package",
       "name": "clap",
-      "packageUrl": "pkg:cargo/clap@4.6.5",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-4-6-5",
-      "versionInfo": "4.6.5"
+      "packageUrl": "pkg:cargo/clap@4.6.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-4-6-6",
+      "versionInfo": "4.6.6"
     },
     {
       "@type": "Package",
       "name": "clap_builder",
-      "packageUrl": "pkg:cargo/clap_builder@4.6.5",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-builder-4-6-5",
-      "versionInfo": "4.6.5"
+      "packageUrl": "pkg:cargo/clap_builder@4.6.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-builder-4-6-6",
+      "versionInfo": "4.6.6"
     },
     {
       "@type": "Package",
       "name": "clap_complete",
-      "packageUrl": "pkg:cargo/clap_complete@4.6.8",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-complete-4-6-8",
-      "versionInfo": "4.6.8"
+      "packageUrl": "pkg:cargo/clap_complete@4.6.9",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-complete-4-6-9",
+      "versionInfo": "4.6.9"
     },
     {
       "@type": "Package",
@@ -512,9 +512,9 @@
     {
       "@type": "Package",
       "name": "clap_mangen",
-      "packageUrl": "pkg:cargo/clap_mangen@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-mangen-0-3-1",
-      "versionInfo": "0.3.1"
+      "packageUrl": "pkg:cargo/clap_mangen@0.3.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-mangen-0-3-2",
+      "versionInfo": "0.3.2"
     },
     {
       "@type": "Package",
@@ -1492,37 +1492,37 @@
     {
       "@type": "Package",
       "name": "ruff_python_ast",
-      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.7",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-7",
-      "versionInfo": "0.0.7"
+      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-8",
+      "versionInfo": "0.0.8"
     },
     {
       "@type": "Package",
       "name": "ruff_python_parser",
-      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.7",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-7",
-      "versionInfo": "0.0.7"
+      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-8",
+      "versionInfo": "0.0.8"
     },
     {
       "@type": "Package",
       "name": "ruff_python_trivia",
-      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.7",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-7",
-      "versionInfo": "0.0.7"
+      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-8",
+      "versionInfo": "0.0.8"
     },
     {
       "@type": "Package",
       "name": "ruff_source_file",
-      "packageUrl": "pkg:cargo/ruff_source_file@0.0.7",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-7",
-      "versionInfo": "0.0.7"
+      "packageUrl": "pkg:cargo/ruff_source_file@0.0.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-8",
+      "versionInfo": "0.0.8"
     },
     {
       "@type": "Package",
       "name": "ruff_text_size",
-      "packageUrl": "pkg:cargo/ruff_text_size@0.0.7",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-7",
-      "versionInfo": "0.0.7"
+      "packageUrl": "pkg:cargo/ruff_text_size@0.0.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-8",
+      "versionInfo": "0.0.8"
     },
     {
       "@type": "Package",
@@ -1842,9 +1842,9 @@
     {
       "@type": "Package",
       "name": "thiserror",
-      "packageUrl": "pkg:cargo/thiserror@2.0.19",
-      "spdxId": "urn:spdx.dev:pkg-cargo-thiserror-2-0-19",
-      "versionInfo": "2.0.19"
+      "packageUrl": "pkg:cargo/thiserror@2.0.20",
+      "spdxId": "urn:spdx.dev:pkg-cargo-thiserror-2-0-20",
+      "versionInfo": "2.0.20"
     },
     {
       "@type": "Package",
@@ -1856,9 +1856,9 @@
     {
       "@type": "Package",
       "name": "thiserror-impl",
-      "packageUrl": "pkg:cargo/thiserror-impl@2.0.19",
-      "spdxId": "urn:spdx.dev:pkg-cargo-thiserror-impl-2-0-19",
-      "versionInfo": "2.0.19"
+      "packageUrl": "pkg:cargo/thiserror-impl@2.0.20",
+      "spdxId": "urn:spdx.dev:pkg-cargo-thiserror-impl-2-0-20",
+      "versionInfo": "2.0.20"
     },
     {
       "@type": "Package",
