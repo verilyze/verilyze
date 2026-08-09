@@ -44,7 +44,7 @@ def test_check_slow_lists_fuzz_then_coverage() -> None:
 def test_fuzz_then_coverage_target_runs_make_fuzz_changed_then_coverage_quick() -> None:
     text = (repo_root() / "Makefile").read_text(encoding="utf-8")
     assert re.search(
-        r"^fuzz-then-coverage:\n\t\$\(MAKE\) fuzz-changed\n\t\$\(MAKE\) coverage-quick",
+        r"^fuzz-then-coverage:\n\t@\$\(MAKE\) fuzz-changed\n\t@\$\(MAKE\) coverage-quick",
         text,
         re.MULTILINE,
     ), "fuzz-then-coverage must run fuzz-changed then coverage-quick sequentially"
