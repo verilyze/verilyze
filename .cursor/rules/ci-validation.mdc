@@ -68,4 +68,6 @@ Hooks opt-out: `VLZ_CURSOR_HOOKS_DISABLE=1`.
 Do **not** bump versions, create release tags, or push `v*` tags unless the
 user explicitly asked for a release in the current conversation. Follow
 [`.cursor/skills/release-prepare/SKILL.md`](.cursor/skills/release-prepare/SKILL.md).
-Confirm target version and publish intent before tagging/pushing.
+If intent or version is unclear, confirm **once** at kickoff (within ~20s);
+under **Publish**, do not re-confirm before tag push or stabilization tag
+moves.

@@ -12,12 +12,56 @@ description: Prepares or executes a verilyze release cut when the user explicitl
 ## Authorization (required)
 
 Start this workflow **only** when the human explicitly asks for a release
-(e.g. "prepare release 0.2.3", "cut the next release", "push release tag
-v0.2.3"). Do **not** bump versions, tag, or push release tags without that
-prompt.
+(e.g. "cut the next release", "prepare and publish 0.2.3", "push release tag
+v0.2.3", "draft a release PR only"). Do **not** bump versions, tag, or push
+release tags without that prompt.
 
-If the target version is unclear, propose one from SemVer rules in
-CONTRIBUTING.md and **wait for confirmation** before editing `Cargo.toml`.
+### One-time kickoff confirm (allowed)
+
+It is OK to ask the user for approval **once**, at the **start** of the
+process (target: within the first ~20 seconds of the agent turn). Bundle
+everything that needs a human decision into that single message:
+
+- Intent mode (**Prepare only** vs **Publish**)
+- Proposed SemVer (if unspecified or ambiguous)
+- That Publish includes PR merge, signed tag push, stabilization tag moves,
+  and any follow-ons named in the request
+
+After the user confirms (or when the original message already states clear
+Publish intent **and** a clear version), do **not** ask again for chat
+confirmation between later steps.
+
+Skip the kickoff confirm when the ask already names both intent and version
+unambiguously (e.g. "cut and publish v0.8.0", "draft release PR for 0.8.0
+only -- do not tag").
+
+### Intent modes
+
+Classify the request once (via the kickoff confirm if needed), then run that
+mode without re-asking for the same steps:
+
+| Mode | Example phrases | Agent may |
+|------|-----------------|-----------|
+| **Prepare only** | "draft the release PR", "bump to X.Y.Z but don't publish", "prepare release PR only" | CHANGELOG, version bump, packaging, open PR; merge only if explicitly asked; **no** tag, tag push, or stabilization tag move |
+| **Publish** | "cut a release", "prepare and publish", "full release", "push release tag vX.Y.Z", "cut then run nightly" | Full path through signed tag push, `release.yml` watch, and stabilization until success (or a hard stop below) |
+
+Treat bare "prepare release" / "prepare a release" as **ambiguous**: include
+intent in the kickoff confirm; do not assume Publish or Prepare only.
+
+A confirmed **Publish** ask is a **one-shot grant** for: SemVer, release PR,
+merge, signed tag, tag push, monitoring, draft cleanup, and tag moves during
+stabilization. Do **not** stop for chat confirmation between those steps.
+
+If the same message names a follow-on after a successful release (e.g. run
+`verilyze-nightly`), run it after `release.yml` succeeds without another
+confirm.
+
+### Version selection
+
+If the target version is clear, use it. If unspecified, propose SemVer from
+CONTRIBUTING.md in the kickoff confirm (or announce and proceed when Publish
+intent and version are already unambiguous). Wait for the kickoff reply when
+SemVer is genuinely ambiguous (e.g. conflicting major vs minor signals).
 
 ## Prerequisites (check before tagging)
 
@@ -38,15 +82,19 @@ Use a release branch and PR instead:
 1. Branch from current `main` (e.g. `release/vX.Y.Z`).
 2. Commit release prep on that branch.
 3. `git push -u origin release/vX.Y.Z` and open a PR to `main`.
-4. Wait for CI green; merge with `gh pr merge` (or human review).
+4. Under **Publish** (or Prepare only when merge was explicitly requested):
+   wait for CI green; merge with `gh pr merge` (or human review).
 5. `git checkout main && git pull origin main` locally.
-6. Tag the merged commit on `main`; push **only** the tag (step 9 below).
+6. Under **Publish** only: tag the merged commit on `main`; push **only** the
+   tag (workflow steps 11-12).
 
 Pushing `vX.Y.Z` triggers `release.yml`; pushing `main` is not required for
 publish and bypasses project review policy.
 
 ## Workflow
 
+0. **Kickoff** -- If intent or version is missing/ambiguous, send the one-time
+   kickoff confirm immediately; wait for the reply before editing files.
 1. **CHANGELOG** -- Add curated `## [X.Y.Z]` to CHANGELOG.md; draft bullets
    from `git log` since last tag; human may edit before commit. Add version
    bullets only; do not edit the CHANGELOG header or add maintainer workflow
@@ -56,20 +104,42 @@ publish and bypasses project review policy.
 4. **`make release-preflight`** (CHANGELOG, OBS/packaging, upload round-trip)
 5. **Full gate** -- `make -j check` (use shell subagent in background if helpful)
 6. **Branch and commit** -- create `release/vX.Y.Z` from `main`; signed commit
-   when user asked to complete release prep (`chore: prepare vX.Y.Z release`)
-7. **Pull request** -- `git push -u origin release/vX.Y.Z`; `gh pr create`;
-   wait for CI green; merge to `main` (do not push `main` directly)
-8. **Sync local `main`** -- `git checkout main && git pull origin main`
-9. **Pre-tag gate (required)** -- on merged `main`, `make release-preflight`
-   must pass before tagging. Re-run if the release PR touched `release.yml` or
-   `scripts/release-*.sh`. Optional alone: `make release-verify-upload`.
-10. **Tag** -- when user explicitly asks to tag or publish:
-    `git tag -s vX.Y.Z -m "Release vX.Y.Z"`
-11. **Push tag** -- only after user confirms publish intent:
+   (`chore: prepare vX.Y.Z release`)
+7. **Pull request** -- `git push -u origin release/vX.Y.Z`; `gh pr create`
+8. **Prepare only stop** -- If mode is **Prepare only**, stop here (open PR)
+   unless the user explicitly asked to merge without publishing. Do not run
+   steps 9-14. Do not create or push a `v*` tag.
+9. **Merge** (**Publish**, or Prepare only when merge was requested) -- wait
+   for CI green; merge to `main` (do not push `main` directly)
+10. **Sync local `main`** -- `git checkout main && git pull origin main`
+11. **Pre-tag gate (required)** -- on merged `main`, `make release-preflight`
+    must pass before tagging. Re-run if the release PR touched `release.yml` or
+    `scripts/release-*.sh`. Optional alone: `make release-verify-upload`.
+12. **Tag + push** (**Publish** only) -- after merge + preflight, create and
+    push the signed tag in one step (no second chat confirm):
+    `git tag -s vX.Y.Z -m "Release vX.Y.Z"` then
     `git push origin vX.Y.Z` (never bundle with `git push origin main`)
-12. **Monitor** -- `gh run watch --workflow=release.yml`; then
+13. **Monitor** -- `gh run watch --workflow=release.yml`; then
     `gh release view vX.Y.Z`
-13. **Preview notes anytime** -- `make release-notes VERSION=x.y.z`
+14. **Follow-ons** -- if the original request named post-success work (e.g.
+    `verilyze-nightly`), run it after `release.yml` succeeds
+15. **Preview notes anytime** -- `make release-notes VERSION=x.y.z`
+
+## Cursor auto-review (tag push / tag move)
+
+Tag push and remote tag delete/repush often trigger Cursor auto-review. Under
+**Publish** or an in-progress stabilization loop:
+
+1. Attempt the shell command normally first.
+2. If Auto-review blocks it, **immediately retry the exact same command** with
+   `request_smart_mode_approval: true` and the exact
+   `smart_mode_block_reason` from the rejection. Do **not** ask for a separate
+   chat confirmation before or after that card.
+3. Pause only if the user dismisses or skips the approval card; then tell them
+   how to approve or run the command themselves and continue when they do.
+
+Cursor auto-review cards are **not** a substitute for the kickoff confirm and
+do not count as a second chat prompt when the agent did not ask in chat.
 
 ## Optional deeper checks
 
@@ -78,13 +148,24 @@ publish and bypasses project review policy.
 
 ## Failure recovery
 
-If draft release exists but publish failed:
+Before deleting a GitHub Release, confirm it is still a draft:
+
+```sh
+gh release view vX.Y.Z --json isDraft,url
+```
+
+If `isDraft` is true and publish failed:
 
 ```sh
 gh release delete vX.Y.Z --yes
 ```
 
-Fix root cause; re-tag only after user confirms.
+If it is not a draft, do **not** delete or move the tag; stop and cut
+`X.Y.(Z+1)` instead.
+
+Under **Publish**, fix the root cause and continue the stabilization loop
+without waiting for another chat confirm. Under **Prepare only**, do not
+re-tag or push tags.
 
 **Symptom guide** (v0.4.0 stabilization lessons):
 
@@ -105,13 +186,19 @@ CI or script fix during stabilization.
 
 **When to use:** The release workflow failed due to fixable CI/script/secret
 issues; `Cargo.toml` and `CHANGELOG.md ## [X.Y.Z]` are already correct for the
-intended release.
+intended release. Under **Publish**, enter this loop automatically -- do not
+wait for the user to say "move the tag".
 
-**Loop:**
+**Loop** (at most **3** tag-move retries after the initial tag push; then stop
+and report):
 
-1. Fix on the release branch with ordinary fix commits (no version bump).
-2. Add bullets under the existing `## [X.Y.Z]` section (not a new version header).
-3. Move the tag locally and on origin (requires explicit user approval):
+1. Fix on a branch with ordinary fix commits (no version bump); open PR; wait
+   for CI green; merge to `main`.
+2. Add bullets under the existing `## [X.Y.Z]` section (not a new version
+   header).
+3. Sync `main`, re-run `make release-preflight`, verify the GitHub Release is
+   still a draft (or absent), then move the tag locally and on origin
+   (authorized by the original Publish grant):
 
 ```sh
 git tag -d vX.Y.Z
@@ -120,15 +207,25 @@ git tag -s vX.Y.Z -m "Release vX.Y.Z"
 git push origin vX.Y.Z
 ```
 
-4. Watch `gh run watch --workflow=release.yml` until success.
+4. Watch `gh run watch --workflow=release.yml` until success; if it fails again
+   and a tag move is still allowed, repeat from step 1 until success or the
+   retry cap.
 
-**When not to move the tag:**
+**Agent-autonomous (do not ask):**
 
 | Situation | Action |
 |-----------|--------|
-| Transient failure (network, secret fixed in GitHub UI) | Re-run failed jobs on same tag/commit |
-| Release already published (`gh release edit --draft=false` succeeded) | Never move tag; cut `X.Y.(Z+1)` |
+| Transient failure (network, rate limit, secret fixed in GitHub UI) | Re-run failed jobs on same tag/commit |
+| Fixable CI/script failure; release still draft or absent | Stabilization loop (tag move), within retry cap |
+
+**Hard stops (ask the human):**
+
+| Situation | Action |
+|-----------|--------|
+| Release already published (`isDraft=false` / publish succeeded) | Never move tag; cut `X.Y.(Z+1)` |
 | Immutable release or registry artifacts consumed downstream | New patch version only |
+| Unrecoverable failure or missing secrets the agent cannot fix | Stop and report |
+| Stabilization retry cap exceeded | Stop and report |
 
 **Optional:** Run `workflow_dispatch` on `release.yml` from a branch ref to
 exercise build and OBS jobs without pushing a tag. It does **not** run
@@ -138,17 +235,15 @@ remains the canonical publish for SemVer artifacts and GitHub Releases.
 
 ## Agent boundaries
 
-| Action | When |
-|--------|------|
-| Draft CHANGELOG / bump version | User asked to prepare release |
-| Commit release prep on `release/vX.Y.Z` branch | User asked to prepare or complete release |
-| Push release branch / open PR | User asked to prepare or complete release |
-| Merge release PR | CI green; user asked to complete release |
+| Intent / rule | Allowed |
+|---------------|---------|
+| **Kickoff confirm** | Once at start if intent/version unclear; bundle all decisions; then no mid-path chat reconfirms |
+| **Prepare only** | Draft CHANGELOG, bump version, packaging, release branch, PR; merge if asked; **no** `v*` tag create/push/move |
+| **Publish** | Everything in Prepare only, plus merge, signed tag, tag push, draft release delete, stabilization tag moves (retry cap), and named follow-ons after success |
 | `git push origin main` | **Never** (use PR merge per CONTRIBUTING) |
-| Create signed tag | User explicitly asked to tag or publish; after PR merged |
-| Push tag to origin | User explicitly confirmed publish (separate confirm if ambiguous) |
-| Delete draft release / force-push tag | User explicitly requested recovery |
-| Move release tag (`git push origin :refs/tags/vX.Y.Z`) | User explicitly requested stabilization retry |
+| Bump SemVer for each CI fix during stabilization | **Never** (same `X.Y.Z` until first successful publish) |
+| Move tag after non-draft publish / immutable artifacts | **Never** (cut `X.Y.(Z+1)` instead) |
 
-Never push a `v*` tag or publish a GitHub release without explicit user intent
-in the current conversation. Never push directly to `origin/main`.
+Never push a `v*` tag or publish a GitHub release without **Publish** (or an
+explicit tag/publish ask) in the current conversation. Never push directly to
+`origin/main`.
