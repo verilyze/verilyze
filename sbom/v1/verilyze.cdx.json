@@ -338,11 +338,11 @@
       "version": "2.0.2"
     },
     {
-      "bom-ref": "pkg:cargo/async-trait@0.1.91",
+      "bom-ref": "pkg:cargo/async-trait@0.1.92",
       "name": "async-trait",
-      "purl": "pkg:cargo/async-trait@0.1.91",
+      "purl": "pkg:cargo/async-trait@0.1.92",
       "type": "library",
-      "version": "0.1.91"
+      "version": "0.1.92"
     },
     {
       "bom-ref": "pkg:cargo/atomic-waker@1.1.2",
@@ -464,25 +464,25 @@
       "version": "0.0.2"
     },
     {
-      "bom-ref": "pkg:cargo/clap@4.6.5",
+      "bom-ref": "pkg:cargo/clap@4.6.6",
       "name": "clap",
-      "purl": "pkg:cargo/clap@4.6.5",
+      "purl": "pkg:cargo/clap@4.6.6",
       "type": "library",
-      "version": "4.6.5"
+      "version": "4.6.6"
     },
     {
-      "bom-ref": "pkg:cargo/clap_builder@4.6.5",
+      "bom-ref": "pkg:cargo/clap_builder@4.6.6",
       "name": "clap_builder",
-      "purl": "pkg:cargo/clap_builder@4.6.5",
+      "purl": "pkg:cargo/clap_builder@4.6.6",
       "type": "library",
-      "version": "4.6.5"
+      "version": "4.6.6"
     },
     {
-      "bom-ref": "pkg:cargo/clap_complete@4.6.8",
+      "bom-ref": "pkg:cargo/clap_complete@4.6.9",
       "name": "clap_complete",
-      "purl": "pkg:cargo/clap_complete@4.6.8",
+      "purl": "pkg:cargo/clap_complete@4.6.9",
       "type": "library",
-      "version": "4.6.8"
+      "version": "4.6.9"
     },
     {
       "bom-ref": "pkg:cargo/clap_derive@4.6.4",
@@ -499,11 +499,11 @@
       "version": "1.1.0"
     },
     {
-      "bom-ref": "pkg:cargo/clap_mangen@0.3.1",
+      "bom-ref": "pkg:cargo/clap_mangen@0.3.2",
       "name": "clap_mangen",
-      "purl": "pkg:cargo/clap_mangen@0.3.1",
+      "purl": "pkg:cargo/clap_mangen@0.3.2",
       "type": "library",
-      "version": "0.3.1"
+      "version": "0.3.2"
     },
     {
       "bom-ref": "pkg:cargo/collection_literals@1.0.3",
@@ -1479,39 +1479,39 @@
       "version": "1.1.1"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_python_ast@0.0.7",
+      "bom-ref": "pkg:cargo/ruff_python_ast@0.0.8",
       "name": "ruff_python_ast",
-      "purl": "pkg:cargo/ruff_python_ast@0.0.7",
+      "purl": "pkg:cargo/ruff_python_ast@0.0.8",
       "type": "library",
-      "version": "0.0.7"
+      "version": "0.0.8"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_python_parser@0.0.7",
+      "bom-ref": "pkg:cargo/ruff_python_parser@0.0.8",
       "name": "ruff_python_parser",
-      "purl": "pkg:cargo/ruff_python_parser@0.0.7",
+      "purl": "pkg:cargo/ruff_python_parser@0.0.8",
       "type": "library",
-      "version": "0.0.7"
+      "version": "0.0.8"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_python_trivia@0.0.7",
+      "bom-ref": "pkg:cargo/ruff_python_trivia@0.0.8",
       "name": "ruff_python_trivia",
-      "purl": "pkg:cargo/ruff_python_trivia@0.0.7",
+      "purl": "pkg:cargo/ruff_python_trivia@0.0.8",
       "type": "library",
-      "version": "0.0.7"
+      "version": "0.0.8"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_source_file@0.0.7",
+      "bom-ref": "pkg:cargo/ruff_source_file@0.0.8",
       "name": "ruff_source_file",
-      "purl": "pkg:cargo/ruff_source_file@0.0.7",
+      "purl": "pkg:cargo/ruff_source_file@0.0.8",
       "type": "library",
-      "version": "0.0.7"
+      "version": "0.0.8"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_text_size@0.0.7",
+      "bom-ref": "pkg:cargo/ruff_text_size@0.0.8",
       "name": "ruff_text_size",
-      "purl": "pkg:cargo/ruff_text_size@0.0.7",
+      "purl": "pkg:cargo/ruff_text_size@0.0.8",
       "type": "library",
-      "version": "0.0.7"
+      "version": "0.0.8"
     },
     {
       "bom-ref": "pkg:cargo/rustc-hash@2.1.2",
@@ -1829,11 +1829,11 @@
       "version": "1.0.69"
     },
     {
-      "bom-ref": "pkg:cargo/thiserror@2.0.19",
+      "bom-ref": "pkg:cargo/thiserror@2.0.20",
       "name": "thiserror",
-      "purl": "pkg:cargo/thiserror@2.0.19",
+      "purl": "pkg:cargo/thiserror@2.0.20",
       "type": "library",
-      "version": "2.0.19"
+      "version": "2.0.20"
     },
     {
       "bom-ref": "pkg:cargo/thiserror-impl@1.0.69",
@@ -1843,11 +1843,11 @@
       "version": "1.0.69"
     },
     {
-      "bom-ref": "pkg:cargo/thiserror-impl@2.0.19",
+      "bom-ref": "pkg:cargo/thiserror-impl@2.0.20",
       "name": "thiserror-impl",
-      "purl": "pkg:cargo/thiserror-impl@2.0.19",
+      "purl": "pkg:cargo/thiserror-impl@2.0.20",
       "type": "library",
-      "version": "2.0.19"
+      "version": "2.0.20"
     },
     {
       "bom-ref": "pkg:cargo/time@0.3.47",
