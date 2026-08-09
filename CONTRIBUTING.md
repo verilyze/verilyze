@@ -996,7 +996,10 @@ releases](#versioning-and-releases) below.
   validation locally, set `GITHUB_EVENT_NAME=merge_group` and pass two full
   SHAs. Shared rules: [scripts/lib/ci-input-validate.sh](scripts/lib/ci-input-validate.sh).
   The workflow caches apt `.deb` archives for `shellcheck` and `afl++` (see
-  comments in `ci.yml`) and installs `cargo-llvm-cov`, `cargo-deny`,
+  comments in `ci.yml`), installs a pinned **gitleaks** binary via
+  [`scripts/ci-install-gitleaks.sh`](scripts/ci-install-gitleaks.sh) (required
+  by `setup-system-deps` / `check-fast`), and installs `cargo-llvm-cov`,
+  `cargo-deny`,
   `cargo-afl`, and `cargo-about` with [taiki-e/install-action](https://github.com/taiki-e/install-action)
   at a pinned action SHA and tool versions listed there (`cargo-deny` matches
   the Quick setup pin below). Rust for `check` is pinned in
