@@ -36,7 +36,9 @@ Super-linter paths: `.github/**`, `*.{yml,yaml}`, `biome.json`, `renovate.json`,
 `packaging/**/*.env`, `packaging/**/Dockerfile`.
 
 Native parity (no Docker): `make check-super-linter-native` checks `obs-project.env`
-key order and inline `checkov:skip=CKV_GHA_7` on `release.yml`. Included in `make check-fast`.
+key order, inline `checkov:skip=CKV_GHA_7` on `release.yml`, codespell, and
+host gitleaks directory scan (`.gitleaks.toml`, `--redact`). Included in
+`make check-fast`.
 
 Incremental super-linter: `make super-linter`. Full tree (nightly parity):
 `make super-linter-full`.

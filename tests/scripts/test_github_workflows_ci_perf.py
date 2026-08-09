@@ -38,7 +38,13 @@ def test_check_job_rust_cache_uses_shared_key() -> None:
     assert "shared-key: check" in block
 
 
-def test_check_job_fuzz_preflight_before_afl_install() -> None:
+def test_check_job_installs_gitleaks_before_make_check() -> None:
+    block = _check_job_block()
+    install = block.index("Install gitleaks")
+    run_check = block.index("Run make -j check")
+    assert install < run_check
+    assert "./scripts/ci-install-gitleaks.sh" in block
+
     block = _check_job_block()
     pre = block.index("Fuzz preflight")
     afl_apt = block.index("Install AFL++")

@@ -49,6 +49,9 @@ jobs:
           rustc -vV
           cargo -V
 
+      - name: Install gitleaks
+        run: ./scripts/ci-install-gitleaks.sh
+
       - name: Bootstrap test venv
         run: make setup
 

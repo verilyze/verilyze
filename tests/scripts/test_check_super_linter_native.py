@@ -2,7 +2,10 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Native super-linter parity gate (subprocess smoke test)."""
+"""Native super-linter parity gate (subprocess smoke test).
+
+Exercises OBS env order, Checkov skip, codespell, and host gitleaks directory.
+"""
 
 import subprocess
 

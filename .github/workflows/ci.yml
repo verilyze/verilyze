@@ -267,6 +267,9 @@ jobs:
             ! -name '*.deb' -exec rm -rf {} +
           sudo chown -R "$(id -u)":"$(id -g)" "${_apt_arch}"
 
+      - name: Install gitleaks
+        run: ./scripts/ci-install-gitleaks.sh
+
       - name: Install AFL++
         if: steps.fuzz_preflight.outputs.fuzz_needed == 'true'
         env:
@@ -301,7 +304,7 @@ jobs:
           cache-on-failure: true
 
       - name: Install cargo tooling (llvm-cov, about)
-        uses: taiki-e/install-action@cb33e69fad06166ca28a42b2575e4dadabf62ee8 # v2.85.8
+        uses: taiki-e/install-action@6c6fd71fe4fb72c3697d269963d0e15df8adedad # v2.85.10
         with:
           tool: cargo-llvm-cov@0.8.5,cargo-about@0.9.0
 
@@ -322,7 +325,7 @@ jobs:
 
       - name: Install cargo-deny
         if: steps.cargo_deny.outputs.present != 'true'
-        uses: taiki-e/install-action@cb33e69fad06166ca28a42b2575e4dadabf62ee8 # v2.85.8
+        uses: taiki-e/install-action@6c6fd71fe4fb72c3697d269963d0e15df8adedad # v2.85.10
         with:
           tool: cargo-deny@${{ env.CARGO_DENY_VERSION }}
 
@@ -351,7 +354,7 @@ jobs:
 
       - name: Install cargo-afl
         if: steps.fuzz_preflight.outputs.fuzz_needed == 'true'
-        uses: taiki-e/install-action@cb33e69fad06166ca28a42b2575e4dadabf62ee8 # v2.85.8
+        uses: taiki-e/install-action@6c6fd71fe4fb72c3697d269963d0e15df8adedad # v2.85.10
         with:
           tool: cargo-afl@0.18.0
 
