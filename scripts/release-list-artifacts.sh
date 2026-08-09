@@ -3,22 +3,22 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# List release artifacts in deterministic order.
-# Usage: release-list-artifacts.sh <release-artifacts-dir> [--include-sha256sums]
+# List publishable release artifacts in deterministic order (flat basenames).
+# Usage: release-list-artifacts.sh <dir> [--include-sha256sums]
+#
+# <dir> is typically the github-upload staging directory containing archives,
+# .deb, .rpm, and optional SHA256SUMS.
 
 set -euo pipefail
 
-readonly ARTIFACT_PATTERNS=(
-  "vlz-linux-x86_64/vlz"
-  "vlz-macos-aarch64/vlz"
-  "vlz-windows-x86_64/vlz.exe"
-  "deb-package/*.deb"
-  "rpm-package/**/*.rpm"
-)
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/release-artifact-names.sh
+source "${script_dir}/lib/release-artifact-names.sh"
+
 readonly SHA256SUMS_FILE="SHA256SUMS"
 
 usage() {
-  echo "usage: $0 <release-artifacts-dir> [--include-sha256sums]" >&2
+  echo "usage: $0 <artifact-dir> [--include-sha256sums]" >&2
   exit 2
 }
 
@@ -43,15 +43,21 @@ fi
 root_abs="$(cd "${artifacts_dir}" && pwd)"
 tmp_list="$(mktemp)"
 trap 'rm -f "${tmp_list}"' EXIT
-shopt -s nullglob globstar
 
 (
   cd "${root_abs}"
-  for pattern in "${ARTIFACT_PATTERNS[@]}"; do
-    compgen -G "${pattern}" || true
+  shopt -s nullglob
+  for platform in "${RELEASE_PLATFORMS[@]}"; do
+    ext="$(release_archive_extension "${platform}")"
+    while IFS= read -r -d '' f; do
+      printf '%s\n' "${f#./}"
+    done < <(find . -maxdepth 1 -type f -name "vlz-*-${platform}.${ext}" -print0)
   done
+  while IFS= read -r -d '' f; do
+    printf '%s\n' "${f#./}"
+  done < <(find . -maxdepth 1 -type f \( -name '*.deb' -o -name '*.rpm' \) -print0)
   if [[ "${include_sha256sums}" -eq 1 && -f "${SHA256SUMS_FILE}" ]]; then
-    echo "${SHA256SUMS_FILE}"
+    printf '%s\n' "${SHA256SUMS_FILE}"
   fi
 ) | LC_ALL=C sort -u > "${tmp_list}"
 

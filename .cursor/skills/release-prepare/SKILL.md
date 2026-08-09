@@ -93,8 +93,9 @@ Fix root cause; re-tag only after user confirms.
 | SLSA job startup failure | Missing `contents: write` on provenance job | `release.yml` `binary-slsa-provenance` permissions |
 | Empty macOS SLSA hash | Non-portable `base64` in `build-binary` | `base64 < checksum` in hash step |
 | `create-release` cosign/SLSA verify fail | Generator SHA not in builder regex | `SLSA_GENERATOR_PIN_SHA` in `SLSA_GENERATOR_BUILDER_REGEX` |
-| Draft re-verify: missing `vlz-*` paths | Duplicate `vlz` asset names or missing binaries on draft | Staging + restore scripts; `make release-verify-upload` |
-| Draft has deb/rpm only, no binaries | `path#name` in `action-gh-release` `files:` | Contract tests; stage flat names under `github-upload/` |
+| Draft re-verify: missing archives | Staging omitted archives or version mismatch | `release-stage-github-upload.sh`; `make release-verify-upload` |
+| Draft has deb/rpm only, no archives | `path#name` in `action-gh-release` `files:` or empty `github-upload/` | Contract tests; stage flat archives under `github-upload/` |
+| SLSA verify fails on archive | Archive rebuilt after hash step | Build archive once on matrix runner; never re-archive in `create-release` |
 
 ## Release stabilization (before first successful publish)
 

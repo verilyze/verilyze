@@ -213,9 +213,10 @@ for remediation when scans warn about partial (direct-only) resolution.
   invoking user).
 - Release binaries are stripped of symbols (NFR-023) to reduce
   information disclosure and binary size.
-- GitHub release artifacts include `SHA256SUMS`, keyless Sigstore bundles
+- GitHub release artifacts include versioned platform archives
+  (`vlz-<version>-*.tar.gz` / `.zip`), `SHA256SUMS`, keyless Sigstore bundles
   (`*.sigstore.json`), and provenance bundles (`*.intoto.jsonl`) for
-  published binary/package files. CI runs the same verification commands
+  published archive/package files. CI runs the same verification commands
   (checksum and Cosign) before the release leaves draft state.
 - GHCR release images are keyless-signed and include provenance attestation
   generated in the release workflow.

@@ -20,18 +20,9 @@ readonly SLSA_GENERATOR_BUILDER_REGEX_DEFAULT="^https://github\\.com/slsa-framew
 
 SLSA_GENERATOR_BUILDER_REGEX="${SLSA_GENERATOR_BUILDER_REGEX:-${SLSA_GENERATOR_BUILDER_REGEX_DEFAULT}}"
 
-is_slsa_binary_artifact() {
-  case "$1" in
-    vlz-linux-x86_64/vlz \
-    | vlz-macos-aarch64/vlz \
-    | vlz-windows-x86_64/vlz.exe)
-      return 0
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-}
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/release-artifact-names.sh
+source "${script_dir}/lib/release-artifact-names.sh"
 
 usage() {
   echo "usage: $0 <artifact-root-dir>" >&2
@@ -95,7 +86,7 @@ while IFS= read -r rel_path; do
     "${file}"
 
   builder_regex="${EXPECTED_BUILDER_REGEX}"
-  if is_slsa_binary_artifact "${rel_path}"; then
+  if release_is_slsa_archive_basename "${rel_path}"; then
     builder_regex="${SLSA_GENERATOR_BUILDER_REGEX}"
   fi
 

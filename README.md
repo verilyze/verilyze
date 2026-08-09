@@ -94,7 +94,10 @@ see [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Installation
 
 GitHub-hosted release assets are available for tagged releases:
-- GitHub Release assets: Linux binary, `.deb`, and `.rpm`
+- Platform archives: `vlz-<version>-linux-x86_64.tar.gz`,
+  `vlz-<version>-macos-aarch64.tar.gz`, `vlz-<version>-windows-x86_64.zip`
+  (executable is always `vlz` or `vlz.exe` inside the archive)
+- `.deb` and `.rpm` packages
 - Release integrity files: `SHA256SUMS`, Sigstore JSON bundles
   (`*.sigstore.json`), and provenance bundles (`*.intoto.jsonl`)
 - GHCR container image tags: versioned tag and `latest`
@@ -104,11 +107,13 @@ included in this release scope. Typical local/source-based approaches remain:
 
 - **Local build:** `make release`, then run `target/release/vlz` (see Quick start).
 - **System install:** `make install` with optional `PREFIX` / `DESTDIR`.
+- **Local archive:** `make dist` builds a Linux platform archive under `dist/`.
 - **Packages:** build `.deb`, `.rpm`, AUR artifacts, or Alpine APKs via Makefile
   targets; build a **local** OCI image with `make docker`.
 
-Full commands, Docker usage, optional providers, and shell completion:
-[INSTALL.md](INSTALL.md).
+Full commands, archive install, Docker usage, optional providers, and shell
+completion: [INSTALL.md](INSTALL.md). Archive-only steps:
+[docs/install-archive.md](docs/install-archive.md).
 
 ## Shell completion
 

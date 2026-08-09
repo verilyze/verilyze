@@ -6,27 +6,53 @@
 #
 # shellcheck shell=bash
 
-# Logical path in SHA256SUMS after release-restore-download-layout.sh.
-readonly LINUX_BINARY_REL_PATH="vlz-linux-x86_64/vlz"
-
-# Flat GitHub Release asset basenames (v0.4.0+ platform-specific; legacy v0.3.1).
-readonly LINUX_FLAT_ASSET_NAME="vlz-linux-x86_64"
-readonly LEGACY_LINUX_FLAT_ASSET_NAME="vlz"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/release-artifact-names.sh
+source "${script_dir}/release-artifact-names.sh"
 
 readonly RELEASE_OIDC_ISSUER="https://token.actions.githubusercontent.com"
 
 readonly SLSA_GENERATOR_PIN_SHA='f7dd8c54c2067bafc12ca7a55595d5ee9b75204a'
 readonly SLSA_GENERATOR_BUILDER_REGEX_DEFAULT="^https://github\\.com/slsa-framework/slsa-github-generator/\\.github/workflows/generator_generic_slsa3\\.yml@(v2\\.1\\.0|${SLSA_GENERATOR_PIN_SHA})\$"
 
-linux_release_download_patterns() {
+# Legacy raw GitHub asset names (v0.4.0 through last non-archive release).
+# Remove once the oldest supported release publishes versioned archives.
+readonly LEGACY_LINUX_FLAT_ASSET_NAME="vlz-linux-x86_64"
+readonly LEGACY_LINUX_FLAT_ASSET_NAME_V031="vlz"
+readonly LEGACY_LINUX_BINARY_REL_PATH="vlz-linux-x86_64/vlz"
+
+tag_to_version() {
+  local tag="${1:?tag required}"
+  # Strip a single leading v from Git tags (v1.2.3 -> 1.2.3).
+  printf '%s' "${tag#v}"
+}
+linux_archive_basename_for_version() {
+  local version="${1:?version required}"
+  release_archive_basename "${version}" "linux-x86_64"
+}
+
+linux_archive_download_patterns() {
+  local version="${1:?version required}"
+  local archive
+  archive="$(linux_archive_basename_for_version "${version}")"
   printf '%s\n' \
     'SHA256SUMS' \
-    "${LINUX_FLAT_ASSET_NAME}" \
-    "${LINUX_FLAT_ASSET_NAME}.sigstore.json" \
-    "${LINUX_FLAT_ASSET_NAME}.intoto.jsonl" \
+    "${archive}" \
+    "${archive}.sigstore.json" \
+    "${archive}.intoto.jsonl"
+}
+
+# Patterns for older releases that published raw platform binaries.
+# Drop when the oldest supported release is archive-based.
+legacy_linux_release_download_patterns() {
+  printf '%s\n' \
+    'SHA256SUMS' \
     "${LEGACY_LINUX_FLAT_ASSET_NAME}" \
     "${LEGACY_LINUX_FLAT_ASSET_NAME}.sigstore.json" \
-    "${LEGACY_LINUX_FLAT_ASSET_NAME}.intoto.jsonl"
+    "${LEGACY_LINUX_FLAT_ASSET_NAME}.intoto.jsonl" \
+    "${LEGACY_LINUX_FLAT_ASSET_NAME_V031}" \
+    "${LEGACY_LINUX_FLAT_ASSET_NAME_V031}.sigstore.json" \
+    "${LEGACY_LINUX_FLAT_ASSET_NAME_V031}.intoto.jsonl"
 }
 
 verify_blob_attestation_with_builder_fallback() {
@@ -73,16 +99,16 @@ resolve_latest_release_tag() {
   printf '%s' "${tag}"
 }
 
-verify_downloaded_linux_binary() {
+verify_release_asset() {
   local root="${1:?artifact root required}"
-  local rel_path="${LINUX_BINARY_REL_PATH}"
+  local rel_path="${2:?relative asset path required}"
   local file="${root}/${rel_path}"
   local sums_file="${root}/SHA256SUMS"
   local builder_regex="${EXPECTED_BUILDER_REGEX:?EXPECTED_BUILDER_REGEX is required}"
   local slsa_regex="${SLSA_GENERATOR_BUILDER_REGEX:-${SLSA_GENERATOR_BUILDER_REGEX_DEFAULT}}"
 
   if [[ ! -f "${file}" ]]; then
-    echo "::error::missing Linux release binary: ${rel_path}" >&2
+    echo "::error::missing release asset: ${rel_path}" >&2
     return 1
   fi
   if [[ ! -f "${sums_file}" ]]; then
@@ -98,8 +124,6 @@ verify_downloaded_linux_binary() {
     return 1
   fi
 
-  # sha256sum -c and cosign write status to stdout; install script prints only the
-  # binary path on stdout for GITHUB_ENV capture.
   (
     cd "${root}" || exit 1
     grep -F "${rel_path}" SHA256SUMS | sha256sum -c >&2
@@ -111,11 +135,24 @@ verify_downloaded_linux_binary() {
     --certificate-oidc-issuer "${RELEASE_OIDC_ISSUER}" \
     "${file}" >&2
 
-  # Published Linux binaries may carry SLSA generator attestations (current
-  # releases) or release.yml attestations (legacy v0.3.1-style assets).
   verify_blob_attestation_with_builder_fallback \
     "${file}" \
     "${file}.intoto.jsonl" \
     "${builder_regex}" \
     "${slsa_regex}"
+}
+
+verify_downloaded_linux_archive() {
+  local root="${1:?artifact root required}"
+  local version="${2:?version required}"
+  local archive
+  archive="$(linux_archive_basename_for_version "${version}")"
+  verify_release_asset "${root}" "${archive}"
+}
+
+# Legacy path for raw platform binaries (pre-archive releases).
+verify_downloaded_linux_binary() {
+  local root="${1:?artifact root required}"
+  local rel_path="${LEGACY_LINUX_BINARY_REL_PATH}"
+  verify_release_asset "${root}" "${rel_path}"
 }

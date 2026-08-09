@@ -411,13 +411,20 @@ stripped of symbols (NFR-023) for security and smaller size.
 `tests/scripts/test_release_workflow_supply_chain.py` when `release.yml`
 changes):
 
-- GitHub Releases require **unique asset basenames** across platforms (for
-  example `vlz-linux-x86_64`, not three assets all named `vlz`).
-- `softprops/action-gh-release` uploads basenames as-is; **rename on disk**
-  before upload (`scripts/release-stage-github-binary-upload.sh`). It does
-  not support `path#name` rename syntax.
-- Draft re-verify downloads **flat** asset names; `release-restore-download-layout.sh`
-  rebuilds the tree expected by `SHA256SUMS`.
+- GitHub Releases require **unique asset basenames** across platforms. Publish
+  versioned platform archives (`vlz-<version>-linux-x86_64.tar.gz`, and so on),
+  not three assets all named `vlz`.
+- Build each archive **once** on its platform runner
+  (`scripts/release-build-platform-archive.sh`). Do not re-archive in
+  `create-release` (that would invalidate SLSA subject digests).
+- `softprops/action-gh-release` uploads basenames as-is; stage a flat
+  `github-upload/` directory (`scripts/release-stage-github-upload.sh`). It
+  does not support `path#name` rename syntax.
+- `SHA256SUMS` uses the same flat basenames as the release page, so
+  `gh release download` followed by `sha256sum -c SHA256SUMS` needs no
+  layout restore.
+- SLSA provenance subjects are the **archives** (archive-only); the executable
+  inside is covered transitively by the archive digest (SEC-021).
 - `slsa-verifier` builder regex must accept both the generator version tag
   and the Renovate-pinned workflow SHA (`SLSA_GENERATOR_PIN_SHA`).
 

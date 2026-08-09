@@ -61,7 +61,7 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: benchmark-gate
 .PHONY: check-report-schema
 .PHONY: deb rpm aur apk docker
-.PHONY: install clean distclean
+.PHONY: install clean distclean dist
 
 .DEFAULT_GOAL := help
 
@@ -147,6 +147,7 @@ help:
 	@echo "    make aur        - Build AUR tarball + PKGBUILD (needs cargo-aur)"
 	@echo "    make apk        - Build Alpine APK (needs abuild, Alpine env)"
 	@echo "    make docker     - Build Docker image (needs docker)"
+	@echo "    make dist       - Build local Linux platform archive under dist/"
 	@echo ""
 	@echo "  Clean:"
 	@echo "    make clean      - Remove build artifacts, reports"
@@ -537,6 +538,22 @@ release-preflight:
 release-verify-upload:
 	$(SCRIPTS_DIR)/release-verify-upload-roundtrip.sh
 
+# dist: build a local Linux platform archive from target/release/vlz
+# VERSION defaults to [workspace.package].version. OUTPUT_DIR defaults to dist/.
+DIST_OUT ?= $(MKFILE_DIR)/dist
+dist: release generate-manpages completions-release generate-config-example
+	@mkdir -p "$(DIST_OUT)"
+	@VERSION_VAL="$(VERSION)"; \
+	if [ -z "$${VERSION_VAL}" ]; then \
+	  VERSION_VAL="$$($(SCRIPTS_DIR)/release-read-workspace-version.sh)"; \
+	fi; \
+	$(SCRIPTS_DIR)/release-build-platform-archive.sh \
+	  --platform linux-x86_64 \
+	  --version "$${VERSION_VAL}" \
+	  --binary "$(MKFILE_DIR)/target/release/vlz" \
+	  --repo-root "$(MKFILE_DIR)" \
+	  --output-dir "$(DIST_OUT)"
+
 # release-notes: preview GitHub Release body for VERSION=x.y.z
 release-notes:
 	@test -n "$(VERSION)" || (echo "VERSION is required, e.g. make release-notes VERSION=0.2.2" && exit 2)
@@ -680,7 +697,7 @@ clean:
                                  -name "vendor.tar.zst" \) -delete
 	@find $(MKFILE_DIR) -type d -name "__pycache__" -exec rm -rf {} +
 	@find $(MKFILE_DIR) -maxdepth 1 -type d -name "*.egg-info" -exec rm -rf {} +
-	@rm -rfv $(MKFILE_DIR)/reports/ $(MKFILE_DIR)/.cache
+	@rm -rfv $(MKFILE_DIR)/reports/ $(MKFILE_DIR)/.cache $(MKFILE_DIR)/dist
 	@if [ -n "$(MKFILE_DIR)" ]; then rm -rf "$(MKFILE_DIR)/target/pytest-obs-work"; fi
 	@rm -rfv $(RPM_TOPDIR)/BUILD $(RPM_TOPDIR)/BUILDROOT \
 	         $(RPM_TOPDIR)/RPMS $(RPM_TOPDIR)/SRPMS \

@@ -37,32 +37,46 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - name: Download vlz release binary
+      - name: Download and extract vlz release archive
         env:
-          VERSION: "0.5.0"
+          VERSION: "0.7.1"
         run: |
           set -euo pipefail
           case "${{ runner.os }}" in
             Linux)
-              asset="vlz-linux-x86_64"
+              platform="linux-x86_64"
+              archive="vlz-${VERSION}-${platform}.tar.gz"
               ;;
             macOS)
-              asset="vlz-macos-aarch64"
+              platform="macos-aarch64"
+              archive="vlz-${VERSION}-${platform}.tar.gz"
               ;;
             Windows)
-              asset="vlz-windows-x86_64.exe"
+              platform="windows-x86_64"
+              archive="vlz-${VERSION}-${platform}.zip"
               ;;
             *)
               echo "unsupported runner OS: ${{ runner.os }}" >&2
               exit 1
               ;;
           esac
-          curl -fsSL \
-            -o vlz \
-            "https://github.com/verilyze/verilyze/releases/download/v${VERSION}/${asset}"
-          chmod +x vlz
-          # Verify SHA256SUMS and Sigstore bundles from the same release before
-          # production use (see INSTALL.md).
+          base="https://github.com/verilyze/verilyze/releases/download/v${VERSION}"
+          curl -fsSL -O "${base}/SHA256SUMS"
+          curl -fsSL -O "${base}/${archive}"
+          curl -fsSL -O "${base}/${archive}.sigstore.json"
+          curl -fsSL -O "${base}/${archive}.intoto.jsonl"
+          grep -F "${archive}" SHA256SUMS | sha256sum -c
+          # Verify Sigstore bundles before production use (see INSTALL.md).
+          case "${archive}" in
+            *.tar.gz) tar -xzf "${archive}" ;;
+            *.zip) python3 -c "import zipfile; zipfile.ZipFile('${archive}').extractall()" ;;
+          esac
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            echo "VLZ_BIN=${PWD}/vlz-${VERSION}-${platform}/vlz.exe" >> "${GITHUB_ENV}"
+          else
+            chmod +x "vlz-${VERSION}-${platform}/bin/vlz"
+            echo "VLZ_BIN=${PWD}/vlz-${VERSION}-${platform}/bin/vlz" >> "${GITHUB_ENV}"
+          fi
 
       - name: Scan with vlz
         id: vlz-scan
@@ -71,7 +85,7 @@ jobs:
           VLZ_REACHABILITY_MODE: best-available
         run: |
           set -uo pipefail
-          ./vlz scan . \
+          "${VLZ_BIN}" scan . \
             --project-id "${{ github.repository }}" \
             --reachability-mode "${VLZ_REACHABILITY_MODE}" \
             --format sarif \

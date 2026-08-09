@@ -3,8 +3,8 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# Local rehearsal of create-release upload layout and draft re-verify checksums.
-# Simulates staging, flat GitHub download names, restore, and SHA256SUMS -c.
+# Local rehearsal of create-release staging and SHA256SUMS -c without restore.
+# Builds real platform archives via release-build-platform-archive.sh.
 # Does not run cosign (release-verify-bundle.sh requires OIDC).
 # Usage: release-verify-upload-roundtrip.sh
 
@@ -12,21 +12,14 @@ set -euo pipefail
 
 readonly FIXTURE_DEB="vlz_0.0.0-1_amd64.deb"
 readonly FIXTURE_RPM="verilyze-0.0.0-1.fc45.x86_64.rpm"
-readonly GITHUB_UPLOAD_PATHS=(
-  "release-artifacts/github-upload/vlz-linux-x86_64"
-  "release-artifacts/github-upload/vlz-linux-x86_64.sigstore.json"
-  "release-artifacts/github-upload/vlz-linux-x86_64.intoto.jsonl"
-  "release-artifacts/github-upload/vlz-macos-aarch64"
-  "release-artifacts/github-upload/vlz-macos-aarch64.sigstore.json"
-  "release-artifacts/github-upload/vlz-macos-aarch64.intoto.jsonl"
-  "release-artifacts/github-upload/vlz-windows-x86_64.exe"
-  "release-artifacts/github-upload/vlz-windows-x86_64.exe.sigstore.json"
-  "release-artifacts/github-upload/vlz-windows-x86_64.exe.intoto.jsonl"
-)
+readonly FIXTURE_VERSION="0.0.0"
 
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "${script_dir}/.." && pwd)"
 cd "${root}"
+
+# shellcheck source=lib/release-artifact-names.sh
+source "${root}/scripts/lib/release-artifact-names.sh"
 
 workdir="$(mktemp -d)"
 trap 'rm -rf "${workdir}"' EXIT
@@ -35,41 +28,76 @@ artifacts="${workdir}/release-artifacts"
 download_dir="${workdir}/draft-verify"
 mkdir -p "${artifacts}/deb-package" "${artifacts}/rpm-package/x86_64"
 
-for rel_path in \
-  vlz-linux-x86_64/vlz \
-  vlz-macos-aarch64/vlz \
-  vlz-windows-x86_64/vlz.exe; do
-  path="${artifacts}/${rel_path}"
-  mkdir -p "$(dirname "${path}")"
-  printf '%s' "${rel_path}" > "${path}"
-  printf '{}' > "${path}.sigstore.json"
-  printf '{}' > "${path}.intoto.jsonl"
+# Fake binaries for archive members.
+fake_bin="${workdir}/vlz"
+fake_exe="${workdir}/vlz.exe"
+printf 'linux-bin' > "${fake_bin}"
+chmod 755 "${fake_bin}"
+printf 'windows-bin' > "${fake_exe}"
+
+for platform in "${RELEASE_PLATFORMS[@]}"; do
+  actions_name="$(release_actions_artifact_name "${platform}")"
+  out_dir="${artifacts}/${actions_name}"
+  mkdir -p "${out_dir}"
+  if release_is_windows_platform "${platform}"; then
+    bin_path="${fake_exe}"
+  else
+    bin_path="${fake_bin}"
+  fi
+  ./scripts/release-build-platform-archive.sh \
+    --platform "${platform}" \
+    --version "${FIXTURE_VERSION}" \
+    --binary "${bin_path}" \
+    --repo-root "${root}" \
+    --output-dir "${out_dir}" >/dev/null
+  archive_name="$(release_archive_basename "${FIXTURE_VERSION}" "${platform}")"
+  printf '{}' > "${out_dir}/${archive_name}.sigstore.json"
+  printf '{}' > "${out_dir}/${archive_name}.intoto.jsonl"
 done
 
 printf 'deb' > "${artifacts}/deb-package/${FIXTURE_DEB}"
+printf '{}' > "${artifacts}/deb-package/${FIXTURE_DEB}.sigstore.json"
+printf '{}' > "${artifacts}/deb-package/${FIXTURE_DEB}.intoto.jsonl"
 printf 'rpm' > "${artifacts}/rpm-package/x86_64/${FIXTURE_RPM}"
+printf '{}' > "${artifacts}/rpm-package/x86_64/${FIXTURE_RPM}.sigstore.json"
+printf '{}' > "${artifacts}/rpm-package/x86_64/${FIXTURE_RPM}.intoto.jsonl"
 
-./scripts/release-generate-checksums.sh "${artifacts}" >/dev/null
-./scripts/release-stage-github-binary-upload.sh "${artifacts}"
+./scripts/release-stage-github-upload.sh "${artifacts}" "${FIXTURE_VERSION}"
+upload_dir="${artifacts}/github-upload"
 
-for rel_path in "${GITHUB_UPLOAD_PATHS[@]}"; do
-  if [[ ! -f "${workdir}/${rel_path}" ]]; then
-    echo "error: missing staged upload path: ${rel_path}" >&2
+./scripts/release-generate-checksums.sh "${upload_dir}" >/dev/null
+
+expected_names=(
+  "$(release_archive_basename "${FIXTURE_VERSION}" linux-x86_64)"
+  "$(release_archive_basename "${FIXTURE_VERSION}" macos-aarch64)"
+  "$(release_archive_basename "${FIXTURE_VERSION}" windows-x86_64)"
+  "${FIXTURE_DEB}"
+  "${FIXTURE_RPM}"
+)
+for name in "${expected_names[@]}"; do
+  if [[ ! -f "${upload_dir}/${name}" ]]; then
+    echo "error: missing staged upload path: ${name}" >&2
     exit 1
   fi
 done
 
 mkdir -p "${download_dir}"
-cp -a "${artifacts}/github-upload/." "${download_dir}/"
-cp -a "${artifacts}/deb-package/." "${download_dir}/"
-cp -a "${artifacts}/rpm-package/x86_64/." "${download_dir}/"
-cp -f "${artifacts}/SHA256SUMS" "${download_dir}/SHA256SUMS"
-
-./scripts/release-restore-download-layout.sh "${download_dir}"
+cp -a "${upload_dir}/." "${download_dir}/"
 
 (
   cd "${download_dir}"
   sha256sum -c SHA256SUMS
 )
 
-echo "release-verify-upload-roundtrip: OK (layout and SHA256SUMS round-trip)"
+# Extract each archive and assert layout / executable path.
+extract_root="${workdir}/extract"
+for platform in "${RELEASE_PLATFORMS[@]}"; do
+  archive_name="$(release_archive_basename "${FIXTURE_VERSION}" "${platform}")"
+  ./scripts/release-extract-platform-archive.sh \
+    --archive "${download_dir}/${archive_name}" \
+    --platform "${platform}" \
+    --version "${FIXTURE_VERSION}" \
+    --dest "${extract_root}/${platform}" >/dev/null
+done
+
+echo "release-verify-upload-roundtrip: OK (archive layout and SHA256SUMS round-trip)"
