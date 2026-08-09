@@ -1096,9 +1096,15 @@ releases](#versioning-and-releases) below.
   **github-tags** datasource for `rust-lang/rust` (**minor** and **patch**
   bumps are grouped into one PR; **major** upgrades stay separate). It also manages
   **GitHub Actions** under `.github/workflows/`: `uses:` lines are pinned to
-  immutable commit SHAs with the release tag in a trailing YAML comment
-  (`helpers:pinGitHubActionDigests`). **Minor** and **patch** action updates are
-  grouped into **one** PR; **major** upgrades stay in **separate** PRs.
+  immutable commit SHAs with the **exact** release tag in a trailing YAML
+  comment (`helpers:pinGitHubActionDigests`), for example `# v2.9.2` -- not a
+  major-only tag such as `# v2`. Major-only comments are moving refs for
+  Zizmor `ref-version-mismatch` and can break nightly
+  `make super-linter-full` when a newer tag appears without a workflow change.
+  **`make check-github-action-pin-comments`** (in **`make check-fast`**) fails
+  when any digest pin under `.github/workflows/` or `examples/` lacks a full
+  `vX.Y.Z` comment. **Minor** and **patch** action updates are grouped into
+  **one** PR; **major** upgrades stay in **separate** PRs.
   After **`github/codeql-action/upload-sarif`** updates (any update type),
   **`postUpgradeTasks`** run **`bash scripts/renovate-post-upgrade-upload-sarif.sh`**
   to copy the pin from **`.github/workflows/supply-chain.yml`** into

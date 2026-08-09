@@ -57,6 +57,7 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: generate-third-party-licenses generate-third-party-licenses-docker
 .PHONY: check-third-party-licenses
 .PHONY: sync-upload-sarif-example check-upload-sarif-example
+.PHONY: check-github-action-pin-comments
 
 .PHONY: benchmark-gate
 .PHONY: check-report-schema
@@ -118,6 +119,7 @@ help:
 	@echo "    make check-sbom       - Verify committed SBOM is up to date"
 	@echo "    make sync-upload-sarif-example - Sync example workflow upload-sarif pin"
 	@echo "    make check-upload-sarif-example - Verify example pin matches supply-chain"
+	@echo "    make check-github-action-pin-comments - Require # vX.Y.Z on action digest pins"
 	@echo "    make generate-pylock-dev - Generate pylock.dev.toml (PEP 751, pip >= 25.1)"
 	@echo "    make check-pylock-dev  - Offline validate committed pylock.dev.toml"
 
@@ -497,6 +499,10 @@ sync-upload-sarif-example:
 check-upload-sarif-example:
 	PYTHONPATH=. python3 $(SCRIPTS_DIR)/upload_sarif_pins.py --check
 
+# check-github-action-pin-comments: full-semver (# vX.Y.Z) on digest pins (zizmor).
+check-github-action-pin-comments:
+	PYTHONPATH=. python3 $(SCRIPTS_DIR)/github_action_pin_comments.py --check
+
 # generate-sbom: Produce CycloneDX + SPDX workspace SBOM via vlz scan (SEC-019).
 generate-sbom: release
 	$(SCRIPTS_DIR)/generate-sbom.sh
@@ -582,6 +588,7 @@ check-fast-parallel: check-doc-diagrams \
             check-completions \
             check-license-config \
             check-upload-sarif-example \
+            check-github-action-pin-comments \
             deny-check \
             cargo-check fmt-check \
             clippy \
