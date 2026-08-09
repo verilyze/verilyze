@@ -1360,13 +1360,16 @@ Stderr can stay as `eprintln!` or `log::error!`.
   full diagnostics and append bounded excerpts to the failure summary. With
   Make `--output-sync=target`, each recipe's `[RUN]` and `[PASS]`/`[FAIL]`
   lines appear together after that target finishes (no mid-run progress for long
-  gates such as `clippy` or `coverage-quick`). For CI-like local runs, use
-  `./scripts/run-check.sh`. New Makefile leaf gates that emit tool chatter
-  should call `MAKE_RUN_LEAF` (see the Makefile comment near that variable);
-  do not wrap `lint-python` at the Make level (per-scanner status is inside
+  gates such as `clippy`, `coverage-quick`, or cargo builds). For CI-like local
+  runs, use `./scripts/run-check.sh`. New Makefile leaf gates that emit tool
+  chatter should call `MAKE_RUN_LEAF` (see the Makefile comment near that
+  variable), including cargo build prereqs labeled `debug-cargo`,
+  `release-cargo`, and `vlz-debug`; do not wrap `lint-python` at the Make level
+  (per-scanner status is inside
   [`scripts/lint-python.sh`](scripts/lint-python.sh)). **Verbose check mode**
-  (`VLZ_CHECK_VERBOSE=1`): streams full tool output, sets `RUST_LOG=info`,
-  coverage phase markers, pytest `-v`, and full `cargo test` / probe output.
+  (`VLZ_CHECK_VERBOSE=1`): streams full tool output (including cargo
+  `Compiling` lines), sets `RUST_LOG=info`, coverage phase markers, pytest `-v`,
+  and full `cargo test` / probe output.
   Locally: `VLZ_CHECK_VERBOSE=1 ./scripts/run-check.sh`. On GitHub Actions,
   re-run the workflow with **Enable debug logging**; the `check` job sets
   `VLZ_CHECK_VERBOSE=1` when `runner.debug` is `1`. Coverage-only verbose:
