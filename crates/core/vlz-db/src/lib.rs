@@ -16,6 +16,9 @@ pub const CRATES_IO_ECOSYSTEM: &str = "crates.io";
 /// OSV / package ecosystem for Go modules.
 pub const GO_ECOSYSTEM: &str = "Go";
 
+/// OSV / package ecosystem for npm (JavaScript / TypeScript).
+pub const NPM_ECOSYSTEM: &str = "npm";
+
 #[derive(
     Debug,
     Clone,

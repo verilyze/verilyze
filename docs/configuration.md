@@ -72,7 +72,7 @@ LOW, UNKNOWN). Configurable per CVSS version (v2, v3, v4) via
 ## Per-language manifest regex (FR-006)
 
 Override which files are treated as manifests per language. Use
-`[python]`, `[rust]`, `[go]`, etc. with a `regex` key:
+`[python]`, `[rust]`, `[go]`, `[javascript]`, etc. with a `regex` key:
 
 ```toml
 [python]
@@ -83,10 +83,15 @@ regex = "^Cargo\\.toml$"
 
 [go]
 regex = "^go\\.mod$"
+
+[javascript]
+regex = "^package\\.json$"
 ```
 
 Use `vlz config --set python.regex="^requirements\\.txt$"` to set via CLI.
-First match wins when multiple patterns could match.
+First match wins when multiple patterns could match. The `javascript` language
+covers both JavaScript and TypeScript projects via `package.json` (OSV
+ecosystem `npm`).
 
 ## Reachability (FR-032)
 
@@ -98,17 +103,22 @@ Environment-only: set `VLZ_REACHABILITY_PERSIST_CACHE=1` (or `true`/`yes`) to
 persist Tier B and per-CVE Tier C decisions under `.vlz/reachability-cache.json`
 in the scan root. See `man vlz` ENVIRONMENT and CONTRIBUTING.md.
 
-## Python resolution policy (FR-022, SEC-023)
+## Resolution policy (FR-022, SEC-023)
 
 `allow_dependency_code_execution` (default false) and
-`allow_direct_only_fallback` (default false) apply to **all** Python project
-manifests (`requirements.txt`, `pyproject.toml`, `Pipfile`, `setup.cfg`,
-`setup.py`). Lock-less projects fail closed (exit 2) unless an adjacent lock
-is present (PEP 751 `pylock.toml` / `pylock.<name>.toml` preferred), safe
-`pip lock -r` succeeds for requirements.txt (pip >= 25.1), executable
-resolution is opted in, or direct-only fallback is opted in. There is no soft
-direct-only default for pyproject/setup/Pipfile. See
-[docs/FAQ.md](FAQ.md) and `man vlz`.
+`allow_direct_only_fallback` (default false) apply across languages. For
+**Python** project manifests (`requirements.txt`, `pyproject.toml`, `Pipfile`,
+`setup.cfg`, `setup.py`), lock-less projects fail closed (exit 4) unless an
+adjacent lock is present (PEP 751 `pylock.toml` / `pylock.<name>.toml`
+preferred), safe `pip lock -r` succeeds for requirements.txt (pip >= 25.1),
+executable resolution is opted in, or direct-only fallback is opted in. There
+is no soft direct-only default for pyproject/setup/Pipfile.
+
+For **JavaScript/TypeScript** (`package.json`, language `javascript`), prefer
+an adjacent or parent lock (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`,
+or `bun.lock`). Without a usable lock, the scan exits 4 by default; npm/yarn/
+pnpm/bun run only with `allow_dependency_code_execution` (ephemeral directory).
+See [docs/FAQ.md](FAQ.md) and `man vlz`.
 
 ## See also
 

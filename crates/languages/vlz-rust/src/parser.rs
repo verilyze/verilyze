@@ -142,6 +142,10 @@ impl CargoTomlParser {
 
 #[async_trait]
 impl Parser for CargoTomlParser {
+    fn language_name(&self) -> &'static str {
+        "rust"
+    }
+
     async fn parse(
         &self,
         manifest: &Path,

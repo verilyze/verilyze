@@ -1667,22 +1667,26 @@ mod tests {
     fn default_cache_path_under_xdg_cache_home() {
         let dir = tempfile::tempdir().unwrap();
         let path_str = dir.path().to_string_lossy().into_owned();
+        set_mock_privileged(Some(false));
         temp_env::with_var("XDG_CACHE_HOME", Some(path_str.as_str()), || {
             let p = default_cache_path();
             assert!(p.to_string_lossy().contains(path_str.as_str()));
             assert!(p.ends_with("vlz-cache.redb"));
         });
+        set_mock_privileged(None);
     }
 
     #[test]
     fn default_ignore_path_under_xdg_data_home() {
         let dir = tempfile::tempdir().unwrap();
         let path_str = dir.path().to_string_lossy().into_owned();
+        set_mock_privileged(Some(false));
         temp_env::with_var("XDG_DATA_HOME", Some(path_str.as_str()), || {
             let p = default_ignore_path();
             assert!(p.to_string_lossy().contains(path_str.as_str()));
             assert!(p.ends_with("vlz-ignore.redb"));
         });
+        set_mock_privileged(None);
     }
 
     #[test]
@@ -2720,6 +2724,7 @@ regex = "^req\\.txt$"
 
     #[test]
     fn cache_home_fallback_when_no_xdg() {
+        set_mock_privileged(Some(false));
         temp_env::with_vars(
             [
                 ("XDG_CACHE_HOME", None::<&str>),
@@ -2730,10 +2735,12 @@ regex = "^req\\.txt$"
                 assert!(p.to_string_lossy().contains(".cache"));
             },
         );
+        set_mock_privileged(None);
     }
 
     #[test]
     fn cache_home_fallback_when_no_xdg_and_no_home() {
+        set_mock_privileged(Some(false));
         temp_env::with_vars(
             [("XDG_CACHE_HOME", None::<&str>), ("HOME", None::<&str>)],
             || {
@@ -2741,10 +2748,12 @@ regex = "^req\\.txt$"
                 assert!(p.to_string_lossy().contains(".cache"));
             },
         );
+        set_mock_privileged(None);
     }
 
     #[test]
     fn data_home_fallback_when_no_xdg() {
+        set_mock_privileged(Some(false));
         temp_env::with_vars(
             [
                 ("XDG_DATA_HOME", None::<&str>),
@@ -2755,6 +2764,7 @@ regex = "^req\\.txt$"
                 assert!(p.to_string_lossy().contains(".local"));
             },
         );
+        set_mock_privileged(None);
     }
 
     #[test]
@@ -2802,6 +2812,7 @@ regex = "^req\\.txt$"
 
     #[test]
     fn data_home_fallback_when_no_xdg_and_no_home() {
+        set_mock_privileged(Some(false));
         temp_env::with_vars(
             [("XDG_DATA_HOME", None::<&str>), ("HOME", None::<&str>)],
             || {
@@ -2809,6 +2820,7 @@ regex = "^req\\.txt$"
                 assert!(p.to_string_lossy().contains(".local"));
             },
         );
+        set_mock_privileged(None);
     }
 
     #[test]

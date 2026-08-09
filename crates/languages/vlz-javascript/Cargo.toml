@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[package]
+name = "vlz-javascript"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "JavaScript/TypeScript language plugin for verilyze (npm ecosystem)"
+publish = false
+
+[dependencies]
+async-trait.workspace = true
+regex.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+serde_norway.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["fs", "rt", "process", "time"] }
+vlz-db = { path = "../../core/vlz-db" }
+vlz-manifest-finder = { path = "../../core/vlz-manifest-finder" }
+vlz-manifest-parser = { path = "../../core/vlz-manifest-parser" }
+vlz-reachability-trait = { path = "../../core/vlz-reachability-trait" }
+
+[features]
+perf-instrumentation = ["vlz-reachability-trait/perf-instrumentation"]
+
+[dev-dependencies]
+temp-env.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt", "macros"] }

@@ -204,14 +204,16 @@ pub enum Commands {
         #[arg(long, help_heading = HELP_RESOLUTION)]
         keep_ephemeral_venv: bool,
 
-        /// Allow pip to execute dependency build code during resolution (SEC-023)
+        /// Allow package managers to execute dependency build/lifecycle code (SEC-023)
         #[arg(long, help_heading = HELP_RESOLUTION)]
         allow_dependency_code_execution: bool,
 
         /// Fall back to direct-only scan with warning when transitive resolution fails (FR-022a).
         /// Applies to all Python project manifests (requirements.txt, pyproject.toml,
         /// Pipfile, setup.cfg, setup.py), Rust Cargo.toml without Cargo.lock,
-        /// and Go go.mod when go list or cargo metadata cannot run.
+        /// Go go.mod when go list or cargo metadata cannot run, and JavaScript/TypeScript
+        /// package.json without a usable adjacent or parent lock when package-manager
+        /// execution is disabled.
         #[arg(long, help_heading = HELP_RESOLUTION)]
         allow_direct_only_fallback: bool,
 
@@ -399,14 +401,16 @@ pub enum Commands {
         #[arg(long, help_heading = HELP_RESOLUTION)]
         keep_ephemeral_venv: bool,
 
-        /// Allow pip to execute dependency build code during resolution (SEC-023)
+        /// Allow package managers to execute dependency build/lifecycle code (SEC-023)
         #[arg(long, help_heading = HELP_RESOLUTION)]
         allow_dependency_code_execution: bool,
 
         /// Fall back to direct-only resolution with warning when transitive resolution fails (FR-022a).
         /// Applies to all Python project manifests (requirements.txt, pyproject.toml,
         /// Pipfile, setup.cfg, setup.py), Rust Cargo.toml without Cargo.lock,
-        /// and Go go.mod when go list or cargo metadata cannot run.
+        /// Go go.mod when go list or cargo metadata cannot run, and JavaScript/TypeScript
+        /// package.json without a usable adjacent or parent lock when package-manager
+        /// execution is disabled.
         #[arg(long, help_heading = HELP_RESOLUTION)]
         allow_direct_only_fallback: bool,
 

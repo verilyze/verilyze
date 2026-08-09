@@ -1668,6 +1668,13 @@
       "version": "1.0.151"
     },
     {
+      "bom-ref": "pkg:cargo/serde_norway@0.9.42",
+      "name": "serde_norway",
+      "purl": "pkg:cargo/serde_norway@0.9.42",
+      "type": "library",
+      "version": "0.9.42"
+    },
+    {
       "bom-ref": "pkg:cargo/serde_spanned@1.1.1",
       "name": "serde_spanned",
       "purl": "pkg:cargo/serde_spanned@1.1.1",
@@ -2046,6 +2053,13 @@
       "version": "1.3.0"
     },
     {
+      "bom-ref": "pkg:cargo/unsafe-libyaml-norway@0.2.15",
+      "name": "unsafe-libyaml-norway",
+      "purl": "pkg:cargo/unsafe-libyaml-norway@0.2.15",
+      "type": "library",
+      "version": "0.2.15"
+    },
+    {
       "bom-ref": "pkg:cargo/untrusted@0.9.0",
       "name": "untrusted",
       "purl": "pkg:cargo/untrusted@0.9.0",
@@ -2140,6 +2154,13 @@
       "bom-ref": "pkg:cargo/vlz-integrity@0.8.0",
       "name": "vlz-integrity",
       "purl": "pkg:cargo/vlz-integrity@0.8.0",
+      "type": "library",
+      "version": "0.8.0"
+    },
+    {
+      "bom-ref": "pkg:cargo/vlz-javascript@0.8.0",
+      "name": "vlz-javascript",
+      "purl": "pkg:cargo/vlz-javascript@0.8.0",
       "type": "library",
       "version": "0.8.0"
     },

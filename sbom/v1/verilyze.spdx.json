@@ -1680,6 +1680,13 @@
     },
     {
       "@type": "Package",
+      "name": "serde_norway",
+      "packageUrl": "pkg:cargo/serde_norway@0.9.42",
+      "spdxId": "urn:spdx.dev:pkg-cargo-serde-norway-0-9-42",
+      "versionInfo": "0.9.42"
+    },
+    {
+      "@type": "Package",
       "name": "serde_spanned",
       "packageUrl": "pkg:cargo/serde_spanned@1.1.1",
       "spdxId": "urn:spdx.dev:pkg-cargo-serde-spanned-1-1-1",
@@ -2058,6 +2065,13 @@
     },
     {
       "@type": "Package",
+      "name": "unsafe-libyaml-norway",
+      "packageUrl": "pkg:cargo/unsafe-libyaml-norway@0.2.15",
+      "spdxId": "urn:spdx.dev:pkg-cargo-unsafe-libyaml-norway-0-2-15",
+      "versionInfo": "0.2.15"
+    },
+    {
+      "@type": "Package",
       "name": "untrusted",
       "packageUrl": "pkg:cargo/untrusted@0.9.0",
       "spdxId": "urn:spdx.dev:pkg-cargo-untrusted-0-9-0",
@@ -2152,6 +2166,13 @@
       "name": "vlz-integrity",
       "packageUrl": "pkg:cargo/vlz-integrity@0.8.0",
       "spdxId": "urn:spdx.dev:pkg-cargo-vlz-integrity-0-8-0",
+      "versionInfo": "0.8.0"
+    },
+    {
+      "@type": "Package",
+      "name": "vlz-javascript",
+      "packageUrl": "pkg:cargo/vlz-javascript@0.8.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-javascript-0-8-0",
       "versionInfo": "0.8.0"
     },
     {

@@ -47,6 +47,10 @@ impl RequirementsTxtParser {
 
 #[async_trait]
 impl Parser for RequirementsTxtParser {
+    fn language_name(&self) -> &'static str {
+        "python"
+    }
+
     async fn parse(
         &self,
         manifest: &std::path::Path,

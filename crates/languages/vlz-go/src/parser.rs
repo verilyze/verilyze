@@ -168,6 +168,10 @@ impl GoModParser {
 
 #[async_trait]
 impl Parser for GoModParser {
+    fn language_name(&self) -> &'static str {
+        "go"
+    }
+
     async fn parse(
         &self,
         manifest: &Path,

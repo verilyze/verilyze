@@ -48,6 +48,7 @@ vlz-plugin-macro = { path = "../vlz-plugin-macro" }
 vlz-python = { path = "../../languages/vlz-python", optional = true }
 vlz-rust = { path = "../../languages/vlz-rust", optional = true }
 vlz-go = { path = "../../languages/vlz-go", optional = true }
+vlz-javascript = { path = "../../languages/vlz-javascript", optional = true }
 
 # CVE providers (optional)
 vlz-cve-provider-nvd = { path = "../../providers/vlz-cve-provider-nvd", optional = true }
@@ -88,7 +89,7 @@ required-features = ["testing"]
 
 # Feature gating – matches MOD‑003, MOD‑009
 [features]
-runtime = ["redb", "python", "rust", "go"]
+runtime = ["redb", "python", "rust", "go", "javascript"]
 default = ["runtime", "completions", "docs"]
 docs = []           # Man page via vlz help; omit for minimal binary
 completions = ["dep:clap_complete"]
@@ -98,6 +99,7 @@ python = ["vlz-python"]
 python-tier-d = ["python", "vlz-python/tier-d"]
 rust = ["vlz-rust"]
 go = ["vlz-go"]
+javascript = ["vlz-javascript"]
 nvd = ["dep:vlz-cve-provider-nvd"]
 github = ["dep:vlz-cve-provider-github"]
 sonatype = ["dep:vlz-cve-provider-sonatype"]
@@ -110,6 +112,7 @@ perf-instrumentation = [
     "vlz-python?/perf-instrumentation",
     "vlz-rust?/perf-instrumentation",
     "vlz-go?/perf-instrumentation",
+    "vlz-javascript?/perf-instrumentation",
 ]
 sqlite = []      # placeholder for a future SQLite backend
 mem = []         # placeholder for an in‑memory/mock backend

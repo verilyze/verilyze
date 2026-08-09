@@ -378,34 +378,47 @@ when `cargo` is present but resolution fails.
 If `go` is missing from PATH or `go list` fails, the scan exits **4** unless
 `--allow-direct-only-fallback` is set.
 
+**JavaScript / TypeScript (`package.json`):** The `javascript` language covers
+both JavaScript and TypeScript. Prefer an adjacent or parent workspace lock
+(`package-lock.json` / `npm-shrinkwrap.json`, `yarn.lock`, `pnpm-lock.yaml`, or
+`bun.lock`). When multiple locks exist, one is chosen (not unioned) and a
+warning is emitted. Without a usable lock, the scan exits **4** by default
+(SEC-023 does not run npm/yarn/pnpm/bun). Use
+`--allow-dependency-code-execution` for ephemeral package-manager resolution,
+or `--allow-direct-only-fallback` for direct-only coverage.
+
 ### Unable to detect transitive dependencies (exit 4)
 
 **Message:** `Unable to detect transitive dependencies. Add an adjacent lock
-file (pylock.toml preferred for Python), use --allow-dependency-code-execution
-for full resolution in a trusted environment, or pass
---allow-direct-only-fallback to scan direct dependencies only.`
+file, use --allow-dependency-code-execution for full resolution in a trusted
+environment, or pass --allow-direct-only-fallback to scan direct dependencies
+only.`
 
 **Cause:** Transitive resolution was required but could not be completed
 (FR-022). Typical cases: any Python project manifest without a lock and without
 a successful safe/exec path; `Cargo.toml` without `Cargo.lock` when
 `cargo metadata` fails; `go.mod` when `go list -m all` fails or `go` is not
-on PATH; explicit pip resolution failed after
+on PATH; `package.json` without an adjacent/parent lock file when package
+manager execution is disabled; explicit pip resolution failed after
 `--allow-dependency-code-execution`; or the parser found no dependencies.
 
 **Remediation:**
 
 1. Commit an adjacent lock file (preferred): PEP 751 `pylock.toml` /
-   `pylock.<name>.toml` for Python, `Cargo.lock`, or `go.sum` (with `go.mod`).
+   `pylock.<name>.toml` for Python, `Cargo.lock`, `go.sum` (with `go.mod`), or
+   a JS lock (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lock`).
 2. Ensure pip >= 25.1 is on PATH for safe `pip lock -r` on `requirements.txt`.
 3. For Rust lock-less scans, ensure `cargo` is on PATH and the crates.io
    registry is reachable (or use `--offline` with a committed `Cargo.lock`).
 4. For Go module projects, ensure `go` is on PATH.
-5. For local Python projects, use `--allow-dependency-code-execution` only in
+5. For JavaScript/TypeScript, commit a lock file or use
+   `--allow-dependency-code-execution` only in trusted CI or workspaces.
+6. For local Python projects, use `--allow-dependency-code-execution` only in
    trusted CI or workspaces (see SECURITY.md).
-6. When you accept direct-only scanning without transitive coverage, use
+7. When you accept direct-only scanning without transitive coverage, use
    `--allow-direct-only-fallback`, `VLZ_ALLOW_DIRECT_ONLY_FALLBACK=1`, or
    `allow_direct_only_fallback = true` in config.
-7. Use `--offline` or `--benchmark` only when you accept direct-only scanning
+8. Use `--offline` or `--benchmark` only when you accept direct-only scanning
    (warnings will be emitted for affected manifests).
 
 See also `man vlz` for configuration keys `keep_ephemeral_venv`,

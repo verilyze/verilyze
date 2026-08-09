@@ -5,21 +5,60 @@
 //! Shared helpers for vlz integration tests (DOC-004 exit-code matrix, run_inprocess).
 
 use clap::Parser;
+use std::path::Path;
+use std::process::Command;
 use vlz::cli::Cli;
 
-pub fn with_temp_xdg<F, R>(f: F) -> R
+/// Apply XDG + VLZ_* DB env so subprocesses work when run as root
+/// (privileged defaults ignore XDG and use /var/...).
+#[allow(dead_code)] // not every integration test binary uses subprocesses
+pub fn apply_isolated_db_env(cmd: &mut Command, xdg_root: &Path) {
+    let cache_db = xdg_root.join("vlz-cache.redb");
+    let ignore_db = xdg_root.join("vlz-ignore.redb");
+    cmd.env("XDG_CACHE_HOME", xdg_root)
+        .env("XDG_DATA_HOME", xdg_root)
+        .env("XDG_CONFIG_HOME", xdg_root)
+        .env("VLZ_CACHE_DB", &cache_db)
+        .env("VLZ_IGNORE_DB", &ignore_db);
+}
+
+/// Like [`with_temp_xdg`] but does not call [`ensure_registries_for_run`].
+/// Use when a test must seed the cache DB before registration.
+#[allow(dead_code)] // used by run_inprocess seed tests; shared support module
+pub fn with_temp_xdg_env<F, R>(f: F) -> R
 where
     F: FnOnce() -> R,
 {
     let dir = tempfile::tempdir().expect("tempdir");
     let p = dir.path().to_string_lossy().into_owned();
-    temp_env::with_var("XDG_CACHE_HOME", Some(p.as_str()), || {
-        temp_env::with_var("XDG_DATA_HOME", Some(p.as_str()), || {
-            temp_env::with_var("XDG_CONFIG_HOME", Some(p.as_str()), || {
-                ensure_registries_for_run();
-                f()
-            })
-        })
+    // Match default_cache_path() / default_ignore_path() under XDG so
+    // reregister helpers and VLZ_* env agree.
+    let cache_db = format!("{p}/verilyze/vlz-cache.redb");
+    let ignore_db = format!("{p}/verilyze/vlz-ignore.redb");
+    // Privileged defaults ignore XDG and use /var/...; force non-root so
+    // tests can run as uid 0 (common in containers).
+    vlz::config::set_mock_privileged(Some(false));
+    let result = temp_env::with_vars(
+        [
+            ("XDG_CACHE_HOME", Some(p.as_str())),
+            ("XDG_DATA_HOME", Some(p.as_str())),
+            ("XDG_CONFIG_HOME", Some(p.as_str())),
+            ("VLZ_CACHE_DB", Some(cache_db.as_str())),
+            ("VLZ_IGNORE_DB", Some(ignore_db.as_str())),
+        ],
+        f,
+    );
+    vlz::config::set_mock_privileged(None);
+    result
+}
+
+pub fn with_temp_xdg<F, R>(f: F) -> R
+where
+    F: FnOnce() -> R,
+{
+    with_temp_xdg_env(|| {
+        ensure_registries_for_run();
+        f()
     })
 }
 

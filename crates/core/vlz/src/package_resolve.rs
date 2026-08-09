@@ -99,6 +99,13 @@ fn discover_manifests_one_pass(
             #[cfg(feature = "go")]
             if name == vlz_go::GO_MANIFEST_NAME {
                 out.entry("go".to_string()).or_default().push(entry.path());
+                continue;
+            }
+            #[cfg(feature = "javascript")]
+            if name == vlz_javascript::JS_MANIFEST_NAME {
+                out.entry("javascript".to_string())
+                    .or_default()
+                    .push(entry.path());
             }
         }
     }
@@ -598,7 +605,10 @@ pub async fn resolve_packages_for_path(
         let first_lang =
             effective.language_regexes.first().map(|(l, _)| l.as_str());
         #[cfg(feature = "python")]
-        if first_lang != Some("rust") && first_lang != Some("go") {
+        if first_lang != Some("rust")
+            && first_lang != Some("go")
+            && first_lang != Some("javascript")
+        {
             match vlz_python::PythonManifestFinder::with_patterns(
                 patterns.clone(),
             ) {
@@ -616,7 +626,9 @@ pub async fn resolve_packages_for_path(
         }
         #[cfg(feature = "rust")]
         if first_lang == Some("rust")
-            || (finders.is_empty() && first_lang != Some("go"))
+            || (finders.is_empty()
+                && first_lang != Some("go")
+                && first_lang != Some("javascript"))
         {
             match vlz_rust::RustManifestFinder::with_patterns(patterns.clone())
             {
@@ -631,8 +643,23 @@ pub async fn resolve_packages_for_path(
             }
         }
         #[cfg(feature = "go")]
-        if first_lang == Some("go") || finders.is_empty() {
-            match vlz_go::GoManifestFinder::with_patterns(patterns) {
+        if first_lang == Some("go")
+            || (finders.is_empty() && first_lang != Some("javascript"))
+        {
+            match vlz_go::GoManifestFinder::with_patterns(patterns.clone()) {
+                Ok(f) => finders.push(Box::new(f)),
+                Err(e) => {
+                    error!("Invalid language regex in config: {}", e);
+                    return Err(anyhow!(
+                        "Invalid language regex in config: {}",
+                        e
+                    ));
+                }
+            }
+        }
+        #[cfg(feature = "javascript")]
+        if first_lang == Some("javascript") || finders.is_empty() {
+            match vlz_javascript::JsManifestFinder::with_patterns(patterns) {
                 Ok(f) => finders.push(Box::new(f)),
                 Err(e) => {
                     error!("Invalid language regex in config: {}", e);
@@ -646,11 +673,12 @@ pub async fn resolve_packages_for_path(
         #[cfg(not(any(
             feature = "python",
             feature = "rust",
-            feature = "go"
+            feature = "go",
+            feature = "javascript"
         )))]
         {
             error!(
-                "Custom language regexes require a language plugin (e.g. python, rust, or go feature)"
+                "Custom language regexes require a language plugin (e.g. python, rust, go, or javascript feature)"
             );
             return Err(anyhow!(
                 "Custom language regexes require a language plugin"
@@ -658,17 +686,50 @@ pub async fn resolve_packages_for_path(
         }
         let mut p = crate::registry::parsers().lock().unwrap();
         let mut r = crate::registry::resolvers().lock().unwrap();
-        let m = finders.len().min(p.len()).min(r.len());
-        for _ in 0..m {
-            parsers.push(p.remove(0));
-            resolvers.push(r.remove(0));
-        }
+        let langs: Vec<String> = finders
+            .iter()
+            .map(|f| f.language_name().to_string())
+            .collect();
+        let (matched_parsers, matched_resolvers) =
+            take_matching_language_plugins(&langs, &mut p, &mut r);
+        parsers = matched_parsers;
+        resolvers = matched_resolvers;
     }
 
     resolve_packages_with_plugins(
         root_path, effective, finders, parsers, resolvers,
     )
     .await
+}
+
+/// Take parser/resolver plugins that match finder language names (FR-006).
+/// Avoids pairing a language-specific finder with the wrong plugin via
+/// positional `remove(0)`.
+type LanguageParsers = Vec<Box<dyn Parser>>;
+type LanguageResolvers = Vec<Box<dyn Resolver>>;
+
+pub(crate) fn take_matching_language_plugins(
+    languages: &[String],
+    parsers: &mut LanguageParsers,
+    resolvers: &mut LanguageResolvers,
+) -> (LanguageParsers, LanguageResolvers) {
+    let mut out_parsers = Vec::new();
+    let mut out_resolvers = Vec::new();
+    for lang in languages {
+        if let Some(i) = parsers
+            .iter()
+            .position(|p| p.language_name() == lang.as_str())
+        {
+            out_parsers.push(parsers.remove(i));
+        }
+        if let Some(i) = resolvers
+            .iter()
+            .position(|r| r.language_name() == lang.as_str())
+        {
+            out_resolvers.push(resolvers.remove(i));
+        }
+    }
+    (out_parsers, out_resolvers)
 }
 
 /// Plugin-injectable resolve path (used by production and concurrency tests).
@@ -713,10 +774,14 @@ pub(crate) async fn resolve_packages_with_plugins(
             .allow_dependency_code_execution,
         allow_direct_only_fallback: effective.allow_direct_only_fallback,
         python_lock_files: effective.python_lock_files.clone(),
+        scan_root: Some(root_path.clone()),
     };
     let can_use_shared_discovery = effective.language_regexes.is_empty()
         && finders.iter().take(n).all(|finder| {
-            matches!(finder.language_name(), "python" | "rust" | "go")
+            matches!(
+                finder.language_name(),
+                "python" | "rust" | "go" | "javascript"
+            )
         });
 
     let (mut manifests_by_language, orphan_multi_lock_warnings) =
@@ -1036,6 +1101,10 @@ mod tests {
 
     #[async_trait]
     impl Parser for FakeParser {
+        fn language_name(&self) -> &'static str {
+            "fake"
+        }
+
         async fn parse(
             &self,
             manifest: &Path,
@@ -1504,5 +1573,71 @@ mod tests {
         )
         .await;
         assert!(out.package_manager_missing);
+    }
+
+    struct NamedFakeParser {
+        language: &'static str,
+    }
+
+    #[async_trait]
+    impl Parser for NamedFakeParser {
+        fn language_name(&self) -> &'static str {
+            self.language
+        }
+
+        async fn parse(
+            &self,
+            _manifest: &Path,
+        ) -> Result<DependencyGraph, ParserError> {
+            Ok(DependencyGraph::default())
+        }
+    }
+
+    #[test]
+    fn take_matching_language_plugins_pairs_by_language_name() {
+        let mut parsers: Vec<Box<dyn Parser>> = vec![
+            Box::new(NamedFakeParser { language: "python" }),
+            Box::new(NamedFakeParser {
+                language: "javascript",
+            }),
+        ];
+        let mut resolvers: Vec<Box<dyn Resolver>> = vec![
+            Box::new(FakeResolver {
+                language: "python",
+                barrier: None,
+                current: Arc::new(AtomicUsize::new(0)),
+                peak: Arc::new(AtomicUsize::new(0)),
+                resolve_calls: Arc::new(AtomicUsize::new(0)),
+                fail: false,
+                hold: None,
+                overlap_flag: None,
+                in_resolve: None,
+            }),
+            Box::new(FakeResolver {
+                language: "javascript",
+                barrier: None,
+                current: Arc::new(AtomicUsize::new(0)),
+                peak: Arc::new(AtomicUsize::new(0)),
+                resolve_calls: Arc::new(AtomicUsize::new(0)),
+                fail: false,
+                hold: None,
+                overlap_flag: None,
+                in_resolve: None,
+            }),
+        ];
+        let langs = vec!["javascript".to_string()];
+        let (matched_p, matched_r) = take_matching_language_plugins(
+            &langs,
+            &mut parsers,
+            &mut resolvers,
+        );
+        assert_eq!(matched_p.len(), 1);
+        assert_eq!(matched_r.len(), 1);
+        assert_eq!(matched_p[0].language_name(), "javascript");
+        assert_eq!(matched_r[0].language_name(), "javascript");
+        assert_eq!(parsers.len(), 1);
+        assert_eq!(parsers[0].language_name(), "python");
+        assert_eq!(resolvers.len(), 1);
+        assert_eq!(resolvers[0].language_name(), "python");
     }
 }
