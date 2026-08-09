@@ -26,6 +26,9 @@ Human-readable release notes for each version.
 
 ### Fixed
 
+- Release workflow uploads Windows platform archives via a relative
+  `dist-archive/` path so `upload-artifact` finds the zip on windows-latest
+  (MSYS absolute paths like `/d/a/...` were silently skipped).
 - `requirements.txt` parsing rejects malformed version specifiers (for example
   `package=version` instead of `package==version`), records `failed_parse` in
   manifest coverage, and exits 4 (FR-010, FR-037). Supported PEP 508 operators:

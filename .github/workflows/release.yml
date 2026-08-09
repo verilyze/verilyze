@@ -133,8 +133,11 @@ jobs:
             --binary "${BINARY_PATH}" \
             --repo-root . \
             --output-dir dist-archive)"
-          echo "archive_path=${archive_path}" >> "${GITHUB_OUTPUT}"
-          echo "archive_name=$(basename "${archive_path}")" >> "${GITHUB_OUTPUT}"
+          archive_name="$(basename "${archive_path}")"
+          # Relative path so upload-artifact resolves on Windows. Absolute MSYS
+          # paths (/d/a/...) are not found by the Node.js action.
+          echo "archive_path=dist-archive/${archive_name}" >> "${GITHUB_OUTPUT}"
+          echo "archive_name=${archive_name}" >> "${GITHUB_OUTPUT}"
 
       # Archive-only SLSA subject: executable is covered transitively (SEC-021).
       - name: Generate provenance subject hash (SEC-021)
