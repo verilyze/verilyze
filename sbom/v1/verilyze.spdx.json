@@ -15,9 +15,9 @@
     {
       "@type": "Package",
       "name": "ast-serialize",
-      "packageUrl": "pkg:pypi/ast-serialize@0.6.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-ast-serialize-0-6-0",
-      "versionInfo": "0.6.0"
+      "packageUrl": "pkg:pypi/ast-serialize@0.8.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-ast-serialize-0-8-0",
+      "versionInfo": "0.8.0"
     },
     {
       "@type": "Package",
@@ -64,9 +64,9 @@
     {
       "@type": "Package",
       "name": "coverage",
-      "packageUrl": "pkg:pypi/coverage@7.15.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-coverage-7-15-2",
-      "versionInfo": "7.15.2"
+      "packageUrl": "pkg:pypi/coverage@7.15.4",
+      "spdxId": "urn:spdx.dev:pkg-pypi-coverage-7-15-4",
+      "versionInfo": "7.15.4"
     },
     {
       "@type": "Package",
@@ -106,9 +106,9 @@
     {
       "@type": "Package",
       "name": "librt",
-      "packageUrl": "pkg:pypi/librt@0.13.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-librt-0-13-0",
-      "versionInfo": "0.13.0"
+      "packageUrl": "pkg:pypi/librt@0.15.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-librt-0-15-0",
+      "versionInfo": "0.15.0"
     },
     {
       "@type": "Package",
@@ -148,9 +148,9 @@
     {
       "@type": "Package",
       "name": "packaging",
-      "packageUrl": "pkg:pypi/packaging@26.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-packaging-26-2",
-      "versionInfo": "26.2"
+      "packageUrl": "pkg:pypi/packaging@26.3",
+      "spdxId": "urn:spdx.dev:pkg-pypi-packaging-26-3",
+      "versionInfo": "26.3"
     },
     {
       "@type": "Package",
@@ -162,9 +162,9 @@
     {
       "@type": "Package",
       "name": "platformdirs",
-      "packageUrl": "pkg:pypi/platformdirs@4.11.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-platformdirs-4-11-0",
-      "versionInfo": "4.11.0"
+      "packageUrl": "pkg:pypi/platformdirs@4.11.1",
+      "spdxId": "urn:spdx.dev:pkg-pypi-platformdirs-4-11-1",
+      "versionInfo": "4.11.1"
     },
     {
       "@type": "Package",
