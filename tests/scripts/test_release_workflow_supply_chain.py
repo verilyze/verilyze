@@ -103,6 +103,19 @@ def test_release_workflow_macos_hash_uses_portable_base64() -> None:
     assert "base64 < checksum" in build_job.group(0)
 
 
+def test_release_workflow_archive_upload_uses_relative_path() -> None:
+    """upload-artifact on Windows does not resolve MSYS absolute paths."""
+    workflow = _release_workflow_text()
+    build_job = re.search(
+        r"build-binary:.*?(?=\n  binary-slsa-provenance:)",
+        workflow,
+        re.DOTALL,
+    )
+    assert build_job is not None
+    assert 'archive_path=dist-archive/${archive_name}' in build_job.group(0)
+    assert "echo \"archive_path=${archive_path}\"" not in build_job.group(0)
+
+
 def test_release_workflow_skips_download_layout_restore() -> None:
     workflow = _release_workflow_text()
     assert "release-restore-download-layout.sh" not in workflow
