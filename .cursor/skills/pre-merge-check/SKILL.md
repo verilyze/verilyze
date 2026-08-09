@@ -67,8 +67,8 @@ Regenerate and commit companion outputs when source paths change (see
 
 When manifests change, also run the matching **check** targets (`make check-sbom`,
 `make check-third-party-licenses`, `make check-pylock-dev`) before push.
-`make check-fast` includes `make check-upload-sarif-example` but not
-`make check-sbom`.
+`make check-fast` includes `make check-upload-sarif-example` and
+`make check-github-action-pin-comments` but not `make check-sbom`.
 
 ## After checks pass
 

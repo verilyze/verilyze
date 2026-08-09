@@ -62,6 +62,16 @@ def test_check_fast_target_includes_deny_check() -> None:
     )
 
 
+def test_check_fast_includes_github_action_pin_comments() -> None:
+    text = (repo_root() / "Makefile").read_text(encoding="utf-8")
+    block = _extract_prerequisite_block(text, "check-fast-parallel")
+    tokens = block.replace("\\", " ").split()
+    assert "check-github-action-pin-comments" in tokens, (
+        "make check-fast must depend on check-github-action-pin-comments "
+        "(full-semver digest pin comments for zizmor)"
+    )
+
+
 def test_check_serializes_check_headers_before_parallel() -> None:
     text = (repo_root() / "Makefile").read_text(encoding="utf-8")
     assert re.search(
