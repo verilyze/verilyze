@@ -1,1 +1,1 @@
-{"name":"app","dependencies":{"lodash":"^4.17.21"}}
+{ "name": "app", "dependencies": { "lodash": "^4.17.21" } }
