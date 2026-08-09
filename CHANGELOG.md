@@ -10,6 +10,20 @@ Human-readable release notes for each version.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-08-09
+
+### Added
+
+- GitHub Release downloads are versioned platform archives
+  (`vlz-<version>-linux-x86_64.tar.gz`, `vlz-<version>-macos-aarch64.tar.gz`,
+  `vlz-<version>-windows-x86_64.zip`) instead of raw
+  `vlz-linux-x86_64` / `vlz-macos-aarch64` / `vlz-windows-x86_64.exe` binaries.
+  Each archive extracts a consistently named `vlz` (or `vlz.exe` on Windows).
+  `SHA256SUMS` lists the same flat basenames as the release page. Update
+  download scripts and CI to use the new names; see INSTALL.md and
+  docs/install-archive.md. Older releases remain downloadable under the
+  previous asset names.
+
 ### Fixed
 
 - `requirements.txt` parsing rejects malformed version specifiers (for example
@@ -27,15 +41,6 @@ Human-readable release notes for each version.
 - Multi-manifest resolution progress (`Resolving N {language} manifest(s)...`)
   is now logged at info level and appears only with `-v` / `--verbose`
   (NFR-013). Default scan stderr stays quiet on successful runs.
-- GitHub Release downloads are versioned platform archives
-  (`vlz-<version>-linux-x86_64.tar.gz`, `vlz-<version>-macos-aarch64.tar.gz`,
-  `vlz-<version>-windows-x86_64.zip`) instead of raw
-  `vlz-linux-x86_64` / `vlz-macos-aarch64` / `vlz-windows-x86_64.exe` binaries.
-  Each archive extracts a consistently named `vlz` (or `vlz.exe` on Windows).
-  `SHA256SUMS` lists the same flat basenames as the release page. Update
-  download scripts and CI to use the new names; see INSTALL.md and
-  docs/install-archive.md. Older releases remain downloadable under the
-  previous asset names.
 
 ## [0.7.1] - 2026-07-25
 
