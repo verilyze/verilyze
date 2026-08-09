@@ -13,9 +13,10 @@ COVERAGE_SCRIPT := $(SCRIPTS_DIR)/coverage.sh
 FUZZ_SCRIPT := $(SCRIPTS_DIR)/fuzz.sh
 LINT_PYTHON_SCRIPT := $(SCRIPTS_DIR)/lint-python.sh
 MAKE_RUN_LEAF := $(SCRIPTS_DIR)/lib/make-run-leaf.sh
-# New check-* leaf recipes that print tool output should use MAKE_RUN_LEAF so
-# CI brief mode (VLZ_CHECK_BRIEF=1 via scripts/run-check.sh) suppresses success
-# chatter. Do not wrap lint-python (per-scanner status lives in lint-python.sh).
+# Leaf recipes that print tool output (check-* gates and cargo build prereqs)
+# should use MAKE_RUN_LEAF so CI brief mode (VLZ_CHECK_BRIEF=1 via
+# scripts/run-check.sh) suppresses success chatter. Do not wrap lint-python
+# (per-scanner status lives in lint-python.sh).
 VENV_LINT := $(MKFILE_DIR)/.venv-lint
 VENV_REUSE := $(MKFILE_DIR)/.venv-reuse
 VENV_TEST := $(MKFILE_DIR)/.venv-test
@@ -244,31 +245,40 @@ VLZ_RELEASE := $(shell cd "$(MKFILE_DIR)" && cargo metadata --no-deps --format-v
 
 # Implicit rule: when completions need the binary, build it.
 $(VLZ_DEBUG):
-	cd "$(MKFILE_DIR)" && cargo build -p vlz
+	@$(MAKE_RUN_LEAF) vlz-debug -- bash -c 'cd "$(MKFILE_DIR)" && cargo build -p vlz'
 
 debug: check-headers
-	$(MAKE) -C "$(MKFILE_DIR)" -f "$(MKFILE_DIR)/Makefile" generate-manpages
-	cd "$(MKFILE_DIR)" && cargo build
-	$(MAKE) -C "$(MKFILE_DIR)" -f "$(MKFILE_DIR)/Makefile" completions
+	@$(MAKE) -C "$(MKFILE_DIR)" -f "$(MKFILE_DIR)/Makefile" generate-manpages
+	@$(MAKE_RUN_LEAF) debug-cargo -- bash -c 'cd "$(MKFILE_DIR)" && cargo build'
+	@$(MAKE) -C "$(MKFILE_DIR)" -f "$(MKFILE_DIR)/Makefile" completions
 
 release: check-headers
-	$(MAKE) -C "$(MKFILE_DIR)" -f "$(MKFILE_DIR)/Makefile" generate-manpages
-	cd "$(MKFILE_DIR)" && RUSTFLAGS="$(RUSTFLAGS) -Dwarnings" cargo build --release
+	@$(MAKE) -C "$(MKFILE_DIR)" -f "$(MKFILE_DIR)/Makefile" generate-manpages
+	@$(MAKE_RUN_LEAF) release-cargo -- bash -c \
+	  'cd "$(MKFILE_DIR)" && RUSTFLAGS="$(RUSTFLAGS) -Dwarnings" cargo build --release'
 
 # ---- Shell completions (FR-028) ----
-# Incremental: only regenerate when binary is newer than completion files.
+# Incremental: regenerate when the debug binary is newer than the stamp.
+# Stamp avoids running generate_completions.sh once per completion file
+# (Make 4.0+; no grouped-target &: which needs 4.3+).
+# Touch the stamp only after a successful generate so a failed run retries.
 # Uses scripts/generate_completions.sh (DRY: same script used by packaging).
-completions: completions/vlz.bash completions/_vlz completions/vlz.fish
+completions: completions/.generated
 
-completions/vlz.bash completions/_vlz completions/vlz.fish: $(VLZ_DEBUG)
-	cd "$(MKFILE_DIR)" && $(SCRIPTS_DIR)/generate_completions.sh "$(VLZ_DEBUG)"
+completions/.generated: $(VLZ_DEBUG)
+	@mkdir -p "$(MKFILE_DIR)/completions"
+	@cd "$(MKFILE_DIR)" && $(SCRIPTS_DIR)/generate_completions.sh "$(VLZ_DEBUG)"
+	@touch "$@"
 
 generate-completions: $(VLZ_DEBUG)
-	cd "$(MKFILE_DIR)" && $(SCRIPTS_DIR)/generate_completions.sh "$(VLZ_DEBUG)"
+	@mkdir -p "$(MKFILE_DIR)/completions"
+	@cd "$(MKFILE_DIR)" && $(SCRIPTS_DIR)/generate_completions.sh "$(VLZ_DEBUG)"
+	@touch "$(MKFILE_DIR)/completions/.generated"
 
 # Completions from release binary; used by packaging targets (deb, etc.).
 completions-release: release
-	cd "$(MKFILE_DIR)" && $(SCRIPTS_DIR)/generate_completions.sh "$(VLZ_RELEASE)"
+	@cd "$(MKFILE_DIR)" && $(SCRIPTS_DIR)/generate_completions.sh "$(VLZ_RELEASE)"
+	@touch "$(MKFILE_DIR)/completions/.generated"
 
 check-completions: debug
 	@$(MAKE_RUN_LEAF) check-completions -- bash -c 'cd "$(MKFILE_DIR)" && git diff --exit-code completions/ || (echo "Completions out of sync; run make generate-completions and commit." && exit 1)'
@@ -291,7 +301,7 @@ $(VENV_TEST)/bin/pytest:
 	      "$(VENV_TEST)/bin/python" -c "import pathlib, coverage; p=pathlib.Path(coverage.__file__).resolve().parent/'htmlfiles'/'index.html'; assert p.is_file(), p" 2>/dev/null; then \
 		exit 0; \
 	fi
-	rm -rf $(VENV_TEST)
+	@rm -rf $(VENV_TEST)
 	@mkdir -p $(PIP_TMPDIR)
 	@$(MAKE_RUN_LEAF) venv-test -- bash -c 'TMPDIR="$(PIP_TMPDIR)" python3 -m venv "$(VENV_TEST)" && cd "$(MKFILE_DIR)" && TMPDIR="$(PIP_TMPDIR)" "$(VENV_TEST)/bin/pip" install ".[dev]"'
 
@@ -316,13 +326,13 @@ $(VENV_LINT)/bin/black:
 	      "$(VENV_LINT)/bin/codespell" --version >/dev/null 2>&1; then \
 		exit 0; \
 	fi
-	rm -rf $(VENV_LINT)
+	@rm -rf $(VENV_LINT)
 	@mkdir -p $(PIP_TMPDIR)
 	@$(MAKE_RUN_LEAF) venv-lint -- bash -c 'TMPDIR="$(PIP_TMPDIR)" python3 -m venv "$(VENV_LINT)" && cd "$(MKFILE_DIR)" && TMPDIR="$(PIP_TMPDIR)" "$(VENV_LINT)/bin/pip" install ".[dev]"'
 
 # lint-python: modern-style, black, pylint, mypy, bandit (aggregates failures; NFR-021)
 lint-python: $(VENV_LINT)/bin/black
-	$(LINT_PYTHON_SCRIPT)
+	@$(LINT_PYTHON_SCRIPT)
 
 # lint-shell: ShellCheck (NFR-022). Requires shellcheck. Run from scripts/ so
 # shellcheck source= paths in repo scripts resolve; -x follows sourced libs.

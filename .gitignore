@@ -21,6 +21,9 @@ crates/**/target/
 .cursor/.agent-turn-paths
 **/vendor.tar.zst
 
+# Make stamp: completions regenerated when debug binary is newer
+/completions/.generated
+
 # super-linter local artifacts (SAVE_SUPER_LINTER_*)
 /super-linter.log
 /super-linter-summary.md
