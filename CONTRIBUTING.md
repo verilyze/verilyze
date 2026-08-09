@@ -97,6 +97,7 @@ graph TD
 | C toolchain/linker | Link Rust crates on build (GCC/clang)      | OS package manager           |
 | Python 3 (≥3.11)   | Scripts, linters, tests                    | OS package manager           |
 | ShellCheck         | Shell script linting                       | OS package manager           |
+| Gitleaks           | Secret scanning (`check-super-linter-native`) | OS package manager / [upstream](https://github.com/gitleaks/gitleaks#installing) |
 | GNU Make (4.0+)    | Build orchestration                        | OS package manager           |
 | Git                | Contributing, hooks, fuzz change detection | OS package manager           |
 | GnuPG 2.x/SSH key  | Commit signing (GPG or SSH; required)      | OS package manager           |
@@ -143,9 +144,9 @@ End-user install options (release binary, `make install`, packages, Docker):
 see [INSTALL.md](INSTALL.md).
 
 Run `make` or `make help` for a full list of targets. `make setup` checks
-system prerequisites (`python3`, `cargo`, `shellcheck`) and bootstraps
-non-system developer tools (cargo-deny, cargo-about, cargo-llvm-cov,
-cargo-afl, Python lint/test venvs). REUSE is auto-installed when
+system prerequisites (`python3`, `cargo`, `shellcheck`, `gitleaks`) and
+bootstraps non-system developer tools (cargo-deny, cargo-about,
+cargo-llvm-cov, cargo-afl, Python lint/test venvs). REUSE is auto-installed when
 `check-headers` runs. Recommended: `make setup-hooks` for git hooks (REUSE
 headers, DCO signoff, signature verification on push). Commit signing (GPG or
 SSH) must be configured separately -- see
@@ -1041,9 +1042,13 @@ releases](#versioning-and-releases) below.
   tree); both call [`scripts/super-linter.sh`](scripts/super-linter.sh) and
   require Docker. `make check-fast` (and `make check-pr`) run
   `make check-super-linter-native` (no Docker): OBS env key order, release
-  workflow Checkov skip parity, and **codespell** from `.venv-test/bin`
+  workflow Checkov skip parity, **codespell** from `.venv-test/bin`
   using [`.codespellrc`](.codespellrc) (same gate as super-linter
-  SPELL_CODESPELL). Workflows pass `GITHUB_TOKEN` and set
+  SPELL_CODESPELL), and host **gitleaks** via
+  [`scripts/gitleaks_native.py`](scripts/gitleaks_native.py) using
+  [`.gitleaks.toml`](.gitleaks.toml) (`gitleaks directory --redact`, same
+  worktree scan shape as super-linter Gitleaks; host binary version may
+  differ from the pinned super-linter image). Workflows pass `GITHUB_TOKEN` and set
   `SAVE_SUPER_LINTER_OUTPUT` / `SAVE_SUPER_LINTER_SUMMARY` so logs upload on
   failure. The script sets `IGNORE_GITIGNORED_FILES=true` and
   `FILTER_REGEX_EXCLUDE` so `target/`, `.git/`, `completions/` (ShellCheck is
@@ -1073,10 +1078,12 @@ releases](#versioning-and-releases) below.
   super-linter defaults with [`.yamllint`](.yamllint) at the repo root (YAML
   Prettier remains off). **Gitleaks** and **Zizmor** run with super-linter
   defaults ([`.gitleaks.toml`](.gitleaks.toml) is honored with
-  `LINTER_RULES_PATH=.`). A few workflow lines use `# zizmor: ignore[...]`
-  where maintainers chose pinned actions over script-only equivalents (see
-  Zizmor docs). **JSCPD** stays off. You may still run `gitleaks detect` locally
-  before push for faster feedback. The script defaults to a
+  `LINTER_RULES_PATH=.`). Local `check-super-linter-native` runs
+  `gitleaks directory --redact --verbose` with that config (worktree scan,
+  including uncommitted files; not a full git-history scan). A few workflow
+  lines use `# zizmor: ignore[...]` where maintainers chose pinned actions
+  over script-only equivalents (see Zizmor docs). **JSCPD** stays off. The
+  script defaults to a
   **pinned** slim image digest (linux/amd64, not `:slim-latest`, so linter
   versions stay stable until maintainers bump the digest). Override with
   `SUPER_LINTER_IMAGE` if needed. **Renovate** ([`renovate.json`](renovate.json))
