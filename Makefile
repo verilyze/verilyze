@@ -403,8 +403,8 @@ coverage-extended: setup fuzz
 # fuzz-then-coverage: run fuzz-changed before coverage-quick. make -j check must not
 # run cargo afl and cargo llvm-cov in parallel (shared target/; mixed RUSTFLAGS; rustc SIGILL).
 fuzz-then-coverage:
-	$(MAKE) fuzz-changed
-	$(MAKE) coverage-quick
+	@$(MAKE) fuzz-changed
+	@$(MAKE) coverage-quick
 
 # ---- Doc diagrams ----
 # Embed Mermaid diagrams from architecture/*.mmd into README and CONTRIBUTING
