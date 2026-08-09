@@ -89,7 +89,7 @@ pub fn ensure_default_db_backend_with_path(
     Ok(())
 }
 
-/// Ensures language finders are registered (Python and/or Rust when features enabled).
+/// Ensures language finders are registered (when language features enabled).
 /// Call this at startup so default finders are used.
 pub fn ensure_default_manifest_finder() {
     let mut f = finders().lock().unwrap();
@@ -105,42 +105,35 @@ pub fn ensure_default_manifest_finder() {
     if !f.iter().any(|x| x.language_name() == "go") {
         f.push(Box::new(vlz_go::GoManifestFinder::new()));
     }
+    #[cfg(feature = "javascript")]
+    if !f.iter().any(|x| x.language_name() == "javascript") {
+        f.push(Box::new(vlz_javascript::JsManifestFinder::new()));
+    }
 }
 
-/// Ensures language parsers are registered (Python and/or Rust when features enabled).
-/// Call this at startup so default parsers are used.
+/// Ensures language parsers are registered (when language features enabled).
+/// Deduplicates by `Parser::language_name` (same pattern as finders/resolvers).
 pub fn ensure_default_parser() {
     let mut p = parsers().lock().unwrap();
     #[cfg(feature = "python")]
-    if p.is_empty() {
+    if !p.iter().any(|x| x.language_name() == "python") {
         p.push(Box::new(vlz_python::RequirementsTxtParser::new()));
     }
     #[cfg(feature = "rust")]
-    {
-        let need_rust = if cfg!(feature = "python") {
-            p.len() < 2
-        } else {
-            p.is_empty()
-        };
-        if need_rust {
-            p.push(Box::new(vlz_rust::CargoTomlParser::new()));
-        }
+    if !p.iter().any(|x| x.language_name() == "rust") {
+        p.push(Box::new(vlz_rust::CargoTomlParser::new()));
     }
     #[cfg(feature = "go")]
-    {
-        let expected: usize =
-            [cfg!(feature = "python"), cfg!(feature = "rust")]
-                .into_iter()
-                .filter(|b| *b)
-                .count()
-                + 1;
-        if p.len() < expected {
-            p.push(Box::new(vlz_go::GoModParser::new()));
-        }
+    if !p.iter().any(|x| x.language_name() == "go") {
+        p.push(Box::new(vlz_go::GoModParser::new()));
+    }
+    #[cfg(feature = "javascript")]
+    if !p.iter().any(|x| x.language_name() == "javascript") {
+        p.push(Box::new(vlz_javascript::JsManifestParser::new()));
     }
 }
 
-/// Ensures language resolvers are registered (Python and/or Rust when features enabled).
+/// Ensures language resolvers are registered (when language features enabled).
 pub fn ensure_default_resolver() {
     let mut r = resolvers().lock().unwrap();
     #[cfg(feature = "python")]
@@ -154,6 +147,10 @@ pub fn ensure_default_resolver() {
     #[cfg(feature = "go")]
     if !r.iter().any(|x| x.language_name() == "go") {
         r.push(Box::new(vlz_go::GoResolver::new()));
+    }
+    #[cfg(feature = "javascript")]
+    if !r.iter().any(|x| x.language_name() == "javascript") {
+        r.push(Box::new(vlz_javascript::JsResolver::new()));
     }
 }
 
@@ -171,6 +168,10 @@ pub fn ensure_default_reachability_analyzer() {
     #[cfg(feature = "go")]
     if !analyzers.iter().any(|x| x.language_name() == "go") {
         analyzers.push(Box::new(vlz_go::GoTierBAnalyzer::new()));
+    }
+    #[cfg(feature = "javascript")]
+    if !analyzers.iter().any(|x| x.language_name() == "javascript") {
+        analyzers.push(Box::new(vlz_javascript::JsTierBAnalyzer::new()));
     }
 }
 
@@ -455,12 +456,18 @@ mod tests {
         }
 
         // 2) ensure_default_* when empty add one per language; second call is idempotent
-        #[cfg(any(feature = "python", feature = "rust", feature = "go"))]
+        #[cfg(any(
+            feature = "python",
+            feature = "rust",
+            feature = "go",
+            feature = "javascript"
+        ))]
         {
             let expected: usize = [
                 cfg!(feature = "python"),
                 cfg!(feature = "rust"),
                 cfg!(feature = "go"),
+                cfg!(feature = "javascript"),
             ]
             .into_iter()
             .filter(|b| *b)

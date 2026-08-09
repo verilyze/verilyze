@@ -31,6 +31,8 @@ Crates are organized by plugin type under `crates/`:
 - **crates/languages/** -- Language plugins (ManifestFinder, Parser, Resolver):
   - **vlz-python** -- Python: requirements.txt, pyproject.toml, Pipfile, setup.cfg, setup.py, etc.
   - **vlz-rust** -- Rust: Cargo.toml, Cargo.lock (workspace members supported).
+  - **vlz-go** -- Go: go.mod (resolution via `go list -m all`).
+  - **vlz-javascript** -- JavaScript and TypeScript: package.json with npm/Yarn/pnpm/Bun locks (language name `javascript`; OSV ecosystem `npm`).
 - **crates/providers/** -- CVE providers (optional, feature-gated):
   - **vlz-cve-provider-nvd** -- NVD (NIST); `nvd` feature.
   - **vlz-cve-provider-github** -- GitHub Advisory Database; `github` feature.
@@ -694,9 +696,9 @@ architecture/PRD.md DOC-003 and design notes on single source of truth).
 
 The `vlz` binary supports optional capabilities via Cargo features:
 
-- **runtime** = `["redb", "python", "rust", "go"]` -- single source of truth for scan
-  capabilities. When adding a new language or default backend, add it here so
-  both default and Docker builds pick it up automatically.
+- **runtime** = `["redb", "python", "rust", "go", "javascript"]` -- single source of
+  truth for scan capabilities. When adding a new language or default backend,
+  add it here so both default and Docker builds pick it up automatically.
 - **default** = `["runtime", "completions", "docs"]` -- full build with runtime
   capabilities plus shell completion generation and man page via `vlz help`.
   Release builds omit the `testing` feature for a smaller binary.
@@ -713,6 +715,12 @@ The `vlz` binary supports optional capabilities via Cargo features:
 - **redb** -- RedB database backend for CVE cache and false-positive DB.
 - **python** -- Python language plugin (`vlz-python` crate).
 - **rust** -- Rust language plugin (`vlz-rust` crate).
+- **go** -- Go language plugin (`vlz-go` crate).
+- **javascript** -- JavaScript/TypeScript language plugin (`vlz-javascript`
+  crate); covers both dialects via `package.json` and npm-ecosystem locks.
+  YAML lock formats (`pnpm-lock.yaml`, Yarn Berry `yarn.lock`) use
+  `serde_norway` (maintained MIT/Apache-2.0 Serde YAML fork; chosen over
+  unmaintained/unsound `serde_yml` per NFR-025 / MOD-004 and `cargo deny`).
 - **nvd** -- NVD CVE provider (`vlz-cve-provider-nvd` crate); opt-in.
 - **github** -- GitHub Advisory CVE provider (`vlz-cve-provider-github` crate);
   opt-in.

@@ -2,78 +2,20 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+mod support;
+
 use clap::Parser;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
+use support::{
+    apply_isolated_db_env, ensure_registries_for_run, run_async,
+    with_temp_xdg, with_temp_xdg_env, write_requirements_with_pylock,
+};
 use vlz::cli::Cli;
 use vlz::mocks::{
     CountingCveProvider, CveReturningProvider, TierCReachabilityProvider,
 };
 use vlz_db::{DatabaseBackend, Package};
-
-fn with_temp_xdg<F, R>(f: F) -> R
-where
-    F: FnOnce() -> R,
-{
-    let dir = tempfile::tempdir().expect("tempdir");
-    let p = dir.path().to_string_lossy().into_owned();
-    temp_env::with_var("XDG_CACHE_HOME", Some(p.as_str()), || {
-        temp_env::with_var("XDG_DATA_HOME", Some(p.as_str()), || {
-            temp_env::with_var("XDG_CONFIG_HOME", Some(p.as_str()), || {
-                ensure_registries_for_run();
-                f()
-            })
-        })
-    })
-}
-
-/// Write `requirements.txt` plus adjacent `pylock.toml` for transitive resolution in tests.
-#[cfg(feature = "python")]
-fn write_requirements_with_pylock(
-    dir: &std::path::Path,
-    pkg: &str,
-    version: &str,
-) {
-    std::fs::write(
-        dir.join("requirements.txt"),
-        format!("{pkg}=={version}\n"),
-    )
-    .expect("write requirements.txt");
-    std::fs::write(
-        dir.join("pylock.toml"),
-        format!(
-            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"{pkg}\"\nversion = \"{version}\"\n"
-        ),
-    )
-    .expect("write pylock.toml");
-}
-
-fn ensure_registries_for_run() {
-    let _guard = vlz::registry::registry_test_mutex()
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
-    vlz::registry::ensure_default_manifest_finder();
-    vlz::registry::ensure_default_parser();
-    vlz::registry::ensure_default_resolver();
-    let cfg = vlz::config::EffectiveConfig {
-        provider_http_connect_timeout_secs:
-            vlz::config::DEFAULT_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS,
-        provider_http_request_timeout_secs:
-            vlz::config::DEFAULT_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS,
-        ..Default::default()
-    };
-    vlz::registry::ensure_default_cve_provider(&cfg);
-    vlz::registry::ensure_default_reporter();
-    vlz::registry::ensure_default_integrity_checker();
-    #[cfg(feature = "redb")]
-    {
-        let cache_path = vlz::config::default_cache_path();
-        let _ = vlz::registry::ensure_default_db_backend_with_path(
-            cache_path,
-            vlz::config::DEFAULT_CACHE_TTL_SECS,
-        );
-    }
-}
 
 #[cfg(feature = "redb")]
 fn reregister_db_backend() {
@@ -82,27 +24,6 @@ fn reregister_db_backend() {
         cache_path,
         vlz::config::DEFAULT_CACHE_TTL_SECS,
     );
-}
-
-fn run_async(args: &[&str]) -> i32 {
-    let _guard = vlz::registry::registry_test_mutex()
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
-    let mut v = vec!["vlz"];
-    v.extend(args.iter().copied());
-    let args = match Cli::try_parse_from(v) {
-        Ok(a) => a,
-        Err(e) => {
-            e.print().ok();
-            return match e.kind() {
-                clap::error::ErrorKind::DisplayHelp
-                | clap::error::ErrorKind::DisplayVersion => 0,
-                _ => 2,
-            };
-        }
-    };
-    let rt = tokio::runtime::Runtime::new().expect("runtime");
-    rt.block_on(vlz::run(args)).unwrap_or(2)
 }
 
 #[test]
@@ -595,34 +516,28 @@ fn run_db_show_full_exits_0() {
 #[test]
 fn run_db_show_with_cached_entry_and_raw_vulns() {
     let _ = env_logger::try_init();
-    let dir = tempfile::tempdir().expect("tempdir");
-    let p = dir.path().to_string_lossy().into_owned();
-    temp_env::with_var("XDG_CACHE_HOME", Some(p.as_str()), || {
-        temp_env::with_var("XDG_DATA_HOME", Some(p.as_str()), || {
-            temp_env::with_var("XDG_CONFIG_HOME", Some(p.as_str()), || {
-                let path = vlz::config::default_cache_path();
-                if let Some(parent) = path.parent() {
-                    std::fs::create_dir_all(parent).ok();
-                }
-                let backend = vlz_db_redb::RedbBackend::with_path(path, 3600)
-                    .expect("create backend");
-                let rt = tokio::runtime::Runtime::new().expect("runtime");
-                rt.block_on(async {
-                    backend.init().await.expect("init");
-                    let pkg = Package {
-                        name: "test-pkg".to_string(),
-                        version: "1.0".to_string(),
-                        ..Default::default()
-                    };
-                    let raw =
-                        vec![serde_json::json!({"id": "CVE-2024-TEST", "summary": "test vuln"})];
-                    backend.put(&pkg, "osv", &raw, None).await.expect("put");
-                });
-                drop(backend);
-                ensure_registries_for_run();
-                assert_eq!(run_async(&["db", "show", "--full"]), 0);
-            })
-        })
+    with_temp_xdg_env(|| {
+        let path = vlz::config::default_cache_path();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).ok();
+        }
+        let backend = vlz_db_redb::RedbBackend::with_path(path, 3600)
+            .expect("create backend");
+        let rt = tokio::runtime::Runtime::new().expect("runtime");
+        rt.block_on(async {
+            backend.init().await.expect("init");
+            let pkg = Package {
+                name: "test-pkg".to_string(),
+                version: "1.0".to_string(),
+                ..Default::default()
+            };
+            let raw =
+                vec![serde_json::json!({"id": "CVE-2024-TEST", "summary": "test vuln"})];
+            backend.put(&pkg, "osv", &raw, None).await.expect("put");
+        });
+        drop(backend);
+        ensure_registries_for_run();
+        assert_eq!(run_async(&["db", "show", "--full"]), 0);
     });
 }
 
@@ -688,70 +603,59 @@ fn run_scan_fp_exit_code_when_all_cves_marked_fp() {
     let dir = tempfile::tempdir().expect("tempdir");
     std::fs::write(dir.path().join("requirements.txt"), "test-pkg==1.0\n")
         .expect("write");
-    let root = dir.path().to_str().unwrap();
-    let p = dir.path().to_string_lossy().into_owned();
-    temp_env::with_var("XDG_CACHE_HOME", Some(p.as_str()), || {
-        temp_env::with_var("XDG_DATA_HOME", Some(p.as_str()), || {
-            temp_env::with_var("XDG_CONFIG_HOME", Some(p.as_str()), || {
-                let path = vlz::config::default_cache_path();
-                if let Some(parent) = path.parent() {
-                    std::fs::create_dir_all(parent).ok();
-                }
-                let backend = vlz_db_redb::RedbBackend::with_path(path, 3600)
-                    .expect("create backend");
-                let rt = tokio::runtime::Runtime::new().expect("runtime");
-                rt.block_on(async {
-                    backend.init().await.expect("init");
-                    let pkg = Package {
-                        name: "test-pkg".to_string(),
-                        version: "1.0".to_string(),
-                        ..Default::default()
-                    };
-                    let raw = vec![serde_json::json!({
-                        "id": "CVE-2024-FP-TEST",
-                        "summary": "marked as fp"
-                    })];
-                    backend.put(&pkg, "osv", &raw, None).await.expect("put");
-                });
-                drop(backend);
-                ensure_registries_for_run();
-                assert_eq!(
-                    run_async(&[
-                        "scan",
-                        root,
-                        "--offline",
-                        "--provider",
-                        "osv"
-                    ]),
-                    86,
-                    "scan finds CVE, exits 86"
-                );
-                assert_eq!(
-                    run_async(&[
-                        "fp",
-                        "mark",
-                        "CVE-2024-FP-TEST",
-                        "--comment",
-                        "test"
-                    ]),
-                    0
-                );
-                ensure_registries_for_run();
-                assert_eq!(
-                    run_async(&[
-                        "scan",
-                        root,
-                        "--offline",
-                        "--provider",
-                        "osv",
-                        "--fp-exit-code",
-                        "99",
-                    ]),
-                    99,
-                    "all CVEs marked FP, exit fp_exit_code"
-                );
-            })
-        })
+    let root = dir.path().to_str().unwrap().to_owned();
+    with_temp_xdg_env(|| {
+        let path = vlz::config::default_cache_path();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).ok();
+        }
+        let backend = vlz_db_redb::RedbBackend::with_path(path, 3600)
+            .expect("create backend");
+        let rt = tokio::runtime::Runtime::new().expect("runtime");
+        rt.block_on(async {
+            backend.init().await.expect("init");
+            let pkg = Package {
+                name: "test-pkg".to_string(),
+                version: "1.0".to_string(),
+                ..Default::default()
+            };
+            let raw = vec![serde_json::json!({
+                "id": "CVE-2024-FP-TEST",
+                "summary": "marked as fp"
+            })];
+            backend.put(&pkg, "osv", &raw, None).await.expect("put");
+        });
+        drop(backend);
+        ensure_registries_for_run();
+        assert_eq!(
+            run_async(&["scan", &root, "--offline", "--provider", "osv"]),
+            86,
+            "scan finds CVE, exits 86"
+        );
+        assert_eq!(
+            run_async(&[
+                "fp",
+                "mark",
+                "CVE-2024-FP-TEST",
+                "--comment",
+                "test"
+            ]),
+            0
+        );
+        ensure_registries_for_run();
+        assert_eq!(
+            run_async(&[
+                "scan",
+                &root,
+                "--offline",
+                "--provider",
+                "osv",
+                "--fp-exit-code",
+                "99",
+            ]),
+            99,
+            "all CVEs marked FP, exit fp_exit_code"
+        );
     });
 }
 
@@ -762,58 +666,53 @@ fn run_scan_project_id_scopes_fp_filtering() {
     let dir = tempfile::tempdir().expect("tempdir");
     std::fs::write(dir.path().join("requirements.txt"), "test-pkg==1.0\n")
         .expect("write");
-    let root = dir.path().to_str().unwrap();
-    let p = dir.path().to_string_lossy().into_owned();
-    temp_env::with_var("XDG_CACHE_HOME", Some(p.as_str()), || {
-        temp_env::with_var("XDG_DATA_HOME", Some(p.as_str()), || {
-            temp_env::with_var("XDG_CONFIG_HOME", Some(p.as_str()), || {
-                let path = vlz::config::default_cache_path();
-                let ignore_path = vlz::config::default_ignore_path();
-                if let Some(parent) = path.parent() {
-                    std::fs::create_dir_all(parent).ok();
-                }
-                if let Some(parent) = ignore_path.parent() {
-                    std::fs::create_dir_all(parent).ok();
-                }
-                let backend = vlz_db_redb::RedbBackend::with_path(path, 3600)
-                    .expect("create backend");
-                let rt = tokio::runtime::Runtime::new().expect("runtime");
-                rt.block_on(async {
-                    backend.init().await.expect("init");
-                    let pkg = vlz_db::Package {
-                        name: "test-pkg".to_string(),
-                        version: "1.0".to_string(),
-                        ..Default::default()
-                    };
-                    let raw = vec![serde_json::json!({
-                        "id": "CVE-2024-SCOPED",
-                        "summary": "scoped fp test"
-                    })];
-                    backend.put(&pkg, "osv", &raw, None).await.expect("put");
-                });
-                drop(backend);
-                let fp_db = vlz_db_redb::RedbIgnoreDb::with_path(ignore_path)
-                    .expect("open ignore db");
-                fp_db
-                    .mark("CVE-2024-SCOPED", "proj1 only", Some("proj1"))
-                    .expect("mark");
-                drop(fp_db);
-                ensure_registries_for_run();
-                assert_eq!(
-                    run_async(&[
-                        "scan",
-                        root,
-                        "--offline",
-                        "--project-id",
-                        "proj1",
-                        "--fp-exit-code",
-                        "77",
-                    ]),
-                    77,
-                    "scan with project-id proj1: scoped FP applies, exit fp_exit_code"
-                );
-            })
-        })
+    let root = dir.path().to_str().unwrap().to_owned();
+    with_temp_xdg_env(|| {
+        let path = vlz::config::default_cache_path();
+        let ignore_path = vlz::config::default_ignore_path();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).ok();
+        }
+        if let Some(parent) = ignore_path.parent() {
+            std::fs::create_dir_all(parent).ok();
+        }
+        let backend = vlz_db_redb::RedbBackend::with_path(path, 3600)
+            .expect("create backend");
+        let rt = tokio::runtime::Runtime::new().expect("runtime");
+        rt.block_on(async {
+            backend.init().await.expect("init");
+            let pkg = vlz_db::Package {
+                name: "test-pkg".to_string(),
+                version: "1.0".to_string(),
+                ..Default::default()
+            };
+            let raw = vec![serde_json::json!({
+                "id": "CVE-2024-SCOPED",
+                "summary": "scoped fp test"
+            })];
+            backend.put(&pkg, "osv", &raw, None).await.expect("put");
+        });
+        drop(backend);
+        let fp_db = vlz_db_redb::RedbIgnoreDb::with_path(ignore_path)
+            .expect("open ignore db");
+        fp_db
+            .mark("CVE-2024-SCOPED", "proj1 only", Some("proj1"))
+            .expect("mark");
+        drop(fp_db);
+        ensure_registries_for_run();
+        assert_eq!(
+            run_async(&[
+                "scan",
+                &root,
+                "--offline",
+                "--project-id",
+                "proj1",
+                "--fp-exit-code",
+                "77",
+            ]),
+            77,
+            "scan with project-id proj1: scoped FP applies, exit fp_exit_code"
+        );
     });
 }
 
@@ -973,6 +872,8 @@ fn run_scan_benchmark_emits_nonzero_duration() {
         .env("XDG_CACHE_HOME", xdg.path())
         .env("XDG_DATA_HOME", xdg.path())
         .env("XDG_CONFIG_HOME", xdg.path())
+        .env("VLZ_CACHE_DB", xdg.path().join("vlz-cache.redb"))
+        .env("VLZ_IGNORE_DB", xdg.path().join("vlz-ignore.redb"))
         .output()
         .expect("spawn vlz");
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -1823,6 +1724,8 @@ fn run_scan_manifest_failure_summary_on_stderr() {
         .env("XDG_CACHE_HOME", xdg.to_str().unwrap())
         .env("XDG_DATA_HOME", xdg.to_str().unwrap())
         .env("XDG_CONFIG_HOME", xdg.to_str().unwrap())
+        .env("VLZ_CACHE_DB", xdg.join("vlz-cache.redb"))
+        .env("VLZ_IGNORE_DB", xdg.join("vlz-ignore.redb"))
         .output()
         .expect("run vlz");
 
@@ -1862,6 +1765,8 @@ fn run_scan_manifest_failure_per_manifest_error_with_verbose() {
         .env("XDG_CACHE_HOME", xdg.to_str().unwrap())
         .env("XDG_DATA_HOME", xdg.to_str().unwrap())
         .env("XDG_CONFIG_HOME", xdg.to_str().unwrap())
+        .env("VLZ_CACHE_DB", xdg.join("vlz-cache.redb"))
+        .env("VLZ_IGNORE_DB", xdg.join("vlz-ignore.redb"))
         .env("RUST_LOG", "off")
         .output()
         .expect("run vlz");
@@ -1953,6 +1858,8 @@ fn run_scan_manifest_failure_groups_identical_errors_default_verbosity() {
         .env("XDG_CACHE_HOME", xdg.to_str().unwrap())
         .env("XDG_DATA_HOME", xdg.to_str().unwrap())
         .env("XDG_CONFIG_HOME", xdg.to_str().unwrap())
+        .env("VLZ_CACHE_DB", xdg.join("vlz-cache.redb"))
+        .env("VLZ_IGNORE_DB", xdg.join("vlz-ignore.redb"))
         .env("RUST_LOG", "off")
         .output()
         .expect("run vlz");
@@ -2025,6 +1932,8 @@ fn run_scan_direct_only_summary_on_stderr_default_verbosity() {
         .env("XDG_CACHE_HOME", xdg.to_str().unwrap())
         .env("XDG_DATA_HOME", xdg.to_str().unwrap())
         .env("XDG_CONFIG_HOME", xdg.to_str().unwrap())
+        .env("VLZ_CACHE_DB", xdg.join("vlz-cache.redb"))
+        .env("VLZ_IGNORE_DB", xdg.join("vlz-ignore.redb"))
         .env("RUST_LOG", "off")
         .output()
         .expect("run vlz");
@@ -2081,6 +1990,8 @@ fn run_scan_direct_only_per_manifest_warning_with_verbose() {
         .env("XDG_CACHE_HOME", xdg.to_str().unwrap())
         .env("XDG_DATA_HOME", xdg.to_str().unwrap())
         .env("XDG_CONFIG_HOME", xdg.to_str().unwrap())
+        .env("VLZ_CACHE_DB", xdg.join("vlz-cache.redb"))
+        .env("VLZ_IGNORE_DB", xdg.join("vlz-ignore.redb"))
         .output()
         .expect("run vlz");
 
@@ -2121,6 +2032,8 @@ fn run_preload_direct_only_summary_when_blocking_zero() {
         .env("XDG_CACHE_HOME", xdg.to_str().unwrap())
         .env("XDG_DATA_HOME", xdg.to_str().unwrap())
         .env("XDG_CONFIG_HOME", xdg.to_str().unwrap())
+        .env("VLZ_CACHE_DB", xdg.join("vlz-cache.redb"))
+        .env("VLZ_IGNORE_DB", xdg.join("vlz-ignore.redb"))
         .env("RUST_LOG", "off")
         .output()
         .expect("run vlz");
@@ -2174,10 +2087,8 @@ fn run_scan_multi_manifest_rust(args: &[&str]) -> std::process::Output {
 
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_vlz"));
     cmd.args(["scan", root_str, "--offline", "--benchmark"])
-        .args(args)
-        .env("XDG_CACHE_HOME", xdg.to_str().unwrap())
-        .env("XDG_DATA_HOME", xdg.to_str().unwrap())
-        .env("XDG_CONFIG_HOME", xdg.to_str().unwrap());
+        .args(args);
+    apply_isolated_db_env(&mut cmd, &xdg);
     let verbose = args.iter().any(|a| *a == "-v" || *a == "--verbose");
     if !verbose {
         cmd.env("RUST_LOG", "off");
@@ -2538,6 +2449,8 @@ fn run_scan_with_output_writes_file_not_stdout() {
         .env("XDG_CACHE_HOME", xdg.path())
         .env("XDG_DATA_HOME", xdg.path())
         .env("XDG_CONFIG_HOME", xdg.path())
+        .env("VLZ_CACHE_DB", xdg.path().join("vlz-cache.redb"))
+        .env("VLZ_IGNORE_DB", xdg.path().join("vlz-ignore.redb"))
         .output()
         .expect("spawn vlz");
     assert_eq!(output.status.code(), Some(0));

@@ -40,9 +40,12 @@ Run scans with the built binary (adjust the path if you use `CARGO_TARGET_DIR`):
 
 ```bash
 # Scan current directory for manifests (Python: requirements.txt, pyproject.toml,
-# Pipfile, setup.cfg, setup.py; Rust: Cargo.toml; Go: go.mod) and check for CVEs
+# Pipfile, setup.cfg, setup.py; Rust: Cargo.toml; Go: go.mod; JavaScript/TypeScript:
+# package.json) and check for CVEs
 # Prefer an adjacent PEP 751 pylock.toml / pylock.<name>.toml for Python
 # transitive coverage (lock-less Python projects exit 4 by default).
+# Prefer an adjacent or parent lock (package-lock.json, yarn.lock, pnpm-lock.yaml,
+# or bun.lock) for JavaScript/TypeScript (lock-less package.json exits 4 by default).
 ./target/release/vlz scan
 
 # Scan a specific path
@@ -53,6 +56,9 @@ Run scans with the built binary (adjust the path if you use `CARGO_TARGET_DIR`):
 
 # Scan a Go module
 ./target/release/vlz scan /path/to/go/module
+
+# Scan a JavaScript or TypeScript project (language name: javascript)
+./target/release/vlz scan /path/to/js-or-ts/project
 
 # JSON output
 ./target/release/vlz scan --format json

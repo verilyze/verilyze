@@ -74,6 +74,9 @@ pub struct ResolveContext {
     pub allow_direct_only_fallback: bool,
     /// When non-empty, only discover/merge listed Python lock file basenames.
     pub python_lock_files: Vec<String>,
+    /// Scan root used to bound parent lock-file walks (JS monorepos).
+    /// When set, resolvers must not use locks outside this tree.
+    pub scan_root: Option<PathBuf>,
 }
 
 /// Whether resolution produced a full transitive tree or direct deps only (FR-022a).
@@ -118,8 +121,8 @@ pub const DIRECT_ONLY_REASON_BENCHMARK: &str = "benchmark mode";
 pub const DIRECT_ONLY_REASON_UNAVAILABLE: &str =
     "transitive resolution unavailable";
 
-/// FR-022 exit-4 message (exact PRD string, NFR-024).
-pub const FR_022_TRANSITIVE_ERROR_MESSAGE: &str = "Unable to detect transitive dependencies. Add an adjacent lock file (pylock.toml preferred for Python), use --allow-dependency-code-execution for full resolution in a trusted environment, or pass --allow-direct-only-fallback to scan direct dependencies only.";
+/// FR-022 exit-4 message (exact shared string, NFR-024).
+pub const FR_022_TRANSITIVE_ERROR_MESSAGE: &str = "Unable to detect transitive dependencies. Add an adjacent lock file, use --allow-dependency-code-execution for full resolution in a trusted environment, or pass --allow-direct-only-fallback to scan direct dependencies only.";
 
 /// Direct-only reason when `allow_direct_only_fallback` is enabled (FR-022a).
 pub const DIRECT_ONLY_REASON_FALLBACK_ON_FAILURE: &str =
@@ -252,6 +255,9 @@ pub struct DependencyGraph {
 /// Trait for parsing a manifest file into a dependency graph.
 #[async_trait]
 pub trait Parser: Send + Sync {
+    /// Stable language identifier for registry deduplication (NFR-007).
+    fn language_name(&self) -> &'static str;
+
     /// Parse a single manifest file.
     async fn parse(
         &self,

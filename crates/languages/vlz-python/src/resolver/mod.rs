@@ -536,7 +536,7 @@ mod tests {
     fn fr022_error_message_is_exact_prd_string() {
         assert_eq!(
             FR_022_TRANSITIVE_ERROR_MESSAGE,
-            "Unable to detect transitive dependencies. Add an adjacent lock file (pylock.toml preferred for Python), use --allow-dependency-code-execution for full resolution in a trusted environment, or pass --allow-direct-only-fallback to scan direct dependencies only."
+            "Unable to detect transitive dependencies. Add an adjacent lock file, use --allow-dependency-code-execution for full resolution in a trusted environment, or pass --allow-direct-only-fallback to scan direct dependencies only."
         );
     }
 

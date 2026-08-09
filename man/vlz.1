@@ -22,7 +22,8 @@
 .Nm
 is a fast, modular Software Composition Analysis (SCA) tool for dependency
 vulnerabilities. It scans a directory tree for manifest files (e.g. Python
-requirements.txt, pyproject.toml, Pipfile, setup.cfg, setup.py; Rust Cargo.toml), parses dependencies,
+requirements.txt, pyproject.toml, Pipfile, setup.cfg, setup.py; Rust Cargo.toml;
+Go go.mod; JavaScript/TypeScript package.json), parses dependencies,
 resolves transitive versions via lock files or package managers, queries CVE
 providers (default: OSV.dev), and reports vulnerabilities.
 .Pp
@@ -108,18 +109,27 @@ Rust
 .Pa Cargo.toml
 without
 .Pa Cargo.lock ,
-and Go
+Go
 .Pa go.mod
 when
 .Nm go list
 or
 .Nm cargo metadata
-cannot run.
+cannot run, and JavaScript/TypeScript
+.Pa package.json
+without a usable adjacent or parent lock
+.Pq Pa package-lock.json ,
+.Pa yarn.lock ,
+.Pa pnpm-lock.yaml ,
+.Pa bun.lock
+when package-manager execution is disabled.
 Without an adjacent lock (PEP 751
 .Pa pylock.toml
 /
 .Pa pylock.<name>.toml
-preferred for Python), lock-less Python projects exit 4 unless this flag,
+preferred for Python; npm/Yarn/pnpm/Bun locks for
+.Nm javascript ),
+lock-less projects exit 4 unless this flag,
 .Fl -allow-dependency-code-execution ,
 or
 .Fl -offline

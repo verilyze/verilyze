@@ -9,7 +9,10 @@
 
 mod support;
 
-use support::{run_async, with_temp_xdg, write_requirements_with_pylock};
+use support::{
+    apply_isolated_db_env, run_async, with_temp_xdg,
+    write_requirements_with_pylock,
+};
 use vlz::mocks::{CveReturningProvider, FailingCveProvider};
 
 /// FR-010 exit codes exercised by this module (exit 1: `vlz db verify` integrity
@@ -81,21 +84,17 @@ fn exit_1_panic_via_subprocess() {
     write_requirements_with_pylock(proj.as_path(), "pkg", "1.0");
     let root_str = proj.to_str().unwrap();
 
-    let out = Command::new(env!("CARGO_BIN_EXE_vlz"))
-        .args([
-            "scan",
-            root_str,
-            "--provider",
-            "panicking",
-            "--format",
-            "plain",
-        ])
-        .env("XDG_CACHE_HOME", xdg.to_str().unwrap())
-        .env("XDG_DATA_HOME", xdg.to_str().unwrap())
-        .env("XDG_CONFIG_HOME", xdg.to_str().unwrap())
-        .env("RUST_LOG", "off")
-        .output()
-        .expect("run vlz");
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_vlz"));
+    cmd.args([
+        "scan",
+        root_str,
+        "--provider",
+        "panicking",
+        "--format",
+        "plain",
+    ]);
+    apply_isolated_db_env(&mut cmd, &xdg);
+    let out = cmd.env("RUST_LOG", "off").output().expect("run vlz");
 
     assert_eq!(
         out.status.code(),
