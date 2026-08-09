@@ -3,46 +3,46 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# Copy SLSA generator provenance bundles next to release binary artifacts.
-# Usage: release-merge-slsa-binary-provenance.sh <release-artifacts-dir>
+# Copy SLSA generator provenance bundles next to platform release archives.
+# Usage: release-merge-slsa-binary-provenance.sh <release-artifacts-dir> <version>
 
 set -euo pipefail
 
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/release-artifact-names.sh
+source "${script_dir}/lib/release-artifact-names.sh"
+
 usage() {
-  echo "usage: $0 <release-artifacts-dir>" >&2
+  echo "usage: $0 <release-artifacts-dir> <version>" >&2
   exit 2
 }
 
-if [[ $# -ne 1 ]]; then
+if [[ $# -ne 2 ]]; then
   usage
 fi
 
 root="$1"
+version="$2"
 if [[ ! -d "${root}" ]]; then
   echo "error: release artifacts directory does not exist: ${root}" >&2
   exit 1
 fi
 
-declare -A BINARY_FILES=(
-  ["vlz-linux-x86_64"]="vlz"
-  ["vlz-macos-aarch64"]="vlz"
-  ["vlz-windows-x86_64"]="vlz.exe"
-)
-
-for artifact_name in "${!BINARY_FILES[@]}"; do
-  binary_file="${BINARY_FILES[${artifact_name}]}"
-  slsa_name="slsa-${artifact_name}.intoto.jsonl"
+for platform in "${RELEASE_PLATFORMS[@]}"; do
+  actions_name="$(release_actions_artifact_name "${platform}")"
+  archive_name="$(release_archive_basename "${version}" "${platform}")"
+  slsa_name="$(release_slsa_provenance_basename "${platform}")"
   slsa_src="$(find "${root}" -name "${slsa_name}" -type f | head -n 1 || true)"
-  dest="${root}/${artifact_name}/${binary_file}.intoto.jsonl"
+  archive_path="${root}/${actions_name}/${archive_name}"
+  if [[ ! -f "${archive_path}" ]]; then
+    echo "error: missing archive artifact: ${archive_path}" >&2
+    exit 1
+  fi
   if [[ -z "${slsa_src}" || ! -f "${slsa_src}" ]]; then
     echo "error: missing SLSA provenance bundle: ${slsa_name}" >&2
     exit 1
   fi
-  if [[ ! -f "${root}/${artifact_name}/${binary_file}" ]]; then
-    echo "error: missing binary artifact: ${root}/${artifact_name}/${binary_file}" >&2
-    exit 1
-  fi
-  cp "${slsa_src}" "${dest}"
+  cp "${slsa_src}" "${archive_path}.intoto.jsonl"
 done
 
-echo "Merged SLSA binary provenance bundles into release-artifacts layout"
+echo "Merged SLSA archive provenance bundles into release-artifacts layout"

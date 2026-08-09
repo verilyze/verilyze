@@ -72,12 +72,15 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
+            platform: linux-x86_64
             artifact_name: vlz-linux-x86_64
             binary_path: target/release/vlz
           - os: macos-latest
+            platform: macos-aarch64
             artifact_name: vlz-macos-aarch64
             binary_path: target/release/vlz
           - os: windows-latest
+            platform: windows-x86_64
             artifact_name: vlz-windows-x86_64
             binary_path: target/release/vlz.exe
     runs-on: ${{ matrix.os }}
@@ -108,22 +111,50 @@ jobs:
       - name: Build release binary
         run: cargo build --release --locked -p vlz
 
-      - name: Generate provenance subject hash (SEC-021)
-        id: hash
+      - name: Setup Python (Windows zip archives)
+        if: runner.os == 'Windows'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      # Build the published archive once on this runner (do not rebuild at publish).
+      - name: Build platform release archive
+        id: archive
+        env:
+          VERSION: ${{ needs.preflight-release.outputs.version }}
+          PLATFORM: ${{ matrix.platform }}
+          BINARY_PATH: ${{ matrix.binary_path }}
         run: |
           set -euo pipefail
-          rel="${{ matrix.artifact_name }}/$(basename "${{ matrix.binary_path }}")"
-          (sha256sum -t "${{ matrix.binary_path }}" \
-            || shasum -a 256 "${{ matrix.binary_path }}") \
-            | awk -v name="${rel}" '{print $1 " " name}' > checksum
+          mkdir -p dist-archive
+          archive_path="$(./scripts/release-build-platform-archive.sh \
+            --platform "${PLATFORM}" \
+            --version "${VERSION}" \
+            --binary "${BINARY_PATH}" \
+            --repo-root . \
+            --output-dir dist-archive)"
+          echo "archive_path=${archive_path}" >> "${GITHUB_OUTPUT}"
+          echo "archive_name=$(basename "${archive_path}")" >> "${GITHUB_OUTPUT}"
+
+      # Archive-only SLSA subject: executable is covered transitively (SEC-021).
+      - name: Generate provenance subject hash (SEC-021)
+        id: hash
+        env:
+          ARCHIVE_PATH: ${{ steps.archive.outputs.archive_path }}
+          ARCHIVE_NAME: ${{ steps.archive.outputs.archive_name }}
+        run: |
+          set -euo pipefail
+          (sha256sum -b "${ARCHIVE_PATH}" \
+            || shasum -a 256 "${ARCHIVE_PATH}") \
+            | awk -v name="${ARCHIVE_NAME}" '{print $1 " " name}' > checksum
           hash_b64="$(base64 < checksum | tr -d '\n')"
           echo "hash-${{ matrix.os }}=${hash_b64}" >> "${GITHUB_OUTPUT}"
 
-      - name: Upload binary artifact
+      - name: Upload platform archive artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.artifact_name }}
-          path: ${{ matrix.binary_path }}
+          path: ${{ steps.archive.outputs.archive_path }}
 
   binary-slsa-provenance:
     if: github.event_name == 'push'
@@ -334,10 +365,12 @@ jobs:
         with:
           path: release-artifacts
 
-      - name: Merge SLSA binary provenance (SEC-021)
+      - name: Merge SLSA archive provenance (SEC-021)
+        env:
+          VERSION: ${{ needs.preflight-release.outputs.version }}
         run: |
           set -euo pipefail
-          ./scripts/release-merge-slsa-binary-provenance.sh release-artifacts
+          ./scripts/release-merge-slsa-binary-provenance.sh release-artifacts "${VERSION}"
 
       - name: Build release notes from CHANGELOG.md
         env:
@@ -350,17 +383,25 @@ jobs:
             exit 1
           fi
 
+      - name: Stage flat GitHub upload assets
+        env:
+          VERSION: ${{ needs.preflight-release.outputs.version }}
+        run: |
+          set -euo pipefail
+          ./scripts/release-stage-github-upload.sh release-artifacts "${VERSION}"
+
       - name: Generate SHA256 checksums
         run: |
           set -euo pipefail
-          ./scripts/release-generate-checksums.sh "release-artifacts" >/dev/null
+          ./scripts/release-generate-checksums.sh \
+            "release-artifacts/github-upload" >/dev/null
 
       - name: Generate release artifact manifest
         run: |
           set -euo pipefail
           ./scripts/release-list-artifacts.sh \
-            "release-artifacts" \
-            --include-sha256sums > release-artifacts/ARTIFACTS.list
+            "release-artifacts/github-upload" \
+            --include-sha256sums > release-artifacts/github-upload/ARTIFACTS.list
 
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
@@ -369,24 +410,25 @@ jobs:
         run: |
           set -euo pipefail
           while IFS= read -r rel_path; do
-            file="release-artifacts/${rel_path}"
+            file="release-artifacts/github-upload/${rel_path}"
             cosign sign-blob --yes \
               --bundle "${file}.sigstore.json" \
               "${file}"
-          done < release-artifacts/ARTIFACTS.list
+          done < release-artifacts/github-upload/ARTIFACTS.list
 
       - name: Attest release artifact provenance
         env:
           BUILDER_ID: https://github.com/${{ github.repository }}/.github/workflows/release.yml@${{ github.ref }}
         run: |
           set -euo pipefail
+          # shellcheck source=scripts/lib/release-artifact-names.sh
+          source ./scripts/lib/release-artifact-names.sh
           while IFS= read -r rel_path; do
-            case "${rel_path}" in
-              vlz-linux-x86_64/vlz|vlz-macos-aarch64/vlz|vlz-windows-x86_64/vlz.exe)
-                continue
-                ;;
-            esac
-            file="release-artifacts/${rel_path}"
+            if release_is_slsa_archive_basename "${rel_path}"; then
+              # Archives already carry hardened SLSA generator provenance.
+              continue
+            fi
+            file="release-artifacts/github-upload/${rel_path}"
             digest="$(sha256sum "${file}" | awk '{print $1}')"
             predicate_file="${file}.provenance.json"
             cat > "${predicate_file}" <<EOF
@@ -420,7 +462,7 @@ jobs:
               --bundle "${file}.intoto.jsonl" \
               "${file}"
             rm -f "${predicate_file}"
-          done < release-artifacts/ARTIFACTS.list
+          done < release-artifacts/github-upload/ARTIFACTS.list
 
       - name: Verify signatures, attestations, and checksums (local)
         env:
@@ -428,12 +470,26 @@ jobs:
           SLSA_GENERATOR_BUILDER_REGEX: ${{ env.SLSA_GENERATOR_BUILDER_REGEX }}
         run: |
           set -euo pipefail
-          ./scripts/release-verify-bundle.sh release-artifacts
+          ./scripts/release-verify-bundle.sh release-artifacts/github-upload
 
-      - name: Stage flat binary names for GitHub upload
+      - name: Write GitHub upload file list
+        id: upload_files
         run: |
           set -euo pipefail
-          ./scripts/release-stage-github-binary-upload.sh release-artifacts
+          list_file="$(mktemp)"
+          ./scripts/release-list-github-upload-files.sh \
+            release-artifacts/github-upload > "${list_file}"
+          ./scripts/release-verify-github-upload-files.sh "${list_file}"
+          {
+            echo 'files<<EOF'
+            cat "${list_file}"
+            echo EOF
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Remove staging-only manifest before upload
+        run: |
+          set -euo pipefail
+          rm -f release-artifacts/github-upload/ARTIFACTS.list
 
       - name: Create draft GitHub Release
         id: draft_release
@@ -442,40 +498,35 @@ jobs:
           draft: true
           generate_release_notes: false
           body_path: release-body.md
-          files: |
-            release-artifacts/github-upload/vlz-linux-x86_64
-            release-artifacts/github-upload/vlz-linux-x86_64.sigstore.json
-            release-artifacts/github-upload/vlz-linux-x86_64.intoto.jsonl
-            release-artifacts/github-upload/vlz-macos-aarch64
-            release-artifacts/github-upload/vlz-macos-aarch64.sigstore.json
-            release-artifacts/github-upload/vlz-macos-aarch64.intoto.jsonl
-            release-artifacts/github-upload/vlz-windows-x86_64.exe
-            release-artifacts/github-upload/vlz-windows-x86_64.exe.sigstore.json
-            release-artifacts/github-upload/vlz-windows-x86_64.exe.intoto.jsonl
-            release-artifacts/deb-package/*.deb
-            release-artifacts/deb-package/*.deb.sigstore.json
-            release-artifacts/deb-package/*.deb.intoto.jsonl
-            release-artifacts/rpm-package/**/*.rpm
-            release-artifacts/rpm-package/**/*.rpm.sigstore.json
-            release-artifacts/rpm-package/**/*.rpm.intoto.jsonl
-            release-artifacts/SHA256SUMS
-            release-artifacts/SHA256SUMS.sigstore.json
-            release-artifacts/SHA256SUMS.intoto.jsonl
+          fail_on_unmatched_files: true
+          files: ${{ steps.upload_files.outputs.files }}
 
       - name: Re-verify draft release assets from GitHub
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.preflight-release.outputs.version }}
           EXPECTED_BUILDER_REGEX: ^https://github\.com/${{ github.repository }}/\.github/workflows/release\.yml@
+          SLSA_GENERATOR_BUILDER_REGEX: ${{ env.SLSA_GENERATOR_BUILDER_REGEX }}
         run: |
           set -euo pipefail
           rm -rf draft-verify
           mkdir -p draft-verify
           gh release download "${TAG}" --dir draft-verify
-          ./scripts/release-restore-download-layout.sh draft-verify
           ./scripts/release-list-artifacts.sh draft-verify \
             --include-sha256sums > draft-verify/ARTIFACTS.list
           ./scripts/release-verify-bundle.sh draft-verify
+          # shellcheck source=scripts/lib/release-artifact-names.sh
+          source ./scripts/lib/release-artifact-names.sh
+          extract_root="$(mktemp -d)"
+          for platform in "${RELEASE_PLATFORMS[@]}"; do
+            archive_name="$(release_archive_basename "${VERSION}" "${platform}")"
+            ./scripts/release-extract-platform-archive.sh \
+              --archive "draft-verify/${archive_name}" \
+              --platform "${platform}" \
+              --version "${VERSION}" \
+              --dest "${extract_root}/${platform}" >/dev/null
+          done
 
       - name: Publish release (make immutable)
         env:

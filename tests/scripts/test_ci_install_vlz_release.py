@@ -15,8 +15,8 @@ _ROOT = repo_root()
 _INSTALL_SCRIPT = _ROOT / "scripts" / "ci-install-vlz-release.sh"
 _COMMON_LIB = _ROOT / "scripts" / "lib" / "ci-install-vlz-release-common.sh"
 _RESTORE_SCRIPT = _ROOT / "scripts" / "release-restore-download-layout.sh"
-_LINUX_FLAT_ASSET_NAME = "vlz-linux-x86_64"
-_LEGACY_LINUX_FLAT_ASSET_NAME = "vlz"
+_LEGACY_LINUX_FLAT_ASSET_NAME = "vlz-linux-x86_64"
+_LEGACY_LINUX_FLAT_ASSET_NAME_V031 = "vlz"
 
 
 def _run_bash(script: str, *, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -62,41 +62,48 @@ exit 0
         assert proc.returncode == 0, proc.stderr + proc.stdout
         assert "no non-draft, non-prerelease" in proc.stderr
 
-    def test_linux_release_download_patterns_cover_platform_and_legacy(
-        self,
-    ) -> None:
+    def test_linux_archive_download_patterns_include_versioned_archive(self) -> None:
         script = f"""
 set -euo pipefail
 source "{_COMMON_LIB}"
-linux_release_download_patterns
+linux_archive_download_patterns 1.2.3
 """
         proc = _run_bash(script)
         assert proc.returncode == 0, proc.stderr + proc.stdout
         patterns = [line for line in proc.stdout.splitlines() if line]
         assert "SHA256SUMS" in patterns
-        assert f"{_LINUX_FLAT_ASSET_NAME}" in patterns
-        assert f"{_LINUX_FLAT_ASSET_NAME}.sigstore.json" in patterns
-        assert f"{_LINUX_FLAT_ASSET_NAME}.intoto.jsonl" in patterns
-        assert f"{_LEGACY_LINUX_FLAT_ASSET_NAME}" in patterns
-        assert f"{_LEGACY_LINUX_FLAT_ASSET_NAME}.sigstore.json" in patterns
-        assert f"{_LEGACY_LINUX_FLAT_ASSET_NAME}.intoto.jsonl" in patterns
+        assert "vlz-1.2.3-linux-x86_64.tar.gz" in patterns
+        assert "vlz-1.2.3-linux-x86_64.tar.gz.sigstore.json" in patterns
+        assert "vlz-1.2.3-linux-x86_64.tar.gz.intoto.jsonl" in patterns
 
-    def test_restore_layout_from_platform_named_flat_linux_asset(
+    def test_legacy_linux_release_download_patterns_cover_raw_assets(self) -> None:
+        script = f"""
+set -euo pipefail
+source "{_COMMON_LIB}"
+legacy_linux_release_download_patterns
+"""
+        proc = _run_bash(script)
+        assert proc.returncode == 0, proc.stderr + proc.stdout
+        patterns = [line for line in proc.stdout.splitlines() if line]
+        assert f"{_LEGACY_LINUX_FLAT_ASSET_NAME}" in patterns
+        assert f"{_LEGACY_LINUX_FLAT_ASSET_NAME_V031}" in patterns
+
+    def test_restore_layout_from_legacy_platform_named_flat_linux_asset(
         self, tmp_path: Path
     ) -> None:
         download_dir = tmp_path / "release"
         download_dir.mkdir()
         payload = b"vlz-linux-x86_64-binary"
-        download_dir.joinpath(_LINUX_FLAT_ASSET_NAME).write_bytes(payload)
-        download_dir.joinpath(f"{_LINUX_FLAT_ASSET_NAME}.sigstore.json").write_text(
+        download_dir.joinpath(_LEGACY_LINUX_FLAT_ASSET_NAME).write_bytes(payload)
+        download_dir.joinpath(f"{_LEGACY_LINUX_FLAT_ASSET_NAME}.sigstore.json").write_text(
             "{}", encoding="utf-8"
         )
-        download_dir.joinpath(f"{_LINUX_FLAT_ASSET_NAME}.intoto.jsonl").write_text(
+        download_dir.joinpath(f"{_LEGACY_LINUX_FLAT_ASSET_NAME}.intoto.jsonl").write_text(
             "{}", encoding="utf-8"
         )
         digest = hashlib.sha256(payload).hexdigest()
         download_dir.joinpath("SHA256SUMS").write_text(
-            f"{digest}  {_LINUX_FLAT_ASSET_NAME}/vlz\n",
+            f"{digest}  {_LEGACY_LINUX_FLAT_ASSET_NAME}/vlz\n",
             encoding="utf-8",
         )
         proc = subprocess.run(
@@ -107,10 +114,10 @@ linux_release_download_patterns
             check=False,
         )
         assert proc.returncode == 0, proc.stderr + proc.stdout
-        binary = download_dir / _LINUX_FLAT_ASSET_NAME / "vlz"
+        binary = download_dir / _LEGACY_LINUX_FLAT_ASSET_NAME / "vlz"
         assert binary.read_bytes() == payload
-        assert (download_dir / f"{_LINUX_FLAT_ASSET_NAME}/vlz.sigstore.json").is_file()
-        assert (download_dir / f"{_LINUX_FLAT_ASSET_NAME}/vlz.intoto.jsonl").is_file()
+        assert (download_dir / f"{_LEGACY_LINUX_FLAT_ASSET_NAME}/vlz.sigstore.json").is_file()
+        assert (download_dir / f"{_LEGACY_LINUX_FLAT_ASSET_NAME}/vlz.intoto.jsonl").is_file()
 
     def test_resolve_latest_release_tag_returns_tag(self, tmp_path: Path) -> None:
         fake_gh = tmp_path / "gh"
@@ -128,35 +135,44 @@ resolve_latest_release_tag "verilyze/verilyze"
         assert proc.returncode == 0, proc.stderr + proc.stdout
         assert proc.stdout.strip() == "v0.3.1"
 
-    def test_linux_binary_checksum_grep_matches_sha256sums(self, tmp_path: Path) -> None:
+    def test_tag_to_version_strips_v_prefix(self) -> None:
+        script = f"""
+set -euo pipefail
+source "{_COMMON_LIB}"
+tag_to_version v1.2.3
+"""
+        proc = _run_bash(script)
+        assert proc.returncode == 0, proc.stderr + proc.stdout
+        assert proc.stdout.strip() == "1.2.3"
+
+    def test_linux_archive_checksum_grep_matches_sha256sums(self, tmp_path: Path) -> None:
         root = tmp_path / "release"
-        binary_dir = root / "vlz-linux-x86_64"
-        binary_dir.mkdir(parents=True)
-        payload = b"vlz-binary-payload"
-        binary_dir.joinpath("vlz").write_bytes(payload)
+        root.mkdir(parents=True)
+        payload = b"archive-payload"
+        rel_path = "vlz-1.2.3-linux-x86_64.tar.gz"
+        root.joinpath(rel_path).write_bytes(payload)
         digest = hashlib.sha256(payload).hexdigest()
         root.joinpath("SHA256SUMS").write_text(
-            f"{digest}  vlz-linux-x86_64/vlz\n",
+            f"{digest}  {rel_path}\n",
             encoding="utf-8",
         )
         script = f"""
 set -euo pipefail
 cd "{root}"
-grep -F "vlz-linux-x86_64/vlz" SHA256SUMS | sha256sum -c >&2
+grep -F "{rel_path}" SHA256SUMS | sha256sum -c >&2
 """
         proc = _run_bash(script)
         assert proc.returncode == 0, proc.stderr + proc.stdout
         assert proc.stdout == ""
-        assert "vlz-linux-x86_64/vlz: OK" in proc.stderr
+        assert f"{rel_path}: OK" in proc.stderr
 
     def test_verify_checksum_helper_keeps_stdout_clean(self, tmp_path: Path) -> None:
         """ci-install-vlz-release.sh prints only the binary path on stdout."""
         root = tmp_path / "release"
-        rel_path = "vlz-linux-x86_64/vlz"
-        binary_dir = root / "vlz-linux-x86_64"
-        binary_dir.mkdir(parents=True)
-        payload = b"vlz-binary-payload"
-        binary_dir.joinpath("vlz").write_bytes(payload)
+        rel_path = "vlz-1.2.3-linux-x86_64.tar.gz"
+        root.mkdir(parents=True)
+        payload = b"archive-payload"
+        root.joinpath(rel_path).write_bytes(payload)
         digest = hashlib.sha256(payload).hexdigest()
         root.joinpath("SHA256SUMS").write_text(
             f"{digest}  {rel_path}\n",

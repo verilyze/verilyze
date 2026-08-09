@@ -221,18 +221,13 @@ class TestReleaseVerifyTagVersion:
 class TestReleaseGenerateChecksums:
     """release-generate-checksums.sh: generate deterministic SHA256SUMS files."""
 
-    def test_generates_sha256sums_for_release_artifacts_tree(self, tmp_path: Path) -> None:
-        artifacts = tmp_path / "release-artifacts"
-        binary_dir = artifacts / "vlz-linux-x86_64"
-        deb_dir = artifacts / "deb-package"
-        rpm_dir = artifacts / "rpm-package" / "x86_64"
-        binary_dir.mkdir(parents=True)
-        deb_dir.mkdir(parents=True)
-        rpm_dir.mkdir(parents=True)
+    def test_generates_sha256sums_for_flat_release_assets(self, tmp_path: Path) -> None:
+        artifacts = tmp_path / "github-upload"
+        artifacts.mkdir(parents=True)
 
-        (binary_dir / "vlz").write_bytes(b"vlz-binary")
-        (deb_dir / "vlz_0.1.0_amd64.deb").write_bytes(b"deb-pkg")
-        (rpm_dir / "vlz-0.1.0-1.x86_64.rpm").write_bytes(b"rpm-pkg")
+        (artifacts / "vlz-0.1.0-linux-x86_64.tar.gz").write_bytes(b"archive")
+        (artifacts / "vlz_0.1.0_amd64.deb").write_bytes(b"deb-pkg")
+        (artifacts / "vlz-0.1.0-1.x86_64.rpm").write_bytes(b"rpm-pkg")
 
         proc = _run_script(
             [str(_CHECKSUMS), str(artifacts)],
@@ -243,9 +238,9 @@ class TestReleaseGenerateChecksums:
         sums_file = artifacts / "SHA256SUMS"
         assert sums_file.exists()
         sums_text = sums_file.read_text(encoding="utf-8")
-        assert "vlz-linux-x86_64/vlz" in sums_text
-        assert "deb-package/vlz_0.1.0_amd64.deb" in sums_text
-        assert "rpm-package/x86_64/vlz-0.1.0-1.x86_64.rpm" in sums_text
+        assert "vlz-0.1.0-linux-x86_64.tar.gz" in sums_text
+        assert "vlz_0.1.0_amd64.deb" in sums_text
+        assert "vlz-0.1.0-1.x86_64.rpm" in sums_text
 
     def test_missing_artifacts_directory_exits_1(self, tmp_path: Path) -> None:
         proc = _run_script(
@@ -259,18 +254,13 @@ class TestReleaseGenerateChecksums:
 class TestReleaseListArtifacts:
     """release-list-artifacts.sh: list expected artifact files deterministically."""
 
-    def test_lists_expected_release_artifacts(self, tmp_path: Path) -> None:
-        artifacts = tmp_path / "release-artifacts"
-        binary_dir = artifacts / "vlz-linux-x86_64"
-        deb_dir = artifacts / "deb-package"
-        rpm_dir = artifacts / "rpm-package" / "x86_64"
-        binary_dir.mkdir(parents=True)
-        deb_dir.mkdir(parents=True)
-        rpm_dir.mkdir(parents=True)
+    def test_lists_expected_flat_release_artifacts(self, tmp_path: Path) -> None:
+        artifacts = tmp_path / "github-upload"
+        artifacts.mkdir(parents=True)
 
-        (binary_dir / "vlz").write_bytes(b"vlz-binary")
-        (deb_dir / "vlz_0.1.0_amd64.deb").write_bytes(b"deb-pkg")
-        (rpm_dir / "vlz-0.1.0-1.x86_64.rpm").write_bytes(b"rpm-pkg")
+        (artifacts / "vlz-0.1.0-linux-x86_64.tar.gz").write_bytes(b"archive")
+        (artifacts / "vlz_0.1.0_amd64.deb").write_bytes(b"deb-pkg")
+        (artifacts / "vlz-0.1.0-1.x86_64.rpm").write_bytes(b"rpm-pkg")
         (artifacts / "SHA256SUMS").write_text("", encoding="utf-8")
 
         proc = _run_script(
@@ -281,9 +271,9 @@ class TestReleaseListArtifacts:
         lines = [line for line in proc.stdout.splitlines() if line.strip()]
         assert lines == [
             "SHA256SUMS",
-            "deb-package/vlz_0.1.0_amd64.deb",
-            "rpm-package/x86_64/vlz-0.1.0-1.x86_64.rpm",
-            "vlz-linux-x86_64/vlz",
+            "vlz-0.1.0-1.x86_64.rpm",
+            "vlz-0.1.0-linux-x86_64.tar.gz",
+            "vlz_0.1.0_amd64.deb",
         ]
 
     def test_missing_artifacts_directory_exits_1(self, tmp_path: Path) -> None:

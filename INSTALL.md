@@ -6,44 +6,70 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Installing verilyze (vlz)
 
-For tagged releases, GitHub publishes flat asset basenames on the release page
-(logical paths in `SHA256SUMS` use platform directories after restore):
-- Linux binary: `vlz` (logical path `vlz-linux-x86_64/vlz`)
-- macOS binary: `vlz` (logical path `vlz-macos-aarch64/vlz`)
-- Windows binary: `vlz.exe` (logical path `vlz-windows-x86_64/vlz.exe`)
-- `.deb`, `.rpm`, `SHA256SUMS`, and Sigstore bundles (`*.sigstore.json`,
-  `*.intoto.jsonl`) named after each asset (NFR-007)
-- Public GHCR container images
-- `SHA256SUMS` plus keyless Sigstore bundles (`*.sigstore.json`) and
-  provenance bundles (`*.intoto.jsonl`) for release assets
+Choose an install path, then follow the linked section. For development setup
+(venvs, `make check`, fuzz, coverage), see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+| Method | When to use | Details |
+|--------|-------------|---------|
+| **Platform archive** | Manual install of a tagged release (`vlz` / `vlz.exe`) | [docs/install-archive.md](docs/install-archive.md) |
+| **`.deb` / RPM** | Debian/Ubuntu or Fedora/RHEL-style package installs | [Packaging](#packaging-from-this-tree-op-013) |
+| **Container (GHCR)** | Run without installing a host binary | [Container image](#container-image) |
+| **`make install`** | Build from a clone into `PREFIX` (default `/usr/local`) | [`make install`](#make-install-prefix-layout) |
+| **Cargo / source** | Development builds | [Cargo install](#cargo-install-from-a-clone) |
 
 [crates.io](https://crates.io/) packages and third-party distro/community
-repository publication are not included in this release scope. You can also
-install by building from this repository (or from packages you build locally
-with the Makefile targets below).
+repository publication are not included in this release scope.
 
-For development setup (venvs, `make check`, fuzz, coverage), see
-[CONTRIBUTING.md](CONTRIBUTING.md).
+## GitHub Release assets
+
+Tagged releases publish **unique flat basenames** (GitHub Releases cannot host
+three files all named `vlz`):
+
+- `vlz-<version>-linux-x86_64.tar.gz` -- extracts `bin/vlz` (and man/completions)
+- `vlz-<version>-macos-aarch64.tar.gz` -- extracts `bin/vlz` (and man/completions)
+- `vlz-<version>-windows-x86_64.zip` -- extracts `vlz.exe`
+- `.deb`, `.rpm`, `SHA256SUMS`, and per-asset Sigstore bundles
+  (`*.sigstore.json`, `*.intoto.jsonl`)
+- Public GHCR container images
+
+Versioned archive names require resolving the release tag (or pinning
+`VERSION`) before download; the
+`/releases/latest/download/<asset>` shortcut alone is not enough when the
+asset name embeds the version.
 
 ## Verify published release assets
 
-After downloading assets from a GitHub Release, verify checksums, signatures,
-and provenance:
+Download the archive (or package), `SHA256SUMS`, and matching Sigstore
+bundles from the same GitHub Release. Verify **before** extraction:
 
 ```bash
-sha256sum -c SHA256SUMS
+# Example: Linux x86_64 archive for version 0.8.0
+VERSION=0.8.0
+ARCHIVE="vlz-${VERSION}-linux-x86_64.tar.gz"
+grep -F "${ARCHIVE}" SHA256SUMS | sha256sum -c
 cosign verify-blob \
-  --bundle vlz.sigstore.json \
-  vlz
+  --bundle "${ARCHIVE}.sigstore.json" \
+  --certificate-identity-regexp 'https://github.com/.*/.github/workflows/release.yml@.*' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  "${ARCHIVE}"
 cosign verify-blob-attestation \
-  --bundle vlz.intoto.jsonl \
+  --bundle "${ARCHIVE}.intoto.jsonl" \
   --new-bundle-format \
-  vlz
+  --type slsaprovenance \
+  --certificate-identity-regexp 'https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@.*' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  "${ARCHIVE}"
 ```
 
-Use matching `*.sigstore.json` and `*.intoto.jsonl` bundles for each asset
-(`vlz`, `.deb`, `.rpm`, or `SHA256SUMS`). For GHCR images, verify signatures
-and attestations with Cosign against the pushed digest.
+`SHA256SUMS` lists **flat basenames** (the same names shown on the release
+page), so `sha256sum -c` works immediately after `gh release download` with
+no layout restore step. Use matching `*.sigstore.json` and `*.intoto.jsonl`
+bundles for each asset (archive, `.deb`, `.rpm`, or `SHA256SUMS`). For GHCR
+images, verify signatures and attestations with Cosign against the pushed
+digest.
+
+After verification, extract and install the archive as described in
+[docs/install-archive.md](docs/install-archive.md).
 
 ## Recommended: `make release`
 

@@ -12,7 +12,7 @@ from tests.scripts.repo_root import repo_root
 
 _ROOT = repo_root()
 _RESTORE_SCRIPT = _ROOT / "scripts" / "release-restore-download-layout.sh"
-_STAGE_SCRIPT = _ROOT / "scripts" / "release-stage-github-binary-upload.sh"
+_STAGE_SCRIPT = _ROOT / "scripts" / "release-stage-github-upload.sh"
 _ROUNDTRIP_SCRIPT = _ROOT / "scripts" / "release-verify-upload-roundtrip.sh"
 _RELEASE_WORKFLOW = _ROOT / ".github" / "workflows" / "release.yml"
 _SLSA_PIN_SHA = "f7dd8c54c2067bafc12ca7a55595d5ee9b75204a"
@@ -28,8 +28,15 @@ def _gh_release_files_block(workflow: str) -> str:
         workflow,
         re.DOTALL,
     )
-    assert match is not None, "softprops/action-gh-release files block not found"
-    return match.group(1)
+    if match is not None:
+        return match.group(1)
+    dynamic = re.search(
+        r"uses: softprops/action-gh-release@[^\n]+\n\s+with:.*?\n\s+files:\s*\$\{\{",
+        workflow,
+        re.DOTALL,
+    )
+    assert dynamic is not None, "softprops/action-gh-release files input not found"
+    return ""
 
 
 def test_release_workflow_gh_release_files_have_no_hash_rename_syntax() -> None:
@@ -41,11 +48,25 @@ def test_release_workflow_gh_release_files_have_no_hash_rename_syntax() -> None:
         assert "#" not in entry, f"unsupported path#name syntax in files entry: {entry}"
 
 
-def test_release_workflow_stages_binaries_before_draft_release() -> None:
+def test_release_workflow_gh_release_uses_explicit_upload_list() -> None:
     workflow = _release_workflow_text()
-    stage_idx = workflow.index("release-stage-github-binary-upload.sh")
+    assert "release-list-github-upload-files.sh" in workflow
+    assert "fail_on_unmatched_files: true" in workflow
+    assert "github-upload/*" not in workflow
+
+
+def test_release_workflow_stages_archives_before_draft_release() -> None:
+    workflow = _release_workflow_text()
+    stage_idx = workflow.index("release-stage-github-upload.sh")
     draft_idx = workflow.index("Create draft GitHub Release")
     assert stage_idx < draft_idx
+
+
+def test_release_workflow_builds_archive_on_matrix_runners() -> None:
+    workflow = _release_workflow_text()
+    assert "release-build-platform-archive.sh" in workflow
+    assert "release-list-github-upload-files.sh" in workflow
+    assert "fail_on_unmatched_files: true" in workflow
 
 
 def test_release_workflow_slsa_regex_includes_renovate_pin_sha() -> None:
@@ -82,6 +103,11 @@ def test_release_workflow_macos_hash_uses_portable_base64() -> None:
     assert "base64 < checksum" in build_job.group(0)
 
 
+def test_release_workflow_skips_download_layout_restore() -> None:
+    workflow = _release_workflow_text()
+    assert "release-restore-download-layout.sh" not in workflow
+
+
 def test_release_verify_upload_roundtrip_script_succeeds() -> None:
     proc = subprocess.run(
         [str(_ROUNDTRIP_SCRIPT)],
@@ -100,6 +126,7 @@ def test_release_backfill_workflow_removed() -> None:
 
 
 def test_release_restore_download_layout_uses_rpm_x86_64_path(tmp_path: Path) -> None:
+    """Legacy restore still supports older raw-asset releases."""
     download_dir = tmp_path / "draft-verify"
     download_dir.mkdir()
     (download_dir / "vlz").write_bytes(b"vlz-binary")
@@ -117,27 +144,69 @@ def test_release_restore_download_layout_uses_rpm_x86_64_path(tmp_path: Path) ->
     assert (download_dir / "rpm-package" / "x86_64" / "vlz-0.1.0-1.x86_64.rpm").is_file()
 
 
-def test_release_stage_github_binary_upload_creates_flat_asset_names(
+def test_release_stage_github_upload_creates_versioned_archive_names(
     tmp_path: Path,
 ) -> None:
     artifacts = tmp_path / "release-artifacts"
-    for rel_path, payload in (
-        ("vlz-linux-x86_64/vlz", b"linux"),
-        ("vlz-macos-aarch64/vlz", b"macos"),
-        ("vlz-windows-x86_64/vlz.exe", b"windows"),
-    ):
-        path = artifacts / rel_path
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(payload)
-        path.with_suffix(path.suffix + ".sigstore.json").write_bytes(
-            f"{rel_path}-sig".encode()
+    version = "3.1.4"
+    binary = tmp_path / "vlz"
+    binary.write_bytes(b"linux")
+    binary.chmod(0o755)
+    for platform in ("linux-x86_64", "macos-aarch64"):
+        out_dir = artifacts / f"vlz-{platform}"
+        out_dir.mkdir(parents=True)
+        subprocess.run(
+            [
+                str(_ROOT / "scripts" / "release-build-platform-archive.sh"),
+                "--platform",
+                platform,
+                "--version",
+                version,
+                "--binary",
+                str(binary),
+                "--repo-root",
+                str(_ROOT),
+                "--output-dir",
+                str(out_dir),
+            ],
+            cwd=_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
         )
-        path.with_suffix(path.suffix + ".intoto.jsonl").write_bytes(
-            f"{rel_path}-att".encode()
-        )
+        archive = out_dir / f"vlz-{version}-{platform}.tar.gz"
+        (out_dir / f"{archive.name}.sigstore.json").write_bytes(b"sig")
+        (out_dir / f"{archive.name}.intoto.jsonl").write_bytes(b"att")
+
+    exe = tmp_path / "vlz.exe"
+    exe.write_bytes(b"windows")
+    win_dir = artifacts / "vlz-windows-x86_64"
+    win_dir.mkdir(parents=True)
+    subprocess.run(
+        [
+            str(_ROOT / "scripts" / "release-build-platform-archive.sh"),
+            "--platform",
+            "windows-x86_64",
+            "--version",
+            version,
+            "--binary",
+            str(exe),
+            "--repo-root",
+            str(_ROOT),
+            "--output-dir",
+            str(win_dir),
+        ],
+        cwd=_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    win_archive = win_dir / f"vlz-{version}-windows-x86_64.zip"
+    (win_dir / f"{win_archive.name}.sigstore.json").write_bytes(b"sig")
+    (win_dir / f"{win_archive.name}.intoto.jsonl").write_bytes(b"att")
 
     proc = subprocess.run(
-        [str(_STAGE_SCRIPT), str(artifacts)],
+        [str(_STAGE_SCRIPT), str(artifacts), version],
         cwd=_ROOT,
         capture_output=True,
         text=True,
@@ -146,21 +215,13 @@ def test_release_stage_github_binary_upload_creates_flat_asset_names(
     assert proc.returncode == 0, proc.stderr + proc.stdout
 
     upload_dir = artifacts / "github-upload"
-    assert (upload_dir / "vlz-linux-x86_64").read_bytes() == b"linux"
-    assert (upload_dir / "vlz-macos-aarch64").read_bytes() == b"macos"
-    assert (upload_dir / "vlz-windows-x86_64.exe").read_bytes() == b"windows"
-    assert (upload_dir / "vlz-linux-x86_64.sigstore.json").is_file()
-    assert (upload_dir / "vlz-macos-aarch64.intoto.jsonl").is_file()
+    assert (upload_dir / f"vlz-{version}-linux-x86_64.tar.gz").is_file()
+    assert (upload_dir / f"vlz-{version}-macos-aarch64.tar.gz").is_file()
+    assert (upload_dir / f"vlz-{version}-windows-x86_64.zip").is_file()
+    assert (upload_dir / f"vlz-{version}-linux-x86_64.tar.gz.sigstore.json").is_file()
 
 
-def test_release_workflow_stages_flat_binary_upload_paths() -> None:
-    workflow = _RELEASE_WORKFLOW.read_text(encoding="utf-8")
-    assert "release-stage-github-binary-upload.sh" in workflow
-    assert "release-artifacts/github-upload/vlz-linux-x86_64" in workflow
-    assert "#vlz-linux-x86_64" not in workflow
-
-
-def test_release_restore_download_layout_cross_platform_asset_names(
+def test_release_restore_download_layout_legacy_raw_asset_names(
     tmp_path: Path,
 ) -> None:
     download_dir = tmp_path / "draft-verify"

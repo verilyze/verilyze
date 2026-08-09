@@ -12,6 +12,7 @@
 .venv
 .venv-*
 /coverage
+/dist
 /reports
 /target
 crates/**/target/

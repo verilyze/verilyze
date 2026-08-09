@@ -3,8 +3,9 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# After gh release download, assets use basenames only. Reconstruct the layout
-# expected by release-list-artifacts.sh and SHA256SUMS path entries.
+# Legacy helper for pre-archive GitHub Releases that published raw platform
+# binaries (vlz-linux-x86_64, vlz, vlz.exe). Current releases use versioned
+# archives with flat SHA256SUMS basenames and do not need this script.
 # Usage: release-restore-download-layout.sh <dir>
 
 set -euo pipefail
