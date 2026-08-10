@@ -433,5 +433,125 @@ __metadata:
             "@scope/pkg"
         );
         assert_eq!(yarn_name_from_descriptor("lodash@^4.0.0"), "lodash");
+        assert_eq!(yarn_name_from_descriptor("@incomplete"), "@incomplete");
+        assert_eq!(yarn_name_from_descriptor("plain"), "plain");
+    }
+
+    #[test]
+    fn parse_yarn_classic_multi_key_and_version_colon() {
+        let content = r#"# yarn lockfile v1
+
+"lodash@^4.17.0", "lodash@^4.17.21":
+  version: "4.17.21"
+
+"":
+  version "0.0.0"
+"#;
+        let packages = parse_yarn_lock(content).unwrap();
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "lodash");
+        assert_eq!(packages[0].version, "4.17.21");
+    }
+
+    #[test]
+    fn parse_yarn_berry_skips_workspace_and_uses_resolution() {
+        let content = r#"# yarn berry
+
+__metadata:
+  version: 6
+
+"app@workspace:.":
+  version: workspace:packages/app
+  resolution: "app@workspace:."
+
+"lodash@npm:^4.17.0":
+  version: 4.17.21
+  resolution: "lodash@npm:4.17.21"
+"#;
+        let packages = parse_yarn_lock(content).unwrap();
+        assert!(packages.iter().all(|p| p.name != "app"));
+        assert!(
+            packages
+                .iter()
+                .any(|p| p.name == "lodash" && p.version == "4.17.21")
+        );
+    }
+
+    #[test]
+    fn parse_yarn_berry_lines_fallback_on_invalid_yaml() {
+        let content = r#"# yarn berry
+__metadata:
+  version: 6
+[[not valid yaml
+"lodash@npm:^4.17.0":
+  version: 4.17.21
+"@scope/pkg@npm:1.0.0":
+  version: 1.0.0
+"skip@workspace:.":
+  version: workspace:.
+"#;
+        let packages = parse_yarn_lock(content).unwrap();
+        assert!(
+            packages
+                .iter()
+                .any(|p| p.name == "lodash" && p.version == "4.17.21")
+        );
+        assert!(
+            packages
+                .iter()
+                .any(|p| p.name == "@scope/pkg" && p.version == "1.0.0")
+        );
+        assert!(!packages.iter().any(|p| p.name == "skip"));
+    }
+
+    #[test]
+    fn yarn_name_from_berry_resolution_markers() {
+        assert_eq!(
+            yarn_name_from_berry_resolution("lodash@npm:4.17.21"),
+            "lodash"
+        );
+        assert_eq!(
+            yarn_name_from_berry_resolution("@scope/pkg@workspace:."),
+            "@scope/pkg"
+        );
+        assert_eq!(
+            yarn_name_from_berry_resolution("x@patch:x@npm%3A1.0.0#hash"),
+            "x"
+        );
+    }
+
+    #[test]
+    fn parse_yarn_berry_version_number_empty_and_patch_skip() {
+        let content = r#"
+__metadata:
+  version: 6
+
+"num@npm:1":
+  version: 1
+
+"empty@npm:1":
+  version: ""
+
+"patched@npm:1.0.0":
+  version: patch:patched@npm%3A1.0.0#hash
+
+1:
+  version: 9.9.9
+"#;
+        let packages = parse_yarn_lock(content).unwrap();
+        assert!(packages.iter().any(|p| p.name == "num"));
+        assert!(!packages.iter().any(|p| p.name == "empty"));
+        assert!(!packages.iter().any(|p| p.name == "patched"));
+    }
+
+    #[test]
+    fn parse_yarn_classic_skips_empty_descriptor_name() {
+        let content = r#"# yarn lockfile v1
+
+"@":
+  version "1.0.0"
+"#;
+        // Malformed descriptor should not panic; may yield empty/skip.
+        let _ = parse_yarn_lock(content);
     }
 }

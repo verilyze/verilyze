@@ -427,4 +427,151 @@ mod tests {
         let analyzer = JsTierBAnalyzer::new();
         assert_eq!(analyzer.analyze_tier_b(&ctx), TierBDecision::NotReachable);
     }
+
+    #[test]
+    fn analyzer_metadata_and_ambiguous_package() {
+        let analyzer = JsTierBAnalyzer::new();
+        assert_eq!(analyzer.language_name(), "javascript");
+        assert_eq!(analyzer.ecosystems(), &[NPM_ECOSYSTEM]);
+        assert!(analyzer.supports_tier_c());
+
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::write(tmp.join("app.js"), "import x from 'a';\n").unwrap();
+        let pkg = Package {
+            name: "a".into(),
+            version: "1.0.0".into(),
+            ecosystem: Some(NPM_ECOSYSTEM.into()),
+        };
+        let exclude = Box::leak(Box::new(HashSet::new()));
+        let manifests = Box::leak(Box::new(Vec::<PathBuf>::new()));
+        let ctx = TierBContext {
+            package: &pkg,
+            scan_root: tmp,
+            exclude_dir_names: exclude,
+            language: "javascript",
+            manifest_paths: manifests,
+        };
+        assert_eq!(analyzer.analyze_tier_b(&ctx), TierBDecision::Unknown);
+    }
+
+    #[test]
+    fn package_name_from_specifier_edge_cases() {
+        assert_eq!(package_name_from_specifier(""), None);
+        assert_eq!(package_name_from_specifier("/abs"), None);
+        assert_eq!(
+            package_name_from_specifier("'lodash'"),
+            Some("lodash".into())
+        );
+        assert_eq!(package_name_from_specifier("@only"), None);
+    }
+
+    #[test]
+    fn tier_b_detects_require_and_dynamic_import() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::write(
+            tmp.join("app.mjs"),
+            "const x = require('ms');\nimport('chalk').then(() => {});\nimport 'side-effect-pkg';\n",
+        )
+        .unwrap();
+        let exclude = Box::leak(Box::new(HashSet::new()));
+        let manifests = Box::leak(Box::new(Vec::<PathBuf>::new()));
+        let analyzer = JsTierBAnalyzer::new();
+        for name in ["ms", "chalk", "side-effect-pkg"] {
+            let pkg = Package {
+                name: name.into(),
+                version: "1.0.0".into(),
+                ecosystem: Some(NPM_ECOSYSTEM.into()),
+            };
+            let ctx = TierBContext {
+                package: &pkg,
+                scan_root: tmp,
+                exclude_dir_names: exclude,
+                language: "javascript",
+                manifest_paths: manifests,
+            };
+            assert_eq!(
+                analyzer.analyze_tier_b(&ctx),
+                TierBDecision::Reachable,
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
+    fn tier_c_finds_symbol_and_not_reachable() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::write(
+            tmp.join("app.ts"),
+            "import { map } from 'lodash';\nlodash.map(x);\n",
+        )
+        .unwrap();
+        let pkg = Package {
+            name: "lodash".into(),
+            version: "4.17.21".into(),
+            ecosystem: Some(NPM_ECOSYSTEM.into()),
+        };
+        let exclude = Box::leak(Box::new(HashSet::new()));
+        let manifests = Box::leak(Box::new(Vec::<PathBuf>::new()));
+        let ctx = TierBContext {
+            package: &pkg,
+            scan_root: tmp,
+            exclude_dir_names: exclude,
+            language: "javascript",
+            manifest_paths: manifests,
+        };
+        let analyzer = JsTierBAnalyzer::new();
+        let hit = analyzer.analyze_tier_c(&ctx, &["lodash".into()]);
+        assert_eq!(hit.decision, TierCDecision::Reachable);
+        assert!(!hit.evidence.is_empty());
+
+        let miss =
+            analyzer.analyze_tier_c(&ctx, &["never-used-symbol".into()]);
+        assert_eq!(miss.decision, TierCDecision::NotReachable);
+
+        let short = Package {
+            name: "x".into(),
+            version: "1.0.0".into(),
+            ecosystem: Some(NPM_ECOSYSTEM.into()),
+        };
+        let ctx_short = TierBContext {
+            package: &short,
+            scan_root: tmp,
+            exclude_dir_names: exclude,
+            language: "javascript",
+            manifest_paths: manifests,
+        };
+        let amb = analyzer.analyze_tier_c(&ctx_short, &["zzz".into()]);
+        assert_eq!(amb.decision, TierCDecision::Unknown);
+    }
+
+    #[test]
+    fn scoped_roots_falls_back_when_manifest_has_no_parent() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        let pkg = Package {
+            name: "lodash".into(),
+            version: "4.17.21".into(),
+            ecosystem: Some(NPM_ECOSYSTEM.into()),
+        };
+        let exclude = Box::leak(Box::new(HashSet::new()));
+        // Empty path has no parent on some platforms; use scan_root fallback via
+        // empty manifest list already covered -- also exercise cache hit.
+        let manifests = Box::leak(Box::new(vec![tmp.join("package.json")]));
+        std::fs::write(tmp.join("package.json"), "{}").unwrap();
+        std::fs::write(tmp.join("app.js"), "import 'lodash';\n").unwrap();
+        let ctx = TierBContext {
+            package: &pkg,
+            scan_root: tmp,
+            exclude_dir_names: exclude,
+            language: "javascript",
+            manifest_paths: manifests,
+        };
+        let analyzer = JsTierBAnalyzer::new();
+        assert_eq!(analyzer.analyze_tier_b(&ctx), TierBDecision::Reachable);
+        // Second call uses import cache.
+        assert_eq!(analyzer.analyze_tier_b(&ctx), TierBDecision::Reachable);
+    }
 }

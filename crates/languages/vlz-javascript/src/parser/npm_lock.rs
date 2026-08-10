@@ -298,4 +298,53 @@ mod tests {
         );
         assert_eq!(package_name_from_lock_key("node_modules/@s/p"), "@s/p");
     }
+
+    #[test]
+    fn parse_npm_lock_invalid_json_errors() {
+        let err = parse_npm_lock("{").unwrap_err();
+        assert!(err.to_string().contains("npm lock"));
+    }
+
+    #[test]
+    fn skips_entries_without_version_and_file_protocol() {
+        let content = r#"{
+  "lockfileVersion": 3,
+  "packages": {
+    "node_modules/nov": {},
+    "node_modules/local": { "version": "file:../x" },
+    "node_modules/empty": { "version": "" },
+    "node_modules/ok": { "version": "1.0.0" }
+  }
+}"#;
+        let packages = parse_npm_lock(content).unwrap();
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "ok");
+    }
+
+    #[test]
+    fn parse_npm_lock_structure_error() {
+        let err = parse_npm_lock(r#"{"packages":1}"#).unwrap_err();
+        assert!(err.to_string().contains("structure"));
+    }
+
+    #[test]
+    fn parse_npm_lock_with_declarations_sets_lines() {
+        let content = r#"{
+  "lockfileVersion": 3,
+  "packages": {
+    "": {},
+    "node_modules/left-pad": {
+      "version": "1.3.0"
+    }
+  }
+}"#;
+        let (packages, parsed) = parse_npm_lock_with_declarations(
+            content,
+            Path::new("package-lock.json"),
+        )
+        .unwrap();
+        assert_eq!(packages.len(), 1);
+        assert_eq!(parsed.len(), 1);
+        assert!(parsed[0].start_line >= 1);
+    }
 }

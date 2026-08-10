@@ -163,7 +163,14 @@ fn parse_pnpm_package_key(key: &str) -> Option<(&str, &str)> {
 }
 
 fn name_from_pnpm_key_fallback(key: &str) -> Option<&str> {
-    parse_pnpm_package_key(key).map(|(n, _)| n)
+    if let Some((name, _)) = parse_pnpm_package_key(key) {
+        return Some(name);
+    }
+    let key = key.trim().trim_start_matches('/');
+    if key.is_empty() || key.contains('/') || key.contains('@') {
+        return None;
+    }
+    Some(key)
 }
 
 #[cfg(test)]
@@ -225,5 +232,81 @@ packages:
             parse_pnpm_package_key("/lodash/4.17.21"),
             Some(("lodash", "4.17.21"))
         );
+        assert_eq!(
+            parse_pnpm_package_key("/@scope/pkg/1.2.3"),
+            Some(("@scope/pkg", "1.2.3"))
+        );
+        assert_eq!(
+            parse_pnpm_package_key("/foo@1.0.0(bar@2.0.0)"),
+            Some(("foo", "1.0.0"))
+        );
+        assert_eq!(parse_pnpm_package_key("/"), None);
+        assert_eq!(parse_pnpm_package_key("/@scopeonly"), None);
+        assert_eq!(parse_pnpm_package_key("nopath"), None);
+    }
+
+    #[test]
+    fn parse_pnpm_invalid_yaml_errors() {
+        let err = parse_pnpm_lock("packages: [").unwrap_err();
+        assert!(err.to_string().contains("pnpm-lock"));
+    }
+
+    #[test]
+    fn parse_pnpm_entry_version_fallback_for_simple_key() {
+        let content = r#"
+lockfileVersion: '6.0'
+packages:
+  /simple:
+    version: 3.2.1
+  /emptyver:
+    version: ""
+  /filepkg:
+    version: file:../x
+"#;
+        let packages = parse_pnpm_lock(content).unwrap();
+        assert!(
+            packages
+                .iter()
+                .any(|p| p.name == "simple" && p.version == "3.2.1")
+        );
+        assert!(!packages.iter().any(|p| p.name == "emptyver"));
+        assert!(!packages.iter().any(|p| p.name == "filepkg"));
+    }
+
+    #[test]
+    fn parse_pnpm_snapshots_and_skips_link() {
+        let content = r#"
+lockfileVersion: '9.0'
+
+packages: {}
+
+snapshots:
+  /ms@2.1.3:
+    {}
+  /fileish@link:../local:
+    {}
+"#;
+        let packages = parse_pnpm_lock(content).unwrap();
+        assert!(!packages.iter().any(|p| p.name == "fileish"));
+        assert!(
+            packages
+                .iter()
+                .any(|p| p.name == "ms" && p.version == "2.1.3")
+        );
+    }
+
+    #[test]
+    fn parse_pnpm_dedupes_duplicate_keys() {
+        let content = r#"
+lockfileVersion: '6.0'
+packages:
+  /lodash@4.17.21:
+    resolution: {integrity: sha512-a}
+snapshots:
+  /lodash@4.17.21:
+    {}
+"#;
+        let packages = parse_pnpm_lock(content).unwrap();
+        assert_eq!(packages.len(), 1);
     }
 }

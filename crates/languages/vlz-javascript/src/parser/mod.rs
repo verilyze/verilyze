@@ -54,3 +54,15 @@ impl Parser for JsManifestParser {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn language_name_and_default() {
+        let parser = JsManifestParser;
+        assert_eq!(parser.language_name(), "javascript");
+        assert_eq!(JsManifestParser::new().language_name(), "javascript");
+    }
+}

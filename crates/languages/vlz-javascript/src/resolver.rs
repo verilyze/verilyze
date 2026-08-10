@@ -112,6 +112,17 @@ impl JsResolver {
     pub fn new() -> Self {
         Self::default()
     }
+
+    #[cfg(test)]
+    fn poison_lock_cache_for_test(&self) {
+        std::thread::scope(|s| {
+            let handle = s.spawn(|| {
+                let _g = self.lock_cache.lock().unwrap();
+                panic!("intentional js lock cache poison");
+            });
+            let _ = handle.join();
+        });
+    }
 }
 
 /// True when npm appears on PATH (default PM for FR-024).
@@ -578,5 +589,416 @@ mod tests {
         let _ = parse_yarn_lock("# yarn lockfile v1\n");
         let _ = parse_pnpm_lock("lockfileVersion: '6.0'\npackages: {}\n");
         let _ = parse_bun_lock(r#"{"packages":{}}"#);
+    }
+
+    #[test]
+    fn language_name_and_pm_helpers() {
+        let resolver = JsResolver::new();
+        assert_eq!(resolver.language_name(), "javascript");
+        assert!(!js_package_manager_hint().is_empty());
+        assert_eq!(resolver.package_manager_hint(), js_package_manager_hint());
+        // Availability depends on PATH; just ensure the probe does not panic.
+        let _ = js_package_manager_available();
+        let _ = resolver.package_manager_available();
+    }
+
+    #[test]
+    fn choose_pm_binary_prefers_named_and_falls_back() {
+        assert_eq!(choose_pm_binary(Some("npm@10")), Some("npm"));
+        assert!(choose_pm_binary(Some("unknown-tool")).is_some());
+        assert!(choose_pm_binary(None).is_some());
+    }
+
+    #[tokio::test]
+    async fn resolve_yarn_and_pnpm_and_bun_locks() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::write(
+            tmp.join("package.json"),
+            r#"{"name":"a","dependencies":{"lodash":"^4.17.0"}}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            tmp.join("yarn.lock"),
+            "# yarn lockfile v1\n\nlodash@^4.17.0:\n  version \"4.17.21\"\n",
+        )
+        .unwrap();
+        let graph = DependencyGraph {
+            packages: vec![Package {
+                name: "lodash".into(),
+                version: "^4.17.0".into(),
+                ecosystem: Some(NPM_ECOSYSTEM.into()),
+            }],
+            parsed_dependencies: Vec::new(),
+            manifest_path: Some(tmp.join("package.json")),
+        };
+        let resolver = JsResolver::new();
+        let yarn = resolver
+            .resolve(&graph, &ResolveContext::default())
+            .await
+            .unwrap();
+        assert_eq!(yarn.depth, ResolutionDepth::Transitive);
+
+        // Second resolve hits lock cache.
+        let yarn2 = resolver
+            .resolve(&graph, &ResolveContext::default())
+            .await
+            .unwrap();
+        assert_eq!(yarn2.depth, ResolutionDepth::Transitive);
+
+        std::fs::remove_file(tmp.join("yarn.lock")).unwrap();
+        std::fs::write(
+            tmp.join("pnpm-lock.yaml"),
+            "lockfileVersion: '6.0'\npackages:\n  /lodash@4.17.21:\n    resolution: {integrity: sha512-x}\n",
+        )
+        .unwrap();
+        let pnpm = resolver
+            .resolve(&graph, &ResolveContext::default())
+            .await
+            .unwrap();
+        assert!(pnpm.packages.iter().any(|p| p.name == "lodash"));
+
+        std::fs::remove_file(tmp.join("pnpm-lock.yaml")).unwrap();
+        std::fs::write(
+            tmp.join("bun.lock"),
+            r#"{"packages":{"lodash":["lodash@4.17.21",{},"h"]}}"#,
+        )
+        .unwrap();
+        let bun = resolver
+            .resolve(&graph, &ResolveContext::default())
+            .await
+            .unwrap();
+        assert!(bun.packages.iter().any(|p| p.name == "lodash"));
+    }
+
+    #[tokio::test]
+    async fn resolve_multi_lock_lists_all_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::write(
+            tmp.join("package.json"),
+            r#"{"name":"a","packageManager":"npm@10","dependencies":{"lodash":"4.17.21"}}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            tmp.join("package-lock.json"),
+            r#"{"lockfileVersion":3,"packages":{"node_modules/lodash":{"version":"4.17.21"}}}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            tmp.join("yarn.lock"),
+            "# yarn lockfile v1\n\nlodash@4.17.21:\n  version \"4.17.21\"\n",
+        )
+        .unwrap();
+        let graph = DependencyGraph {
+            packages: vec![Package {
+                name: "lodash".into(),
+                version: "4.17.21".into(),
+                ecosystem: Some(NPM_ECOSYSTEM.into()),
+            }],
+            parsed_dependencies: Vec::new(),
+            manifest_path: Some(tmp.join("package.json")),
+        };
+        let resolver = JsResolver::new();
+        let result = resolver
+            .resolve(&graph, &ResolveContext::default())
+            .await
+            .unwrap();
+        assert!(result.resolved_lock_paths.len() >= 2);
+    }
+
+    #[tokio::test]
+    async fn resolve_missing_manifest_path_is_fr022() {
+        let graph = DependencyGraph {
+            packages: vec![Package {
+                name: "lodash".into(),
+                version: "1.0.0".into(),
+                ecosystem: Some(NPM_ECOSYSTEM.into()),
+            }],
+            parsed_dependencies: Vec::new(),
+            manifest_path: None,
+        };
+        let resolver = JsResolver::new();
+        let err = resolver
+            .resolve(&graph, &ResolveContext::default())
+            .await
+            .unwrap_err();
+        assert!(
+            err.to_string().contains(
+                vlz_manifest_parser::FR_022_TRANSITIVE_ERROR_MESSAGE
+            )
+        );
+    }
+
+    #[tokio::test]
+    async fn resolve_with_pm_exec_falls_back_on_npm_failure() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        // Invalid registry package forces npm to fail quickly enough for CI.
+        std::fs::write(
+            tmp.join("package.json"),
+            r#"{"name":"a","dependencies":{"@vlz-nonexistent/package-that-does-not-exist":"1.0.0"}}"#,
+        )
+        .unwrap();
+        let graph = DependencyGraph {
+            packages: vec![Package {
+                name: "@vlz-nonexistent/package-that-does-not-exist".into(),
+                version: "1.0.0".into(),
+                ecosystem: Some(NPM_ECOSYSTEM.into()),
+            }],
+            parsed_dependencies: Vec::new(),
+            manifest_path: Some(tmp.join("package.json")),
+        };
+        let resolver = JsResolver::new();
+        let ctx = ResolveContext {
+            allow_dependency_code_execution: true,
+            allow_direct_only_fallback: true,
+            ..Default::default()
+        };
+        let result = resolver.resolve(&graph, &ctx).await.unwrap();
+        assert_eq!(result.depth, ResolutionDepth::DirectOnly);
+        assert_eq!(
+            result.direct_only_reason,
+            Some(vlz_manifest_parser::DIRECT_ONLY_REASON_FALLBACK_ON_FAILURE)
+        );
+    }
+
+    #[test]
+    fn manifest_needs_pm_true_without_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::write(tmp.join("package.json"), r#"{"name":"a"}"#).unwrap();
+        let resolver = JsResolver::new();
+        assert!(resolver.manifest_needs_package_manager(
+            &tmp.join("package.json"),
+            &ResolveContext::default()
+        ));
+    }
+
+    #[test]
+    fn parse_lock_path_shrinkwrap_and_unsupported() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        let shrink = tmp.join("npm-shrinkwrap.json");
+        std::fs::write(
+            &shrink,
+            r#"{"lockfileVersion":3,"packages":{"node_modules/x":{"version":"1.0.0"}}}"#,
+        )
+        .unwrap();
+        let parsed = parse_lock_path(&shrink).unwrap();
+        assert!(parsed.packages.iter().any(|p| p.name == "x"));
+        let bad = tmp.join("Cargo.lock");
+        std::fs::write(&bad, "x").unwrap();
+        assert!(parse_lock_path(&bad).is_err());
+    }
+
+    #[test]
+    fn find_js_lock_file_breaks_when_start_outside_scan_root() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = dir.path().join("outside");
+        let scan = dir.path().join("scan");
+        std::fs::create_dir_all(&outside).unwrap();
+        std::fs::create_dir_all(&scan).unwrap();
+        std::fs::write(outside.join("package.json"), r#"{"name":"o"}"#)
+            .unwrap();
+        std::fs::write(
+            outside.join("package-lock.json"),
+            r#"{"lockfileVersion":3,"packages":{}}"#,
+        )
+        .unwrap();
+        assert!(
+            find_js_lock_file(
+                &outside.join("package.json"),
+                None,
+                Some(&scan)
+            )
+            .is_none()
+        );
+    }
+
+    #[tokio::test]
+    async fn resolve_poisoned_lock_cache_errors() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::write(
+            tmp.join("package.json"),
+            r#"{"name":"a","dependencies":{"lodash":"4.17.21"}}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            tmp.join("package-lock.json"),
+            r#"{"lockfileVersion":3,"packages":{"node_modules/lodash":{"version":"4.17.21"}}}"#,
+        )
+        .unwrap();
+        let graph = DependencyGraph {
+            packages: vec![Package {
+                name: "lodash".into(),
+                version: "4.17.21".into(),
+                ecosystem: Some(NPM_ECOSYSTEM.into()),
+            }],
+            parsed_dependencies: Vec::new(),
+            manifest_path: Some(tmp.join("package.json")),
+        };
+        let resolver = JsResolver::new();
+        resolver.poison_lock_cache_for_test();
+        let err = resolver
+            .resolve(&graph, &ResolveContext::default())
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("lock cache"));
+    }
+
+    #[tokio::test]
+    async fn resolve_with_pm_exec_succeeds_for_empty_manifest() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::write(
+            tmp.join("package.json"),
+            r#"{"name":"vlz-empty","version":"1.0.0"}"#,
+        )
+        .unwrap();
+        let graph = DependencyGraph {
+            packages: Vec::new(),
+            parsed_dependencies: Vec::new(),
+            manifest_path: Some(tmp.join("package.json")),
+        };
+        let resolver = JsResolver::new();
+        let ctx = ResolveContext {
+            allow_dependency_code_execution: true,
+            ..Default::default()
+        };
+        let result = resolver.resolve(&graph, &ctx).await.unwrap();
+        assert_eq!(result.depth, ResolutionDepth::Transitive);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn resolve_with_fake_yarn_pnpm_bun_on_path() {
+        use std::os::unix::fs::PermissionsExt;
+
+        async fn run_with_fake_pm(pm: &str, lock_name: &str, lock_body: &str) {
+            let bin_dir = tempfile::tempdir().unwrap();
+            let tpl = bin_dir.path().join("lock.tpl");
+            std::fs::write(&tpl, lock_body).unwrap();
+            let script = format!(
+                "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 1.0.0; exit 0; fi\ncp '{}' '{}'\nexit 0\n",
+                tpl.display(),
+                lock_name,
+            );
+            let bin_path = bin_dir.path().join(pm);
+            std::fs::write(&bin_path, script).unwrap();
+            let mut perms =
+                std::fs::metadata(&bin_path).unwrap().permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(&bin_path, perms).unwrap();
+
+            let proj = tempfile::tempdir().unwrap();
+            std::fs::write(
+                proj.path().join("package.json"),
+                format!(
+                    r#"{{"name":"a","packageManager":"{pm}@1.0.0","dependencies":{{"lodash":"4.17.21"}}}}"#
+                ),
+            )
+            .unwrap();
+            let graph = DependencyGraph {
+                packages: vec![Package {
+                    name: "lodash".into(),
+                    version: "4.17.21".into(),
+                    ecosystem: Some(NPM_ECOSYSTEM.into()),
+                }],
+                parsed_dependencies: Vec::new(),
+                manifest_path: Some(proj.path().join("package.json")),
+            };
+            let path = format!("{}:/usr/bin:/bin", bin_dir.path().display());
+            let resolver = JsResolver::new();
+            let ctx = ResolveContext {
+                allow_dependency_code_execution: true,
+                ..Default::default()
+            };
+            let result = temp_env::async_with_vars(
+                [("PATH", Some(path.as_str()))],
+                async { resolver.resolve(&graph, &ctx).await },
+            )
+            .await
+            .unwrap();
+            assert_eq!(result.depth, ResolutionDepth::Transitive);
+            assert!(
+                result.packages.iter().any(|p| p.name == "lodash"),
+                "pm={pm} packages={:?}",
+                result.packages
+            );
+        }
+
+        run_with_fake_pm(
+            "yarn",
+            "yarn.lock",
+            "# yarn lockfile v1\n\nlodash@4.17.21:\n  version \"4.17.21\"\n",
+        )
+        .await;
+        run_with_fake_pm(
+            "pnpm",
+            "pnpm-lock.yaml",
+            "lockfileVersion: '6.0'\npackages:\n  /lodash@4.17.21:\n    resolution: {integrity: sha512-x}\n",
+        )
+        .await;
+        run_with_fake_pm(
+            "bun",
+            "bun.lock",
+            r#"{"packages":{"lodash":["lodash@4.17.21",{},"h"]}}"#,
+        )
+        .await;
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn resolve_fake_pm_without_lock_errors_then_fallback() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let bin_dir = tempfile::tempdir().unwrap();
+        let script = "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 1; exit 0; fi\nexit 0\n";
+        let bin_path = bin_dir.path().join("yarn");
+        std::fs::write(&bin_path, script).unwrap();
+        let mut perms = std::fs::metadata(&bin_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&bin_path, perms).unwrap();
+
+        let proj = tempfile::tempdir().unwrap();
+        std::fs::write(
+            proj.path().join("package.json"),
+            r#"{"name":"a","packageManager":"yarn@1.0.0","dependencies":{"x":"1.0.0"}}"#,
+        )
+        .unwrap();
+        let graph = DependencyGraph {
+            packages: vec![Package {
+                name: "x".into(),
+                version: "1.0.0".into(),
+                ecosystem: Some(NPM_ECOSYSTEM.into()),
+            }],
+            parsed_dependencies: Vec::new(),
+            manifest_path: Some(proj.path().join("package.json")),
+        };
+        let path = format!("{}:/usr/bin:/bin", bin_dir.path().display());
+        let resolver = JsResolver::new();
+        let ctx = ResolveContext {
+            allow_dependency_code_execution: true,
+            allow_direct_only_fallback: true,
+            ..Default::default()
+        };
+        let result = temp_env::async_with_vars(
+            [("PATH", Some(path.as_str()))],
+            async { resolver.resolve(&graph, &ctx).await },
+        )
+        .await
+        .unwrap();
+        assert_eq!(result.depth, ResolutionDepth::DirectOnly);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn no_package_manager_on_empty_path() {
+        temp_env::with_var("PATH", Some("/nonexistent-vlz-path"), || {
+            assert!(!js_package_manager_available());
+            assert!(choose_pm_binary(None).is_none());
+        });
     }
 }

@@ -32,6 +32,8 @@ pub struct MemBackend {
     inner: Arc<MemBackendInner>,
 }
 
+const POISONED_LOCK: &str = "mem cache lock poisoned";
+
 impl MemBackend {
     /// Create a backend with the given default TTL (clamped to at least 1 second).
     pub fn new(ttl_secs: u64) -> Self {
@@ -51,6 +53,40 @@ impl MemBackend {
     ) {
         entries.retain(|_, e| !entry_is_expired(e, now_secs));
     }
+
+    fn read_entries(
+        &self,
+    ) -> Result<
+        std::sync::RwLockReadGuard<'_, HashMap<String, StoredEntry>>,
+        DatabaseError,
+    > {
+        self.inner
+            .entries
+            .read()
+            .map_err(|_| DatabaseError::Other(POISONED_LOCK.into()))
+    }
+
+    fn write_entries(
+        &self,
+    ) -> Result<
+        std::sync::RwLockWriteGuard<'_, HashMap<String, StoredEntry>>,
+        DatabaseError,
+    > {
+        self.inner
+            .entries
+            .write()
+            .map_err(|_| DatabaseError::Other(POISONED_LOCK.into()))
+    }
+
+    #[cfg(test)]
+    fn poison_lock_for_test(&self) {
+        let inner = Arc::clone(&self.inner);
+        let _ = std::thread::spawn(move || {
+            let _guard = inner.entries.write().unwrap();
+            panic!("intentional mem cache lock poison");
+        })
+        .join();
+    }
 }
 
 #[async_trait]
@@ -58,9 +94,7 @@ impl DatabaseBackend for MemBackend {
     async fn init(&self) -> Result<(), DatabaseError> {
         vlz_cve_client::ensure_default_decoders();
         let now = unix_now_secs();
-        let mut guard = self.inner.entries.write().map_err(|_| {
-            DatabaseError::Other("mem cache lock poisoned".into())
-        })?;
+        let mut guard = self.write_entries()?;
         Self::purge_expired_locked(&mut guard, now);
         Ok(())
     }
@@ -73,9 +107,7 @@ impl DatabaseBackend for MemBackend {
         vlz_cve_client::ensure_default_decoders();
         let key = pkg_cache_key(pkg, provider_id);
         let now = unix_now_secs();
-        let guard = self.inner.entries.read().map_err(|_| {
-            DatabaseError::Other("mem cache lock poisoned".into())
-        })?;
+        let guard = self.read_entries()?;
         let Some(mut stored) = guard.get(&key).cloned() else {
             self.inner.misses.fetch_add(1, Ordering::Relaxed);
             return Ok(None);
@@ -97,9 +129,7 @@ impl DatabaseBackend for MemBackend {
     ) -> Result<Option<Vec<serde_json::Value>>, DatabaseError> {
         let key = pkg_cache_key(pkg, provider_id);
         let now = unix_now_secs();
-        let guard = self.inner.entries.read().map_err(|_| {
-            DatabaseError::Other("mem cache lock poisoned".into())
-        })?;
+        let guard = self.read_entries()?;
         let Some(mut stored) = guard.get(&key).cloned() else {
             self.inner.misses.fetch_add(1, Ordering::Relaxed);
             return Ok(None);
@@ -124,17 +154,13 @@ impl DatabaseBackend for MemBackend {
         let ttl = ttl_override.unwrap_or(self.inner.ttl_secs).max(1);
         let entry =
             new_stored_entry(provider_id, raw_vulns, ttl, unix_now_secs());
-        let mut guard = self.inner.entries.write().map_err(|_| {
-            DatabaseError::Other("mem cache lock poisoned".into())
-        })?;
+        let mut guard = self.write_entries()?;
         guard.insert(key, entry);
         Ok(())
     }
 
     async fn stats(&self) -> Result<DatabaseStats, DatabaseError> {
-        let guard = self.inner.entries.read().map_err(|_| {
-            DatabaseError::Other("mem cache lock poisoned".into())
-        })?;
+        let guard = self.read_entries()?;
         Ok(DatabaseStats {
             cached_entries: guard.len(),
             hits: self.inner.hits.load(Ordering::Relaxed),
@@ -148,9 +174,7 @@ impl DatabaseBackend for MemBackend {
         full: bool,
     ) -> Result<Vec<CacheEntryInfo>, DatabaseError> {
         vlz_cve_client::ensure_default_decoders();
-        let guard = self.inner.entries.read().map_err(|_| {
-            DatabaseError::Other("mem cache lock poisoned".into())
-        })?;
+        let guard = self.read_entries()?;
         let mut out = Vec::new();
         for (key, stored) in guard.iter() {
             let mut stored = stored.clone();
@@ -182,9 +206,7 @@ impl DatabaseBackend for MemBackend {
         new_ttl_secs: u64,
     ) -> Result<(), DatabaseError> {
         let new_ttl = new_ttl_secs.max(1);
-        let mut guard = self.inner.entries.write().map_err(|_| {
-            DatabaseError::Other("mem cache lock poisoned".into())
-        })?;
+        let mut guard = self.write_entries()?;
         let keys: Vec<String> = match &selector {
             TtlSelector::One(k) => vec![k.clone()],
             TtlSelector::Multiple(keys) => keys.clone(),
@@ -203,9 +225,7 @@ impl DatabaseBackend for MemBackend {
     }
 
     async fn verify_integrity(&self) -> Result<(), DatabaseError> {
-        let guard = self.inner.entries.read().map_err(|_| {
-            DatabaseError::Other("mem cache lock poisoned".into())
-        })?;
+        let guard = self.read_entries()?;
         let mut keys: Vec<_> = guard.keys().cloned().collect();
         keys.sort();
         let mut hasher = Sha256::new();
@@ -231,54 +251,100 @@ mod tests {
         })
     }
 
+    fn pkg(name: &str, version: &str) -> Package {
+        Package {
+            name: name.into(),
+            version: version.into(),
+            ecosystem: None,
+        }
+    }
+
     #[tokio::test]
     async fn put_get_stats() {
         let backend = MemBackend::new(3600);
         backend.init().await.unwrap();
-        let pkg = Package {
-            name: "mem_pkg".into(),
-            version: "1.0".into(),
-            ecosystem: None,
-        };
+        let p = pkg("mem_pkg", "1.0");
         backend
-            .put(&pkg, "osv", &[sample_raw_vuln()], None)
+            .put(&p, "osv", &[sample_raw_vuln()], None)
             .await
             .unwrap();
-        let got = backend.get(&pkg, "osv").await.unwrap().unwrap();
+        let got = backend.get(&p, "osv").await.unwrap().unwrap();
         assert_eq!(got[0].id, "CVE-2023-test");
         let stats = backend.stats().await.unwrap();
         assert_eq!(stats.cached_entries, 1);
         assert!(stats.hits >= 1);
+        assert_eq!(stats.cache_ttl_secs, Some(3600));
+    }
+
+    #[tokio::test]
+    async fn ttl_zero_clamped_to_one() {
+        let backend = MemBackend::new(0);
+        let stats = backend.stats().await.unwrap();
+        assert_eq!(stats.cache_ttl_secs, Some(1));
+    }
+
+    #[tokio::test]
+    async fn get_unknown_is_miss() {
+        let backend = MemBackend::new(3600);
+        backend.init().await.unwrap();
+        let p = pkg("missing", "0");
+        assert!(backend.get(&p, "osv").await.unwrap().is_none());
+        let stats = backend.stats().await.unwrap();
+        assert_eq!(stats.misses, 1);
+    }
+
+    #[tokio::test]
+    async fn get_raw_vulns_hit_and_miss() {
+        let backend = MemBackend::new(3600);
+        backend.init().await.unwrap();
+        let p = pkg("raw", "1.0");
+        assert!(backend.get_raw_vulns(&p, "osv").await.unwrap().is_none());
+        backend
+            .put(&p, "osv", &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
+        let raw = backend.get_raw_vulns(&p, "osv").await.unwrap().unwrap();
+        assert_eq!(raw[0]["id"], "CVE-2023-test");
+        let stats = backend.stats().await.unwrap();
+        assert!(stats.hits >= 1);
+        assert!(stats.misses >= 1);
     }
 
     #[tokio::test]
     async fn expired_entry_is_miss() {
         let backend = MemBackend::new(3600);
         backend.init().await.unwrap();
-        let pkg = Package {
-            name: "e".into(),
-            version: "1".into(),
-            ecosystem: None,
-        };
+        let p = pkg("e", "1");
         backend
-            .put(&pkg, "osv", &[sample_raw_vuln()], Some(1))
+            .put(&p, "osv", &[sample_raw_vuln()], Some(1))
             .await
             .unwrap();
         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-        assert!(backend.get(&pkg, "osv").await.unwrap().is_none());
+        assert!(backend.get(&p, "osv").await.unwrap().is_none());
+        assert!(backend.get_raw_vulns(&p, "osv").await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn init_purges_expired_entries() {
+        let backend = MemBackend::new(3600);
+        let p = pkg("purge", "1");
+        backend
+            .put(&p, "osv", &[sample_raw_vuln()], Some(1))
+            .await
+            .unwrap();
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        backend.init().await.unwrap();
+        let stats = backend.stats().await.unwrap();
+        assert_eq!(stats.cached_entries, 0);
     }
 
     #[tokio::test]
     async fn set_ttl_and_list_entries() {
         let backend = MemBackend::new(3600);
         backend.init().await.unwrap();
-        let pkg = Package {
-            name: "a".into(),
-            version: "1".into(),
-            ecosystem: None,
-        };
+        let p = pkg("a", "1");
         backend
-            .put(&pkg, "osv", &[sample_raw_vuln()], None)
+            .put(&p, "osv", &[sample_raw_vuln()], None)
             .await
             .unwrap();
         backend
@@ -289,28 +355,102 @@ mod tests {
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].ttl_secs, 120);
         assert!(entries[0].raw_vulns.is_some());
+        let slim = backend.list_entries(false).await.unwrap();
+        assert!(slim[0].raw_vulns.is_none());
     }
 
     #[tokio::test]
-    async fn verify_integrity_ok() {
+    async fn set_ttl_all_and_multiple() {
+        let backend = MemBackend::new(3600);
+        let a = pkg("a", "1");
+        let b = pkg("b", "1");
+        backend
+            .put(&a, "osv", &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
+        backend
+            .put(&b, "osv", &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
+        backend.set_ttl(TtlSelector::All, 50).await.unwrap();
+        let entries = backend.list_entries(false).await.unwrap();
+        assert!(entries.iter().all(|e| e.ttl_secs == 50));
+        backend
+            .set_ttl(
+                TtlSelector::Multiple(vec![
+                    "a::1::osv".into(),
+                    "missing::9::osv".into(),
+                ]),
+                90,
+            )
+            .await
+            .unwrap();
+        let entries = backend.list_entries(false).await.unwrap();
+        let a_entry = entries.iter().find(|e| e.key == "a::1::osv").unwrap();
+        assert_eq!(a_entry.ttl_secs, 90);
+        backend
+            .set_ttl(TtlSelector::One("nope::0::osv".into()), 1)
+            .await
+            .unwrap();
+        backend
+            .set_ttl(TtlSelector::Multiple(vec![]), 1)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn put_ttl_override_zero_clamped() {
+        let backend = MemBackend::new(3600);
+        let p = pkg("clamp", "1");
+        backend
+            .put(&p, "osv", &[sample_raw_vuln()], Some(0))
+            .await
+            .unwrap();
+        let entries = backend.list_entries(false).await.unwrap();
+        assert_eq!(entries[0].ttl_secs, 1);
+    }
+
+    #[tokio::test]
+    async fn verify_integrity_with_entries() {
         let backend = MemBackend::new(60);
         backend.init().await.unwrap();
+        let p = pkg("v", "1");
+        backend
+            .put(&p, "osv", &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
         backend.verify_integrity().await.unwrap();
     }
 
     #[tokio::test]
     async fn clone_shares_state() {
         let backend = MemBackend::new(3600);
-        let pkg = Package {
-            name: "shared".into(),
-            version: "1".into(),
-            ecosystem: None,
-        };
+        let p = pkg("shared", "1");
         backend
-            .put(&pkg, "osv", &[sample_raw_vuln()], None)
+            .put(&p, "osv", &[sample_raw_vuln()], None)
             .await
             .unwrap();
         let clone = backend.clone();
-        assert!(clone.get(&pkg, "osv").await.unwrap().is_some());
+        assert!(clone.get(&p, "osv").await.unwrap().is_some());
+    }
+
+    #[tokio::test]
+    async fn poisoned_lock_errors_on_ops() {
+        let backend = MemBackend::new(60);
+        let p = pkg("p", "1");
+        backend.poison_lock_for_test();
+        assert!(backend.init().await.is_err());
+        assert!(backend.get(&p, "osv").await.is_err());
+        assert!(backend.get_raw_vulns(&p, "osv").await.is_err());
+        assert!(
+            backend
+                .put(&p, "osv", &[sample_raw_vuln()], None)
+                .await
+                .is_err()
+        );
+        assert!(backend.stats().await.is_err());
+        assert!(backend.list_entries(false).await.is_err());
+        assert!(backend.set_ttl(TtlSelector::All, 1).await.is_err());
+        assert!(backend.verify_integrity().await.is_err());
     }
 }

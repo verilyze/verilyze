@@ -149,4 +149,35 @@ mod tests {
             select_lock_file(&candidates, Some("yarn@4.0.0")).unwrap();
         assert_eq!(chosen, PathBuf::from("/a/yarn.lock"));
     }
+
+    #[test]
+    fn select_lock_file_empty_and_npm_shrinkwrap_fallback() {
+        assert!(select_lock_file(&[], None).is_none());
+        assert!(select_lock_file(&[], Some("npm@10")).is_none());
+        let candidates = vec![PathBuf::from("/a/npm-shrinkwrap.json")];
+        let (chosen, _) =
+            select_lock_file(&candidates, Some("npm@10")).unwrap();
+        assert_eq!(chosen, PathBuf::from("/a/npm-shrinkwrap.json"));
+        let (chosen, _) =
+            select_lock_file(&candidates, Some("unknown-pm")).unwrap();
+        assert_eq!(chosen, PathBuf::from("/a/npm-shrinkwrap.json"));
+    }
+
+    #[test]
+    fn select_lock_file_unknown_basenames_returns_none() {
+        let candidates = vec![PathBuf::from("/a/weird.lock")];
+        assert!(select_lock_file(&candidates, Some("npm@10")).is_none());
+        assert!(select_lock_file(&candidates, None).is_none());
+    }
+
+    #[test]
+    fn list_lock_files_in_dir_finds_present() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::write(tmp.join("yarn.lock"), "x").unwrap();
+        std::fs::write(tmp.join("package.json"), "{}").unwrap();
+        let found = list_lock_files_in_dir(tmp);
+        assert_eq!(found.len(), 1);
+        assert!(found[0].ends_with("yarn.lock"));
+    }
 }
