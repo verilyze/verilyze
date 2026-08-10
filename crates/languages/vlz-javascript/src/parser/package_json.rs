@@ -209,6 +209,8 @@ mod tests {
     fn is_registry_dependency_spec_filters_protocols() {
         assert!(is_registry_dependency_spec("^1.0.0"));
         assert!(is_registry_dependency_spec("1.2.3"));
+        assert!(!is_registry_dependency_spec(""));
+        assert!(!is_registry_dependency_spec("   "));
         assert!(!is_registry_dependency_spec("workspace:*"));
         assert!(!is_registry_dependency_spec("file:../x"));
         assert!(!is_registry_dependency_spec(

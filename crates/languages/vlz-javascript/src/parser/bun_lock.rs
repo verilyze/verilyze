@@ -215,4 +215,49 @@ mod tests {
                 .any(|p| p.name == "@scope/pkg" && p.version == "1.2.3")
         );
     }
+
+    #[test]
+    fn strip_jsonc_handles_escapes_and_slash() {
+        let input = r#"{ "a": "say \"hi\"", "path": "a/b" }"#;
+        let cleaned = strip_jsonc(input);
+        let v: Value = serde_json::from_str(&cleaned).unwrap();
+        assert_eq!(v["a"], "say \"hi\"");
+        assert_eq!(v["path"], "a/b");
+    }
+
+    #[test]
+    fn parse_bun_lock_object_string_and_skips() {
+        let content = r#"{
+  "packages": {
+    "obj": { "version": "1.2.3" },
+    "str": "str@2.0.0",
+    "bad": 123,
+    "empty": ["", {}],
+    "ws": ["ws@workspace:.", {}],
+    "file": { "version": "file:../x" },
+    "fallback": ["not-a-ref", {}]
+  }
+}"#;
+        let packages = parse_bun_lock(content).unwrap();
+        assert!(
+            packages
+                .iter()
+                .any(|p| p.name == "obj" && p.version == "1.2.3")
+        );
+        assert!(
+            packages
+                .iter()
+                .any(|p| p.name == "str" && p.version == "2.0.0")
+        );
+        assert!(!packages.iter().any(|p| p.name == "ws"));
+        assert!(!packages.iter().any(|p| p.name == "file"));
+        assert!(!packages.iter().any(|p| p.name == "fallback"));
+        assert!(!packages.iter().any(|p| p.name == "bad"));
+    }
+
+    #[test]
+    fn parse_bun_lock_invalid_json_errors() {
+        let err = parse_bun_lock("{").unwrap_err();
+        assert!(err.to_string().contains("bun.lock"));
+    }
 }

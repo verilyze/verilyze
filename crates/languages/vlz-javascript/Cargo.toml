@@ -28,6 +28,6 @@ vlz-reachability-trait = { path = "../../core/vlz-reachability-trait" }
 perf-instrumentation = ["vlz-reachability-trait/perf-instrumentation"]
 
 [dev-dependencies]
-temp-env.workspace = true
+temp-env = { workspace = true, features = ["async_closure"] }
 tempfile.workspace = true
 tokio = { workspace = true, features = ["rt", "macros"] }
