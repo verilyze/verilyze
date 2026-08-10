@@ -12,9 +12,9 @@ mod support;
 #[cfg(any(not(feature = "redb"), not(feature = "docs")))]
 use support::{run_async, with_temp_xdg};
 
-/// Without `redb`, `ensure_default_db_backend_with_path` is not called, so an
+/// Without `redb` or `mem`, no default cache backend is registered, so an
 /// empty registry yields the "No DatabaseBackend" error (exit 2).
-#[cfg(not(feature = "redb"))]
+#[cfg(all(not(feature = "redb"), not(feature = "mem")))]
 #[test]
 fn scan_without_db_backend_exits_2() {
     let _ = env_logger::try_init();
@@ -30,21 +30,21 @@ fn scan_without_db_backend_exits_2() {
     });
 }
 
-/// Without `redb`, `vlz fp` returns a clear feature-gated error (exit 2).
+/// Without `redb`, `vlz fp` still works via portable FileIgnoreDb (JSON).
 #[cfg(not(feature = "redb"))]
 #[test]
-fn fp_without_redb_exits_2() {
+fn fp_without_redb_uses_file_ignore() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
-        // Register a mock backend so run() reaches the Fp arm (redb gate).
+        // Register a mock cache backend so run() reaches the Fp arm.
         vlz::registry::clear_db_backends();
         vlz::registry::register(vlz::registry::Plugin::DatabaseBackend(
             Box::new(vlz::mocks::FailingDbBackend::new()),
         ));
         assert_eq!(
             run_async(&["fp", "mark", "CVE-2024-1", "--comment", "x"]),
-            2,
-            "vlz fp requires the redb feature"
+            0,
+            "vlz fp must work with FileIgnoreDb when redb is disabled"
         );
     });
 }

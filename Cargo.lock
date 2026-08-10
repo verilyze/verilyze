@@ -2556,6 +2556,7 @@ dependencies = [
  "vlz-cve-provider-nvd",
  "vlz-cve-provider-sonatype",
  "vlz-db",
+ "vlz-db-mem",
  "vlz-db-redb",
  "vlz-go",
  "vlz-integrity",
@@ -2643,11 +2644,25 @@ name = "vlz-db"
 version = "0.8.0"
 dependencies = [
  "async-trait",
+ "rustix",
  "serde",
  "serde_json",
  "tempfile",
  "thiserror 2.0.20",
  "tokio",
+]
+
+[[package]]
+name = "vlz-db-mem"
+version = "0.8.0"
+dependencies = [
+ "async-trait",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "vlz-cve-client",
+ "vlz-db",
 ]
 
 [[package]]

@@ -38,8 +38,9 @@ Crates are organized by plugin type under `crates/`:
   - **vlz-cve-provider-github** -- GitHub Advisory Database; `github` feature.
   - **vlz-cve-provider-sonatype** -- Sonatype OSS Index; `sonatype` feature.
 - **crates/db-backends/** -- Database backend implementations:
-  - **vlz-db-redb** -- Default RedB implementation for CVE cache and
-    false-positive (ignore) DB.
+  - **vlz-db-redb** -- Default RedB implementation for the CVE cache
+    (`vlz-cache.redb`). Legacy RedB ignore DB kept for migration only.
+  - **vlz-db-mem** -- In-memory CVE cache for Docker / ephemeral builds.
 
 The binary uses **per-trait registries** (e.g. `FINDERS`, `PARSERS`,
 `RESOLVERS`, `PROVIDERS`, `DB_BACKENDS`, `REPORTERS`, `INTEGRITY_CHECKERS`) and
@@ -66,7 +67,7 @@ graph TD
     %% Concrete implementations (plug‑ins)
     H["vlz-db-redb (default DatabaseBackend)"]
     I["vlz-db-sqlite (optional, future)"]
-    J["vlz-db-mem (test/mock, future)"]
+    J["vlz-db-mem (ephemeral CVE cache)"]
     %% Edges from binary to libraries
     A --> B
     A --> C
@@ -696,9 +697,11 @@ architecture/PRD.md DOC-003 and design notes on single source of truth).
 
 The `vlz` binary supports optional capabilities via Cargo features:
 
-- **runtime** = `["redb", "python", "rust", "go", "javascript"]` -- single source of
-  truth for scan capabilities. When adding a new language or default backend,
-  add it here so both default and Docker builds pick it up automatically.
+- **runtime** = `["redb", "python", "rust", "go", "javascript"]` -- desktop
+  scan capabilities with on-disk RedB **CVE cache**. When adding a new language,
+  add it here **and** to `runtime-mem` so Docker stays in sync.
+- **runtime-mem** = `["mem", "python", "rust", "go", "javascript"]` -- same
+  languages with an in-memory CVE cache (no `redb`; for ephemeral / Docker).
 - **default** = `["runtime", "completions", "docs"]` -- full build with runtime
   capabilities plus shell completion generation and man page via `vlz help`.
   Release builds omit the `testing` feature for a smaller binary.
@@ -708,11 +711,14 @@ The `vlz` binary supports optional capabilities via Cargo features:
   `vlz help [SUBCOMMAND]` is accepted and currently shows the same manual (MOD-009,
   DOC-013). When omitted, `vlz help` exits 2 with a message to rebuild or find
   docs online. Omitted in minimal build for smaller binary.
-- **docker** = `["runtime"]` -- runtime only, no completions. Use for the Docker
-  image (OP-013, FR-025). The Dockerfile uses `--no-default-features
-  --features docker`; when adding new languages or backends, update only
-  `runtime` in Cargo.toml, not the Dockerfile.
-- **redb** -- RedB database backend for CVE cache and false-positive DB.
+- **docker** = `["runtime-mem"]` -- languages + mem cache, no completions/docs.
+  Use for the Docker image (OP-013, FR-025). The Dockerfile uses
+  `--no-default-features --features docker`.
+- **redb** -- RedB **CVE cache** backend (`vlz-db-redb`). Prefer this for
+  durable desktop/CI cache. Do not enable together with `mem` in release
+  builds; if both are on (e.g. `cargo clippy --all-features`), RedB wins.
+- **mem** -- In-memory CVE cache (`vlz-db-mem`). Process-local only; `--cache-db`
+  is rejected (exit 2). Use via `runtime-mem` / `docker`, not alongside `redb`.
 - **python** -- Python language plugin (`vlz-python` crate).
 - **rust** -- Rust language plugin (`vlz-rust` crate).
 - **go** -- Go language plugin (`vlz-go` crate).
@@ -732,7 +738,23 @@ The `vlz` binary supports optional capabilities via Cargo features:
 - **perf-instrumentation** -- Compile-time gate for performance counters and
   instrumentation logs (for example Tier-B reachability counters). Opt-in;
   not included in standard default or release builds.
-- **sqlite**, **mem** -- placeholders for future backends.
+- **sqlite** -- placeholder for a future SQLite cache backend.
+
+False-positive markings always use a portable JSON `FileIgnoreDb`
+(`vlz-ignore.json` by default), independent of the CVE cache backend. Legacy
+`vlz-ignore.redb` is migrated automatically when opening the default JSON path
+in builds that include `redb` (exclusive create: an existing JSON file is never
+overwritten). Concurrent `vlz fp mark` processes take an advisory lock and
+reload before write so distinct CVE ids are preserved; marking the same CVE
+id from two processes is last-writer-wins.
+
+Docker / local FP reuse example:
+
+```sh
+vlz fp mark CVE-2024-1234 --comment "vendor" --ignore-db ./vlz-ignore.json
+docker run --rm -v "$PWD:/src:ro" -v "$PWD/vlz-ignore.json:/ignore.json:ro" \
+  verilyze scan /src --ignore-db /ignore.json
+```
 
 NVD is opt-in because: (1) NVD enforces 5 requests per 30-second window for
 unauthenticated use, whereas vlz defaults to 10 parallel queries, so a

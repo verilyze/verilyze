@@ -116,6 +116,11 @@ _run_rust_coverage() {
     # shellcheck disable=SC2046
     cargo test -p vlz --no-default-features --features testing \
       --test minimal_features $(vlz_cargo_test_quiet_arg)
+    _vlz_cov_phase "coverage-extended mem cache + file ignore"
+    # shellcheck disable=SC2046
+    cargo test -p vlz --no-default-features --features 'testing,mem,python' \
+      --test mem_cache_ignore --test minimal_features \
+      $(vlz_cargo_test_quiet_arg)
   fi
 
   # Run the vlz binary to capture main.rs and run() coverage (binary is not a

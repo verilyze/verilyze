@@ -2,11 +2,13 @@
 # Copy to ~/.config/verilyze/verilyze.conf or /etc/verilyze.conf
 # Precedence: CLI > env (VLZ_*) > user config > system config
 #
-# Path to CVE cache database (default: XDG_CACHE_HOME or /var/cache)
+# Path to CVE cache database (default: XDG_CACHE_HOME or /var/cache). Ignored /
+# rejected (exit 2) in mem-cache builds (e.g. Docker).
 # cache_db = "/path/to/db.redb"
 
-# Path to false-positive (ignore) database (default: XDG_DATA_HOME or /var/lib)
-# ignore_db = "/path/to/db.redb"
+# Path to portable JSON false-positive database (default: vlz-ignore.json under
+# XDG_DATA_HOME or /var/lib)
+# ignore_db = "/path/to/vlz-ignore.json"
 
 # Max concurrent CVE queries (1-50)
 # parallel_queries = 10

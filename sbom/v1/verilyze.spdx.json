@@ -2142,6 +2142,13 @@
     },
     {
       "@type": "Package",
+      "name": "vlz-db-mem",
+      "packageUrl": "pkg:cargo/vlz-db-mem@0.8.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-db-mem-0-8-0",
+      "versionInfo": "0.8.0"
+    },
+    {
+      "@type": "Package",
       "name": "vlz-db-redb",
       "packageUrl": "pkg:cargo/vlz-db-redb@0.8.0",
       "spdxId": "urn:spdx.dev:pkg-cargo-vlz-db-redb-0-8-0",

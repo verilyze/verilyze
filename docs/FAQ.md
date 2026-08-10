@@ -25,6 +25,30 @@ as your user. Ensure the cache directory exists before the first run:
 `mkdir -p ~/.cache/verilyze`. See [README -- Running with
 Docker](../README.md#running-with-docker).
 
+### Docker image uses an in-memory CVE cache
+
+**Cause:** The published Docker build enables the `mem` feature
+(`runtime-mem`): CVE results are cached only for the lifetime of the
+process. No `vlz-cache.redb` is written. `--cache-db` / `VLZ_CACHE_DB` exit
+with code 2 in that build.
+
+**Remediation:** For durable cache across container runs, use a desktop /
+non-Docker build with the `redb` feature, or mount a persistent cache volume
+only with a RedB-enabled binary. False-positive markings use portable JSON
+(`vlz-ignore.json`); mount the same file into Docker:
+
+```sh
+vlz fp mark CVE-2024-1234 --comment "vendor" --ignore-db ./vlz-ignore.json
+docker run --rm -v "$PWD:/src:ro" \
+  -v "$PWD/vlz-ignore.json:/ignore.json:ro" \
+  verilyze scan /src --ignore-db /ignore.json
+```
+
+Legacy `vlz-ignore.redb` is not readable in the Docker (mem) image; migrate
+or re-mark into JSON first (desktop builds auto-migrate the default path when
+the JSON file does not yet exist). Concurrent `vlz fp mark` uses an advisory
+lock so distinct CVE markings are not lost across processes.
+
 ---
 
 ## Commit signing

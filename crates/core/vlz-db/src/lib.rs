@@ -4,8 +4,20 @@
 
 #![deny(unsafe_code)]
 
+mod cache_entry;
+mod file_ignore;
+
+pub use cache_entry::{
+    PurgeEntry, StoredEntry, entry_is_expired, new_stored_entry,
+    normalize_stored_entry, pkg_cache_key, unix_now_secs,
+};
+pub use file_ignore::{
+    DEFAULT_IGNORE_FILE_NAME, FileIgnoreDb, FpEntry,
+    IGNORE_FILE_SCHEMA_VERSION, LEGACY_IGNORE_REDB_FILE_NAME,
+    legacy_redb_path_for_json,
+};
+
 use async_trait::async_trait;
-//use std::path::PathBuf;
 
 /// OSV / package ecosystem for PyPI (Python).
 pub const PYPI_ECOSYSTEM: &str = "PyPI";

@@ -39,7 +39,7 @@ fn assert_broken_pipe_exits_cleanly(args: &[&str]) {
             .env("XDG_DATA_HOME", p)
             .env("XDG_CONFIG_HOME", p)
             .env("VLZ_CACHE_DB", format!("{p}/vlz-cache.redb"))
-            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.redb"))
+            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.json"))
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
@@ -95,7 +95,7 @@ fn broken_pipe_scan_benchmark() {
             .env("XDG_DATA_HOME", p)
             .env("XDG_CONFIG_HOME", p)
             .env("VLZ_CACHE_DB", format!("{p}/vlz-cache.redb"))
-            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.redb"))
+            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.json"))
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
@@ -117,14 +117,14 @@ fn broken_pipe_fp_mark() {
         return;
     }
     with_isolated_env(|p| {
-        let ignore_db = std::path::Path::new(p).join("ignore.redb");
+        let ignore_db = std::path::Path::new(p).join("ignore.json");
         let mut child = Command::new(vlz_exe())
             .args(["fp", "mark", "CVE-2020-1234", "--comment", "test"])
             .env("XDG_CACHE_HOME", p)
             .env("XDG_DATA_HOME", p)
             .env("XDG_CONFIG_HOME", p)
             .env("VLZ_CACHE_DB", format!("{p}/vlz-cache.redb"))
-            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.redb"))
+            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.json"))
             .env("VLZ_IGNORE_DB", ignore_db.as_os_str())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -147,14 +147,14 @@ fn broken_pipe_fp_unmark() {
         return;
     }
     with_isolated_env(|p| {
-        let ignore_db = std::path::Path::new(p).join("ignore.redb");
+        let ignore_db = std::path::Path::new(p).join("ignore.json");
         let mark = Command::new(vlz_exe())
             .args(["fp", "mark", "CVE-2020-1234", "--comment", "test"])
             .env("XDG_CACHE_HOME", p)
             .env("XDG_DATA_HOME", p)
             .env("XDG_CONFIG_HOME", p)
             .env("VLZ_CACHE_DB", format!("{p}/vlz-cache.redb"))
-            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.redb"))
+            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.json"))
             .env("VLZ_IGNORE_DB", ignore_db.as_os_str())
             .output()
             .expect("spawn vlz fp mark");
@@ -165,7 +165,7 @@ fn broken_pipe_fp_unmark() {
             .env("XDG_DATA_HOME", p)
             .env("XDG_CONFIG_HOME", p)
             .env("VLZ_CACHE_DB", format!("{p}/vlz-cache.redb"))
-            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.redb"))
+            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.json"))
             .env("VLZ_IGNORE_DB", ignore_db.as_os_str())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -268,7 +268,7 @@ fn languages_command_succeeds_and_prints_plugins() {
             .env("XDG_DATA_HOME", p)
             .env("XDG_CONFIG_HOME", p)
             .env("VLZ_CACHE_DB", format!("{p}/vlz-cache.redb"))
-            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.redb"))
+            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.json"))
             .output()
             .expect("run vlz languages");
         assert!(
@@ -288,7 +288,7 @@ fn languages_command_succeeds_and_prints_plugins() {
             .env("XDG_DATA_HOME", p)
             .env("XDG_CONFIG_HOME", p)
             .env("VLZ_CACHE_DB", format!("{p}/vlz-cache.redb"))
-            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.redb"))
+            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.json"))
             .output()
             .expect("run vlz list alias");
         assert!(
@@ -311,7 +311,7 @@ fn config_list_succeeds() {
             .env("XDG_DATA_HOME", p)
             .env("XDG_CONFIG_HOME", p)
             .env("VLZ_CACHE_DB", format!("{p}/vlz-cache.redb"))
-            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.redb"))
+            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.json"))
             .output()
             .expect("run vlz config --list");
         assert!(
@@ -334,7 +334,7 @@ fn config_bare_lists_effective_config() {
                 .env("XDG_DATA_HOME", p)
                 .env("XDG_CONFIG_HOME", p)
                 .env("VLZ_CACHE_DB", format!("{p}/vlz-cache.redb"))
-                .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.redb"));
+                .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.json"));
         };
         let bare = {
             let mut cmd = Command::new(vlz_exe());
@@ -393,7 +393,7 @@ fn config_list_includes_cache_db() {
             .env("XDG_DATA_HOME", p)
             .env("XDG_CONFIG_HOME", p)
             .env("VLZ_CACHE_DB", format!("{p}/vlz-cache.redb"))
-            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.redb"))
+            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.json"))
             .output()
             .expect("run vlz config --list");
         assert!(
@@ -422,7 +422,7 @@ fn config_list_includes_ignore_db() {
             .env("XDG_DATA_HOME", p)
             .env("XDG_CONFIG_HOME", p)
             .env("VLZ_CACHE_DB", format!("{p}/vlz-cache.redb"))
-            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.redb"))
+            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.json"))
             .output()
             .expect("run vlz config --list");
         assert!(
@@ -451,7 +451,7 @@ fn config_list_includes_exit_code_on_cve() {
             .env("XDG_DATA_HOME", p)
             .env("XDG_CONFIG_HOME", p)
             .env("VLZ_CACHE_DB", format!("{p}/vlz-cache.redb"))
-            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.redb"))
+            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.json"))
             .output()
             .expect("run vlz config --list");
         assert!(
@@ -484,7 +484,7 @@ fn config_list_includes_fp_exit_code() {
             .env("XDG_DATA_HOME", p)
             .env("XDG_CONFIG_HOME", p)
             .env("VLZ_CACHE_DB", format!("{p}/vlz-cache.redb"))
-            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.redb"))
+            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.json"))
             .output()
             .expect("run vlz config --list");
         assert!(
@@ -514,7 +514,7 @@ fn config_list_includes_severity_thresholds() {
             .env("XDG_DATA_HOME", p)
             .env("XDG_CONFIG_HOME", p)
             .env("VLZ_CACHE_DB", format!("{p}/vlz-cache.redb"))
-            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.redb"))
+            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.json"))
             .output()
             .expect("run vlz config --list");
         assert!(
@@ -578,7 +578,7 @@ fn config_invalid_file_exits_2() {
             .env("XDG_DATA_HOME", p)
             .env("XDG_CONFIG_HOME", p)
             .env("VLZ_CACHE_DB", format!("{p}/vlz-cache.redb"))
-            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.redb"))
+            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.json"))
             .output()
             .expect("run vlz");
         assert_eq!(out.status.code(), Some(2), "invalid config should exit 2");
@@ -600,7 +600,7 @@ fn config_invalid_file_verbose_logs_to_stderr() {
             .env("XDG_DATA_HOME", p)
             .env("XDG_CONFIG_HOME", p)
             .env("VLZ_CACHE_DB", format!("{p}/vlz-cache.redb"))
-            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.redb"))
+            .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.json"))
             .output()
             .expect("run vlz");
         assert_eq!(out.status.code(), Some(2));
@@ -651,7 +651,7 @@ mod completion_values {
                 .env("XDG_DATA_HOME", p)
                 .env("XDG_CONFIG_HOME", p)
                 .env("VLZ_CACHE_DB", format!("{p}/vlz-cache.redb"))
-                .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.redb"))
+                .env("VLZ_IGNORE_DB", format!("{p}/vlz-ignore.json"))
                 .output()
                 .expect("run vlz");
             assert_eq!(

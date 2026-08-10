@@ -586,13 +586,15 @@ class TestGenerateExampleConf:
     def test_cache_db_ignore_db_path_placeholder_when_empty(self) -> None:
         result = generate_config_example.generate_example_conf({}, {})
         assert "cache_db" in result
-        assert "/path/to/db.redb" in result
+        assert "ignore_db" in result
+        assert '# cache_db = "/path/to/db.redb"' in result
+        assert '# ignore_db = "/path/to/vlz-ignore.json"' in result
 
     def test_cache_db_ignore_db_sanitized_when_tmp_empty_xdg(self) -> None:
         """Paths containing .tmp-empty-xdg are treated as empty for docs."""
         config_list = {
             "cache_db": "/home/user/proj/.tmp-empty-xdg/cache/verilyze/vlz-cache.redb",
-            "ignore_db": "/home/user/proj/.tmp-empty-xdg/data/verilyze/vlz-ignore.redb",
+            "ignore_db": "/home/user/proj/.tmp-empty-xdg/data/verilyze/vlz-ignore.json",
         }
         comments = {
             "cache_db": {"description": "Path to CVE cache database"},
@@ -605,7 +607,8 @@ class TestGenerateExampleConf:
             config_list, comments
         )
         assert ".tmp-empty-xdg" not in result
-        assert "/path/to/db.redb" in result
+        assert '# cache_db = "/path/to/db.redb"' in result
+        assert '# ignore_db = "/path/to/vlz-ignore.json"' in result
 
 
 class TestGenerateConfigTable:

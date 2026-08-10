@@ -3,23 +3,20 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 [package]
-name = "vlz-db"
+name = "vlz-db-mem"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "DatabaseBackend trait and related data structures for verilyze"
+description = "In-memory DatabaseBackend for ephemeral CVE cache (Docker / mem builds)"
 publish = false
 
 [dependencies]
 async-trait.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
-thiserror.workspace = true
-
-[target.'cfg(unix)'.dependencies]
-# `std` is required so `std::fs::File` implements `rustix::fd::AsFd` for flock.
-rustix = { workspace = true, features = ["std"] }
+sha2.workspace = true
+vlz-cve-client = { path = "../../core/vlz-cve-client" }
+vlz-db = { path = "../../core/vlz-db" }
 
 [dev-dependencies]
-tempfile.workspace = true
 tokio = { workspace = true, features = ["rt", "macros"] }

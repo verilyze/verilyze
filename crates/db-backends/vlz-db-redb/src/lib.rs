@@ -17,49 +17,17 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use vlz_cve_client::decode_raw_vulns;
 use vlz_db::{
     CacheEntryInfo, CveRecord, DatabaseBackend, DatabaseError, DatabaseStats,
-    Package, TtlSelector,
+    Package, PurgeEntry, StoredEntry, TtlSelector, entry_is_expired,
+    new_stored_entry, normalize_stored_entry, pkg_cache_key, unix_now_secs,
 };
 
-/// RedB table: key = `"name::version"`, value = JSON of `StoredEntry`.
+/// RedB table: key = `"name::version::provider"`, value = JSON of `StoredEntry`.
 const CACHE_TABLE: TableDefinition<&str, &str> =
     TableDefinition::new("cve_cache");
 
 /// RedB table for persisted stats: keys "hits", "misses"; values decimal strings.
 const METADATA_TABLE: TableDefinition<&str, &str> =
     TableDefinition::new("metadata");
-
-/// Serialized form of a cache entry (raw vuln JSON per package+provider + TTL).
-#[derive(serde::Serialize, serde::Deserialize)]
-struct StoredEntry {
-    raw_vulns: Vec<serde_json::Value>,
-    provider_id: String,
-    #[serde(rename = "expires_at_secs")]
-    expires_at_secs: u64,
-    #[serde(default)]
-    added_at_secs: Option<u64>,
-    #[serde(default)]
-    ttl_secs: Option<u64>,
-}
-
-/// Minimal struct for purge: only need expires_at to decide whether to remove.
-#[derive(serde::Deserialize)]
-struct PurgeEntry {
-    #[serde(rename = "expires_at_secs")]
-    expires_at_secs: u64,
-}
-
-/// Normalize after deserialization: fill added_at_secs/ttl_secs from expiry if missing.
-fn normalize_stored_entry(entry: &mut StoredEntry, default_ttl_secs: u64) {
-    if entry.added_at_secs.is_none() || entry.ttl_secs.is_none() {
-        let ttl = entry.ttl_secs.unwrap_or(default_ttl_secs);
-        entry.added_at_secs = Some(entry.expires_at_secs.saturating_sub(ttl));
-        entry.ttl_secs = Some(ttl);
-    }
-}
-
-fn pkg_cache_key(pkg: &Package, provider_id: &str) -> String {
-    format!("{}::{}::{}", pkg.name, pkg.version, provider_id)
-}
 
 /// Default on-disk cache path from the process working directory.
 fn default_cache_db_path(
@@ -275,11 +243,8 @@ impl RedbBackend {
             }
         };
         normalize_stored_entry(&mut stored, self.inner.ttl_secs);
-        let now_secs = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or(Duration::ZERO)
-            .as_secs();
-        if stored.expires_at_secs <= now_secs {
+        let now_secs = unix_now_secs();
+        if entry_is_expired(&stored, now_secs) {
             self.inner.misses.fetch_add(1, Ordering::Relaxed);
             return Ok(None);
         }
@@ -329,18 +294,8 @@ impl DatabaseBackend for RedbBackend {
     ) -> Result<(), DatabaseError> {
         let key = pkg_cache_key(pkg, provider_id);
         let ttl = ttl_override.unwrap_or(self.inner.ttl_secs).max(1);
-        let now_secs = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or(Duration::ZERO)
-            .as_secs();
-        let expires_at_secs = now_secs.saturating_add(ttl);
-        let entry = StoredEntry {
-            raw_vulns: raw_vulns.to_vec(),
-            provider_id: provider_id.to_string(),
-            expires_at_secs,
-            added_at_secs: Some(now_secs),
-            ttl_secs: Some(ttl),
-        };
+        let entry =
+            new_stored_entry(provider_id, raw_vulns, ttl, unix_now_secs());
         let value =
             serde_json::to_string(&entry).map_err(DatabaseError::Serde)?;
         let write_txn =
@@ -514,17 +469,10 @@ impl Default for RedbBackend {
 const FALSE_POSITIVE_TABLE: TableDefinition<&str, &str> =
     TableDefinition::new("false_positive");
 
-/// Stored row for a CVE marked as false positive (FR-015: comment, timestamp, user/host, optional project_id).
-#[derive(serde::Serialize, serde::Deserialize)]
-pub struct FpEntry {
-    pub comment: String,
-    pub timestamp_secs: u64,
-    pub user: Option<String>,
-    pub host: Option<String>,
-    pub project_id: Option<String>,
-}
+pub use vlz_db::FpEntry;
 
-/// Separate RedB database for false-positive markings (vlz-ignore.redb).
+/// Separate RedB database for false-positive markings (legacy `vlz-ignore.redb`).
+/// Prefer [`vlz_db::FileIgnoreDb`] for new installs; kept for migration and tests.
 #[derive(Clone)]
 pub struct RedbIgnoreDb {
     db: Arc<Database>,
@@ -658,6 +606,54 @@ impl RedbIgnoreDb {
             .collect();
         Ok(set)
     }
+
+    /// Read all FP entries (for export / migration to FileIgnoreDb).
+    pub fn read_all_entries(
+        &self,
+    ) -> Result<std::collections::HashMap<String, FpEntry>, DatabaseError>
+    {
+        let read_txn = self.db.begin_read().map_err(DatabaseError::wrap)?;
+        let table = read_txn
+            .open_table(FALSE_POSITIVE_TABLE)
+            .map_err(DatabaseError::wrap)?;
+        let mut map = std::collections::HashMap::new();
+        for entry in table.iter().map_err(DatabaseError::wrap)? {
+            let (k, v) = entry.map_err(DatabaseError::wrap)?;
+            let cve_id = k.value().to_string();
+            let fp: FpEntry = serde_json::from_str(v.value())
+                .map_err(DatabaseError::Serde)?;
+            map.insert(cve_id, fp);
+        }
+        Ok(map)
+    }
+}
+
+/// Migrate a legacy RedB ignore DB into a JSON [`vlz_db::FileIgnoreDb`].
+///
+/// When `json_path` already exists, returns Ok(false) without reading RedB
+/// (exclusive create -- never overwrites). When the legacy file is missing,
+/// returns Ok(false). On successful migration returns Ok(true).
+pub fn migrate_ignore_redb_to_json(
+    redb_path: &std::path::Path,
+    json_path: &std::path::Path,
+) -> Result<bool, DatabaseError> {
+    if !redb_path.exists() {
+        return Ok(false);
+    }
+    let legacy = RedbIgnoreDb::with_path(redb_path.to_path_buf())?;
+    let entries = legacy.read_all_entries()?;
+    let file_db =
+        match vlz_db::FileIgnoreDb::create_new(json_path.to_path_buf()) {
+            Ok(db) => db,
+            Err(DatabaseError::Io(e))
+                if e.kind() == std::io::ErrorKind::AlreadyExists =>
+            {
+                return Ok(false);
+            }
+            Err(e) => return Err(e),
+        };
+    file_db.replace_entries(entries)?;
+    Ok(true)
 }
 
 #[cfg(test)]
@@ -895,6 +891,26 @@ mod tests {
         assert_eq!(ids.len(), 2);
         assert!(ids.contains("CVE-A"));
         assert!(ids.contains("CVE-B"));
+    }
+
+    #[tokio::test]
+    async fn migrate_ignore_redb_to_json_copies_entries() {
+        use vlz_db::IgnoreDb;
+        let dir = tempfile::tempdir().unwrap();
+        let redb_path = dir.path().join("vlz-ignore.redb");
+        let json_path = dir.path().join("vlz-ignore.json");
+        {
+            let db = RedbIgnoreDb::with_path(redb_path.clone()).unwrap();
+            db.mark("CVE-MIG", "from-redb", Some("proj")).unwrap();
+        }
+        assert!(migrate_ignore_redb_to_json(&redb_path, &json_path).unwrap());
+        let file_db =
+            vlz_db::FileIgnoreDb::with_path(json_path.clone()).unwrap();
+        assert!(file_db.is_marked("CVE-MIG").unwrap());
+        let ids = file_db.marked_ids(Some("proj")).unwrap();
+        assert!(ids.contains("CVE-MIG"));
+        // Second call is a no-op when JSON exists.
+        assert!(!migrate_ignore_redb_to_json(&redb_path, &json_path).unwrap());
     }
 
     /// put with ttl_override is stored and list_entries returns it (FR-035, OP-009).
