@@ -27,9 +27,11 @@ pub const DEFAULT_IGNORE_FILE_NAME: &str = "vlz-ignore.json";
 pub const LEGACY_IGNORE_REDB_FILE_NAME: &str = "vlz-ignore.redb";
 
 /// File mode for ignore JSON (SEC-014).
+#[cfg(unix)]
 const IGNORE_FILE_MODE: u32 = 0o640;
 
 /// Directory mode for ignore parent dirs (SEC-014).
+#[cfg(unix)]
 const IGNORE_DIR_MODE: u32 = 0o755;
 
 /// Stored row for a CVE marked as false positive (FR-015).

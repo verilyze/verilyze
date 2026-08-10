@@ -17,7 +17,8 @@ serde_json.workspace = true
 thiserror.workspace = true
 
 [target.'cfg(unix)'.dependencies]
-rustix = { workspace = true }
+# `std` is required so `std::fs::File` implements `rustix::fd::AsFd` for flock.
+rustix = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 tempfile.workspace = true
