@@ -13,13 +13,20 @@ use vlz::cli::Cli;
 /// (privileged defaults ignore XDG and use /var/...).
 #[allow(dead_code)] // not every integration test binary uses subprocesses
 pub fn apply_isolated_db_env(cmd: &mut Command, xdg_root: &Path) {
-    let cache_db = xdg_root.join("vlz-cache.redb");
-    let ignore_db = xdg_root.join("vlz-ignore.redb");
+    let ignore_db = xdg_root.join("vlz-ignore.json");
     cmd.env("XDG_CACHE_HOME", xdg_root)
         .env("XDG_DATA_HOME", xdg_root)
         .env("XDG_CONFIG_HOME", xdg_root)
-        .env("VLZ_CACHE_DB", &cache_db)
         .env("VLZ_IGNORE_DB", &ignore_db);
+    #[cfg(feature = "redb")]
+    {
+        let cache_db = xdg_root.join("vlz-cache.redb");
+        cmd.env("VLZ_CACHE_DB", &cache_db);
+    }
+    #[cfg(all(feature = "mem", not(feature = "redb")))]
+    {
+        cmd.env_remove("VLZ_CACHE_DB");
+    }
 }
 
 /// Like [`with_temp_xdg`] but does not call [`ensure_registries_for_run`].
@@ -33,17 +40,40 @@ where
     let p = dir.path().to_string_lossy().into_owned();
     // Match default_cache_path() / default_ignore_path() under XDG so
     // reregister helpers and VLZ_* env agree.
-    let cache_db = format!("{p}/verilyze/vlz-cache.redb");
-    let ignore_db = format!("{p}/verilyze/vlz-ignore.redb");
+    let ignore_db = format!("{p}/verilyze/vlz-ignore.json");
     // Privileged defaults ignore XDG and use /var/...; force non-root so
     // tests can run as uid 0 (common in containers).
     vlz::config::set_mock_privileged(Some(false));
+    #[cfg(feature = "redb")]
+    let cache_db = format!("{p}/verilyze/vlz-cache.redb");
+    #[cfg(feature = "redb")]
     let result = temp_env::with_vars(
         [
             ("XDG_CACHE_HOME", Some(p.as_str())),
             ("XDG_DATA_HOME", Some(p.as_str())),
             ("XDG_CONFIG_HOME", Some(p.as_str())),
             ("VLZ_CACHE_DB", Some(cache_db.as_str())),
+            ("VLZ_IGNORE_DB", Some(ignore_db.as_str())),
+        ],
+        f,
+    );
+    #[cfg(all(feature = "mem", not(feature = "redb")))]
+    let result = temp_env::with_vars(
+        [
+            ("XDG_CACHE_HOME", Some(p.as_str())),
+            ("XDG_DATA_HOME", Some(p.as_str())),
+            ("XDG_CONFIG_HOME", Some(p.as_str())),
+            ("VLZ_CACHE_DB", None::<&str>),
+            ("VLZ_IGNORE_DB", Some(ignore_db.as_str())),
+        ],
+        f,
+    );
+    #[cfg(not(any(feature = "redb", feature = "mem")))]
+    let result = temp_env::with_vars(
+        [
+            ("XDG_CACHE_HOME", Some(p.as_str())),
+            ("XDG_DATA_HOME", Some(p.as_str())),
+            ("XDG_CONFIG_HOME", Some(p.as_str())),
             ("VLZ_IGNORE_DB", Some(ignore_db.as_str())),
         ],
         f,
@@ -64,6 +94,7 @@ where
 
 /// Write `requirements.txt` plus adjacent `pylock.toml` for transitive resolution in tests.
 #[cfg(feature = "python")]
+#[allow(dead_code)] // not every integration test binary needs a pylock fixture
 pub fn write_requirements_with_pylock(
     dir: &std::path::Path,
     pkg: &str,
@@ -105,6 +136,12 @@ pub fn ensure_registries_for_run() {
         let cache_path = vlz::config::default_cache_path();
         let _ = vlz::registry::ensure_default_db_backend_with_path(
             cache_path,
+            vlz::config::DEFAULT_CACHE_TTL_SECS,
+        );
+    }
+    #[cfg(all(feature = "mem", not(feature = "redb")))]
+    {
+        let _ = vlz::registry::ensure_default_db_backend_mem(
             vlz::config::DEFAULT_CACHE_TTL_SECS,
         );
     }

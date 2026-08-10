@@ -2130,6 +2130,13 @@
       "version": "0.8.0"
     },
     {
+      "bom-ref": "pkg:cargo/vlz-db-mem@0.8.0",
+      "name": "vlz-db-mem",
+      "purl": "pkg:cargo/vlz-db-mem@0.8.0",
+      "type": "library",
+      "version": "0.8.0"
+    },
+    {
       "bom-ref": "pkg:cargo/vlz-db-redb@0.8.0",
       "name": "vlz-db-redb",
       "purl": "pkg:cargo/vlz-db-redb@0.8.0",

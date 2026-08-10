@@ -625,9 +625,12 @@ pub fn default_cache_path() -> PathBuf {
 /// Default ignore (false-positive) DB path (OP-002, OP-003).
 pub fn default_ignore_path() -> PathBuf {
     if is_privileged() {
-        PathBuf::from("/var/lib/verilyze/vlz-ignore.redb")
+        PathBuf::from("/var/lib/verilyze")
+            .join(vlz_db::DEFAULT_IGNORE_FILE_NAME)
     } else {
-        data_home().join("verilyze").join("vlz-ignore.redb")
+        data_home()
+            .join("verilyze")
+            .join(vlz_db::DEFAULT_IGNORE_FILE_NAME)
     }
 }
 
@@ -1684,7 +1687,7 @@ mod tests {
         temp_env::with_var("XDG_DATA_HOME", Some(path_str.as_str()), || {
             let p = default_ignore_path();
             assert!(p.to_string_lossy().contains(path_str.as_str()));
-            assert!(p.ends_with("vlz-ignore.redb"));
+            assert!(p.ends_with("vlz-ignore.json"));
         });
         set_mock_privileged(None);
     }
@@ -1702,7 +1705,7 @@ mod tests {
         set_mock_privileged(Some(true));
         let p = default_ignore_path();
         set_mock_privileged(None);
-        assert_eq!(p.to_string_lossy(), "/var/lib/verilyze/vlz-ignore.redb");
+        assert_eq!(p.to_string_lossy(), "/var/lib/verilyze/vlz-ignore.json");
     }
 
     #[test]

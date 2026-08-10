@@ -57,6 +57,7 @@ vlz-cve-provider-sonatype = { path = "../../providers/vlz-cve-provider-sonatype"
 
 # Default database implementation (feature‑gated)
 vlz-db-redb = { path = "../../db-backends/vlz-db-redb", optional = true }
+vlz-db-mem = { path = "../../db-backends/vlz-db-mem", optional = true }
 
 # For mock implementations (feature = "testing")
 async-trait = { workspace = true, optional = true }
@@ -87,14 +88,20 @@ required-features = ["testing"]
 name = "minimal_features"
 required-features = ["testing"]
 
+[[test]]
+name = "mem_cache_ignore"
+required-features = ["testing", "mem", "python"]
+
 # Feature gating – matches MOD‑003, MOD‑009
 [features]
 runtime = ["redb", "python", "rust", "go", "javascript"]
+runtime-mem = ["mem", "python", "rust", "go", "javascript"]
 default = ["runtime", "completions", "docs"]
 docs = []           # Man page via vlz help; omit for minimal binary
 completions = ["dep:clap_complete"]
-docker = ["runtime"]
-redb = ["vlz-db-redb"]
+docker = ["runtime-mem"]
+redb = ["dep:vlz-db-redb"]
+mem = ["dep:vlz-db-mem"]
 python = ["vlz-python"]
 python-tier-d = ["python", "vlz-python/tier-d"]
 rust = ["vlz-rust"]
@@ -115,7 +122,6 @@ perf-instrumentation = [
     "vlz-javascript?/perf-instrumentation",
 ]
 sqlite = []      # placeholder for a future SQLite backend
-mem = []         # placeholder for an in‑memory/mock backend
 
 # ---- Packaging metadata (OP-013) ----
 

@@ -44,12 +44,12 @@ for precedence details.
 .Sh OPTIONS
 .Bl -tag -width Ds
 .It Va cache_db
-Path to CVE cache database (default: XDG_CACHE_HOME or /var/cache).
+Path to CVE cache database (default: XDG_CACHE_HOME or /var/cache). Ignored / rejected (exit 2) in mem-cache builds (e.g. Docker)..
 Env: VLZ_CACHE_DB.
 CLI: --cache-db.
 
 .It Va ignore_db
-Path to false-positive (ignore) database (default: XDG_DATA_HOME or /var/lib).
+Path to portable JSON false-positive database (default: vlz-ignore.json under XDG_DATA_HOME or /var/lib).
 Env: VLZ_IGNORE_DB.
 CLI: --ignore-db.
 

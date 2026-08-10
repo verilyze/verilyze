@@ -2,7 +2,7 @@
 %% vlz-cve-client, vlz-report, vlz-integrity, vlz-plugin-macro, vlz-reachability,
 %% vlz-reachability-trait), crates/languages/
 %% (vlz-python, vlz-rust, vlz-go, vlz-javascript), crates/providers/ (vlz-cve-provider-nvd, vlz-cve-provider-github,
-%% vlz-cve-provider-sonatype), crates/db-backends/ (vlz-db-redb), tests/fuzz
+%% vlz-cve-provider-sonatype), crates/db-backends/ (vlz-db-redb, vlz-db-mem), tests/fuzz
 graph TD
     %% Core binary
     A["vlz (binary crate)"]
@@ -25,9 +25,9 @@ graph TD
     Q["vlz-go (optional, go feature)"]
     JS["vlz-javascript (optional, javascript feature)"]
     %% Concrete implementations (plug‑ins)
-    H["vlz-db-redb (default DatabaseBackend)"]
+    H["vlz-db-redb (default CVE cache)"]
     I["vlz-db-sqlite (optional, future)"]
-    J["vlz-db-mem (test/mock, future)"]
+    J["vlz-db-mem (ephemeral CVE cache)"]
     %% Edges from binary to libraries
     A --> B
     A --> C

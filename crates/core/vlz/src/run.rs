@@ -387,6 +387,7 @@ pub async fn run(args: Cli) -> Result<i32> {
         anyhow!(e)
     })?;
 
+    #[cfg(feature = "redb")]
     let cache_path = early_cfg
         .cache_db
         .clone()
@@ -413,6 +414,30 @@ pub async fn run(args: Cli) -> Result<i32> {
         })?;
         if args.verbose > 0 {
             info!("Cache TTL: {} s", early_cfg.cache_ttl_secs);
+        }
+    }
+    #[cfg(all(feature = "mem", not(feature = "redb")))]
+    {
+        if early_cfg.cache_db.is_some() {
+            error!(
+                "cache_db / --cache-db / VLZ_CACHE_DB is not supported when \
+                 vlz is built with the mem CVE cache backend (ephemeral \
+                 in-process cache only)."
+            );
+            return Ok(2);
+        }
+        crate::registry::ensure_default_db_backend_mem(
+            early_cfg.cache_ttl_secs,
+        )
+        .map_err(|e| {
+            error!("Failed to initialise mem cache: {}", e);
+            anyhow!("Failed to initialise mem cache: {}", e)
+        })?;
+        if args.verbose > 0 {
+            info!(
+                "Using in-memory CVE cache (TTL {} s; not persisted)",
+                early_cfg.cache_ttl_secs
+            );
         }
     }
     crate::registry::ensure_default_manifest_finder();
@@ -1000,45 +1025,37 @@ pub async fn run(args: Cli) -> Result<i32> {
                 .ignore_db
                 .clone()
                 .unwrap_or_else(crate::config::default_ignore_path);
-            #[cfg(feature = "redb")]
-            {
-                let fp_db = vlz_db_redb::RedbIgnoreDb::with_path(ignore_path)
-                    .map_err(|e| {
-                        error!("Failed to open ignore database: {}", e);
-                        anyhow!("Failed to open ignore database: {}", e)
-                    })?;
-                match sub {
-                    FpCommands::Mark {
-                        cve_id,
-                        comment,
-                        project_id,
-                    } => {
-                        fp_db
-                            .mark(&cve_id, &comment, project_id.as_deref())
-                            .map_err(|e| {
+            let fp_db =
+                crate::registry::open_ignore_db(ignore_path).map_err(|e| {
+                    error!("Failed to open ignore database: {}", e);
+                    anyhow!("Failed to open ignore database: {}", e)
+                })?;
+            match sub {
+                FpCommands::Mark {
+                    cve_id,
+                    comment,
+                    project_id,
+                } => {
+                    fp_db
+                        .mark(&cve_id, &comment, project_id.as_deref())
+                        .map_err(|e| {
                             error!("Failed to mark false positive: {}", e);
                             anyhow!(e)
                         })?;
-                        write_stdout(&format!(
-                            "Marked {} as false positive\n",
-                            cve_id
-                        ));
-                    }
-                    FpCommands::Unmark { cve_id } => {
-                        fp_db.unmark(&cve_id).map_err(|e| {
-                            error!("Failed to unmark: {}", e);
-                            anyhow!(e)
-                        })?;
-                        write_stdout(&format!("Unmarked {}\n", cve_id));
-                    }
+                    write_stdout(&format!(
+                        "Marked {} as false positive\n",
+                        cve_id
+                    ));
                 }
-                Ok(0)
+                FpCommands::Unmark { cve_id } => {
+                    fp_db.unmark(&cve_id).map_err(|e| {
+                        error!("Failed to unmark: {}", e);
+                        anyhow!(e)
+                    })?;
+                    write_stdout(&format!("Unmarked {}\n", cve_id));
+                }
             }
-            #[cfg(not(feature = "redb"))]
-            {
-                error!("vlz fp requires the redb feature");
-                return Err(anyhow!("vlz fp requires the redb feature"));
-            }
+            Ok(0)
         }
 
         Commands::Preload {
@@ -1336,24 +1353,24 @@ async fn run_scan(
     // -----------------------------------------------------------------
     // g2) Apply false-positive filter (FR-015, FR-016)
     // -----------------------------------------------------------------
-    let marked_fp: std::collections::HashSet<String> = {
-        #[cfg(feature = "redb")]
-        {
-            let ignore_path = effective
-                .ignore_db
-                .clone()
-                .unwrap_or_else(crate::config::default_ignore_path);
-            vlz_db_redb::RedbIgnoreDb::with_path(ignore_path)
-                .ok()
-                .and_then(|db| {
-                    let ignore_db: &dyn vlz_db::IgnoreDb = &db;
-                    ignore_db.marked_ids(effective.project_id.as_deref()).ok()
-                })
-                .unwrap_or_default()
-        }
-        #[cfg(not(feature = "redb"))]
-        std::collections::HashSet::new()
-    };
+    let ignore_path = effective
+        .ignore_db
+        .clone()
+        .unwrap_or_else(crate::config::default_ignore_path);
+    let marked_fp: std::collections::HashSet<String> =
+        match crate::registry::open_ignore_db(ignore_path) {
+            Ok(db) => match db.marked_ids(effective.project_id.as_deref()) {
+                Ok(ids) => ids,
+                Err(e) => {
+                    error!("Failed to read ignore database: {}", e);
+                    return Ok(EXIT_MISCONFIGURATION);
+                }
+            },
+            Err(e) => {
+                error!("Failed to open ignore database: {}", e);
+                return Ok(EXIT_MISCONFIGURATION);
+            }
+        };
     let had_any_cves_before_fp_filter =
         findings.iter().map(|(_, r)| r.len()).sum::<usize>() > 0;
     let mut findings: Vec<(vlz_db::Package, Vec<vlz_db::CveRecord>)> =

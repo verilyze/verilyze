@@ -43,7 +43,7 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: check check-parallel check-fast check-fast-parallel check-pr check-slow check-dco check-signatures
 .PHONY: check-headers check-header-duplicates headers
 .PHONY: update-doc-diagrams check-doc-diagrams
-.PHONY: cargo-check cargo-check-locked cargo-test unit-tests test-scripts
+.PHONY: cargo-check cargo-check-locked cargo-test cargo-test-mem unit-tests test-scripts
 .PHONY: fmt fmt-check clippy
 .PHONY: lint-python lint-shell super-linter super-linter-full
 .PHONY: fuzz fuzz-changed fuzz-extended fuzz-then-coverage coverage coverage-quick
@@ -80,7 +80,7 @@ help:
 	@echo "    make cargo-check - Run cargo check"
 	@echo "    make cargo-check-locked - Run cargo check --locked (dependency manifest changes)"
 	@echo "    make debug       - Build debug binary (after check-headers)"
-	@echo "    make unit-tests  - Run cargo test + script tests"
+	@echo "    make unit-tests  - Run cargo test + mem-feature tests + script tests"
 	@echo ""
 	@echo "  Full CI check:"
 	@echo "    make check       - Headers, build, fmt, clippy, cargo-deny, fuzz-changed, coverage-quick, lint"
@@ -292,6 +292,13 @@ cargo-test:
 	    $(VLZ_QUIET_LOG_ENV) cargo test --features vlz/testing --quiet; \
 	  fi'
 
+# Mem / Docker CVE-cache feature matrix (FR-015 portable ignore + ephemeral cache).
+cargo-test-mem:
+	@$(MAKE_RUN_LEAF) cargo-test-mem -- bash -c 'cd "$(MKFILE_DIR)" && \
+	  $(VLZ_QUIET_LOG_ENV) cargo test -p vlz --no-default-features \
+	    --features "testing,mem,python" \
+	    --test mem_cache_ignore --test minimal_features'
+
 # Bootstrap .venv-test with pytest and pytest-cov (NFR-021)
 $(VENV_TEST)/bin/pytest:
 	@if [ -x "$(VENV_TEST)/bin/pytest" ] && \
@@ -313,7 +320,7 @@ venv-test-ready:
 test-scripts: venv-test-ready
 	@$(MAKE_RUN_LEAF) test-scripts -- bash -c 'cd "$(MKFILE_DIR)" && $(VENV_TEST)/bin/python -m pytest tests/scripts/'
 
-unit-tests: cargo-test test-scripts
+unit-tests: cargo-test cargo-test-mem test-scripts
 
 # ---- Lint ----
 # Bootstrap .venv-lint with linters if missing

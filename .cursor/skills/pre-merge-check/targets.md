@@ -12,7 +12,7 @@ See [agent-workflow.mdc](../../rules/agent-workflow.mdc).
 
 | Paths | Commands |
 |-------|----------|
-| `**/*.rs` | `make fmt-check clippy`, `make cargo-test` (or scoped crate test) |
+| `**/*.rs` | `make fmt-check clippy`, `make cargo-test` (or scoped crate test); mem/Docker cache changes also `make cargo-test-mem` |
 | `scripts/**/*.py`, `tests/scripts/**` | `make lint-python test-scripts` |
 | `scripts/**/*.sh` | `make lint-shell` |
 | `architecture/**/*.mmd` | `make check-doc-diagrams` |

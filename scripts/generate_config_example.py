@@ -350,8 +350,10 @@ def generate_example_conf(
             "default", ""
         )
         desc = comments.get(key, {}).get("description", "")
-        if key in ("cache_db", "ignore_db") and not default:
-            val_line = f'# {key} = "/path/to/db.redb"'
+        if key == "cache_db" and not default:
+            val_line = '# cache_db = "/path/to/db.redb"'
+        elif key == "ignore_db" and not default:
+            val_line = '# ignore_db = "/path/to/vlz-ignore.json"'
         else:
             path_keys = ("cache_db", "ignore_db")
             val = f'"{default}"' if default and key in path_keys else default

@@ -5,7 +5,7 @@
 use std::sync::{Mutex, OnceLock};
 
 use vlz_cve_client::{CveProvider, OSV_QUERY_URL, OsvProvider};
-use vlz_db::DatabaseBackend;
+use vlz_db::{DatabaseBackend, FileIgnoreDb, IgnoreDb};
 use vlz_integrity::{BackendDelegatingChecker, IntegrityChecker};
 use vlz_manifest_finder::ManifestFinder;
 use vlz_manifest_parser::{Parser, Resolver};
@@ -87,6 +87,81 @@ pub fn ensure_default_db_backend_with_path(
         backends.push(Box::new(backend));
     }
     Ok(())
+}
+
+/// Registers the in-memory CVE cache backend (ephemeral; Docker / mem builds).
+/// When both `redb` and `mem` are enabled (e.g. `cargo clippy --all-features`),
+/// RedB wins; this path is compiled only for mem-only builds.
+#[cfg(all(feature = "mem", not(feature = "redb")))]
+pub fn ensure_default_db_backend_mem(
+    ttl_secs: u64,
+) -> Result<(), vlz_db::DatabaseError> {
+    let mut backends = db_backends().lock().unwrap();
+    if backends.is_empty() {
+        backends.push(Box::new(vlz_db_mem::MemBackend::new(ttl_secs)));
+    }
+    Ok(())
+}
+
+/// Open the portable JSON ignore DB, migrating from legacy RedB when possible.
+pub fn open_ignore_db(
+    path: std::path::PathBuf,
+) -> Result<Box<dyn IgnoreDb>, vlz_db::DatabaseError> {
+    let path = resolve_ignore_path_for_open(path)?;
+    Ok(Box::new(FileIgnoreDb::with_path(path)?))
+}
+
+fn resolve_ignore_path_for_open(
+    path: std::path::PathBuf,
+) -> Result<std::path::PathBuf, vlz_db::DatabaseError> {
+    let is_redb = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("redb"));
+    if is_redb {
+        #[cfg(feature = "redb")]
+        {
+            let json_path = path.with_extension("json");
+            let _ =
+                vlz_db_redb::migrate_ignore_redb_to_json(&path, &json_path)?;
+            return Ok(json_path);
+        }
+        #[cfg(not(feature = "redb"))]
+        {
+            return Err(vlz_db::DatabaseError::Other(
+                "Legacy RedB ignore database paths are not supported in this \
+                 build. Export false-positives to JSON (vlz-ignore.json) and \
+                 pass --ignore-db / VLZ_IGNORE_DB to that file."
+                    .into(),
+            ));
+        }
+    }
+    #[cfg(feature = "redb")]
+    {
+        let legacy = vlz_db::legacy_redb_path_for_json(&path);
+        if legacy.exists() && path.exists() {
+            log::warn!(
+                "Both {} and {} exist; using the JSON ignore DB and not \
+                 migrating legacy RedB entries. Remove the JSON file to \
+                 re-run migration, or copy markings manually.",
+                legacy.display(),
+                path.display()
+            );
+        }
+        // Best-effort: an unreadable/incompatible legacy RedB must not block
+        // opening the JSON ignore path (fail-closed scan still applies to the
+        // JSON file itself).
+        if let Err(e) =
+            vlz_db_redb::migrate_ignore_redb_to_json(&legacy, &path)
+        {
+            log::warn!(
+                "Skipping legacy ignore migration from {}: {}",
+                legacy.display(),
+                e
+            );
+        }
+    }
+    Ok(path)
 }
 
 /// Ensures language finders are registered (when language features enabled).
@@ -454,6 +529,14 @@ mod tests {
             register(Plugin::DatabaseBackend(Box::new(backend)));
             assert_eq!(db_backends().lock().unwrap().len(), 1);
         }
+        #[cfg(all(feature = "mem", not(feature = "redb")))]
+        {
+            clear_db_backends();
+            ensure_default_db_backend_mem(3600).expect("mem backend");
+            assert_eq!(db_backends().lock().unwrap().len(), 1);
+            ensure_default_db_backend_mem(3600).expect("mem idempotent");
+            assert_eq!(db_backends().lock().unwrap().len(), 1);
+        }
 
         // 2) ensure_default_* when empty add one per language; second call is idempotent
         #[cfg(any(
@@ -559,5 +642,15 @@ mod tests {
             assert!(result2.is_ok());
             assert_eq!(db_backends().lock().unwrap().len(), 1);
         }
+    }
+
+    #[test]
+    fn open_ignore_db_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vlz-ignore.json");
+        let db = open_ignore_db(path.clone()).expect("open");
+        db.mark("CVE-1", "c", None).unwrap();
+        let db2 = open_ignore_db(path).expect("reopen");
+        assert!(db2.is_marked("CVE-1").unwrap());
     }
 }

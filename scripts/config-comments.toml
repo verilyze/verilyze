@@ -9,7 +9,8 @@
 
 [cache_db]
 description = """
-Path to CVE cache database (default: XDG_CACHE_HOME or /var/cache)
+Path to CVE cache database (default: XDG_CACHE_HOME or /var/cache).
+Ignored / rejected (exit 2) in mem-cache builds (e.g. Docker).
 """
 type = "string"
 env = "VLZ_CACHE_DB"
@@ -18,8 +19,8 @@ default = ""
 
 [ignore_db]
 description = """
-Path to false-positive (ignore) database (default: XDG_DATA_HOME or
-/var/lib)
+Path to portable JSON false-positive database (default:
+vlz-ignore.json under XDG_DATA_HOME or /var/lib)
 """
 type = "string"
 env = "VLZ_IGNORE_DB"
