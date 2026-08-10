@@ -625,8 +625,12 @@ pub fn default_cache_path() -> PathBuf {
 /// Default ignore (false-positive) DB path (OP-002, OP-003).
 pub fn default_ignore_path() -> PathBuf {
     if is_privileged() {
-        PathBuf::from("/var/lib/verilyze")
-            .join(vlz_db::DEFAULT_IGNORE_FILE_NAME)
+        // Single string (like default_cache_path) so Windows join does not
+        // insert `\` into the privileged Unix path used in tests and docs.
+        PathBuf::from(format!(
+            "/var/lib/verilyze/{}",
+            vlz_db::DEFAULT_IGNORE_FILE_NAME
+        ))
     } else {
         data_home()
             .join("verilyze")
