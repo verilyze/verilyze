@@ -730,32 +730,48 @@ mod tests {
         );
     }
 
+    #[cfg(unix)]
     #[tokio::test]
     async fn resolve_with_pm_exec_falls_back_on_npm_failure() {
-        let dir = tempfile::tempdir().unwrap();
-        let tmp = dir.path();
-        // Invalid registry package forces npm to fail quickly enough for CI.
+        use std::os::unix::fs::PermissionsExt;
+
+        let bin_dir = tempfile::tempdir().unwrap();
+        // Deterministic failure: do not depend on registry/network behavior.
+        let script = "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 1; exit 0; fi\necho npm failed >&2\nexit 1\n";
+        let bin_path = bin_dir.path().join("npm");
+        std::fs::write(&bin_path, script).unwrap();
+        let mut perms = std::fs::metadata(&bin_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&bin_path, perms).unwrap();
+
+        let proj = tempfile::tempdir().unwrap();
         std::fs::write(
-            tmp.join("package.json"),
-            r#"{"name":"a","dependencies":{"@vlz-nonexistent/package-that-does-not-exist":"1.0.0"}}"#,
+            proj.path().join("package.json"),
+            r#"{"name":"a","packageManager":"npm@10","dependencies":{"x":"1.0.0"}}"#,
         )
         .unwrap();
         let graph = DependencyGraph {
             packages: vec![Package {
-                name: "@vlz-nonexistent/package-that-does-not-exist".into(),
+                name: "x".into(),
                 version: "1.0.0".into(),
                 ecosystem: Some(NPM_ECOSYSTEM.into()),
             }],
             parsed_dependencies: Vec::new(),
-            manifest_path: Some(tmp.join("package.json")),
+            manifest_path: Some(proj.path().join("package.json")),
         };
+        let path = format!("{}:/usr/bin:/bin", bin_dir.path().display());
         let resolver = JsResolver::new();
         let ctx = ResolveContext {
             allow_dependency_code_execution: true,
             allow_direct_only_fallback: true,
             ..Default::default()
         };
-        let result = resolver.resolve(&graph, &ctx).await.unwrap();
+        let result = temp_env::async_with_vars(
+            [("PATH", Some(path.as_str()))],
+            async { resolver.resolve(&graph, &ctx).await },
+        )
+        .await
+        .unwrap();
         assert_eq!(result.depth, ResolutionDepth::DirectOnly);
         assert_eq!(
             result.direct_only_reason,
