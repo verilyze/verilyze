@@ -234,14 +234,14 @@ sha256 = "a00ce642f577bf7f473932318056212bc4f8bfdf53128c78bbd5af0b9b20b189"
 
 [[packages]]
 name = "platformdirs"
-version = "4.11.1"
+version = "4.11.2"
 
 [[packages.wheels]]
-name = "platformdirs-4.11.1-py3-none-any.whl"
-url = "https://files.pythonhosted.org/packages/4c/85/9b31b44296cfa3bb56cddb35e6a0f6578bab0b490c0806c0245e32c6110c/platformdirs-4.11.1-py3-none-any.whl"
+name = "platformdirs-4.11.2-py3-none-any.whl"
+url = "https://files.pythonhosted.org/packages/49/e2/4e6eee633809c376c024821b91ade709cbfd040ec53939ffbcc292aa7eee/platformdirs-4.11.2-py3-none-any.whl"
 
 [packages.wheels.hashes]
-sha256 = "2efd27d363e8dd2e661639ffb398865a5e0a46442a11d266bf375a0e0c10e386"
+sha256 = "7f89089b6ea71bda7962953edcf784b2e2d9d285b40ad88be2bb75c6e9d82ab4"
 
 [[packages]]
 name = "pluggy"
@@ -267,14 +267,14 @@ sha256 = "81a9e26dd42fd28a23a2d169d86d7ac03b46e2f8b59ed4698fb4785f946d0176"
 
 [[packages]]
 name = "pylint"
-version = "4.0.6"
+version = "4.0.7"
 
 [[packages.wheels]]
-name = "pylint-4.0.6-py3-none-any.whl"
-url = "https://files.pythonhosted.org/packages/ab/da/acb2e7d4dbd2dfb792d38c0d850481f29ad7049b356d23f56c687d35203b/pylint-4.0.6-py3-none-any.whl"
+name = "pylint-4.0.7-py3-none-any.whl"
+url = "https://files.pythonhosted.org/packages/e0/b0/3a8040e53df6c5c1e04b0e23ed53fdbeb64f333723a334d313fba2f581ce/pylint-4.0.7-py3-none-any.whl"
 
 [packages.wheels.hashes]
-sha256 = "d11a0e1fdb7b1cd46ec5d6fc78fee8b95f28695b2d6140e5809925f61e32ea54"
+sha256 = "be4a3111557a614411ed1fc89347ce4a8e1013a59e1f33d11485227a02e3304d"
 
 [[packages]]
 name = "pytest"

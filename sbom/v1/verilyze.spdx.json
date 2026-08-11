@@ -162,9 +162,9 @@
     {
       "@type": "Package",
       "name": "platformdirs",
-      "packageUrl": "pkg:pypi/platformdirs@4.11.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-platformdirs-4-11-1",
-      "versionInfo": "4.11.1"
+      "packageUrl": "pkg:pypi/platformdirs@4.11.2",
+      "spdxId": "urn:spdx.dev:pkg-pypi-platformdirs-4-11-2",
+      "versionInfo": "4.11.2"
     },
     {
       "@type": "Package",
@@ -183,9 +183,9 @@
     {
       "@type": "Package",
       "name": "pylint",
-      "packageUrl": "pkg:pypi/pylint@4.0.6",
-      "spdxId": "urn:spdx.dev:pkg-pypi-pylint-4-0-6",
-      "versionInfo": "4.0.6"
+      "packageUrl": "pkg:pypi/pylint@4.0.7",
+      "spdxId": "urn:spdx.dev:pkg-pypi-pylint-4-0-7",
+      "versionInfo": "4.0.7"
     },
     {
       "@type": "Package",
