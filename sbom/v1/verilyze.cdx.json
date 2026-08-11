@@ -1416,11 +1416,11 @@
       "version": "0.6.4"
     },
     {
-      "bom-ref": "pkg:cargo/rcgen@0.14.8",
+      "bom-ref": "pkg:cargo/rcgen@0.14.9",
       "name": "rcgen",
-      "purl": "pkg:cargo/rcgen@0.14.8",
+      "purl": "pkg:cargo/rcgen@0.14.9",
       "type": "library",
-      "version": "0.14.8"
+      "version": "0.14.9"
     },
     {
       "bom-ref": "pkg:cargo/redb@4.1.0",

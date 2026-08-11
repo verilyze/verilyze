@@ -1429,9 +1429,9 @@
     {
       "@type": "Package",
       "name": "rcgen",
-      "packageUrl": "pkg:cargo/rcgen@0.14.8",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rcgen-0-14-8",
-      "versionInfo": "0.14.8"
+      "packageUrl": "pkg:cargo/rcgen@0.14.9",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rcgen-0-14-9",
+      "versionInfo": "0.14.9"
     },
     {
       "@type": "Package",
