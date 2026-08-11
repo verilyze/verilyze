@@ -149,11 +149,11 @@
       "version": "1.1.1"
     },
     {
-      "bom-ref": "pkg:pypi/platformdirs@4.11.1",
+      "bom-ref": "pkg:pypi/platformdirs@4.11.2",
       "name": "platformdirs",
-      "purl": "pkg:pypi/platformdirs@4.11.1",
+      "purl": "pkg:pypi/platformdirs@4.11.2",
       "type": "library",
-      "version": "4.11.1"
+      "version": "4.11.2"
     },
     {
       "bom-ref": "pkg:pypi/pluggy@1.6.0",
@@ -170,11 +170,11 @@
       "version": "2.20.0"
     },
     {
-      "bom-ref": "pkg:pypi/pylint@4.0.6",
+      "bom-ref": "pkg:pypi/pylint@4.0.7",
       "name": "pylint",
-      "purl": "pkg:pypi/pylint@4.0.6",
+      "purl": "pkg:pypi/pylint@4.0.7",
       "type": "library",
-      "version": "4.0.6"
+      "version": "4.0.7"
     },
     {
       "bom-ref": "pkg:pypi/pytest@9.1.1",
