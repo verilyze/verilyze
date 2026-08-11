@@ -1,0 +1,23 @@
+---
+description: Keep AFL++ and cargo-fuzz / ClusterFuzzLite harnesses in sync
+globs: "tests/fuzz/**,fuzz/**,.clusterfuzzlite/**,scripts/check_fuzz_target_parity.py"
+alwaysApply: false
+---
+
+# Dual fuzz harnesses (AFL++ and ClusterFuzzLite)
+
+When adding or renaming a fuzz target, keep **both** engines in sync (same
+basename, e.g. `fuzz_pyproject_toml`):
+
+- **AFL++ (NFR-020):** `tests/fuzz/fuzz_targets/`, `tests/fuzz/Cargo.toml`
+  `[[bin]]`, corpus under `tests/fuzz/corpus/<format>/`, and
+  `scripts/fuzz-targets.map` (map sync is manual; not covered by
+  `check-fuzz-target-parity`)
+- **cargo-fuzz / CFL:** `fuzz/fuzz_targets/<name>.rs` (no `catch_unwind`),
+  `[[bin]]` in `fuzz/Cargo.toml`, corpus under `fuzz/corpus/<name>/`
+
+After harness or `Cargo.toml` edits run `make check-fuzz-target-parity`. Do not
+treat `fuzz/**/*.rs` as a root-workspace crate for `make clippy` /
+`make cargo-test` (rustfmt hook still formats harness `.rs` files).
+ClusterFuzzLite `build.sh` needs nightly via `RUSTUP_TOOLCHAIN` (root
+`rust-toolchain.toml` pins stable). See CONTRIBUTING "Fuzz testing".

@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+lockfileVersion: '6.0'
+packages:
+  /lodash@4.17.21:
+    resolution: {integrity: sha512-abc}

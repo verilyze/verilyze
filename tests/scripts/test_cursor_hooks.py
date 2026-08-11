@@ -92,6 +92,20 @@ class TestRustPaths:
             ["crates/a.rs", "scripts/b.py"]
         ) == ["crates/a.rs"]
 
+    def test_includes_fuzz_harness_rust_for_formatting(self) -> None:
+        # rust_paths feeds the rustfmt hook; keep harness .rs included.
+        assert cursor_validation.rust_paths(
+            [
+                "crates/a.rs",
+                "fuzz/fuzz_targets/fuzz_a.rs",
+                "tests/fuzz/fuzz_targets/a.rs",
+            ]
+        ) == [
+            "crates/a.rs",
+            "fuzz/fuzz_targets/fuzz_a.rs",
+            "tests/fuzz/fuzz_targets/a.rs",
+        ]
+
 
 class TestClassifyChangedPaths:
     def test_rust_only(self) -> None:
@@ -171,6 +185,65 @@ class TestClassifyChangedPaths:
     def test_pyproject_triggers_check_sbom(self) -> None:
         targets = cursor_validation.classify_changed_paths(["pyproject.toml"])
         assert targets == ["make check-sbom"]
+
+    def test_cargo_fuzz_target_triggers_parity_not_crate_gates(self) -> None:
+        targets = cursor_validation.classify_changed_paths(
+            ["fuzz/fuzz_targets/fuzz_config_toml.rs"]
+        )
+        assert targets == ["make check-fuzz-target-parity"]
+
+    def test_afl_fuzz_target_triggers_parity_not_crate_gates(self) -> None:
+        targets = cursor_validation.classify_changed_paths(
+            ["tests/fuzz/fuzz_targets/config_toml.rs"]
+        )
+        assert targets == ["make check-fuzz-target-parity"]
+
+    def test_fuzz_parity_script_triggers_parity_and_python(self) -> None:
+        targets = cursor_validation.classify_changed_paths(
+            ["scripts/check_fuzz_target_parity.py"]
+        )
+        assert "make lint-python test-scripts" in targets
+        assert "make check-fuzz-target-parity" in targets
+
+    def test_clusterfuzzlite_build_sh_triggers_lint_shell(self) -> None:
+        targets = cursor_validation.classify_changed_paths(
+            [".clusterfuzzlite/build.sh"]
+        )
+        assert targets == ["make lint-shell"]
+
+    def test_normalize_preserves_hidden_dir_dot(self) -> None:
+        assert cursor_validation.normalize_repo_paths(
+            ["./.clusterfuzzlite/build.sh", "./crates/a.rs"]
+        ) == [".clusterfuzzlite/build.sh", "crates/a.rs"]
+
+    def test_fuzz_cargo_toml_does_not_trigger_root_deny_gates(self) -> None:
+        targets = cursor_validation.classify_changed_paths(["fuzz/Cargo.toml"])
+        assert "make deny-check" not in targets
+        assert "make cargo-check-locked" not in targets
+        assert "make check-fuzz-target-parity" in targets
+
+    def test_fuzz_corpus_only_does_not_trigger_parity(self) -> None:
+        targets = cursor_validation.classify_changed_paths(
+            ["fuzz/corpus/fuzz_config_toml/valid_minimal"]
+        )
+        assert targets == []
+
+    def test_afl_corpus_only_does_not_trigger_parity(self) -> None:
+        targets = cursor_validation.classify_changed_paths(
+            ["tests/fuzz/corpus/config_toml/valid_minimal"]
+        )
+        assert targets == []
+
+    def test_production_rust_and_fuzz_target_both(self) -> None:
+        targets = cursor_validation.classify_changed_paths(
+            [
+                "crates/core/vlz/src/lib.rs",
+                "fuzz/fuzz_targets/fuzz_go_mod.rs",
+            ]
+        )
+        assert "make fmt-check clippy" in targets
+        assert "make cargo-test" in targets
+        assert "make check-fuzz-target-parity" in targets
 
 
 class TestNeedsSuperLinter:

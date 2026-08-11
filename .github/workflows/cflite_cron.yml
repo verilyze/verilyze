@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+---
+# ClusterFuzzLite corpus prune and coverage (scheduled).
+# Requires batch fuzzing corpora from cflite_batch.yml artifacts.
+
+name: ClusterFuzzLite cron tasks
+
+on:
+  schedule:
+    # Daily at 01:00 UTC (after batch runs)
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  Pruning:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Build Fuzzers
+        id: build
+        uses: google/clusterfuzzlite/actions/build_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1.0.0  # zizmor: ignore[ref-version-mismatch]
+        with:
+          language: rust
+
+      - name: Run Fuzzers
+        id: run
+        uses: google/clusterfuzzlite/actions/run_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1.0.0  # zizmor: ignore[ref-version-mismatch]
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          fuzz-seconds: 600
+          mode: prune
+          output-sarif: true
+
+  Coverage:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Build Fuzzers
+        id: build
+        uses: google/clusterfuzzlite/actions/build_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1.0.0  # zizmor: ignore[ref-version-mismatch]
+        with:
+          language: rust
+          sanitizer: coverage
+
+      - name: Run Fuzzers
+        id: run
+        uses: google/clusterfuzzlite/actions/run_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1.0.0  # zizmor: ignore[ref-version-mismatch]
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          fuzz-seconds: 600
+          mode: coverage
+          sanitizer: coverage

@@ -72,6 +72,26 @@ def test_check_fast_includes_github_action_pin_comments() -> None:
     )
 
 
+def test_check_fast_includes_fuzz_target_parity() -> None:
+    text = (repo_root() / "Makefile").read_text(encoding="utf-8")
+    block = _extract_prerequisite_block(text, "check-fast-parallel")
+    tokens = block.replace("\\", " ").split()
+    assert "check-fuzz-target-parity" in tokens, (
+        "make check-fast must depend on check-fuzz-target-parity "
+        "(AFL and cargo-fuzz target basename sync)"
+    )
+
+
+def test_check_includes_fuzz_target_parity() -> None:
+    text = (repo_root() / "Makefile").read_text(encoding="utf-8")
+    block = _extract_prerequisite_block(text, "check-parallel")
+    tokens = block.replace("\\", " ").split()
+    assert "check-fuzz-target-parity" in tokens, (
+        "make check must depend on check-fuzz-target-parity "
+        "(AFL and cargo-fuzz target basename sync)"
+    )
+
+
 def test_check_serializes_check_headers_before_parallel() -> None:
     text = (repo_root() / "Makefile").read_text(encoding="utf-8")
     assert re.search(
