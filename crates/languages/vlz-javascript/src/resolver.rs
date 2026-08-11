@@ -604,6 +604,10 @@ mod tests {
 
     #[test]
     fn choose_pm_binary_prefers_named_and_falls_back() {
+        // Avoid racing PATH-mutating fake-PM tests on unix.
+        #[cfg(unix)]
+        let _guard =
+            FAKE_PM_PATH_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         assert_eq!(choose_pm_binary(Some("npm@10")), Some("npm"));
         assert!(choose_pm_binary(Some("unknown-tool")).is_some());
         assert!(choose_pm_binary(None).is_some());
@@ -730,19 +734,74 @@ mod tests {
         );
     }
 
+    /// Serialize PATH-mutating tests: `temp_env` is process-global.
     #[cfg(unix)]
-    #[tokio::test]
-    async fn resolve_with_pm_exec_falls_back_on_npm_failure() {
+    static FAKE_PM_PATH_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    #[cfg(unix)]
+    fn write_fake_pm_bin(bin_dir: &std::path::Path, name: &str, script: &str) {
         use std::os::unix::fs::PermissionsExt;
 
-        let bin_dir = tempfile::tempdir().unwrap();
-        // Deterministic failure: do not depend on registry/network behavior.
-        let script = "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 1; exit 0; fi\necho npm failed >&2\nexit 1\n";
-        let bin_path = bin_dir.path().join("npm");
+        let bin_path = bin_dir.join(name);
         std::fs::write(&bin_path, script).unwrap();
         let mut perms = std::fs::metadata(&bin_path).unwrap().permissions();
         perms.set_mode(0o755);
         std::fs::set_permissions(&bin_path, perms).unwrap();
+    }
+
+    /// Install a fake PM that copies `lock.tpl` beside the binary into cwd.
+    /// Uses `$0` so the script does not embed temp paths (quoting-safe).
+    #[cfg(unix)]
+    fn install_fake_pm_lock_writer(
+        bin_dir: &std::path::Path,
+        pm: &str,
+        lock_name: &str,
+        lock_body: &str,
+    ) {
+        assert!(
+            !lock_name.contains('\''),
+            "lock_name must not contain single quotes: {lock_name}"
+        );
+        std::fs::write(bin_dir.join("lock.tpl"), lock_body).unwrap();
+        let script = format!(
+            "#!/bin/sh\nDIR=$(dirname \"$0\")\nif [ \"$1\" = \"--version\" ]; then echo 1.0.0; exit 0; fi\ncp \"$DIR/lock.tpl\" '{lock_name}'\nexit 0\n"
+        );
+        write_fake_pm_bin(bin_dir, pm, &script);
+    }
+
+    #[cfg(unix)]
+    fn fake_pm_path(bin_dir: &std::path::Path) -> String {
+        format!("{}:/usr/bin:/bin", bin_dir.display())
+    }
+
+    #[cfg(unix)]
+    #[cfg(unix)]
+    #[allow(clippy::await_holding_lock)] // intentional: serialize temp_env PATH
+    async fn resolve_with_fake_pm_path(
+        bin_dir: &std::path::Path,
+        graph: &DependencyGraph,
+        ctx: &ResolveContext,
+    ) -> Result<ResolveResult, ResolverError> {
+        let _guard =
+            FAKE_PM_PATH_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let path = fake_pm_path(bin_dir);
+        let resolver = JsResolver::new();
+        temp_env::async_with_vars([("PATH", Some(path.as_str()))], async {
+            resolver.resolve(graph, ctx).await
+        })
+        .await
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn resolve_with_pm_exec_falls_back_on_npm_failure() {
+        let bin_dir = tempfile::tempdir().unwrap();
+        // Deterministic failure: do not depend on registry/network behavior.
+        write_fake_pm_bin(
+            bin_dir.path(),
+            "npm",
+            "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 1; exit 0; fi\necho npm failed >&2\nexit 1\n",
+        );
 
         let proj = tempfile::tempdir().unwrap();
         std::fs::write(
@@ -759,19 +818,14 @@ mod tests {
             parsed_dependencies: Vec::new(),
             manifest_path: Some(proj.path().join("package.json")),
         };
-        let path = format!("{}:/usr/bin:/bin", bin_dir.path().display());
-        let resolver = JsResolver::new();
         let ctx = ResolveContext {
             allow_dependency_code_execution: true,
             allow_direct_only_fallback: true,
             ..Default::default()
         };
-        let result = temp_env::async_with_vars(
-            [("PATH", Some(path.as_str()))],
-            async { resolver.resolve(&graph, &ctx).await },
-        )
-        .await
-        .unwrap();
+        let result = resolve_with_fake_pm_path(bin_dir.path(), &graph, &ctx)
+            .await
+            .unwrap();
         assert_eq!(result.depth, ResolutionDepth::DirectOnly);
         assert_eq!(
             result.direct_only_reason,
@@ -864,49 +918,50 @@ mod tests {
         assert!(err.to_string().contains("lock cache"));
     }
 
+    #[cfg(unix)]
     #[tokio::test]
     async fn resolve_with_pm_exec_succeeds_for_empty_manifest() {
-        let dir = tempfile::tempdir().unwrap();
-        let tmp = dir.path();
+        // Deterministic success: do not depend on real npm lockfile behavior.
+        let bin_dir = tempfile::tempdir().unwrap();
+        install_fake_pm_lock_writer(
+            bin_dir.path(),
+            "npm",
+            "package-lock.json",
+            r#"{"lockfileVersion":3,"packages":{}}"#,
+        );
+
+        let proj = tempfile::tempdir().unwrap();
         std::fs::write(
-            tmp.join("package.json"),
-            r#"{"name":"vlz-empty","version":"1.0.0"}"#,
+            proj.path().join("package.json"),
+            r#"{"name":"vlz-empty","version":"1.0.0","packageManager":"npm@10"}"#,
         )
         .unwrap();
         let graph = DependencyGraph {
             packages: Vec::new(),
             parsed_dependencies: Vec::new(),
-            manifest_path: Some(tmp.join("package.json")),
+            manifest_path: Some(proj.path().join("package.json")),
         };
-        let resolver = JsResolver::new();
         let ctx = ResolveContext {
             allow_dependency_code_execution: true,
             ..Default::default()
         };
-        let result = resolver.resolve(&graph, &ctx).await.unwrap();
+        let result = resolve_with_fake_pm_path(bin_dir.path(), &graph, &ctx)
+            .await
+            .unwrap();
         assert_eq!(result.depth, ResolutionDepth::Transitive);
     }
 
     #[cfg(unix)]
     #[tokio::test]
     async fn resolve_with_fake_yarn_pnpm_bun_on_path() {
-        use std::os::unix::fs::PermissionsExt;
-
         async fn run_with_fake_pm(pm: &str, lock_name: &str, lock_body: &str) {
             let bin_dir = tempfile::tempdir().unwrap();
-            let tpl = bin_dir.path().join("lock.tpl");
-            std::fs::write(&tpl, lock_body).unwrap();
-            let script = format!(
-                "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 1.0.0; exit 0; fi\ncp '{}' '{}'\nexit 0\n",
-                tpl.display(),
+            install_fake_pm_lock_writer(
+                bin_dir.path(),
+                pm,
                 lock_name,
+                lock_body,
             );
-            let bin_path = bin_dir.path().join(pm);
-            std::fs::write(&bin_path, script).unwrap();
-            let mut perms =
-                std::fs::metadata(&bin_path).unwrap().permissions();
-            perms.set_mode(0o755);
-            std::fs::set_permissions(&bin_path, perms).unwrap();
 
             let proj = tempfile::tempdir().unwrap();
             std::fs::write(
@@ -925,18 +980,14 @@ mod tests {
                 parsed_dependencies: Vec::new(),
                 manifest_path: Some(proj.path().join("package.json")),
             };
-            let path = format!("{}:/usr/bin:/bin", bin_dir.path().display());
-            let resolver = JsResolver::new();
             let ctx = ResolveContext {
                 allow_dependency_code_execution: true,
                 ..Default::default()
             };
-            let result = temp_env::async_with_vars(
-                [("PATH", Some(path.as_str()))],
-                async { resolver.resolve(&graph, &ctx).await },
-            )
-            .await
-            .unwrap();
+            let result =
+                resolve_with_fake_pm_path(bin_dir.path(), &graph, &ctx)
+                    .await
+                    .unwrap();
             assert_eq!(result.depth, ResolutionDepth::Transitive);
             assert!(
                 result.packages.iter().any(|p| p.name == "lodash"),
@@ -968,15 +1019,12 @@ mod tests {
     #[cfg(unix)]
     #[tokio::test]
     async fn resolve_fake_pm_without_lock_errors_then_fallback() {
-        use std::os::unix::fs::PermissionsExt;
-
         let bin_dir = tempfile::tempdir().unwrap();
-        let script = "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 1; exit 0; fi\nexit 0\n";
-        let bin_path = bin_dir.path().join("yarn");
-        std::fs::write(&bin_path, script).unwrap();
-        let mut perms = std::fs::metadata(&bin_path).unwrap().permissions();
-        perms.set_mode(0o755);
-        std::fs::set_permissions(&bin_path, perms).unwrap();
+        write_fake_pm_bin(
+            bin_dir.path(),
+            "yarn",
+            "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 1; exit 0; fi\nexit 0\n",
+        );
 
         let proj = tempfile::tempdir().unwrap();
         std::fs::write(
@@ -993,25 +1041,22 @@ mod tests {
             parsed_dependencies: Vec::new(),
             manifest_path: Some(proj.path().join("package.json")),
         };
-        let path = format!("{}:/usr/bin:/bin", bin_dir.path().display());
-        let resolver = JsResolver::new();
         let ctx = ResolveContext {
             allow_dependency_code_execution: true,
             allow_direct_only_fallback: true,
             ..Default::default()
         };
-        let result = temp_env::async_with_vars(
-            [("PATH", Some(path.as_str()))],
-            async { resolver.resolve(&graph, &ctx).await },
-        )
-        .await
-        .unwrap();
+        let result = resolve_with_fake_pm_path(bin_dir.path(), &graph, &ctx)
+            .await
+            .unwrap();
         assert_eq!(result.depth, ResolutionDepth::DirectOnly);
     }
 
     #[cfg(unix)]
     #[test]
     fn no_package_manager_on_empty_path() {
+        let _guard =
+            FAKE_PM_PATH_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         temp_env::with_var("PATH", Some("/nonexistent-vlz-path"), || {
             assert!(!js_package_manager_available());
             assert!(choose_pm_binary(None).is_none());
