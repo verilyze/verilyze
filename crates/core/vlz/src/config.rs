@@ -596,6 +596,14 @@ fn load_file_opt(path: &Path) -> Result<Option<String>, ConfigError> {
 
 /// System-wide config path (CFG-002).
 fn system_config_path() -> PathBuf {
+    #[cfg(any(test, feature = "testing"))]
+    {
+        if let Some(path) =
+            MOCK_SYSTEM_CONFIG_PATH.with(|c| c.borrow().clone())
+        {
+            return path;
+        }
+    }
     PathBuf::from("/etc/verilyze.conf")
 }
 
@@ -642,6 +650,8 @@ pub fn default_ignore_path() -> PathBuf {
 thread_local! {
     static MOCK_PRIVILEGED: std::cell::RefCell<Option<bool>> =
         const { std::cell::RefCell::new(None) };
+    static MOCK_SYSTEM_CONFIG_PATH: std::cell::RefCell<Option<PathBuf>> =
+        const { std::cell::RefCell::new(None) };
 }
 
 /// Set mock privileged state for tests. Call with Some(true) to simulate root,
@@ -649,6 +659,12 @@ thread_local! {
 #[cfg(any(test, feature = "testing"))]
 pub fn set_mock_privileged(value: Option<bool>) {
     MOCK_PRIVILEGED.with(|c| *c.borrow_mut() = value);
+}
+
+/// Override system config path for tests (`None` restores `/etc/verilyze.conf`).
+#[cfg(any(test, feature = "testing"))]
+pub fn set_mock_system_config_path(value: Option<PathBuf>) {
+    MOCK_SYSTEM_CONFIG_PATH.with(|c| *c.borrow_mut() = value);
 }
 
 fn is_privileged() -> bool {
@@ -1427,6 +1443,45 @@ pub fn set_config_key(key: &str, value: &str) -> Result<(), ConfigError> {
 mod tests {
     use super::*;
 
+    /// Isolate `load` from host `/etc/verilyze.conf` and `VLZ_SCAN_EXCLUDE_DIRS`.
+    ///
+    /// Does not override `XDG_CONFIG_HOME` so callers can still pin a user
+    /// config directory. Prefer [`with_isolated_load_env_empty_xdg`] when the
+    /// test must also ignore the real user config.
+    fn with_isolated_load_env<R>(f: impl FnOnce() -> R) -> R {
+        let dir = tempfile::tempdir().unwrap();
+        let absent_system = dir.path().join("absent-system-verilyze.conf");
+        set_mock_system_config_path(Some(absent_system));
+        let _clear = ClearSystemConfigMock;
+        temp_env::with_var("VLZ_SCAN_EXCLUDE_DIRS", None::<&str>, f)
+    }
+
+    /// Like [`with_isolated_load_env`], and also pin empty `XDG_CONFIG_HOME`.
+    fn with_isolated_load_env_empty_xdg<R>(f: impl FnOnce() -> R) -> R {
+        let dir = tempfile::tempdir().unwrap();
+        let xdg = dir.path().join("xdg");
+        std::fs::create_dir_all(&xdg).unwrap();
+        let xdg_str = xdg.to_string_lossy().into_owned();
+        let absent_system = dir.path().join("absent-system-verilyze.conf");
+        set_mock_system_config_path(Some(absent_system));
+        let _clear = ClearSystemConfigMock;
+        temp_env::with_vars(
+            [
+                ("VLZ_SCAN_EXCLUDE_DIRS", None::<&str>),
+                ("XDG_CONFIG_HOME", Some(xdg_str.as_str())),
+            ],
+            f,
+        )
+    }
+
+    struct ClearSystemConfigMock;
+
+    impl Drop for ClearSystemConfigMock {
+        fn drop(&mut self) {
+            set_mock_system_config_path(None);
+        }
+    }
+
     /// Invoke [`load`] with defaults except optional parallel overrides.
     fn load_parallel_test(
         config_file: Option<&str>,
@@ -1435,46 +1490,48 @@ mod tests {
         cli_parallel: Option<usize>,
         cli_parallel_resolutions: Option<usize>,
     ) -> Result<EffectiveConfig, ConfigError> {
-        load(
-            config_file,
-            env_parallel,
-            env_parallel_resolutions,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            cli_parallel,
-            cli_parallel_resolutions,
-            None,
-            None,
-            None,
-            false,
-            false,
-            None,
-            None,
-            None,
-            None,
-            None,
-            false,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            SeverityOverrides::default(),
-            SeverityOverrides::default(),
-        )
+        with_isolated_load_env(|| {
+            load(
+                config_file,
+                env_parallel,
+                env_parallel_resolutions,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                cli_parallel,
+                cli_parallel_resolutions,
+                None,
+                None,
+                None,
+                false,
+                false,
+                None,
+                None,
+                None,
+                None,
+                None,
+                false,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                SeverityOverrides::default(),
+                SeverityOverrides::default(),
+            )
+        })
     }
 
     fn load_no_severity(config_file: Option<&str>) -> EffectiveConfig {
@@ -1483,113 +1540,150 @@ mod tests {
 
     #[test]
     fn load_defaults_when_no_files() {
-        let cfg = load(
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            false,
-            false,
-            None,
-            None,
-            None,
-            None,
-            None,
-            false,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Default::default(),
-            Default::default(),
-        )
-        .unwrap();
-        assert_eq!(cfg.parallel_queries, DEFAULT_PARALLEL_QUERIES);
-        assert_eq!(cfg.parallel_resolutions, default_parallel_resolutions());
-        assert_eq!(cfg.cache_ttl_secs, DEFAULT_CACHE_TTL_SECS);
-        assert_eq!(cfg.backoff_base_ms, DEFAULT_BACKOFF_BASE_MS);
-        assert_eq!(cfg.max_retries, DEFAULT_MAX_RETRIES);
-        assert_eq!(
-            cfg.provider_http_connect_timeout_secs,
-            DEFAULT_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS
-        );
-        assert_eq!(
-            cfg.provider_http_request_timeout_secs,
-            DEFAULT_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS
+        with_isolated_load_env_empty_xdg(|| {
+            let cfg = load_no_severity(None);
+            assert_eq!(cfg.parallel_queries, DEFAULT_PARALLEL_QUERIES);
+            assert_eq!(
+                cfg.parallel_resolutions,
+                default_parallel_resolutions()
+            );
+            assert_eq!(cfg.cache_ttl_secs, DEFAULT_CACHE_TTL_SECS);
+            assert_eq!(cfg.backoff_base_ms, DEFAULT_BACKOFF_BASE_MS);
+            assert_eq!(cfg.max_retries, DEFAULT_MAX_RETRIES);
+            assert_eq!(
+                cfg.provider_http_connect_timeout_secs,
+                DEFAULT_PROVIDER_HTTP_CONNECT_TIMEOUT_SECS
+            );
+            assert_eq!(
+                cfg.provider_http_request_timeout_secs,
+                DEFAULT_PROVIDER_HTTP_REQUEST_TIMEOUT_SECS
+            );
+        });
+    }
+
+    #[test]
+    fn mock_system_config_path_loads_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let sys = dir.path().join("system.conf");
+        std::fs::write(&sys, "parallel_queries = 11\n").unwrap();
+        let xdg = dir.path().join("xdg");
+        std::fs::create_dir_all(&xdg).unwrap();
+        let xdg_str = xdg.to_string_lossy().into_owned();
+        set_mock_system_config_path(Some(sys));
+        let _clear = ClearSystemConfigMock;
+        temp_env::with_vars(
+            [
+                ("VLZ_SCAN_EXCLUDE_DIRS", None::<&str>),
+                ("XDG_CONFIG_HOME", Some(xdg_str.as_str())),
+            ],
+            || {
+                let cfg = load(
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    Default::default(),
+                    Default::default(),
+                )
+                .unwrap();
+                assert_eq!(cfg.parallel_queries, 11);
+            },
         );
     }
 
     #[test]
+    fn mock_system_config_path_none_restores_default() {
+        set_mock_system_config_path(Some(PathBuf::from("/tmp/custom.conf")));
+        assert_eq!(system_config_path(), PathBuf::from("/tmp/custom.conf"));
+        set_mock_system_config_path(None);
+        assert_eq!(system_config_path(), PathBuf::from("/etc/verilyze.conf"));
+    }
+
+    #[test]
     fn load_rejects_missing_tls_crl_bundle_sec021() {
-        let dir = tempfile::tempdir().unwrap();
-        let conf = dir.path().join("verilyze.conf");
-        std::fs::write(
-            &conf,
-            "tls_crl_bundle = \"/no/such/crl-bundle.pem\"\n",
-        )
-        .unwrap();
-        let path_str = conf.to_string_lossy().into_owned();
-        let r = load(
-            Some(path_str.as_str()),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            false,
-            false,
-            None,
-            None,
-            None,
-            None,
-            None,
-            false,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Default::default(),
-            Default::default(),
-        );
-        assert!(matches!(r, Err(ConfigError::InvalidTlsCrlBundle { .. })));
+        with_isolated_load_env(|| {
+            let dir = tempfile::tempdir().unwrap();
+            let conf = dir.path().join("verilyze.conf");
+            std::fs::write(
+                &conf,
+                "tls_crl_bundle = \"/no/such/crl-bundle.pem\"\n",
+            )
+            .unwrap();
+            let path_str = conf.to_string_lossy().into_owned();
+            let r = load(
+                Some(path_str.as_str()),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                false,
+                false,
+                None,
+                None,
+                None,
+                None,
+                None,
+                false,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Default::default(),
+                Default::default(),
+            );
+            assert!(matches!(r, Err(ConfigError::InvalidTlsCrlBundle { .. })));
+        });
     }
 
     #[test]
@@ -1947,19 +2041,10 @@ mod tests {
 
     #[test]
     fn apply_file_config_all_fields_from_file() {
-        // Isolate env so parallel tests (or runner env) cannot override
-        // scan_exclude_dirs via VLZ_SCAN_EXCLUDE_DIRS after file config.
-        let xdg = tempfile::tempdir().unwrap();
-        let xdg_str = xdg.path().to_string_lossy().into_owned();
-        temp_env::with_vars(
-            [
-                ("VLZ_SCAN_EXCLUDE_DIRS", None::<&str>),
-                ("XDG_CONFIG_HOME", Some(xdg_str.as_str())),
-            ],
-            || {
-                let dir = tempfile::tempdir().unwrap();
-                let config_path = dir.path().join("vlz.conf");
-                let toml = r#"
+        with_isolated_load_env_empty_xdg(|| {
+            let dir = tempfile::tempdir().unwrap();
+            let config_path = dir.path().join("vlz.conf");
+            let toml = r#"
 cache_db = "/tmp/cache.redb"
 ignore_db = "/tmp/ignore.redb"
 parallel_queries = 5
@@ -1975,76 +2060,75 @@ scan_exclude_dirs = [".git", "target"]
 [python]
 regex = "^req\\.txt$"
 "#;
-                std::fs::write(&config_path, toml).unwrap();
-                let path_str = config_path.to_string_lossy().into_owned();
-                let cfg = load(
-                    Some(&path_str),
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    false,
-                    false,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    false,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    Default::default(),
-                    Default::default(),
-                )
-                .unwrap();
-                assert_eq!(
-                    cfg.cache_db.as_ref().unwrap().to_str(),
-                    Some("/tmp/cache.redb")
-                );
-                assert_eq!(
-                    cfg.ignore_db.as_ref().unwrap().to_str(),
-                    Some("/tmp/ignore.redb")
-                );
-                assert_eq!(cfg.parallel_queries, 5);
-                assert_eq!(cfg.cache_ttl_secs, 100);
-                assert_eq!(cfg.min_score, 7.5);
-                assert_eq!(cfg.min_count, 2);
-                assert_eq!(cfg.exit_code_on_cve, Some(86));
-                assert_eq!(cfg.fp_exit_code, Some(0));
-                assert_eq!(cfg.backoff_base_ms, 50);
-                assert_eq!(cfg.backoff_max_ms, 5000);
-                assert_eq!(cfg.max_retries, 3);
-                assert_eq!(
-                    cfg.scan_exclude_dirs,
-                    vec![".git".to_string(), "target".to_string()]
-                );
-                assert_eq!(
-                    cfg.language_regexes,
-                    vec![("python".to_string(), "^req\\.txt$".to_string())]
-                );
-            },
-        );
+            std::fs::write(&config_path, toml).unwrap();
+            let path_str = config_path.to_string_lossy().into_owned();
+            let cfg = load(
+                Some(&path_str),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                false,
+                false,
+                None,
+                None,
+                None,
+                None,
+                None,
+                false,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Default::default(),
+                Default::default(),
+            )
+            .unwrap();
+            assert_eq!(
+                cfg.cache_db.as_ref().unwrap().to_str(),
+                Some("/tmp/cache.redb")
+            );
+            assert_eq!(
+                cfg.ignore_db.as_ref().unwrap().to_str(),
+                Some("/tmp/ignore.redb")
+            );
+            assert_eq!(cfg.parallel_queries, 5);
+            assert_eq!(cfg.cache_ttl_secs, 100);
+            assert_eq!(cfg.min_score, 7.5);
+            assert_eq!(cfg.min_count, 2);
+            assert_eq!(cfg.exit_code_on_cve, Some(86));
+            assert_eq!(cfg.fp_exit_code, Some(0));
+            assert_eq!(cfg.backoff_base_ms, 50);
+            assert_eq!(cfg.backoff_max_ms, 5000);
+            assert_eq!(cfg.max_retries, 3);
+            assert_eq!(
+                cfg.scan_exclude_dirs,
+                vec![".git".to_string(), "target".to_string()]
+            );
+            assert_eq!(
+                cfg.language_regexes,
+                vec![("python".to_string(), "^req\\.txt$".to_string())]
+            );
+        });
     }
 
     #[test]
@@ -2056,53 +2140,55 @@ regex = "^req\\.txt$"
 
     #[test]
     fn load_config_file_override_uses_given_path() {
-        let dir = tempfile::tempdir().unwrap();
-        let config_path = dir.path().join("custom.conf");
-        std::fs::write(&config_path, "parallel_queries = 3").unwrap();
-        let path_str = config_path.to_string_lossy().into_owned();
-        let cfg = load(
-            Some(&path_str),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            false,
-            false,
-            None,
-            None,
-            None,
-            None,
-            None,
-            false,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Default::default(),
-            Default::default(),
-        )
-        .unwrap();
-        assert_eq!(cfg.parallel_queries, 3);
-        assert_eq!(cfg.config_file.as_ref().unwrap(), &config_path);
+        with_isolated_load_env(|| {
+            let dir = tempfile::tempdir().unwrap();
+            let config_path = dir.path().join("custom.conf");
+            std::fs::write(&config_path, "parallel_queries = 3").unwrap();
+            let path_str = config_path.to_string_lossy().into_owned();
+            let cfg = load(
+                Some(&path_str),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                false,
+                false,
+                None,
+                None,
+                None,
+                None,
+                None,
+                false,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Default::default(),
+                Default::default(),
+            )
+            .unwrap();
+            assert_eq!(cfg.parallel_queries, 3);
+            assert_eq!(cfg.config_file.as_ref().unwrap(), &config_path);
+        });
     }
 
     #[test]
@@ -2335,57 +2421,59 @@ regex = "^req\\.txt$"
 
     #[test]
     fn load_provider_http_from_file() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("vlz.conf");
-        std::fs::write(
-            &path,
-            "provider_http_connect_timeout_secs = 25\nprovider_http_request_timeout_secs = 90\n",
-        )
-        .unwrap();
-        let path_str = path.to_string_lossy().into_owned();
-        let cfg = load(
-            Some(path_str.as_str()),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            false,
-            false,
-            None,
-            None,
-            None,
-            None,
-            None,
-            false,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Default::default(),
-            Default::default(),
-        )
-        .unwrap();
-        assert_eq!(cfg.provider_http_connect_timeout_secs, 25);
-        assert_eq!(cfg.provider_http_request_timeout_secs, 90);
+        with_isolated_load_env(|| {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("vlz.conf");
+            std::fs::write(
+                &path,
+                "provider_http_connect_timeout_secs = 25\nprovider_http_request_timeout_secs = 90\n",
+            )
+            .unwrap();
+            let path_str = path.to_string_lossy().into_owned();
+            let cfg = load(
+                Some(path_str.as_str()),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                false,
+                false,
+                None,
+                None,
+                None,
+                None,
+                None,
+                false,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Default::default(),
+                Default::default(),
+            )
+            .unwrap();
+            assert_eq!(cfg.provider_http_connect_timeout_secs, 25);
+            assert_eq!(cfg.provider_http_request_timeout_secs, 90);
+        });
     }
 
     #[test]
@@ -3157,53 +3245,55 @@ regex = "^req\\.txt$"
         cli_mode: Option<ReachabilityMode>,
         env_sev: Option<SeverityOverrides>,
     ) -> EffectiveConfig {
-        load_with_reachability_overrides(
-            config_file,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            false,
-            false,
-            None,
-            None,
-            None,
-            None,
-            None,
-            false,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            env_mode,
-            cli_mode,
-            false,
-            false,
-            false,
-            false,
-            env_sev.unwrap_or_default(),
-            Default::default(),
-        )
-        .expect("load config")
+        with_isolated_load_env(|| {
+            load_with_reachability_overrides(
+                config_file,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                false,
+                false,
+                None,
+                None,
+                None,
+                None,
+                None,
+                false,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                env_mode,
+                cli_mode,
+                false,
+                false,
+                false,
+                false,
+                env_sev.unwrap_or_default(),
+                Default::default(),
+            )
+            .expect("load config")
+        })
     }
 
     fn load_with_direct_only_fallback(
@@ -3211,59 +3301,61 @@ regex = "^req\\.txt$"
         env_fallback: Option<bool>,
         cli_fallback: bool,
     ) -> EffectiveConfig {
-        temp_env::with_var(
-            "VLZ_ALLOW_DIRECT_ONLY_FALLBACK",
-            env_fallback.map(|v| if v { "1" } else { "0" }),
-            || {
-                load_with_reachability_overrides(
-                    config_file,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    false,
-                    false,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    false,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    false,
-                    false,
-                    cli_fallback,
-                    false,
-                    Default::default(),
-                    Default::default(),
-                )
-                .expect("load config")
-            },
-        )
+        with_isolated_load_env(|| {
+            temp_env::with_var(
+                "VLZ_ALLOW_DIRECT_ONLY_FALLBACK",
+                env_fallback.map(|v| if v { "1" } else { "0" }),
+                || {
+                    load_with_reachability_overrides(
+                        config_file,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        false,
+                        false,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        false,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        false,
+                        false,
+                        cli_fallback,
+                        false,
+                        Default::default(),
+                        Default::default(),
+                    )
+                    .expect("load config")
+                },
+            )
+        })
     }
 
     #[test]
