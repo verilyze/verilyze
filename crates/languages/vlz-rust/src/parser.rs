@@ -11,6 +11,9 @@ use vlz_manifest_parser::{
     scan_toml_section_deps,
 };
 
+/// Maximum Cargo.toml size accepted before parsing (1 MiB).
+pub const CARGO_TOML_MAX_BYTES: usize = 1024 * 1024;
+
 /// Parse Cargo.toml with declaration line metadata for one manifest file.
 pub fn parse_cargo_toml_with_declarations(
     content: &str,
@@ -41,7 +44,29 @@ pub fn parse_cargo_toml_with_declarations(
 
 /// Parse Cargo.toml content into a list of packages from [dependencies],
 /// [dev-dependencies], and [build-dependencies]. Public for fuzzing (NFR-020).
+///
+/// Panics from the toml crate on pathological input are caught and converted to
+/// `ParserError` (SEC-017).
 pub fn parse_cargo_toml(
+    content: &str,
+) -> Result<Vec<vlz_db::Package>, ParserError> {
+    if content.len() > CARGO_TOML_MAX_BYTES {
+        return Err(ParserError::Parse(format!(
+            "Cargo.toml exceeds maximum size of {CARGO_TOML_MAX_BYTES} bytes"
+        )));
+    }
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        parse_cargo_toml_inner(content)
+    })) {
+        Ok(result) => result,
+        Err(_) => Err(ParserError::Parse(
+            "Cargo.toml parse error: invalid input caused parser error"
+                .to_string(),
+        )),
+    }
+}
+
+fn parse_cargo_toml_inner(
     content: &str,
 ) -> Result<Vec<vlz_db::Package>, ParserError> {
     let value: toml::Value = toml::from_str(content).map_err(|e| {
@@ -345,6 +370,22 @@ builddep = "2.0"
         let content = "invalid toml {{{";
         let err = parse_cargo_toml(content).unwrap_err();
         assert!(format!("{:?}", err).contains("parse"));
+    }
+
+    #[test]
+    fn parse_cargo_toml_malformed_number_returns_error_sec017() {
+        // Input that triggers toml_parser panic (e.g. "0onccbttj" after =).
+        // SEC-017: return error, not panic (AFL must not see a crash).
+        let content = "[dependencies]\nserde =0onccbttj";
+        assert!(parse_cargo_toml(content).is_err());
+    }
+
+    #[test]
+    fn parse_cargo_toml_exceeds_max_bytes_returns_error() {
+        let mut content = "[dependencies]\nx = \"1.0\"\n".to_string();
+        content.push_str(&" ".repeat(CARGO_TOML_MAX_BYTES));
+        let err = parse_cargo_toml(&content).unwrap_err();
+        assert!(err.to_string().contains("maximum size"));
     }
 
     #[test]
