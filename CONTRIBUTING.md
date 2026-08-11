@@ -602,14 +602,18 @@ core startup, similar to finder/parser/resolver registration.
    mechanics and examples, see **Feature gating** below.
 3. In the binary’s startup path, when the feature is enabled, register your
    implementations via `vlz_register!` (or push to the registry directly).
-4. **Add a fuzz target** for each manifest or lock format your parser supports
+4. **Add fuzz targets** for each manifest or lock format your parser supports
    (NFR-020, SEC-017). Parsers accept untrusted manifest files; fuzzing ensures
-   no crash on malformed input (SEC-017). Create
-   `tests/fuzz/fuzz_targets/<format>.rs` (e.g. `fuzz_pyproject_toml.rs`) and
-   add seed corpus under `tests/fuzz/corpus/<format>/`. Update
-   `scripts/fuzz-targets.map` (add one mapping line:
-   `target_name=crates/languages/vlz-java/src/...`), `scripts/fuzz.sh`, and
-   `tests/fuzz/Cargo.toml` to include the new target.
+   no crash on malformed input (SEC-017). Keep **both** engines in sync (same
+   basename, e.g. `fuzz_pyproject_toml`):
+   - **AFL++ (NFR-020):** `tests/fuzz/fuzz_targets/<format>.rs`, seed corpus
+     under `tests/fuzz/corpus/<format>/`, `[[bin]]` in `tests/fuzz/Cargo.toml`,
+     and a line in `scripts/fuzz-targets.map`.
+   - **cargo-fuzz / ClusterFuzzLite:** `fuzz/fuzz_targets/fuzz_<format>.rs`
+     (no `catch_unwind`; libFuzzer must see panics), seed corpus under
+     `fuzz/corpus/fuzz_<format>/` (copy from the AFL corpus), and `[[bin]]` in
+     `fuzz/Cargo.toml`.
+   - Run `make check-fuzz-target-parity` (also part of `make check-fast`).
 
 See [architecture/PRD.md](architecture/PRD.md) MOD-002 and FR-020 for the
 formal trait contracts.
@@ -1075,6 +1079,10 @@ releases](#versioning-and-releases) below.
   README badge on [api.scorecard.dev](https://api.scorecard.dev). Uses the
   default **GITHUB_TOKEN** only (no PAT). See
   [`.github/workflows/scorecards.yml`](.github/workflows/scorecards.yml).
+  The **Fuzzing** check recognizes [ClusterFuzzLite](https://google.github.io/clusterfuzzlite/)
+  via [`.clusterfuzzlite/Dockerfile`](.clusterfuzzlite/Dockerfile) (and Rust
+  `libfuzzer_sys` harnesses under `fuzz/`). In-repo AFL++ satisfies NFR-020 but
+  is not detected by Scorecard.
 - **Super-linter:** CI runs the [super-linter](https://github.com/super-linter/super-linter)
   **slim** image in two modes: **incremental** (push/PR to `main`,
   `VALIDATE_ALL_CODEBASE=false`, job `super-linter` in workflow `ci.yml`) and
@@ -1433,7 +1441,12 @@ If the coverage link step fails with LLD (e.g. invalid symbol index with
   `reports/cobertura-python.xml`. Per-file modules under `scripts/*.py` must
   meet >= 95% line coverage; run `term-missing` locally to find gaps.
 
-### Fuzz testing (NFR-020)
+### Fuzz testing (NFR-020 and ClusterFuzzLite)
+
+The project runs **two** fuzz engines. Keep them complementary; do not replace
+AFL++ with ClusterFuzzLite.
+
+#### AFL++ (NFR-020, local / `make check`)
 
 - **Three tiers:**
   - **Smoke (default):** `make fuzz` or `./scripts/fuzz.sh` runs all targets
@@ -1459,11 +1472,41 @@ If the coverage link step fails with LLD (e.g. invalid symbol index with
   as needed and stores `rustc -vV` in `rustc-stamp-for-afl` next to the AFL++
   clone under `$XDG_DATA_HOME/afl.rs` (or `~/.local/share/afl.rs`). For unusual
   failures you can still run `cargo afl config --build` or `--build --force` by hand.
-- **Targets:** `fuzz_config_toml`, `fuzz_requirements_txt`,
-  `fuzz_parse_config_set_arg`. Seed corpus in `tests/fuzz/corpus/`.
+- **Targets:** AFL `[[bin]]` names in `tests/fuzz/Cargo.toml` (e.g.
+  `fuzz_config_toml`, `fuzz_requirements_txt`, `fuzz_parse_config_set_arg`,
+  Python/Rust/Go/JavaScript manifest parsers). Seed corpus in
+  `tests/fuzz/corpus/`. Run `make check-fuzz-target-parity` to ensure names
+  match cargo-fuzz.
 - **Coverage:** `./scripts/fuzz.sh --coverage` integrates with cargo-llvm-cov
   (see
   [cargo-llvm-cov AFL docs](https://github.com/taiki-e/cargo-llvm-cov#get-coverage-of-afl-fuzzers)).
+
+#### ClusterFuzzLite / cargo-fuzz (Scorecard + PR CI)
+
+- **Layout:** Independent workspace under `fuzz/` (not a root workspace member).
+  Build integration in `.clusterfuzzlite/` (`Dockerfile`, `build.sh`,
+  `project.yaml`). Workflows: `cflite_pr.yml` (code-change on PRs),
+  `cflite_batch.yml` (scheduled batch), `cflite_cron.yml` (prune + coverage).
+- **Local run:** Install [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz)
+  and a nightly toolchain (`fuzz/rust-toolchain.toml`). Run from `fuzz/` so
+  rustup picks that nightly (the root `rust-toolchain.toml` pins stable):
+  `cd fuzz && cargo fuzz build -O` then
+  `cargo fuzz run fuzz_config_toml -- -max_total_time=10`. ClusterFuzzLite's
+  `build.sh` sets `RUSTUP_TOOLCHAIN=nightly` for the same reason. To replay a
+  crash artifact from CI: `cargo fuzz run <target> <path-to-crash>`. Prefer a
+  disposable corpus directory for long local runs so discoveries are not
+  written into the curated seeds under `fuzz/corpus/`.
+- **Do not use `catch_unwind`** in cargo-fuzz targets; libFuzzer must observe
+  panics. Treat CFL findings as bugs to fix in parsers (SEC-017), not as noise.
+- **Parity:** `make check-fuzz-target-parity` asserts AFL `[[bin]]` names match
+  `fuzz/fuzz_targets/*.rs` basenames.
+- **Dependency policy:** `fuzz/` is outside the root workspace (same idea as
+  excluding AFL `vlz-fuzz` from `deny.toml`). Root `make deny-check`,
+  third-party license, and SBOM gates do not cover `fuzz/Cargo.lock`; Trivy in
+  Super-Linter still scans that lockfile.
+- **Action pins:** ClusterFuzzLite upstream publishes a moving `v1` tag only.
+  Workflows pin the action by commit SHA with a `# v1.0.0` label and
+  `# zizmor: ignore[ref-version-mismatch]` (digest is the source of truth).
 
 ## Test scope and layering
 

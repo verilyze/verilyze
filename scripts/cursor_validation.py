@@ -19,14 +19,35 @@ SUPER_LINTER_PATH_RE = re.compile(
 
 RUST_PATH_RE = re.compile(r"\.rs$")
 PYTHON_SCRIPT_RE = re.compile(r"^(scripts/|tests/scripts/).*\.py$")
-SHELL_SCRIPT_RE = re.compile(r"^scripts/.*\.sh$")
+SHELL_SCRIPT_RE = re.compile(r"^(scripts/|\.clusterfuzzlite/).*\.sh$")
 CARGO_MANIFEST_RE = re.compile(r"(^|/)Cargo\.toml$")
+# Paths under AFL or cargo-fuzz trees (skip root deny / clippy gates).
+FUZZ_TREE_RE = re.compile(r"^(tests/fuzz/|fuzz/)")
+# Basename parity only cares about harness sources and manifests, not corpora.
+FUZZ_PARITY_PATH_RE = re.compile(
+    r"^(?:tests/fuzz|fuzz)/(?:fuzz_targets/|Cargo\.toml)"
+    r"|^scripts/check_fuzz_target_parity\.py$"
+)
 PYPROJECT_MANIFEST = "pyproject.toml"
 
 
 def touches_cargo_dependency_manifest(paths: list[str]) -> bool:
-    """True when Cargo.toml or Cargo.lock changed."""
-    return any(p == "Cargo.lock" or CARGO_MANIFEST_RE.search(p) for p in paths)
+    """True when root-workspace Cargo.toml or Cargo.lock changed."""
+    return any(
+        p == "Cargo.lock"
+        or (CARGO_MANIFEST_RE.search(p) and not FUZZ_TREE_RE.search(p))
+        for p in paths
+    )
+
+
+def touches_fuzz_parity_paths(paths: list[str]) -> bool:
+    """True when AFL/cargo-fuzz harness or parity-script paths changed."""
+    return any(FUZZ_PARITY_PATH_RE.search(p) for p in paths)
+
+
+def is_production_rust_path(path: str) -> bool:
+    """True for .rs outside AFL / cargo-fuzz harness trees."""
+    return bool(RUST_PATH_RE.search(path)) and not FUZZ_TREE_RE.search(path)
 
 
 def touches_deny_policy(paths: list[str]) -> bool:
@@ -76,8 +97,21 @@ def parse_edited_paths(hook_input: dict) -> list[str]:
 
 
 def normalize_repo_paths(paths: list[str]) -> list[str]:
-    """Normalize path strings for classification."""
-    return [p.replace("\\", "/").lstrip("./") for p in paths if p]
+    """Normalize path strings for classification.
+
+    Strip only ``./`` prefixes. Do not use ``str.lstrip("./")``, which would
+    also strip the leading ``.`` from hidden paths such as ``.github/`` or
+    ``.clusterfuzzlite/``.
+    """
+    normalized: list[str] = []
+    for path in paths:
+        if not path:
+            continue
+        path = path.replace("\\", "/")
+        while path.startswith("./"):
+            path = path[2:]
+        normalized.append(path)
+    return normalized
 
 
 def _git_output(repo_root: Path, *args: str) -> str:
@@ -121,7 +155,7 @@ def collect_changed_paths(repo_root: Path) -> list[str]:
 
 
 def rust_paths(paths: list[str]) -> list[str]:
-    """Return paths ending in .rs."""
+    """Return paths ending in .rs (including fuzz harnesses for rustfmt)."""
     return [p for p in paths if RUST_PATH_RE.search(p)]
 
 
@@ -130,7 +164,7 @@ def classify_changed_paths(paths: list[str]) -> list[str]:
     targets: list[str] = []
     normalized = normalize_repo_paths(paths)
 
-    if any(RUST_PATH_RE.search(p) for p in normalized):
+    if any(is_production_rust_path(p) for p in normalized):
         targets.extend(["make fmt-check clippy", "make cargo-test"])
     if any(PYTHON_SCRIPT_RE.search(p) for p in normalized):
         targets.append("make lint-python test-scripts")
@@ -168,6 +202,8 @@ def classify_changed_paths(paths: list[str]) -> list[str]:
         )
     if touches_pyproject_manifest(normalized):
         targets.append("make check-sbom")
+    if touches_fuzz_parity_paths(normalized):
+        targets.append("make check-fuzz-target-parity")
     if any(SUPER_LINTER_PATH_RE.search(p) for p in normalized):
         targets.append("make super-linter")
 

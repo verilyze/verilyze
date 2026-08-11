@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+---
+# ClusterFuzzLite batch fuzzing on a schedule (corpus growth).
+# Artifacts-only storage (no separate storage repo / PAT yet).
+
+name: ClusterFuzzLite batch fuzzing
+
+on:
+  schedule:
+    # Every 6 hours UTC
+    - cron: "0 0/6 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  BatchFuzzing:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer:
+          - address
+    steps:
+      - name: Build Fuzzers (${{ matrix.sanitizer }})
+        id: build
+        uses: google/clusterfuzzlite/actions/build_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1.0.0  # zizmor: ignore[ref-version-mismatch]
+        with:
+          language: rust
+          sanitizer: ${{ matrix.sanitizer }}
+
+      - name: Run Fuzzers (${{ matrix.sanitizer }})
+        id: run
+        uses: google/clusterfuzzlite/actions/run_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1.0.0  # zizmor: ignore[ref-version-mismatch]
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          fuzz-seconds: 1800
+          mode: batch
+          sanitizer: ${{ matrix.sanitizer }}
+          output-sarif: true

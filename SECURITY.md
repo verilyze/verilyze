@@ -186,7 +186,11 @@ for remediation when scans warn about partial (direct-only) resolution.
   manifest and lock file formats (see [Appendix
   A](architecture/PRD.md#appendix-a-manifest-and-lock-files)), and CLI
   argument value parsing (`config --set`) (NFR-020, SEC-017). Run `make fuzz` or
-  `./scripts/fuzz.sh` (requires cargo-afl and AFL++). Results and coverage can
+  `./scripts/fuzz.sh` (requires cargo-afl and AFL++). Complementary
+  [ClusterFuzzLite](https://google.github.io/clusterfuzzlite/) / cargo-fuzz
+  targets under `fuzz/` and `.clusterfuzzlite/` run on pull requests and on a
+  schedule (libFuzzer + AddressSanitizer) so OpenSSF Scorecard can detect
+  continuous fuzzing; see CONTRIBUTING "Fuzz testing". Results and coverage can
   be linked here or from CI artifacts when available.
 - **Latest `vlz scan` (dogfooding):** SEC-015 requires the project to be
   scannable by the latest stable verilyze with exit 0. Nightly CI workflow

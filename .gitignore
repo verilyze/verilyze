@@ -35,3 +35,7 @@ crates/**/target/
 /packaging/rpm/RPMS/
 /packaging/rpm/SRPMS/
 /packaging/rpm/SOURCES/*.tar.gz
+
+# cargo-fuzz independent workspace build + artifacts
+/fuzz/target/
+/fuzz/artifacts/

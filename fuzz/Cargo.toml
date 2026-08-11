@@ -1,0 +1,158 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[package]
+name = "vlz-fuzz-cflite"
+version = "0.0.0"
+publish = false
+edition = "2024"
+license = "GPL-3.0-or-later"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+vlz = { path = "../crates/core/vlz" }
+vlz-python = { path = "../crates/languages/vlz-python" }
+vlz-rust = { path = "../crates/languages/vlz-rust" }
+vlz-go = { path = "../crates/languages/vlz-go" }
+vlz-javascript = { path = "../crates/languages/vlz-javascript" }
+
+# Independent workspace so root cargo / clippy / deny do not build these.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "fuzz_config_toml"
+path = "fuzz_targets/fuzz_config_toml.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_requirements_txt"
+path = "fuzz_targets/fuzz_requirements_txt.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_parse_config_set_arg"
+path = "fuzz_targets/fuzz_parse_config_set_arg.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_pyproject_toml"
+path = "fuzz_targets/fuzz_pyproject_toml.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_pipfile"
+path = "fuzz_targets/fuzz_pipfile.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_pylock_toml"
+path = "fuzz_targets/fuzz_pylock_toml.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_poetry_lock"
+path = "fuzz_targets/fuzz_poetry_lock.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_setup_cfg"
+path = "fuzz_targets/fuzz_setup_cfg.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_setup_py"
+path = "fuzz_targets/fuzz_setup_py.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_cargo_toml"
+path = "fuzz_targets/fuzz_cargo_toml.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_cargo_lock"
+path = "fuzz_targets/fuzz_cargo_lock.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_cargo_metadata"
+path = "fuzz_targets/fuzz_cargo_metadata.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_go_mod"
+path = "fuzz_targets/fuzz_go_mod.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_pip_freeze"
+path = "fuzz_targets/fuzz_pip_freeze.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_package_json"
+path = "fuzz_targets/fuzz_package_json.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_npm_lock"
+path = "fuzz_targets/fuzz_npm_lock.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_yarn_lock"
+path = "fuzz_targets/fuzz_yarn_lock.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_pnpm_lock"
+path = "fuzz_targets/fuzz_pnpm_lock.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_bun_lock"
+path = "fuzz_targets/fuzz_bun_lock.rs"
+test = false
+doc = false
+bench = false

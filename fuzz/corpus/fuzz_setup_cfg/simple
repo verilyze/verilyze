@@ -1,0 +1,8 @@
+[metadata]
+name = test
+version = 0.1.0
+
+[options]
+install_requires =
+    requests>=2.0
+    httpx==0.20

@@ -1,0 +1,12 @@
+// SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#![no_main]
+
+libfuzzer_sys::fuzz_target!(|data: &[u8]| {
+    if let Ok(s) = std::str::from_utf8(data) {
+        let path = std::path::Path::new("pylock.toml");
+        let _ = vlz_python::parse_lock_file(path, s);
+    }
+});

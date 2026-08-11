@@ -12,14 +12,16 @@ See [agent-workflow.mdc](../../rules/agent-workflow.mdc).
 
 | Paths | Commands |
 |-------|----------|
-| `**/*.rs` | `make fmt-check clippy`, `make cargo-test` (or scoped crate test); mem/Docker cache changes also `make cargo-test-mem` |
+| `**/*.rs` (except `tests/fuzz/**`, `fuzz/**`) | `make fmt-check clippy`, `make cargo-test` (or scoped crate test); mem/Docker cache changes also `make cargo-test-mem` |
+| `tests/fuzz/fuzz_targets/**`, `tests/fuzz/Cargo.toml`, `fuzz/fuzz_targets/**`, `fuzz/Cargo.toml`, `scripts/check_fuzz_target_parity.py` | `make check-fuzz-target-parity` (see [fuzz-harness-parity.mdc](../../rules/fuzz-harness-parity.mdc)) |
+| `.clusterfuzzlite/**/*.sh` | `make lint-shell` |
 | `scripts/**/*.py`, `tests/scripts/**` | `make lint-python test-scripts` |
 | `scripts/**/*.sh` | `make lint-shell` |
 | `architecture/**/*.mmd` | `make check-doc-diagrams` |
 | config / `verilyze.conf.example` | `make check-config-docs` |
 | `man/**` | `make check-manpages` |
 | `packaging/**` | `make check-packaging` |
-| `Cargo.toml`, `Cargo.lock`, `deny.toml` | `make cargo-check-locked`, `make deny-check`, `make check-third-party-licenses`, `make check-sbom` |
+| Root `Cargo.toml`, `Cargo.lock`, `deny.toml` (not `fuzz/Cargo.toml`) | `make cargo-check-locked`, `make deny-check`, `make check-third-party-licenses`, `make check-sbom` |
 | `pyproject.toml` | `make check-sbom`, `make check-pylock-dev` |
 | `.github/workflows/**` (upload-sarif) | `make check-upload-sarif-example` |
 | `.github/workflows/**`, `examples/**/*.yml` (action digest pins) | `make check-github-action-pin-comments` |
