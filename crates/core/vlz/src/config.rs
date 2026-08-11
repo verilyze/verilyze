@@ -1947,9 +1947,19 @@ mod tests {
 
     #[test]
     fn apply_file_config_all_fields_from_file() {
-        let dir = tempfile::tempdir().unwrap();
-        let config_path = dir.path().join("vlz.conf");
-        let toml = r#"
+        // Isolate env so parallel tests (or runner env) cannot override
+        // scan_exclude_dirs via VLZ_SCAN_EXCLUDE_DIRS after file config.
+        let xdg = tempfile::tempdir().unwrap();
+        let xdg_str = xdg.path().to_string_lossy().into_owned();
+        temp_env::with_vars(
+            [
+                ("VLZ_SCAN_EXCLUDE_DIRS", None::<&str>),
+                ("XDG_CONFIG_HOME", Some(xdg_str.as_str())),
+            ],
+            || {
+                let dir = tempfile::tempdir().unwrap();
+                let config_path = dir.path().join("vlz.conf");
+                let toml = r#"
 cache_db = "/tmp/cache.redb"
 ignore_db = "/tmp/ignore.redb"
 parallel_queries = 5
@@ -1965,73 +1975,75 @@ scan_exclude_dirs = [".git", "target"]
 [python]
 regex = "^req\\.txt$"
 "#;
-        std::fs::write(&config_path, toml).unwrap();
-        let path_str = config_path.to_string_lossy().into_owned();
-        let cfg = load(
-            Some(&path_str),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            false,
-            false,
-            None,
-            None,
-            None,
-            None,
-            None,
-            false,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Default::default(),
-            Default::default(),
-        )
-        .unwrap();
-        assert_eq!(
-            cfg.cache_db.as_ref().unwrap().to_str(),
-            Some("/tmp/cache.redb")
-        );
-        assert_eq!(
-            cfg.ignore_db.as_ref().unwrap().to_str(),
-            Some("/tmp/ignore.redb")
-        );
-        assert_eq!(cfg.parallel_queries, 5);
-        assert_eq!(cfg.cache_ttl_secs, 100);
-        assert_eq!(cfg.min_score, 7.5);
-        assert_eq!(cfg.min_count, 2);
-        assert_eq!(cfg.exit_code_on_cve, Some(86));
-        assert_eq!(cfg.fp_exit_code, Some(0));
-        assert_eq!(cfg.backoff_base_ms, 50);
-        assert_eq!(cfg.backoff_max_ms, 5000);
-        assert_eq!(cfg.max_retries, 3);
-        assert_eq!(
-            cfg.scan_exclude_dirs,
-            vec![".git".to_string(), "target".to_string()]
-        );
-        assert_eq!(
-            cfg.language_regexes,
-            vec![("python".to_string(), "^req\\.txt$".to_string())]
+                std::fs::write(&config_path, toml).unwrap();
+                let path_str = config_path.to_string_lossy().into_owned();
+                let cfg = load(
+                    Some(&path_str),
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    Default::default(),
+                    Default::default(),
+                )
+                .unwrap();
+                assert_eq!(
+                    cfg.cache_db.as_ref().unwrap().to_str(),
+                    Some("/tmp/cache.redb")
+                );
+                assert_eq!(
+                    cfg.ignore_db.as_ref().unwrap().to_str(),
+                    Some("/tmp/ignore.redb")
+                );
+                assert_eq!(cfg.parallel_queries, 5);
+                assert_eq!(cfg.cache_ttl_secs, 100);
+                assert_eq!(cfg.min_score, 7.5);
+                assert_eq!(cfg.min_count, 2);
+                assert_eq!(cfg.exit_code_on_cve, Some(86));
+                assert_eq!(cfg.fp_exit_code, Some(0));
+                assert_eq!(cfg.backoff_base_ms, 50);
+                assert_eq!(cfg.backoff_max_ms, 5000);
+                assert_eq!(cfg.max_retries, 3);
+                assert_eq!(
+                    cfg.scan_exclude_dirs,
+                    vec![".git".to_string(), "target".to_string()]
+                );
+                assert_eq!(
+                    cfg.language_regexes,
+                    vec![("python".to_string(), "^req\\.txt$".to_string())]
+                );
+            },
         );
     }
 
