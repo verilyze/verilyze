@@ -8,11 +8,11 @@
 cd "$SRC/verilyze"
 
 # Root rust-toolchain.toml pins stable; cargo-fuzz needs nightly (-Zsanitizer).
-# Refresh the image nightly: base-builder-rust may ship an older alias that
-# cannot build current ruff_python_* crates (need rustc >= 1.95).
+# Refresh nightly so ruff_python_* (rustc >= 1.95) can build. Force the
+# toolchain name: the base image may export an older RUSTUP_TOOLCHAIN pin.
 rustup update nightly
 rustup component add rust-src --toolchain nightly
-export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-nightly}"
+export RUSTUP_TOOLCHAIN=nightly
 
 cargo fuzz build -O --debug-assertions
 
