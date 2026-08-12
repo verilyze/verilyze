@@ -535,6 +535,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "91622ff5e7162018101f2fea40d6ebf4a78bbe5a49736a2020649edf9693679e"
 
 [[package]]
+name = "encoding_rs"
+version = "0.8.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75030f3c4f45dafd7586dd6780965a8c7e8e285a5ecb86713e63a79c5b2766f3"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "env_filter"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1500,6 +1509,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "quick-xml"
+version = "0.41.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e660451e55124f798a69a5af3f49ccfbefbd41910eefd25caf2393e1f3473ec1"
+dependencies = [
+ "encoding_rs",
+ "memchr",
 ]
 
 [[package]]
@@ -2560,6 +2579,7 @@ dependencies = [
  "vlz-db-redb",
  "vlz-go",
  "vlz-integrity",
+ "vlz-java",
  "vlz-javascript",
  "vlz-manifest-finder",
  "vlz-manifest-parser",
@@ -2687,6 +2707,7 @@ dependencies = [
  "afl",
  "vlz",
  "vlz-go",
+ "vlz-java",
  "vlz-javascript",
  "vlz-python",
  "vlz-rust",
@@ -2718,6 +2739,25 @@ dependencies = [
  "thiserror 2.0.20",
  "tokio",
  "vlz-db",
+]
+
+[[package]]
+name = "vlz-java"
+version = "0.8.0"
+dependencies = [
+ "async-trait",
+ "quick-xml",
+ "regex",
+ "serde",
+ "temp-env",
+ "tempfile",
+ "thiserror 2.0.20",
+ "tokio",
+ "toml",
+ "vlz-db",
+ "vlz-manifest-finder",
+ "vlz-manifest-parser",
+ "vlz-reachability-trait",
 ]
 
 [[package]]

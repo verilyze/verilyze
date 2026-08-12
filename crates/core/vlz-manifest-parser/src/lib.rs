@@ -285,6 +285,25 @@ pub trait Resolver: Send + Sync {
     /// OS-specific hint when the package manager is missing (FR-024).
     fn package_manager_hint(&self) -> &'static str;
 
+    /// Whether the package manager required for `manifest_path` is available
+    /// (FR-024). Default delegates to [`Self::package_manager_available`].
+    /// Languages with multiple PM binaries (e.g. Maven vs Gradle) override this.
+    fn package_manager_available_for_manifest(
+        &self,
+        _manifest_path: &Path,
+    ) -> bool {
+        self.package_manager_available()
+    }
+
+    /// OS-specific hint when the PM for `manifest_path` is missing (FR-024).
+    /// Default delegates to [`Self::package_manager_hint`].
+    fn package_manager_hint_for_manifest(
+        &self,
+        _manifest_path: &Path,
+    ) -> &'static str {
+        self.package_manager_hint()
+    }
+
     /// Whether resolving `manifest_path` would require invoking the package manager
     /// binary (FR-024). Default `true`. Resolvers that can satisfy resolution
     /// entirely from an adjacent or embedded lock file override this to return

@@ -45,6 +45,10 @@ fn discover_manifests_one_pass(
     #[cfg(feature = "python")] lock_file_allowlist: &[String],
 ) -> std::io::Result<ManifestDiscoveryResult> {
     let mut out: HashMap<String, Vec<PathBuf>> = HashMap::new();
+    #[cfg(feature = "java")]
+    let mut java_manifests: Vec<PathBuf> = Vec::new();
+    #[cfg(feature = "java")]
+    let mut java_locks: Vec<PathBuf> = Vec::new();
     #[cfg(feature = "python")]
     let mut python_manifests: Vec<PathBuf> = Vec::new();
     #[cfg(feature = "python")]
@@ -106,6 +110,28 @@ fn discover_manifests_one_pass(
                 out.entry("javascript".to_string())
                     .or_default()
                     .push(entry.path());
+                continue;
+            }
+            #[cfg(feature = "java")]
+            {
+                if vlz_java::JAVA_MANIFEST_NAMES.contains(&name) {
+                    java_manifests.push(entry.path());
+                    continue;
+                }
+                if vlz_java::is_java_lock_file(name) {
+                    java_locks.push(entry.path());
+                    continue;
+                }
+                if name == "libs.versions.toml"
+                    && entry
+                        .path()
+                        .parent()
+                        .and_then(|p| p.file_name())
+                        .and_then(|n| n.to_str())
+                        == Some("gradle")
+                {
+                    java_manifests.push(entry.path());
+                }
             }
         }
     }
@@ -131,6 +157,15 @@ fn discover_manifests_one_pass(
         python_manifests.sort();
         python_manifests.dedup();
         out.insert("python".to_string(), python_manifests);
+    }
+    #[cfg(feature = "java")]
+    {
+        let orphans =
+            vlz_java::filter_orphan_locks(&java_manifests, &java_locks);
+        java_manifests.extend(orphans);
+        java_manifests.sort();
+        java_manifests.dedup();
+        out.insert("java".to_string(), java_manifests);
     }
     for manifests in out.values_mut() {
         manifests.sort();
@@ -366,19 +401,23 @@ async fn run_language_phase(
     if manifest_count > 1 {
         info!("Resolving {manifest_count} {language} manifest(s)...");
     }
-    let pm_dependent_count = manifests
+    let pm_dependent: Vec<&PathBuf> = manifests
         .iter()
         .filter(|mf| resolver.manifest_needs_package_manager(mf, resolve_ctx))
-        .count();
+        .collect();
+    let missing_pm_manifests: Vec<&PathBuf> = pm_dependent
+        .iter()
+        .copied()
+        .filter(|mf| !resolver.package_manager_available_for_manifest(mf))
+        .collect();
     let missing_package_manager = if effective.package_manager_required
         && !resolve_ctx.skip_pip_resolution
-        && pm_dependent_count > 0
-        && !resolver.package_manager_available()
+        && let Some(first) = missing_pm_manifests.first()
     {
         Some(MissingPackageManager {
             language: language.clone(),
-            hint: resolver.package_manager_hint(),
-            manifest_count: pm_dependent_count,
+            hint: resolver.package_manager_hint_for_manifest(first),
+            manifest_count: missing_pm_manifests.len(),
         })
     } else {
         None
@@ -608,6 +647,7 @@ pub async fn resolve_packages_for_path(
         if first_lang != Some("rust")
             && first_lang != Some("go")
             && first_lang != Some("javascript")
+            && first_lang != Some("java")
         {
             match vlz_python::PythonManifestFinder::with_patterns(
                 patterns.clone(),
@@ -628,7 +668,8 @@ pub async fn resolve_packages_for_path(
         if first_lang == Some("rust")
             || (finders.is_empty()
                 && first_lang != Some("go")
-                && first_lang != Some("javascript"))
+                && first_lang != Some("javascript")
+                && first_lang != Some("java"))
         {
             match vlz_rust::RustManifestFinder::with_patterns(patterns.clone())
             {
@@ -644,7 +685,9 @@ pub async fn resolve_packages_for_path(
         }
         #[cfg(feature = "go")]
         if first_lang == Some("go")
-            || (finders.is_empty() && first_lang != Some("javascript"))
+            || (finders.is_empty()
+                && first_lang != Some("javascript")
+                && first_lang != Some("java"))
         {
             match vlz_go::GoManifestFinder::with_patterns(patterns.clone()) {
                 Ok(f) => finders.push(Box::new(f)),
@@ -658,8 +701,25 @@ pub async fn resolve_packages_for_path(
             }
         }
         #[cfg(feature = "javascript")]
-        if first_lang == Some("javascript") || finders.is_empty() {
-            match vlz_javascript::JsManifestFinder::with_patterns(patterns) {
+        if first_lang == Some("javascript")
+            || (finders.is_empty() && first_lang != Some("java"))
+        {
+            match vlz_javascript::JsManifestFinder::with_patterns(
+                patterns.clone(),
+            ) {
+                Ok(f) => finders.push(Box::new(f)),
+                Err(e) => {
+                    error!("Invalid language regex in config: {}", e);
+                    return Err(anyhow!(
+                        "Invalid language regex in config: {}",
+                        e
+                    ));
+                }
+            }
+        }
+        #[cfg(feature = "java")]
+        if first_lang == Some("java") || finders.is_empty() {
+            match vlz_java::JavaManifestFinder::with_patterns(patterns) {
                 Ok(f) => finders.push(Box::new(f)),
                 Err(e) => {
                     error!("Invalid language regex in config: {}", e);
@@ -674,11 +734,12 @@ pub async fn resolve_packages_for_path(
             feature = "python",
             feature = "rust",
             feature = "go",
-            feature = "javascript"
+            feature = "javascript",
+            feature = "java"
         )))]
         {
             error!(
-                "Custom language regexes require a language plugin (e.g. python, rust, go, or javascript feature)"
+                "Custom language regexes require a language plugin (e.g. python, rust, go, javascript, or java feature)"
             );
             return Err(anyhow!(
                 "Custom language regexes require a language plugin"
@@ -780,7 +841,7 @@ pub(crate) async fn resolve_packages_with_plugins(
         && finders.iter().take(n).all(|finder| {
             matches!(
                 finder.language_name(),
-                "python" | "rust" | "go" | "javascript"
+                "python" | "rust" | "go" | "javascript" | "java"
             )
         });
 
@@ -1535,6 +1596,42 @@ mod tests {
         )
         .await;
         assert!(!out.package_manager_missing);
+    }
+
+    #[tokio::test]
+    async fn package_manager_required_checks_pm_per_manifest() {
+        let mut cfg = test_cfg(1);
+        cfg.offline = false;
+        cfg.package_manager_required = true;
+        cfg.language_regexes = vec![("java".to_string(), ".*".to_string())];
+        let dir = tempfile::tempdir().unwrap();
+        let pom = dir.path().join("pom.xml");
+        let gradle = dir.path().join("build.gradle");
+        std::fs::write(&pom, "<project/>").unwrap();
+        std::fs::write(&gradle, "plugins {}").unwrap();
+        let finders: Vec<Box<dyn ManifestFinder>> =
+            vec![Box::new(FakeFinder {
+                language: "java",
+                manifests: vec![pom, gradle],
+                find_calls: Arc::new(AtomicUsize::new(0)),
+            })];
+        let parsers: Vec<Box<dyn Parser>> =
+            vec![Box::new(FakeParser) as Box<dyn Parser>];
+        let resolvers: Vec<Box<dyn Resolver>> = vec![Box::new(
+            crate::mocks::ConfigurablePmResolver::new("java", true, "java pm")
+                .with_manifest_pm_available("pom.xml", false)
+                .with_manifest_pm_hint("pom.xml", "install maven"),
+        )];
+        let out = resolve_packages_with_plugins(
+            dir.path().to_path_buf(),
+            &cfg,
+            finders,
+            parsers,
+            resolvers,
+        )
+        .await
+        .expect("resolve");
+        assert!(out.package_manager_missing);
     }
 
     #[tokio::test]

@@ -23,6 +23,7 @@ default-members = [
     "crates/languages/vlz-rust",
     "crates/languages/vlz-go",
     "crates/languages/vlz-javascript",
+    "crates/languages/vlz-java",
     "crates/core/vlz-manifest-finder",
     "crates/core/vlz-manifest-parser",
     "crates/core/vlz-reachability-trait",
@@ -78,4 +79,5 @@ tempfile = "3.27"
 thiserror = "2.0.18"
 tokio = "1.51"
 toml = "1.1"
+quick-xml = "0.41"
 wiremock = "0.6"

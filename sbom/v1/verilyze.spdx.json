@@ -665,6 +665,13 @@
     },
     {
       "@type": "Package",
+      "name": "encoding_rs",
+      "packageUrl": "pkg:cargo/encoding_rs@0.8.35",
+      "spdxId": "urn:spdx.dev:pkg-cargo-encoding-rs-0-8-35",
+      "versionInfo": "0.8.35"
+    },
+    {
+      "@type": "Package",
       "name": "env_filter",
       "packageUrl": "pkg:cargo/env_filter@2.0.0",
       "spdxId": "urn:spdx.dev:pkg-cargo-env-filter-2-0-0",
@@ -1376,6 +1383,13 @@
       "packageUrl": "pkg:cargo/proc-macro2@1.0.107",
       "spdxId": "urn:spdx.dev:pkg-cargo-proc-macro2-1-0-107",
       "versionInfo": "1.0.107"
+    },
+    {
+      "@type": "Package",
+      "name": "quick-xml",
+      "packageUrl": "pkg:cargo/quick-xml@0.41.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-quick-xml-0-41-0",
+      "versionInfo": "0.41.0"
     },
     {
       "@type": "Package",
@@ -2173,6 +2187,13 @@
       "name": "vlz-integrity",
       "packageUrl": "pkg:cargo/vlz-integrity@0.8.0",
       "spdxId": "urn:spdx.dev:pkg-cargo-vlz-integrity-0-8-0",
+      "versionInfo": "0.8.0"
+    },
+    {
+      "@type": "Package",
+      "name": "vlz-java",
+      "packageUrl": "pkg:cargo/vlz-java@0.8.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-java-0-8-0",
       "versionInfo": "0.8.0"
     },
     {

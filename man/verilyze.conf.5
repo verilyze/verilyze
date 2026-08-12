@@ -154,13 +154,13 @@ Env: VLZ_KEEP_EPHEMERAL_VENV.
 CLI: --keep-ephemeral-venv.
 
 .It Va allow_dependency_code_execution
-Allow package managers to execute dependency build or lifecycle code during resolution (SEC-023; default false). Without this, lock-less pyproject.toml/setup.py/setup.cfg/Pipfile fail closed (exit 4) unless an adjacent lock or allow_direct_only_fallback is set; requirements.txt may still use safe pip lock -r when pip >= 25.1. Lock-less package.json does not invoke npm/yarn/pnpm/bun unless this flag is set (ephemeral directory resolution).
+Allow package managers to execute dependency build or lifecycle code during resolution (SEC-023; default false). Without this, lock-less pyproject.toml/setup.py/setup.cfg/Pipfile fail closed (exit 4) unless an adjacent lock or allow_direct_only_fallback is set; requirements.txt may still use safe pip lock -r when pip >= 25.1. Lock-less package.json does not invoke npm/yarn/pnpm/bun unless this flag is set (ephemeral directory resolution). Lock-less Java Maven/Gradle manifests do not invoke mvn/gradle/gradlew unless this flag is set.
 Default: false.
 Env: VLZ_ALLOW_DEPENDENCY_CODE_EXECUTION.
 CLI: --allow-dependency-code-execution.
 
 .It Va allow_direct_only_fallback
-When transitive resolution is required but cannot be satisfied, fall back to direct-only scanning with an FR-022a warning instead of exit 4. Applies to all Python project manifests (requirements.txt, pyproject.toml, Pipfile, setup.cfg, setup.py), Rust Cargo.toml without Cargo.lock, Go go.mod, and JavaScript/TypeScript package.json without a usable lock (FR-022, FR-022a; default false).
+When transitive resolution is required but cannot be satisfied, fall back to direct-only scanning with an FR-022a warning instead of exit 4. Applies to all Python project manifests (requirements.txt, pyproject.toml, Pipfile, setup.cfg, setup.py), Rust Cargo.toml without Cargo.lock, Go go.mod, JavaScript/TypeScript package.json without a usable lock, and Java Maven/Gradle manifests without a usable gradle.lockfile (FR-022, FR-022a; default false).
 Default: false.
 Env: VLZ_ALLOW_DIRECT_ONLY_FALLBACK.
 CLI: --allow-direct-only-fallback.

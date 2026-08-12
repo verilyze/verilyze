@@ -254,6 +254,14 @@ description = "Regex for Go manifest file names (go.mod)"
 type = "string"
 default = "^go\\.mod$"
 
+["java.regex"]
+description = """
+Regex for Java/Kotlin manifest file names (pom.xml, build.gradle,
+build.gradle.kts, gradle/libs.versions.toml)
+"""
+type = "string"
+default = "^pom\\.xml$|^build\\.gradle(\\.kts)?$|^libs\\.versions\\.toml$"
+
 [keep_ephemeral_venv]
 description = """
 Do not remove ephemeral Python venv after scan (FR-023 debug; default false)
@@ -270,7 +278,9 @@ resolution (SEC-023; default false). Without this, lock-less
 pyproject.toml/setup.py/setup.cfg/Pipfile fail closed (exit 4) unless an
 adjacent lock or allow_direct_only_fallback is set; requirements.txt may still
 use safe pip lock -r when pip >= 25.1. Lock-less package.json does not invoke
-npm/yarn/pnpm/bun unless this flag is set (ephemeral directory resolution)
+npm/yarn/pnpm/bun unless this flag is set (ephemeral directory resolution).
+Lock-less Java Maven/Gradle manifests do not invoke mvn/gradle/gradlew unless
+this flag is set
 """
 type = "boolean"
 env = "VLZ_ALLOW_DEPENDENCY_CODE_EXECUTION"
@@ -282,8 +292,9 @@ description = """
 When transitive resolution is required but cannot be satisfied, fall back to
 direct-only scanning with an FR-022a warning instead of exit 4. Applies to all
 Python project manifests (requirements.txt, pyproject.toml, Pipfile, setup.cfg,
-setup.py), Rust Cargo.toml without Cargo.lock, Go go.mod, and
-JavaScript/TypeScript package.json without a usable lock (FR-022, FR-022a;
+setup.py), Rust Cargo.toml without Cargo.lock, Go go.mod,
+JavaScript/TypeScript package.json without a usable lock, and Java Maven/Gradle
+manifests without a usable gradle.lockfile (FR-022, FR-022a;
 default false)
 """
 type = "boolean"

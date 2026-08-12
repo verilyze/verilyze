@@ -33,6 +33,7 @@ Crates are organized by plugin type under `crates/`:
   - **vlz-rust** -- Rust: Cargo.toml, Cargo.lock (workspace members supported).
   - **vlz-go** -- Go: go.mod (resolution via `go list -m all`).
   - **vlz-javascript** -- JavaScript and TypeScript: package.json with npm/Yarn/pnpm/Bun locks (language name `javascript`; OSV ecosystem `npm`).
+  - **vlz-java** -- Java and Kotlin: Maven (`pom.xml`) and Gradle (`build.gradle`, `gradle.lockfile`, version catalog; language name `java`; OSV ecosystem `Maven`).
 - **crates/providers/** -- CVE providers (optional, feature-gated):
   - **vlz-cve-provider-nvd** -- NVD (NIST); `nvd` feature.
   - **vlz-cve-provider-github** -- GitHub Advisory Database; `github` feature.
@@ -701,10 +702,10 @@ architecture/PRD.md DOC-003 and design notes on single source of truth).
 
 The `vlz` binary supports optional capabilities via Cargo features:
 
-- **runtime** = `["redb", "python", "rust", "go", "javascript"]` -- desktop
+- **runtime** = `["redb", "python", "rust", "go", "javascript", "java"]` -- desktop
   scan capabilities with on-disk RedB **CVE cache**. When adding a new language,
   add it here **and** to `runtime-mem` so Docker stays in sync.
-- **runtime-mem** = `["mem", "python", "rust", "go", "javascript"]` -- same
+- **runtime-mem** = `["mem", "python", "rust", "go", "javascript", "java"]` -- same
   languages with an in-memory CVE cache (no `redb`; for ephemeral / Docker).
 - **default** = `["runtime", "completions", "docs"]` -- full build with runtime
   capabilities plus shell completion generation and man page via `vlz help`.
@@ -731,6 +732,8 @@ The `vlz` binary supports optional capabilities via Cargo features:
   YAML lock formats (`pnpm-lock.yaml`, Yarn Berry `yarn.lock`) use
   `serde_norway` (maintained MIT/Apache-2.0 Serde YAML fork; chosen over
   unmaintained/unsound `serde_yml` per NFR-025 / MOD-004 and `cargo deny`).
+- **java** -- Java/Kotlin language plugin (`vlz-java` crate); Maven and Gradle
+  manifests with Gradle lock-first transitive resolution; OSV ecosystem `Maven`.
 - **nvd** -- NVD CVE provider (`vlz-cve-provider-nvd` crate); opt-in.
 - **github** -- GitHub Advisory CVE provider (`vlz-cve-provider-github` crate);
   opt-in.

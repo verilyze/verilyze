@@ -19,6 +19,7 @@ vlz-python = { path = "../crates/languages/vlz-python" }
 vlz-rust = { path = "../crates/languages/vlz-rust" }
 vlz-go = { path = "../crates/languages/vlz-go" }
 vlz-javascript = { path = "../crates/languages/vlz-javascript" }
+vlz-java = { path = "../crates/languages/vlz-java" }
 
 # Independent workspace so root cargo / clippy / deny do not build these.
 [workspace]
@@ -153,6 +154,27 @@ bench = false
 [[bin]]
 name = "fuzz_bun_lock"
 path = "fuzz_targets/fuzz_bun_lock.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_pom_xml"
+path = "fuzz_targets/fuzz_pom_xml.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_gradle_lock"
+path = "fuzz_targets/fuzz_gradle_lock.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_version_catalog"
+path = "fuzz_targets/fuzz_version_catalog.rs"
 test = false
 doc = false
 bench = false
