@@ -25,3 +25,6 @@ npm_lock=crates/languages/vlz-javascript/src/parser/npm_lock.rs
 yarn_lock=crates/languages/vlz-javascript/src/parser/yarn_lock.rs
 pnpm_lock=crates/languages/vlz-javascript/src/parser/pnpm_lock.rs
 bun_lock=crates/languages/vlz-javascript/src/parser/bun_lock.rs
+pom_xml=crates/languages/vlz-java/src/parser/pom_xml.rs
+gradle_lock=crates/languages/vlz-java/src/parser/gradle_lock.rs
+version_catalog=crates/languages/vlz-java/src/parser/version_catalog.rs

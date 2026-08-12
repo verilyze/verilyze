@@ -653,6 +653,13 @@
       "version": "1.16.0"
     },
     {
+      "bom-ref": "pkg:cargo/encoding_rs@0.8.35",
+      "name": "encoding_rs",
+      "purl": "pkg:cargo/encoding_rs@0.8.35",
+      "type": "library",
+      "version": "0.8.35"
+    },
+    {
       "bom-ref": "pkg:cargo/env_filter@2.0.0",
       "name": "env_filter",
       "purl": "pkg:cargo/env_filter@2.0.0",
@@ -1365,6 +1372,13 @@
       "purl": "pkg:cargo/proc-macro2@1.0.107",
       "type": "library",
       "version": "1.0.107"
+    },
+    {
+      "bom-ref": "pkg:cargo/quick-xml@0.41.0",
+      "name": "quick-xml",
+      "purl": "pkg:cargo/quick-xml@0.41.0",
+      "type": "library",
+      "version": "0.41.0"
     },
     {
       "bom-ref": "pkg:cargo/quote@1.0.47",
@@ -2161,6 +2175,13 @@
       "bom-ref": "pkg:cargo/vlz-integrity@0.8.0",
       "name": "vlz-integrity",
       "purl": "pkg:cargo/vlz-integrity@0.8.0",
+      "type": "library",
+      "version": "0.8.0"
+    },
+    {
+      "bom-ref": "pkg:cargo/vlz-java@0.8.0",
+      "name": "vlz-java",
+      "purl": "pkg:cargo/vlz-java@0.8.0",
       "type": "library",
       "version": "0.8.0"
     },

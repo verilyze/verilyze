@@ -16,6 +16,7 @@ vlz-python = { path = "../../crates/languages/vlz-python" }
 vlz-rust = { path = "../../crates/languages/vlz-rust" }
 vlz-go = { path = "../../crates/languages/vlz-go" }
 vlz-javascript = { path = "../../crates/languages/vlz-javascript" }
+vlz-java = { path = "../../crates/languages/vlz-java" }
 
 [[bin]]
 name = "fuzz_config_toml"
@@ -92,3 +93,15 @@ path = "fuzz_targets/pnpm_lock.rs"
 [[bin]]
 name = "fuzz_bun_lock"
 path = "fuzz_targets/bun_lock.rs"
+
+[[bin]]
+name = "fuzz_pom_xml"
+path = "fuzz_targets/pom_xml.rs"
+
+[[bin]]
+name = "fuzz_gradle_lock"
+path = "fuzz_targets/gradle_lock.rs"
+
+[[bin]]
+name = "fuzz_version_catalog"
+path = "fuzz_targets/version_catalog.rs"

@@ -184,6 +184,10 @@ pub fn ensure_default_manifest_finder() {
     if !f.iter().any(|x| x.language_name() == "javascript") {
         f.push(Box::new(vlz_javascript::JsManifestFinder::new()));
     }
+    #[cfg(feature = "java")]
+    if !f.iter().any(|x| x.language_name() == "java") {
+        f.push(Box::new(vlz_java::JavaManifestFinder::new()));
+    }
 }
 
 /// Ensures language parsers are registered (when language features enabled).
@@ -206,6 +210,10 @@ pub fn ensure_default_parser() {
     if !p.iter().any(|x| x.language_name() == "javascript") {
         p.push(Box::new(vlz_javascript::JsManifestParser::new()));
     }
+    #[cfg(feature = "java")]
+    if !p.iter().any(|x| x.language_name() == "java") {
+        p.push(Box::new(vlz_java::JavaManifestParser::new()));
+    }
 }
 
 /// Ensures language resolvers are registered (when language features enabled).
@@ -227,6 +235,10 @@ pub fn ensure_default_resolver() {
     if !r.iter().any(|x| x.language_name() == "javascript") {
         r.push(Box::new(vlz_javascript::JsResolver::new()));
     }
+    #[cfg(feature = "java")]
+    if !r.iter().any(|x| x.language_name() == "java") {
+        r.push(Box::new(vlz_java::JavaResolver::new()));
+    }
 }
 
 /// Ensures language-specific Tier B reachability analyzers are registered.
@@ -247,6 +259,10 @@ pub fn ensure_default_reachability_analyzer() {
     #[cfg(feature = "javascript")]
     if !analyzers.iter().any(|x| x.language_name() == "javascript") {
         analyzers.push(Box::new(vlz_javascript::JsTierBAnalyzer::new()));
+    }
+    #[cfg(feature = "java")]
+    if !analyzers.iter().any(|x| x.language_name() == "java") {
+        analyzers.push(Box::new(vlz_java::JavaTierBAnalyzer::new()));
     }
 }
 
@@ -543,7 +559,8 @@ mod tests {
             feature = "python",
             feature = "rust",
             feature = "go",
-            feature = "javascript"
+            feature = "javascript",
+            feature = "java"
         ))]
         {
             let expected: usize = [
@@ -551,6 +568,7 @@ mod tests {
                 cfg!(feature = "rust"),
                 cfg!(feature = "go"),
                 cfg!(feature = "javascript"),
+                cfg!(feature = "java"),
             ]
             .into_iter()
             .filter(|b| *b)

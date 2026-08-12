@@ -31,6 +31,9 @@ pub const GO_ECOSYSTEM: &str = "Go";
 /// OSV / package ecosystem for npm (JavaScript / TypeScript).
 pub const NPM_ECOSYSTEM: &str = "npm";
 
+/// OSV / package ecosystem for Maven (Java / Kotlin JVM libraries).
+pub const MAVEN_ECOSYSTEM: &str = "Maven";
+
 #[derive(
     Debug,
     Clone,

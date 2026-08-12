@@ -411,6 +411,14 @@ warning is emitted. Without a usable lock, the scan exits **4** by default
 `--allow-dependency-code-execution` for ephemeral package-manager resolution,
 or `--allow-direct-only-fallback` for direct-only coverage.
 
+**Java / Kotlin (Maven and Gradle):** The `java` language covers both Java and
+Kotlin source. Prefer an adjacent or parent `gradle.lockfile` for Gradle
+projects. Maven `pom.xml` and Gradle version catalogs supply direct coordinates
+only; without a Gradle lock or gated PM resolution, the scan exits **4** by
+default (SEC-023 does not run mvn/gradle/gradlew). Use
+`--allow-dependency-code-execution` for gated PM resolution in trusted
+environments, or `--allow-direct-only-fallback` for direct-only coverage.
+
 ### Unable to detect transitive dependencies (exit 4)
 
 **Message:** `Unable to detect transitive dependencies. Add an adjacent lock
@@ -423,26 +431,30 @@ only.`
 a successful safe/exec path; `Cargo.toml` without `Cargo.lock` when
 `cargo metadata` fails; `go.mod` when `go list -m all` fails or `go` is not
 on PATH; `package.json` without an adjacent/parent lock file when package
-manager execution is disabled; explicit pip resolution failed after
+manager execution is disabled; lock-less Java Maven/Gradle manifests without
+`gradle.lockfile` when PM execution is disabled; explicit pip resolution failed after
 `--allow-dependency-code-execution`; or the parser found no dependencies.
 
 **Remediation:**
 
 1. Commit an adjacent lock file (preferred): PEP 751 `pylock.toml` /
    `pylock.<name>.toml` for Python, `Cargo.lock`, `go.sum` (with `go.mod`), or
-   a JS lock (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lock`).
+   a JS lock (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lock`),
+   or `gradle.lockfile` for Java/Gradle.
 2. Ensure pip >= 25.1 is on PATH for safe `pip lock -r` on `requirements.txt`.
 3. For Rust lock-less scans, ensure `cargo` is on PATH and the crates.io
    registry is reachable (or use `--offline` with a committed `Cargo.lock`).
 4. For Go module projects, ensure `go` is on PATH.
 5. For JavaScript/TypeScript, commit a lock file or use
    `--allow-dependency-code-execution` only in trusted CI or workspaces.
-6. For local Python projects, use `--allow-dependency-code-execution` only in
+6. For Java/Kotlin, commit `gradle.lockfile` for Gradle projects or use
+   `--allow-dependency-code-execution` only in trusted CI or workspaces.
+7. For local Python projects, use `--allow-dependency-code-execution` only in
    trusted CI or workspaces (see SECURITY.md).
-7. When you accept direct-only scanning without transitive coverage, use
+8. When you accept direct-only scanning without transitive coverage, use
    `--allow-direct-only-fallback`, `VLZ_ALLOW_DIRECT_ONLY_FALLBACK=1`, or
    `allow_direct_only_fallback = true` in config.
-8. Use `--offline` or `--benchmark` only when you accept direct-only scanning
+9. Use `--offline` or `--benchmark` only when you accept direct-only scanning
    (warnings will be emitted for affected manifests).
 
 See also `man vlz` for configuration keys `keep_ephemeral_venv`,

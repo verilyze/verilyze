@@ -137,6 +137,8 @@ pub struct ConfigurablePmResolver {
     pm_available: bool,
     pm_hint: &'static str,
     needs_pm: bool,
+    manifest_pm_overrides: HashMap<String, bool>,
+    manifest_pm_hints: HashMap<String, &'static str>,
 }
 
 impl ConfigurablePmResolver {
@@ -150,7 +152,29 @@ impl ConfigurablePmResolver {
             pm_available,
             pm_hint,
             needs_pm: true,
+            manifest_pm_overrides: HashMap::new(),
+            manifest_pm_hints: HashMap::new(),
         }
+    }
+
+    pub fn with_manifest_pm_available(
+        mut self,
+        manifest_basename: &str,
+        available: bool,
+    ) -> Self {
+        self.manifest_pm_overrides
+            .insert(manifest_basename.to_string(), available);
+        self
+    }
+
+    pub fn with_manifest_pm_hint(
+        mut self,
+        manifest_basename: &str,
+        hint: &'static str,
+    ) -> Self {
+        self.manifest_pm_hints
+            .insert(manifest_basename.to_string(), hint);
+        self
     }
 
     pub fn with_manifest_needs_pm(mut self, needs_pm: bool) -> Self {
@@ -178,6 +202,28 @@ impl Resolver for ConfigurablePmResolver {
 
     fn package_manager_hint(&self) -> &'static str {
         self.pm_hint
+    }
+
+    fn package_manager_available_for_manifest(
+        &self,
+        manifest_path: &Path,
+    ) -> bool {
+        manifest_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .and_then(|name| self.manifest_pm_overrides.get(name).copied())
+            .unwrap_or(self.pm_available)
+    }
+
+    fn package_manager_hint_for_manifest(
+        &self,
+        manifest_path: &Path,
+    ) -> &'static str {
+        manifest_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .and_then(|name| self.manifest_pm_hints.get(name).copied())
+            .unwrap_or(self.pm_hint)
     }
 
     fn manifest_needs_package_manager(
