@@ -7,20 +7,26 @@ description: Systemic CI/local parity gap or agent process lesson to promote int
 title: "[ai-learnings] <ci-gap|agent>: <area> -- <short description>"
 labels:
   - ai-learnings
+type: Learning
 body:
   - type: markdown
     attributes:
       value: |
         Use for **systemic** lessons and **uncertain** fingerprints that need a
         durable cross-session record (not one-off PR bugs). Prefer **links**
-        (Actions run, PR, SHA) over pasting logs. Do not attach full workflow
-        logs or artifacts. Search existing `ai-learnings` issues by fingerprint
-        before creating a duplicate.
+        (Actions run when from CI, PR, SHA) or local command names over pasting
+        logs. Do not attach full workflow logs or artifacts. Search existing
+        `ai-learnings` issues by fingerprint before creating a duplicate.
 
+        Set Issue Type to **Learning** (org type) and keep label `ai-learnings`.
         Edit the title to use prefix `ci-gap:` (CI/local parity) or `agent:`
         (process mistake). Agents must post via
-        `scripts/ai-learnings-gh-post.sh` (gitleaks preflight), not raw `gh`.
-        See `.cursor/skills/pre-merge-check/ai-learnings.md`.
+        `scripts/ai-learnings-gh-post.sh` (gitleaks preflight; sets type
+        Learning), not raw `gh`. See
+        `.cursor/skills/pre-merge-check/ai-learnings.md`.
+
+        Human filters: `-label:ai-learnings` or `-type:Learning` to hide from
+        the product backlog; `label:ai-learnings` or `type:Learning` to opt in.
 
   - type: textarea
     id: summary
@@ -35,15 +41,19 @@ body:
     attributes:
       label: Evidence (links preferred)
       description: >-
-        Allowlisted fields only: PR URL, run/job URL, failed SHA, fingerprint,
-        gate/check name, one-line assertion or error type, sanitized
-        ci-investigator summary, local repro command name. No env dumps or
-        full logs.
+        Allowlisted fields only: fingerprint, gate/check name, classification,
+        one-line assertion or error type, local repro command name, PR URL and
+        SHA when available. Include Actions run/job URL and sanitized
+        ci-investigator summary only for CI-discovered failures. Omit run URLs
+        for local-only findings (do not invent them). No env dumps or full
+        logs.
       placeholder: |
-        - PR: https://github.com/...
-        - Failed SHA: `...`
-        - Run: https://github.com/.../actions/runs/...
         - Fingerprint: `gate:stable-prefix`
+        - Gate: `make test-scripts`
+        - Command: `make test-scripts`
+        - PR: https://github.com/... (if any)
+        - Failed SHA: `...` (if any)
+        - Run: https://github.com/.../actions/runs/... (CI only; omit if local)
     validations:
       required: true
 
