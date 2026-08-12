@@ -7,10 +7,12 @@
 # Prefer this over raw `gh` for issue create/comment and PR comments.
 #
 # Usage:
-#   ai-learnings-gh-post.sh issue-create --title T --body-file F \
-#     [--label ai-learnings]
+#   ai-learnings-gh-post.sh issue-create --title T --body-file F
 #   ai-learnings-gh-post.sh issue-comment <number> --body-file F
 #   ai-learnings-gh-post.sh pr-comment <number> --body-file F
+#
+# issue-create always sets GitHub Issue Type Learning (org type) and label
+# ai-learnings. Do not invent alternate type or label names.
 #
 # Body file is always removed on EXIT when --body-file points at a path
 # under the process temp dir created by this script (see --stdin).
@@ -20,11 +22,14 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PREFLIGHT="${ROOT_DIR}/scripts/ai-learnings-gitleaks-preflight.sh"
 
+# Keep in sync with org Issue Type name and docs in ai-learnings.md.
+readonly AI_LEARNINGS_LABEL="ai-learnings"
+readonly AI_LEARNINGS_ISSUE_TYPE="Learning"
+
 BODY_FILE=
 RM_BODY=0
 OWNED_BODY=0
 TITLE=
-LABEL="ai-learnings"
 NUMBER=
 CMD=
 
@@ -33,15 +38,17 @@ trap 'if [[ "${OWNED_BODY}" -eq 1 && -n "${BODY_FILE}" && -f "${BODY_FILE}" ]]; 
 usage() {
   cat >&2 <<'EOF'
 Usage:
-  ai-learnings-gh-post.sh issue-create --title T --body-file F [--label L]
-  ai-learnings-gh-post.sh issue-create --title T --stdin [--label L]
+  ai-learnings-gh-post.sh issue-create --title T --body-file F
+  ai-learnings-gh-post.sh issue-create --title T --stdin
   ai-learnings-gh-post.sh issue-comment <n> --body-file F [--rm-body]
   ai-learnings-gh-post.sh issue-comment <n> --stdin
   ai-learnings-gh-post.sh pr-comment <n> --body-file F [--rm-body]
   ai-learnings-gh-post.sh pr-comment <n> --stdin
 
-Runs gitleaks preflight, then gh. --stdin writes a temp body and deletes it
-on EXIT. --rm-body deletes a caller --body-file after a successful post.
+Runs gitleaks preflight, then gh. issue-create always sets --type Learning
+and --label ai-learnings (not overridable). --stdin writes a temp body and
+deletes it on EXIT. --rm-body deletes a caller --body-file after a successful
+post.
 EOF
 }
 
@@ -84,9 +91,7 @@ parse_body_args() {
         shift 2
         ;;
       --label)
-        [[ $# -ge 2 ]] || die "--label needs a value"
-        LABEL=$2
-        shift 2
+        die "--label is not supported; issue-create always uses '${AI_LEARNINGS_LABEL}'"
         ;;
       -h | --help)
         usage
@@ -125,8 +130,14 @@ case "${CMD}" in
     [[ -n "${TITLE}" ]] || die "issue-create requires --title"
     require_gh
     run_preflight
-    gh issue create --title "${TITLE}" --label "${LABEL}" \
-      --body-file "${BODY_FILE}"
+    gh_status=0
+    gh issue create --title "${TITLE}" --label "${AI_LEARNINGS_LABEL}" \
+      --type "${AI_LEARNINGS_ISSUE_TYPE}" \
+      --body-file "${BODY_FILE}" || gh_status=$?
+    if [[ "${gh_status}" -ne 0 ]]; then
+      echo "ERROR: issue create failed (need org Issue Type '${AI_LEARNINGS_ISSUE_TYPE}' and label '${AI_LEARNINGS_LABEL}')" >&2
+      exit "${gh_status}"
+    fi
     maybe_rm_caller_body
     ;;
   issue-comment)

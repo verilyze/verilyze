@@ -17,7 +17,11 @@ session. See [agent-workflow.mdc](../../rules/agent-workflow.mdc).
 1. Confirm files were edited this session (or user explicitly requested checks)
 2. Classify paths from session edits and git diff (`origin/main...HEAD`)
 3. Run the **minimal** target set from [targets.md](targets.md) (not blind `make check`)
-4. On failure, fix and re-run only the failed gate
+4. On failure, fix and re-run only the failed gate. Most local reds are
+   `change defect`. Invoke the **Local failure path** in
+   [ai-learnings.md](ai-learnings.md) only after a clear systemic signal
+   (skipped matrix row, stronger gate failed after `check-fast`, or a
+   repeated fingerprint) -- not on every failed make
 5. Production behavior changed: `make check-pr` (Rust: 85% line/region, 80%
    function; scripts: 95% line aggregate and per module via `coverage-quick`)
 6. Non-behavior changes before push/PR: `make check-fast` (must exit 0)
@@ -48,6 +52,15 @@ When `.rs` files changed:
 - Cross-crate: `make clippy`
 - Before PR: rely on `make check-pr` for production behavior; `make check-fast`
   for non-behavior changes
+
+## Local systemic findings
+
+Default local red gates to `change defect` (fix and re-run only). File or
+bump `ai-learnings` only after a clear systemic signal, via the **Local
+failure path** in [ai-learnings.md](ai-learnings.md) and
+`scripts/ai-learnings-gh-post.sh`. Do not post the CI failure-record PR
+comment for local-only findings; do not run ci-investigator for local-only
+failures.
 
 ## CI failure on existing PR
 

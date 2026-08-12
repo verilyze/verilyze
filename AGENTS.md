@@ -82,12 +82,14 @@ changed. Full path-to-target matrix:
 (cache-dependent cost). Full CI parity: `make -j check`.
 
 **AI learnings:** Systemic CI/local parity gaps and agent process mistakes use
-the GitHub label `ai-learnings` (one issue per fingerprint). Follow
+the GitHub label `ai-learnings` and Issue Type `Learning` (one issue per
+fingerprint). Follow
 [`.cursor/skills/pre-merge-check/ai-learnings.md`](.cursor/skills/pre-merge-check/ai-learnings.md)
 for classification, recurrence, and safe posting. Post evidence and issues
-only via `scripts/ai-learnings-gh-post.sh` (gitleaks preflight). Do not load
-the full issue backlog into always-on context; search on demand. Makefile
-recipe-shape changes need `make test-scripts`, not only `make check-fast`.
+only via `scripts/ai-learnings-gh-post.sh` (gitleaks preflight; sets type
+`Learning`). Do not load the full issue backlog into always-on context;
+search on demand. Makefile recipe-shape changes need `make test-scripts`,
+not only `make check-fast`.
 
 ## Conventions
 
@@ -138,7 +140,7 @@ recipe-shape changes need `make test-scripts`, not only `make check-fast`.
 | Commit messages      | CONTRIBUTING "Commit messages"                           |
 | TDD / test scope     | [CONTRIBUTING.md -- Test scope and layering](CONTRIBUTING.md#test-scope-and-layering); [TDD](CONTRIBUTING.md#test-driven-development-tdd) |
 | Pre-merge validation | This file "Pre-merge validation"; [targets.md](.cursor/skills/pre-merge-check/targets.md) |
-| AI learnings (`ai-learnings`) | [ai-learnings.md](.cursor/skills/pre-merge-check/ai-learnings.md) |
+| AI learnings (`ai-learnings` / type `Learning`) | [ai-learnings.md](.cursor/skills/pre-merge-check/ai-learnings.md) |
 | Security             | PRD section 6 (SEC-*), section 11 (Risk & Threat Model); [SECURITY.md](SECURITY.md); [COMPLIANCE.md](COMPLIANCE.md) |
 | OpenSSF Best Practices | [bestpractices.dev](https://www.bestpractices.dev/en/projects/12361) |
 | Copyright duplicates | `make check-header-duplicates`; CONTRIBUTING "Copyright and licensing"; `.mailmap` |

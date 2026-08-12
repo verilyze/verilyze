@@ -6,15 +6,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # AI learnings
 
-Preserve failure evidence on CI attempts. Feed confirmed systemic gaps into
-deduplicated GitHub issues labeled **`ai-learnings`**, then promote each into
+Preserve failure evidence from CI and from local gates when the failure is
+systemic. Feed confirmed gaps into deduplicated GitHub issues labeled
+**`ai-learnings`** with Issue Type **`Learning`**, then promote each into
 the cheapest durable gate.
 
 This file is the **in-repo source of truth**. Personal skills must follow it;
 do not maintain a second policy copy.
 
-Learning is **independent of Git topology**: routine failures stay in PR
-comments; systemic gaps become issues.
+Learning is **independent of discovery venue and Git topology**: routine
+change defects are fixed in place; systemic gaps become issues. PR comments
+apply only when a PR already exists (typically CI).
 
 ---
 
@@ -22,10 +24,24 @@ comments; systemic gaps become issues.
 
 - Do **not** paste open `ai-learnings` bodies into always-on rules or a growing
   learnings dump.
-- Search **on demand** when CI fails or the task matches a known gap.
+- Search **on demand** when CI fails, a local gate fails for a suspected
+  systemic reason, or the task matches a known gap.
 - Cap search at `--limit 5`; fingerprint / gate first.
 - Prefer executable gates over long prose. Keep promotions short; prune
   superseded bullets when closing an issue.
+
+### Human filters (opt-out / opt-in)
+
+GitHub cannot force a default Issues filter for every visitor. Use saved
+searches or the Types dropdown:
+
+| View | Search |
+|------|--------|
+| Default product backlog | `is:issue is:open -label:ai-learnings` (or `-type:Learning`) |
+| Opt-in learnings queue | `is:issue is:open label:ai-learnings` (or `type:Learning`) |
+
+Agents keep searching `label:ai-learnings` (primary). Optional secondary:
+`type:Learning`. Do not invent other type names; the org type is **`Learning`**.
 
 ---
 
@@ -53,22 +69,23 @@ reclassify when evidence strengthens.
 
 ---
 
-## Title prefixes (label `ai-learnings`)
+## Title prefixes (label `ai-learnings`, type `Learning`)
 
 - `ci-gap: <gate> -- <short description>` -- CI / local parity
 - `agent: <area> -- <short description>` -- process / workflow mistakes
 
-One issue per distinct **fingerprint** (`<gate-or-area>:<stable-prefix>`).
-Reuse (comment + bump recurrence) when the fingerprint matches; do not open
-a mega-issue or a duplicate.
+Every create via the wrapper sets Issue Type **`Learning`** and label
+**`ai-learnings`**. One issue per distinct **fingerprint**
+(`<gate-or-area>:<stable-prefix>`). Reuse (comment + bump recurrence) when
+the fingerprint matches; do not open a mega-issue or a duplicate.
 
 ---
 
 ## Safe posting (secrets) -- mandatory
 
 **Do not** call raw `gh issue create`, `gh issue comment`, or `gh pr comment`
-for AI learnings / CI failure evidence. Use the wrappers so gitleaks always
-runs and temp bodies are cleaned up:
+for AI learnings failure evidence (CI or local). Use the wrappers so gitleaks
+always runs and temp bodies are cleaned up:
 
 | Goal | Command |
 |------|---------|
@@ -91,6 +108,49 @@ runs and temp bodies are cleaned up:
 
 Caller-owned body files: pass `--rm-body` to delete after a successful post,
 or `rm -f` yourself. Never leave excerpts with possible secrets in `/tmp`.
+
+---
+
+## Local failure path
+
+When a **local** gate fails during pre-merge validation, ship-pr, or an
+explicit merge-readiness check:
+
+1. **Classify** (table above). Default is fix-and-re-run; do **not** open an
+   issue by default.
+2. Default for "the gate correctly caught a defect in this branch":
+   `change defect` -- fix and re-run only; **no** issue and **no** PR
+   comment.
+3. Invoke issue create/bump only after a **clear systemic signal** (see
+   signals below), not because a gate merely failed. Classes that may file:
+   `missing local parity`, `local gate not invoked`, or `uncertain` with a
+   durable fingerprint. Then fingerprint-search (section 2) and create or
+   bump via `scripts/ai-learnings-gh-post.sh` only.
+4. **PR comments:** Use the section 1 **CI failure record** template only for
+   GitHub Actions failures. For local-only findings (whether or not a PR
+   already exists), do **not** post that template; use issues for systemic /
+   `uncertain` intake. If a PR exists and classification is
+   `flaky/infrastructure`, a short note comment is optional; still no CI
+   failure record.
+5. Do **not** run **ci-investigator** for local-only failures (CI jobs only).
+6. Do **not** auto-post on every failed make in a reactive companion-sync
+   loop ("out of sync; run `make generate-...`") unless the same process miss
+   recurs across sessions with a stable fingerprint (`agent:` title).
+
+Signals that raise suspicion of systemic (still require judgment; not
+automatic create):
+
+- A required [targets.md](targets.md) row was never run before the failure
+  surfaced under a broader target
+- Failure appears only under a gate that ship-pr / `check-fast` does not
+  hard-require, but CI does
+- The same fingerprint recurs across ship or pre-merge sessions with
+  different PR contents
+
+Allowlisted local evidence: fingerprint, gate/check name, classification,
+one-line assertion or error type, local repro **command name** (not env
+dumps or full logs). Prefer links (PR URL, SHA) when available. For
+local-only issues, omit Actions run/job URLs rather than inventing them.
 
 ---
 
@@ -194,6 +254,9 @@ Example create:
   --rm-body
 ```
 
+The wrapper always passes `--type Learning` and `--label ai-learnings`
+(not overridable).
+
 Do not mix systemic promotions into the PR being repaired unless already in
 scope.
 
@@ -223,3 +286,6 @@ When investigating a failed PR check:
    inventing a fix
 3. Post evidence and file/update issues only via
    `scripts/ai-learnings-gh-post.sh`
+
+For local-only systemic findings, use the **Local failure path** above
+instead of this section.
