@@ -949,8 +949,20 @@ Project-scoped Cursor rules, skills, and hooks live under [`.cursor/`](.cursor/)
 - **Agent workflow:** [`.cursor/rules/agent-workflow.mdc`](.cursor/rules/agent-workflow.mdc)
   (Plan/Ask read-only phases; stop after plan delivery; validation only after edits)
 - **Pre-merge / CI validation:** [`.cursor/skills/pre-merge-check/SKILL.md`](.cursor/skills/pre-merge-check/SKILL.md)
+- **AI learnings:** [`.cursor/skills/pre-merge-check/ai-learnings.md`](.cursor/skills/pre-merge-check/ai-learnings.md)
+  (GitHub label `ai-learnings`; promote systemic gaps into durable gates)
 - **Release preparation:** [`.cursor/skills/release-prepare/SKILL.md`](.cursor/skills/release-prepare/SKILL.md)
 - **CI gates reference:** [`.cursor/rules/ci-validation.mdc`](.cursor/rules/ci-validation.mdc)
+
+**AI learnings (label `ai-learnings`):** One GitHub issue per distinct
+fingerprint. Title prefixes: `ci-gap: <gate> -- ...` for CI/local parity;
+`agent: <area> -- ...` for process mistakes. Create on first confirmed
+`missing local parity`, `local gate not invoked`, or `uncertain` (so later
+agents can detect recurrence). Prefer links over log pastes; post only via
+`scripts/ai-learnings-gh-post.sh` (gitleaks preflight). Search on demand
+(`--limit 5`); do not paste the backlog into always-on rules. Close and prune
+when a gate lands. Issue form:
+[`.github/ISSUE_TEMPLATE/ai-learnings.yml`](.github/ISSUE_TEMPLATE/ai-learnings.yml).
 
 **Stop hook:** After each agent turn, the stop hook may auto-submit a follow-up
 only when the agent edited files **this turn** (or when a scoped check failed on

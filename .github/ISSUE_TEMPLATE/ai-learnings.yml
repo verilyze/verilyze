@@ -1,0 +1,102 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: AI learning
+description: Systemic CI/local parity gap or agent process lesson to promote into a durable gate
+title: "[ai-learnings] <ci-gap|agent>: <area> -- <short description>"
+labels:
+  - ai-learnings
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use for **systemic** lessons and **uncertain** fingerprints that need a
+        durable cross-session record (not one-off PR bugs). Prefer **links**
+        (Actions run, PR, SHA) over pasting logs. Do not attach full workflow
+        logs or artifacts. Search existing `ai-learnings` issues by fingerprint
+        before creating a duplicate.
+
+        Edit the title to use prefix `ci-gap:` (CI/local parity) or `agent:`
+        (process mistake). Agents must post via
+        `scripts/ai-learnings-gh-post.sh` (gitleaks preflight), not raw `gh`.
+        See `.cursor/skills/pre-merge-check/ai-learnings.md`.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What gap was confirmed and why it is systemic.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence (links preferred)
+      description: >-
+        Allowlisted fields only: PR URL, run/job URL, failed SHA, fingerprint,
+        gate/check name, one-line assertion or error type, sanitized
+        ci-investigator summary, local repro command name. No env dumps or
+        full logs.
+      placeholder: |
+        - PR: https://github.com/...
+        - Failed SHA: `...`
+        - Run: https://github.com/.../actions/runs/...
+        - Fingerprint: `gate:stable-prefix`
+    validations:
+      required: true
+
+  - type: input
+    id: fingerprint
+    attributes:
+      label: Fingerprint
+      description: Format `<gate-or-area>:<stable-prefix>` (used for dedupe).
+      placeholder: coverage-quick:python-module-below-95
+    validations:
+      required: true
+
+  - type: dropdown
+    id: classification
+    attributes:
+      label: Classification
+      options:
+        - missing local parity
+        - local gate not invoked
+        - uncertain
+      default: 0
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-detector
+    attributes:
+      label: Expected local detector
+      description: Make target, test path, or procedure that should catch this before CI.
+      placeholder: make test-scripts
+    validations:
+      required: true
+
+  - type: dropdown
+    id: recommended-layer
+    attributes:
+      label: Recommended layer (cheapest first)
+      options:
+        - executable test or Make gate
+        - targets.md / ci-validation.mdc row
+        - AGENTS.md / CONTRIBUTING.md
+        - Git hook
+        - Cursor rule / skill / hook
+      default: 1
+    validations:
+      required: true
+
+  - type: input
+    id: recurrence
+    attributes:
+      label: Recurrence
+      description: Integer count of confirmed repeats of this fingerprint (start at 1).
+      placeholder: "1"
+      value: "1"
+    validations:
+      required: true
