@@ -15,6 +15,7 @@ See [agent-workflow.mdc](../../rules/agent-workflow.mdc).
 | `**/*.rs` (except `tests/fuzz/**`, `fuzz/**`) | `make fmt-check clippy`, `make cargo-test` (or scoped crate test); mem/Docker cache changes also `make cargo-test-mem` |
 | `tests/fuzz/fuzz_targets/**`, `tests/fuzz/Cargo.toml`, `fuzz/fuzz_targets/**`, `fuzz/Cargo.toml`, `scripts/check_fuzz_target_parity.py` | `make check-fuzz-target-parity` (see [fuzz-harness-parity.mdc](../../rules/fuzz-harness-parity.mdc)) |
 | `.clusterfuzzlite/**/*.sh` | `make lint-shell` |
+| `Makefile` | `make test-scripts` (structural pytest under `tests/scripts/` asserts recipe shape; `check-fast` alone is not enough) |
 | `scripts/**/*.py`, `tests/scripts/**` | `make lint-python test-scripts` |
 | `scripts/**/*.sh` | `make lint-shell` |
 | `architecture/**/*.mmd` | `make check-doc-diagrams` |

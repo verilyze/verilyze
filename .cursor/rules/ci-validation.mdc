@@ -18,6 +18,7 @@ when no files were edited this session. See
 | `**/*.rs` (except `tests/fuzz/**`, `fuzz/**`) | `make fmt-check clippy` then `make cargo-test` (or scoped `cargo test -p <crate> --features vlz/testing`) |
 | `tests/fuzz/fuzz_targets/**`, `tests/fuzz/Cargo.toml`, `fuzz/fuzz_targets/**`, `fuzz/Cargo.toml`, `scripts/check_fuzz_target_parity.py` | `make check-fuzz-target-parity` (see [fuzz-harness-parity.mdc](fuzz-harness-parity.mdc)) |
 | `.clusterfuzzlite/**/*.sh` | `make lint-shell` |
+| `Makefile` | `make test-scripts` (structural pytest under `tests/scripts/`; `check-fast` alone is not enough) |
 | `scripts/**/*.py`, `tests/scripts/**` | `make lint-python test-scripts` |
 | `scripts/**/*.sh` | `make lint-shell` |
 | `architecture/**/*.mmd` | `make check-doc-diagrams` |

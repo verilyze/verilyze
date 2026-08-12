@@ -51,7 +51,16 @@ When `.rs` files changed:
 
 ## CI failure on existing PR
 
-Use **ci-investigator** on the failed job. For super-linter: download `super-linter-logs` via `gh run download`.
+Use **ci-investigator** on the failed job. For super-linter: download
+`super-linter-logs` via `gh run download` for local diagnosis only (do not
+paste artifact contents into issues or PR comments).
+
+Then follow [ai-learnings.md](ai-learnings.md): fingerprint-search label
+`ai-learnings` (`--limit 5`) before inventing a fix; post structured PR
+evidence and issues **only** via `scripts/ai-learnings-gh-post.sh` (gitleaks
+preflight; do not use raw `gh` for these posts). Open or update issues for
+systemic and `uncertain` classifications. When promoting a lesson into a gate
+or docs, close the issue and prune superseded prose.
 
 ## Companion files
 
