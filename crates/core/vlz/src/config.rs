@@ -94,6 +94,8 @@ pub const DEFAULT_SCAN_EXCLUDE_DIRS: &[&str] = &[
     "dist",
     "build",
     "site-packages",
+    "vendor",
+    ".bundle",
 ];
 
 /// Default backoff base in milliseconds (SEC-007).

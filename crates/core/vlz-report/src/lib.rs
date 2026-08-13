@@ -18,8 +18,9 @@ use std::io::Write;
 use std::path::PathBuf;
 use vlz_db::{
     CRATES_IO_ECOSYSTEM, CveEvidenceLocation, CveRecord, CvssVersion,
-    DeclarationKind, GO_ECOSYSTEM, MAX_DECLARATIONS_PER_FINDING,
-    PYPI_ECOSYSTEM, Package, PackageDeclarationLocation, Severity,
+    DeclarationKind, GO_ECOSYSTEM, MAVEN_ECOSYSTEM,
+    MAX_DECLARATIONS_PER_FINDING, NPM_ECOSYSTEM, PYPI_ECOSYSTEM, Package,
+    PackageDeclarationLocation, RUBYGEMS_ECOSYSTEM, Severity,
     dedupe_sort_declarations,
 };
 
@@ -1011,6 +1012,9 @@ fn purl_type_for_ecosystem(ecosystem: Option<&str>) -> &'static str {
     match ecosystem {
         Some(CRATES_IO_ECOSYSTEM) => "cargo",
         Some(GO_ECOSYSTEM) => "golang",
+        Some(NPM_ECOSYSTEM) => "npm",
+        Some(MAVEN_ECOSYSTEM) => "maven",
+        Some(RUBYGEMS_ECOSYSTEM) => "gem",
         Some(PYPI_ECOSYSTEM) | None => "pypi",
         _ => "pypi",
     }
@@ -1176,6 +1180,9 @@ fn spdx_id_prefix_for_ecosystem(ecosystem: Option<&str>) -> &'static str {
     match purl_type_for_ecosystem(ecosystem) {
         "cargo" => "pkg-cargo",
         "golang" => "pkg-golang",
+        "npm" => "pkg-npm",
+        "maven" => "pkg-maven",
+        "gem" => "pkg-gem",
         _ => "pkg-pypi",
     }
 }
@@ -2315,6 +2322,117 @@ mod tests {
                 .unwrap();
         let purl = parsed["components"][0]["purl"].as_str().unwrap();
         assert_eq!(purl, "pkg:golang/github.com/example/mod@v1.2.3");
+    }
+
+    #[tokio::test]
+    async fn cyclonedx_reporter_known_ecosystems_use_correct_purl_types() {
+        let cases = [
+            (NPM_ECOSYSTEM, "lodash", "4.17.21", "pkg:npm/lodash@4.17.21"),
+            (
+                MAVEN_ECOSYSTEM,
+                "org.apache.commons:commons-lang3",
+                "3.12.0",
+                "pkg:maven/org.apache.commons:commons-lang3@3.12.0",
+            ),
+            (RUBYGEMS_ECOSYSTEM, "rack", "2.2.8", "pkg:gem/rack@2.2.8"),
+        ];
+        for (ecosystem, name, version, expected_purl) in cases {
+            let pkg = Package {
+                name: name.to_string(),
+                version: version.to_string(),
+                ecosystem: Some(ecosystem.to_string()),
+            };
+            let data = ReportData {
+                findings: vec![],
+                all_packages: Some(vec![pkg]),
+                project_id: None,
+                root_path: None,
+                manifest_coverage: vec![],
+                offline_cache_miss: false,
+                provider_fetch_failed: false,
+            };
+            let mut buf = Vec::new();
+            CycloneDxReporter::new()
+                .render_to_writer(&data, &mut buf)
+                .await
+                .unwrap();
+            let parsed: serde_json::Value =
+                serde_json::from_str(String::from_utf8(buf).unwrap().trim())
+                    .unwrap();
+            let purl = parsed["components"][0]["purl"].as_str().unwrap();
+            assert_eq!(purl, expected_purl, "ecosystem {ecosystem}");
+        }
+    }
+
+    #[tokio::test]
+    async fn spdx_reporter_known_ecosystems_use_correct_purl_and_ids() {
+        let cases = [
+            (
+                NPM_ECOSYSTEM,
+                "lodash",
+                "4.17.21",
+                "pkg:npm/lodash@4.17.21",
+                "urn:spdx.dev:pkg-npm-lodash-4-17-21",
+            ),
+            (
+                MAVEN_ECOSYSTEM,
+                "commons-lang3",
+                "3.12.0",
+                "pkg:maven/commons-lang3@3.12.0",
+                "urn:spdx.dev:pkg-maven-commons-lang3-3-12-0",
+            ),
+            (
+                RUBYGEMS_ECOSYSTEM,
+                "rack",
+                "2.2.8",
+                "pkg:gem/rack@2.2.8",
+                "urn:spdx.dev:pkg-gem-rack-2-2-8",
+            ),
+        ];
+        for (ecosystem, name, version, expected_purl, expected_spdx_id) in
+            cases
+        {
+            let pkg = Package {
+                name: name.to_string(),
+                version: version.to_string(),
+                ecosystem: Some(ecosystem.to_string()),
+            };
+            let data = ReportData {
+                findings: vec![],
+                all_packages: Some(vec![pkg]),
+                project_id: None,
+                root_path: None,
+                manifest_coverage: vec![],
+                offline_cache_miss: false,
+                provider_fetch_failed: false,
+            };
+            let mut buf = Vec::new();
+            SpdxReporter::new()
+                .render_to_writer(&data, &mut buf)
+                .await
+                .unwrap();
+            let parsed: serde_json::Value =
+                serde_json::from_str(String::from_utf8(buf).unwrap().trim())
+                    .unwrap();
+            let pkg_el = parsed["element"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|e| {
+                    e.get("@type").and_then(|t| t.as_str()) == Some("Package")
+                })
+                .unwrap();
+            assert_eq!(
+                pkg_el.get("packageUrl").and_then(|u| u.as_str()),
+                Some(expected_purl),
+                "ecosystem {ecosystem} packageUrl"
+            );
+            assert_eq!(
+                pkg_el.get("spdxId").and_then(|u| u.as_str()),
+                Some(expected_spdx_id),
+                "ecosystem {ecosystem} spdxId"
+            );
+        }
     }
 
     #[tokio::test]

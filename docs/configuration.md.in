@@ -93,6 +93,12 @@ For **JavaScript/TypeScript** (`package.json`, language `javascript`), prefer
 an adjacent or parent lock (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`,
 or `bun.lock`). Without a usable lock, the scan exits 4 by default; npm/yarn/
 pnpm/bun run only with `allow_dependency_code_execution` (ephemeral directory).
+
+For **Ruby** (`Gemfile` / `gems.rb` / `*.gemspec`, language `ruby`), prefer a
+pair-matched lock (`Gemfile.lock` / `gems.locked`). Without a usable lock, the
+scan exits 4 by default; `bundle lock` runs only with
+`allow_dependency_code_execution` (ephemeral directory; Gemfile evaluation is
+project code under SEC-023).
 See [docs/FAQ.md](FAQ.md) and `man vlz`.
 
 ## See also

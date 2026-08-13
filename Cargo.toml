@@ -24,6 +24,7 @@ default-members = [
     "crates/languages/vlz-go",
     "crates/languages/vlz-javascript",
     "crates/languages/vlz-java",
+    "crates/languages/vlz-ruby",
     "crates/core/vlz-manifest-finder",
     "crates/core/vlz-manifest-parser",
     "crates/core/vlz-reachability-trait",

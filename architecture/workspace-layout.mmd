@@ -1,7 +1,7 @@
 %% Workspace layout: crates/core/ (vlz, vlz-db, vlz-manifest-finder, vlz-manifest-parser,
 %% vlz-cve-client, vlz-report, vlz-integrity, vlz-plugin-macro, vlz-reachability,
 %% vlz-reachability-trait), crates/languages/
-%% (vlz-python, vlz-rust, vlz-go, vlz-javascript, vlz-java), crates/providers/ (vlz-cve-provider-nvd, vlz-cve-provider-github,
+%% (vlz-python, vlz-rust, vlz-go, vlz-javascript, vlz-java, vlz-ruby), crates/providers/ (vlz-cve-provider-nvd, vlz-cve-provider-github,
 %% vlz-cve-provider-sonatype), crates/db-backends/ (vlz-db-redb, vlz-db-mem), tests/fuzz
 graph TD
     %% Core binary
@@ -25,6 +25,7 @@ graph TD
     Q["vlz-go (optional, go feature)"]
     JS["vlz-javascript (optional, javascript feature)"]
     JV["vlz-java (optional, java feature)"]
+    RB["vlz-ruby (optional, ruby feature)"]
     %% Concrete implementations (plug‑ins)
     H["vlz-db-redb (default CVE cache)"]
     I["vlz-db-sqlite (optional, future)"]
@@ -46,6 +47,7 @@ graph TD
     A --> Q
     A --> JS
     A --> JV
+    A --> RB
     A --> M
     %% Edges from libraries to the traits they expose (collapsed for brevity)
     B -.->|defines| ManifestFinder
@@ -69,3 +71,4 @@ graph TD
     Q -.->|implements| ReachabilityAnalyzer
     JS -.->|implements| ReachabilityAnalyzer
     JV -.->|implements| ReachabilityAnalyzer
+    RB -.->|implements| ReachabilityAnalyzer

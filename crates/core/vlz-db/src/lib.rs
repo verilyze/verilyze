@@ -34,6 +34,9 @@ pub const NPM_ECOSYSTEM: &str = "npm";
 /// OSV / package ecosystem for Maven (Java / Kotlin JVM libraries).
 pub const MAVEN_ECOSYSTEM: &str = "Maven";
 
+/// OSV / package ecosystem for RubyGems (Ruby).
+pub const RUBYGEMS_ECOSYSTEM: &str = "RubyGems";
+
 #[derive(
     Debug,
     Clone,

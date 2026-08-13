@@ -2588,6 +2588,7 @@ dependencies = [
  "vlz-reachability",
  "vlz-reachability-trait",
  "vlz-report",
+ "vlz-ruby",
  "vlz-rust",
 ]
 
@@ -2710,6 +2711,7 @@ dependencies = [
  "vlz-java",
  "vlz-javascript",
  "vlz-python",
+ "vlz-ruby",
  "vlz-rust",
 ]
 
@@ -2861,6 +2863,22 @@ dependencies = [
  "thiserror 2.0.20",
  "tokio",
  "vlz-db",
+]
+
+[[package]]
+name = "vlz-ruby"
+version = "0.8.0"
+dependencies = [
+ "async-trait",
+ "regex",
+ "temp-env",
+ "tempfile",
+ "thiserror 2.0.20",
+ "tokio",
+ "vlz-db",
+ "vlz-manifest-finder",
+ "vlz-manifest-parser",
+ "vlz-reachability-trait",
 ]
 
 [[package]]

@@ -34,6 +34,7 @@ Crates are organized by plugin type under `crates/`:
   - **vlz-go** -- Go: go.mod (resolution via `go list -m all`).
   - **vlz-javascript** -- JavaScript and TypeScript: package.json with npm/Yarn/pnpm/Bun locks (language name `javascript`; OSV ecosystem `npm`).
   - **vlz-java** -- Java and Kotlin: Maven (`pom.xml`) and Gradle (`build.gradle`, `gradle.lockfile`, version catalog; language name `java`; OSV ecosystem `Maven`).
+  - **vlz-ruby** -- Ruby: Gemfile, gems.rb, `*.gemspec` with Gemfile.lock / gems.locked (language name `ruby`; OSV ecosystem `RubyGems`).
 - **crates/providers/** -- CVE providers (optional, feature-gated):
   - **vlz-cve-provider-nvd** -- NVD (NIST); `nvd` feature.
   - **vlz-cve-provider-github** -- GitHub Advisory Database; `github` feature.
@@ -734,6 +735,8 @@ The `vlz` binary supports optional capabilities via Cargo features:
   unmaintained/unsound `serde_yml` per NFR-025 / MOD-004 and `cargo deny`).
 - **java** -- Java/Kotlin language plugin (`vlz-java` crate); Maven and Gradle
   manifests with Gradle lock-first transitive resolution; OSV ecosystem `Maven`.
+- **ruby** -- Ruby language plugin (`vlz-ruby` crate); Bundler Gemfile/gems.rb
+  and gemspec manifests with Gemfile.lock / gems.locked (OSV `RubyGems`).
 - **nvd** -- NVD CVE provider (`vlz-cve-provider-nvd` crate); opt-in.
 - **github** -- GitHub Advisory CVE provider (`vlz-cve-provider-github` crate);
   opt-in.

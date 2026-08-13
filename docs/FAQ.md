@@ -305,11 +305,18 @@ language that would invoke its package manager (no usable adjacent lock file),
 and that package manager is not on PATH (FR-024).
 
 **Remediation:** Install the package manager for your platform:
-- **Debian/Ubuntu:** `apt-get install python3-pip`
-- **Fedora/RHEL:** `dnf install python3-pip`
-- **macOS:** `brew install python3`
+- **Debian/Ubuntu:** `apt-get install python3-pip` (Python) or
+  `apt-get install ruby bundler` (Ruby)
+- **Fedora/RHEL:** `dnf install python3-pip` (Python) or
+  `dnf install ruby rubygem-bundler` (Ruby)
+- **macOS:** `brew install python3` or `brew install ruby`
 - **Windows:** Install Python from https://www.python.org/ and ensure pip is
-  enabled.
+  enabled; for Ruby use https://rubyinstaller.org/ and ensure `bundle` is on
+  PATH.
+
+Example for Ruby when Bundler is missing:
+
+`Required package manager not found on PATH for ruby (1 manifest(s) requiring it). Install via: apt-get install ruby bundler (Debian/Ubuntu) or dnf install ruby rubygem-bundler (Fedora/RHEL).`
 
 ---
 
@@ -419,6 +426,13 @@ default (SEC-023 does not run mvn/gradle/gradlew). Use
 `--allow-dependency-code-execution` for gated PM resolution in trusted
 environments, or `--allow-direct-only-fallback` for direct-only coverage.
 
+**Ruby (Bundler / RubyGems):** The `ruby` language covers Gemfile, gems.rb, and
+`*.gemspec`. Prefer a pair-matched lock (`Gemfile.lock` or `gems.locked`; parent
+walk up to the scan root). Without a usable lock, the scan exits **4** by
+default (SEC-023 does not run `bundle`; `bundle lock` evaluates Gemfile as
+Ruby). Use `--allow-dependency-code-execution` for ephemeral `bundle lock`, or
+`--allow-direct-only-fallback` for direct-only coverage.
+
 ### Unable to detect transitive dependencies (exit 4)
 
 **Message:** `Unable to detect transitive dependencies. Add an adjacent lock
@@ -432,7 +446,9 @@ a successful safe/exec path; `Cargo.toml` without `Cargo.lock` when
 `cargo metadata` fails; `go.mod` when `go list -m all` fails or `go` is not
 on PATH; `package.json` without an adjacent/parent lock file when package
 manager execution is disabled; lock-less Java Maven/Gradle manifests without
-`gradle.lockfile` when PM execution is disabled; explicit pip resolution failed after
+`gradle.lockfile` when PM execution is disabled; lock-less Ruby Gemfile/gems.rb
+or gemspec without Gemfile.lock/gems.locked when Bundler execution is disabled;
+explicit pip resolution failed after
 `--allow-dependency-code-execution`; or the parser found no dependencies.
 
 **Remediation:**
@@ -440,7 +456,8 @@ manager execution is disabled; lock-less Java Maven/Gradle manifests without
 1. Commit an adjacent lock file (preferred): PEP 751 `pylock.toml` /
    `pylock.<name>.toml` for Python, `Cargo.lock`, `go.sum` (with `go.mod`), or
    a JS lock (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lock`),
-   or `gradle.lockfile` for Java/Gradle.
+   or `gradle.lockfile` for Java/Gradle, or `Gemfile.lock` / `gems.locked` for
+   Ruby.
 2. Ensure pip >= 25.1 is on PATH for safe `pip lock -r` on `requirements.txt`.
 3. For Rust lock-less scans, ensure `cargo` is on PATH and the crates.io
    registry is reachable (or use `--offline` with a committed `Cargo.lock`).
@@ -449,12 +466,15 @@ manager execution is disabled; lock-less Java Maven/Gradle manifests without
    `--allow-dependency-code-execution` only in trusted CI or workspaces.
 6. For Java/Kotlin, commit `gradle.lockfile` for Gradle projects or use
    `--allow-dependency-code-execution` only in trusted CI or workspaces.
-7. For local Python projects, use `--allow-dependency-code-execution` only in
+7. For Ruby, commit `Gemfile.lock` / `gems.locked` or use
+   `--allow-dependency-code-execution` only in trusted CI or workspaces
+   (`bundle lock` evaluates Gemfile as Ruby).
+8. For local Python projects, use `--allow-dependency-code-execution` only in
    trusted CI or workspaces (see SECURITY.md).
-8. When you accept direct-only scanning without transitive coverage, use
+9. When you accept direct-only scanning without transitive coverage, use
    `--allow-direct-only-fallback`, `VLZ_ALLOW_DIRECT_ONLY_FALLBACK=1`, or
    `allow_direct_only_fallback = true` in config.
-9. Use `--offline` or `--benchmark` only when you accept direct-only scanning
+10. Use `--offline` or `--benchmark` only when you accept direct-only scanning
    (warnings will be emitted for affected manifests).
 
 See also `man vlz` for configuration keys `keep_ephemeral_venv`,

@@ -38,7 +38,7 @@ flowchart TD
 | ignore_db | string |  | `VLZ_IGNORE_DB` | `--ignore-db` |
 | parallel_queries | integer | 10 | `VLZ_PARALLEL_QUERIES` | `--parallel` |
 | parallel_resolutions | integer | 4 | `VLZ_PARALLEL_RESOLUTIONS` | `--parallel-resolutions` |
-| scan_exclude_dirs | string | .git,.venv,venv,node_modules,target,__pycache__,.tox,.eggs,dist,build,site-packages | `VLZ_SCAN_EXCLUDE_DIRS` | `--scan-exclude-dir (repeatable)` |
+| scan_exclude_dirs | string | .git,.venv,venv,node_modules,target,__pycache__,.tox,.eggs,dist,build,site-packages,vendor,.bundle | `VLZ_SCAN_EXCLUDE_DIRS` | `--scan-exclude-dir (repeatable)` |
 | reachability_mode | string | tier-b | `VLZ_REACHABILITY_MODE` | `--reachability-mode` |
 | cache_ttl_secs | integer | 432000 | `VLZ_CACHE_TTL_SECS` | `--cache-ttl-secs` |
 | min_score | float | 0 | `VLZ_MIN_SCORE` | `--min-score` |
@@ -118,6 +118,12 @@ For **JavaScript/TypeScript** (`package.json`, language `javascript`), prefer
 an adjacent or parent lock (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`,
 or `bun.lock`). Without a usable lock, the scan exits 4 by default; npm/yarn/
 pnpm/bun run only with `allow_dependency_code_execution` (ephemeral directory).
+
+For **Ruby** (`Gemfile` / `gems.rb` / `*.gemspec`, language `ruby`), prefer a
+pair-matched lock (`Gemfile.lock` / `gems.locked`). Without a usable lock, the
+scan exits 4 by default; `bundle lock` runs only with
+`allow_dependency_code_execution` (ephemeral directory; Gemfile evaluation is
+project code under SEC-023).
 See [docs/FAQ.md](FAQ.md) and `man vlz`.
 
 ## See also
