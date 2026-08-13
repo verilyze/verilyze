@@ -17,6 +17,7 @@ vlz-rust = { path = "../../crates/languages/vlz-rust" }
 vlz-go = { path = "../../crates/languages/vlz-go" }
 vlz-javascript = { path = "../../crates/languages/vlz-javascript" }
 vlz-java = { path = "../../crates/languages/vlz-java" }
+vlz-ruby = { path = "../../crates/languages/vlz-ruby" }
 
 [[bin]]
 name = "fuzz_config_toml"
@@ -105,3 +106,15 @@ path = "fuzz_targets/gradle_lock.rs"
 [[bin]]
 name = "fuzz_version_catalog"
 path = "fuzz_targets/version_catalog.rs"
+
+[[bin]]
+name = "fuzz_gemfile"
+path = "fuzz_targets/gemfile.rs"
+
+[[bin]]
+name = "fuzz_gemfile_lock"
+path = "fuzz_targets/gemfile_lock.rs"
+
+[[bin]]
+name = "fuzz_gemspec"
+path = "fuzz_targets/gemspec.rs"

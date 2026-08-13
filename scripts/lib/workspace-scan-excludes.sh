@@ -15,4 +15,5 @@ WORKSPACE_SCAN_EXCLUDE_DIRS=(
   .venv-lint
   .venv-test
   .venv-reuse
+  fixtures
 )

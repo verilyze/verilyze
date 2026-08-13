@@ -188,6 +188,10 @@ pub fn ensure_default_manifest_finder() {
     if !f.iter().any(|x| x.language_name() == "java") {
         f.push(Box::new(vlz_java::JavaManifestFinder::new()));
     }
+    #[cfg(feature = "ruby")]
+    if !f.iter().any(|x| x.language_name() == "ruby") {
+        f.push(Box::new(vlz_ruby::RubyManifestFinder::new()));
+    }
 }
 
 /// Ensures language parsers are registered (when language features enabled).
@@ -214,6 +218,10 @@ pub fn ensure_default_parser() {
     if !p.iter().any(|x| x.language_name() == "java") {
         p.push(Box::new(vlz_java::JavaManifestParser::new()));
     }
+    #[cfg(feature = "ruby")]
+    if !p.iter().any(|x| x.language_name() == "ruby") {
+        p.push(Box::new(vlz_ruby::RubyManifestParser::new()));
+    }
 }
 
 /// Ensures language resolvers are registered (when language features enabled).
@@ -239,6 +247,10 @@ pub fn ensure_default_resolver() {
     if !r.iter().any(|x| x.language_name() == "java") {
         r.push(Box::new(vlz_java::JavaResolver::new()));
     }
+    #[cfg(feature = "ruby")]
+    if !r.iter().any(|x| x.language_name() == "ruby") {
+        r.push(Box::new(vlz_ruby::RubyResolver::new()));
+    }
 }
 
 /// Ensures language-specific Tier B reachability analyzers are registered.
@@ -263,6 +275,10 @@ pub fn ensure_default_reachability_analyzer() {
     #[cfg(feature = "java")]
     if !analyzers.iter().any(|x| x.language_name() == "java") {
         analyzers.push(Box::new(vlz_java::JavaTierBAnalyzer::new()));
+    }
+    #[cfg(feature = "ruby")]
+    if !analyzers.iter().any(|x| x.language_name() == "ruby") {
+        analyzers.push(Box::new(vlz_ruby::RubyTierBAnalyzer::new()));
     }
 }
 
@@ -560,7 +576,8 @@ mod tests {
             feature = "rust",
             feature = "go",
             feature = "javascript",
-            feature = "java"
+            feature = "java",
+            feature = "ruby"
         ))]
         {
             let expected: usize = [
@@ -569,6 +586,7 @@ mod tests {
                 cfg!(feature = "go"),
                 cfg!(feature = "javascript"),
                 cfg!(feature = "java"),
+                cfg!(feature = "ruby"),
             ]
             .into_iter()
             .filter(|b| *b)

@@ -280,7 +280,9 @@ adjacent lock or allow_direct_only_fallback is set; requirements.txt may still
 use safe pip lock -r when pip >= 25.1. Lock-less package.json does not invoke
 npm/yarn/pnpm/bun unless this flag is set (ephemeral directory resolution).
 Lock-less Java Maven/Gradle manifests do not invoke mvn/gradle/gradlew unless
-this flag is set
+this flag is set. Lock-less Ruby Gemfile/gems.rb/*.gemspec do not invoke
+bundle unless this flag is set (ephemeral bundle lock; Gemfile evaluation is
+project code)
 """
 type = "boolean"
 env = "VLZ_ALLOW_DEPENDENCY_CODE_EXECUTION"
@@ -293,8 +295,9 @@ When transitive resolution is required but cannot be satisfied, fall back to
 direct-only scanning with an FR-022a warning instead of exit 4. Applies to all
 Python project manifests (requirements.txt, pyproject.toml, Pipfile, setup.cfg,
 setup.py), Rust Cargo.toml without Cargo.lock, Go go.mod,
-JavaScript/TypeScript package.json without a usable lock, and Java Maven/Gradle
-manifests without a usable gradle.lockfile (FR-022, FR-022a;
+JavaScript/TypeScript package.json without a usable lock, Java Maven/Gradle
+manifests without a usable gradle.lockfile, and Ruby Gemfile/gems.rb/*.gemspec
+without a usable Gemfile.lock/gems.locked (FR-022, FR-022a;
 default false)
 """
 type = "boolean"

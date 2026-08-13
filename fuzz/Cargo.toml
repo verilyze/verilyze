@@ -20,6 +20,7 @@ vlz-rust = { path = "../crates/languages/vlz-rust" }
 vlz-go = { path = "../crates/languages/vlz-go" }
 vlz-javascript = { path = "../crates/languages/vlz-javascript" }
 vlz-java = { path = "../crates/languages/vlz-java" }
+vlz-ruby = { path = "../crates/languages/vlz-ruby" }
 
 # Independent workspace so root cargo / clippy / deny do not build these.
 [workspace]
@@ -175,6 +176,27 @@ bench = false
 [[bin]]
 name = "fuzz_version_catalog"
 path = "fuzz_targets/fuzz_version_catalog.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_gemfile"
+path = "fuzz_targets/fuzz_gemfile.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_gemfile_lock"
+path = "fuzz_targets/fuzz_gemfile_lock.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_gemspec"
+path = "fuzz_targets/fuzz_gemspec.rs"
 test = false
 doc = false
 bench = false

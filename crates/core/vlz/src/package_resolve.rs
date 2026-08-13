@@ -112,6 +112,13 @@ fn discover_manifests_one_pass(
                     .push(entry.path());
                 continue;
             }
+            #[cfg(feature = "ruby")]
+            if vlz_ruby::is_ruby_manifest_name(name) {
+                out.entry("ruby".to_string())
+                    .or_default()
+                    .push(entry.path());
+                continue;
+            }
             #[cfg(feature = "java")]
             {
                 if vlz_java::JAVA_MANIFEST_NAMES.contains(&name) {
@@ -648,6 +655,7 @@ pub async fn resolve_packages_for_path(
             && first_lang != Some("go")
             && first_lang != Some("javascript")
             && first_lang != Some("java")
+            && first_lang != Some("ruby")
         {
             match vlz_python::PythonManifestFinder::with_patterns(
                 patterns.clone(),
@@ -669,7 +677,8 @@ pub async fn resolve_packages_for_path(
             || (finders.is_empty()
                 && first_lang != Some("go")
                 && first_lang != Some("javascript")
-                && first_lang != Some("java"))
+                && first_lang != Some("java")
+                && first_lang != Some("ruby"))
         {
             match vlz_rust::RustManifestFinder::with_patterns(patterns.clone())
             {
@@ -687,7 +696,8 @@ pub async fn resolve_packages_for_path(
         if first_lang == Some("go")
             || (finders.is_empty()
                 && first_lang != Some("javascript")
-                && first_lang != Some("java"))
+                && first_lang != Some("java")
+                && first_lang != Some("ruby"))
         {
             match vlz_go::GoManifestFinder::with_patterns(patterns.clone()) {
                 Ok(f) => finders.push(Box::new(f)),
@@ -702,7 +712,9 @@ pub async fn resolve_packages_for_path(
         }
         #[cfg(feature = "javascript")]
         if first_lang == Some("javascript")
-            || (finders.is_empty() && first_lang != Some("java"))
+            || (finders.is_empty()
+                && first_lang != Some("java")
+                && first_lang != Some("ruby"))
         {
             match vlz_javascript::JsManifestFinder::with_patterns(
                 patterns.clone(),
@@ -718,8 +730,24 @@ pub async fn resolve_packages_for_path(
             }
         }
         #[cfg(feature = "java")]
-        if first_lang == Some("java") || finders.is_empty() {
-            match vlz_java::JavaManifestFinder::with_patterns(patterns) {
+        if first_lang == Some("java")
+            || (finders.is_empty() && first_lang != Some("ruby"))
+        {
+            match vlz_java::JavaManifestFinder::with_patterns(patterns.clone())
+            {
+                Ok(f) => finders.push(Box::new(f)),
+                Err(e) => {
+                    error!("Invalid language regex in config: {}", e);
+                    return Err(anyhow!(
+                        "Invalid language regex in config: {}",
+                        e
+                    ));
+                }
+            }
+        }
+        #[cfg(feature = "ruby")]
+        if first_lang == Some("ruby") || finders.is_empty() {
+            match vlz_ruby::RubyManifestFinder::with_patterns(patterns) {
                 Ok(f) => finders.push(Box::new(f)),
                 Err(e) => {
                     error!("Invalid language regex in config: {}", e);
@@ -735,11 +763,12 @@ pub async fn resolve_packages_for_path(
             feature = "rust",
             feature = "go",
             feature = "javascript",
-            feature = "java"
+            feature = "java",
+            feature = "ruby"
         )))]
         {
             error!(
-                "Custom language regexes require a language plugin (e.g. python, rust, go, javascript, or java feature)"
+                "Custom language regexes require a language plugin (e.g. python, rust, go, javascript, java, or ruby feature)"
             );
             return Err(anyhow!(
                 "Custom language regexes require a language plugin"
@@ -841,7 +870,7 @@ pub(crate) async fn resolve_packages_with_plugins(
         && finders.iter().take(n).all(|finder| {
             matches!(
                 finder.language_name(),
-                "python" | "rust" | "go" | "javascript" | "java"
+                "python" | "rust" | "go" | "javascript" | "java" | "ruby"
             )
         });
 

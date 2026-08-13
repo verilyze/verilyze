@@ -19,7 +19,7 @@
 # Comma-separated directory names to skip during manifest discovery (default:
 # .git, .venv, venv, node_modules, target, __pycache__, .tox, .eggs, dist,
 # build, site-packages)
-# scan_exclude_dirs = .git,.venv,venv,node_modules,target,__pycache__,.tox,.eggs,dist,build,site-packages
+# scan_exclude_dirs = .git,.venv,venv,node_modules,target,__pycache__,.tox,.eggs,dist,build,site-packages,vendor,.bundle
 
 # Reachability mode for scan output: off, tier-b, or best-available (default:
 # tier-b)
@@ -73,16 +73,19 @@
 # still use safe pip lock -r when pip >= 25.1. Lock-less package.json does not
 # invoke npm/yarn/pnpm/bun unless this flag is set (ephemeral directory
 # resolution). Lock-less Java Maven/Gradle manifests do not invoke
-# mvn/gradle/gradlew unless this flag is set
+# mvn/gradle/gradlew unless this flag is set. Lock-less Ruby
+# Gemfile/gems.rb/*.gemspec do not invoke bundle unless this flag is set
+# (ephemeral bundle lock; Gemfile evaluation is project code)
 # allow_dependency_code_execution = false
 
 # When transitive resolution is required but cannot be satisfied, fall back to
 # direct-only scanning with an FR-022a warning instead of exit 4. Applies to
 # all Python project manifests (requirements.txt, pyproject.toml, Pipfile,
 # setup.cfg, setup.py), Rust Cargo.toml without Cargo.lock, Go go.mod,
-# JavaScript/TypeScript package.json without a usable lock, and Java
-# Maven/Gradle manifests without a usable gradle.lockfile (FR-022, FR-022a;
-# default false)
+# JavaScript/TypeScript package.json without a usable lock, Java Maven/Gradle
+# manifests without a usable gradle.lockfile, and Ruby
+# Gemfile/gems.rb/*.gemspec without a usable Gemfile.lock/gems.locked (FR-022,
+# FR-022a; default false)
 # allow_direct_only_fallback = false
 
 # Stop manifest processing on the first blocking parse or resolution failure

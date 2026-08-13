@@ -2242,6 +2242,13 @@
       "version": "0.8.0"
     },
     {
+      "bom-ref": "pkg:cargo/vlz-ruby@0.8.0",
+      "name": "vlz-ruby",
+      "purl": "pkg:cargo/vlz-ruby@0.8.0",
+      "type": "library",
+      "version": "0.8.0"
+    },
+    {
       "bom-ref": "pkg:cargo/vlz-rust@0.8.0",
       "name": "vlz-rust",
       "purl": "pkg:cargo/vlz-rust@0.8.0",

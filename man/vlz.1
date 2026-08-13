@@ -23,7 +23,8 @@
 is a fast, modular Software Composition Analysis (SCA) tool for dependency
 vulnerabilities. It scans a directory tree for manifest files (e.g. Python
 requirements.txt, pyproject.toml, Pipfile, setup.cfg, setup.py; Rust Cargo.toml;
-Go go.mod; JavaScript/TypeScript package.json), parses dependencies,
+Go go.mod; JavaScript/TypeScript package.json; Java/Kotlin pom.xml and Gradle;
+Ruby Gemfile/gems.rb/*.gemspec), parses dependencies,
 resolves transitive versions via lock files or package managers, queries CVE
 providers (default: OSV.dev), and reports vulnerabilities.
 .Pp
@@ -122,13 +123,28 @@ without a usable adjacent or parent lock
 .Pa yarn.lock ,
 .Pa pnpm-lock.yaml ,
 .Pa bun.lock
-when package-manager execution is disabled.
+when package-manager execution is disabled, and Ruby
+.Pa Gemfile
+/
+.Pa gems.rb
+/
+.Pa *.gemspec
+without a usable
+.Pa Gemfile.lock
+/
+.Pa gems.locked
+when Bundler execution is disabled.
 Without an adjacent lock (PEP 751
 .Pa pylock.toml
 /
 .Pa pylock.<name>.toml
 preferred for Python; npm/Yarn/pnpm/Bun locks for
-.Nm javascript ),
+.Nm javascript ;
+.Pa Gemfile.lock
+/
+.Pa gems.locked
+for
+.Nm ruby ),
 lock-less projects exit 4 unless this flag,
 .Fl -allow-dependency-code-execution ,
 or

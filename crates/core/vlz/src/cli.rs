@@ -211,9 +211,10 @@ pub enum Commands {
         /// Fall back to direct-only scan with warning when transitive resolution fails (FR-022a).
         /// Applies to all Python project manifests (requirements.txt, pyproject.toml,
         /// Pipfile, setup.cfg, setup.py), Rust Cargo.toml without Cargo.lock,
-        /// Go go.mod when go list or cargo metadata cannot run, and JavaScript/TypeScript
+        /// Go go.mod when go list or cargo metadata cannot run, JavaScript/TypeScript
         /// package.json without a usable adjacent or parent lock when package-manager
-        /// execution is disabled.
+        /// execution is disabled, and Ruby Gemfile/gems.rb/*.gemspec without a usable
+        /// Gemfile.lock/gems.locked when Bundler execution is disabled.
         #[arg(long, help_heading = HELP_RESOLUTION)]
         allow_direct_only_fallback: bool,
 
@@ -408,9 +409,10 @@ pub enum Commands {
         /// Fall back to direct-only resolution with warning when transitive resolution fails (FR-022a).
         /// Applies to all Python project manifests (requirements.txt, pyproject.toml,
         /// Pipfile, setup.cfg, setup.py), Rust Cargo.toml without Cargo.lock,
-        /// Go go.mod when go list or cargo metadata cannot run, and JavaScript/TypeScript
+        /// Go go.mod when go list or cargo metadata cannot run, JavaScript/TypeScript
         /// package.json without a usable adjacent or parent lock when package-manager
-        /// execution is disabled.
+        /// execution is disabled, and Ruby Gemfile/gems.rb/*.gemspec without a usable
+        /// Gemfile.lock/gems.locked when Bundler execution is disabled.
         #[arg(long, help_heading = HELP_RESOLUTION)]
         allow_direct_only_fallback: bool,
 

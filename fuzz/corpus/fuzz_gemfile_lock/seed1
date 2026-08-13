@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+PATH
+  remote: ../local-gem
+  specs:
+    local-gem (1.0.0)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    rack (2.2.8)
+    rails (7.0.4)
+      rack (>= 2.2)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  local-gem!
+  rails (~> 7.0)
+
+BUNDLED WITH
+   2.4.10
