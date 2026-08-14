@@ -82,6 +82,21 @@ def test_check_fast_includes_fuzz_target_parity() -> None:
     )
 
 
+def test_check_includes_benchmark_gate() -> None:
+    text = (repo_root() / "Makefile").read_text(encoding="utf-8")
+    block = _extract_prerequisite_block(text, "check-parallel")
+    tokens = block.replace("\\", " ").split()
+    assert "benchmark-gate" in tokens, (
+        "make check must depend on benchmark-gate (NFR-001); "
+        "language plugins have missed the nightly-only ceiling"
+    )
+    fast = _extract_prerequisite_block(text, "check-fast-parallel")
+    fast_tokens = fast.replace("\\", " ").split()
+    assert "benchmark-gate" not in fast_tokens, (
+        "check-fast must not run benchmark-gate (needs a release build)"
+    )
+
+
 def test_check_includes_fuzz_target_parity() -> None:
     text = (repo_root() / "Makefile").read_text(encoding="utf-8")
     block = _extract_prerequisite_block(text, "check-parallel")

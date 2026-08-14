@@ -69,11 +69,7 @@ impl GoResolver {
 
 /// Returns true if go appears to be on PATH (FR-024).
 pub fn go_package_manager_available() -> bool {
-    std::process::Command::new("go")
-        .arg("version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+    vlz_manifest_parser::package_manager_command_ok("go", &["version"])
 }
 
 /// OS-specific hint when go is missing (FR-024).

@@ -128,11 +128,7 @@ impl JsResolver {
 /// True when npm appears on PATH (default PM for FR-024).
 pub fn js_package_manager_available() -> bool {
     ["npm", "yarn", "pnpm", "bun"].iter().any(|bin| {
-        std::process::Command::new(bin)
-            .arg("--version")
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
+        vlz_manifest_parser::package_manager_command_ok(bin, &["--version"])
     })
 }
 

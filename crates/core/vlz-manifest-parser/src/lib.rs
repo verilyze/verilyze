@@ -10,6 +10,9 @@ mod line_scan;
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
+use std::thread;
+use std::time::{Duration, Instant};
 
 pub use declarations::{
     CachedResolution, ParsedDependency, build_package_declarations,
@@ -320,9 +323,93 @@ pub trait Resolver: Send + Sync {
     fn language_name(&self) -> &'static str;
 }
 
+/// Max wait for `pm --version` PATH probes (FR-024). Hung binaries must not
+/// stall scans or the NFR-001 benchmark gate. JVM tools (`mvn --version`,
+/// `gradle --version`) commonly take several seconds on a cold start, so
+/// this is well above 1.5s.
+pub const PACKAGE_MANAGER_PROBE_TIMEOUT: Duration = Duration::from_secs(15);
+
+/// Run `bin args` and return whether it exited 0 within
+/// [`PACKAGE_MANAGER_PROBE_TIMEOUT`].
+pub fn package_manager_command_ok(bin: &str, args: &[&str]) -> bool {
+    package_manager_command_ok_timed(bin, args, PACKAGE_MANAGER_PROBE_TIMEOUT)
+}
+
+/// Like [`package_manager_command_ok`] with an explicit timeout.
+pub fn package_manager_command_ok_timed(
+    bin: &str,
+    args: &[&str],
+    timeout: Duration,
+) -> bool {
+    let mut child = match Command::new(bin)
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(_) => return false,
+    };
+    let deadline = Instant::now() + timeout;
+    let finished_ok = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break Some(status.success()),
+            Ok(None) => {
+                if Instant::now() >= deadline {
+                    break None;
+                }
+                thread::sleep(Duration::from_millis(20));
+            }
+            Err(_) => break None,
+        }
+    };
+    match finished_ok {
+        Some(ok) => ok,
+        None => {
+            let _ = child.kill();
+            let _ = child.wait();
+            false
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn package_manager_probe_timeout_covers_cold_jvm_version() {
+        assert!(
+            PACKAGE_MANAGER_PROBE_TIMEOUT >= Duration::from_secs(15),
+            "gradle/mvn --version often exceeds 1.5s on a cold JVM"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn package_manager_command_ok_times_out_on_slow_binary() {
+        use std::os::unix::fs::PermissionsExt;
+        use std::time::{Duration, Instant};
+
+        let path = std::env::temp_dir()
+            .join(format!("vlz-pm-probe-{}.sh", std::process::id()));
+        std::fs::write(&path, "#!/bin/sh\nexec sleep 30\n").unwrap();
+        std::fs::set_permissions(&path, PermissionsExt::from_mode(0o755))
+            .unwrap();
+        let start = Instant::now();
+        let ok = package_manager_command_ok_timed(
+            path.to_str().expect("utf-8 path"),
+            &[],
+            Duration::from_millis(200),
+        );
+        let _ = std::fs::remove_file(&path);
+        assert!(!ok);
+        assert!(
+            start.elapsed() < Duration::from_secs(2),
+            "probe must kill a hung binary"
+        );
+    }
 
     #[test]
     fn skip_package_manager_reason_offline() {

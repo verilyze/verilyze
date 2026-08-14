@@ -646,6 +646,7 @@ check-parallel: check-doc-diagrams \
        check-third-party-licenses \
        check-sbom \
        check-report-schema \
+       benchmark-gate \
        cargo-check \
        fmt-check \
        clippy \

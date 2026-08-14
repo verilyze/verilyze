@@ -66,11 +66,7 @@ fn parse_lock_path(path: &Path) -> Result<CachedResolution, ResolverError> {
 }
 
 pub fn ruby_package_manager_available() -> bool {
-    std::process::Command::new("bundle")
-        .arg("--version")
-        .output()
-        .map(|output| output.status.success())
-        .unwrap_or(false)
+    vlz_manifest_parser::package_manager_command_ok("bundle", &["--version"])
 }
 
 pub fn ruby_package_manager_hint() -> &'static str {

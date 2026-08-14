@@ -37,7 +37,7 @@ export XDG_CACHE_HOME="${_xdg}"
 export XDG_DATA_HOME="${_xdg}"
 export XDG_CONFIG_HOME="${_xdg}"
 
-_stdout="$("${VLZ_BIN}" scan "${_fixture}" --offline --benchmark 2>/dev/null || true)"
+_stdout="$("${VLZ_BIN}" scan "${_fixture}" --offline --benchmark)"
 
 export BENCHMARK_STDOUT="${_stdout}"
 _duration="$(
