@@ -60,8 +60,15 @@ def touches_pyproject_manifest(paths: list[str]) -> bool:
     return PYPROJECT_MANIFEST in paths
 
 
+TARGET_FMT_CLIPPY = "make fmt-check clippy"
+TARGET_CARGO_TEST = "make cargo-test"
+# Follow-up emitted when production .rs files change (ci-validation.mdc).
+RUST_SCOPED_TARGETS = (TARGET_FMT_CLIPPY, TARGET_CARGO_TEST)
+
 SESSION_EDIT_PATHS_REL = ".cursor/.agent-edited-paths"
 TURN_EDIT_PATHS_REL = ".cursor/.agent-turn-paths"
+SHELL_HISTORY_BASELINE_REL = ".cursor/.agent-shell-baseline"
+HOOK_REPO_ROOT_ENV = "VLZ_CURSOR_HOOK_REPO_ROOT"
 
 
 def hooks_disabled() -> bool:
@@ -165,7 +172,7 @@ def classify_changed_paths(paths: list[str]) -> list[str]:
     normalized = normalize_repo_paths(paths)
 
     if any(is_production_rust_path(p) for p in normalized):
-        targets.extend(["make fmt-check clippy", "make cargo-test"])
+        targets.extend(RUST_SCOPED_TARGETS)
     if any(PYTHON_SCRIPT_RE.search(p) for p in normalized):
         targets.append("make lint-python test-scripts")
     if any(SHELL_SCRIPT_RE.search(p) for p in normalized):
@@ -216,15 +223,49 @@ def needs_super_linter(paths: list[str]) -> bool:
     return any(SUPER_LINTER_PATH_RE.search(p) for p in normalized)
 
 
+def _state_file(
+    repo_root: Path,
+    relative: str,
+    *,
+    paths_file: Path | None = None,
+) -> Path:
+    if paths_file is not None:
+        return paths_file
+    return repo_root / relative
+
+
+def _read_path_list(path: Path) -> list[str]:
+    if not path.is_file():
+        return []
+    lines = path.read_text(encoding="utf-8").splitlines()
+    return normalize_repo_paths([line for line in lines if line.strip()])
+
+
+def _write_path_list(path: Path, paths: list[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    normalized = normalize_repo_paths(paths)
+    if normalized:
+        path.write_text("\n".join(normalized) + "\n", encoding="utf-8")
+    elif path.is_file():
+        path.unlink()
+
+
+def _append_path_list(path: Path, paths: list[str]) -> None:
+    merged = list(
+        dict.fromkeys([*_read_path_list(path), *normalize_repo_paths(paths)])
+    )
+    _write_path_list(path, merged)
+
+
 def session_edit_paths_file(
     repo_root: Path,
     *,
     paths_file: Path | None = None,
 ) -> Path:
     """Return the pending validation tracking file path."""
-    if paths_file is not None:
-        return paths_file
-    return repo_root / SESSION_EDIT_PATHS_REL
+    return _state_file(
+        repo_root, SESSION_EDIT_PATHS_REL, paths_file=paths_file
+    )
 
 
 def turn_edit_paths_file(
@@ -233,9 +274,7 @@ def turn_edit_paths_file(
     paths_file: Path | None = None,
 ) -> Path:
     """Return the per-turn edit tracking file path."""
-    if paths_file is not None:
-        return paths_file
-    return repo_root / TURN_EDIT_PATHS_REL
+    return _state_file(repo_root, TURN_EDIT_PATHS_REL, paths_file=paths_file)
 
 
 def read_session_edit_paths(
@@ -244,11 +283,9 @@ def read_session_edit_paths(
     paths_file: Path | None = None,
 ) -> list[str]:
     """Read normalized paths pending validation since last successful check."""
-    path = session_edit_paths_file(repo_root, paths_file=paths_file)
-    if not path.is_file():
-        return []
-    lines = path.read_text(encoding="utf-8").splitlines()
-    return normalize_repo_paths([line for line in lines if line.strip()])
+    return _read_path_list(
+        session_edit_paths_file(repo_root, paths_file=paths_file)
+    )
 
 
 def read_turn_edit_paths(
@@ -257,11 +294,9 @@ def read_turn_edit_paths(
     paths_file: Path | None = None,
 ) -> list[str]:
     """Read normalized paths edited by the agent in the current turn."""
-    path = turn_edit_paths_file(repo_root, paths_file=paths_file)
-    if not path.is_file():
-        return []
-    lines = path.read_text(encoding="utf-8").splitlines()
-    return normalize_repo_paths([line for line in lines if line.strip()])
+    return _read_path_list(
+        turn_edit_paths_file(repo_root, paths_file=paths_file)
+    )
 
 
 def write_session_edit_paths(
@@ -271,13 +306,9 @@ def write_session_edit_paths(
     paths_file: Path | None = None,
 ) -> None:
     """Replace pending validation paths."""
-    path = session_edit_paths_file(repo_root, paths_file=paths_file)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    normalized = normalize_repo_paths(paths)
-    if normalized:
-        path.write_text("\n".join(normalized) + "\n", encoding="utf-8")
-    elif path.is_file():
-        path.unlink()
+    _write_path_list(
+        session_edit_paths_file(repo_root, paths_file=paths_file), paths
+    )
 
 
 def write_turn_edit_paths(
@@ -287,13 +318,9 @@ def write_turn_edit_paths(
     paths_file: Path | None = None,
 ) -> None:
     """Replace per-turn edit paths."""
-    path = turn_edit_paths_file(repo_root, paths_file=paths_file)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    normalized = normalize_repo_paths(paths)
-    if normalized:
-        path.write_text("\n".join(normalized) + "\n", encoding="utf-8")
-    elif path.is_file():
-        path.unlink()
+    _write_path_list(
+        turn_edit_paths_file(repo_root, paths_file=paths_file), paths
+    )
 
 
 def clear_session_edit_paths(
@@ -321,9 +348,9 @@ def append_session_edit_paths(
     paths_file: Path | None = None,
 ) -> None:
     """Append unique normalized paths to the pending validation list."""
-    existing = read_session_edit_paths(repo_root, paths_file=paths_file)
-    merged = list(dict.fromkeys([*existing, *normalize_repo_paths(paths)]))
-    write_session_edit_paths(repo_root, merged, paths_file=paths_file)
+    _append_path_list(
+        session_edit_paths_file(repo_root, paths_file=paths_file), paths
+    )
 
 
 def append_turn_edit_paths(
@@ -333,9 +360,9 @@ def append_turn_edit_paths(
     paths_file: Path | None = None,
 ) -> None:
     """Append unique normalized paths to the current turn edit list."""
-    existing = read_turn_edit_paths(repo_root, paths_file=paths_file)
-    merged = list(dict.fromkeys([*existing, *normalize_repo_paths(paths)]))
-    write_turn_edit_paths(repo_root, merged, paths_file=paths_file)
+    _append_path_list(
+        turn_edit_paths_file(repo_root, paths_file=paths_file), paths
+    )
 
 
 def append_agent_edit_paths(
@@ -359,10 +386,85 @@ def clear_agent_edit_paths(
     *,
     paths_file: Path | None = None,
     turn_paths_file: Path | None = None,
+    baseline_file: Path | None = None,
 ) -> None:
-    """Clear both pending validation and current turn tracking."""
+    """Clear pending validation, current turn tracking, and shell baseline."""
     clear_session_edit_paths(repo_root, paths_file=paths_file)
     clear_turn_edit_paths(repo_root, paths_file=turn_paths_file)
+    clear_shell_history_baseline(repo_root, baseline_file=baseline_file)
+
+
+def shell_history_baseline_file(
+    repo_root: Path,
+    *,
+    baseline_file: Path | None = None,
+) -> Path:
+    """Return the per-prompt shell-history baseline file path."""
+    return _state_file(
+        repo_root, SHELL_HISTORY_BASELINE_REL, paths_file=baseline_file
+    )
+
+
+def read_shell_history_baseline(
+    repo_root: Path,
+    *,
+    baseline_file: Path | None = None,
+) -> int | None:
+    """Return command-count snapshot from the last user prompt, if present."""
+    path = shell_history_baseline_file(repo_root, baseline_file=baseline_file)
+    if not path.is_file():
+        return None
+    raw = path.read_text(encoding="utf-8").strip()
+    if not raw.isdigit():
+        return None
+    return int(raw)
+
+
+def write_shell_history_baseline(
+    repo_root: Path,
+    count: int,
+    *,
+    baseline_file: Path | None = None,
+) -> None:
+    """Record how many shell commands existed at the start of this prompt."""
+    path = shell_history_baseline_file(repo_root, baseline_file=baseline_file)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"{count}\n", encoding="utf-8")
+
+
+def clear_shell_history_baseline(
+    repo_root: Path,
+    *,
+    baseline_file: Path | None = None,
+) -> None:
+    """Remove the shell-history baseline snapshot."""
+    path = shell_history_baseline_file(repo_root, baseline_file=baseline_file)
+    if path.is_file():
+        path.unlink()
+
+
+def snapshot_shell_history_baseline(
+    hook_input: dict,
+    repo_root: Path,
+    *,
+    baseline_file: Path | None = None,
+) -> None:
+    """Snapshot last_shell_commands length at prompt submit.
+
+    Clear the snapshot when the hook payload has no command list.
+    """
+    conversation = hook_input.get("conversation")
+    history = (
+        conversation.get("last_shell_commands")
+        if isinstance(conversation, dict)
+        else None
+    )
+    if not isinstance(history, list):
+        clear_shell_history_baseline(repo_root, baseline_file=baseline_file)
+        return
+    write_shell_history_baseline(
+        repo_root, len(history), baseline_file=baseline_file
+    )
 
 
 def stop_status_aborted(hook_input: dict) -> bool:
@@ -382,17 +484,119 @@ def build_followup_message(
     return f"Run: {'; '.join(targets)}."
 
 
+# Recorded `make <args>` that imply scoped stop-hook targets.
+# Keep in sync with Makefile: check-fast runs fmt-check+clippy
+# (not cargo-test); check-pr / check include coverage
+# (treated as cargo-test here).
+_MAKE_ARGS_IMPLY: dict[str, tuple[str, ...]] = {
+    TARGET_FMT_CLIPPY.removeprefix("make "): (TARGET_FMT_CLIPPY,),
+    "check-fast": (TARGET_FMT_CLIPPY,),
+    "check-pr": RUST_SCOPED_TARGETS,
+    "check": RUST_SCOPED_TARGETS,
+    TARGET_CARGO_TEST.removeprefix("make "): (TARGET_CARGO_TEST,),
+    "unit-tests": (TARGET_CARGO_TEST,),
+    "coverage-quick": (TARGET_CARGO_TEST,),
+    "coverage-quick-rust": (TARGET_CARGO_TEST,),
+}
+
+_SHELL_EXPORT = "export"
+_MAKE_END_OF_OPTIONS = "--"
+_ENV_ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+
+
+def _strip_env_prefixes(command: str) -> str:
+    """Remove leading VAR=value and export VAR=value tokens."""
+    parts = command.split()
+    index = 0
+    while index < len(parts):
+        token = parts[index]
+        if token == _SHELL_EXPORT and index + 1 < len(parts):
+            nxt = parts[index + 1]
+            if _ENV_ASSIGNMENT_RE.match(nxt):
+                index += 2
+                continue
+        if _ENV_ASSIGNMENT_RE.match(token):
+            index += 1
+            continue
+        break
+    return " ".join(parts[index:])
+
+
+_MAKE_FLAGS_WITH_ARG = {
+    "-C",
+    "--directory",
+    "-f",
+    "--file",
+    "-I",
+    "--include-dir",
+    "-O",
+    "--output-sync",
+}
+
+
+def _make_recipe_args(stripped: str) -> str | None:
+    """Return make target args after skipping GNU Make flags, or None."""
+    tokens = stripped.split()
+    if not tokens or tokens[0] != "make":
+        return None
+    index = 1
+    while index < len(tokens):
+        token = tokens[index]
+        if token == _MAKE_END_OF_OPTIONS:
+            index += 1
+            break
+        if not token.startswith("-"):
+            break
+        if "=" in token:
+            index += 1
+            continue
+        if token in _MAKE_FLAGS_WITH_ARG:
+            index += 2
+            continue
+        if token in {"-j", "--jobs"} and index + 1 < len(tokens):
+            nxt = tokens[index + 1]
+            if nxt[:1].isdigit():
+                index += 2
+                continue
+        index += 1
+    if index >= len(tokens):
+        return None
+    return " ".join(tokens[index:])
+
+
+def _targets_implied_by_segment(segment: str) -> set[str]:
+    """Return scoped make targets implied by one shell segment."""
+    stripped = _strip_env_prefixes(segment.strip())
+    if not stripped:
+        return set()
+    implied: set[str] = set()
+    make_args = _make_recipe_args(stripped)
+    if make_args is None:
+        return implied
+    for recorded, targets in sorted(
+        _MAKE_ARGS_IMPLY.items(),
+        key=lambda item: len(item[0]),
+        reverse=True,
+    ):
+        if make_args == recorded or make_args.startswith(f"{recorded} "):
+            implied.update(targets)
+    return implied
+
+
 def _command_matches_target(command: str, target: str) -> bool:
-    stripped = command.strip()
-    return stripped == target or stripped.startswith(f"{target} ")
+    stripped = _strip_env_prefixes(command.strip())
+    if stripped == target or stripped.startswith(f"{target} "):
+        return True
+    return target in _targets_implied_by_segment(command)
 
 
 def _split_command_segments(command: str) -> list[str]:
     segments: list[str] = []
-    for part in re.split(r"[;&]|&&", command):
-        stripped = part.strip()
-        if stripped:
-            segments.append(stripped)
+    for line in command.splitlines():
+        for part in re.split(r"[;&]|&&", line):
+            stripped = part.strip()
+            if stripped:
+                segments.append(stripped)
     return segments
 
 
@@ -414,11 +618,17 @@ def _shell_history_pairs(
     return pairs
 
 
-def targets_satisfied_by_history(hook_input: dict, targets: list[str]) -> bool:
-    """True when every target succeeded in the shell command history."""
+def targets_satisfied_by_history(
+    hook_input: dict,
+    targets: list[str],
+    *,
+    pairs: list[tuple[str, dict | None]] | None = None,
+) -> bool:
+    """True when every target succeeded in the (optionally sliced) history."""
     if not targets:
         return False
-    pairs = _shell_history_pairs(hook_input)
+    if pairs is None:
+        pairs = _shell_history_pairs(hook_input)
     if pairs is None:
         return False
 
@@ -434,6 +644,26 @@ def targets_satisfied_by_history(hook_input: dict, targets: list[str]) -> bool:
                 ):
                     satisfied.add(target)
     return satisfied == set(targets)
+
+
+def _pairs_for_satisfaction(
+    hook_input: dict,
+    turn_paths: list[str],
+    baseline: int | None,
+) -> list[tuple[str, dict | None]] | None:
+    """Shell pairs that may credit checks for this prompt.
+
+    When a prompt-start baseline exists, ignore older commands. When this turn
+    edited files and the baseline is unknown, credit nothing (do not skip).
+    """
+    pairs = _shell_history_pairs(hook_input)
+    if pairs is None:
+        return None
+    if baseline is not None:
+        return pairs[baseline:]
+    if turn_paths:
+        return []
+    return pairs
 
 
 def last_target_command_failed(hook_input: dict, targets: list[str]) -> bool:
@@ -456,9 +686,14 @@ def last_target_command_failed(hook_input: dict, targets: list[str]) -> bool:
     return False
 
 
-def should_skip_followup(hook_input: dict, targets: list[str]) -> bool:
+def should_skip_followup(
+    hook_input: dict,
+    targets: list[str],
+    *,
+    pairs: list[tuple[str, dict | None]] | None = None,
+) -> bool:
     """Skip follow-up when all required targets succeeded in shell history."""
-    return targets_satisfied_by_history(hook_input, targets)
+    return targets_satisfied_by_history(hook_input, targets, pairs=pairs)
 
 
 def should_emit_followup(
@@ -466,13 +701,15 @@ def should_emit_followup(
     turn_paths: list[str],
     pending_paths: list[str],
     targets: list[str],
+    *,
+    pairs: list[tuple[str, dict | None]] | None = None,
 ) -> bool:
     """True when the stop hook should auto-submit a scoped check follow-up."""
     if stop_status_aborted(hook_input):
         return False
     if not targets:
         return False
-    if should_skip_followup(hook_input, targets):
+    if should_skip_followup(hook_input, targets, pairs=pairs):
         return False
     if turn_paths:
         return True
@@ -487,6 +724,7 @@ def resolve_stop_followup(
     *,
     paths_file: Path | None = None,
     turn_paths_file: Path | None = None,
+    baseline_file: Path | None = None,
 ) -> str | None:
     """Return follow-up text, or None when the stop hook should stay silent."""
     pending_paths = read_session_edit_paths(repo_root, paths_file=paths_file)
@@ -494,6 +732,10 @@ def resolve_stop_followup(
         repo_root,
         paths_file=turn_paths_file,
     )
+    baseline = read_shell_history_baseline(
+        repo_root, baseline_file=baseline_file
+    )
+    sat_pairs = _pairs_for_satisfaction(hook_input, turn_paths, baseline)
     try:
         if stop_status_aborted(hook_input):
             return None
@@ -503,6 +745,7 @@ def resolve_stop_followup(
             if pending_targets and targets_satisfied_by_history(
                 hook_input,
                 pending_targets,
+                pairs=sat_pairs,
             ):
                 clear_session_edit_paths(repo_root, paths_file=paths_file)
                 return None
@@ -525,8 +768,11 @@ def resolve_stop_followup(
             turn_paths,
             pending_paths,
             targets,
+            pairs=sat_pairs,
         ):
-            if targets_satisfied_by_history(hook_input, targets):
+            if targets_satisfied_by_history(
+                hook_input, targets, pairs=sat_pairs
+            ):
                 clear_session_edit_paths(repo_root, paths_file=paths_file)
             return None
 
@@ -547,4 +793,7 @@ def load_hook_json(raw: str) -> dict:
 
 def get_repo_root() -> Path:
     """Return repository root (parent of scripts/)."""
+    override = os.environ.get(HOOK_REPO_ROOT_ENV, "").strip()
+    if override:
+        return Path(override)
     return Path(__file__).resolve().parent.parent

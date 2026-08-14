@@ -6,6 +6,7 @@
 
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -18,9 +19,8 @@ from tests.scripts.repo_root import repo_root
 _ROOT = repo_root()
 _FIXTURES = Path(__file__).resolve().parent / "fixtures" / "cursor-hooks"
 _SCRIPT = _ROOT / "scripts" / "cursor_validation.py"
-_HOOK_INPUT = _ROOT / "scripts" / "lib" / "cursor-hook-input.sh"
 _RUST_FMT_HOOK = _ROOT / ".cursor" / "hooks" / "rust-fmt.sh"
-_STOP_HOOK = _ROOT / ".cursor" / "hooks" / "stop-check-followup.sh"
+_SESSION_TRACK = _ROOT / ".cursor" / "hooks" / "session-track-edits.sh"
 
 _spec = importlib.util.spec_from_file_location("cursor_validation", _SCRIPT)
 cursor_validation = importlib.util.module_from_spec(_spec)
@@ -29,6 +29,66 @@ _spec.loader.exec_module(cursor_validation)  # type: ignore[union-attr]
 
 def _fixture(name: str) -> dict:
     return json.loads((_FIXTURES / name).read_text(encoding="utf-8"))
+
+
+_RUST_PATH = "crates/core/vlz/src/lib.rs"
+_PY_PATH = "scripts/foo.py"
+
+
+def _ok_history(commands: list[str]) -> dict:
+    return {
+        "conversation": {
+            "last_shell_commands": commands,
+            "last_shell_command_results": [{"exit_code": 0} for _ in commands],
+        }
+    }
+
+
+def _stop_files(
+    tmp_path: Path,
+    *,
+    pending: list[str] | None = None,
+    turn: list[str] | None = None,
+    baseline: int | None = None,
+) -> tuple[Path, Path, Path]:
+    pending_file = tmp_path / "pending.txt"
+    turn_file = tmp_path / "turn.txt"
+    baseline_file = tmp_path / "baseline.txt"
+    if pending is not None:
+        cursor_validation.write_session_edit_paths(
+            tmp_path, pending, paths_file=pending_file
+        )
+    if turn is not None:
+        cursor_validation.write_turn_edit_paths(
+            tmp_path, turn, paths_file=turn_file
+        )
+    if baseline is not None:
+        cursor_validation.write_shell_history_baseline(
+            tmp_path, baseline, baseline_file=baseline_file
+        )
+    return pending_file, turn_file, baseline_file
+
+
+def _resolve_stop(
+    tmp_path: Path,
+    hook_input: dict,
+    pending_file: Path,
+    turn_file: Path,
+    baseline_file: Path | None = None,
+) -> str | None:
+    kwargs: dict = {
+        "paths_file": pending_file,
+        "turn_paths_file": turn_file,
+    }
+    if baseline_file is not None:
+        kwargs["baseline_file"] = baseline_file
+    return cursor_validation.resolve_stop_followup(hook_input, tmp_path, **kwargs)
+
+
+def _rust_followup() -> str:
+    return cursor_validation.build_followup_message(
+        list(cursor_validation.RUST_SCOPED_TARGETS)
+    )
 
 
 class TestParseEditedPaths:
@@ -109,11 +169,8 @@ class TestRustPaths:
 
 class TestClassifyChangedPaths:
     def test_rust_only(self) -> None:
-        targets = cursor_validation.classify_changed_paths(
-            ["crates/core/vlz/src/lib.rs"]
-        )
-        assert "make fmt-check clippy" in targets
-        assert "make cargo-test" in targets
+        targets = cursor_validation.classify_changed_paths([_RUST_PATH])
+        assert targets == list(cursor_validation.RUST_SCOPED_TARGETS)
 
     def test_python_scripts(self) -> None:
         targets = cursor_validation.classify_changed_paths(["scripts/foo.py"])
@@ -126,10 +183,10 @@ class TestClassifyChangedPaths:
         assert targets == ["make super-linter"]
 
     def test_workflow_and_rust(self) -> None:
-        paths = ["crates/core/vlz/src/lib.rs", ".github/workflows/ci.yml"]
+        paths = [_RUST_PATH, ".github/workflows/ci.yml"]
         targets = cursor_validation.classify_changed_paths(paths)
         assert "make super-linter" in targets
-        assert "make fmt-check clippy" in targets
+        assert cursor_validation.TARGET_FMT_CLIPPY in targets
 
     def test_packaging_env_triggers_super_linter(self) -> None:
         targets = cursor_validation.classify_changed_paths(
@@ -440,6 +497,109 @@ class TestTargetsSatisfiedByHistory:
             is False
         )
 
+    def test_prefixed_export_block_satisfies_rust_targets(self) -> None:
+        data = {
+            "conversation": {
+                "last_shell_commands": [
+                    "export CARGO_TARGET_DIR=\"$PWD/target\"\n"
+                    "make fmt-check clippy && make cargo-test"
+                ],
+                "last_shell_command_results": [{"exit_code": 0}],
+            }
+        }
+        targets = ["make fmt-check clippy", "make cargo-test"]
+        assert cursor_validation.targets_satisfied_by_history(data, targets) is True
+
+    def test_check_fast_does_not_satisfy_cargo_test(self) -> None:
+        data = {
+            "conversation": {
+                "last_shell_commands": ["make check-fast"],
+                "last_shell_command_results": [{"exit_code": 0}],
+            }
+        }
+        targets = ["make fmt-check clippy", "make cargo-test"]
+        assert cursor_validation.targets_satisfied_by_history(data, targets) is False
+        assert (
+            cursor_validation.targets_satisfied_by_history(
+                data, ["make fmt-check clippy"]
+            )
+            is True
+        )
+
+    def test_check_fast_and_coverage_quick_rust_satisfy_rust_targets(
+        self,
+    ) -> None:
+        data = {
+            "conversation": {
+                "last_shell_commands": [
+                    "make check-fast",
+                    "make coverage-quick-rust",
+                ],
+                "last_shell_command_results": [
+                    {"exit_code": 0},
+                    {"exit_code": 0},
+                ],
+            }
+        }
+        targets = ["make fmt-check clippy", "make cargo-test"]
+        assert cursor_validation.targets_satisfied_by_history(data, targets) is True
+
+    def test_check_pr_satisfies_fmt_clippy_and_cargo_test(self) -> None:
+        data = {
+            "conversation": {
+                "last_shell_commands": ["make check-pr"],
+                "last_shell_command_results": [{"exit_code": 0}],
+            }
+        }
+        targets = ["make fmt-check clippy", "make cargo-test"]
+        assert cursor_validation.targets_satisfied_by_history(data, targets) is True
+
+    def test_make_jobs_flag_satisfies_fmt_clippy(self) -> None:
+        data = {
+            "conversation": {
+                "last_shell_commands": ["make -j check-fast"],
+                "last_shell_command_results": [{"exit_code": 0}],
+            }
+        }
+        assert (
+            cursor_validation.targets_satisfied_by_history(
+                data, ["make fmt-check clippy"]
+            )
+            is True
+        )
+
+    def test_make_directory_flag_satisfies_cargo_test(self) -> None:
+        data = {
+            "conversation": {
+                "last_shell_commands": [
+                    "CARGO_TARGET_DIR=$PWD/target make -C /tmp cargo-test"
+                ],
+                "last_shell_command_results": [{"exit_code": 0}],
+            }
+        }
+        assert (
+            cursor_validation.targets_satisfied_by_history(
+                data, ["make cargo-test"]
+            )
+            is True
+        )
+
+    def test_export_and_make_on_one_line(self) -> None:
+        data = {
+            "conversation": {
+                "last_shell_commands": [
+                    "export CARGO_TARGET_DIR=$PWD/target make fmt-check clippy"
+                ],
+                "last_shell_command_results": [{"exit_code": 0}],
+            }
+        }
+        assert (
+            cursor_validation.targets_satisfied_by_history(
+                data, ["make fmt-check clippy"]
+            )
+            is True
+        )
+
 
 class TestLastTargetCommandFailed:
     def test_true_when_last_target_failed(self) -> None:
@@ -641,183 +801,219 @@ class TestFollowupMessage:
 
 class TestResolveStopFollowup:
     def test_returns_message_when_checks_needed(self, tmp_path: Path) -> None:
-        pending_file = tmp_path / "pending.txt"
-        turn_file = tmp_path / "turn.txt"
-        cursor_validation.write_session_edit_paths(
-            tmp_path,
-            ["scripts/foo.py"],
-            paths_file=pending_file,
+        pending_file, turn_file, _ = _stop_files(
+            tmp_path, pending=[_PY_PATH], turn=[_PY_PATH]
         )
-        cursor_validation.write_turn_edit_paths(
-            tmp_path,
-            ["scripts/foo.py"],
-            paths_file=turn_file,
-        )
-        msg = cursor_validation.resolve_stop_followup(
-            {},
-            tmp_path,
-            paths_file=pending_file,
-            turn_paths_file=turn_file,
-        )
+        msg = _resolve_stop(tmp_path, {}, pending_file, turn_file)
         assert msg == "Run: make lint-python test-scripts."
         assert cursor_validation.read_turn_edit_paths(
             tmp_path, paths_file=turn_file
         ) == []
 
     def test_returns_none_when_aborted(self, tmp_path: Path) -> None:
-        pending_file = tmp_path / "pending.txt"
-        turn_file = tmp_path / "turn.txt"
-        cursor_validation.write_session_edit_paths(
-            tmp_path,
-            ["scripts/foo.py"],
-            paths_file=pending_file,
-        )
-        cursor_validation.write_turn_edit_paths(
-            tmp_path,
-            ["scripts/foo.py"],
-            paths_file=turn_file,
+        pending_file, turn_file, _ = _stop_files(
+            tmp_path, pending=[_PY_PATH], turn=[_PY_PATH]
         )
         assert (
-            cursor_validation.resolve_stop_followup(
-                {"status": "aborted"},
-                tmp_path,
-                paths_file=pending_file,
-                turn_paths_file=turn_file,
+            _resolve_stop(
+                tmp_path, {"status": "aborted"}, pending_file, turn_file
             )
             is None
         )
 
     def test_stale_pending_without_turn_edits(self, tmp_path: Path) -> None:
-        pending_file = tmp_path / "pending.txt"
-        turn_file = tmp_path / "turn.txt"
-        cursor_validation.write_session_edit_paths(
-            tmp_path,
-            ["crates/core/vlz/src/lib.rs"],
-            paths_file=pending_file,
+        pending_file, turn_file, _ = _stop_files(
+            tmp_path, pending=[_RUST_PATH]
         )
-        assert (
-            cursor_validation.resolve_stop_followup(
-                {},
-                tmp_path,
-                paths_file=pending_file,
-                turn_paths_file=turn_file,
-            )
-            is None
-        )
+        assert _resolve_stop(tmp_path, {}, pending_file, turn_file) is None
 
     def test_rust_turn_paths_emit_scoped_targets(self, tmp_path: Path) -> None:
-        pending_file = tmp_path / "pending.txt"
-        turn_file = tmp_path / "turn.txt"
-        cursor_validation.write_turn_edit_paths(
-            tmp_path,
-            ["crates/core/vlz/src/lib.rs"],
-            paths_file=turn_file,
-        )
-        msg = cursor_validation.resolve_stop_followup(
-            {},
-            tmp_path,
-            paths_file=pending_file,
-            turn_paths_file=turn_file,
-        )
-        assert msg == "Run: make fmt-check clippy; make cargo-test."
+        pending_file, turn_file, _ = _stop_files(tmp_path, turn=[_RUST_PATH])
+        msg = _resolve_stop(tmp_path, {}, pending_file, turn_file)
+        assert msg == _rust_followup()
 
     def test_clears_pending_when_checks_succeeded(self, tmp_path: Path) -> None:
-        pending_file = tmp_path / "pending.txt"
-        turn_file = tmp_path / "turn.txt"
-        cursor_validation.write_session_edit_paths(
-            tmp_path,
-            ["crates/core/vlz/src/lib.rs"],
-            paths_file=pending_file,
+        pending_file, turn_file, _ = _stop_files(
+            tmp_path, pending=[_RUST_PATH]
         )
-        data = {
-            "conversation": {
-                "last_shell_commands": [
-                    "make fmt-check clippy",
-                    "make cargo-test",
-                ],
-                "last_shell_command_results": [
-                    {"exit_code": 0},
-                    {"exit_code": 0},
-                ],
-            }
-        }
-        assert (
-            cursor_validation.resolve_stop_followup(
-                data,
-                tmp_path,
-                paths_file=pending_file,
-                turn_paths_file=turn_file,
-            )
-            is None
+        data = _ok_history(
+            [
+                cursor_validation.TARGET_FMT_CLIPPY,
+                cursor_validation.TARGET_CARGO_TEST,
+            ]
         )
+        assert _resolve_stop(tmp_path, data, pending_file, turn_file) is None
         assert not pending_file.exists()
 
     def test_retries_when_last_check_failed(self, tmp_path: Path) -> None:
-        pending_file = tmp_path / "pending.txt"
-        turn_file = tmp_path / "turn.txt"
-        cursor_validation.write_session_edit_paths(
-            tmp_path,
-            ["crates/core/vlz/src/lib.rs"],
-            paths_file=pending_file,
+        pending_file, turn_file, _ = _stop_files(
+            tmp_path, pending=[_RUST_PATH]
         )
         data = {
             "conversation": {
-                "last_shell_commands": ["make cargo-test"],
+                "last_shell_commands": [cursor_validation.TARGET_CARGO_TEST],
                 "last_shell_command_results": [{"exit_code": 1}],
             }
         }
-        msg = cursor_validation.resolve_stop_followup(
-            data,
-            tmp_path,
-            paths_file=pending_file,
-            turn_paths_file=turn_file,
-        )
-        assert msg == "Run: make fmt-check clippy; make cargo-test."
+        msg = _resolve_stop(tmp_path, data, pending_file, turn_file)
+        assert msg == _rust_followup()
 
     def test_returns_none_for_unclassified_turn_paths(self, tmp_path: Path) -> None:
-        pending_file = tmp_path / "pending.txt"
-        turn_file = tmp_path / "turn.txt"
-        cursor_validation.write_turn_edit_paths(
-            tmp_path,
-            ["README.md"],
-            paths_file=turn_file,
-        )
-        assert (
-            cursor_validation.resolve_stop_followup(
-                {},
-                tmp_path,
-                paths_file=pending_file,
-                turn_paths_file=turn_file,
-            )
-            is None
-        )
+        pending_file, turn_file, _ = _stop_files(tmp_path, turn=["README.md"])
+        assert _resolve_stop(tmp_path, {}, pending_file, turn_file) is None
 
     def test_clears_pending_when_turn_checks_already_succeeded(
         self, tmp_path: Path
     ) -> None:
-        pending_file = tmp_path / "pending.txt"
-        turn_file = tmp_path / "turn.txt"
-        cursor_validation.write_session_edit_paths(
+        pending_file, turn_file, baseline_file = _stop_files(
             tmp_path,
-            ["crates/core/vlz/src/lib.rs"],
-            paths_file=pending_file,
+            pending=[_RUST_PATH],
+            turn=[_PY_PATH],
+            baseline=0,
         )
-        cursor_validation.write_turn_edit_paths(
-            tmp_path,
-            ["scripts/foo.py"],
-            paths_file=turn_file,
-        )
-        data = _fixture("stop_skip_followup.json")
         assert (
-            cursor_validation.resolve_stop_followup(
-                data,
+            _resolve_stop(
                 tmp_path,
-                paths_file=pending_file,
-                turn_paths_file=turn_file,
+                _fixture("stop_skip_followup.json"),
+                pending_file,
+                turn_file,
+                baseline_file,
             )
             is None
         )
         assert not pending_file.exists()
+
+    def test_clears_pending_after_prefixed_compound(
+        self, tmp_path: Path
+    ) -> None:
+        pending_file, turn_file, _ = _stop_files(
+            tmp_path, pending=[_RUST_PATH]
+        )
+        data = _ok_history(
+            [
+                "export CARGO_TARGET_DIR=\"$PWD/target\"\n"
+                f"{cursor_validation.TARGET_FMT_CLIPPY} && "
+                f"{cursor_validation.TARGET_CARGO_TEST}"
+            ]
+        )
+        assert _resolve_stop(tmp_path, data, pending_file, turn_file) is None
+        assert not pending_file.exists()
+
+    def test_silent_after_turn_clear_with_stale_pending(
+        self, tmp_path: Path
+    ) -> None:
+        pending_file, turn_file, _ = _stop_files(
+            tmp_path, pending=[_RUST_PATH], turn=[_RUST_PATH]
+        )
+        cursor_validation.clear_turn_edit_paths(
+            tmp_path, paths_file=turn_file
+        )
+        assert cursor_validation.read_session_edit_paths(
+            tmp_path, paths_file=pending_file
+        ) == [_RUST_PATH]
+        assert _resolve_stop(tmp_path, {}, pending_file, turn_file) is None
+        assert cursor_validation.read_session_edit_paths(
+            tmp_path, paths_file=pending_file
+        ) == [_RUST_PATH]
+
+    def test_ship_history_does_not_emit_with_leaked_turn_paths(
+        self, tmp_path: Path
+    ) -> None:
+        pending_file, turn_file, baseline_file = _stop_files(
+            tmp_path, pending=[_RUST_PATH], turn=[_RUST_PATH], baseline=0
+        )
+        data = _ok_history(
+            [
+                "make check-fast",
+                "make coverage-quick-rust",
+                "git checkout main && git pull --prune",
+            ]
+        )
+        assert (
+            _resolve_stop(
+                tmp_path, data, pending_file, turn_file, baseline_file
+            )
+            is None
+        )
+        assert not pending_file.exists()
+
+    def test_later_turn_edits_not_skipped_by_old_history(
+        self, tmp_path: Path
+    ) -> None:
+        pending_file, turn_file, baseline_file = _stop_files(
+            tmp_path, pending=[_RUST_PATH], turn=[_RUST_PATH]
+        )
+        prior = _ok_history(
+            [
+                cursor_validation.TARGET_FMT_CLIPPY,
+                cursor_validation.TARGET_CARGO_TEST,
+            ]
+        )
+        cursor_validation.snapshot_shell_history_baseline(
+            prior, tmp_path, baseline_file=baseline_file
+        )
+        msg = _resolve_stop(
+            tmp_path, prior, pending_file, turn_file, baseline_file
+        )
+        assert msg == _rust_followup()
+        assert cursor_validation.read_session_edit_paths(
+            tmp_path, paths_file=pending_file
+        ) == [_RUST_PATH]
+
+    def test_this_turn_checks_after_baseline_clear_pending(
+        self, tmp_path: Path
+    ) -> None:
+        pending_file, turn_file, baseline_file = _stop_files(
+            tmp_path, pending=[_RUST_PATH], turn=[_RUST_PATH]
+        )
+        cursor_validation.snapshot_shell_history_baseline(
+            {
+                "conversation": {
+                    "last_shell_commands": [
+                        cursor_validation.TARGET_FMT_CLIPPY,
+                        cursor_validation.TARGET_CARGO_TEST,
+                    ]
+                }
+            },
+            tmp_path,
+            baseline_file=baseline_file,
+        )
+        data = _ok_history(
+            [
+                cursor_validation.TARGET_FMT_CLIPPY,
+                cursor_validation.TARGET_CARGO_TEST,
+                cursor_validation.TARGET_FMT_CLIPPY,
+                cursor_validation.TARGET_CARGO_TEST,
+            ]
+        )
+        assert (
+            _resolve_stop(
+                tmp_path, data, pending_file, turn_file, baseline_file
+            )
+            is None
+        )
+        assert not pending_file.exists()
+
+    def test_unknown_baseline_does_not_credit_old_history(
+        self, tmp_path: Path
+    ) -> None:
+        pending_file, turn_file, _ = _stop_files(
+            tmp_path, pending=[_RUST_PATH], turn=[_RUST_PATH]
+        )
+        data = _ok_history(
+            [
+                cursor_validation.TARGET_FMT_CLIPPY,
+                cursor_validation.TARGET_CARGO_TEST,
+            ]
+        )
+        msg = _resolve_stop(
+            tmp_path,
+            data,
+            pending_file,
+            turn_file,
+            tmp_path / "missing-baseline.txt",
+        )
+        assert msg == _rust_followup()
 
 
 class TestLoadHookJson:
@@ -831,8 +1027,17 @@ class TestLoadHookJson:
 
 
 class TestGetRepoRoot:
-    def test_points_at_repository_root(self) -> None:
+    def test_points_at_repository_root(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv(
+            cursor_validation.HOOK_REPO_ROOT_ENV, raising=False
+        )
         assert cursor_validation.get_repo_root() == _ROOT
+
+    def test_env_override(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv(cursor_validation.HOOK_REPO_ROOT_ENV, str(tmp_path))
+        assert cursor_validation.get_repo_root() == tmp_path
 
 
 class TestHooksDisabled:
@@ -884,12 +1089,32 @@ class TestRustFmtHookScoping:
         assert proc.returncode == 0, proc.stderr + proc.stdout
 
 
-class TestHookScriptsExist:
-    def test_lib_and_hooks_present_after_install(self) -> None:
-        _SESSION_TRACK = _ROOT / ".cursor" / "hooks" / "session-track-edits.sh"
-        assert _SCRIPT.is_file()
-        assert _HOOK_INPUT.is_file()
-        assert _RUST_FMT_HOOK.is_file()
-        assert _STOP_HOOK.is_file()
-        assert _SESSION_TRACK.is_file()
-        assert (_ROOT / ".cursor" / "hooks.json").is_file()
+class TestSessionTrackTurnClearScript:
+    def test_clears_turn_paths_and_keeps_pending(self, tmp_path: Path) -> None:
+        pending = tmp_path / ".cursor" / ".agent-edited-paths"
+        turn = tmp_path / ".cursor" / ".agent-turn-paths"
+        pending.parent.mkdir(parents=True)
+        pending.write_text("crates/core/vlz/src/lib.rs\n", encoding="utf-8")
+        turn.write_text("crates/core/vlz/src/lib.rs\n", encoding="utf-8")
+        payload = json.dumps(
+            {
+                "conversation": {
+                    "last_shell_commands": ["make cargo-test", "git status"]
+                }
+            }
+        )
+        proc = subprocess.run(
+            [str(_SESSION_TRACK), "turn-clear"],
+            input=payload,
+            cwd=_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+            env={**os.environ, "VLZ_CURSOR_HOOK_REPO_ROOT": str(tmp_path)},
+        )
+        assert proc.returncode == 0, proc.stderr + proc.stdout
+        assert pending.read_text(encoding="utf-8") == (
+            "crates/core/vlz/src/lib.rs\n"
+        )
+        assert not turn.exists()
+        assert cursor_validation.read_shell_history_baseline(tmp_path) == 2
