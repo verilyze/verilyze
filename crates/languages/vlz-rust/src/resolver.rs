@@ -115,11 +115,7 @@ impl CargoResolver {
 
 /// Returns true if cargo appears to be on PATH (FR-024).
 pub fn cargo_package_manager_available() -> bool {
-    std::process::Command::new("cargo")
-        .arg("--version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+    vlz_manifest_parser::package_manager_command_ok("cargo", &["--version"])
 }
 
 /// OS-specific hint when cargo is missing (FR-024).

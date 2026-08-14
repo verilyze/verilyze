@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::{Context, Result, anyhow};
-use log::{error, info};
+use log::{error, info, warn};
 use tokio::sync::Semaphore;
 use vlz_db::Package;
 use vlz_manifest_finder::ManifestFinder;
@@ -405,27 +405,37 @@ async fn run_language_phase(
         discovery_ms
     );
     let manifest_count = manifests.len();
+    if manifest_count == 0 {
+        return Ok(LanguagePhaseResult {
+            outcomes: Vec::new(),
+            deferred_messages,
+            missing_package_manager: None,
+        });
+    }
     if manifest_count > 1 {
         info!("Resolving {manifest_count} {language} manifest(s)...");
     }
-    let pm_dependent: Vec<&PathBuf> = manifests
-        .iter()
-        .filter(|mf| resolver.manifest_needs_package_manager(mf, resolve_ctx))
-        .collect();
-    let missing_pm_manifests: Vec<&PathBuf> = pm_dependent
-        .iter()
-        .copied()
-        .filter(|mf| !resolver.package_manager_available_for_manifest(mf))
-        .collect();
     let missing_package_manager = if effective.package_manager_required
         && !resolve_ctx.skip_pip_resolution
-        && let Some(first) = missing_pm_manifests.first()
     {
-        Some(MissingPackageManager {
-            language: language.clone(),
-            hint: resolver.package_manager_hint_for_manifest(first),
-            manifest_count: missing_pm_manifests.len(),
-        })
+        let pm_dependent: Vec<&PathBuf> = manifests
+            .iter()
+            .filter(|mf| {
+                resolver.manifest_needs_package_manager(mf, resolve_ctx)
+            })
+            .collect();
+        let missing_pm_manifests: Vec<&PathBuf> = pm_dependent
+            .iter()
+            .copied()
+            .filter(|mf| !resolver.package_manager_available_for_manifest(mf))
+            .collect();
+        missing_pm_manifests
+            .first()
+            .map(|first| MissingPackageManager {
+                language: language.clone(),
+                hint: resolver.package_manager_hint_for_manifest(first),
+                manifest_count: missing_pm_manifests.len(),
+            })
     } else {
         None
     };
@@ -822,15 +832,55 @@ pub(crate) fn take_matching_language_plugins(
     (out_parsers, out_resolvers)
 }
 
+type LanguagePluginTriple =
+    (Box<dyn ManifestFinder>, Box<dyn Parser>, Box<dyn Resolver>);
+
+/// Pair finder/parser/resolver plugins by `language_name` (not vec index).
+fn pair_language_plugins(
+    finders: Vec<Box<dyn ManifestFinder>>,
+    mut parsers: Vec<Box<dyn Parser>>,
+    mut resolvers: Vec<Box<dyn Resolver>>,
+) -> Vec<LanguagePluginTriple> {
+    let mut out = Vec::new();
+    for finder in finders {
+        let language = finder.language_name();
+        let Some(parser_i) = parsers
+            .iter()
+            .position(|parser| parser.language_name() == language)
+        else {
+            warn!(
+                "Skipping language {language}: no Parser plug-in registered"
+            );
+            continue;
+        };
+        let Some(resolver_i) = resolvers
+            .iter()
+            .position(|resolver| resolver.language_name() == language)
+        else {
+            warn!(
+                "Skipping language {language}: no Resolver plug-in registered"
+            );
+            continue;
+        };
+        out.push((
+            finder,
+            parsers.remove(parser_i),
+            resolvers.remove(resolver_i),
+        ));
+    }
+    out
+}
+
 /// Plugin-injectable resolve path (used by production and concurrency tests).
 pub(crate) async fn resolve_packages_with_plugins(
     root_path: PathBuf,
     effective: &EffectiveConfig,
-    mut finders: Vec<Box<dyn ManifestFinder>>,
-    mut parsers: Vec<Box<dyn Parser>>,
-    mut resolvers: Vec<Box<dyn Resolver>>,
+    finders: Vec<Box<dyn ManifestFinder>>,
+    parsers: Vec<Box<dyn Parser>>,
+    resolvers: Vec<Box<dyn Resolver>>,
 ) -> Result<ResolvePackagesOutput> {
-    let n = finders.len().min(parsers.len()).min(resolvers.len());
+    let paired = pair_language_plugins(finders, parsers, resolvers);
+    let n = paired.len();
     if n == 0 {
         error!("No ManifestFinder, Parser, or Resolver plug-in registered");
         return Err(anyhow!(
@@ -867,7 +917,7 @@ pub(crate) async fn resolve_packages_with_plugins(
         scan_root: Some(root_path.clone()),
     };
     let can_use_shared_discovery = effective.language_regexes.is_empty()
-        && finders.iter().take(n).all(|finder| {
+        && paired.iter().all(|(finder, _, _)| {
             matches!(
                 finder.language_name(),
                 "python" | "rust" | "go" | "javascript" | "java" | "ruby"
@@ -909,14 +959,8 @@ pub(crate) async fn resolve_packages_with_plugins(
         resolver: Box<dyn Resolver>,
     }
 
-    finders.truncate(n);
-    parsers.truncate(n);
-    resolvers.truncate(n);
-
     let mut jobs: Vec<LanguageJob> = Vec::with_capacity(n);
-    for ((finder, parser), resolver) in
-        finders.into_iter().zip(parsers).zip(resolvers)
-    {
+    for (finder, parser, resolver) in paired {
         let language = finder.language_name().to_string();
         let precomputed = if can_use_shared_discovery {
             Some(manifests_by_language.remove(&language).unwrap_or_default())
@@ -1187,12 +1231,14 @@ mod tests {
         }
     }
 
-    struct FakeParser;
+    struct FakeParser {
+        language: &'static str,
+    }
 
     #[async_trait]
     impl Parser for FakeParser {
         fn language_name(&self) -> &'static str {
-            "fake"
+            self.language
         }
 
         async fn parse(
@@ -1337,8 +1383,10 @@ mod tests {
                 find_calls: counters.b_find.clone(),
             }),
         ];
-        let parsers: Vec<Box<dyn Parser>> =
-            vec![Box::new(FakeParser), Box::new(FakeParser)];
+        let parsers: Vec<Box<dyn Parser>> = vec![
+            Box::new(FakeParser { language: "lang_a" }),
+            Box::new(FakeParser { language: "lang_b" }),
+        ];
         let resolvers: Vec<Box<dyn Resolver>> = vec![
             Box::new(FakeResolver {
                 language: "lang_a",
@@ -1491,11 +1539,11 @@ mod tests {
             dir.path().to_path_buf(),
             &cfg,
             vec![Box::new(FakeFinder {
-                language: "lang_a",
+                language: "python",
                 manifests: vec![manifest],
                 find_calls: Arc::new(AtomicUsize::new(0)),
             })],
-            vec![Box::new(FakeParser)],
+            vec![Box::new(FakeParser { language: "python" })],
             vec![Box::new(CauseChainFailingResolver::new())],
         )
         .await
@@ -1522,6 +1570,40 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn skip_pip_does_not_probe_package_manager_availability() {
+        let dir = tempfile::tempdir().unwrap();
+        let mf = dir.path().join("requirements.txt");
+        std::fs::write(&mf, "pkg==1.0\n").unwrap();
+        let probes = Arc::new(AtomicUsize::new(0));
+        let mut cfg = test_cfg(1);
+        cfg.offline = true;
+        cfg.package_manager_required = false;
+        let _out = resolve_packages_with_plugins(
+            dir.path().to_path_buf(),
+            &cfg,
+            vec![Box::new(FakeFinder {
+                language: "python",
+                manifests: vec![mf],
+                find_calls: Arc::new(AtomicUsize::new(0)),
+            })],
+            vec![Box::new(FakeParser { language: "python" })],
+            vec![Box::new(
+                crate::mocks::ConfigurablePmResolver::new(
+                    "python", false, "pip hint",
+                )
+                .with_pm_probe_calls(probes.clone()),
+            )],
+        )
+        .await
+        .expect("resolve");
+        assert_eq!(
+            probes.load(Ordering::SeqCst),
+            0,
+            "offline/benchmark must not run pm --version per manifest"
+        );
+    }
+
     async fn run_pm_required_test(
         mut cfg: EffectiveConfig,
         jobs: Vec<(&'static str, Vec<PathBuf>, bool, bool)>,
@@ -1538,8 +1620,11 @@ mod tests {
                 }) as Box<dyn ManifestFinder>
             })
             .collect();
-        let parsers: Vec<Box<dyn Parser>> = (0..jobs.len())
-            .map(|_| Box::new(FakeParser) as Box<dyn Parser>)
+        let parsers: Vec<Box<dyn Parser>> = jobs
+            .iter()
+            .map(|(language, _, _, _)| {
+                Box::new(FakeParser { language }) as Box<dyn Parser>
+            })
             .collect();
         let resolvers: Vec<Box<dyn Resolver>> = jobs
             .into_iter()
@@ -1645,7 +1730,7 @@ mod tests {
                 find_calls: Arc::new(AtomicUsize::new(0)),
             })];
         let parsers: Vec<Box<dyn Parser>> =
-            vec![Box::new(FakeParser) as Box<dyn Parser>];
+            vec![Box::new(FakeParser { language: "java" }) as Box<dyn Parser>];
         let resolvers: Vec<Box<dyn Resolver>> = vec![Box::new(
             crate::mocks::ConfigurablePmResolver::new("java", true, "java pm")
                 .with_manifest_pm_available("pom.xml", false)
@@ -1717,6 +1802,155 @@ mod tests {
         ) -> Result<DependencyGraph, ParserError> {
             Ok(DependencyGraph::default())
         }
+    }
+
+    #[tokio::test]
+    async fn resolve_pairs_plugins_by_language_name_not_vec_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let py_mf = dir.path().join("requirements.txt");
+        let js_mf = dir.path().join("package.json");
+        std::fs::write(&py_mf, "pkg==1.0\n").unwrap();
+        std::fs::write(&js_mf, "{}\n").unwrap();
+        let py_parsed = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let js_parsed = Arc::new(std::sync::Mutex::new(Vec::new()));
+
+        struct RecordingParser {
+            language: &'static str,
+            parsed: Arc<std::sync::Mutex<Vec<PathBuf>>>,
+        }
+
+        #[async_trait]
+        impl Parser for RecordingParser {
+            fn language_name(&self) -> &'static str {
+                self.language
+            }
+
+            async fn parse(
+                &self,
+                manifest: &Path,
+            ) -> Result<DependencyGraph, ParserError> {
+                self.parsed.lock().unwrap().push(manifest.to_path_buf());
+                Ok(DependencyGraph {
+                    packages: vec![Package {
+                        name: format!("{}-pkg", self.language),
+                        version: "1.0".to_string(),
+                        ecosystem: None,
+                    }],
+                    parsed_dependencies: Vec::new(),
+                    manifest_path: Some(manifest.to_path_buf()),
+                })
+            }
+        }
+
+        let cfg = test_cfg(1);
+        let finders: Vec<Box<dyn ManifestFinder>> = vec![
+            Box::new(FakeFinder {
+                language: "python",
+                manifests: vec![py_mf.clone()],
+                find_calls: Arc::new(AtomicUsize::new(0)),
+            }),
+            Box::new(FakeFinder {
+                language: "javascript",
+                manifests: vec![js_mf.clone()],
+                find_calls: Arc::new(AtomicUsize::new(0)),
+            }),
+        ];
+        let parsers: Vec<Box<dyn Parser>> = vec![
+            Box::new(RecordingParser {
+                language: "javascript",
+                parsed: js_parsed.clone(),
+            }),
+            Box::new(RecordingParser {
+                language: "python",
+                parsed: py_parsed.clone(),
+            }),
+        ];
+        let resolvers: Vec<Box<dyn Resolver>> = vec![
+            Box::new(FakeResolver {
+                language: "javascript",
+                barrier: None,
+                current: Arc::new(AtomicUsize::new(0)),
+                peak: Arc::new(AtomicUsize::new(0)),
+                resolve_calls: Arc::new(AtomicUsize::new(0)),
+                fail: false,
+                hold: None,
+                overlap_flag: None,
+                in_resolve: None,
+            }),
+            Box::new(FakeResolver {
+                language: "python",
+                barrier: None,
+                current: Arc::new(AtomicUsize::new(0)),
+                peak: Arc::new(AtomicUsize::new(0)),
+                resolve_calls: Arc::new(AtomicUsize::new(0)),
+                fail: false,
+                hold: None,
+                overlap_flag: None,
+                in_resolve: None,
+            }),
+        ];
+        let out = resolve_packages_with_plugins(
+            dir.path().to_path_buf(),
+            &cfg,
+            finders,
+            parsers,
+            resolvers,
+        )
+        .await
+        .expect("resolve");
+        assert_eq!(py_parsed.lock().unwrap().as_slice(), &[py_mf]);
+        assert_eq!(js_parsed.lock().unwrap().as_slice(), &[js_mf]);
+        let langs: Vec<_> = out
+            .packages_with_manifests
+            .iter()
+            .map(|(_, _, lang)| lang.as_str())
+            .collect();
+        assert!(langs.contains(&"python"));
+        assert!(langs.contains(&"javascript"));
+    }
+
+    #[tokio::test]
+    async fn unmatched_finder_does_not_drop_paired_language() {
+        let dir = tempfile::tempdir().unwrap();
+        let py_mf = dir.path().join("requirements.txt");
+        std::fs::write(&py_mf, "pkg==1.0\n").unwrap();
+        let cfg = test_cfg(1);
+        let out = resolve_packages_with_plugins(
+            dir.path().to_path_buf(),
+            &cfg,
+            vec![
+                Box::new(FakeFinder {
+                    language: "rust",
+                    manifests: vec![],
+                    find_calls: Arc::new(AtomicUsize::new(0)),
+                }),
+                Box::new(FakeFinder {
+                    language: "python",
+                    manifests: vec![py_mf],
+                    find_calls: Arc::new(AtomicUsize::new(0)),
+                }),
+            ],
+            vec![Box::new(FakeParser { language: "python" })],
+            vec![Box::new(FakeResolver {
+                language: "python",
+                barrier: None,
+                current: Arc::new(AtomicUsize::new(0)),
+                peak: Arc::new(AtomicUsize::new(0)),
+                resolve_calls: Arc::new(AtomicUsize::new(0)),
+                fail: false,
+                hold: None,
+                overlap_flag: None,
+                in_resolve: None,
+            })],
+        )
+        .await
+        .expect("python triple must still resolve");
+        let langs: Vec<_> = out
+            .packages_with_manifests
+            .iter()
+            .map(|(_, _, lang)| lang.as_str())
+            .collect();
+        assert_eq!(langs, vec!["python"]);
     }
 
     #[test]

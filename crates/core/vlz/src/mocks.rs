@@ -97,7 +97,11 @@ impl PythonConditionalFailingResolver {
     }
 }
 
-/// Resolver that always returns an error. Covers resolve `with_context` (557-558).
+/// Resolver that always returns an error. Covers resolve `with_context`.
+///
+/// `language_name` is `"python"` so `ensure_default_resolver()` does not
+/// re-register the real Python resolver after `clear_resolvers()`, and
+/// pairing by language attaches this mock to Python manifests.
 #[derive(Debug, Default)]
 pub struct FailingResolver;
 
@@ -126,7 +130,7 @@ impl Resolver for FailingResolver {
     }
 
     fn language_name(&self) -> &'static str {
-        "mock"
+        "python"
     }
 }
 
@@ -139,6 +143,7 @@ pub struct ConfigurablePmResolver {
     needs_pm: bool,
     manifest_pm_overrides: HashMap<String, bool>,
     manifest_pm_hints: HashMap<String, &'static str>,
+    pm_probe_calls: Arc<std::sync::atomic::AtomicUsize>,
 }
 
 impl ConfigurablePmResolver {
@@ -154,7 +159,16 @@ impl ConfigurablePmResolver {
             needs_pm: true,
             manifest_pm_overrides: HashMap::new(),
             manifest_pm_hints: HashMap::new(),
+            pm_probe_calls: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
         }
+    }
+
+    pub fn with_pm_probe_calls(
+        mut self,
+        calls: Arc<std::sync::atomic::AtomicUsize>,
+    ) -> Self {
+        self.pm_probe_calls = calls;
+        self
     }
 
     pub fn with_manifest_pm_available(
@@ -197,6 +211,8 @@ impl Resolver for ConfigurablePmResolver {
     }
 
     fn package_manager_available(&self) -> bool {
+        self.pm_probe_calls
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         self.pm_available
     }
 
@@ -208,6 +224,8 @@ impl Resolver for ConfigurablePmResolver {
         &self,
         manifest_path: &Path,
     ) -> bool {
+        self.pm_probe_calls
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         manifest_path
             .file_name()
             .and_then(|n| n.to_str())
@@ -240,6 +258,8 @@ impl Resolver for ConfigurablePmResolver {
 }
 
 /// Resolver that fails with a nested cause for verbose stderr tests (NFR-018).
+/// `language_name` is `"python"` for the same pairing reason as
+/// [`FailingResolver`].
 #[derive(Debug, Default)]
 pub struct CauseChainFailingResolver;
 
@@ -273,7 +293,7 @@ impl Resolver for CauseChainFailingResolver {
     }
 
     fn language_name(&self) -> &'static str {
-        "mock"
+        "python"
     }
 }
 

@@ -370,11 +370,7 @@ impl DirectOnlyResolver {
 /// Returns true if pip or pip3 appears to be on PATH (FR-024).
 pub fn python_package_manager_available() -> bool {
     for cmd in ["pip3", "pip"] {
-        if std::process::Command::new(cmd)
-            .arg("--version")
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
+        if vlz_manifest_parser::package_manager_command_ok(cmd, &["--version"])
         {
             return true;
         }

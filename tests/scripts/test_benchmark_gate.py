@@ -5,6 +5,7 @@
 """Benchmark gate helpers (NFR-001, FR-029)."""
 
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -87,3 +88,48 @@ class TestBenchmarkDurationParsing:
     def test_parse_duration_missing_line_raises(self) -> None:
         with pytest.raises(ValueError, match="no benchmark json"):
             parse_duration_ms_from_stdout("no metrics here\n")
+
+
+class TestBenchmarkGateScript:
+    def _fake_vlz(self, tmp_path: Path, script: str) -> Path:
+        path = tmp_path / "vlz"
+        path.write_text(script, encoding="utf-8")
+        path.chmod(0o755)
+        return path
+
+    def test_gate_passes_when_duration_under_ceiling(
+        self, tmp_path: Path
+    ) -> None:
+        vlz = self._fake_vlz(
+            tmp_path,
+            "#!/bin/sh\n"
+            "echo 'note on stderr' >&2\n"
+            'echo \'{"benchmark":{"duration_ms":12,"cpu_percent":0,"mem_mb":1}}\'\n',
+        )
+        proc = subprocess.run(
+            [str(repo_root() / "scripts" / "benchmark-gate.sh")],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=repo_root(),
+            env={**os.environ, "VLZ_BIN": str(vlz)},
+        )
+        assert "note on stderr" in proc.stderr
+        assert "benchmark gate passed" in proc.stdout
+
+    def test_gate_fails_when_vlz_exits_nonzero(self, tmp_path: Path) -> None:
+        vlz = self._fake_vlz(
+            tmp_path,
+            "#!/bin/sh\n"
+            'echo \'{"benchmark":{"duration_ms":1,"cpu_percent":0,"mem_mb":1}}\'\n'
+            "exit 4\n",
+        )
+        proc = subprocess.run(
+            [str(repo_root() / "scripts" / "benchmark-gate.sh")],
+            check=False,
+            capture_output=True,
+            text=True,
+            cwd=repo_root(),
+            env={**os.environ, "VLZ_BIN": str(vlz)},
+        )
+        assert proc.returncode != 0

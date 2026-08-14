@@ -52,11 +52,7 @@ pub fn mvn_on_path() -> bool {
 }
 
 pub fn command_ok(bin: &str, args: &[&str]) -> bool {
-    std::process::Command::new(bin)
-        .args(args)
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+    vlz_manifest_parser::package_manager_command_ok(bin, args)
 }
 
 /// Parse `mvn dependency:list` / tree style lines into packages.
@@ -196,6 +192,24 @@ mod tests {
         std::fs::create_dir_all(&module).unwrap();
         std::fs::write(scan.join("mvnw"), "#!/bin/sh\n").unwrap();
         assert!(safe_mvn_wrapper(&module, scan).is_none());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn command_ok_times_out_on_slow_binary() {
+        let dir = tempfile::tempdir().unwrap();
+        let slow = dir.path().join("slow-pm");
+        write_executable(&slow, "#!/bin/sh\nexec sleep 30\n");
+        let start = std::time::Instant::now();
+        assert!(!vlz_manifest_parser::package_manager_command_ok_timed(
+            slow.to_str().unwrap(),
+            &[],
+            std::time::Duration::from_millis(200),
+        ));
+        assert!(
+            start.elapsed() < std::time::Duration::from_secs(2),
+            "PATH probe must not wait for a hung package manager"
+        );
     }
 
     #[test]
