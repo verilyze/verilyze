@@ -24,6 +24,13 @@ case "${mode}" in
   clear)
     cursor_hook_python_paths "${repo_root}" "{}" session-clear >/dev/null
     ;;
+  turn-clear)
+    raw_input="$(cursor_hook_read_stdin)"
+    if [[ -z "${raw_input}" ]]; then
+      raw_input="{}"
+    fi
+    cursor_hook_python_paths "${repo_root}" "${raw_input}" turn-clear >/dev/null
+    ;;
   append)
     raw_input="$(cursor_hook_read_stdin)"
     cursor_hook_python_paths "${repo_root}" "${raw_input}" session-append >/dev/null

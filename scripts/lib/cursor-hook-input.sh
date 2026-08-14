@@ -28,18 +28,21 @@ cursor_hook_require_command() {
 }
 
 cursor_hook_python_paths() {
-  local repo_root=$1
+  local checkout_root=$1
   local raw_input=$2
   local mode=$3
-  CURSOR_HOOK_JSON="${raw_input}" PYTHONPATH="${repo_root}${PYTHONPATH:+:${PYTHONPATH}}" \
-    python3 - "${mode}" <<'PY'
+  local work_root="${VLZ_CURSOR_HOOK_REPO_ROOT:-${checkout_root}}"
+  CURSOR_HOOK_JSON="${raw_input}" PYTHONPATH="${checkout_root}${PYTHONPATH:+:${PYTHONPATH}}" \
+    python3 - "${mode}" "${work_root}" <<'PY'
 import json
 import os
 import sys
+from pathlib import Path
 
 from scripts import cursor_validation
 
 mode = sys.argv[1]
+repo = Path(sys.argv[2])
 payload = os.environ.get("CURSOR_HOOK_JSON", "")
 data = cursor_validation.load_hook_json(payload)
 
@@ -48,15 +51,15 @@ if mode == "rust-paths":
     for path in paths:
         print(path)
 elif mode == "followup":
-    repo = cursor_validation.get_repo_root()
     message = cursor_validation.resolve_stop_followup(data, repo)
     if message:
         print(json.dumps({"followup_message": message}))
 elif mode == "session-clear":
-    repo = cursor_validation.get_repo_root()
     cursor_validation.clear_agent_edit_paths(repo)
+elif mode == "turn-clear":
+    cursor_validation.clear_turn_edit_paths(repo)
+    cursor_validation.snapshot_shell_history_baseline(data, repo)
 elif mode == "session-append":
-    repo = cursor_validation.get_repo_root()
     paths = cursor_validation.parse_edited_paths(data)
     if paths:
         cursor_validation.append_agent_edit_paths(repo, paths)

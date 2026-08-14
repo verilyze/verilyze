@@ -6,6 +6,11 @@
         "command": ".cursor/hooks/session-track-edits.sh clear"
       }
     ],
+    "beforeSubmitPrompt": [
+      {
+        "command": ".cursor/hooks/session-track-edits.sh turn-clear"
+      }
+    ],
     "afterFileEdit": [
       {
         "command": ".cursor/hooks/rust-fmt.sh",

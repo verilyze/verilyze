@@ -988,11 +988,17 @@ to opt in. Issue form:
 
 **Stop hook:** After each agent turn, the stop hook may auto-submit a follow-up
 only when the agent edited files **this turn** (or when a scoped check failed on
-the previous turn) and required targets have not succeeded yet. It does not
-suggest `make check-pr` or `make check-fast` on read-only turns. Pending paths
-clear after all scoped checks succeed. The `sessionStart` hook clears edit
-tracking; `afterFileEdit` records agent-edited paths in both pending and
-per-turn files.
+the previous turn) and required targets have not succeeded yet. A new user
+prompt clears per-turn paths (`beforeSubmitPrompt`) so leftover edits from an
+interrupted turn do not trigger checks after a later read-only or ship turn.
+Pending paths clear when shell history **since the current prompt** shows the
+scoped targets or a documented superset (`make check-fast` covers
+`fmt-check clippy`; `make check-pr` and `make check` also cover `cargo-test`;
+`make cargo-test`, `unit-tests`, `coverage-quick`, and `coverage-quick-rust`
+cover `cargo-test`). Make flags such as `-j` and `-C` are ignored when matching.
+It does not suggest `make check-pr` or `make check-fast` on read-only turns.
+The `sessionStart` hook clears edit tracking; `afterFileEdit` records
+agent-edited paths in both pending and per-turn files.
 
 Hooks opt-out: set `VLZ_CURSOR_HOOKS_DISABLE=1` to skip Cursor hook scripts locally.
 
