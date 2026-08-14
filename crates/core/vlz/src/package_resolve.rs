@@ -1229,6 +1229,10 @@ mod tests {
             self.find_calls.fetch_add(1, Ordering::SeqCst);
             Ok(self.manifests.clone())
         }
+
+        fn is_sca_sensitive_basename(&self, _name: &str) -> bool {
+            false
+        }
     }
 
     struct FakeParser {

@@ -48,6 +48,10 @@ impl ManifestFinder for GoManifestFinder {
         "go"
     }
 
+    fn is_sca_sensitive_basename(&self, name: &str) -> bool {
+        name == GO_MANIFEST_NAME
+    }
+
     async fn find(&self, root: &Path) -> Result<Vec<PathBuf>, FinderError> {
         let mut manifests = Vec::new();
         walk_dir(root, self.patterns.as_deref(), &mut manifests)?;
@@ -102,6 +106,13 @@ mod tests {
     #[test]
     fn go_manifest_name_constant() {
         assert_eq!(GO_MANIFEST_NAME, "go.mod");
+    }
+
+    #[test]
+    fn sca_sensitive_basenames_include_go_mod() {
+        let finder = GoManifestFinder::new();
+        assert!(finder.is_sca_sensitive_basename(GO_MANIFEST_NAME));
+        assert!(!finder.is_sca_sensitive_basename("go.mod.fixture"));
     }
 
     #[test]

@@ -10,6 +10,9 @@ use vlz_manifest_finder::{FinderError, ManifestFinder};
 /// Rust manifest file name (FR-005). Overridden by regexes when set (FR-006).
 pub const RUST_MANIFEST_NAME: &str = "Cargo.toml";
 
+/// Rust lock file name paired with [`RUST_MANIFEST_NAME`].
+pub const RUST_LOCK_FILE_NAME: &str = "Cargo.lock";
+
 /// Rust manifest finder that discovers Cargo.toml files under a directory tree.
 /// When patterns are set (FR-006), file names are matched by regex in order; first match wins.
 #[derive(Debug, Default)]
@@ -44,6 +47,10 @@ impl RustManifestFinder {
 impl ManifestFinder for RustManifestFinder {
     fn language_name(&self) -> &str {
         "rust"
+    }
+
+    fn is_sca_sensitive_basename(&self, name: &str) -> bool {
+        name == RUST_MANIFEST_NAME || name == RUST_LOCK_FILE_NAME
     }
 
     async fn find(&self, root: &Path) -> Result<Vec<PathBuf>, FinderError> {
@@ -94,6 +101,14 @@ mod tests {
     fn language_name_returns_rust() {
         let finder = RustManifestFinder::new();
         assert_eq!(finder.language_name(), "rust");
+    }
+
+    #[test]
+    fn sca_sensitive_basenames_include_manifest_and_lock() {
+        let finder = RustManifestFinder::new();
+        assert!(finder.is_sca_sensitive_basename(RUST_MANIFEST_NAME));
+        assert!(finder.is_sca_sensitive_basename(RUST_LOCK_FILE_NAME));
+        assert!(!finder.is_sca_sensitive_basename("Cargo.lock.fixture"));
     }
 
     #[test]

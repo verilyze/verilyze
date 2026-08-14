@@ -9,10 +9,11 @@ use vlz_ruby::{RubyManifestParser, RubyResolver};
 async fn paired_lock_resolves_transitively_even_offline() {
     let dir = tempfile::tempdir().unwrap();
     let manifest = dir.path().join("Gemfile");
-    std::fs::write(&manifest, include_str!("fixtures/Gemfile")).unwrap();
+    std::fs::write(&manifest, include_str!("fixtures/Gemfile.fixture"))
+        .unwrap();
     std::fs::write(
         dir.path().join("Gemfile.lock"),
-        include_str!("fixtures/Gemfile.lock"),
+        include_str!("fixtures/Gemfile.lock.fixture"),
     )
     .unwrap();
 

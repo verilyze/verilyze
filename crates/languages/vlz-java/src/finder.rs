@@ -14,6 +14,9 @@ use crate::lock_names::is_java_lock_file;
 pub const JAVA_MANIFEST_NAMES: &[&str] =
     &["pom.xml", "build.gradle", "build.gradle.kts"];
 
+/// Gradle version catalog basename (also matched under a `gradle/` parent).
+pub const JAVA_VERSION_CATALOG_NAME: &str = "libs.versions.toml";
+
 /// Discovers Java manifests and orphan Gradle lock files under a tree.
 #[derive(Debug, Default)]
 pub struct JavaManifestFinder {
@@ -43,7 +46,7 @@ fn is_default_manifest(path: &Path, name: &str) -> bool {
     if JAVA_MANIFEST_NAMES.contains(&name) {
         return true;
     }
-    if name == "libs.versions.toml" {
+    if name == JAVA_VERSION_CATALOG_NAME {
         return path
             .parent()
             .and_then(|p| p.file_name())
@@ -57,6 +60,12 @@ fn is_default_manifest(path: &Path, name: &str) -> bool {
 impl ManifestFinder for JavaManifestFinder {
     fn language_name(&self) -> &str {
         "java"
+    }
+
+    fn is_sca_sensitive_basename(&self, name: &str) -> bool {
+        JAVA_MANIFEST_NAMES.contains(&name)
+            || name == JAVA_VERSION_CATALOG_NAME
+            || is_java_lock_file(name)
     }
 
     async fn find(&self, root: &Path) -> Result<Vec<PathBuf>, FinderError> {
@@ -145,6 +154,15 @@ mod tests {
         let mut found = JavaManifestFinder::new().find(root).await.unwrap();
         found.sort();
         assert_eq!(found.len(), 3);
+    }
+
+    #[test]
+    fn sca_sensitive_basenames_include_manifests_locks_and_catalog() {
+        let finder = JavaManifestFinder::new();
+        assert!(finder.is_sca_sensitive_basename("pom.xml"));
+        assert!(finder.is_sca_sensitive_basename("gradle.lockfile"));
+        assert!(finder.is_sca_sensitive_basename(JAVA_VERSION_CATALOG_NAME));
+        assert!(!finder.is_sca_sensitive_basename("pom.xml.fixture"));
     }
 
     #[tokio::test]

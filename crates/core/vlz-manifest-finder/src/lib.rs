@@ -28,4 +28,8 @@ pub trait ManifestFinder: Send + Sync {
 
     /// Return a list of manifest file paths for the given `root`.
     async fn find(&self, root: &Path) -> Result<Vec<PathBuf>, FinderError>;
+
+    /// True when `name` is a built-in manifest or lock basename this finder
+    /// treats as an SCA entry (exact name or plugin suffix rules).
+    fn is_sca_sensitive_basename(&self, name: &str) -> bool;
 }

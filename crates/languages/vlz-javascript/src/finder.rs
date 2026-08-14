@@ -7,6 +7,8 @@ use std::path::{Path, PathBuf};
 
 use vlz_manifest_finder::{FinderError, ManifestFinder};
 
+use crate::lock_names::is_js_lock_file;
+
 /// JavaScript / TypeScript manifest file name (FR-005).
 pub const JS_MANIFEST_NAME: &str = "package.json";
 
@@ -42,6 +44,10 @@ impl JsManifestFinder {
 impl ManifestFinder for JsManifestFinder {
     fn language_name(&self) -> &str {
         "javascript"
+    }
+
+    fn is_sca_sensitive_basename(&self, name: &str) -> bool {
+        name == JS_MANIFEST_NAME || is_js_lock_file(name)
     }
 
     async fn find(&self, root: &Path) -> Result<Vec<PathBuf>, FinderError> {
@@ -87,6 +93,16 @@ mod tests {
     #[test]
     fn language_name_returns_javascript() {
         assert_eq!(JsManifestFinder::new().language_name(), "javascript");
+    }
+
+    #[test]
+    fn sca_sensitive_basenames_include_manifest_and_locks() {
+        let finder = JsManifestFinder::new();
+        assert!(finder.is_sca_sensitive_basename("package.json"));
+        assert!(finder.is_sca_sensitive_basename("package-lock.json"));
+        assert!(
+            !finder.is_sca_sensitive_basename("package-lock.json.fixture")
+        );
     }
 
     #[test]
