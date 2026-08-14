@@ -17,16 +17,17 @@ use vlz_manifest_parser::{
 };
 
 use crate::cargo_metadata::run_cargo_metadata;
+use crate::finder::{RUST_LOCK_FILE_NAME, RUST_MANIFEST_NAME};
 
 /// Find Cargo.lock next to the manifest or in parent dirs (workspace root).
 pub fn find_lock_file(manifest_path: &Path) -> Option<std::path::PathBuf> {
     let dir = manifest_path.parent()?;
-    let lock_path = dir.join("Cargo.lock");
+    let lock_path = dir.join(RUST_LOCK_FILE_NAME);
     if lock_path.exists() && lock_path.is_file() {
         return Some(lock_path);
     }
     dir.parent()
-        .and_then(|p| find_lock_file(&p.join("Cargo.toml")))
+        .and_then(|p| find_lock_file(&p.join(RUST_MANIFEST_NAME)))
 }
 
 type LockParseOutput = (

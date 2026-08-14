@@ -616,6 +616,18 @@ core startup, similar to finder/parser/resolver registration.
      `fuzz/corpus/fuzz_<format>/` (copy from the AFL corpus), and `[[bin]]` in
      `fuzz/Cargo.toml`.
    - Run `make check-fuzz-target-parity` (also part of `make check-fast`).
+5. **Parser fixtures:** Do not commit files under the canonical names that
+   SCA tools auto-detect (`Gemfile.lock`, `package-lock.json`, `go.mod`,
+   `poetry.lock`, `pom.xml`, `Cargo.lock`, `*.gemspec`, and similar). Use a
+   `.fixture` suffix (for example `Gemfile.lock.fixture`). Tests that need
+   discovery by basename should copy the bytes into a temp directory. This
+   keeps OpenSSF Scorecard, the GitHub dependency graph, Dependabot alerts,
+   default `vlz scan`, and similar scanners from treating fixtures as
+   product dependencies. `cargo test -p vlz` includes
+   `committed_test_trees_avoid_sca_sensitive_basenames`, which walks `tests/`
+   and `crates/**/tests/**` using each finder's `is_sca_sensitive_basename`.
+   The AFL package files `tests/fuzz/Cargo.toml` and `tests/fuzz/Cargo.lock`
+   are exempt; fuzz corpus files are not.
 
 See [architecture/PRD.md](architecture/PRD.md) MOD-002 and FR-020 for the
 formal trait contracts.
@@ -1104,7 +1116,11 @@ releases](#versioning-and-releases) below.
   The **Fuzzing** check recognizes [ClusterFuzzLite](https://google.github.io/clusterfuzzlite/)
   via [`.clusterfuzzlite/Dockerfile`](.clusterfuzzlite/Dockerfile) (and Rust
   `libfuzzer_sys` harnesses under `fuzz/`). In-repo AFL++ satisfies NFR-020 but
-  is not detected by Scorecard.
+  is not detected by Scorecard. The **Vulnerabilities** check scans committed
+  lockfiles via OSV-Scanner; keep parser fixtures off canonical lockfile and
+  manifest names (see **Parser fixtures** under Adding a new language plugin)
+  so Scorecard does not score test data as product CVEs. Enforced by
+  `committed_test_trees_avoid_sca_sensitive_basenames` (`cargo test -p vlz`).
 - **Super-linter:** CI runs the [super-linter](https://github.com/super-linter/super-linter)
   **slim** image in two modes: **incremental** (push/PR to `main`,
   `VALIDATE_ALL_CODEBASE=false`, job `super-linter` in workflow `ci.yml`) and

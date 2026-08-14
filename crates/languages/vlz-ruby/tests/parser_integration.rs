@@ -8,9 +8,9 @@ use vlz_ruby::{
 
 #[test]
 fn parses_fixture_manifests_and_lock() {
-    let gemfile = include_str!("fixtures/Gemfile");
-    let gemspec = include_str!("fixtures/example.gemspec");
-    let lock = include_str!("fixtures/Gemfile.lock");
+    let gemfile = include_str!("fixtures/Gemfile.fixture");
+    let gemspec = include_str!("fixtures/example.gemspec.fixture");
+    let lock = include_str!("fixtures/Gemfile.lock.fixture");
 
     let direct = parse_gemfile(gemfile).unwrap();
     assert!(direct.iter().any(|p| p.name == "rack"));
@@ -36,7 +36,7 @@ fn parses_fixture_manifests_and_lock() {
 
 #[test]
 fn fixture_gemfile_skips_path_and_github() {
-    let gemfile = include_str!("fixtures/Gemfile");
+    let gemfile = include_str!("fixtures/Gemfile.fixture");
     let packages = parse_gemfile(gemfile).unwrap();
     assert!(packages.iter().any(|p| p.name == "rails"));
     assert!(

@@ -6,6 +6,8 @@ use async_trait::async_trait;
 use std::path::{Path, PathBuf};
 use vlz_manifest_finder::{FinderError, ManifestFinder};
 
+use crate::lock_names::is_ruby_lock_file;
+
 /// Built-in Ruby manifest basenames.
 pub const RUBY_MANIFEST_NAMES: &[&str] = &["Gemfile", "gems.rb"];
 
@@ -73,6 +75,10 @@ impl ManifestFinder for RubyManifestFinder {
         "ruby"
     }
 
+    fn is_sca_sensitive_basename(&self, name: &str) -> bool {
+        is_ruby_manifest_name(name) || is_ruby_lock_file(name)
+    }
+
     async fn find(&self, root: &Path) -> Result<Vec<PathBuf>, FinderError> {
         let mut manifests = Vec::new();
         walk(root, self.patterns.as_deref(), &mut manifests)?;
@@ -93,5 +99,14 @@ mod tests {
         assert!(!built_in_match("Gemfile.lock"));
         assert!(RubyManifestFinder::with_patterns(vec!["[".into()]).is_err());
         assert_eq!(RubyManifestFinder::new().language_name(), "ruby");
+    }
+
+    #[test]
+    fn sca_sensitive_basenames_include_manifests_and_locks() {
+        let finder = RubyManifestFinder::new();
+        assert!(finder.is_sca_sensitive_basename("Gemfile.lock"));
+        assert!(finder.is_sca_sensitive_basename("demo.gemspec"));
+        assert!(!finder.is_sca_sensitive_basename("Gemfile.lock.fixture"));
+        assert!(!finder.is_sca_sensitive_basename("example.gemspec.fixture"));
     }
 }

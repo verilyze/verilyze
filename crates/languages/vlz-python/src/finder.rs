@@ -69,6 +69,10 @@ impl ManifestFinder for PythonManifestFinder {
         "python"
     }
 
+    fn is_sca_sensitive_basename(&self, name: &str) -> bool {
+        PYTHON_MANIFEST_NAMES.contains(&name) || is_python_lock_file(name)
+    }
+
     async fn find(&self, root: &Path) -> Result<Vec<PathBuf>, FinderError> {
         let mut manifests = Vec::new();
         let mut locks = Vec::new();
@@ -151,6 +155,15 @@ mod tests {
     fn language_name_returns_python() {
         let finder = PythonManifestFinder::new();
         assert_eq!(finder.language_name(), "python");
+    }
+
+    #[test]
+    fn sca_sensitive_basenames_include_manifests_and_locks() {
+        let finder = PythonManifestFinder::new();
+        assert!(finder.is_sca_sensitive_basename("requirements.txt"));
+        assert!(finder.is_sca_sensitive_basename("poetry.lock"));
+        assert!(finder.is_sca_sensitive_basename("pylock.dev.toml"));
+        assert!(!finder.is_sca_sensitive_basename("requirements.txt.fixture"));
     }
 
     #[test]
