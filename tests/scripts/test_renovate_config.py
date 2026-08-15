@@ -114,6 +114,11 @@ def test_renovate_package_rule_groups_github_actions_minor_patch() -> None:
 
 
 def test_renovate_upload_sarif_post_upgrade_syncs_example() -> None:
+    """Hook must match the github-actions manager, not a subdirectory dep name.
+
+    Renovate reports uses: github/codeql-action/upload-sarif@... as package
+    github/codeql-action. A subdirectory-only matchPackageNames never fires.
+    """
     data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
     rules = data.get("packageRules", [])
     match = next(
@@ -121,19 +126,26 @@ def test_renovate_upload_sarif_post_upgrade_syncs_example() -> None:
             r
             for r in rules
             if r.get("matchManagers") == ["github-actions"]
-            and r.get("matchPackageNames") == ["github/codeql-action/upload-sarif"]
             and "postUpgradeTasks" in r
         ),
         None,
     )
     assert match is not None, (
-        "packageRules must run postUpgradeTasks for "
-        "github/codeql-action/upload-sarif"
+        "packageRules must run postUpgradeTasks for github-actions "
+        "so the upload-sarif example stays aligned"
+    )
+    assert "matchPackageNames" not in match, (
+        "do not filter by github/codeql-action/upload-sarif; Renovate "
+        "names the package github/codeql-action and grouped PRs skip the hook"
     )
     tasks = match["postUpgradeTasks"]
     assert tasks["commands"] == ["bash scripts/renovate-post-upgrade-upload-sarif.sh"]
     assert tasks["fileFilters"] == ["examples/github-action-vlz-scan.yml"]
     assert tasks["executionMode"] == "branch"
+    tools = tasks.get("installTools", {})
+    assert "python" in tools, (
+        "github-actions postUpgradeTasks need python for upload_sarif_pins.py"
+    )
 
 
 def test_upload_sarif_example_matches_supply_chain_workflow() -> None:

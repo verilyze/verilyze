@@ -1207,11 +1207,14 @@ releases](#versioning-and-releases) below.
   when any digest pin under `.github/workflows/` or `examples/` lacks a full
   `vX.Y.Z` comment. **Minor** and **patch** action updates are grouped into
   **one** PR; **major** upgrades stay in **separate** PRs.
-  After **`github/codeql-action/upload-sarif`** updates (any update type),
-  **`postUpgradeTasks`** run **`bash scripts/renovate-post-upgrade-upload-sarif.sh`**
+  After **any** GitHub Actions update (any update type), **`postUpgradeTasks`**
+  run **`bash scripts/renovate-post-upgrade-upload-sarif.sh`**
   to copy the pin from **`.github/workflows/supply-chain.yml`** into
   **`examples/github-action-vlz-scan.yml`** (same logic as
-  **`make sync-upload-sarif-example`**). **`make check-upload-sarif-example`**
+  **`make sync-upload-sarif-example`**). The hook matches the
+  **`github-actions`** manager, not a subdirectory package name: Renovate
+  reports **`uses: github/codeql-action/upload-sarif@...`** as package
+  **`github/codeql-action`**. **`make check-upload-sarif-example`**
   is in **`make check-fast`** so pin drift fails before coverage.
   Dockerfile base images still follow the `dockerfile` rules in
   [`renovate.json`](renovate.json).

@@ -4,7 +4,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # Sync examples/github-action-vlz-scan.yml upload-sarif pin from supply-chain.yml
-# after github-actions updates (Renovate postUpgradeTasks).
+# after any github-actions update (Renovate postUpgradeTasks).
+# Match the github-actions manager, not github/codeql-action/upload-sarif:
+# Renovate reports that uses: line as package github/codeql-action.
 
 set -euo pipefail
 
