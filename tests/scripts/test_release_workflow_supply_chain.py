@@ -290,3 +290,45 @@ def test_release_read_workspace_version_script_matches_cargo_toml() -> None:
     )
     cargo_version = version_line.split("=", 1)[1].strip().strip('"')
     assert proc.stdout.strip() == cargo_version
+
+
+def _job_block(workflow: str, job_id: str) -> str:
+    match = re.search(
+        rf"\n  {re.escape(job_id)}:.*?(?=\n  [a-zA-Z0-9_-]+:|\Z)",
+        workflow,
+        re.DOTALL,
+    )
+    assert match is not None, f"missing job {job_id}"
+    return match.group(0)
+
+
+def test_create_draft_job_does_not_publish() -> None:
+    workflow = _release_workflow_text()
+    block = _job_block(workflow, "create-draft")
+    assert "draft: true" in block
+    assert "--draft=false" not in block
+    assert "wait-obs-builds" not in block.split("runs-on:")[0]
+
+
+def test_cli_contract_draft_is_read_only_native_matrix() -> None:
+    workflow = _release_workflow_text()
+    block = _job_block(workflow, "cli-contract-draft")
+    header = block.split("steps:")[0]
+    assert "fail-fast: false" in header
+    assert "contents: read" in header
+    assert "contents: write" not in header
+    assert "ci-install-vlz-release-archive.sh" in block
+    assert "CLI_CONTRACT_MODE" in block
+
+
+def test_publish_release_needs_cli_and_obs() -> None:
+    workflow = _release_workflow_text()
+    block = _job_block(workflow, "publish-release")
+    header = block.split("steps:")[0]
+    assert "cli-contract-draft" in header
+    assert "wait-obs-builds" in header
+    assert "contents: write" in header
+    assert "--draft=false" in block
+    assert "success()" in header
+    assert "--draft=false" in block
+

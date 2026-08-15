@@ -10,6 +10,9 @@ use vlz_manifest_finder::{FinderError, ManifestFinder};
 /// Go manifest file name (FR-005). Overridden by regexes when set (FR-006).
 pub const GO_MANIFEST_NAME: &str = "go.mod";
 
+/// Adjacent checksum file used for pins when `go list` is skipped (Appendix A).
+pub const GO_SUM_NAME: &str = "go.sum";
+
 /// Go manifest finder that discovers go.mod files under a directory tree.
 /// When patterns are set (FR-006), file names are matched by regex in order;
 /// first match wins.
@@ -49,7 +52,7 @@ impl ManifestFinder for GoManifestFinder {
     }
 
     fn is_sca_sensitive_basename(&self, name: &str) -> bool {
-        name == GO_MANIFEST_NAME
+        name == GO_MANIFEST_NAME || name == GO_SUM_NAME
     }
 
     async fn find(&self, root: &Path) -> Result<Vec<PathBuf>, FinderError> {
@@ -112,7 +115,9 @@ mod tests {
     fn sca_sensitive_basenames_include_go_mod() {
         let finder = GoManifestFinder::new();
         assert!(finder.is_sca_sensitive_basename(GO_MANIFEST_NAME));
+        assert!(finder.is_sca_sensitive_basename(GO_SUM_NAME));
         assert!(!finder.is_sca_sensitive_basename("go.mod.fixture"));
+        assert!(!finder.is_sca_sensitive_basename("go.sum.fixture"));
     }
 
     #[test]

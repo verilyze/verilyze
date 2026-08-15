@@ -62,6 +62,43 @@ exit 0
         assert proc.returncode == 0, proc.stderr + proc.stdout
         assert "no non-draft, non-prerelease" in proc.stderr
 
+    def test_platform_archive_download_patterns_cover_macos_and_windows(self) -> None:
+        script = f"""
+set -euo pipefail
+source "{_COMMON_LIB}"
+platform_archive_download_patterns 1.2.3 macos-aarch64
+echo '---'
+platform_archive_download_patterns 1.2.3 windows-x86_64
+"""
+        proc = _run_bash(script)
+        assert proc.returncode == 0, proc.stderr + proc.stdout
+        text = proc.stdout
+        assert "vlz-1.2.3-macos-aarch64.tar.gz" in text
+        assert "vlz-1.2.3-windows-x86_64.zip" in text
+        assert "SHA256SUMS" in text
+
+    def test_archive_install_script_requires_tag_and_platform(self) -> None:
+        archive_script = _ROOT / "scripts" / "ci-install-vlz-release-archive.sh"
+        proc = subprocess.run(
+            [str(archive_script)],
+            cwd=_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+            env={
+                k: v
+                for k, v in os.environ.items()
+                if k
+                not in {
+                    "VLZ_RELEASE_DOWNLOAD_DIR",
+                    "VLZ_RELEASE_TAG",
+                    "VLZ_RELEASE_PLATFORM",
+                }
+            },
+        )
+        assert proc.returncode != 0
+        assert "VLZ_RELEASE_DOWNLOAD_DIR is required" in proc.stderr
+
     def test_linux_archive_download_patterns_include_versioned_archive(self) -> None:
         script = f"""
 set -euo pipefail

@@ -118,6 +118,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "fuzz_go_sum"
+path = "fuzz_targets/fuzz_go_sum.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "fuzz_pip_freeze"
 path = "fuzz_targets/fuzz_pip_freeze.rs"
 test = false

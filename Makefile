@@ -60,6 +60,7 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: sync-upload-sarif-example check-upload-sarif-example
 .PHONY: check-github-action-pin-comments
 .PHONY: check-fuzz-target-parity
+.PHONY: cli-contract
 
 .PHONY: benchmark-gate
 .PHONY: check-report-schema
@@ -145,6 +146,9 @@ help:
 	@echo "    make coverage-quick-python - Python coverage only (ship-pr scoped gate)"
 	@echo "    make coverage-new-rust-check - Ship-pr gate for new .rs files (95/90/95)"
 	@echo "    make coverage-extended - Nightly coverage (fuzz + optional features)"
+	@echo "    make cli-contract - CLI contract vs built/installed vlz"
+	@echo "                       (CLI_CONTRACT_MODE=smoke|full;"
+	@echo "                       CLI_CONTRACT_BINARY=/path/to/vlz)"
 	@echo ""
 	@echo "  Packaging (OP-013):"
 	@echo "    make deb        - Build .deb package (needs cargo-deb)"
@@ -323,6 +327,11 @@ test-scripts: venv-test-ready
 	@$(MAKE_RUN_LEAF) test-scripts -- bash -c 'cd "$(MKFILE_DIR)" && $(VENV_TEST)/bin/python -m pytest tests/scripts/'
 
 unit-tests: cargo-test cargo-test-mem test-scripts
+
+# CLI contract against an installed or built binary. Not part of make check:
+# PR/nightly GitHub jobs own the three-OS matrix (see cli-contract.yml).
+cli-contract:
+	@$(MAKE_RUN_LEAF) cli-contract -- "$(SCRIPTS_DIR)/cli-contract.sh"
 
 # ---- Lint ----
 # Bootstrap .venv-lint with linters if missing

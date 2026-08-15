@@ -9,8 +9,8 @@ mod parser;
 mod reachability;
 mod resolver;
 
-pub use finder::{GO_MANIFEST_NAME, GoManifestFinder};
-pub use parser::{GO_ECOSYSTEM, GoModParser, parse_go_mod};
+pub use finder::{GO_MANIFEST_NAME, GO_SUM_NAME, GoManifestFinder};
+pub use parser::{GO_ECOSYSTEM, GoModParser, parse_go_mod, parse_go_sum};
 pub use reachability::GoTierBAnalyzer;
 pub use resolver::{
     GoResolver, find_go_mod_dir, go_package_manager_available,
