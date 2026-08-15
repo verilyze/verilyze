@@ -49,6 +49,7 @@
       "fixture": "python/lockless",
       "args": ["scan", "{fixture}"],
       "expect_exit": [4],
+      "stderr_contains": ["could not be fully analyzed"],
       "stdout_forbids": ["No vulnerabilities found."]
     },
     {
@@ -182,6 +183,72 @@
       "stdout_forbids": ["No vulnerabilities found."]
     },
     {
+      "id": "python-lock-offline-pin",
+      "category": "lock_parse",
+      "language": "python",
+      "modes": ["full"],
+      "fixture": "python/lock",
+      "args": ["scan", "{fixture}", "--offline", "--format", "cyclonedx"],
+      "expect_exit": [6, 86],
+      "stdout_contains": ["cli-contract-pkg"],
+      "stdout_forbids": ["No vulnerabilities found."]
+    },
+    {
+      "id": "rust-lock-offline-pin",
+      "category": "lock_parse",
+      "language": "rust",
+      "modes": ["full"],
+      "fixture": "rust/lock",
+      "args": ["scan", "{fixture}", "--offline", "--format", "cyclonedx"],
+      "expect_exit": [6, 86],
+      "stdout_contains": ["cli-contract-demo"],
+      "stdout_forbids": ["No vulnerabilities found."]
+    },
+    {
+      "id": "go-lock-offline-pin",
+      "category": "lock_parse",
+      "language": "go",
+      "modes": ["full"],
+      "fixture": "go/mod",
+      "args": ["scan", "{fixture}", "--offline", "--format", "cyclonedx"],
+      "expect_exit": [6, 86],
+      "stdout_contains": ["cli-contract-pkg"],
+      "stdout_forbids": ["No vulnerabilities found."]
+    },
+    {
+      "id": "javascript-lock-offline-pin",
+      "category": "lock_parse",
+      "language": "javascript",
+      "modes": ["full"],
+      "fixture": "javascript/lock",
+      "args": ["scan", "{fixture}", "--offline", "--format", "cyclonedx"],
+      "expect_exit": [6, 86],
+      "stdout_contains": ["cli-contract-pkg"],
+      "stdout_forbids": ["No vulnerabilities found."]
+    },
+    {
+      "id": "java-gradle-lock-offline-pin",
+      "category": "lock_parse",
+      "language": "java",
+      "modes": ["full"],
+      "fixture": "java/lock",
+      "args": ["scan", "{fixture}", "--offline", "--format", "cyclonedx"],
+      "expect_exit": [6, 86],
+      "stdout_contains": ["cli-contract"],
+      "stdout_forbids": ["No vulnerabilities found."]
+    },
+    {
+      "id": "ruby-lock-offline-pin",
+      "category": "lock_parse",
+      "language": "ruby",
+      "modes": ["full"],
+      "fixture": "ruby/lock",
+      "args": ["scan", "{fixture}", "--offline", "--format", "cyclonedx"],
+      "expect_exit": [6, 86],
+      "stdout_contains": ["cli_contract_demo"],
+      "stdout_forbids": ["No vulnerabilities found."]
+    },
+    {
       "id": "ruby-lockless",
       "category": "exit_code",
       "language": "ruby",
@@ -199,6 +266,57 @@
       "fixture": "ruby/lockless",
       "args": ["scan", "{fixture}", "--offline"],
       "expect_exit": [6, 86],
+      "stdout_forbids": ["No vulnerabilities found."]
+    },
+    {
+      "id": "mixed-good-and-lockless",
+      "category": "exit_code",
+      "modes": ["full"],
+      "fixture": "mixed/good-and-lockless",
+      "args": ["scan", "{fixture}", "--format", "cyclonedx"],
+      "expect_exit": [4],
+      "stdout_contains": ["cli-contract-pkg"],
+      "stderr_contains": ["could not be fully analyzed"],
+      "stdout_forbids": ["No vulnerabilities found."]
+    },
+    {
+      "id": "python-empty-lock",
+      "category": "exit_code",
+      "language": "python",
+      "modes": ["full"],
+      "fixture": "python/empty-lock",
+      "args": ["scan", "{fixture}"],
+      "expect_exit": [4],
+      "stdout_forbids": ["No vulnerabilities found."]
+    },
+    {
+      "id": "javascript-empty-lock",
+      "category": "exit_code",
+      "language": "javascript",
+      "modes": ["full"],
+      "fixture": "javascript/empty-lock",
+      "args": ["scan", "{fixture}"],
+      "expect_exit": [4],
+      "stdout_forbids": ["No vulnerabilities found."]
+    },
+    {
+      "id": "java-empty-gradle-lock",
+      "category": "exit_code",
+      "language": "java",
+      "modes": ["full"],
+      "fixture": "java/empty-lock",
+      "args": ["scan", "{fixture}"],
+      "expect_exit": [4],
+      "stdout_forbids": ["No vulnerabilities found."]
+    },
+    {
+      "id": "ruby-empty-lock",
+      "category": "exit_code",
+      "language": "ruby",
+      "modes": ["full"],
+      "fixture": "ruby/empty-lock",
+      "args": ["scan", "{fixture}"],
+      "expect_exit": [4],
       "stdout_forbids": ["No vulnerabilities found."]
     },
     {

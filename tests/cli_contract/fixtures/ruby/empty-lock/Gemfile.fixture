@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+source "https://rubygems.org"
+
+gem "cli_contract_demo", "1.0.0"

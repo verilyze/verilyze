@@ -115,6 +115,9 @@ def materialize_fixture_tree(src: Path, dest: Path) -> None:
     """Copy a fixture dir, stripping ``.fixture`` for real basenames."""
     dest.mkdir(parents=True, exist_ok=True)
     for item in src.iterdir():
+        if item.is_dir():
+            materialize_fixture_tree(item, dest / item.name)
+            continue
         if not item.is_file():
             continue
         name = item.name

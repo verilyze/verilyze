@@ -12,6 +12,9 @@ Human-readable release notes for each version.
 
 ### Added
 
+- JavaScript/TypeScript (`package.json` plus npm/yarn/pnpm/`bun.lock`),
+  Java/Kotlin (Maven `pom.xml` and Gradle), and Ruby (Gemfile / gems.rb /
+  gemspec) language plugins. Default lock-less scans exit **4**.
 - CLI contract suite (`make cli-contract`, `tests/cli_contract/`) for
   subprocess checks against an installed or built `vlz`. PR/nightly GitHub
   jobs run it on Ubuntu, macOS, and Windows. Tagged releases download draft
@@ -25,6 +28,11 @@ Human-readable release notes for each version.
   or `go` is not on PATH. Empty or unreadable `go.sum` is not a usable lock
   (FR-024). Lock-less scans without those flags still exit 4 (FR-022);
   PRD/FAQ acceptance text matches exit 4 (not 2).
+- Known coverage limits: Maven has no lock file; binary `bun.lockb` is out
+  of scope (text `bun.lock` is supported). Lock-less Rust and Go still run
+  `cargo metadata` / `go list` by default when those tools are on PATH.
+  `--offline` / `--benchmark` skip them. `go.sum` is a checksum set, not
+  the `go list` build graph.
 
 ## [0.8.0] - 2026-08-09
 
