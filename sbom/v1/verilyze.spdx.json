@@ -134,9 +134,9 @@
     {
       "@type": "Package",
       "name": "mypy",
-      "packageUrl": "pkg:pypi/mypy@2.3.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-mypy-2-3-0",
-      "versionInfo": "2.3.0"
+      "packageUrl": "pkg:pypi/mypy@2.3.1",
+      "spdxId": "urn:spdx.dev:pkg-pypi-mypy-2-3-1",
+      "versionInfo": "2.3.1"
     },
     {
       "@type": "Package",
@@ -162,9 +162,9 @@
     {
       "@type": "Package",
       "name": "platformdirs",
-      "packageUrl": "pkg:pypi/platformdirs@4.11.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-platformdirs-4-11-2",
-      "versionInfo": "4.11.2"
+      "packageUrl": "pkg:pypi/platformdirs@4.11.3",
+      "spdxId": "urn:spdx.dev:pkg-pypi-platformdirs-4-11-3",
+      "versionInfo": "4.11.3"
     },
     {
       "@type": "Package",
