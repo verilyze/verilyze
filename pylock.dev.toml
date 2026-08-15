@@ -190,14 +190,14 @@ sha256 = "84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8"
 
 [[packages]]
 name = "mypy"
-version = "2.3.0"
+version = "2.3.1"
 
 [[packages.wheels]]
-name = "mypy-2.3.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
-url = "https://files.pythonhosted.org/packages/ae/77/70d7a10732063beb74ad713682cf871e88f5c5fa39bfc8beff8a524bf9cb/mypy-2.3.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
+name = "mypy-2.3.1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
+url = "https://files.pythonhosted.org/packages/78/f7/f4a34edab45667c5465855dc585a20e87978ffa8aee711445b7239d120c6/mypy-2.3.1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
 
 [packages.wheels.hashes]
-sha256 = "37fa4de896a84e2dc9200d91e614c22563b43d1a266789d4bbac7b22ebe6192b"
+sha256 = "8e036f06b41630f4c8a1d48f9ac6aa26acc65f8be089973f5519da643318f03f"
 
 [[packages]]
 name = "mypy-extensions"
@@ -234,14 +234,14 @@ sha256 = "a00ce642f577bf7f473932318056212bc4f8bfdf53128c78bbd5af0b9b20b189"
 
 [[packages]]
 name = "platformdirs"
-version = "4.11.2"
+version = "4.11.3"
 
 [[packages.wheels]]
-name = "platformdirs-4.11.2-py3-none-any.whl"
-url = "https://files.pythonhosted.org/packages/49/e2/4e6eee633809c376c024821b91ade709cbfd040ec53939ffbcc292aa7eee/platformdirs-4.11.2-py3-none-any.whl"
+name = "platformdirs-4.11.3-py3-none-any.whl"
+url = "https://files.pythonhosted.org/packages/19/a9/c34aebedd3a4c9afe5101b1b8713710b3fec18087c8a36c35d2f909861bd/platformdirs-4.11.3-py3-none-any.whl"
 
 [packages.wheels.hashes]
-sha256 = "7f89089b6ea71bda7962953edcf784b2e2d9d285b40ad88be2bb75c6e9d82ab4"
+sha256 = "5ed065d443751de711da036041a7a214122efc4a4de393b3f4137ba5576540e7"
 
 [[packages]]
 name = "pluggy"
