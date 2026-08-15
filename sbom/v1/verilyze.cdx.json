@@ -499,11 +499,11 @@
       "version": "1.1.0"
     },
     {
-      "bom-ref": "pkg:cargo/clap_mangen@0.3.2",
+      "bom-ref": "pkg:cargo/clap_mangen@0.3.3",
       "name": "clap_mangen",
-      "purl": "pkg:cargo/clap_mangen@0.3.2",
+      "purl": "pkg:cargo/clap_mangen@0.3.3",
       "type": "library",
-      "version": "0.3.2"
+      "version": "0.3.3"
     },
     {
       "bom-ref": "pkg:cargo/collection_literals@1.0.3",
@@ -723,67 +723,67 @@
       "version": "1.2.2"
     },
     {
-      "bom-ref": "pkg:cargo/futures@0.3.33",
+      "bom-ref": "pkg:cargo/futures@0.3.34",
       "name": "futures",
-      "purl": "pkg:cargo/futures@0.3.33",
+      "purl": "pkg:cargo/futures@0.3.34",
       "type": "library",
-      "version": "0.3.33"
+      "version": "0.3.34"
     },
     {
-      "bom-ref": "pkg:cargo/futures-channel@0.3.33",
+      "bom-ref": "pkg:cargo/futures-channel@0.3.34",
       "name": "futures-channel",
-      "purl": "pkg:cargo/futures-channel@0.3.33",
+      "purl": "pkg:cargo/futures-channel@0.3.34",
       "type": "library",
-      "version": "0.3.33"
+      "version": "0.3.34"
     },
     {
-      "bom-ref": "pkg:cargo/futures-core@0.3.33",
+      "bom-ref": "pkg:cargo/futures-core@0.3.34",
       "name": "futures-core",
-      "purl": "pkg:cargo/futures-core@0.3.33",
+      "purl": "pkg:cargo/futures-core@0.3.34",
       "type": "library",
-      "version": "0.3.33"
+      "version": "0.3.34"
     },
     {
-      "bom-ref": "pkg:cargo/futures-executor@0.3.33",
+      "bom-ref": "pkg:cargo/futures-executor@0.3.34",
       "name": "futures-executor",
-      "purl": "pkg:cargo/futures-executor@0.3.33",
+      "purl": "pkg:cargo/futures-executor@0.3.34",
       "type": "library",
-      "version": "0.3.33"
+      "version": "0.3.34"
     },
     {
-      "bom-ref": "pkg:cargo/futures-io@0.3.33",
+      "bom-ref": "pkg:cargo/futures-io@0.3.34",
       "name": "futures-io",
-      "purl": "pkg:cargo/futures-io@0.3.33",
+      "purl": "pkg:cargo/futures-io@0.3.34",
       "type": "library",
-      "version": "0.3.33"
+      "version": "0.3.34"
     },
     {
-      "bom-ref": "pkg:cargo/futures-macro@0.3.33",
+      "bom-ref": "pkg:cargo/futures-macro@0.3.34",
       "name": "futures-macro",
-      "purl": "pkg:cargo/futures-macro@0.3.33",
+      "purl": "pkg:cargo/futures-macro@0.3.34",
       "type": "library",
-      "version": "0.3.33"
+      "version": "0.3.34"
     },
     {
-      "bom-ref": "pkg:cargo/futures-sink@0.3.33",
+      "bom-ref": "pkg:cargo/futures-sink@0.3.34",
       "name": "futures-sink",
-      "purl": "pkg:cargo/futures-sink@0.3.33",
+      "purl": "pkg:cargo/futures-sink@0.3.34",
       "type": "library",
-      "version": "0.3.33"
+      "version": "0.3.34"
     },
     {
-      "bom-ref": "pkg:cargo/futures-task@0.3.33",
+      "bom-ref": "pkg:cargo/futures-task@0.3.34",
       "name": "futures-task",
-      "purl": "pkg:cargo/futures-task@0.3.33",
+      "purl": "pkg:cargo/futures-task@0.3.34",
       "type": "library",
-      "version": "0.3.33"
+      "version": "0.3.34"
     },
     {
-      "bom-ref": "pkg:cargo/futures-util@0.3.33",
+      "bom-ref": "pkg:cargo/futures-util@0.3.34",
       "name": "futures-util",
-      "purl": "pkg:cargo/futures-util@0.3.33",
+      "purl": "pkg:cargo/futures-util@0.3.34",
       "type": "library",
-      "version": "0.3.33"
+      "version": "0.3.34"
     },
     {
       "bom-ref": "pkg:cargo/get-size-derive2@0.10.3",
@@ -1493,39 +1493,39 @@
       "version": "1.1.1"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_python_ast@0.0.8",
+      "bom-ref": "pkg:cargo/ruff_python_ast@0.0.9",
       "name": "ruff_python_ast",
-      "purl": "pkg:cargo/ruff_python_ast@0.0.8",
+      "purl": "pkg:cargo/ruff_python_ast@0.0.9",
       "type": "library",
-      "version": "0.0.8"
+      "version": "0.0.9"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_python_parser@0.0.8",
+      "bom-ref": "pkg:cargo/ruff_python_parser@0.0.9",
       "name": "ruff_python_parser",
-      "purl": "pkg:cargo/ruff_python_parser@0.0.8",
+      "purl": "pkg:cargo/ruff_python_parser@0.0.9",
       "type": "library",
-      "version": "0.0.8"
+      "version": "0.0.9"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_python_trivia@0.0.8",
+      "bom-ref": "pkg:cargo/ruff_python_trivia@0.0.9",
       "name": "ruff_python_trivia",
-      "purl": "pkg:cargo/ruff_python_trivia@0.0.8",
+      "purl": "pkg:cargo/ruff_python_trivia@0.0.9",
       "type": "library",
-      "version": "0.0.8"
+      "version": "0.0.9"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_source_file@0.0.8",
+      "bom-ref": "pkg:cargo/ruff_source_file@0.0.9",
       "name": "ruff_source_file",
-      "purl": "pkg:cargo/ruff_source_file@0.0.8",
+      "purl": "pkg:cargo/ruff_source_file@0.0.9",
       "type": "library",
-      "version": "0.0.8"
+      "version": "0.0.9"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_text_size@0.0.8",
+      "bom-ref": "pkg:cargo/ruff_text_size@0.0.9",
       "name": "ruff_text_size",
-      "purl": "pkg:cargo/ruff_text_size@0.0.8",
+      "purl": "pkg:cargo/ruff_text_size@0.0.9",
       "type": "library",
-      "version": "0.0.8"
+      "version": "0.0.9"
     },
     {
       "bom-ref": "pkg:cargo/rustc-hash@2.1.2",
@@ -2774,6 +2774,13 @@
       "version": "1.4.2"
     },
     {
+      "bom-ref": "pkg:cargo/clap_mangen@0.3.2",
+      "name": "clap_mangen",
+      "purl": "pkg:cargo/clap_mangen@0.3.2",
+      "type": "library",
+      "version": "0.3.2"
+    },
+    {
       "bom-ref": "pkg:cargo/crypto-common@0.2.2",
       "name": "crypto-common",
       "purl": "pkg:cargo/crypto-common@0.2.2",
@@ -2835,6 +2842,69 @@
       "purl": "pkg:cargo/find-msvc-tools@0.1.10",
       "type": "library",
       "version": "0.1.10"
+    },
+    {
+      "bom-ref": "pkg:cargo/futures@0.3.33",
+      "name": "futures",
+      "purl": "pkg:cargo/futures@0.3.33",
+      "type": "library",
+      "version": "0.3.33"
+    },
+    {
+      "bom-ref": "pkg:cargo/futures-channel@0.3.33",
+      "name": "futures-channel",
+      "purl": "pkg:cargo/futures-channel@0.3.33",
+      "type": "library",
+      "version": "0.3.33"
+    },
+    {
+      "bom-ref": "pkg:cargo/futures-core@0.3.33",
+      "name": "futures-core",
+      "purl": "pkg:cargo/futures-core@0.3.33",
+      "type": "library",
+      "version": "0.3.33"
+    },
+    {
+      "bom-ref": "pkg:cargo/futures-executor@0.3.33",
+      "name": "futures-executor",
+      "purl": "pkg:cargo/futures-executor@0.3.33",
+      "type": "library",
+      "version": "0.3.33"
+    },
+    {
+      "bom-ref": "pkg:cargo/futures-io@0.3.33",
+      "name": "futures-io",
+      "purl": "pkg:cargo/futures-io@0.3.33",
+      "type": "library",
+      "version": "0.3.33"
+    },
+    {
+      "bom-ref": "pkg:cargo/futures-macro@0.3.33",
+      "name": "futures-macro",
+      "purl": "pkg:cargo/futures-macro@0.3.33",
+      "type": "library",
+      "version": "0.3.33"
+    },
+    {
+      "bom-ref": "pkg:cargo/futures-sink@0.3.33",
+      "name": "futures-sink",
+      "purl": "pkg:cargo/futures-sink@0.3.33",
+      "type": "library",
+      "version": "0.3.33"
+    },
+    {
+      "bom-ref": "pkg:cargo/futures-task@0.3.33",
+      "name": "futures-task",
+      "purl": "pkg:cargo/futures-task@0.3.33",
+      "type": "library",
+      "version": "0.3.33"
+    },
+    {
+      "bom-ref": "pkg:cargo/futures-util@0.3.33",
+      "name": "futures-util",
+      "purl": "pkg:cargo/futures-util@0.3.33",
+      "type": "library",
+      "version": "0.3.33"
     },
     {
       "bom-ref": "pkg:cargo/getrandom@0.4.3",
@@ -2996,6 +3066,41 @@
       "purl": "pkg:cargo/regex-automata@0.4.18",
       "type": "library",
       "version": "0.4.18"
+    },
+    {
+      "bom-ref": "pkg:cargo/ruff_python_ast@0.0.8",
+      "name": "ruff_python_ast",
+      "purl": "pkg:cargo/ruff_python_ast@0.0.8",
+      "type": "library",
+      "version": "0.0.8"
+    },
+    {
+      "bom-ref": "pkg:cargo/ruff_python_parser@0.0.8",
+      "name": "ruff_python_parser",
+      "purl": "pkg:cargo/ruff_python_parser@0.0.8",
+      "type": "library",
+      "version": "0.0.8"
+    },
+    {
+      "bom-ref": "pkg:cargo/ruff_python_trivia@0.0.8",
+      "name": "ruff_python_trivia",
+      "purl": "pkg:cargo/ruff_python_trivia@0.0.8",
+      "type": "library",
+      "version": "0.0.8"
+    },
+    {
+      "bom-ref": "pkg:cargo/ruff_source_file@0.0.8",
+      "name": "ruff_source_file",
+      "purl": "pkg:cargo/ruff_source_file@0.0.8",
+      "type": "library",
+      "version": "0.0.8"
+    },
+    {
+      "bom-ref": "pkg:cargo/ruff_text_size@0.0.8",
+      "name": "ruff_text_size",
+      "purl": "pkg:cargo/ruff_text_size@0.0.8",
+      "type": "library",
+      "version": "0.0.8"
     },
     {
       "bom-ref": "pkg:cargo/rustc-hash@2.1.3",

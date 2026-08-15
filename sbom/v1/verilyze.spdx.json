@@ -512,9 +512,9 @@
     {
       "@type": "Package",
       "name": "clap_mangen",
-      "packageUrl": "pkg:cargo/clap_mangen@0.3.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-mangen-0-3-2",
-      "versionInfo": "0.3.2"
+      "packageUrl": "pkg:cargo/clap_mangen@0.3.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-mangen-0-3-3",
+      "versionInfo": "0.3.3"
     },
     {
       "@type": "Package",
@@ -736,65 +736,65 @@
     {
       "@type": "Package",
       "name": "futures",
-      "packageUrl": "pkg:cargo/futures@0.3.33",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-0-3-33",
-      "versionInfo": "0.3.33"
+      "packageUrl": "pkg:cargo/futures@0.3.34",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-0-3-34",
+      "versionInfo": "0.3.34"
     },
     {
       "@type": "Package",
       "name": "futures-channel",
-      "packageUrl": "pkg:cargo/futures-channel@0.3.33",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-channel-0-3-33",
-      "versionInfo": "0.3.33"
+      "packageUrl": "pkg:cargo/futures-channel@0.3.34",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-channel-0-3-34",
+      "versionInfo": "0.3.34"
     },
     {
       "@type": "Package",
       "name": "futures-core",
-      "packageUrl": "pkg:cargo/futures-core@0.3.33",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-core-0-3-33",
-      "versionInfo": "0.3.33"
+      "packageUrl": "pkg:cargo/futures-core@0.3.34",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-core-0-3-34",
+      "versionInfo": "0.3.34"
     },
     {
       "@type": "Package",
       "name": "futures-executor",
-      "packageUrl": "pkg:cargo/futures-executor@0.3.33",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-executor-0-3-33",
-      "versionInfo": "0.3.33"
+      "packageUrl": "pkg:cargo/futures-executor@0.3.34",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-executor-0-3-34",
+      "versionInfo": "0.3.34"
     },
     {
       "@type": "Package",
       "name": "futures-io",
-      "packageUrl": "pkg:cargo/futures-io@0.3.33",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-io-0-3-33",
-      "versionInfo": "0.3.33"
+      "packageUrl": "pkg:cargo/futures-io@0.3.34",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-io-0-3-34",
+      "versionInfo": "0.3.34"
     },
     {
       "@type": "Package",
       "name": "futures-macro",
-      "packageUrl": "pkg:cargo/futures-macro@0.3.33",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-macro-0-3-33",
-      "versionInfo": "0.3.33"
+      "packageUrl": "pkg:cargo/futures-macro@0.3.34",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-macro-0-3-34",
+      "versionInfo": "0.3.34"
     },
     {
       "@type": "Package",
       "name": "futures-sink",
-      "packageUrl": "pkg:cargo/futures-sink@0.3.33",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-sink-0-3-33",
-      "versionInfo": "0.3.33"
+      "packageUrl": "pkg:cargo/futures-sink@0.3.34",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-sink-0-3-34",
+      "versionInfo": "0.3.34"
     },
     {
       "@type": "Package",
       "name": "futures-task",
-      "packageUrl": "pkg:cargo/futures-task@0.3.33",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-task-0-3-33",
-      "versionInfo": "0.3.33"
+      "packageUrl": "pkg:cargo/futures-task@0.3.34",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-task-0-3-34",
+      "versionInfo": "0.3.34"
     },
     {
       "@type": "Package",
       "name": "futures-util",
-      "packageUrl": "pkg:cargo/futures-util@0.3.33",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-util-0-3-33",
-      "versionInfo": "0.3.33"
+      "packageUrl": "pkg:cargo/futures-util@0.3.34",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-util-0-3-34",
+      "versionInfo": "0.3.34"
     },
     {
       "@type": "Package",
@@ -1506,37 +1506,37 @@
     {
       "@type": "Package",
       "name": "ruff_python_ast",
-      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.8",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-8",
-      "versionInfo": "0.0.8"
+      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.9",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-9",
+      "versionInfo": "0.0.9"
     },
     {
       "@type": "Package",
       "name": "ruff_python_parser",
-      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.8",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-8",
-      "versionInfo": "0.0.8"
+      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.9",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-9",
+      "versionInfo": "0.0.9"
     },
     {
       "@type": "Package",
       "name": "ruff_python_trivia",
-      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.8",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-8",
-      "versionInfo": "0.0.8"
+      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.9",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-9",
+      "versionInfo": "0.0.9"
     },
     {
       "@type": "Package",
       "name": "ruff_source_file",
-      "packageUrl": "pkg:cargo/ruff_source_file@0.0.8",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-8",
-      "versionInfo": "0.0.8"
+      "packageUrl": "pkg:cargo/ruff_source_file@0.0.9",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-9",
+      "versionInfo": "0.0.9"
     },
     {
       "@type": "Package",
       "name": "ruff_text_size",
-      "packageUrl": "pkg:cargo/ruff_text_size@0.0.8",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-8",
-      "versionInfo": "0.0.8"
+      "packageUrl": "pkg:cargo/ruff_text_size@0.0.9",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-9",
+      "versionInfo": "0.0.9"
     },
     {
       "@type": "Package",
@@ -2786,6 +2786,13 @@
     },
     {
       "@type": "Package",
+      "name": "clap_mangen",
+      "packageUrl": "pkg:cargo/clap_mangen@0.3.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-mangen-0-3-2",
+      "versionInfo": "0.3.2"
+    },
+    {
+      "@type": "Package",
       "name": "crypto-common",
       "packageUrl": "pkg:cargo/crypto-common@0.2.2",
       "spdxId": "urn:spdx.dev:pkg-cargo-crypto-common-0-2-2",
@@ -2846,6 +2853,69 @@
       "packageUrl": "pkg:cargo/find-msvc-tools@0.1.10",
       "spdxId": "urn:spdx.dev:pkg-cargo-find-msvc-tools-0-1-10",
       "versionInfo": "0.1.10"
+    },
+    {
+      "@type": "Package",
+      "name": "futures",
+      "packageUrl": "pkg:cargo/futures@0.3.33",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-0-3-33",
+      "versionInfo": "0.3.33"
+    },
+    {
+      "@type": "Package",
+      "name": "futures-channel",
+      "packageUrl": "pkg:cargo/futures-channel@0.3.33",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-channel-0-3-33",
+      "versionInfo": "0.3.33"
+    },
+    {
+      "@type": "Package",
+      "name": "futures-core",
+      "packageUrl": "pkg:cargo/futures-core@0.3.33",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-core-0-3-33",
+      "versionInfo": "0.3.33"
+    },
+    {
+      "@type": "Package",
+      "name": "futures-executor",
+      "packageUrl": "pkg:cargo/futures-executor@0.3.33",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-executor-0-3-33",
+      "versionInfo": "0.3.33"
+    },
+    {
+      "@type": "Package",
+      "name": "futures-io",
+      "packageUrl": "pkg:cargo/futures-io@0.3.33",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-io-0-3-33",
+      "versionInfo": "0.3.33"
+    },
+    {
+      "@type": "Package",
+      "name": "futures-macro",
+      "packageUrl": "pkg:cargo/futures-macro@0.3.33",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-macro-0-3-33",
+      "versionInfo": "0.3.33"
+    },
+    {
+      "@type": "Package",
+      "name": "futures-sink",
+      "packageUrl": "pkg:cargo/futures-sink@0.3.33",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-sink-0-3-33",
+      "versionInfo": "0.3.33"
+    },
+    {
+      "@type": "Package",
+      "name": "futures-task",
+      "packageUrl": "pkg:cargo/futures-task@0.3.33",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-task-0-3-33",
+      "versionInfo": "0.3.33"
+    },
+    {
+      "@type": "Package",
+      "name": "futures-util",
+      "packageUrl": "pkg:cargo/futures-util@0.3.33",
+      "spdxId": "urn:spdx.dev:pkg-cargo-futures-util-0-3-33",
+      "versionInfo": "0.3.33"
     },
     {
       "@type": "Package",
@@ -3007,6 +3077,41 @@
       "packageUrl": "pkg:cargo/regex-automata@0.4.18",
       "spdxId": "urn:spdx.dev:pkg-cargo-regex-automata-0-4-18",
       "versionInfo": "0.4.18"
+    },
+    {
+      "@type": "Package",
+      "name": "ruff_python_ast",
+      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-8",
+      "versionInfo": "0.0.8"
+    },
+    {
+      "@type": "Package",
+      "name": "ruff_python_parser",
+      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-8",
+      "versionInfo": "0.0.8"
+    },
+    {
+      "@type": "Package",
+      "name": "ruff_python_trivia",
+      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-8",
+      "versionInfo": "0.0.8"
+    },
+    {
+      "@type": "Package",
+      "name": "ruff_source_file",
+      "packageUrl": "pkg:cargo/ruff_source_file@0.0.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-8",
+      "versionInfo": "0.0.8"
+    },
+    {
+      "@type": "Package",
+      "name": "ruff_text_size",
+      "packageUrl": "pkg:cargo/ruff_text_size@0.0.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-8",
+      "versionInfo": "0.0.8"
     },
     {
       "@type": "Package",
