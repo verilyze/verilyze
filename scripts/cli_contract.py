@@ -11,6 +11,7 @@ import shutil
 import subprocess  # nosec B404
 import sys
 import tempfile
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,9 @@ from typing import Any
 UNQUALIFIED_NO_VULNS = "No vulnerabilities found."
 REGISTRY_REL = Path("tests/cli_contract/registry.json")
 FIXTURES_REL = Path("tests/cli_contract/fixtures")
+VLZ_CARGO_REL = Path("crates/core/vlz/Cargo.toml")
+CACHE_FEATURE_NAMES = frozenset({"redb", "mem"})
+LOCKLESS_PM_ON_PATH = frozenset({"rust", "go"})
 DEFAULT_LANGUAGES = (
     "python",
     "rust",
@@ -60,6 +64,181 @@ def load_registry(root: Path) -> dict[str, Any]:
     path = root / REGISTRY_REL
     data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
     return data
+
+
+def _feature_language_names(names: Any) -> tuple[str, ...]:
+    if not isinstance(names, list):
+        raise ValueError("features.runtime must be a list")
+    return tuple(
+        str(name) for name in names if str(name) not in CACHE_FEATURE_NAMES
+    )
+
+
+def runtime_language_features_from_toml(text: str) -> tuple[str, ...]:
+    """Language feature names from vlz ``runtime`` (exclude cache backends)."""
+    data = tomllib.loads(text)
+    return _feature_language_names(data.get("features", {}).get("runtime"))
+
+
+def runtime_mem_language_features_from_toml(text: str) -> tuple[str, ...]:
+    """Language feature names from vlz ``runtime-mem``."""
+    data = tomllib.loads(text)
+    names = data.get("features", {}).get("runtime-mem")
+    if not isinstance(names, list):
+        raise ValueError("features.runtime-mem must be a list")
+    return tuple(
+        str(name) for name in names if str(name) not in CACHE_FEATURE_NAMES
+    )
+
+
+def load_runtime_language_features(root: Path) -> tuple[str, ...]:
+    """Read language features from crates/core/vlz/Cargo.toml ``runtime``."""
+    path = root / VLZ_CARGO_REL
+    return runtime_language_features_from_toml(
+        path.read_text(encoding="utf-8")
+    )
+
+
+def load_runtime_mem_language_features(root: Path) -> tuple[str, ...]:
+    """Read ``runtime-mem`` language features from vlz Cargo.toml."""
+    path = root / VLZ_CARGO_REL
+    return runtime_mem_language_features_from_toml(
+        path.read_text(encoding="utf-8")
+    )
+
+
+def _expect_cache_miss(case: dict[str, Any], label: str) -> str | None:
+    exits = case.get("expect_exit") or []
+    if 0 in exits or 4 in exits or 6 not in exits or 86 not in exits:
+        return f"{case.get('id')}: {label}"
+    return None
+
+
+def _lock_offline_errors(cases: list[Any], lang: str) -> list[str]:
+    matched = [
+        case
+        for case in cases
+        if isinstance(case, dict)
+        and case.get("language") == lang
+        and case.get("category") == "lock_parse"
+        and "--offline" in (case.get("args") or [])
+        and "smoke" in (case.get("modes") or [])
+        and "--format" not in (case.get("args") or [])
+    ]
+    if not matched:
+        return [f"{lang}: missing smoke lock_parse --offline without --format"]
+    errors: list[str] = []
+    for case in matched:
+        msg = _expect_cache_miss(case, "lock-offline expect [6, 86]")
+        if msg:
+            errors.append(msg)
+    return errors
+
+
+def _lockless_policy_errors(cases: list[Any], lang: str) -> list[str]:
+    if lang in LOCKLESS_PM_ON_PATH:
+        matched = [
+            case
+            for case in cases
+            if isinstance(case, dict)
+            and case.get("language") == lang
+            and str(case.get("id", "")).endswith("-lockless-offline")
+            and "--offline" in (case.get("args") or [])
+            and "smoke" in (case.get("modes") or [])
+        ]
+        if not matched:
+            return [
+                f"{lang}: missing smoke lock-less --offline "
+                "(cargo/go on PATH)"
+            ]
+        errors: list[str] = []
+        for case in matched:
+            msg = _expect_cache_miss(case, "lock-less-offline expect 6/86")
+            if msg:
+                errors.append(msg)
+        return errors
+    matched = [
+        case
+        for case in cases
+        if isinstance(case, dict)
+        and case.get("language") == lang
+        and str(case.get("id", "")).endswith("-lockless")
+        and "--offline" not in (case.get("args") or [])
+    ]
+    if not matched:
+        return [f"{lang}: missing default lock-less expect 4"]
+    errors = []
+    for case in matched:
+        if case.get("expect_exit") != [4]:
+            errors.append(f"{case.get('id')}: default lock-less expect [4]")
+    return errors
+
+
+def _pin_errors(cases: list[Any], lang: str) -> list[str]:
+    matched = [
+        case
+        for case in cases
+        if isinstance(case, dict)
+        and case.get("language") == lang
+        and str(case.get("id", "")).endswith("-lock-offline-pin")
+        and "full" in (case.get("modes") or [])
+        and "cyclonedx" in (case.get("args") or [])
+    ]
+    if not matched:
+        return [f"{lang}: missing full CycloneDX lock-offline-pin"]
+    errors: list[str] = []
+    for case in matched:
+        msg = _expect_cache_miss(case, "lock-offline-pin expect [6, 86]")
+        if msg:
+            errors.append(msg)
+        needles = case.get("stdout_contains") or []
+        if not needles:
+            errors.append(f"{case.get('id')}: pin case needs stdout_contains")
+    return errors
+
+
+def _empty_lock_errors(cases: list[Any], lang: str) -> list[str]:
+    if lang in LOCKLESS_PM_ON_PATH:
+        return []
+    matched = [
+        case
+        for case in cases
+        if isinstance(case, dict)
+        and case.get("language") == lang
+        and "empty" in str(case.get("id", ""))
+        and "--offline" not in (case.get("args") or [])
+    ]
+    if not matched:
+        return [f"{lang}: missing default empty-lock case"]
+    errors: list[str] = []
+    for case in matched:
+        if case.get("expect_exit") != [4]:
+            errors.append(f"{case.get('id')}: empty-lock expect [4]")
+    return errors
+
+
+def registry_covers_runtime_languages(
+    registry: dict[str, Any],
+    langs: tuple[str, ...],
+    mem_langs: tuple[str, ...] | None = None,
+) -> list[str]:
+    """Return errors when a runtime language lacks required CLI cases."""
+    errors: list[str] = []
+    if mem_langs is not None and set(langs) != set(mem_langs):
+        errors.append(
+            "runtime and runtime-mem language features differ: "
+            f"{tuple(langs)} vs {tuple(mem_langs)}"
+        )
+    cases = registry.get("cases")
+    if not isinstance(cases, list):
+        errors.append("registry cases must be a list")
+        return errors
+    for lang in langs:
+        errors.extend(_lock_offline_errors(cases, lang))
+        errors.extend(_lockless_policy_errors(cases, lang))
+        errors.extend(_pin_errors(cases, lang))
+        errors.extend(_empty_lock_errors(cases, lang))
+    return errors
 
 
 def cases_for_mode(

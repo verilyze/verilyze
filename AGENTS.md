@@ -135,7 +135,7 @@ not only `make check-fast`.
 | Config precedence    | PRD CFG-001--CFG-008; README “Configuration precedence”  |
 | HTTP proxy (CVE)     | PRD OP-018; [INSTALL.md](INSTALL.md); `man vlz` ENVIRONMENT |
 | CI script inputs (GHA) | PRD OP-019; CONTRIBUTING "GitHub Actions (`ci.yml`)"; [scripts/lib/ci-input-validate.sh](scripts/lib/ci-input-validate.sh) |
-| Adding a plugin      | CONTRIBUTING "Adding a new language plugin"; PRD MOD-002 |
+| Adding a plugin      | CONTRIBUTING "Adding a new language plugin" (lock-first resolver checklist); PRD MOD-002 |
 | Config documentation | CONTRIBUTING "Adding or updating configuration keys"; `make generate-config-example` |
 | Commit messages      | CONTRIBUTING "Commit messages"                           |
 | TDD / test scope     | [CONTRIBUTING.md -- Test scope and layering](CONTRIBUTING.md#test-scope-and-layering); [TDD](CONTRIBUTING.md#test-driven-development-tdd) |

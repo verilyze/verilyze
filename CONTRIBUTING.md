@@ -530,6 +530,54 @@ flowchart LR
     Packages --> CVE[CVE lookup]
 ```
 
+### Lock-first resolver contract (must)
+
+Language plugins must not give a false sense of coverage. Follow this order
+in `Resolver::resolve` (helpers in `vlz_manifest_parser`:
+`skip_package_manager_reason`, `require_transitive_or_fallback`,
+`direct_only_result_from_graph`). Requirements: PRD FR-022, FR-022a, FR-024,
+SEC-023, FR-009, FR-010.
+
+1. Parse a **usable** lock (adjacent or parent, language rules in Appendix A)
+   **before** `skip_package_manager_reason`. `--offline` / `--benchmark` must
+   still use committed pins.
+2. A usable lock is readable and yields at least one pin (or the
+   language-specific equivalent: `go.sum` checksum identities count; a Gradle
+   lock that is only `empty=` does not).
+3. Empty or unreadable lock plus **declared** direct dependencies is not
+   Transitive. Empty lock plus an **empty** manifest (no declared deps) may
+   be an empty project (exit 0).
+4. After a usable lock: Transitive. After skip-PM without a usable lock:
+   DirectOnly (FR-022a). Else, if Appendix A documents a non-executing PM on
+   PATH (`cargo metadata`, `go list`), that tool may still run. Else gated
+   package-manager execution (`allow_dependency_code_execution`). Else
+   FR-022 exit **4**.
+5. **New languages whose package manager executes project code** (npm, Gradle,
+   Bundler, pip install, and similar) fail closed like JavaScript, Java, Ruby,
+   and Python (default lock-less exit **4**). Do not copy Rust/Go: those still
+   run `cargo metadata` / `go list` when the tools are on PATH (Appendix A).
+6. Crate tests: offline plus usable lock is Transitive; empty lock is not
+   Transitive; default lock-less is FR-022 or the documented cargo/go
+   exception.
+
+**CLI contract** (`tests/cli_contract/`, `make cli-contract`):
+
+| Case | Modes | Expect |
+|------|-------|--------|
+| `fixtures/<lang>/lock` scan `--offline` | smoke | `[6, 86]`, default format (no `--format`) |
+| Default lock-less | smoke or full | `[4]` except Rust/Go |
+| Rust/Go lock-less `--offline` | smoke | `[6, 86]` (CI has `cargo`/`go`) |
+| Empty lock plus a **non-empty** manifest dep | full | not Transitive / not unqualified "No vulnerabilities found." |
+| CycloneDX pin (`*-lock-offline-pin`) | full | known package name in stdout |
+
+Use a `.fixture` suffix for SCA-sensitive names. Add the language to
+`scripts/cli_contract.py` `DEFAULT_LANGUAGES` and to both `runtime` and
+`runtime-mem` in `crates/core/vlz/Cargo.toml`. `make test-scripts` checks
+registry completeness against the `runtime` feature list.
+
+**Docs with the language:** Appendix A row, FAQ subsection, CHANGELOG
+`[Unreleased]`, and `vlz languages` output.
+
 ### Reachability tiers (maintainer reference)
 
 Use the same tier names in code comments, docs, and tests:
