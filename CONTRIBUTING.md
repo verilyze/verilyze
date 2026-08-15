@@ -1500,7 +1500,13 @@ AFL++ with ClusterFuzzLite.
     (~30 s each). Use for on-demand verification.
   - **Changed code only:** `make fuzz-changed` or `./scripts/fuzz.sh --changed`
     runs only targets whose mapped files changed. **Skipped** when
-    none of the mapped files have changed (exit 0).
+    none of the mapped files have changed (exit 0). Lockfile and companion-only
+    diffs (`Cargo.lock`, `**/Cargo.toml` outside `tests/fuzz/` and outside
+    shared crates, `THIRD-PARTY-LICENSES`, `sbom/**`) do not run the full AFL
+    matrix. Shared crates (`vlz-db`, `vlz-db-redb`, `vlz-plugin-macro`, including
+    their `Cargo.toml`) and `tests/fuzz/**` still run all targets. Parser `.rs`
+    changes run the mapped subset. `make check` still runs `coverage-quick`
+    after fuzz-changed.
   - **Extended:** `make fuzz-extended` or `./scripts/fuzz.sh --extended` runs
     all targets with 30 min timeout each. Use for nightly or deep verification.
 - **Mapping:** `scripts/fuzz-targets.map` maps each target to source paths.
@@ -1534,6 +1540,10 @@ AFL++ with ClusterFuzzLite.
   Build integration in `.clusterfuzzlite/` (`Dockerfile`, `build.sh`,
   `project.yaml`). Workflows: `cflite_pr.yml` (code-change on PRs),
   `cflite_batch.yml` (scheduled batch), `cflite_cron.yml` (prune + coverage).
+  `cflite_pr.yml` path filters are `crates/**/*.rs`, the shared-crate trees
+  (`vlz-db`, `vlz-db-redb`, `vlz-plugin-macro`), `fuzz/**`,
+  `.clusterfuzzlite/**`, and the workflow file. Language-crate `Cargo.toml`-only
+  bumps do not rebuild libFuzzer; shared-crate manifest changes still do.
 - **Local run:** Install [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz)
   and a nightly toolchain (`fuzz/rust-toolchain.toml`). Run from `fuzz/` so
   rustup picks that nightly (the root `rust-toolchain.toml` pins stable):

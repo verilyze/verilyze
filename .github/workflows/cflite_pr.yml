@@ -12,7 +12,13 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "crates/**"
+      - "crates/**/*.rs"
+      # Keep in sync with FUZZ_SHARED_PATH_PATTERNS in
+      # scripts/lib/fuzz-resolve-targets.sh (manifest bumps on these crates
+      # still rebuild libFuzzer).
+      - "crates/core/vlz-db/**"
+      - "crates/db-backends/vlz-db-redb/**"
+      - "crates/core/vlz-plugin-macro/**"
       - "fuzz/**"
       - ".clusterfuzzlite/**"
       - ".github/workflows/cflite_pr.yml"

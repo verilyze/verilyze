@@ -123,5 +123,51 @@ def test_makefile_ci_companion_paths_do_not_trigger_all_fuzz() -> None:
     )
 
 
-def test_cargo_toml_with_crate_change_still_triggers_all_fuzz() -> None:
-    assert _trigger_run_all("Cargo.toml", "crates/core/vlz/src/run.rs")
+def _match_targets(*files: str) -> str:
+    proc = subprocess.run(
+        [
+            "bash",
+            "-c",
+            f"source '{_RESOLVE}'; fuzz_match_changed_to_targets \"$FILES\"",
+        ],
+        cwd=repo_root(),
+        text=True,
+        capture_output=True,
+        check=False,
+        env={**os.environ, "FUZZ_TARGETS_FILE": str(_MAP), "FILES": " ".join(files)},
+    )
+    assert proc.returncode == 0, proc.stderr
+    return proc.stdout.strip()
+
+
+def test_renovate_lockfile_companion_paths_do_not_trigger_all_fuzz() -> None:
+    assert not _trigger_run_all(
+        "Cargo.lock",
+        "crates/languages/vlz-python/Cargo.toml",
+        "THIRD-PARTY-LICENSES",
+        "sbom/v1/verilyze.cdx.json",
+    )
+
+
+def test_cargo_lock_with_mapped_parser_does_not_trigger_all_fuzz() -> None:
+    assert not _trigger_run_all("Cargo.lock", "crates/core/vlz/src/config.rs")
+
+
+def test_cargo_lock_with_mapped_parser_selects_config_toml_only() -> None:
+    assert _match_targets("Cargo.lock", "crates/core/vlz/src/config.rs") == "config_toml"
+
+
+def test_cargo_toml_with_unmapped_src_does_not_trigger_all_fuzz() -> None:
+    assert not _trigger_run_all("Cargo.toml", "crates/core/vlz/src/run.rs")
+
+
+def test_shared_crate_with_lock_still_triggers_all_fuzz() -> None:
+    assert _trigger_run_all("Cargo.lock", "crates/core/vlz-db/src/lib.rs")
+
+
+def test_shared_crate_manifest_still_triggers_all_fuzz() -> None:
+    assert _trigger_run_all("Cargo.lock", "crates/core/vlz-db/Cargo.toml")
+
+
+def test_fuzz_harness_change_still_triggers_all_fuzz() -> None:
+    assert _trigger_run_all("Cargo.lock", "tests/fuzz/Cargo.toml")
