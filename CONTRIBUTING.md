@@ -180,6 +180,7 @@ installed separately. For coverage, use stable Rust with
 | Fuzz extended         | `make fuzz-extended`                               |
 | Check DCO signoff     | `make check-dco`                                   |
 | Check signatures      | `make check-signatures`                            |
+| CLI contract (local)  | `make cli-contract` (`CLI_CONTRACT_MODE=smoke`; one lock-offline scan per default language). `CLI_CONTRACT_BINARY` optional. |
 
 ## Branching and merging
 
@@ -393,14 +394,13 @@ with `RUSTFLAGS=-Dwarnings` so rustc warnings fail the build.
    changed.
 6. Create signed annotated tag: `git tag -s v0.1.0 -m "Release v0.1.0"`.
 7. Push tag: `git push origin v0.1.0`.
-8. Confirm OBS release automation succeeds:
-   - `release.yml` runs OBS signing-key checks in the preflight job (before
-     builds), then builds assets, creates a **draft** GitHub Release, verifies
-     checksums and Sigstore bundles locally and again after downloading the
-     draft assets, and only then publishes the release (making it immutable if
-     your repository uses immutable releases). OBS source upload and rebuild
-     run in parallel once the tag preflight passes (upload-driven; no OBS
-     source services on build.opensuse.org).
+8. Confirm `release.yml` creates a **draft** GitHub Release, re-verifies
+   checksums and Sigstore bundles from `gh release download`, runs the
+   three-OS **CLI contract smoke** against those native archives, waits for
+   OBS builds, and only then publishes (`gh release edit --draft=false`).
+   A failed CLI contract leaves the release in draft; fix and use the
+   tag-move loop. After publish, failures need a new patch version.
+   Confirm OBS automation succeeds:
    - Ensure repository secrets `OBS_USER`, `OBS_PASSWORD`, and
      `OBS_TOKEN_REBUILD` are set for upload-driven OBS publishing
      (`osc` upload plus rebuild trigger):
@@ -424,7 +424,7 @@ changes):
   not three assets all named `vlz`.
 - Build each archive **once** on its platform runner
   (`scripts/release-build-platform-archive.sh`). Do not re-archive in
-  `create-release` (that would invalidate SLSA subject digests).
+  `create-draft` (that would invalidate SLSA subject digests).
 - `softprops/action-gh-release` uploads basenames as-is; stage a flat
   `github-upload/` directory (`scripts/release-stage-github-upload.sh`). It
   does not support `path#name` rename syntax.
@@ -436,9 +436,10 @@ changes):
 - `slsa-verifier` builder regex must accept both the generator version tag
   and the Renovate-pinned workflow SHA (`SLSA_GENERATOR_PIN_SHA`).
 
-**Future work:** `workflow_dispatch` on `release.yml` still skips the
-`create-release` job (`if: github.event_name == 'push'`). Local round-trip is
-the pre-tag substitute until a dispatchable publish dry-run exists.
+**Future work:** `workflow_dispatch` on `release.yml` still skips
+`create-draft` / `publish-release` (`if: github.event_name == 'push'`).
+Local round-trip is the pre-tag substitute until a dispatchable publish
+dry-run exists.
 
 ### Failed release before publish
 

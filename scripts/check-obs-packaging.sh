@@ -224,8 +224,8 @@ if ! grep -q 'wait-obs-builds' "${RELEASE_WORKFLOW}"; then
   exit 1
 fi
 
-if ! grep -A20 '^  create-release:' "${RELEASE_WORKFLOW}" | grep -q 'wait-obs-builds'; then
-  echo "ERROR: create-release job must depend on wait-obs-builds" >&2
+if ! grep -A20 '^  publish-release:' "${RELEASE_WORKFLOW}" | grep -q 'wait-obs-builds'; then
+  echo "ERROR: publish-release job must depend on wait-obs-builds" >&2
   exit 1
 fi
 

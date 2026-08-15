@@ -244,16 +244,13 @@ impl Resolver for JavaResolver {
         graph: &DependencyGraph,
         ctx: &ResolveContext,
     ) -> Result<ResolveResult, ResolverError> {
-        if let Some(reason) = skip_package_manager_reason(ctx) {
-            return Ok(direct_only_result_from_graph(graph, reason));
-        }
-
         let Some(manifest_path) = graph.manifest_path.as_ref() else {
             return Err(fr022_transitive_error());
         };
 
         // Lock file as manifest entry point: parsed graph is already transitive.
         if matches!(manifest_kind(manifest_path), JavaManifestKind::GradleLock)
+            && !graph.packages.is_empty()
         {
             let package_declarations = resolve_declarations_for_packages(
                 &graph.packages,
@@ -301,19 +298,25 @@ impl Resolver for JavaResolver {
                 }
                 all_declarations.extend(resolution.package_declarations);
             }
-            let package_declarations = resolve_declarations_for_packages(
-                &all_packages,
-                graph,
-                &all_declarations,
-            );
-            return Ok(ResolveResult {
-                packages: all_packages,
-                depth: ResolutionDepth::Transitive,
-                direct_only_reason: None,
-                package_declarations,
-                resolved_lock_paths: lock_paths,
-                ..Default::default()
-            });
+            if !all_packages.is_empty() {
+                let package_declarations = resolve_declarations_for_packages(
+                    &all_packages,
+                    graph,
+                    &all_declarations,
+                );
+                return Ok(ResolveResult {
+                    packages: all_packages,
+                    depth: ResolutionDepth::Transitive,
+                    direct_only_reason: None,
+                    package_declarations,
+                    resolved_lock_paths: lock_paths,
+                    ..Default::default()
+                });
+            }
+        }
+
+        if let Some(reason) = skip_package_manager_reason(ctx) {
+            return Ok(direct_only_result_from_graph(graph, reason));
         }
 
         // Direct-only manifest (pom, gradle build, catalog) without lock.
@@ -631,6 +634,96 @@ mod tests {
         };
         let result = resolver.resolve(&graph, &ctx).await.unwrap();
         assert!(result.direct_only_reason.is_some());
+    }
+
+    #[tokio::test]
+    async fn offline_with_gradle_lock_stays_transitive() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("build.gradle"), "dependencies {}").unwrap();
+        std::fs::write(
+            root.join("gradle.lockfile"),
+            "com.a:b:1.0=compileClasspath\n",
+        )
+        .unwrap();
+        let graph = DependencyGraph {
+            packages: vec![Package {
+                name: "com.a:b".into(),
+                version: "1.0".into(),
+                ecosystem: Some("Maven".into()),
+            }],
+            parsed_dependencies: vec![],
+            manifest_path: Some(root.join("build.gradle")),
+        };
+        let resolver = JavaResolver::new();
+        let ctx = ResolveContext {
+            skip_pip_resolution: true,
+            scan_root: Some(root.to_path_buf()),
+            ..Default::default()
+        };
+        let result = resolver.resolve(&graph, &ctx).await.unwrap();
+        assert_eq!(result.depth, ResolutionDepth::Transitive);
+        assert_eq!(result.direct_only_reason, None);
+        assert!(result.packages.iter().any(|p| p.name == "com.a:b"));
+    }
+
+    #[tokio::test]
+    async fn benchmark_with_gradle_lock_stays_transitive() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("build.gradle"), "dependencies {}").unwrap();
+        std::fs::write(
+            root.join("gradle.lockfile"),
+            "com.a:b:1.0=compileClasspath\n",
+        )
+        .unwrap();
+        let graph = DependencyGraph {
+            packages: vec![Package {
+                name: "com.a:b".into(),
+                version: "1.0".into(),
+                ecosystem: Some("Maven".into()),
+            }],
+            parsed_dependencies: vec![],
+            manifest_path: Some(root.join("build.gradle")),
+        };
+        let resolver = JavaResolver::new();
+        let ctx = ResolveContext {
+            skip_pip_resolution: true,
+            benchmark_mode: true,
+            scan_root: Some(root.to_path_buf()),
+            ..Default::default()
+        };
+        let result = resolver.resolve(&graph, &ctx).await.unwrap();
+        assert_eq!(result.depth, ResolutionDepth::Transitive);
+        assert_eq!(result.direct_only_reason, None);
+    }
+
+    #[tokio::test]
+    async fn offline_empty_gradle_lock_falls_through_direct_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("build.gradle"), "dependencies {}").unwrap();
+        std::fs::write(root.join("gradle.lockfile"), "empty=\n").unwrap();
+        let graph = DependencyGraph {
+            packages: vec![Package {
+                name: "com.a:b".into(),
+                version: "1.0".into(),
+                ecosystem: Some("Maven".into()),
+            }],
+            parsed_dependencies: vec![],
+            manifest_path: Some(root.join("build.gradle")),
+        };
+        let resolver = JavaResolver::new();
+        let ctx = ResolveContext {
+            skip_pip_resolution: true,
+            scan_root: Some(root.to_path_buf()),
+            ..Default::default()
+        };
+        let result = resolver.resolve(&graph, &ctx).await.unwrap();
+        assert_eq!(
+            result.direct_only_reason,
+            Some(vlz_manifest_parser::DIRECT_ONLY_REASON_OFFLINE)
+        );
     }
 
     #[test]

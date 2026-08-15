@@ -368,3 +368,8 @@ vlz generate-completions zsh > "${fpath[1]}/_vlz"
 ```bash
 vlz generate-completions fish > ~/.config/fish/completions/vlz.fish
 ```
+
+On **Windows**, GitHub archives ship `vlz.exe` plus completion scripts in the
+zip layout. Native TAB completion is for Bash, Zsh, and Fish (Git Bash or
+WSL). PowerShell completion is not provided. `vlz generate-completions`
+still works and is what CI checks on windows-latest.

@@ -10,6 +10,22 @@ Human-readable release notes for each version.
 
 ## [Unreleased]
 
+### Added
+
+- CLI contract suite (`make cli-contract`, `tests/cli_contract/`) for
+  subprocess checks against an installed or built `vlz`. PR/nightly GitHub
+  jobs run it on Ubuntu, macOS, and Windows. Tagged releases download draft
+  platform archives, verify checksums and Cosign, then run smoke before
+  publish.
+
+### Changed
+
+- `--offline` / `--benchmark` parse committed JavaScript locks and Gradle
+  lockfiles before skip-PM. Go reads `go.sum` pins when `go list` is skipped
+  or `go` is not on PATH. Empty or unreadable `go.sum` is not a usable lock
+  (FR-024). Lock-less scans without those flags still exit 4 (FR-022);
+  PRD/FAQ acceptance text matches exit 4 (not 2).
+
 ## [0.8.0] - 2026-08-09
 
 ### Added

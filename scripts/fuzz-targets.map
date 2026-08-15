@@ -19,6 +19,7 @@ cargo_toml=crates/languages/vlz-rust/src/parser.rs
 cargo_lock=crates/languages/vlz-rust/src/resolver.rs
 cargo_metadata=crates/languages/vlz-rust/src/cargo_metadata.rs
 go_mod=crates/languages/vlz-go/src/parser.rs
+go_sum=crates/languages/vlz-go/src/parser.rs
 pip_freeze=crates/languages/vlz-python/src/resolver/pip_freeze.rs
 package_json=crates/languages/vlz-javascript/src/parser/package_json.rs
 npm_lock=crates/languages/vlz-javascript/src/parser/npm_lock.rs

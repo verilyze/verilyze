@@ -274,10 +274,6 @@ impl Resolver for JsResolver {
         graph: &DependencyGraph,
         ctx: &ResolveContext,
     ) -> Result<ResolveResult, ResolverError> {
-        if let Some(reason) = skip_package_manager_reason(ctx) {
-            return Ok(direct_only_result_from_graph(graph, reason));
-        }
-
         let Some(manifest_path) = graph.manifest_path.as_ref() else {
             return Err(fr022_transitive_error());
         };
@@ -304,42 +300,48 @@ impl Resolver for JsResolver {
                 parsed
             };
 
-            let package_declarations = resolve_declarations_for_packages(
-                &resolution.packages,
-                graph,
-                &resolution.package_declarations,
-            );
-            let mut result = ResolveResult {
-                packages: resolution.packages,
-                depth: ResolutionDepth::Transitive,
-                direct_only_reason: None,
-                package_declarations,
-                resolved_lock_paths: vec![lock_path],
-                ..Default::default()
-            };
-            if all_names.len() > 1 {
-                // Multi-lock warning is emitted by package_resolve when
-                // resolved_lock_paths.len() > 1; surface all names via paths
-                // under the same parent for the warning helper.
-                if let Some(dir) = result.resolved_lock_paths[0].parent() {
-                    result.resolved_lock_paths = all_names
-                        .iter()
-                        .map(|n| dir.join(n))
-                        .filter(|p| p.is_file())
-                        .collect();
-                    if result.resolved_lock_paths.is_empty() {
-                        // keep at least the chosen path
-                        if let Some((lock_path, _)) = find_js_lock_file(
-                            manifest_path,
-                            pm_field.as_deref(),
-                            scan_root,
-                        ) {
-                            result.resolved_lock_paths = vec![lock_path];
+            if !resolution.packages.is_empty() {
+                let package_declarations = resolve_declarations_for_packages(
+                    &resolution.packages,
+                    graph,
+                    &resolution.package_declarations,
+                );
+                let mut result = ResolveResult {
+                    packages: resolution.packages,
+                    depth: ResolutionDepth::Transitive,
+                    direct_only_reason: None,
+                    package_declarations,
+                    resolved_lock_paths: vec![lock_path],
+                    ..Default::default()
+                };
+                if all_names.len() > 1 {
+                    // Multi-lock warning is emitted by package_resolve when
+                    // resolved_lock_paths.len() > 1; surface all names via paths
+                    // under the same parent for the warning helper.
+                    if let Some(dir) = result.resolved_lock_paths[0].parent() {
+                        result.resolved_lock_paths = all_names
+                            .iter()
+                            .map(|n| dir.join(n))
+                            .filter(|p| p.is_file())
+                            .collect();
+                        if result.resolved_lock_paths.is_empty() {
+                            // keep at least the chosen path
+                            if let Some((lock_path, _)) = find_js_lock_file(
+                                manifest_path,
+                                pm_field.as_deref(),
+                                scan_root,
+                            ) {
+                                result.resolved_lock_paths = vec![lock_path];
+                            }
                         }
                     }
                 }
+                return Ok(result);
             }
-            return Ok(result);
+        }
+
+        if let Some(reason) = skip_package_manager_reason(ctx) {
+            return Ok(direct_only_result_from_graph(graph, reason));
         }
 
         // No lock: SEC-023 -- do not spawn PM unless explicitly allowed.
@@ -553,6 +555,127 @@ mod tests {
         std::fs::write(
             tmp.join("package.json"),
             r#"{"dependencies":{"lodash":"4.17.21"}}"#,
+        )
+        .unwrap();
+        let graph = DependencyGraph {
+            packages: vec![Package {
+                name: "lodash".into(),
+                version: "4.17.21".into(),
+                ecosystem: Some(NPM_ECOSYSTEM.into()),
+            }],
+            parsed_dependencies: Vec::new(),
+            manifest_path: Some(tmp.join("package.json")),
+        };
+        let resolver = JsResolver::new();
+        let ctx = ResolveContext {
+            skip_pip_resolution: true,
+            ..Default::default()
+        };
+        let result = resolver.resolve(&graph, &ctx).await.unwrap();
+        assert_eq!(
+            result.direct_only_reason,
+            Some(vlz_manifest_parser::DIRECT_ONLY_REASON_OFFLINE)
+        );
+    }
+
+    #[tokio::test]
+    async fn resolve_offline_with_lock_stays_transitive() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::write(
+            tmp.join("package.json"),
+            r#"{"dependencies":{"lodash":"^4.17.0"}}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            tmp.join("package-lock.json"),
+            r#"{
+  "name": "app",
+  "lockfileVersion": 2,
+  "packages": {
+    "": { "name": "app", "version": "1.0.0" },
+    "node_modules/lodash": { "version": "4.17.21" }
+  }
+}"#,
+        )
+        .unwrap();
+        let graph = DependencyGraph {
+            packages: vec![Package {
+                name: "lodash".into(),
+                version: "^4.17.0".into(),
+                ecosystem: Some(NPM_ECOSYSTEM.into()),
+            }],
+            parsed_dependencies: Vec::new(),
+            manifest_path: Some(tmp.join("package.json")),
+        };
+        let resolver = JsResolver::new();
+        let ctx = ResolveContext {
+            skip_pip_resolution: true,
+            ..Default::default()
+        };
+        let result = resolver.resolve(&graph, &ctx).await.unwrap();
+        assert_eq!(result.depth, ResolutionDepth::Transitive);
+        assert_eq!(result.direct_only_reason, None);
+        assert!(
+            result
+                .packages
+                .iter()
+                .any(|p| p.name == "lodash" && p.version == "4.17.21")
+        );
+    }
+
+    #[tokio::test]
+    async fn resolve_benchmark_with_lock_stays_transitive() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::write(
+            tmp.join("package.json"),
+            r#"{"dependencies":{"lodash":"^4.17.0"}}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            tmp.join("package-lock.json"),
+            r#"{
+  "lockfileVersion": 2,
+  "packages": {
+    "": {},
+    "node_modules/lodash": { "version": "4.17.21" }
+  }
+}"#,
+        )
+        .unwrap();
+        let graph = DependencyGraph {
+            packages: vec![Package {
+                name: "lodash".into(),
+                version: "^4.17.0".into(),
+                ecosystem: Some(NPM_ECOSYSTEM.into()),
+            }],
+            parsed_dependencies: Vec::new(),
+            manifest_path: Some(tmp.join("package.json")),
+        };
+        let resolver = JsResolver::new();
+        let ctx = ResolveContext {
+            skip_pip_resolution: true,
+            benchmark_mode: true,
+            ..Default::default()
+        };
+        let result = resolver.resolve(&graph, &ctx).await.unwrap();
+        assert_eq!(result.depth, ResolutionDepth::Transitive);
+        assert_eq!(result.direct_only_reason, None);
+    }
+
+    #[tokio::test]
+    async fn resolve_offline_empty_lock_falls_through_direct_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::write(
+            tmp.join("package.json"),
+            r#"{"dependencies":{"lodash":"4.17.21"}}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            tmp.join("package-lock.json"),
+            r#"{"lockfileVersion": 2, "packages": {"": {}}}"#,
         )
         .unwrap();
         let graph = DependencyGraph {

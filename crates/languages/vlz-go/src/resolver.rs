@@ -14,7 +14,8 @@ use vlz_manifest_parser::{
     skip_package_manager_reason,
 };
 
-use crate::parser::GO_ECOSYSTEM;
+use crate::finder::GO_SUM_NAME;
+use crate::parser::{GO_ECOSYSTEM, parse_go_sum};
 
 /// Get the directory containing go.mod (manifest parent).
 pub fn find_go_mod_dir(manifest_path: &Path) -> Option<std::path::PathBuf> {
@@ -67,6 +68,34 @@ impl GoResolver {
     }
 }
 
+fn usable_go_sum_pins(
+    work_dir: &Path,
+) -> Option<(std::path::PathBuf, Vec<vlz_db::Package>)> {
+    let sum_path = work_dir.join(GO_SUM_NAME);
+    let content = std::fs::read_to_string(&sum_path).ok()?;
+    let packages = parse_go_sum(&content).ok()?;
+    if packages.is_empty() {
+        return None;
+    }
+    Some((sum_path, packages))
+}
+
+fn go_sum_pin_result(graph: &DependencyGraph) -> Option<ResolveResult> {
+    let manifest_path = graph.manifest_path.as_ref()?;
+    let work_dir = find_go_mod_dir(manifest_path)?;
+    let (sum_path, packages) = usable_go_sum_pins(&work_dir)?;
+    let package_declarations =
+        resolve_declarations_for_packages(&packages, graph, &HashMap::new());
+    Some(ResolveResult {
+        packages,
+        depth: ResolutionDepth::Transitive,
+        direct_only_reason: None,
+        package_declarations,
+        resolved_lock_paths: vec![sum_path],
+        ..Default::default()
+    })
+}
+
 /// Returns true if go appears to be on PATH (FR-024).
 pub fn go_package_manager_available() -> bool {
     vlz_manifest_parser::package_manager_command_ok("go", &["version"])
@@ -96,6 +125,9 @@ impl Resolver for GoResolver {
         ctx: &ResolveContext,
     ) -> Result<ResolveResult, ResolverError> {
         if let Some(reason) = skip_package_manager_reason(ctx) {
+            if let Some(result) = go_sum_pin_result(graph) {
+                return Ok(result);
+            }
             return Ok(direct_only_result_from_graph(graph, reason));
         }
 
@@ -179,6 +211,9 @@ impl Resolver for GoResolver {
                         );
                     }
                 }
+                if let Some(result) = go_sum_pin_result(graph) {
+                    return Ok(result);
+                }
                 return require_transitive_or_fallback(graph, ctx, None);
             }
         }
@@ -193,9 +228,15 @@ impl Resolver for GoResolver {
         go_package_manager_hint()
     }
 
-    // Go has no static lock-file path that bypasses the `go` tool; the in-memory
-    // list_cache is run-scoped only. Default `manifest_needs_package_manager` is
-    // correct for go.mod manifests.
+    fn manifest_needs_package_manager(
+        &self,
+        manifest_path: &std::path::Path,
+        _ctx: &ResolveContext,
+    ) -> bool {
+        find_go_mod_dir(manifest_path)
+            .map(|dir| usable_go_sum_pins(&dir).is_none())
+            .unwrap_or(true)
+    }
 
     fn language_name(&self) -> &'static str {
         "go"
@@ -294,6 +335,47 @@ github.com/stretchr/testify v1.8.0
     }
 
     #[tokio::test]
+    async fn go_resolver_offline_with_go_sum_stays_transitive() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::write(
+            tmp.join("go.mod"),
+            "module example.com/test\n\nrequire example.com/pkg v1.0.0\n",
+        )
+        .unwrap();
+        std::fs::write(
+            tmp.join("go.sum"),
+            "example.com/pkg v1.0.0 h1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\n\
+             example.com/pkg v1.0.0/go.mod h1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\n",
+        )
+        .unwrap();
+
+        let graph = DependencyGraph {
+            packages: vec![vlz_db::Package {
+                name: "example.com/pkg".to_string(),
+                version: "v1.0.0".to_string(),
+                ecosystem: Some(GO_ECOSYSTEM.to_string()),
+            }],
+            parsed_dependencies: Vec::new(),
+            manifest_path: Some(tmp.join("go.mod")),
+        };
+        let resolver = GoResolver::new();
+        let ctx = vlz_manifest_parser::ResolveContext {
+            skip_pip_resolution: true,
+            ..Default::default()
+        };
+        let resolved = resolver.resolve(&graph, &ctx).await.unwrap();
+        assert_eq!(
+            resolved.depth,
+            vlz_manifest_parser::ResolutionDepth::Transitive
+        );
+        assert_eq!(resolved.direct_only_reason, None);
+        assert_eq!(resolved.packages.len(), 1);
+        assert_eq!(resolved.packages[0].name, "example.com/pkg");
+        assert_eq!(resolved.packages[0].version, "v1.0.0");
+    }
+
+    #[tokio::test]
     async fn go_resolver_benchmark_skips_go_list() {
         let dir = tempfile::tempdir().unwrap();
         let tmp = dir.path();
@@ -356,6 +438,105 @@ github.com/stretchr/testify v1.8.0
                 ));
             }
         }
+    }
+
+    #[test]
+    fn manifest_needs_package_manager_tracks_usable_go_sum() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        let manifest = tmp.join("go.mod");
+        std::fs::write(&manifest, "module example.com/test\n").unwrap();
+        let resolver = GoResolver::new();
+        let ctx = vlz_manifest_parser::ResolveContext::default();
+        assert!(resolver.manifest_needs_package_manager(&manifest, &ctx));
+        std::fs::write(tmp.join("go.sum"), "").unwrap();
+        assert!(resolver.manifest_needs_package_manager(&manifest, &ctx));
+        std::fs::write(
+            tmp.join("go.sum"),
+            "example.com/pkg v1.0.0 h1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\n",
+        )
+        .unwrap();
+        assert!(!resolver.manifest_needs_package_manager(&manifest, &ctx));
+    }
+
+    #[test]
+    fn go_resolver_missing_go_with_go_sum_stays_transitive() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::write(
+            tmp.join("go.mod"),
+            "module example.com/test\n\nrequire example.com/pkg v1.0.0\n",
+        )
+        .unwrap();
+        std::fs::write(
+            tmp.join("go.sum"),
+            "example.com/pkg v1.0.0 h1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\n\
+             example.com/pkg v1.0.0/go.mod h1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\n",
+        )
+        .unwrap();
+        let graph = DependencyGraph {
+            packages: vec![vlz_db::Package {
+                name: "example.com/pkg".to_string(),
+                version: "v1.0.0".to_string(),
+                ecosystem: Some(GO_ECOSYSTEM.to_string()),
+            }],
+            parsed_dependencies: Vec::new(),
+            manifest_path: Some(tmp.join("go.mod")),
+        };
+        let empty_path = tempfile::tempdir().unwrap();
+        temp_env::with_var("PATH", Some(empty_path.path()), || {
+            rt.block_on(async {
+                let resolver = GoResolver::new();
+                let resolved = resolver
+                    .resolve(
+                        &graph,
+                        &vlz_manifest_parser::ResolveContext::default(),
+                    )
+                    .await
+                    .unwrap();
+                assert_eq!(
+                    resolved.depth,
+                    vlz_manifest_parser::ResolutionDepth::Transitive
+                );
+                assert_eq!(resolved.direct_only_reason, None);
+                assert_eq!(resolved.packages.len(), 1);
+                assert_eq!(resolved.packages[0].name, "example.com/pkg");
+            });
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn unreadable_go_sum_is_not_a_usable_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        let manifest = tmp.join("go.mod");
+        std::fs::write(&manifest, "module example.com/test\n").unwrap();
+        let sum = tmp.join("go.sum");
+        std::fs::write(
+            &sum,
+            "example.com/pkg v1.0.0 h1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\n",
+        )
+        .unwrap();
+        let mut perms = std::fs::metadata(&sum).unwrap().permissions();
+        use std::os::unix::fs::PermissionsExt;
+        perms.set_mode(0o000);
+        std::fs::set_permissions(&sum, perms).unwrap();
+        let still_readable = std::fs::read_to_string(&sum).is_ok();
+        let resolver = GoResolver::new();
+        let ctx = vlz_manifest_parser::ResolveContext::default();
+        let needs = resolver.manifest_needs_package_manager(&manifest, &ctx);
+        let mut restore = std::fs::Permissions::from_mode(0o644);
+        restore.set_mode(0o644);
+        let _ = std::fs::set_permissions(&sum, restore);
+        if still_readable {
+            return;
+        }
+        assert!(needs);
     }
 
     #[test]

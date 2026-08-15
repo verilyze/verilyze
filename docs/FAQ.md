@@ -12,6 +12,26 @@ Common error messages and suggested remediation steps. See also
 
 ---
 
+## CLI contract (cross-OS)
+
+`make cli-contract` runs a subprocess suite against `CLI_CONTRACT_BINARY`
+(or a locally built `vlz`). Use `CLI_CONTRACT_MODE=smoke` for the PR/release
+gate subset, or `full` for Appendix A fixtures. This target is **not** part
+of `make check`; GitHub Actions runs it on Ubuntu, macOS, and Windows.
+Smoke includes one `--offline` lock-backed scan per default language.
+
+Tag publish (`release.yml`) downloads **draft** GitHub archives, verifies
+checksums and Cosign bundles, installs the native `vlz`, then runs smoke.
+That gate runs **before** the release leaves draft. The nightly
+`verilyze` workflow still installs the **published** latest Linux archive
+(SEC-015). Failures after publish require a new patch version, not a tag
+move.
+
+Known limits: Linux musl is not a GitHub archive; Windows has no first-class
+Bash/Zsh/Fish install (generation plus zip layout only). Default lock-less
+Python, JavaScript, Java, and Ruby scans exit 4. Lock-less `--offline` is
+FR-022a DirectOnly (never unqualified `No vulnerabilities found.`).
+
 ## Docker
 
 ### Docker cache files owned by root
@@ -392,9 +412,10 @@ code and third-party build hooks during resolution. See [SECURITY.md](../SECURIT
 **fail closed**: transitive resolution is required via an adjacent lock file,
 safe `pip lock -r` (requirements.txt only, when pip >= 25.1), explicit
 `--allow-dependency-code-execution`, or `--allow-direct-only-fallback`
-(direct-only scan with FR-022a warning). Without those, the scan exits **2**
+(direct-only scan with FR-022a warning). Without those, the scan exits **4**
 with the FR-022 message below. `pyproject.toml` / `setup.py` / `setup.cfg` /
-`Pipfile` do not soft-default to direct-only.
+`Pipfile` do not soft-default to direct-only. `--offline` / `--benchmark`
+permit DirectOnly coverage (FR-022a) instead of exit 4.
 
 **Rust without `Cargo.lock`:** `Cargo.toml` without an adjacent or workspace
 `Cargo.lock` uses `cargo metadata` for transitive resolution when not in
@@ -405,15 +426,20 @@ network unavailable), the scan exits **4** unless
 `--allow-direct-only-fallback` is set. Use `-v` to see the underlying cause
 when `cargo` is present but resolution fails.
 
-**Go `go.mod`:** Transitive resolution uses `go list -m all` (not `go.sum`).
-If `go` is missing from PATH or `go list` fails, the scan exits **4** unless
-`--allow-direct-only-fallback` is set.
+**Go `go.mod`:** Online transitive resolution uses `go list -m all`. When
+`--offline` or `--benchmark` skips `go list`, or when `go` is not on PATH,
+`vlz` reads pinned `module@version` identities from adjacent `go.sum`
+(checksum set, not the `go list` build graph). If `go.sum` is missing,
+unreadable, or has no pins, coverage is DirectOnly (offline/benchmark) or
+exit **4** when `go` is missing / `go list` fails (unless
+`--allow-direct-only-fallback` is set).
 
 **JavaScript / TypeScript (`package.json`):** The `javascript` language covers
 both JavaScript and TypeScript. Prefer an adjacent or parent workspace lock
 (`package-lock.json` / `npm-shrinkwrap.json`, `yarn.lock`, `pnpm-lock.yaml`, or
 `bun.lock`). When multiple locks exist, one is chosen (not unioned) and a
-warning is emitted. Without a usable lock, the scan exits **4** by default
+warning is emitted. `--offline` / `--benchmark` still parse a committed lock
+when present. Without a usable lock, the scan exits **4** by default
 (SEC-023 does not run npm/yarn/pnpm/bun). Use
 `--allow-dependency-code-execution` for ephemeral package-manager resolution,
 or `--allow-direct-only-fallback` for direct-only coverage.
@@ -422,7 +448,8 @@ or `--allow-direct-only-fallback` for direct-only coverage.
 Kotlin source. Prefer an adjacent or parent `gradle.lockfile` for Gradle
 projects. Maven `pom.xml` and Gradle version catalogs supply direct coordinates
 only; without a Gradle lock or gated PM resolution, the scan exits **4** by
-default (SEC-023 does not run mvn/gradle/gradlew). Use
+default (SEC-023 does not run mvn/gradle/gradlew). `--offline` / `--benchmark`
+still parse `gradle.lockfile` when present. Use
 `--allow-dependency-code-execution` for gated PM resolution in trusted
 environments, or `--allow-direct-only-fallback` for direct-only coverage.
 

@@ -31,15 +31,21 @@ linux_archive_basename_for_version() {
   release_archive_basename "${version}" "linux-x86_64"
 }
 
-linux_archive_download_patterns() {
+platform_archive_download_patterns() {
   local version="${1:?version required}"
+  local platform="${2:?platform required}"
   local archive
-  archive="$(linux_archive_basename_for_version "${version}")"
+  archive="$(release_archive_basename "${version}" "${platform}")"
   printf '%s\n' \
     'SHA256SUMS' \
     "${archive}" \
     "${archive}.sigstore.json" \
     "${archive}.intoto.jsonl"
+}
+
+linux_archive_download_patterns() {
+  local version="${1:?version required}"
+  platform_archive_download_patterns "${version}" "linux-x86_64"
 }
 
 # Patterns for older releases that published raw platform binaries.
@@ -142,12 +148,19 @@ verify_release_asset() {
     "${slsa_regex}"
 }
 
+verify_downloaded_platform_archive() {
+  local root="${1:?artifact root required}"
+  local version="${2:?version required}"
+  local platform="${3:?platform required}"
+  local archive
+  archive="$(release_archive_basename "${version}" "${platform}")"
+  verify_release_asset "${root}" "${archive}"
+}
+
 verify_downloaded_linux_archive() {
   local root="${1:?artifact root required}"
   local version="${2:?version required}"
-  local archive
-  archive="$(linux_archive_basename_for_version "${version}")"
-  verify_release_asset "${root}" "${archive}"
+  verify_downloaded_platform_archive "${root}" "${version}" "linux-x86_64"
 }
 
 # Legacy path for raw platform binaries (pre-archive releases).

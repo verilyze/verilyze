@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+module example.com/cli-contract-demo
+
+go 1.22
+
+require example.com/cli-contract-pkg v1.0.0

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use async_trait::async_trait;
+use std::collections::HashSet;
 use std::path::Path;
 
 use vlz_manifest_parser::{
@@ -78,6 +79,47 @@ pub fn parse_go_mod(
             .map(|dep| dep.package)
             .collect(),
     )
+}
+
+/// Parse `go.sum` into unique `module@version` pins (checksum set, not `go list`).
+/// Ignores `/go.mod` hash lines as separate packages. Public for fuzzing (NFR-020).
+pub fn parse_go_sum(
+    content: &str,
+) -> Result<Vec<vlz_db::Package>, ParserError> {
+    let mut packages = Vec::new();
+    let mut seen = HashSet::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with("//") {
+            continue;
+        }
+        let mut parts = trimmed.split_whitespace();
+        let Some(name) = parts.next() else {
+            continue;
+        };
+        let Some(version) = parts.next() else {
+            continue;
+        };
+        if version.ends_with("/go.mod") || version.starts_with("h1:") {
+            continue;
+        }
+        if parts.next().is_none() {
+            continue;
+        }
+        if name.is_empty() || version.is_empty() {
+            continue;
+        }
+        let key = format!("{name}\0{version}");
+        if !seen.insert(key) {
+            continue;
+        }
+        packages.push(vlz_db::Package {
+            name: name.to_string(),
+            version: version.to_string(),
+            ecosystem: Some(GO_ECOSYSTEM.to_string()),
+        });
+    }
+    Ok(packages)
 }
 
 /// Parse a single require line: "module/path v1.2.3" or "module/path v1.2.3 // indirect"
@@ -284,6 +326,41 @@ require (
     fn parse_go_mod_empty_returns_empty() {
         let content = "module example.com/app\n";
         let packages = parse_go_mod(content).unwrap();
+        assert!(packages.is_empty());
+    }
+
+    #[test]
+    fn parse_go_sum_dedupes_and_skips_gomod_hash_lines() {
+        let content = r#"
+github.com/foo/bar v1.2.3 h1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=
+github.com/foo/bar v1.2.3/go.mod h1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=
+github.com/foo/bar v1.2.3 h1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=
+example.com/other v0.1.0 h1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb=
+"#;
+        let packages = parse_go_sum(content).unwrap();
+        assert_eq!(packages.len(), 2);
+        assert!(
+            packages
+                .iter()
+                .any(|p| p.name == "github.com/foo/bar"
+                    && p.version == "v1.2.3")
+        );
+        assert!(
+            packages.iter().any(
+                |p| p.name == "example.com/other" && p.version == "v0.1.0"
+            )
+        );
+        assert!(
+            packages
+                .iter()
+                .all(|p| p.ecosystem.as_deref() == Some("Go"))
+        );
+    }
+
+    #[test]
+    fn parse_go_sum_skips_lines_without_version() {
+        let content = "example.com/cli-contract-demo h1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\n";
+        let packages = parse_go_sum(content).unwrap();
         assert!(packages.is_empty());
     }
 

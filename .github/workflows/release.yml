@@ -343,7 +343,7 @@ jobs:
             --type slsaprovenance \
             "ghcr.io/${REPO}@${DIGEST}"
 
-  create-release:
+  create-draft:
     if: github.event_name == 'push'
     needs:
       - preflight-release
@@ -352,7 +352,6 @@ jobs:
       - build-deb
       - build-rpm
       - build-docker
-      - wait-obs-builds
     runs-on: ubuntu-latest
     # contents: write -- GitHub Release and asset upload; actions: read -- download-artifact.
     permissions:
@@ -533,6 +532,80 @@ jobs:
               --dest "${extract_root}/${platform}" >/dev/null
           done
 
+  cli-contract-draft:
+    if: github.event_name == 'push'
+    needs:
+      - preflight-release
+      - create-draft
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x86_64
+          - os: macos-latest
+            platform: macos-aarch64
+          - os: windows-latest
+            platform: windows-x86_64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.RELEASE_CHECKOUT_REF }}
+          persist-credentials: false
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Download, verify, and install draft archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VLZ_RELEASE_DOWNLOAD_DIR: ${{ runner.temp }}/vlz-draft
+          VLZ_RELEASE_TAG: ${{ github.ref_name }}
+          VLZ_RELEASE_PLATFORM: ${{ matrix.platform }}
+          EXPECTED_BUILDER_REGEX: ^https://github\.com/${{ github.repository }}/\.github/workflows/release\.yml@
+          SLSA_GENERATOR_BUILDER_REGEX: ${{ env.SLSA_GENERATOR_BUILDER_REGEX }}
+        run: |
+          set -euo pipefail
+          VLZ_BIN="$(./scripts/ci-install-vlz-release-archive.sh)"
+          echo "VLZ_BIN=${VLZ_BIN}" >> "${GITHUB_ENV}"
+          "${VLZ_BIN}" --version
+
+      - name: Run CLI contract smoke
+        env:
+          CLI_CONTRACT_MODE: smoke
+        run: |
+          set -euo pipefail
+          PYTHON="$(./scripts/cli-contract-python.sh)"
+          "${PYTHON}" scripts/cli_contract.py \
+            --binary "${VLZ_BIN}" \
+            --mode "${CLI_CONTRACT_MODE}" \
+            | tee "${RUNNER_TEMP}/cli-contract.txt"
+
+      - name: Upload CLI contract report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cli-contract-draft-${{ matrix.platform }}
+          path: ${{ runner.temp }}/cli-contract.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+  publish-release:
+    if: github.event_name == 'push' && success()
+    needs:
+      - create-draft
+      - cli-contract-draft
+      - wait-obs-builds
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
       - name: Publish release (make immutable)
         env:
           GH_TOKEN: ${{ github.token }}
