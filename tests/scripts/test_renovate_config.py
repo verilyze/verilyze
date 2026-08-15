@@ -12,6 +12,7 @@ from scripts.upload_sarif_pins import sync_example
 from tests.scripts.repo_root import repo_root
 
 _ROOT = repo_root()
+_UPLOAD_SARIF_POST_UPGRADE = "bash scripts/renovate-post-upgrade-upload-sarif.sh"
 
 
 def test_renovate_regex_managers_use_delimited_file_patterns() -> None:
@@ -125,8 +126,8 @@ def test_renovate_upload_sarif_post_upgrade_syncs_example() -> None:
         (
             r
             for r in rules
-            if r.get("matchManagers") == ["github-actions"]
-            and "postUpgradeTasks" in r
+            if _UPLOAD_SARIF_POST_UPGRADE
+            in r.get("postUpgradeTasks", {}).get("commands", [])
         ),
         None,
     )
@@ -134,12 +135,13 @@ def test_renovate_upload_sarif_post_upgrade_syncs_example() -> None:
         "packageRules must run postUpgradeTasks for github-actions "
         "so the upload-sarif example stays aligned"
     )
+    assert match.get("matchManagers") == ["github-actions"]
     assert "matchPackageNames" not in match, (
         "do not filter by github/codeql-action/upload-sarif; Renovate "
         "names the package github/codeql-action and grouped PRs skip the hook"
     )
     tasks = match["postUpgradeTasks"]
-    assert tasks["commands"] == ["bash scripts/renovate-post-upgrade-upload-sarif.sh"]
+    assert tasks["commands"] == [_UPLOAD_SARIF_POST_UPGRADE]
     assert tasks["fileFilters"] == ["examples/github-action-vlz-scan.yml"]
     assert tasks["executionMode"] == "branch"
     tools = tasks.get("installTools", {})
