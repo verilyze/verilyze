@@ -407,6 +407,10 @@ Or set `VLZ_ALLOW_DEPENDENCY_CODE_EXECUTION=1` or
 `allow_dependency_code_execution = true` in config. This may run local project
 code and third-party build hooks during resolution. See [SECURITY.md](../SECURITY.md).
 
+**Plugin authors:** lock-first resolver order, empty-lock vs empty-project,
+and CLI contract fixtures are in
+[CONTRIBUTING -- Adding a new language plugin](../CONTRIBUTING.md#adding-a-new-language-plugin).
+
 **Python project manifests without a lock:** All Python project manifests
 (`requirements.txt`, `pyproject.toml`, `Pipfile`, `setup.cfg`, `setup.py`)
 **fail closed**: transitive resolution is required via an adjacent lock file,

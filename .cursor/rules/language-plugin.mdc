@@ -1,0 +1,23 @@
+---
+description: Lock-first rules when adding or changing a language plugin
+globs: "crates/languages/**,tests/cli_contract/**"
+alwaysApply: false
+---
+
+# Language plugin lock-first
+
+Follow [CONTRIBUTING.md -- Adding a new language plugin](../CONTRIBUTING.md#adding-a-new-language-plugin)
+(lock-first resolver checklist). Requirements: PRD FR-022, FR-022a, FR-024,
+SEC-023.
+
+- Parse a **usable** lock **before** `skip_package_manager_reason`.
+  `--offline` / `--benchmark` must still use committed pins.
+- Empty lock plus **declared** dependencies is not Transitive and is not a
+  clean scan. Empty lock plus an empty manifest may be an empty project.
+- New languages whose package manager executes project code fail closed
+  (default lock-less exit **4**), like JavaScript, Java, Ruby, and Python.
+  Do not copy Rust/Go (`cargo` / `go list` on PATH) unless Appendix A
+  documents that exception.
+- Add CLI contract fixtures (`tests/cli_contract/`) and both `runtime` and
+  `runtime-mem` Cargo features. Use `.fixture` suffixes for SCA-sensitive
+  names.

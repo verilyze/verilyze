@@ -14,12 +14,19 @@ import pytest
 from scripts.cli_contract import (
     UNQUALIFIED_NO_VULNS,
     CaseResult,
+    DEFAULT_LANGUAGES,
+    LOCKLESS_PM_ON_PATH,
     _shell_bin,
     cases_for_mode,
     isolated_env,
     load_registry,
+    load_runtime_language_features,
+    load_runtime_mem_language_features,
     main,
     materialize_fixture_tree,
+    registry_covers_runtime_languages,
+    runtime_language_features_from_toml,
+    runtime_mem_language_features_from_toml,
     run_argv,
     run_case,
     run_completion_shell,
@@ -125,6 +132,169 @@ def test_default_lockless_cases_expect_exit_4() -> None:
         assert case.get("expect_exit") == [4]
 
 
+def test_runtime_language_features_from_toml_skips_cache_backends() -> None:
+    text = """
+[features]
+runtime = ["redb", "python", "rust"]
+"""
+    assert runtime_language_features_from_toml(text) == ("python", "rust")
+    mem_text = """
+[features]
+runtime-mem = ["mem", "python", "java"]
+"""
+    assert runtime_mem_language_features_from_toml(mem_text) == (
+        "python",
+        "java",
+    )
+
+
+def test_registry_covers_each_runtime_language() -> None:
+    langs = load_runtime_language_features(_ROOT)
+    mem_langs = load_runtime_mem_language_features(_ROOT)
+    assert langs
+    assert langs == mem_langs
+    registry = load_registry(_ROOT)
+    errors = registry_covers_runtime_languages(
+        registry, langs, mem_langs=mem_langs
+    )
+    assert errors == []
+    assert langs == DEFAULT_LANGUAGES
+    assert LOCKLESS_PM_ON_PATH == frozenset({"rust", "go"})
+
+
+def test_registry_covers_runtime_languages_reports_gaps() -> None:
+    errors = registry_covers_runtime_languages(
+        {"cases": []},
+        ("python",),
+    )
+    assert any("python" in err for err in errors)
+    assert registry_covers_runtime_languages({}, ("python",)) == [
+        "registry cases must be a list"
+    ]
+    with pytest.raises(ValueError, match="runtime-mem"):
+        runtime_mem_language_features_from_toml("[features]\n")
+    pin_no_needle = {
+        "cases": [
+            {
+                "id": "python-lock-offline",
+                "language": "python",
+                "category": "lock_parse",
+                "modes": ["smoke"],
+                "args": ["scan", "--offline"],
+                "expect_exit": [6, 86],
+            },
+            {
+                "id": "python-lockless",
+                "language": "python",
+                "args": ["scan"],
+                "expect_exit": [4],
+            },
+            {
+                "id": "python-lock-offline-pin",
+                "language": "python",
+                "modes": ["full"],
+                "args": ["scan", "--offline", "--format", "cyclonedx"],
+                "expect_exit": [6, 86],
+            },
+            {
+                "id": "python-empty-lock",
+                "language": "python",
+                "args": ["scan"],
+                "expect_exit": [0],
+            },
+        ]
+    }
+    extra = registry_covers_runtime_languages(pin_no_needle, ("python",))
+    assert any("stdout_contains" in err for err in extra)
+    assert any("empty-lock expect [4]" in err for err in extra)
+    bad_lock = {
+        "cases": [
+            {
+                "id": "python-lock-offline",
+                "language": "python",
+                "category": "lock_parse",
+                "modes": ["smoke"],
+                "args": ["scan", "--offline"],
+                "expect_exit": [0],
+            },
+            {
+                "id": "python-lockless",
+                "language": "python",
+                "args": ["scan"],
+                "expect_exit": [6],
+            },
+        ]
+    }
+    bad_errs = registry_covers_runtime_languages(bad_lock, ("python",))
+    assert any("lock-offline" in err for err in bad_errs)
+    assert any("lock-less expect [4]" in err for err in bad_errs)
+    rust_only = {
+        "cases": [
+            {
+                "id": "rust-lock-offline",
+                "language": "rust",
+                "category": "lock_parse",
+                "modes": ["smoke"],
+                "args": ["scan", "--offline"],
+                "expect_exit": [6, 86],
+            },
+            {
+                "id": "rust-lockless-offline",
+                "language": "rust",
+                "modes": ["smoke"],
+                "args": ["scan", "--offline"],
+                "expect_exit": [0],
+            },
+        ]
+    }
+    rust_errs = registry_covers_runtime_languages(rust_only, ("rust",))
+    assert any("lock-less-offline" in err for err in rust_errs)
+    rust_missing = registry_covers_runtime_languages(
+        {
+            "cases": [
+                {
+                    "id": "rust-lock-offline",
+                    "language": "rust",
+                    "category": "lock_parse",
+                    "modes": ["smoke"],
+                    "args": ["scan", "--offline"],
+                    "expect_exit": [6, 86],
+                }
+            ]
+        },
+        ("rust",),
+    )
+    assert any("cargo/go on PATH" in err for err in rust_missing)
+    mem_mismatch = registry_covers_runtime_languages(
+        {"cases": []},
+        ("python",),
+        mem_langs=("python", "ruby"),
+    )
+    assert any("runtime-mem" in err for err in mem_mismatch)
+    missing_pin = {
+        "cases": [
+            {
+                "id": "python-lock-offline",
+                "language": "python",
+                "category": "lock_parse",
+                "modes": ["smoke", "full"],
+                "args": ["scan", "--offline"],
+                "expect_exit": [6],
+            },
+            {
+                "id": "python-lockless",
+                "language": "python",
+                "args": ["scan"],
+                "expect_exit": [4],
+            },
+        ]
+    }
+    pin_errs = registry_covers_runtime_languages(missing_pin, ("python",))
+    assert any("86" in err or "lock-offline expect" in err for err in pin_errs)
+    assert any("pin" in err for err in pin_errs)
+    assert any("empty" in err for err in pin_errs)
+
+
 def test_lockless_offline_go_and_rust_expect_cache_miss() -> None:
     registry = load_registry(_ROOT)
     by_id = {case["id"]: case for case in registry["cases"]}
@@ -191,7 +361,9 @@ def test_materialize_fixture_tree_strips_fixture_suffix(
     (src / "requirements.txt.license").write_text("SPDX\n", encoding="utf-8")
     dest = tmp_path / "dest"
     materialize_fixture_tree(src, dest)
-    assert (dest / "requirements.txt").read_text(encoding="utf-8") == "pkg==1\n"
+    assert (dest / "requirements.txt").read_text(
+        encoding="utf-8"
+    ) == "pkg==1\n"
     assert (dest / "notes.txt").read_text(encoding="utf-8") == "keep\n"
     assert not (dest / "requirements.txt.license").exists()
 
@@ -204,7 +376,9 @@ def test_materialize_fixture_tree_recurses_subdirs(tmp_path: Path) -> None:
     (nested / "pylock.toml.license").write_text("SPDX\n", encoding="utf-8")
     dest = tmp_path / "dest"
     materialize_fixture_tree(src, dest)
-    assert (dest / "python" / "pylock.toml").read_text(encoding="utf-8") == "x\n"
+    assert (dest / "python" / "pylock.toml").read_text(
+        encoding="utf-8"
+    ) == "x\n"
     assert not (dest / "python" / "pylock.toml.license").exists()
 
 
