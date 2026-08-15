@@ -94,13 +94,15 @@
       "groupName": "github-actions-minor-patch"
     },
     {
-      "description": "upload-sarif: sync CI example after workflow action bumps",
+      "description": "upload-sarif: sync CI example after any GitHub Actions bump",
       "matchManagers": ["github-actions"],
-      "matchPackageNames": ["github/codeql-action/upload-sarif"],
       "postUpgradeTasks": {
         "commands": ["bash scripts/renovate-post-upgrade-upload-sarif.sh"],
         "executionMode": "branch",
-        "fileFilters": ["examples/github-action-vlz-scan.yml"]
+        "fileFilters": ["examples/github-action-vlz-scan.yml"],
+        "installTools": {
+          "python": {}
+        }
       }
     },
     {
