@@ -69,6 +69,7 @@ def test_lock_offline_cases_do_not_accept_exit_0_or_4() -> None:
         for case in registry["cases"]
         if case.get("category") == "lock_parse"
         and "--offline" in case.get("args", [])
+        and "smoke" in (case.get("modes") or [])
     ]
     assert lock_offline
     for case in lock_offline:
@@ -76,6 +77,34 @@ def test_lock_offline_cases_do_not_accept_exit_0_or_4() -> None:
         assert 4 not in exits, case["id"]
         assert 0 not in exits, case["id"]
         assert "smoke" in (case.get("modes") or [])
+        assert "--format" not in case.get("args", []), case["id"]
+
+
+def test_lock_offline_pin_cases_use_cyclonedx_full_only() -> None:
+    registry = load_registry(_ROOT)
+    pins = [
+        case
+        for case in registry["cases"]
+        if str(case.get("id", "")).endswith("-lock-offline-pin")
+    ]
+    expected = {
+        "python-lock-offline-pin": "cli-contract-pkg",
+        "rust-lock-offline-pin": "cli-contract-demo",
+        "go-lock-offline-pin": "cli-contract-pkg",
+        "javascript-lock-offline-pin": "cli-contract-pkg",
+        "java-gradle-lock-offline-pin": "cli-contract",
+        "ruby-lock-offline-pin": "cli_contract_demo",
+    }
+    assert {c["id"] for c in pins} == set(expected)
+    for case in pins:
+        assert case.get("modes") == ["full"], case["id"]
+        assert "--format" in case.get("args", [])
+        assert "cyclonedx" in case.get("args", [])
+        needle = expected[case["id"]]
+        assert needle in (case.get("stdout_contains") or [])
+        exits = case.get("expect_exit") or []
+        assert 0 not in exits, case["id"]
+        assert 4 not in exits, case["id"]
 
 
 def test_default_lockless_cases_expect_exit_4() -> None:
@@ -165,6 +194,45 @@ def test_materialize_fixture_tree_strips_fixture_suffix(
     assert (dest / "requirements.txt").read_text(encoding="utf-8") == "pkg==1\n"
     assert (dest / "notes.txt").read_text(encoding="utf-8") == "keep\n"
     assert not (dest / "requirements.txt.license").exists()
+
+
+def test_materialize_fixture_tree_recurses_subdirs(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    nested = src / "python"
+    nested.mkdir(parents=True)
+    (nested / "pylock.toml.fixture").write_text("x\n", encoding="utf-8")
+    (nested / "pylock.toml.license").write_text("SPDX\n", encoding="utf-8")
+    dest = tmp_path / "dest"
+    materialize_fixture_tree(src, dest)
+    assert (dest / "python" / "pylock.toml").read_text(encoding="utf-8") == "x\n"
+    assert not (dest / "python" / "pylock.toml.license").exists()
+
+
+def test_corner_registry_cases_exist() -> None:
+    registry = load_registry(_ROOT)
+    by_id = {case["id"]: case for case in registry["cases"]}
+    mixed = by_id["mixed-good-and-lockless"]
+    assert mixed["expect_exit"] == [4]
+    assert "cli-contract-pkg" in mixed.get("stdout_contains", [])
+    assert mixed["fixture"] == "mixed/good-and-lockless"
+    python_lock = by_id["python-lock-offline"]
+    assert "--format" not in python_lock.get("args", [])
+    assert "cli-contract-pkg" not in python_lock.get("stdout_contains", [])
+    python_lockless = by_id["python-lockless"]
+    assert any(
+        "could not be fully analyzed" in str(n)
+        for n in python_lockless.get("stderr_contains", [])
+    )
+    for case_id in (
+        "python-empty-lock",
+        "javascript-empty-lock",
+        "java-empty-gradle-lock",
+        "ruby-empty-lock",
+    ):
+        case = by_id[case_id]
+        assert case.get("expect_exit") == [4]
+        assert "--offline" not in case.get("args", [])
+        assert UNQUALIFIED_NO_VULNS in (case.get("stdout_forbids") or [])
 
 
 def test_isolated_env_path_contains_only_bin_dir(tmp_path: Path) -> None:

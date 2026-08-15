@@ -1,0 +1,7 @@
+{
+  "name": "cli-contract-demo",
+  "version": "1.0.0",
+  "dependencies": {
+    "cli-contract-pkg": "1.0.0"
+  }
+}
