@@ -21,7 +21,8 @@ _fuzz_repo_root="$(cd "${_fuzz_lib_dir}/../.." && pwd)"
 
 FUZZ_TARGETS_FILE="${FUZZ_TARGETS_FILE:-${_fuzz_lib_dir}/../fuzz-targets.map}"
 
-# Shared crates: any change triggers all targets (must match fuzz.sh).
+# Shared crates: any change triggers all targets (must match fuzz.sh and
+# cflite_pr.yml path filters for these trees).
 FUZZ_SHARED_PATH_PATTERNS=(
     "crates/core/vlz-db/"
     "crates/db-backends/vlz-db-redb/"
@@ -61,13 +62,20 @@ fuzz_changed_files() {
     printf ''
 }
 
-# Release prep touches these paths only; do not run the full AFL matrix for
-# workspace version bumps (Cargo.toml / Cargo.lock) on pull requests.
-fuzz_is_release_only_change() {
-    local f
+# Companion / lockfile-only diffs: not mapped parser sources. tests/fuzz and
+# shared-crate paths are excluded so those still run the full AFL matrix.
+fuzz_is_companion_only_change() {
+    local f pat
     for f in $1; do
+        for pat in "${FUZZ_SHARED_PATH_PATTERNS[@]}"; do
+            if [[ "$f" == "$pat"* ]]; then
+                return 1
+            fi
+        done
         case "$f" in
-            CHANGELOG.md | Cargo.toml | Cargo.lock) ;;
+            CHANGELOG.md | Cargo.toml | Cargo.lock | THIRD-PARTY-LICENSES | deny.toml) ;;
+            tests/fuzz/*) return 1 ;;
+            */Cargo.toml) ;;
             packaging/* | sbom/*) ;;
             scripts/lib/fuzz-resolve-targets.sh) ;;
             scripts/coverage.sh) ;;
@@ -83,19 +91,19 @@ fuzz_is_release_only_change() {
 
 fuzz_targets_trigger_run_all() {
     local f pat
-    if fuzz_is_release_only_change "$1"; then
-        return 1
-    fi
     for f in $1; do
         for pat in "${FUZZ_SHARED_PATH_PATTERNS[@]}"; do
             if [[ "$f" == "$pat"* ]]; then
                 return 0
             fi
         done
-        if [[ "$f" == tests/fuzz/* ]] || [[ "$f" == Cargo.toml ]] || [[ "$f" == Cargo.lock ]]; then
+        if [[ "$f" == tests/fuzz/* ]]; then
             return 0
         fi
     done
+    if fuzz_is_companion_only_change "$1"; then
+        return 1
+    fi
     return 1
 }
 
@@ -138,7 +146,7 @@ fuzz_resolve_changed_targets() {
 
     if [[ -n "$changed_files" ]]; then
         if fuzz_targets_trigger_run_all "$changed_files"; then
-            echo "Running all fuzz targets (shared/fuzz/crate changes)." >&2
+            echo "Running all fuzz targets (shared crate or tests/fuzz changes)." >&2
             fuzz_all_targets_csv
             return 0
         fi
