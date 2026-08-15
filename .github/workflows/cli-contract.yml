@@ -101,12 +101,15 @@ jobs:
 
       - name: Select contract mode
         id: mode
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_MODE: ${{ github.event.inputs.mode }}
         run: |
           set -euo pipefail
-          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+          if [[ "${EVENT_NAME}" == "schedule" ]]; then
             echo "value=full" >> "${GITHUB_OUTPUT}"
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            mode="${{ github.event.inputs.mode || 'full' }}"
+          elif [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            mode="${DISPATCH_MODE:-full}"
             case "${mode}" in
               smoke | full) echo "value=${mode}" >> "${GITHUB_OUTPUT}" ;;
               *)
@@ -119,14 +122,17 @@ jobs:
           fi
 
       - name: Run CLI contract
+        env:
+          VLZ_BIN: ${{ steps.bin.outputs.path }}
+          CLI_CONTRACT_MODE: ${{ steps.mode.outputs.value }}
         run: |
           set -euo pipefail
           PYTHON="$(./scripts/cli-contract-python.sh)"
           "${PYTHON}" scripts/cli_contract.py \
-            --binary "${{ steps.bin.outputs.path }}" \
-            --mode "${{ steps.mode.outputs.value }}" \
+            --binary "${VLZ_BIN}" \
+            --mode "${CLI_CONTRACT_MODE}" \
             | tee "${RUNNER_TEMP}/cli-contract.txt"
-          "${{ steps.bin.outputs.path }}" --version
+          "${VLZ_BIN}" --version
 
       - name: Upload CLI contract report
         if: always()

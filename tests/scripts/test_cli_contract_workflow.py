@@ -23,3 +23,5 @@ def test_cli_contract_workflow_is_path_filtered() -> None:
     assert "scripts/cli_contract.py" in text
     assert "cli-contract-python.sh" in text
     assert "smoke | full" in text
+    assert "DISPATCH_MODE:" in text
+    assert 'mode="${{ github.event.inputs.mode' not in text
