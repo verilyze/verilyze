@@ -6,3 +6,6 @@
 name = "cli-contract-demo"
 version = "0.1.0"
 edition = "2021"
+
+[dependencies]
+cli-contract-pkg = "1.0.0"

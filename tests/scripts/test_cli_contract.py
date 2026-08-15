@@ -107,6 +107,16 @@ def test_lockless_offline_go_and_rust_expect_cache_miss() -> None:
         assert 0 not in exits
         assert 6 in exits
         assert "smoke" in (case.get("modes") or [])
+    rust_toml = (
+        _ROOT
+        / "tests"
+        / "cli_contract"
+        / "fixtures"
+        / "rust"
+        / "lockless"
+        / "Cargo.toml.fixture"
+    )
+    assert "[dependencies]" in rust_toml.read_text(encoding="utf-8")
 
 
 def test_registry_fixtures_exist() -> None:
