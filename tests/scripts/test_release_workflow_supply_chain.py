@@ -321,6 +321,32 @@ def test_cli_contract_draft_can_download_draft_archives() -> None:
     assert "CLI_CONTRACT_MODE" in block
 
 
+def test_cli_contract_draft_builder_regex_avoids_msys_backslash_dots() -> None:
+    """Git-bash on Windows rewrites \\. in env values to /.; use [.] instead."""
+    workflow = _release_workflow_text()
+    block = _job_block(workflow, "cli-contract-draft")
+    assert "EXPECTED_BUILDER_REGEX: ^https://github[.]com/" in block
+    assert "/[.]github/workflows/release[.]yml@" in block
+    env_line = next(
+        line
+        for line in block.splitlines()
+        if "EXPECTED_BUILDER_REGEX:" in line
+    )
+    assert r"\." not in env_line
+
+
+def test_release_workflow_slsa_regex_avoids_msys_backslash_dots() -> None:
+    workflow = _release_workflow_text()
+    regex_match = re.search(
+        r"SLSA_GENERATOR_BUILDER_REGEX:\s*(.+)$",
+        workflow,
+        re.MULTILINE,
+    )
+    assert regex_match is not None
+    assert r"\." not in regex_match.group(1)
+    assert "github[.]com" in regex_match.group(1)
+
+
 def test_publish_release_needs_cli_and_obs() -> None:
     workflow = _release_workflow_text()
     block = _job_block(workflow, "publish-release")

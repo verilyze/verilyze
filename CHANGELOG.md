@@ -47,6 +47,9 @@ Human-readable release notes for each version.
 - Release `cli-contract-draft` jobs use `contents: write` so the default
   `GITHUB_TOKEN` can download draft platform archives (`gh release download`
   returned "release not found" with `contents: read`).
+- Draft CLI contract verification uses a portable SHA-256 check (macOS BSD
+  `sha256sum`) and Cosign identity regexes without backslash-dot so Git
+  bash on Windows does not rewrite `\.` to `/.`.
 
 ## [0.8.0] - 2026-08-09
 
