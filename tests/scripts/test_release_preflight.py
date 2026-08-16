@@ -66,4 +66,7 @@ class TestReleasePreflight:
             )
         proc = _run_preflight()
         assert proc.returncode == 0, proc.stderr + proc.stdout
-        assert "git tag -s" in proc.stdout or "push origin" in proc.stdout
+        assert (
+            "release-tag-push" in proc.stdout
+            or "release-signed-tag.sh" in proc.stdout
+        )
