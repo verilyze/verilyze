@@ -10,6 +10,8 @@ Human-readable release notes for each version.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-08-15
+
 ### Added
 
 - JavaScript/TypeScript (`package.json` plus npm/yarn/pnpm/`bun.lock`),
@@ -20,6 +22,8 @@ Human-readable release notes for each version.
   jobs run it on Ubuntu, macOS, and Windows. Tagged releases download draft
   platform archives, verify checksums and Cosign, then run smoke before
   publish.
+- ClusterFuzzLite continuous fuzzing with AFL target parity.
+- In-memory CVE cache and JSON ignore lists for the vulnerability database.
 
 ### Changed
 
@@ -33,6 +37,13 @@ Human-readable release notes for each version.
   `cargo metadata` / `go list` by default when those tools are on PATH.
   `--offline` / `--benchmark` skip them. `go.sum` is a checksum set, not
   the `go list` build graph.
+
+### Fixed
+
+- Cargo.toml parsing applies SEC-017 guards against oversized or hostile
+  manifests.
+- Startup no longer stalls on NFR-001 PATH probes for missing package
+  managers.
 
 ## [0.8.0] - 2026-08-09
 
