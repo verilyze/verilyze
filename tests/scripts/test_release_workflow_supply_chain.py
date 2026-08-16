@@ -310,13 +310,13 @@ def test_create_draft_job_does_not_publish() -> None:
     assert "wait-obs-builds" not in block.split("runs-on:")[0]
 
 
-def test_cli_contract_draft_is_read_only_native_matrix() -> None:
+def test_cli_contract_draft_can_download_draft_archives() -> None:
+    """GITHUB_TOKEN needs contents: write to see draft Releases."""
     workflow = _release_workflow_text()
     block = _job_block(workflow, "cli-contract-draft")
     header = block.split("steps:")[0]
     assert "fail-fast: false" in header
-    assert "contents: read" in header
-    assert "contents: write" not in header
+    assert "contents: write" in header
     assert "ci-install-vlz-release-archive.sh" in block
     assert "CLI_CONTRACT_MODE" in block
 

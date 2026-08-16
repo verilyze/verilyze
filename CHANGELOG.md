@@ -44,6 +44,9 @@ Human-readable release notes for each version.
   manifests.
 - Startup no longer stalls on NFR-001 PATH probes for missing package
   managers.
+- Release `cli-contract-draft` jobs use `contents: write` so the default
+  `GITHUB_TOKEN` can download draft platform archives (`gh release download`
+  returned "release not found" with `contents: read`).
 
 ## [0.8.0] - 2026-08-09
 
