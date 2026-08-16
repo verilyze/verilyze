@@ -52,6 +52,7 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: generate-manpages check-manpages
 .PHONY: generate-completions completions completions-release check-completions
 .PHONY: generate-packaging check-packaging check-obs-signing
+.PHONY: release-preflight release-verify-upload release-tag-push release-tag-move
 .PHONY: sync-rpm-specs check-rpm-spec-sync
 .PHONY: check-obs-packaging check-super-linter-native obs-upload-dry-run
 .PHONY: sync-license-config check-license-config sync-deny-skips check-deny-skips deny-check
@@ -106,6 +107,9 @@ help:
 	@echo "    make generate-completions - Generate shell completions (bash, zsh, fish)"
 	@echo "    make check-completions   - Verify completions are in sync"
 	@echo "    make generate-packaging  - Update packaging specs with version from Cargo.toml"
+	@echo "    make release-preflight  - CHANGELOG, OBS, packaging, upload round-trip"
+	@echo "    make release-tag-push TAG=vX.Y.Z - Signed tag + push tag only"
+	@echo "    make release-tag-move TAG=vX.Y.Z - Retarget signed tag (draft only)"
 	@echo "    make check-packaging     - Verify packaging versions are in sync"
 	@echo "    make sync-rpm-specs      - Regenerate local RPM spec from OBS RPM spec"
 	@echo "    make check-rpm-spec-sync - Verify local RPM spec matches OBS-derived output"
@@ -577,6 +581,16 @@ check-signatures:
 # release-preflight: CHANGELOG, tag/version, OBS, packaging, upload round-trip
 release-preflight:
 	$(SCRIPTS_DIR)/release-preflight.sh
+
+# Signed tag push/move: agents use these so Cursor can allowlist one command.
+# TAG must be vX.Y.Z. Never pushes main.
+release-tag-push:
+	@test -n "$(TAG)" || (echo "error: TAG is required (example: TAG=v0.9.0)" >&2; exit 2)
+	$(SCRIPTS_DIR)/release-signed-tag.sh push "$(TAG)"
+
+release-tag-move:
+	@test -n "$(TAG)" || (echo "error: TAG is required (example: TAG=v0.9.0)" >&2; exit 2)
+	$(SCRIPTS_DIR)/release-signed-tag.sh move "$(TAG)"
 
 # release-verify-upload: local publish layout and SHA256SUMS round-trip (no cosign)
 release-verify-upload:

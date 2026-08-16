@@ -392,9 +392,10 @@ with `RUSTFLAGS=-Dwarnings` so rustc warnings fail the build.
    [scripts/release-verify-upload-roundtrip.sh](scripts/release-verify-upload-roundtrip.sh)).
    Re-run after the release PR merges if `release.yml` or `scripts/release-*.sh`
    changed.
-6. Create signed annotated tag: `git tag -s v0.1.0 -m "Release v0.1.0"`.
-7. Push tag: `git push origin v0.1.0`.
-8. Confirm `release.yml` creates a **draft** GitHub Release, re-verifies
+6. Create and push the signed tag (tag only, never `main`):
+   `make release-tag-push TAG=v0.1.0`
+   (or `./scripts/release-signed-tag.sh push v0.1.0`).
+7. Confirm `release.yml` creates a **draft** GitHub Release, re-verifies
    checksums and Sigstore bundles from `gh release download`, runs the
    three-OS **CLI contract smoke** against those native archives, waits for
    OBS builds, and only then publishes (`gh release edit --draft=false`).
@@ -461,13 +462,11 @@ If `release.yml` fails **before** the GitHub Release is published
 | Code or workflow script fix | Move the tag to the fix commit and push again (see below) |
 | Draft GitHub Release exists with broken assets | `gh release delete vX.Y.Z --yes`, then move tag or re-run |
 
-**Move tag and retry** (same version):
+**Move tag and retry** (same version; refuses if the GitHub Release is
+already published):
 
 ```sh
-git tag -d vX.Y.Z
-git push origin :refs/tags/vX.Y.Z
-git tag -s vX.Y.Z -m "Release vX.Y.Z"
-git push origin vX.Y.Z
+make release-tag-move TAG=vX.Y.Z
 ```
 
 Re-pushing the tag triggers a new `release.yml` run on the updated commit.
@@ -1058,12 +1057,16 @@ Hooks opt-out: set `VLZ_CURSOR_HOOKS_DISABLE=1` to skip Cursor hook scripts loca
 
 **Agent-assisted releases:** AI agents may run the release workflow
 (including signed commits, a `release/vX.Y.Z` pull request merged to `main`,
-tags, and `git push origin vX.Y.Z`) when a human **explicitly requests** it in
-chat. On **Publish** (including **non-interactive**), after required checks pass,
-merge with `gh pr merge --merge --admin`. A sole contributor cannot satisfy
-the `main` ruleset's required review; merge-queue without `--admin` stays
-blocked. Agents must **not** push directly to `origin/main`. Agents must
-not start release work proactively. See
+and signed tags via `make release-tag-push TAG=vX.Y.Z` /
+`make release-tag-move TAG=vX.Y.Z`) when a human **explicitly requests** it
+in chat. Agents must not inline `git tag` / `git push origin v*` in the
+Shell command; those wrappers exist so Cursor Auto-run can allowlist one
+stable command. On **Publish** (including **non-interactive**), after
+required checks pass, merge with `gh pr merge --merge --admin`. A sole
+contributor cannot satisfy the `main` ruleset's required review;
+merge-queue without `--admin` stays blocked. Agents must **not** push
+directly to `origin/main`. Agents must not start release work
+proactively. See
 [`.cursor/skills/release-prepare/SKILL.md`](.cursor/skills/release-prepare/SKILL.md).
 On `release.yml` failure, agents must file or bump `ai-learnings` issues
 via `scripts/ai-learnings-gh-post.sh` (do not skip intake because a

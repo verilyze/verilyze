@@ -36,9 +36,8 @@ release-preflight: OK for v${VERSION}
 
 Next steps:
   1. Run make -j check before tagging (not part of this quick preflight)
-  2. git tag -s v${VERSION} -m "Release v${VERSION}"
-  3. git push origin v${VERSION}
-  4. gh run watch --workflow=release.yml
+  2. make release-tag-push TAG=v${VERSION}
+  3. gh run watch --workflow=release.yml
 
 (Maintainer or AI agent when explicitly asked to publish; see
 .cursor/skills/release-prepare/SKILL.md.)
