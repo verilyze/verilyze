@@ -13,7 +13,7 @@ source "${script_dir}/release-artifact-names.sh"
 readonly RELEASE_OIDC_ISSUER="https://token.actions.githubusercontent.com"
 
 readonly SLSA_GENERATOR_PIN_SHA='f7dd8c54c2067bafc12ca7a55595d5ee9b75204a'
-readonly SLSA_GENERATOR_BUILDER_REGEX_DEFAULT="^https://github\\.com/slsa-framework/slsa-github-generator/\\.github/workflows/generator_generic_slsa3\\.yml@(v2\\.1\\.0|${SLSA_GENERATOR_PIN_SHA})\$"
+readonly SLSA_GENERATOR_BUILDER_REGEX_DEFAULT="^https://github[.]com/slsa-framework/slsa-github-generator/[.]github/workflows/generator_generic_slsa3[.]yml@(v2[.]1[.]0|${SLSA_GENERATOR_PIN_SHA})\$"
 
 # Legacy raw GitHub asset names (v0.4.0 through last non-archive release).
 # Remove once the oldest supported release publishes versioned archives.
@@ -105,6 +105,34 @@ resolve_latest_release_tag() {
   printf '%s' "${tag}"
 }
 
+# Verify one SHA256SUMS line for rel_path. GNU sha256sum -c is used when it
+# accepts --status; otherwise shasum or openssl (macOS BSD sha256sum).
+verify_sha256sums_entry() {
+  local rel_path="${1:?relative path required}"
+  local line expected fname actual
+  line="$(grep -F "${rel_path}" SHA256SUMS)" || return 1
+  if printf '%s\n' "${line}" | sha256sum -c --status 2>/dev/null; then
+    printf '%s: OK\n' "${rel_path}" >&2
+    return 0
+  fi
+  expected="$(awk '{print $1}' <<<"${line}")"
+  fname="$(awk '{print $2}' <<<"${line}")"
+  if command -v shasum >/dev/null 2>&1; then
+    actual="$(shasum -a 256 "${fname}" | awk '{print $1}')"
+  elif command -v openssl >/dev/null 2>&1; then
+    actual="$(openssl dgst -sha256 "${fname}" | awk '{print $NF}')"
+  else
+    echo "::error::need GNU sha256sum, shasum, or openssl to verify ${rel_path}" >&2
+    return 1
+  fi
+  if [[ "${actual}" == "${expected}" ]]; then
+    printf '%s: OK\n' "${rel_path}" >&2
+    return 0
+  fi
+  printf '%s: FAILED\n' "${rel_path}" >&2
+  return 1
+}
+
 verify_release_asset() {
   local root="${1:?artifact root required}"
   local rel_path="${2:?relative asset path required}"
@@ -132,7 +160,7 @@ verify_release_asset() {
 
   (
     cd "${root}" || exit 1
-    grep -F "${rel_path}" SHA256SUMS | sha256sum -c >&2
+    verify_sha256sums_entry "${rel_path}"
   )
 
   cosign verify-blob \

@@ -31,7 +31,7 @@ env:
   SLSA_GENERATOR_REF: v2.1.0
   # Renovate-pinned SHA for generator_generic_slsa3.yml@v2.1.0 (zizmor unpinned-uses).
   SLSA_GENERATOR_PIN_SHA: f7dd8c54c2067bafc12ca7a55595d5ee9b75204a
-  SLSA_GENERATOR_BUILDER_REGEX: ^https://github\.com/slsa-framework/slsa-github-generator/\.github/workflows/generator_generic_slsa3\.yml@(v2\.1\.0|f7dd8c54c2067bafc12ca7a55595d5ee9b75204a)$
+  SLSA_GENERATOR_BUILDER_REGEX: ^https://github[.]com/slsa-framework/slsa-github-generator/[.]github/workflows/generator_generic_slsa3[.]yml@(v2[.]1[.]0|f7dd8c54c2067bafc12ca7a55595d5ee9b75204a)$
 
 defaults:
   run:
@@ -470,7 +470,7 @@ jobs:
 
       - name: Verify signatures, attestations, and checksums (local)
         env:
-          EXPECTED_BUILDER_REGEX: ^https://github\.com/${{ github.repository }}/\.github/workflows/release\.yml@
+          EXPECTED_BUILDER_REGEX: ^https://github[.]com/${{ github.repository }}/[.]github/workflows/release[.]yml@
           SLSA_GENERATOR_BUILDER_REGEX: ${{ env.SLSA_GENERATOR_BUILDER_REGEX }}
         run: |
           set -euo pipefail
@@ -510,7 +510,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
           VERSION: ${{ needs.preflight-release.outputs.version }}
-          EXPECTED_BUILDER_REGEX: ^https://github\.com/${{ github.repository }}/\.github/workflows/release\.yml@
+          EXPECTED_BUILDER_REGEX: ^https://github[.]com/${{ github.repository }}/[.]github/workflows/release[.]yml@
           SLSA_GENERATOR_BUILDER_REGEX: ${{ env.SLSA_GENERATOR_BUILDER_REGEX }}
         run: |
           set -euo pipefail
@@ -570,7 +570,7 @@ jobs:
           VLZ_RELEASE_DOWNLOAD_DIR: ${{ runner.temp }}/vlz-draft
           VLZ_RELEASE_TAG: ${{ github.ref_name }}
           VLZ_RELEASE_PLATFORM: ${{ matrix.platform }}
-          EXPECTED_BUILDER_REGEX: ^https://github\.com/${{ github.repository }}/\.github/workflows/release\.yml@
+          EXPECTED_BUILDER_REGEX: ^https://github[.]com/${{ github.repository }}/[.]github/workflows/release[.]yml@
           SLSA_GENERATOR_BUILDER_REGEX: ${{ env.SLSA_GENERATOR_BUILDER_REGEX }}
         run: |
           set -euo pipefail

@@ -222,13 +222,46 @@ root="{root}"
 rel_path="{rel_path}"
 (
   cd "${{root}}" || exit 1
-  grep -F "${{rel_path}}" SHA256SUMS | sha256sum -c >&2
+  verify_sha256sums_entry "${{rel_path}}"
 )
 printf 'checksum-only'
 """
         proc = _run_bash(script)
         assert proc.returncode == 0, proc.stderr + proc.stdout
         assert proc.stdout == "checksum-only"
+        assert f"{rel_path}: OK" in proc.stderr
+
+    def test_verify_sha256sums_entry_when_sha256sum_is_bsd(self, tmp_path: Path) -> None:
+        """macOS ships sha256sum without GNU -c; fall back to shasum."""
+        root = tmp_path / "release"
+        rel_path = "vlz-1.2.3-macos-aarch64.tar.gz"
+        root.mkdir(parents=True)
+        payload = b"macos-archive"
+        root.joinpath(rel_path).write_bytes(payload)
+        digest = hashlib.sha256(payload).hexdigest()
+        root.joinpath("SHA256SUMS").write_text(
+            f"{digest}  {rel_path}\n",
+            encoding="utf-8",
+        )
+        fake_bin = tmp_path / "bin"
+        fake_bin.mkdir()
+        fake_sha = fake_bin / "sha256sum"
+        fake_sha.write_text(
+            "#!/bin/sh\necho 'usage: sha256sum [-bctwz] [files ...]' >&2\nexit 1\n",
+            encoding="utf-8",
+        )
+        fake_sha.chmod(0o755)
+        script = f"""
+set -euo pipefail
+source "{_COMMON_LIB}"
+cd "{root}"
+verify_sha256sums_entry "{rel_path}"
+"""
+        proc = _run_bash(
+            script,
+            env={"PATH": f"{fake_bin}:{os.environ['PATH']}"},
+        )
+        assert proc.returncode == 0, proc.stderr + proc.stdout
         assert f"{rel_path}: OK" in proc.stderr
 
     def test_verify_blob_attestation_uses_slsa_regex_first(
