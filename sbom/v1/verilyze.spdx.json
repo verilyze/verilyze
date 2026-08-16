@@ -2115,156 +2115,156 @@
     {
       "@type": "Package",
       "name": "vlz",
-      "packageUrl": "pkg:cargo/vlz@0.8.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-0-8-0",
-      "versionInfo": "0.8.0"
+      "packageUrl": "pkg:cargo/vlz@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-0-9-0",
+      "versionInfo": "0.9.0"
     },
     {
       "@type": "Package",
       "name": "vlz-cve-client",
-      "packageUrl": "pkg:cargo/vlz-cve-client@0.8.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-cve-client-0-8-0",
-      "versionInfo": "0.8.0"
+      "packageUrl": "pkg:cargo/vlz-cve-client@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-cve-client-0-9-0",
+      "versionInfo": "0.9.0"
     },
     {
       "@type": "Package",
       "name": "vlz-cve-provider-github",
-      "packageUrl": "pkg:cargo/vlz-cve-provider-github@0.8.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-cve-provider-github-0-8-0",
-      "versionInfo": "0.8.0"
+      "packageUrl": "pkg:cargo/vlz-cve-provider-github@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-cve-provider-github-0-9-0",
+      "versionInfo": "0.9.0"
     },
     {
       "@type": "Package",
       "name": "vlz-cve-provider-nvd",
-      "packageUrl": "pkg:cargo/vlz-cve-provider-nvd@0.8.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-cve-provider-nvd-0-8-0",
-      "versionInfo": "0.8.0"
+      "packageUrl": "pkg:cargo/vlz-cve-provider-nvd@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-cve-provider-nvd-0-9-0",
+      "versionInfo": "0.9.0"
     },
     {
       "@type": "Package",
       "name": "vlz-cve-provider-sonatype",
-      "packageUrl": "pkg:cargo/vlz-cve-provider-sonatype@0.8.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-cve-provider-sonatype-0-8-0",
-      "versionInfo": "0.8.0"
+      "packageUrl": "pkg:cargo/vlz-cve-provider-sonatype@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-cve-provider-sonatype-0-9-0",
+      "versionInfo": "0.9.0"
     },
     {
       "@type": "Package",
       "name": "vlz-db",
-      "packageUrl": "pkg:cargo/vlz-db@0.8.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-db-0-8-0",
-      "versionInfo": "0.8.0"
+      "packageUrl": "pkg:cargo/vlz-db@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-db-0-9-0",
+      "versionInfo": "0.9.0"
     },
     {
       "@type": "Package",
       "name": "vlz-db-mem",
-      "packageUrl": "pkg:cargo/vlz-db-mem@0.8.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-db-mem-0-8-0",
-      "versionInfo": "0.8.0"
+      "packageUrl": "pkg:cargo/vlz-db-mem@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-db-mem-0-9-0",
+      "versionInfo": "0.9.0"
     },
     {
       "@type": "Package",
       "name": "vlz-db-redb",
-      "packageUrl": "pkg:cargo/vlz-db-redb@0.8.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-db-redb-0-8-0",
-      "versionInfo": "0.8.0"
+      "packageUrl": "pkg:cargo/vlz-db-redb@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-db-redb-0-9-0",
+      "versionInfo": "0.9.0"
     },
     {
       "@type": "Package",
       "name": "vlz-fuzz",
-      "packageUrl": "pkg:cargo/vlz-fuzz@0.8.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-fuzz-0-8-0",
-      "versionInfo": "0.8.0"
+      "packageUrl": "pkg:cargo/vlz-fuzz@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-fuzz-0-9-0",
+      "versionInfo": "0.9.0"
     },
     {
       "@type": "Package",
       "name": "vlz-go",
-      "packageUrl": "pkg:cargo/vlz-go@0.8.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-go-0-8-0",
-      "versionInfo": "0.8.0"
+      "packageUrl": "pkg:cargo/vlz-go@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-go-0-9-0",
+      "versionInfo": "0.9.0"
     },
     {
       "@type": "Package",
       "name": "vlz-integrity",
-      "packageUrl": "pkg:cargo/vlz-integrity@0.8.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-integrity-0-8-0",
-      "versionInfo": "0.8.0"
+      "packageUrl": "pkg:cargo/vlz-integrity@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-integrity-0-9-0",
+      "versionInfo": "0.9.0"
     },
     {
       "@type": "Package",
       "name": "vlz-java",
-      "packageUrl": "pkg:cargo/vlz-java@0.8.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-java-0-8-0",
-      "versionInfo": "0.8.0"
+      "packageUrl": "pkg:cargo/vlz-java@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-java-0-9-0",
+      "versionInfo": "0.9.0"
     },
     {
       "@type": "Package",
       "name": "vlz-javascript",
-      "packageUrl": "pkg:cargo/vlz-javascript@0.8.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-javascript-0-8-0",
-      "versionInfo": "0.8.0"
+      "packageUrl": "pkg:cargo/vlz-javascript@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-javascript-0-9-0",
+      "versionInfo": "0.9.0"
     },
     {
       "@type": "Package",
       "name": "vlz-manifest-finder",
-      "packageUrl": "pkg:cargo/vlz-manifest-finder@0.8.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-manifest-finder-0-8-0",
-      "versionInfo": "0.8.0"
+      "packageUrl": "pkg:cargo/vlz-manifest-finder@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-manifest-finder-0-9-0",
+      "versionInfo": "0.9.0"
     },
     {
       "@type": "Package",
       "name": "vlz-manifest-parser",
-      "packageUrl": "pkg:cargo/vlz-manifest-parser@0.8.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-manifest-parser-0-8-0",
-      "versionInfo": "0.8.0"
+      "packageUrl": "pkg:cargo/vlz-manifest-parser@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-manifest-parser-0-9-0",
+      "versionInfo": "0.9.0"
     },
     {
       "@type": "Package",
       "name": "vlz-plugin-macro",
-      "packageUrl": "pkg:cargo/vlz-plugin-macro@0.8.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-plugin-macro-0-8-0",
-      "versionInfo": "0.8.0"
+      "packageUrl": "pkg:cargo/vlz-plugin-macro@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-plugin-macro-0-9-0",
+      "versionInfo": "0.9.0"
     },
     {
       "@type": "Package",
       "name": "vlz-python",
-      "packageUrl": "pkg:cargo/vlz-python@0.8.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-python-0-8-0",
-      "versionInfo": "0.8.0"
+      "packageUrl": "pkg:cargo/vlz-python@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-python-0-9-0",
+      "versionInfo": "0.9.0"
     },
     {
       "@type": "Package",
       "name": "vlz-reachability",
-      "packageUrl": "pkg:cargo/vlz-reachability@0.8.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-reachability-0-8-0",
-      "versionInfo": "0.8.0"
+      "packageUrl": "pkg:cargo/vlz-reachability@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-reachability-0-9-0",
+      "versionInfo": "0.9.0"
     },
     {
       "@type": "Package",
       "name": "vlz-reachability-trait",
-      "packageUrl": "pkg:cargo/vlz-reachability-trait@0.8.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-reachability-trait-0-8-0",
-      "versionInfo": "0.8.0"
+      "packageUrl": "pkg:cargo/vlz-reachability-trait@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-reachability-trait-0-9-0",
+      "versionInfo": "0.9.0"
     },
     {
       "@type": "Package",
       "name": "vlz-report",
-      "packageUrl": "pkg:cargo/vlz-report@0.8.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-report-0-8-0",
-      "versionInfo": "0.8.0"
+      "packageUrl": "pkg:cargo/vlz-report@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-report-0-9-0",
+      "versionInfo": "0.9.0"
     },
     {
       "@type": "Package",
       "name": "vlz-ruby",
-      "packageUrl": "pkg:cargo/vlz-ruby@0.8.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-ruby-0-8-0",
-      "versionInfo": "0.8.0"
+      "packageUrl": "pkg:cargo/vlz-ruby@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-ruby-0-9-0",
+      "versionInfo": "0.9.0"
     },
     {
       "@type": "Package",
       "name": "vlz-rust",
-      "packageUrl": "pkg:cargo/vlz-rust@0.8.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-rust-0-8-0",
-      "versionInfo": "0.8.0"
+      "packageUrl": "pkg:cargo/vlz-rust@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-rust-0-9-0",
+      "versionInfo": "0.9.0"
     },
     {
       "@type": "Package",
@@ -3077,41 +3077,6 @@
       "packageUrl": "pkg:cargo/regex-automata@0.4.18",
       "spdxId": "urn:spdx.dev:pkg-cargo-regex-automata-0-4-18",
       "versionInfo": "0.4.18"
-    },
-    {
-      "@type": "Package",
-      "name": "ruff_python_ast",
-      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.8",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-8",
-      "versionInfo": "0.0.8"
-    },
-    {
-      "@type": "Package",
-      "name": "ruff_python_parser",
-      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.8",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-8",
-      "versionInfo": "0.0.8"
-    },
-    {
-      "@type": "Package",
-      "name": "ruff_python_trivia",
-      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.8",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-8",
-      "versionInfo": "0.0.8"
-    },
-    {
-      "@type": "Package",
-      "name": "ruff_source_file",
-      "packageUrl": "pkg:cargo/ruff_source_file@0.0.8",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-8",
-      "versionInfo": "0.0.8"
-    },
-    {
-      "@type": "Package",
-      "name": "ruff_text_size",
-      "packageUrl": "pkg:cargo/ruff_text_size@0.0.8",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-8",
-      "versionInfo": "0.0.8"
     },
     {
       "@type": "Package",

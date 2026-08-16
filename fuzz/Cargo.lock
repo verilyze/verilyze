@@ -445,6 +445,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e5e8f6c15a24b9a3ee5efec809ccd006d3b30e8b3bb63c39af737c7f87daa1d"
 
 [[package]]
+name = "encoding_rs"
+version = "0.8.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75030f3c4f45dafd7586dd6780965a8c7e8e285a5ecb86713e63a79c5b2766f3"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "env_filter"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1269,6 +1278,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "quick-xml"
+version = "0.41.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e660451e55124f798a69a5af3f49ccfbefbd41910eefd25caf2393e1f3473ec1"
+dependencies = [
+ "encoding_rs",
+ "memchr",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1441,9 +1460,9 @@ checksum = "323c417e1d9665a65b263ec744ba09030cfb277e9daa0b018a4ab62e57bc8189"
 
 [[package]]
 name = "ruff_python_ast"
-version = "0.0.8"
+version = "0.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e2c9fd3928c23499906de2f60433cec7a721804b3c6a0709a2d5438b6b10aa2"
+checksum = "2ca96e1ff7a76b0235df556968ae10e5f8a00a0efa3061f247ad18365f769c2d"
 dependencies = [
  "aho-corasick",
  "arrayvec",
@@ -1463,9 +1482,9 @@ dependencies = [
 
 [[package]]
 name = "ruff_python_parser"
-version = "0.0.8"
+version = "0.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a45e048a6c615fe654ee60fad1e37c0210da9950208084dc6a64b46d40bbadc0"
+checksum = "1cf63608d433331007574be9d7fa17f3d99fc4b9305abcd9cf47a8033690628d"
 dependencies = [
  "bitflags 2.13.1",
  "bstr",
@@ -1485,9 +1504,9 @@ dependencies = [
 
 [[package]]
 name = "ruff_python_trivia"
-version = "0.0.8"
+version = "0.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f596467afec48d346277df82fb7c5fd4b706c2487813865e97d89691ec72934"
+checksum = "cb21454ef368d9f4f55cc3d42cf262fa61cd4109e3f1c8aeb138d696b74d563d"
 dependencies = [
  "itertools",
  "ruff_source_file",
@@ -1498,9 +1517,9 @@ dependencies = [
 
 [[package]]
 name = "ruff_source_file"
-version = "0.0.8"
+version = "0.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "905a1e7b02265e8a1af6ada26f47e19ee538a09b5a985fdd3cd434f9e44512c7"
+checksum = "9d7b074f9b29744b641588c521c6943534ca6e7c161b2b1299c01d1cc1b860f3"
 dependencies = [
  "memchr",
  "ruff_text_size",
@@ -1508,9 +1527,9 @@ dependencies = [
 
 [[package]]
 name = "ruff_text_size"
-version = "0.0.8"
+version = "0.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7043bd465e590424fde07affc993c685216fdf9c10d26aded22e101f99cac7a9"
+checksum = "0944e5527042c3e1ef3e79bfed2655fe3ae66433f0112fa38d702e078f549d49"
 dependencies = [
  "get-size2",
 ]
@@ -2214,7 +2233,7 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "vlz"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -2234,6 +2253,7 @@ dependencies = [
  "vlz-db-redb",
  "vlz-go",
  "vlz-integrity",
+ "vlz-java",
  "vlz-javascript",
  "vlz-manifest-finder",
  "vlz-manifest-parser",
@@ -2242,12 +2262,13 @@ dependencies = [
  "vlz-reachability",
  "vlz-reachability-trait",
  "vlz-report",
+ "vlz-ruby",
  "vlz-rust",
 ]
 
 [[package]]
 name = "vlz-cve-client"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "async-trait",
  "cvssrust",
@@ -2264,7 +2285,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-db"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "async-trait",
  "rustix",
@@ -2275,7 +2296,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-db-redb"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "async-trait",
  "redb",
@@ -2293,14 +2314,16 @@ dependencies = [
  "libfuzzer-sys",
  "vlz",
  "vlz-go",
+ "vlz-java",
  "vlz-javascript",
  "vlz-python",
+ "vlz-ruby",
  "vlz-rust",
 ]
 
 [[package]]
 name = "vlz-go"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "async-trait",
  "regex",
@@ -2314,7 +2337,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-integrity"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "async-trait",
  "sha2",
@@ -2323,8 +2346,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "vlz-java"
+version = "0.9.0"
+dependencies = [
+ "async-trait",
+ "quick-xml",
+ "regex",
+ "serde",
+ "thiserror",
+ "tokio",
+ "toml",
+ "vlz-db",
+ "vlz-manifest-finder",
+ "vlz-manifest-parser",
+ "vlz-reachability-trait",
+]
+
+[[package]]
 name = "vlz-javascript"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "async-trait",
  "regex",
@@ -2342,7 +2382,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-manifest-finder"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "async-trait",
  "thiserror",
@@ -2350,7 +2390,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-manifest-parser"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "async-trait",
  "thiserror",
@@ -2359,7 +2399,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-plugin-macro"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2368,7 +2408,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-python"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "async-trait",
  "regex",
@@ -2389,7 +2429,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-reachability"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2400,14 +2440,14 @@ dependencies = [
 
 [[package]]
 name = "vlz-reachability-trait"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "vlz-db",
 ]
 
 [[package]]
 name = "vlz-report"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "async-trait",
  "serde",
@@ -2417,8 +2457,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "vlz-ruby"
+version = "0.9.0"
+dependencies = [
+ "async-trait",
+ "regex",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "vlz-db",
+ "vlz-manifest-finder",
+ "vlz-manifest-parser",
+ "vlz-reachability-trait",
+]
+
+[[package]]
 name = "vlz-rust"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "async-trait",
  "regex",
