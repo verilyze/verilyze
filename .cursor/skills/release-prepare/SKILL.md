@@ -52,6 +52,28 @@ A confirmed **Publish** ask is a **one-shot grant** for: SemVer, release PR,
 merge, signed tag, tag push, monitoring, draft cleanup, and tag moves during
 stabilization. Do **not** stop for chat confirmation between those steps.
 
+### Non-interactive Publish
+
+Phrases such as **non-interactive**, **non-interactively**, or **without
+asking** plus a clear Publish version skip the kickoff confirm and forbid
+further chat questions. After required CI checks are green, merge with
+admin bypass (sole-contributor ruleset: one required review that the
+author cannot satisfy):
+
+```sh
+gh pr merge <n> --merge --admin
+```
+
+Do **not** enqueue the merge queue without `--admin`. That path stays
+`REVIEW_REQUIRED` / `BLOCKED` until a second reviewer or a manual GitHub
+merge.
+
+Cursor Auto-review cards on tag push or tag rewrite are **not** chat
+prompts. Retry immediately with `request_smart_mode_approval` (section
+below). The human may still have to click **Approve** on that native card;
+the repo cannot turn Auto-review off. Do not ask in chat whether to
+proceed.
+
 If the same message names a follow-on after a successful release (e.g. run
 `verilyze-nightly`), run it after `release.yml` succeeds without another
 confirm.
@@ -83,7 +105,7 @@ Use a release branch and PR instead:
 2. Commit release prep on that branch.
 3. `git push -u origin release/vX.Y.Z` and open a PR to `main`.
 4. Under **Publish** (or Prepare only when merge was explicitly requested):
-   wait for CI green; merge with `gh pr merge` (or human review).
+   wait for CI green; `gh pr merge --merge --admin`.
 5. `git checkout main && git pull origin main` locally.
 6. Under **Publish** only: tag the merged commit on `main`; push **only** the
    tag (workflow steps 11-12).
@@ -110,7 +132,8 @@ publish and bypasses project review policy.
    unless the user explicitly asked to merge without publishing. Do not run
    steps 9-14. Do not create or push a `v*` tag.
 9. **Merge** (**Publish**, or Prepare only when merge was requested) -- wait
-   for CI green; merge to `main` (do not push `main` directly)
+   for CI green; merge with `gh pr merge <n> --merge --admin` (do not push
+   `main` directly; do not use merge-queue-only merge on Publish)
 10. **Sync local `main`** -- `git checkout main && git pull origin main`
 11. **Pre-tag gate (required)** -- on merged `main`, `make release-preflight`
     must pass before tagging. Re-run if the release PR touched `release.yml` or
@@ -128,19 +151,20 @@ publish and bypasses project review policy.
 
 ## Cursor auto-review (tag push / tag move)
 
-Tag push and remote tag delete/repush often trigger Cursor auto-review. Under
-**Publish** or an in-progress stabilization loop:
+Tag push and remote tag delete/repush often trigger Cursor Auto-review.
+That is a product safety card, not a GitHub review and not a chat
+question. Under **Publish**, a stabilization loop, or an explicit
+**non-interactive** ask:
 
 1. Attempt the shell command normally first.
-2. If Auto-review blocks it, **immediately retry the exact same command** with
-   `request_smart_mode_approval: true` and the exact
-   `smart_mode_block_reason` from the rejection. Do **not** ask for a separate
-   chat confirmation before or after that card.
-3. Pause only if the user dismisses or skips the approval card; then tell them
-   how to approve or run the command themselves and continue when they do.
+2. If Auto-review blocks it, **immediately retry the exact same command**
+   with `request_smart_mode_approval: true` and the exact
+   `smart_mode_block_reason` from the rejection. Do **not** ask in chat.
+3. If the user dismisses or skips the card, tell them to Approve it or run
+   the command themselves; continue when they do.
 
-Cursor auto-review cards are **not** a substitute for the kickoff confirm and
-do not count as a second chat prompt when the agent did not ask in chat.
+These cards can still require a click. They do not replace the kickoff
+confirm and do not count as a second chat prompt.
 
 ## Optional deeper checks
 
@@ -265,7 +289,7 @@ remains the canonical publish for SemVer artifacts and GitHub Releases.
 |---------------|---------|
 | **Kickoff confirm** | Once at start if intent/version unclear; bundle all decisions; then no mid-path chat reconfirms |
 | **Prepare only** | Draft CHANGELOG, bump version, packaging, release branch, PR; merge if asked; **no** `v*` tag create/push/move |
-| **Publish** | Everything in Prepare only, plus merge, signed tag, tag push, draft release delete, stabilization tag moves (retry cap), and named follow-ons after success |
+| **Publish** | Everything in Prepare only, plus merge (`gh pr merge --admin` after CI), signed tag, tag push, draft release delete, stabilization tag moves (retry cap), and named follow-ons after success |
 | `git push origin main` | **Never** (use PR merge per CONTRIBUTING) |
 | Bump SemVer for each CI fix during stabilization | **Never** (same `X.Y.Z` until first successful publish) |
 | Move tag after non-draft publish / immutable artifacts | **Never** (cut `X.Y.(Z+1)` instead) |
