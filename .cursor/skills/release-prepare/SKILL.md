@@ -120,7 +120,8 @@ publish and bypasses project review policy.
     `git tag -s vX.Y.Z -m "Release vX.Y.Z"` then
     `git push origin vX.Y.Z` (never bundle with `git push origin main`)
 13. **Monitor** -- `gh run watch --workflow=release.yml`; then
-    `gh release view vX.Y.Z`
+    `gh release view vX.Y.Z`. On **failure**, run **AI learnings intake**
+    (below) **before** editing the fix branch tip or moving the tag.
 14. **Follow-ons** -- if the original request named post-success work (e.g.
     `verilyze-nightly`), run it after `release.yml` succeeds
 15. **Preview notes anytime** -- `make release-notes VERSION=x.y.z`
@@ -167,7 +168,28 @@ Under **Publish**, fix the root cause and continue the stabilization loop
 without waiting for another chat confirm. Under **Prepare only**, do not
 re-tag or push tags.
 
-**Symptom guide** (v0.4.0 stabilization lessons):
+### AI learnings intake (required on `release.yml` failure)
+
+Do **not** skip this because the stabilization loop is in progress.
+
+On each failed `release.yml` run (and on each later failed retry):
+
+1. Fingerprint-search `label:ai-learnings` (`--limit 5`) per
+   [ai-learnings.md](../pre-merge-check/ai-learnings.md).
+2. Post evidence **only** via `scripts/ai-learnings-gh-post.sh` (gitleaks
+   preflight). Prefer Actions run/job URLs over log bodies.
+3. Create or bump one issue per fingerprint (`ci-gap: release.yml -- ...`
+   or `agent: release-prepare -- ...`), type `Learning`, label
+   `ai-learnings`. Recurrence 1 is required even when the class is
+   `uncertain`.
+4. Then continue the fix PR / tag-move loop. Do not treat "we will fix it
+   in this session" as a reason to skip the issue.
+
+Local `make` races (quota, `TMPDIR` inside the tree, venv rebuild) stay
+`change defect` / infrastructure: no issue unless a durable fingerprint
+recurs across sessions.
+
+**Symptom guide** (v0.4.0 and v0.9.0 stabilization lessons):
 
 | Symptom | Likely cause | Check |
 |---------|--------------|-------|
@@ -176,7 +198,10 @@ re-tag or push tags.
 | `create-release` cosign/SLSA verify fail | Generator SHA not in builder regex | `SLSA_GENERATOR_PIN_SHA` in `SLSA_GENERATOR_BUILDER_REGEX` |
 | Draft re-verify: missing archives | Staging omitted archives or version mismatch | `release-stage-github-upload.sh`; `make release-verify-upload` |
 | Draft has deb/rpm only, no archives | `path#name` in `action-gh-release` `files:` or empty `github-upload/` | Contract tests; stage flat archives under `github-upload/` |
-| SLSA verify fails on archive | Archive rebuilt after hash step | Build archive once on matrix runner; never re-archive in `create-release` |
+| Draft `cli-contract-draft`: `release not found` | `GITHUB_TOKEN` `contents: read` cannot see drafts | Job needs `contents: write` |
+| macOS draft install: `sha256sum` usage | BSD `sha256sum` has no GNU `-c` | `verify_sha256sums_entry` in `ci-install-vlz-release-common.sh` |
+| Windows Cosign: SAN regex has `/.` | Git bash MSYS rewrites `\.` in env to `/.` | Identity regexes use `[.]` not `\.` |
+| `publish-release`: `not a git repository` | Job has no checkout; `gh` infers repo from git | `gh release edit --repo "${GITHUB_REPOSITORY}"` |
 
 ## Release stabilization (before first successful publish)
 
@@ -193,7 +218,8 @@ wait for the user to say "move the tag".
 and report):
 
 1. Fix on a branch with ordinary fix commits (no version bump); open PR; wait
-   for CI green; merge to `main`.
+   for CI green; merge to `main`. File or bump `ai-learnings` issues for
+   the failed `release.yml` fingerprints first (intake above).
 2. Add bullets under the existing `## [X.Y.Z]` section (not a new version
    header).
 3. Sync `main`, re-run `make release-preflight`, verify the GitHub Release is
@@ -216,7 +242,7 @@ git push origin vX.Y.Z
 | Situation | Action |
 |-----------|--------|
 | Transient failure (network, rate limit, secret fixed in GitHub UI) | Re-run failed jobs on same tag/commit |
-| Fixable CI/script failure; release still draft or absent | Stabilization loop (tag move), within retry cap |
+| Fixable CI/script failure; release still draft or absent | Learnings intake, then stabilization loop (tag move), within retry cap |
 
 **Hard stops (ask the human):**
 

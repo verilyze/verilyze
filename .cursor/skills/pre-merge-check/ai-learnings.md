@@ -279,7 +279,7 @@ systemic: close as not planned with a short note.
 
 ## 4. CI triage hook
 
-When investigating a failed PR check:
+When investigating a failed PR check **or a failed `release.yml` run**:
 
 1. Run **ci-investigator** on the failed job
 2. Fingerprint-search `ai-learnings` (open and closed, `--limit 5`) before

@@ -399,8 +399,12 @@ with `RUSTFLAGS=-Dwarnings` so rustc warnings fail the build.
    three-OS **CLI contract smoke** against those native archives, waits for
    OBS builds, and only then publishes (`gh release edit --draft=false`).
    A failed CLI contract leaves the release in draft; fix and use the
-   tag-move loop. After publish, failures need a new patch version.
-   Confirm OBS automation succeeds:
+  tag-move loop. After publish, failures need a new patch version.
+  On a failed `release.yml` run, search `label:ai-learnings` and create or
+  bump Learning issues via
+  [scripts/ai-learnings-gh-post.sh](scripts/ai-learnings-gh-post.sh)
+  before or in parallel with the fix (see release-prepare skill).
+  Confirm OBS automation succeeds:
    - Ensure repository secrets `OBS_USER`, `OBS_PASSWORD`, and
      `OBS_TOKEN_REBUILD` are set for upload-driven OBS publishing
      (`osc` upload plus rebuild trigger):
@@ -1058,6 +1062,9 @@ tags, and `git push origin vX.Y.Z`) when a human **explicitly requests** it in
 chat. Agents must **not** push directly to `origin/main` (branch protection
 requires PR review). Agents must not start release work proactively. See
 [`.cursor/skills/release-prepare/SKILL.md`](.cursor/skills/release-prepare/SKILL.md).
+On `release.yml` failure, agents must file or bump `ai-learnings` issues
+via `scripts/ai-learnings-gh-post.sh` (do not skip intake because a
+stabilization fix is in progress).
 Human maintainers may still cut releases manually per [Versioning and
 releases](#versioning-and-releases) below.
 
