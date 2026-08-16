@@ -1059,8 +1059,11 @@ Hooks opt-out: set `VLZ_CURSOR_HOOKS_DISABLE=1` to skip Cursor hook scripts loca
 **Agent-assisted releases:** AI agents may run the release workflow
 (including signed commits, a `release/vX.Y.Z` pull request merged to `main`,
 tags, and `git push origin vX.Y.Z`) when a human **explicitly requests** it in
-chat. Agents must **not** push directly to `origin/main` (branch protection
-requires PR review). Agents must not start release work proactively. See
+chat. On **Publish** (including **non-interactive**), after required checks pass,
+merge with `gh pr merge --merge --admin`. A sole contributor cannot satisfy
+the `main` ruleset's required review; merge-queue without `--admin` stays
+blocked. Agents must **not** push directly to `origin/main`. Agents must
+not start release work proactively. See
 [`.cursor/skills/release-prepare/SKILL.md`](.cursor/skills/release-prepare/SKILL.md).
 On `release.yml` failure, agents must file or bump `ai-learnings` issues
 via `scripts/ai-learnings-gh-post.sh` (do not skip intake because a
