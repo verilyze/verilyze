@@ -358,3 +358,11 @@ def test_publish_release_needs_cli_and_obs() -> None:
     assert "success()" in header
     assert "--draft=false" in block
 
+
+def test_publish_release_sets_repo_without_checkout() -> None:
+    """gh release edit needs --repo when the job has no git checkout."""
+    workflow = _release_workflow_text()
+    block = _job_block(workflow, "publish-release")
+    assert "actions/checkout@" not in block
+    assert 'gh release edit "${TAG}" --repo "${GITHUB_REPOSITORY}" --draft=false' in block
+

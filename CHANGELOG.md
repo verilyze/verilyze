@@ -50,6 +50,8 @@ Human-readable release notes for each version.
 - Draft CLI contract verification uses a portable SHA-256 check (macOS BSD
   `sha256sum`) and Cosign identity regexes without backslash-dot so Git
   bash on Windows does not rewrite `\.` to `/.`.
+- `publish-release` passes `--repo` to `gh release edit` so publishing a
+  draft does not require a git checkout.
 
 ## [0.8.0] - 2026-08-09
 
