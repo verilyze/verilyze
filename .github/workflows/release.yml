@@ -614,7 +614,7 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          gh release edit "${TAG}" --draft=false
+          gh release edit "${TAG}" --repo "${GITHUB_REPOSITORY}" --draft=false
 
   publish-obs:
     needs: preflight-release
