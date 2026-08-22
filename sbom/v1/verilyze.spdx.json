@@ -834,9 +834,9 @@
     {
       "@type": "Package",
       "name": "h2",
-      "packageUrl": "pkg:cargo/h2@0.4.13",
-      "spdxId": "urn:spdx.dev:pkg-cargo-h2-0-4-13",
-      "versionInfo": "0.4.13"
+      "packageUrl": "pkg:cargo/h2@0.4.18",
+      "spdxId": "urn:spdx.dev:pkg-cargo-h2-0-4-18",
+      "versionInfo": "0.4.18"
     },
     {
       "@type": "Package",

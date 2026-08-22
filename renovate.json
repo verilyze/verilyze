@@ -9,6 +9,10 @@
   "platformAutomerge": true,
   "prConcurrentLimit": 3,
   "osvVulnerabilityAlerts": true,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"]
+  },
   "constraints": {
     "rust": "1.94.1"
   },
@@ -200,6 +204,18 @@
       "matchManagers": ["cargo"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "rust-workspace-minor-patch"
+    },
+    {
+      "description": "Cargo.lock maintenance: transitive patches; no automerge",
+      "matchManagers": ["cargo"],
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "automerge": false
+    },
+    {
+      "description": "Disable lockFileMaintenance outside Cargo",
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "matchManagers": ["pep621", "pip_requirements"],
+      "enabled": false
     },
     {
       "description": "Enable GitHub platform auto-merge after CI for non-major updates",
