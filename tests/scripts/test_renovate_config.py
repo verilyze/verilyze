@@ -159,6 +159,43 @@ def test_renovate_osv_vulnerability_alerts_enabled() -> None:
     assert data.get("osvVulnerabilityAlerts") is True
 
 
+def test_renovate_cargo_lock_file_maintenance_enabled() -> None:
+    """Weekly Cargo.lock refresh picks up transitive-only advisory patches."""
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    maint = data.get("lockFileMaintenance")
+    assert isinstance(maint, dict)
+    assert maint.get("enabled") is True
+    assert "before 6am on monday" in maint.get("schedule", [])
+    rules = data.get("packageRules", [])
+    cargo_lock = next(
+        (
+            r
+            for r in rules
+            if r.get("matchManagers") == ["cargo"]
+            and r.get("matchUpdateTypes") == ["lockFileMaintenance"]
+        ),
+        None,
+    )
+    assert cargo_lock is not None, (
+        "packageRules must configure Cargo lockFileMaintenance"
+    )
+    assert cargo_lock.get("automerge") is False
+    non_cargo = next(
+        (
+            r
+            for r in rules
+            if r.get("matchUpdateTypes") == ["lockFileMaintenance"]
+            and r.get("enabled") is False
+            and "pep621" in r.get("matchManagers", [])
+            and "pip_requirements" in r.get("matchManagers", [])
+        ),
+        None,
+    )
+    assert non_cargo is not None, (
+        "packageRules must disable lockFileMaintenance outside Cargo"
+    )
+
+
 def test_renovate_pep621_pypi_range_strategy_bump() -> None:
     data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
     rules = data.get("packageRules", [])

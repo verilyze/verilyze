@@ -821,11 +821,11 @@
       "version": "0.4.2"
     },
     {
-      "bom-ref": "pkg:cargo/h2@0.4.13",
+      "bom-ref": "pkg:cargo/h2@0.4.18",
       "name": "h2",
-      "purl": "pkg:cargo/h2@0.4.13",
+      "purl": "pkg:cargo/h2@0.4.18",
       "type": "library",
-      "version": "0.4.13"
+      "version": "0.4.18"
     },
     {
       "bom-ref": "pkg:cargo/hashbrown@0.15.5",

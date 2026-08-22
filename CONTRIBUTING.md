@@ -904,6 +904,21 @@ Dependencies design principle.
 - When using regex on untrusted patterns or input, satisfy SEC-022 (no
   catastrophic backtracking).
 
+### Advisory triage (`cargo-deny` advisories)
+
+CI gates Rust advisories with **`make deny-check`** (`cargo deny check`),
+not a separate `cargo-audit` job. When advisories fail:
+
+1. Prefer updating the lockfile: `cargo update -p <crate>` (or merge a
+   Renovate Cargo / `lockFileMaintenance` / OSV PR).
+2. Run the same follow-ups as Cargo Renovate hooks:
+   **`make generate-third-party-licenses`**, **`make generate-sbom`**,
+   **`make sync-deny-skips`**, then **`make deny-check`**.
+3. Add an entry under **`deny.toml`** **`[advisories].ignore`** only when no
+   patched release exists yet, and include a written **`reason`**.
+4. Do not leave a transitive RUSTSEC open while waiting on an unrelated PR;
+   land a dedicated lockfile fix on **`main`** so other branches stay green.
+
 ### Duplicate package triage (`cargo-deny` bans)
 
 Use this workflow when `make deny-check` reports duplicate crates:
@@ -1291,6 +1306,10 @@ releases](#versioning-and-releases) below.
   The **`cargo`** manager updates **workspace** Rust dependencies in
   `Cargo.toml` / `Cargo.lock` (**minor** and **patch** are grouped into
   **`rust-workspace-minor-patch`**).
+  **`lockFileMaintenance`** is **enabled** for **Cargo** (weekly Monday
+  schedule) so transitive-only lock refreshes can land without a direct
+  `Cargo.toml` bump; **pep621** and **pip_requirements** lock maintenance
+  stay **disabled**. Cargo lock-maintenance PRs use **`automerge: false`**.
   **Cargo**-related PRs use **`automerge: false`** (overrides the general
   non-major automerge rule) until maintainers re-enable after the rollout is
   verified.
