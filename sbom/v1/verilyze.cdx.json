@@ -303,6 +303,13 @@
       "version": "1.0.104"
     },
     {
+      "bom-ref": "pkg:cargo/ar_archive_writer@0.5.3",
+      "name": "ar_archive_writer",
+      "purl": "pkg:cargo/ar_archive_writer@0.5.3",
+      "type": "library",
+      "version": "0.5.3"
+    },
+    {
       "bom-ref": "pkg:cargo/arrayvec@0.7.7",
       "name": "arrayvec",
       "purl": "pkg:cargo/arrayvec@0.7.7",
@@ -1143,11 +1150,11 @@
       "version": "0.4.14"
     },
     {
-      "bom-ref": "pkg:cargo/log@0.4.33",
+      "bom-ref": "pkg:cargo/log@0.4.34",
       "name": "log",
-      "purl": "pkg:cargo/log@0.4.33",
+      "purl": "pkg:cargo/log@0.4.34",
       "type": "library",
-      "version": "0.4.33"
+      "version": "0.4.34"
     },
     {
       "bom-ref": "pkg:cargo/manyhow@0.11.4",
@@ -1225,6 +1232,13 @@
       "purl": "pkg:cargo/num_cpus@1.17.0",
       "type": "library",
       "version": "1.17.0"
+    },
+    {
+      "bom-ref": "pkg:cargo/object@0.39.1",
+      "name": "object",
+      "purl": "pkg:cargo/object@0.39.1",
+      "type": "library",
+      "version": "0.39.1"
     },
     {
       "bom-ref": "pkg:cargo/oid-registry@0.8.1",
@@ -1374,6 +1388,13 @@
       "version": "1.0.107"
     },
     {
+      "bom-ref": "pkg:cargo/psm@0.1.32",
+      "name": "psm",
+      "purl": "pkg:cargo/psm@0.1.32",
+      "type": "library",
+      "version": "0.1.32"
+    },
+    {
       "bom-ref": "pkg:cargo/quick-xml@0.41.0",
       "name": "quick-xml",
       "purl": "pkg:cargo/quick-xml@0.41.0",
@@ -1437,11 +1458,11 @@
       "version": "0.14.9"
     },
     {
-      "bom-ref": "pkg:cargo/redb@4.1.0",
+      "bom-ref": "pkg:cargo/redb@4.2.0",
       "name": "redb",
-      "purl": "pkg:cargo/redb@4.1.0",
+      "purl": "pkg:cargo/redb@4.2.0",
       "type": "library",
-      "version": "4.1.0"
+      "version": "4.2.0"
     },
     {
       "bom-ref": "pkg:cargo/redox_syscall@0.5.18",
@@ -1493,39 +1514,39 @@
       "version": "1.1.1"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_python_ast@0.0.9",
+      "bom-ref": "pkg:cargo/ruff_python_ast@0.0.10",
       "name": "ruff_python_ast",
-      "purl": "pkg:cargo/ruff_python_ast@0.0.9",
+      "purl": "pkg:cargo/ruff_python_ast@0.0.10",
       "type": "library",
-      "version": "0.0.9"
+      "version": "0.0.10"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_python_parser@0.0.9",
+      "bom-ref": "pkg:cargo/ruff_python_parser@0.0.10",
       "name": "ruff_python_parser",
-      "purl": "pkg:cargo/ruff_python_parser@0.0.9",
+      "purl": "pkg:cargo/ruff_python_parser@0.0.10",
       "type": "library",
-      "version": "0.0.9"
+      "version": "0.0.10"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_python_trivia@0.0.9",
+      "bom-ref": "pkg:cargo/ruff_python_trivia@0.0.10",
       "name": "ruff_python_trivia",
-      "purl": "pkg:cargo/ruff_python_trivia@0.0.9",
+      "purl": "pkg:cargo/ruff_python_trivia@0.0.10",
       "type": "library",
-      "version": "0.0.9"
+      "version": "0.0.10"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_source_file@0.0.9",
+      "bom-ref": "pkg:cargo/ruff_source_file@0.0.10",
       "name": "ruff_source_file",
-      "purl": "pkg:cargo/ruff_source_file@0.0.9",
+      "purl": "pkg:cargo/ruff_source_file@0.0.10",
       "type": "library",
-      "version": "0.0.9"
+      "version": "0.0.10"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_text_size@0.0.9",
+      "bom-ref": "pkg:cargo/ruff_text_size@0.0.10",
       "name": "ruff_text_size",
-      "purl": "pkg:cargo/ruff_text_size@0.0.9",
+      "purl": "pkg:cargo/ruff_text_size@0.0.10",
       "type": "library",
-      "version": "0.0.9"
+      "version": "0.0.10"
     },
     {
       "bom-ref": "pkg:cargo/rustc-hash@2.1.2",
@@ -1757,6 +1778,13 @@
       "purl": "pkg:cargo/stable_deref_trait@1.2.1",
       "type": "library",
       "version": "1.2.1"
+    },
+    {
+      "bom-ref": "pkg:cargo/stacker@0.1.25",
+      "name": "stacker",
+      "purl": "pkg:cargo/stacker@0.1.25",
+      "type": "library",
+      "version": "0.1.25"
     },
     {
       "bom-ref": "pkg:cargo/static_assertions@1.1.0",
@@ -3033,6 +3061,13 @@
       "version": "0.4.13"
     },
     {
+      "bom-ref": "pkg:cargo/log@0.4.33",
+      "name": "log",
+      "purl": "pkg:cargo/log@0.4.33",
+      "type": "library",
+      "version": "0.4.33"
+    },
+    {
       "bom-ref": "pkg:cargo/memchr@2.8.3",
       "name": "memchr",
       "purl": "pkg:cargo/memchr@2.8.3",
@@ -3061,11 +3096,53 @@
       "version": "0.8.7"
     },
     {
+      "bom-ref": "pkg:cargo/redb@4.1.0",
+      "name": "redb",
+      "purl": "pkg:cargo/redb@4.1.0",
+      "type": "library",
+      "version": "4.1.0"
+    },
+    {
       "bom-ref": "pkg:cargo/regex-automata@0.4.18",
       "name": "regex-automata",
       "purl": "pkg:cargo/regex-automata@0.4.18",
       "type": "library",
       "version": "0.4.18"
+    },
+    {
+      "bom-ref": "pkg:cargo/ruff_python_ast@0.0.9",
+      "name": "ruff_python_ast",
+      "purl": "pkg:cargo/ruff_python_ast@0.0.9",
+      "type": "library",
+      "version": "0.0.9"
+    },
+    {
+      "bom-ref": "pkg:cargo/ruff_python_parser@0.0.9",
+      "name": "ruff_python_parser",
+      "purl": "pkg:cargo/ruff_python_parser@0.0.9",
+      "type": "library",
+      "version": "0.0.9"
+    },
+    {
+      "bom-ref": "pkg:cargo/ruff_python_trivia@0.0.9",
+      "name": "ruff_python_trivia",
+      "purl": "pkg:cargo/ruff_python_trivia@0.0.9",
+      "type": "library",
+      "version": "0.0.9"
+    },
+    {
+      "bom-ref": "pkg:cargo/ruff_source_file@0.0.9",
+      "name": "ruff_source_file",
+      "purl": "pkg:cargo/ruff_source_file@0.0.9",
+      "type": "library",
+      "version": "0.0.9"
+    },
+    {
+      "bom-ref": "pkg:cargo/ruff_text_size@0.0.9",
+      "name": "ruff_text_size",
+      "purl": "pkg:cargo/ruff_text_size@0.0.9",
+      "type": "library",
+      "version": "0.0.9"
     },
     {
       "bom-ref": "pkg:cargo/rustc-hash@2.1.3",

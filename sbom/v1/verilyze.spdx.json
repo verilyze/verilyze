@@ -315,6 +315,13 @@
     },
     {
       "@type": "Package",
+      "name": "ar_archive_writer",
+      "packageUrl": "pkg:cargo/ar_archive_writer@0.5.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ar-archive-writer-0-5-3",
+      "versionInfo": "0.5.3"
+    },
+    {
+      "@type": "Package",
       "name": "arrayvec",
       "packageUrl": "pkg:cargo/arrayvec@0.7.7",
       "spdxId": "urn:spdx.dev:pkg-cargo-arrayvec-0-7-7",
@@ -1156,9 +1163,9 @@
     {
       "@type": "Package",
       "name": "log",
-      "packageUrl": "pkg:cargo/log@0.4.33",
-      "spdxId": "urn:spdx.dev:pkg-cargo-log-0-4-33",
-      "versionInfo": "0.4.33"
+      "packageUrl": "pkg:cargo/log@0.4.34",
+      "spdxId": "urn:spdx.dev:pkg-cargo-log-0-4-34",
+      "versionInfo": "0.4.34"
     },
     {
       "@type": "Package",
@@ -1236,6 +1243,13 @@
       "packageUrl": "pkg:cargo/num_cpus@1.17.0",
       "spdxId": "urn:spdx.dev:pkg-cargo-num-cpus-1-17-0",
       "versionInfo": "1.17.0"
+    },
+    {
+      "@type": "Package",
+      "name": "object",
+      "packageUrl": "pkg:cargo/object@0.39.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-object-0-39-1",
+      "versionInfo": "0.39.1"
     },
     {
       "@type": "Package",
@@ -1386,6 +1400,13 @@
     },
     {
       "@type": "Package",
+      "name": "psm",
+      "packageUrl": "pkg:cargo/psm@0.1.32",
+      "spdxId": "urn:spdx.dev:pkg-cargo-psm-0-1-32",
+      "versionInfo": "0.1.32"
+    },
+    {
+      "@type": "Package",
       "name": "quick-xml",
       "packageUrl": "pkg:cargo/quick-xml@0.41.0",
       "spdxId": "urn:spdx.dev:pkg-cargo-quick-xml-0-41-0",
@@ -1450,9 +1471,9 @@
     {
       "@type": "Package",
       "name": "redb",
-      "packageUrl": "pkg:cargo/redb@4.1.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-redb-4-1-0",
-      "versionInfo": "4.1.0"
+      "packageUrl": "pkg:cargo/redb@4.2.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-redb-4-2-0",
+      "versionInfo": "4.2.0"
     },
     {
       "@type": "Package",
@@ -1506,37 +1527,37 @@
     {
       "@type": "Package",
       "name": "ruff_python_ast",
-      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.9",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-9",
-      "versionInfo": "0.0.9"
+      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.10",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-10",
+      "versionInfo": "0.0.10"
     },
     {
       "@type": "Package",
       "name": "ruff_python_parser",
-      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.9",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-9",
-      "versionInfo": "0.0.9"
+      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.10",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-10",
+      "versionInfo": "0.0.10"
     },
     {
       "@type": "Package",
       "name": "ruff_python_trivia",
-      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.9",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-9",
-      "versionInfo": "0.0.9"
+      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.10",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-10",
+      "versionInfo": "0.0.10"
     },
     {
       "@type": "Package",
       "name": "ruff_source_file",
-      "packageUrl": "pkg:cargo/ruff_source_file@0.0.9",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-9",
-      "versionInfo": "0.0.9"
+      "packageUrl": "pkg:cargo/ruff_source_file@0.0.10",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-10",
+      "versionInfo": "0.0.10"
     },
     {
       "@type": "Package",
       "name": "ruff_text_size",
-      "packageUrl": "pkg:cargo/ruff_text_size@0.0.9",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-9",
-      "versionInfo": "0.0.9"
+      "packageUrl": "pkg:cargo/ruff_text_size@0.0.10",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-10",
+      "versionInfo": "0.0.10"
     },
     {
       "@type": "Package",
@@ -1768,6 +1789,13 @@
       "packageUrl": "pkg:cargo/stable_deref_trait@1.2.1",
       "spdxId": "urn:spdx.dev:pkg-cargo-stable-deref-trait-1-2-1",
       "versionInfo": "1.2.1"
+    },
+    {
+      "@type": "Package",
+      "name": "stacker",
+      "packageUrl": "pkg:cargo/stacker@0.1.25",
+      "spdxId": "urn:spdx.dev:pkg-cargo-stacker-0-1-25",
+      "versionInfo": "0.1.25"
     },
     {
       "@type": "Package",
@@ -3045,6 +3073,13 @@
     },
     {
       "@type": "Package",
+      "name": "log",
+      "packageUrl": "pkg:cargo/log@0.4.33",
+      "spdxId": "urn:spdx.dev:pkg-cargo-log-0-4-33",
+      "versionInfo": "0.4.33"
+    },
+    {
+      "@type": "Package",
       "name": "memchr",
       "packageUrl": "pkg:cargo/memchr@2.8.3",
       "spdxId": "urn:spdx.dev:pkg-cargo-memchr-2-8-3",
@@ -3073,10 +3108,52 @@
     },
     {
       "@type": "Package",
+      "name": "redb",
+      "packageUrl": "pkg:cargo/redb@4.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-redb-4-1-0",
+      "versionInfo": "4.1.0"
+    },
+    {
+      "@type": "Package",
       "name": "regex-automata",
       "packageUrl": "pkg:cargo/regex-automata@0.4.18",
       "spdxId": "urn:spdx.dev:pkg-cargo-regex-automata-0-4-18",
       "versionInfo": "0.4.18"
+    },
+    {
+      "@type": "Package",
+      "name": "ruff_python_ast",
+      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.9",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-9",
+      "versionInfo": "0.0.9"
+    },
+    {
+      "@type": "Package",
+      "name": "ruff_python_parser",
+      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.9",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-9",
+      "versionInfo": "0.0.9"
+    },
+    {
+      "@type": "Package",
+      "name": "ruff_python_trivia",
+      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.9",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-9",
+      "versionInfo": "0.0.9"
+    },
+    {
+      "@type": "Package",
+      "name": "ruff_source_file",
+      "packageUrl": "pkg:cargo/ruff_source_file@0.0.9",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-9",
+      "versionInfo": "0.0.9"
+    },
+    {
+      "@type": "Package",
+      "name": "ruff_text_size",
+      "packageUrl": "pkg:cargo/ruff_text_size@0.0.9",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-9",
+      "versionInfo": "0.0.9"
     },
     {
       "@type": "Package",
