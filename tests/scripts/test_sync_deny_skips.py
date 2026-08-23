@@ -108,19 +108,19 @@ class TestFindReplacementVersion:
         assert "windows-sys@0.52.0" in text
         assert "windows-sys@0.45.0" not in text
 
-    def test_raises_when_crate_missing_from_lock(self) -> None:
+    def test_marks_drop_when_crate_missing_from_lock(self) -> None:
         mod = _load_module()
-        with pytest.raises(mod.SyncDenySkipsError, match="missing from Cargo.lock"):
-            mod.find_replacement_version("missing-crate", "1.0.0", {})
+        result = mod.find_replacement_version("missing-crate", "1.0.0", {})
+        assert result == mod.DROP_SKIP
 
-    def test_raises_when_no_same_major_minor_candidate(self) -> None:
+    def test_marks_drop_when_no_same_major_minor_candidate(self) -> None:
         mod = _load_module()
-        with pytest.raises(mod.SyncDenySkipsError, match="no lock version"):
-            mod.find_replacement_version(
-                "base64",
-                "0.23.0",
-                {"base64": ["0.22.1", "0.24.0"]},
-            )
+        result = mod.find_replacement_version(
+            "base64",
+            "0.23.0",
+            {"base64": ["0.22.1", "0.24.0"]},
+        )
+        assert result == mod.DROP_SKIP
 
     def test_raises_when_multiple_same_major_minor_candidates(self) -> None:
         mod = _load_module()
@@ -177,6 +177,60 @@ class TestSyncDenySkips:
         assert drift is True
         assert deny.read_text(encoding="utf-8") == original
 
+    def test_drops_skip_when_crate_missing_from_lock(self, tmp_path: Path) -> None:
+        deny = _write_deny(
+            tmp_path,
+            [
+                ("wit-bindgen@0.51.0", "legacy wasi path"),
+                ("base64@0.23.1", "sonatype direct dep"),
+            ],
+        )
+        lock = _write_lock(
+            tmp_path,
+            [("base64", "0.22.1"), ("base64", "0.23.1")],
+        )
+        mod = _load_module()
+        changed = mod.sync_deny_skips(deny, lock)
+        assert changed is True
+        text = deny.read_text(encoding="utf-8")
+        assert "wit-bindgen@0.51.0" not in text
+        assert "base64@0.23.1" in text
+
+    def test_drops_gone_major_minor_keeps_sibling_skip(
+        self, tmp_path: Path
+    ) -> None:
+        deny = _write_deny(
+            tmp_path,
+            [
+                ("windows-sys@0.45.0", "legacy jni"),
+                ("windows-sys@0.52.0", "crypto stack"),
+            ],
+        )
+        lock = _write_lock(
+            tmp_path,
+            [("windows-sys", "0.52.0"), ("windows-sys", "0.61.2")],
+        )
+        mod = _load_module()
+        changed = mod.sync_deny_skips(deny, lock)
+        assert changed is True
+        text = deny.read_text(encoding="utf-8")
+        assert "windows-sys@0.45.0" not in text
+        assert "windows-sys@0.52.0" in text
+
+    def test_check_mode_reports_drop_drift_without_writing(
+        self, tmp_path: Path
+    ) -> None:
+        deny = _write_deny(
+            tmp_path,
+            [("thiserror@1.0.69", "legacy jni")],
+        )
+        original = deny.read_text(encoding="utf-8")
+        lock = _write_lock(tmp_path, [("thiserror", "2.0.20")])
+        mod = _load_module()
+        drift = mod.sync_deny_skips(deny, lock, check=True)
+        assert drift is True
+        assert deny.read_text(encoding="utf-8") == original
+
     def test_repo_deny_skips_match_cargo_lock(self) -> None:
         mod = _load_module()
         root = repo_root()
@@ -213,6 +267,11 @@ class TestApplySkipUpdates:
                 '[bans]\nskip = []\n',
                 [("base64", "0.23.0", "0.23.1")],
             )
+
+    def test_raises_when_drop_skip_line_missing(self) -> None:
+        mod = _load_module()
+        with pytest.raises(mod.SyncDenySkipsError, match="missing skip entry"):
+            mod.apply_skip_drops('[bans]\nskip = []\n', ["thiserror@1.0.69"])
 
 
 class TestExtractSkipSpecs:
@@ -295,7 +354,7 @@ class TestMain:
             with patch("sys.argv", ["sync_deny_skips.py"]):
                 assert mod.main() == 1
 
-    def test_main_sync_error_returns_1(
+    def test_main_sync_drops_obsolete_skip(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         deny = _write_deny(tmp_path, [("missing-crate@1.0.0", "legacy")])
@@ -303,8 +362,23 @@ class TestMain:
         mod = _load_module()
         with patch.object(mod, "get_repo_root", return_value=tmp_path):
             with patch("sys.argv", ["sync_deny_skips.py"]):
+                assert mod.main() == 0
+        assert "Updated deny.toml" in capsys.readouterr().out
+        assert "missing-crate@1.0.0" not in deny.read_text(encoding="utf-8")
+
+    def test_main_sync_error_returns_1(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        deny = _write_deny(tmp_path, [("example@1.0.0", "legacy")])
+        _write_lock(
+            tmp_path,
+            [("example", "1.0.1"), ("example", "1.0.2")],
+        )
+        mod = _load_module()
+        with patch.object(mod, "get_repo_root", return_value=tmp_path):
+            with patch("sys.argv", ["sync_deny_skips.py"]):
                 assert mod.main() == 1
-        assert "missing from Cargo.lock" in capsys.readouterr().err
+        assert "ambiguous" in capsys.readouterr().err
 
 
 class TestScriptMain:
