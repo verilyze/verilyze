@@ -51,6 +51,17 @@ Do **not** run clippy or super-linter inside Cursor hooks. Run them via shell
 when paths require it. Launch a **shell** subagent for long checks only when
 checks failed or the user asked; do not spawn one after read-only turns.
 
+## New check leaves
+
+New Makefile leaf gates that run tools must:
+
+- Wrap the recipe with `MAKE_RUN_LEAF` (brief `[RUN]`/`[PASS]`/`[FAIL]` in CI)
+- Source `scripts/lib/check-quiet-env.sh` and quiet success chatter by default
+- Capture tool stderr (including `eprintln!` such as FR-022a), not only
+  `RUST_LOG=off`; stream when `VLZ_CHECK_VERBOSE=1`
+- Reference: `scripts/benchmark-gate.sh` and CONTRIBUTING "CI check debug
+  output"
+
 ## Do not skip
 
 - SPDX headers; trailing blank line after header block

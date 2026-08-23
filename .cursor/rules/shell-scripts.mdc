@@ -10,3 +10,10 @@ alwaysApply: false
 - Use `set -euo pipefail` in bash scripts
 - SPDX header block with trailing blank line after the block
 - Prefer existing `scripts/lib/*.sh` helpers over duplicating logic
+- **CI gate quietness:** Scripts used as Makefile check leaves must source
+  [`scripts/lib/check-quiet-env.sh`](../scripts/lib/check-quiet-env.sh), stay
+  quiet on success by default, and stream tool output when
+  `vlz_check_verbose_enabled` (`VLZ_CHECK_VERBOSE=1`). Capture tool stderr
+  (including `eprintln!` / FR-022a path dumps and progress bars), not only
+  `RUST_LOG`. Replay captured stderr on failure. Reference:
+  [`scripts/benchmark-gate.sh`](../scripts/benchmark-gate.sh).

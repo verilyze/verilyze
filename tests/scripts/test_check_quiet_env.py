@@ -111,3 +111,13 @@ def test_check_job_sets_verbose_from_runner_debug() -> None:
     assert "VLZ_CHECK_VERBOSE:" in step
     assert "runner.debug" in step
     assert "./scripts/run-check.sh" in step
+
+
+def test_benchmark_nightly_sets_verbose_from_runner_debug() -> None:
+    text = (
+        repo_root() / ".github" / "workflows" / "benchmark-nightly.yml"
+    ).read_text(encoding="utf-8")
+    assert "Run benchmark gate (NFR-001)" in text
+    assert "VLZ_CHECK_VERBOSE:" in text
+    assert "runner.debug" in text
+    assert "make benchmark-gate" in text

@@ -566,8 +566,9 @@ check-report-schema: debug
 	@$(MAKE_RUN_LEAF) check-report-schema -- "$(SCRIPTS_DIR)/check-report-schema.sh"
 
 # benchmark-gate: NFR-001 performance gate via --benchmark on multi-manifest fixture.
+# Quiet stderr (FR-022a path dump) inside the script; MAKE_RUN_LEAF for brief CI.
 benchmark-gate: release setup
-	$(SCRIPTS_DIR)/benchmark-gate.sh
+	@$(MAKE_RUN_LEAF) benchmark-gate -- "$(SCRIPTS_DIR)/benchmark-gate.sh"
 
 # check-dco: verify commits have Signed-off-by (DCO); for local use before push
 check-dco:

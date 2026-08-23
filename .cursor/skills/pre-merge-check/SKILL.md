@@ -27,6 +27,12 @@ session. See [agent-workflow.mdc](../../rules/agent-workflow.mdc).
 6. Non-behavior changes before push/PR: `make check-fast` (must exit 0)
 7. Remind human-only steps: signed commits, DCO, `git push`
 
+When editing Makefile check leaves or `scripts/**/*.sh` gates that invoke
+tools, confirm quiet-by-default / `VLZ_CHECK_VERBOSE` stderr capture
+(including `eprintln!`) via `make test-scripts`; see
+`tests/scripts/test_benchmark_gate.py` and CONTRIBUTING "CI check debug
+output".
+
 Run `make check-pr` when the user asks to commit, push, open a PR, or assess
 merge readiness on production logic changes. Do not auto-run it from the stop
 hook.

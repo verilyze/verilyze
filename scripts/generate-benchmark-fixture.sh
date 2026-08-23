@@ -5,8 +5,13 @@
 
 # Generate an ephemeral benchmark fixture tree with many small manifests.
 # Usage: scripts/generate-benchmark-fixture.sh DEST_DIR [MANIFEST_COUNT]
+# Status line on stderr only when VLZ_CHECK_VERBOSE=1 (or coverage verbose).
 
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/check-quiet-env.sh
+source "${SCRIPT_DIR}/lib/check-quiet-env.sh"
 
 DEST="${1:?destination directory required}"
 COUNT="${2:-200}"
@@ -21,4 +26,6 @@ while [[ "${_i}" -le "${COUNT}" ]]; do
   _i=$((_i + 1))
 done
 
-echo "Wrote ${COUNT} manifest directories under ${DEST}" >&2
+if vlz_check_verbose_enabled; then
+  echo "Wrote ${COUNT} manifest directories under ${DEST}" >&2
+fi

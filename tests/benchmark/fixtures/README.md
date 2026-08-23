@@ -12,3 +12,6 @@ count is `BENCHMARK_FIXTURE_MANIFEST_COUNT` in
 
 The duration ceiling is `BENCHMARK_MAX_MS` in
 [`crates/core/vlz/src/benchmark_metrics.rs`](../../crates/core/vlz/src/benchmark_metrics.rs).
+
+Gate logs stay quiet by default (no FR-022a path dump or fixture `Wrote`
+line). Set `VLZ_CHECK_VERBOSE=1` to stream that chatter.

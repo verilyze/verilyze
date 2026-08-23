@@ -91,6 +91,13 @@ only via `scripts/ai-learnings-gh-post.sh` (gitleaks preflight; sets type
 search on demand. Makefile recipe-shape changes need `make test-scripts`,
 not only `make check-fast`.
 
+**CI gate quietness:** New Makefile leaf gates that run tools must wrap the
+recipe with `MAKE_RUN_LEAF` and quiet tool chatter by default via
+[`scripts/lib/check-quiet-env.sh`](scripts/lib/check-quiet-env.sh). Capture or
+suppress tool stderr (including `eprintln!` such as FR-022a), not only
+`RUST_LOG`; stream when `VLZ_CHECK_VERBOSE=1`. Reference:
+[`scripts/benchmark-gate.sh`](scripts/benchmark-gate.sh).
+
 ## Conventions
 
 - **TDD:** Strict for production Rust and Python script logic; use make/lint
@@ -140,6 +147,7 @@ not only `make check-fast`.
 | Commit messages      | CONTRIBUTING "Commit messages"                           |
 | TDD / test scope     | [CONTRIBUTING.md -- Test scope and layering](CONTRIBUTING.md#test-scope-and-layering); [TDD](CONTRIBUTING.md#test-driven-development-tdd) |
 | Pre-merge validation | This file "Pre-merge validation"; [targets.md](.cursor/skills/pre-merge-check/targets.md) |
+| CI gate quiet / verbose | This file "CI gate quietness"; CONTRIBUTING "CI check debug output"; [`scripts/lib/check-quiet-env.sh`](scripts/lib/check-quiet-env.sh); `benchmark-gate` reference |
 | AI learnings (`ai-learnings` / type `Learning`) | [ai-learnings.md](.cursor/skills/pre-merge-check/ai-learnings.md) |
 | Security             | PRD section 6 (SEC-*), section 11 (Risk & Threat Model); [SECURITY.md](SECURITY.md); [COMPLIANCE.md](COMPLIANCE.md) |
 | OpenSSF Best Practices | [bestpractices.dev](https://www.bestpractices.dev/en/projects/12361) |
