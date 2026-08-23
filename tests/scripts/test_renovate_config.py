@@ -313,6 +313,32 @@ def test_renovate_cargo_deny_manager_matches_ci_env_and_coverage_nightly() -> No
     assert f"cargo-deny@{env_match.group(1)}" in nightly
 
 
+def test_renovate_cargo_afl_manager_matches_ci_and_coverage_nightly() -> None:
+    """Renovate must bump cargo-afl@ in both ci.yml and coverage-nightly.yml."""
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    managers = data.get("customManagers", [])
+    afl = next(
+        (
+            m
+            for m in managers
+            if m.get("depNameTemplate") == "cargo-afl"
+            and m.get("datasourceTemplate") == "crate"
+        ),
+        None,
+    )
+    assert afl is not None, "customManagers must include cargo-afl regex manager"
+    patterns = afl.get("managerFilePatterns", [])
+    assert any("ci\\.yml" in p for p in patterns)
+    assert any("coverage-nightly" in p for p in patterns)
+    ci_yml = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    nightly = (
+        _ROOT / ".github" / "workflows" / "coverage-nightly.yml"
+    ).read_text(encoding="utf-8")
+    ci_match = re.search(r"cargo-afl@([^\s,]+)", ci_yml)
+    assert ci_match is not None
+    assert f"cargo-afl@{ci_match.group(1)}" in nightly
+
+
 def test_renovate_package_rule_groups_cargo_deny_workflow_pins() -> None:
     data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
     rules = data.get("packageRules", [])

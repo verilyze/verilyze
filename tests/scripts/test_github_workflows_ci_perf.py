@@ -52,6 +52,11 @@ def test_check_job_installs_gitleaks_before_make_check() -> None:
     assert pre < afl_apt < cargo_afl
     assert "fuzz_needed" in block
     assert "steps.fuzz_preflight.outputs.fuzz_needed == 'true'" in block
+    afl_section = block[afl_apt:cargo_afl]
+    assert "afl++" in afl_section
+    assert "llvm-dev" in afl_section, (
+        "Install AFL++ must install llvm-dev (parity with coverage-nightly)"
+    )
 
 
 def test_check_job_runs_on_main_push_when_dco_jobs_skipped() -> None:

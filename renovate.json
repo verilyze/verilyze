@@ -61,8 +61,11 @@
     },
     {
       "customType": "regex",
-      "description": "CI taiki-e/install-action: cargo-afl (ci.yml tool: line)",
-      "managerFilePatterns": ["/^\\.github\\/workflows\\/ci\\.yml$/"],
+      "description": "CI taiki-e/install-action: cargo-afl (ci.yml and coverage-nightly)",
+      "managerFilePatterns": [
+        "/^\\.github\\/workflows\\/ci\\.yml$/",
+        "/^\\.github\\/workflows\\/coverage-nightly\\.yml$/"
+      ],
       "matchStrings": ["cargo-afl@(?<currentValue>[^,\\s]+)"],
       "datasourceTemplate": "crate",
       "depNameTemplate": "cargo-afl",
@@ -120,7 +123,10 @@
       "description": "CI cargo tools (taiki-e/install-action): minor/patch in one PR",
       "matchManagers": ["custom.regex"],
       "matchDatasources": ["crate"],
-      "matchFileNames": [".github/workflows/ci.yml"],
+      "matchFileNames": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/coverage-nightly.yml"
+      ],
       "matchPackageNames": ["cargo-llvm-cov", "cargo-afl", "cargo-about"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "ci-cargo-install-tools-minor-patch"

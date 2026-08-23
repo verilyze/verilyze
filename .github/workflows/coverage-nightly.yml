@@ -85,7 +85,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             -o Dir::Cache::archives="${_apt_arch}" \
-            shellcheck afl++
+            shellcheck afl++ llvm-dev
           sudo find "${_apt_arch}" -mindepth 1 -maxdepth 1 \
             ! -name '*.deb' -exec rm -rf {} +
           sudo chown -R "$(id -u)":"$(id -g)" "${_apt_arch}"
@@ -105,10 +105,12 @@ jobs:
         uses: taiki-e/install-action@82cd3e7658a6f96c86c0234aeeda1748937cb0a1 # v2.85.13
         with:
           tool: >-
-            cargo-llvm-cov@0.8.5,cargo-deny@0.20.2,cargo-afl@0.17.1,cargo-about@0.8.4
+            cargo-llvm-cov@0.8.5,cargo-deny@0.20.2,cargo-afl@0.18.0,cargo-about@0.8.4
 
       - name: Run make coverage-extended (fuzz + optional features + Cobertura)
         id: coverage
+        env:
+          VLZ_AFL_VERBOSE: "1"
         run: make coverage-extended
 
       - name: Publish coverage badges to wiki

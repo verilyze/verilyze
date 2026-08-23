@@ -283,7 +283,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             -o Dir::Cache::archives="${_apt_arch}" \
-            afl++
+            afl++ llvm-dev
           sudo find "${_apt_arch}" -mindepth 1 -maxdepth 1 \
             ! -name '*.deb' -exec rm -rf {} +
           sudo chown -R "$(id -u)":"$(id -g)" "${_apt_arch}"

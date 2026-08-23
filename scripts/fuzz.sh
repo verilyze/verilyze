@@ -19,6 +19,10 @@
 #   ./scripts/fuzz.sh --coverage   # Run with cargo-llvm-cov integration
 #
 # FUZZ_TIMEOUT: per-target timeout in seconds. When unset: 30 (smoke) or 1800 (extended).
+# VLZ_AFL_TAG: AFL++ git tag for first-time cargo-afl bootstrap (default: v4.40c).
+#   Pinning avoids tracking AFLplusplus origin/stable tip, which can break
+#   `make clean install` when upstream merges large stable updates.
+# VLZ_AFL_VERBOSE=1: pass --verbose to cargo afl config (show make output).
 #
 # See CONTRIBUTING.md and https://github.com/taiki-e/cargo-llvm-cov#get-coverage-of-afl-fuzzers
 
@@ -95,30 +99,48 @@ command -v cargo-afl >/dev/null 2>&1 || cargo install cargo-afl
 
 # Bootstrap AFL++ source and the LLVM runtime for this rustc (cargo-afl 0.15+).
 # The crates.io cargo-afl-common crate has no bundled AFLplusplus tree;
-# --build --update clones into the XDG data dir when the clone is missing.
-# After rustup, the LLVM runtime must match the current rustc. We store rustc -vV
-# in a stamp under the same afl.rs dir so we run config --build only when it changes,
-# not on every fuzz run. Plain --build may fail when AFL was already built; then we
-# try --force (see cargo afl config --help).
+# --build --update --tag clones a pinned release into the XDG data dir when
+# the clone is missing or the afl-tag-stamp does not match VLZ_AFL_TAG (do not
+# track origin/stable tip). After rustup, the LLVM runtime must match the
+# current rustc. We store rustc -vV in a stamp under the same afl.rs dir so we
+# run config --build only when it changes, not on every fuzz run. Plain
+# --build may fail when AFL was already built; then we try --force (see
+# cargo afl config --help).
 
 _afl_rs_data="${XDG_DATA_HOME:-$HOME/.local/share}/afl.rs"
 _afl_pp="${_afl_rs_data}/AFLplusplus"
 _rustc_stamp="${_afl_rs_data}/rustc-stamp-for-afl"
+_afl_tag_stamp="${_afl_rs_data}/afl-tag-stamp"
+# Newest v4 release; override with VLZ_AFL_TAG for deliberate upgrades.
+_afl_tag="${VLZ_AFL_TAG:-v4.40c}"
 
 _afl_verbose=()
 if [[ "${VLZ_AFL_VERBOSE:-}" == "1" ]]; then
     _afl_verbose=(--verbose)
 fi
 
+# Unset CC/RUSTFLAGS for cargo-afl config: CI may set CC=gcc and
+# RUSTFLAGS=-Clink-arg=-fuse-ld=bfd for Rust/coverage linking, but AFL++ make
+# and the config LLVM runtime build should not inherit that job env.
+_cargo_afl_config() {
+    env -u CC -u RUSTFLAGS cargo afl config "$@"
+}
+
 _write_rustc_stamp() {
     mkdir -p "$_afl_rs_data"
     rustc -vV > "$_rustc_stamp"
+}
+
+_write_afl_tag_stamp() {
+    mkdir -p "$_afl_rs_data"
+    printf '%s\n' "$_afl_tag" > "$_afl_tag_stamp"
 }
 
 _report_afl_config_failed() {
     echo "cargo afl config failed (AFL++ under ${_afl_pp})." >&2
     echo "Retry with: VLZ_AFL_VERBOSE=1 ./scripts/fuzz.sh ${FUZZ_SH_INVOCATION}" >&2
     echo "Debian/Ubuntu packages often required: build-essential llvm-dev clang git" >&2
+    echo "Pinned tag: ${_afl_tag} (override with VLZ_AFL_TAG). Broken clones: rm -rf ${_afl_pp}" >&2
 }
 
 _ensure_afl_runtime_matches_rustc() {
@@ -126,8 +148,8 @@ _ensure_afl_runtime_matches_rustc() {
         return 0
     fi
 
-    if ! cargo afl config --build "${_afl_verbose[@]}"; then
-        if ! cargo afl config --build --force "${_afl_verbose[@]}"; then
+    if ! _cargo_afl_config --build "${_afl_verbose[@]}"; then
+        if ! _cargo_afl_config --build --force "${_afl_verbose[@]}"; then
             _report_afl_config_failed
             exit 1
         fi
@@ -135,12 +157,21 @@ _ensure_afl_runtime_matches_rustc() {
     _write_rustc_stamp
 }
 
-if [[ ! -e "$_afl_pp/.git" ]]; then
-    if ! cargo afl config --build --update "${_afl_verbose[@]}"; then
+_bootstrap_afl_at_pinned_tag() {
+    if ! _cargo_afl_config --build --update --tag "$_afl_tag" "${_afl_verbose[@]}"; then
         _report_afl_config_failed
         exit 1
     fi
     _write_rustc_stamp
+    _write_afl_tag_stamp
+}
+
+# Missing clone, or stamp missing/mismatched vs VLZ_AFL_TAG: (re)pin with --tag.
+# Re-pinning heals clones left on a broken origin/stable tip after upstream merges.
+if [[ ! -e "$_afl_pp/.git" ]] \
+    || [[ ! -f "$_afl_tag_stamp" ]] \
+    || ! cmp -s <(printf '%s\n' "$_afl_tag") "$_afl_tag_stamp"; then
+    _bootstrap_afl_at_pinned_tag
 else
     _ensure_afl_runtime_matches_rustc
 fi
