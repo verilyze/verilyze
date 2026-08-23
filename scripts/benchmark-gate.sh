@@ -5,6 +5,8 @@
 
 # NFR-001 nightly gate: run vlz --benchmark on a multi-manifest fixture and
 # fail when duration_ms exceeds BENCHMARK_MAX_MS (from benchmark_metrics.rs).
+# Quiet by default (suppress FR-022a / fixture stderr); stream when
+# VLZ_CHECK_VERBOSE=1. See scripts/lib/check-quiet-env.sh.
 
 set -euo pipefail
 
@@ -13,6 +15,9 @@ cd "${ROOT}"
 
 # shellcheck source=lib/benchmark_constants.sh
 source "${ROOT}/scripts/lib/benchmark_constants.sh"
+# shellcheck source=lib/check-quiet-env.sh
+source "${ROOT}/scripts/lib/check-quiet-env.sh"
+vlz_apply_check_log_env
 
 VLZ_BIN="${VLZ_BIN:-${ROOT}/target/release/vlz}"
 if [[ ! -x "${VLZ_BIN}" ]]; then
@@ -24,20 +29,32 @@ if [[ ! -x "${VLZ_BIN}" ]]; then
 fi
 
 _fixture="$(mktemp -d)"
+_vlz_stderr="$(mktemp)"
+_xdg="$(mktemp -d)"
 _cleanup() {
-  rm -rf "${_fixture}"
+  rm -rf "${_fixture}" "${_xdg}"
+  rm -f "${_vlz_stderr}"
 }
 trap _cleanup EXIT
 
 "${ROOT}/scripts/generate-benchmark-fixture.sh" \
   "${_fixture}" "${BENCHMARK_FIXTURE_MANIFEST_COUNT}"
 
-_xdg="$(mktemp -d)"
 export XDG_CACHE_HOME="${_xdg}"
 export XDG_DATA_HOME="${_xdg}"
 export XDG_CONFIG_HOME="${_xdg}"
 
-_stdout="$("${VLZ_BIN}" scan "${_fixture}" --offline --benchmark)"
+set +e
+_stdout="$("${VLZ_BIN}" scan "${_fixture}" --offline --benchmark 2>"${_vlz_stderr}")"
+_vlz_ec=$?
+set -e
+
+if vlz_check_verbose_enabled || [[ "${_vlz_ec}" -ne 0 ]]; then
+  cat "${_vlz_stderr}" >&2
+fi
+if [[ "${_vlz_ec}" -ne 0 ]]; then
+  exit "${_vlz_ec}"
+fi
 
 export BENCHMARK_STDOUT="${_stdout}"
 _duration="$(

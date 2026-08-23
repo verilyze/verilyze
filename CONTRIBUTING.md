@@ -1533,7 +1533,15 @@ Stderr can stay as `eprintln!` or `log::error!`.
   re-run the workflow with **Enable debug logging**; the `check` job sets
   `VLZ_CHECK_VERBOSE=1` when `runner.debug` is `1`. Coverage-only verbose:
   `VLZ_COVERAGE_VERBOSE=1 make coverage-quick`. AFL verbose:
-  `VLZ_AFL_VERBOSE=1 ./scripts/fuzz.sh` (or `make fuzz`). Debugging a specific
+  `VLZ_AFL_VERBOSE=1 ./scripts/fuzz.sh` (or `make fuzz`). The NFR-001
+  `benchmark-gate` leaf uses `MAKE_RUN_LEAF` and
+  [`scripts/benchmark-gate.sh`](scripts/benchmark-gate.sh): by default it
+  suppresses fixture status lines and `vlz` stderr (including the FR-022a
+  direct-only path dump from `eprintln!`; `RUST_LOG=off` alone does not
+  silence those). With `VLZ_CHECK_VERBOSE=1` (including the
+  `benchmark-nightly` workflow when debug logging is enabled) it streams
+  that chatter. Keep one-line `duration_ms` / pass status for direct
+  `make benchmark-gate` runs. Debugging a specific
   test: `RUST_LOG=info cargo test -p vlz --features vlz/testing -- --show-output`.
   Comments show **current** coverage for the PR head, not a diff versus
   `main`.

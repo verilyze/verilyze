@@ -97,6 +97,20 @@ def test_check_includes_benchmark_gate() -> None:
     )
 
 
+def test_benchmark_gate_uses_make_run_leaf() -> None:
+    text = (repo_root() / "Makefile").read_text(encoding="utf-8")
+    assert re.search(
+        r"^benchmark-gate: release setup\n"
+        r"\t@\$\(MAKE_RUN_LEAF\) benchmark-gate -- "
+        r'"\$\(SCRIPTS_DIR\)/benchmark-gate\.sh"',
+        text,
+        re.MULTILINE,
+    ), (
+        "benchmark-gate must use MAKE_RUN_LEAF so CI brief mode suppresses "
+        "success chatter (FR-022a stderr is quieted inside the script)"
+    )
+
+
 def test_check_includes_fuzz_target_parity() -> None:
     text = (repo_root() / "Makefile").read_text(encoding="utf-8")
     block = _extract_prerequisite_block(text, "check-parallel")

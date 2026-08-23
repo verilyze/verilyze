@@ -17,7 +17,8 @@ See [agent-workflow.mdc](../../rules/agent-workflow.mdc).
 | `.clusterfuzzlite/**/*.sh` | `make lint-shell` |
 | `Makefile` | `make test-scripts` (structural pytest under `tests/scripts/` asserts recipe shape; `check-fast` alone is not enough) |
 | `scripts/**/*.py`, `tests/scripts/**` | `make lint-python test-scripts` |
-| `scripts/**/*.sh` | `make lint-shell` |
+| `scripts/**/*.sh` | `make lint-shell`; if the script is a Makefile check leaf that invokes tools, also `make test-scripts` covering quiet-by-default / `VLZ_CHECK_VERBOSE` stderr capture (see `tests/scripts/test_benchmark_gate.py`) |
+
 | `architecture/**/*.mmd` | `make check-doc-diagrams` |
 | config / `verilyze.conf.example` | `make check-config-docs` |
 | `man/**` | `make check-manpages` |

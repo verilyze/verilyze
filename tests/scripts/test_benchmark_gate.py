@@ -20,6 +20,21 @@ BENCHMARK_METRICS_RS = (
 BENCHMARK_CONSTANTS_SH = (
     repo_root() / "scripts" / "lib" / "benchmark_constants.sh"
 )
+BENCHMARK_GATE_SH = repo_root() / "scripts" / "benchmark-gate.sh"
+BENCHMARK_FIXTURE_SH = (
+    repo_root() / "scripts" / "generate-benchmark-fixture.sh"
+)
+
+_VERBOSE_ENV_KEYS = ("VLZ_CHECK_VERBOSE", "VLZ_COVERAGE_VERBOSE")
+
+
+def _base_env(**overrides: str) -> dict[str, str]:
+    """Copy os.environ with check/coverage verbose knobs cleared, then overrides."""
+    env = dict(os.environ)
+    for key in _VERBOSE_ENV_KEYS:
+        env.pop(key, None)
+    env.update(overrides)
+    return env
 
 
 def parse_benchmark_max_ms_from_rust() -> int:
@@ -67,14 +82,55 @@ class TestBenchmarkConstants:
 
 class TestBenchmarkFixtureGenerator:
     def test_generate_fixture_writes_manifest_dirs(self, tmp_path: Path) -> None:
-        script = repo_root() / "scripts" / "generate-benchmark-fixture.sh"
+        script = BENCHMARK_FIXTURE_SH
         subprocess.run(
             [str(script), str(tmp_path), "5"],
             check=True,
             cwd=repo_root(),
+            env=_base_env(),
         )
         manifests = list(tmp_path.glob("pkg*/requirements.txt"))
         assert len(manifests) == 5
+
+    def test_generate_fixture_quiet_by_default(self, tmp_path: Path) -> None:
+        proc = subprocess.run(
+            [str(BENCHMARK_FIXTURE_SH), str(tmp_path), "3"],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=repo_root(),
+            env=_base_env(),
+        )
+        assert "Wrote" not in proc.stderr
+        assert "Wrote" not in proc.stdout
+
+    def test_generate_fixture_verbose_prints_wrote(self, tmp_path: Path) -> None:
+        dest = tmp_path / "verbose"
+        dest.mkdir()
+        proc = subprocess.run(
+            [str(BENCHMARK_FIXTURE_SH), str(dest), "2"],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=repo_root(),
+            env=_base_env(VLZ_CHECK_VERBOSE="1"),
+        )
+        assert "Wrote 2 manifest directories" in proc.stderr
+
+    def test_generate_fixture_coverage_verbose_prints_wrote(
+        self, tmp_path: Path
+    ) -> None:
+        dest = tmp_path / "cov-verbose"
+        dest.mkdir()
+        proc = subprocess.run(
+            [str(BENCHMARK_FIXTURE_SH), str(dest), "2"],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=repo_root(),
+            env=_base_env(VLZ_COVERAGE_VERBOSE="1"),
+        )
+        assert "Wrote 2 manifest directories" in proc.stderr
 
 
 class TestBenchmarkDurationParsing:
@@ -97,7 +153,12 @@ class TestBenchmarkGateScript:
         path.chmod(0o755)
         return path
 
-    def test_gate_passes_when_duration_under_ceiling(
+    def test_gate_sources_check_quiet_env(self) -> None:
+        text = BENCHMARK_GATE_SH.read_text(encoding="utf-8")
+        assert "check-quiet-env.sh" in text
+        assert "vlz_apply_check_log_env" in text
+
+    def test_gate_passes_quiet_suppresses_vlz_stderr(
         self, tmp_path: Path
     ) -> None:
         vlz = self._fake_vlz(
@@ -107,29 +168,73 @@ class TestBenchmarkGateScript:
             'echo \'{"benchmark":{"duration_ms":12,"cpu_percent":0,"mem_mb":1}}\'\n',
         )
         proc = subprocess.run(
-            [str(repo_root() / "scripts" / "benchmark-gate.sh")],
+            [str(BENCHMARK_GATE_SH)],
             check=True,
             capture_output=True,
             text=True,
             cwd=repo_root(),
-            env={**os.environ, "VLZ_BIN": str(vlz)},
+            env=_base_env(VLZ_BIN=str(vlz)),
+        )
+        assert "note on stderr" not in proc.stderr
+        assert "Wrote" not in proc.stderr
+        assert "benchmark gate passed" in proc.stdout
+        assert "duration_ms=12" in proc.stdout
+
+    def test_gate_verbose_streams_vlz_stderr(self, tmp_path: Path) -> None:
+        vlz = self._fake_vlz(
+            tmp_path,
+            "#!/bin/sh\n"
+            "echo 'note on stderr' >&2\n"
+            'echo \'{"benchmark":{"duration_ms":12,"cpu_percent":0,"mem_mb":1}}\'\n',
+        )
+        proc = subprocess.run(
+            [str(BENCHMARK_GATE_SH)],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=repo_root(),
+            env=_base_env(VLZ_BIN=str(vlz), VLZ_CHECK_VERBOSE="1"),
         )
         assert "note on stderr" in proc.stderr
+        assert "Wrote" in proc.stderr
+        assert "benchmark gate passed" in proc.stdout
+
+    def test_gate_coverage_verbose_streams_vlz_stderr(
+        self, tmp_path: Path
+    ) -> None:
+        vlz = self._fake_vlz(
+            tmp_path,
+            "#!/bin/sh\n"
+            "echo 'note on stderr' >&2\n"
+            'echo \'{"benchmark":{"duration_ms":12,"cpu_percent":0,"mem_mb":1}}\'\n',
+        )
+        proc = subprocess.run(
+            [str(BENCHMARK_GATE_SH)],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=repo_root(),
+            env=_base_env(VLZ_BIN=str(vlz), VLZ_COVERAGE_VERBOSE="1"),
+        )
+        assert "note on stderr" in proc.stderr
+        assert "Wrote" in proc.stderr
         assert "benchmark gate passed" in proc.stdout
 
     def test_gate_fails_when_vlz_exits_nonzero(self, tmp_path: Path) -> None:
         vlz = self._fake_vlz(
             tmp_path,
             "#!/bin/sh\n"
+            "echo 'scan failed detail' >&2\n"
             'echo \'{"benchmark":{"duration_ms":1,"cpu_percent":0,"mem_mb":1}}\'\n'
             "exit 4\n",
         )
         proc = subprocess.run(
-            [str(repo_root() / "scripts" / "benchmark-gate.sh")],
+            [str(BENCHMARK_GATE_SH)],
             check=False,
             capture_output=True,
             text=True,
             cwd=repo_root(),
-            env={**os.environ, "VLZ_BIN": str(vlz)},
+            env=_base_env(VLZ_BIN=str(vlz)),
         )
         assert proc.returncode != 0
+        assert "scan failed detail" in proc.stderr
