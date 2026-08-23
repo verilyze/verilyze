@@ -937,10 +937,12 @@ Use this workflow when `make deny-check` reports duplicate crates:
 6. Re-audit existing `bans.skip` entries periodically by removing one skip at a
    time in a temporary deny config and running `cargo deny check bans`. Remove
    skip entries immediately when they no longer trigger duplicate failures.
-7. When Renovate bumps a skipped crate's patch version in `Cargo.lock`, run
+7. When Renovate bumps a skipped crate's patch version in `Cargo.lock`, or
+   drops a skipped crate/`major.minor` from the lockfile, run
    `make sync-deny-skips` (or rely on `renovate-post-upgrade-deny-skips.sh` on
-   dependency PRs) so `deny.toml` pins stay aligned. New skips still require a
-   manual edit with a documented `reason`.
+   dependency PRs) so `deny.toml` pins stay aligned. Obsolete skips are
+   removed automatically; new skips still require a manual edit with a
+   documented `reason`.
 8. For any dependency version or feature change made during convergence, run
    `cargo deny check licenses` (or `make deny-check`) and keep only
    GPL-3.0-or-later-compatible results.
@@ -1322,9 +1324,11 @@ releases](#versioning-and-releases) below.
   The same Cargo hook then runs **`bash scripts/renovate-post-upgrade-deny-skips.sh`**
   to sync existing **`deny.toml`** **`[bans.skip]`** version pins with
   **`Cargo.lock`** (via **`scripts/sync_deny_skips.py`**, same logic as
-  **`make sync-deny-skips`**) and **`make deny-check`**. Only pins for skips
-  already listed in **`deny.toml`** are updated; new duplicate versions still
-  require a manual skip entry with a **`reason`**.
+  **`make sync-deny-skips`**) and **`make deny-check`**. Existing skip pins are
+  patch-bumped when the same **`major.minor`** remains in the lockfile, and
+  obsolete skips are removed when the crate or **`major.minor`** leaves the
+  lockfile; new duplicate versions still require a manual skip entry with a
+  **`reason`**.
   After **`pyproject.toml`** PEP 621 / `.[dev]` dep updates, **`postUpgradeTasks`**
   run **`bash scripts/renovate-post-upgrade-sbom.sh`** to refresh
   **`pylock.dev.toml`** (`make generate-pylock-dev`) and **`sbom/**`**. Containerbase

@@ -8,8 +8,11 @@ Sync deny.toml [bans.skip] crate version pins with Cargo.lock.
 
 Renovate patch bumps can leave bans.skip entries stale (for example
 base64@0.23.0 while Cargo.lock resolves base64 0.23.1). This script updates
-only existing skip entries when the pinned version is gone but exactly one
-same major.minor version remains in the lockfile.
+existing skip entries when the pinned version is gone but exactly one same
+major.minor version remains in the lockfile. When the crate is missing from
+Cargo.lock, or no lock version shares the pinned major.minor, the obsolete
+skip line is removed. New duplicate versions still need a manual skip entry
+with a documented reason.
 
 Run from repository root:
   python3 scripts/sync_deny_skips.py
@@ -20,11 +23,24 @@ import argparse
 import re
 import sys
 import tomllib
+from dataclasses import dataclass
 from pathlib import Path
 
 
 class SyncDenySkipsError(Exception):
     """Raised when skip pins cannot be synced safely."""
+
+
+@dataclass(frozen=True, slots=True)
+class SkipReplace:
+    """Replace a skip pin with another lockfile version."""
+
+    version: str
+
+
+@dataclass(frozen=True, slots=True)
+class SkipDrop:
+    """Remove an obsolete skip entry from deny.toml."""
 
 
 def get_repo_root() -> Path:
@@ -71,31 +87,25 @@ def find_replacement_version(
     crate_name: str,
     pinned_version: str,
     lock_versions: dict[str, list[str]],
-) -> str | None:
+) -> SkipReplace | SkipDrop | None:
     """
-    Return a lockfile version replacing ``pinned_version``, or None if current.
+    Decide how to sync a skip pin against ``Cargo.lock``.
 
-    Replacement is allowed only when ``pinned_version`` is absent from the
-    lockfile and exactly one lock version shares its major.minor prefix.
+    Returns None when ``pinned_version`` is still present. Returns
+    ``SkipReplace`` when exactly one same major.minor lock version remains.
+    Returns ``SkipDrop`` when the crate is missing or no lock version shares
+    that major.minor.
     """
     resolved = lock_versions.get(crate_name, [])
     if pinned_version in resolved:
         return None
     if not resolved:
-        msg = (
-            f"skip crate {crate_name}@{pinned_version} is missing from "
-            "Cargo.lock; remove or update the skip entry manually"
-        )
-        raise SyncDenySkipsError(msg)
+        return SkipDrop()
 
     prefix = major_minor(pinned_version)
     candidates = [ver for ver in resolved if major_minor(ver) == prefix]
     if not candidates:
-        msg = (
-            f"skip crate {crate_name}@{pinned_version} has no lock version "
-            f"with major.minor {prefix[0]}.{prefix[1]}"
-        )
-        raise SyncDenySkipsError(msg)
+        return SkipDrop()
     if len(candidates) > 1:
         joined = ", ".join(candidates)
         msg = (
@@ -103,10 +113,7 @@ def find_replacement_version(
             f"multiple lock versions share major.minor: {joined}"
         )
         raise SyncDenySkipsError(msg)
-    replacement = candidates[0]
-    if replacement == pinned_version:
-        return None
-    return replacement
+    return SkipReplace(candidates[0])
 
 
 def extract_skip_specs(deny_path: Path) -> list[str]:
@@ -142,10 +149,41 @@ def apply_skip_updates(
     for name, old_version, new_version in updates:
         old_spec = f"{name}@{old_version}"
         new_spec = f"{name}@{new_version}"
-        pattern = rf'(\{{ crate = "){re.escape(old_spec)}(")'
+        pattern = rf'(\{{[ \t]*crate[ \t]*=[ \t]*"){re.escape(old_spec)}(")'
         updated, count = re.subn(pattern, rf"\1{new_spec}\2", updated, count=1)
         if count != 1:
             msg = f"deny.toml missing skip entry for {old_spec}"
+            raise SyncDenySkipsError(msg)
+    return updated
+
+
+def _skip_drop_pattern(spec: str) -> re.Pattern[str]:
+    """Build a regex that matches one inline-table skip line for ``spec``."""
+    quoted_spec = re.escape(spec)
+    reason = r"""(?:'[^']*'|"[^"]*")"""
+    crate_first = (
+        rf"crate[ \t]*=[ \t]*\"{quoted_spec}\"[ \t]*,[ \t]*"
+        rf"reason[ \t]*=[ \t]*{reason}"
+    )
+    reason_first = (
+        rf"reason[ \t]*=[ \t]*{reason}[ \t]*,[ \t]*"
+        rf"crate[ \t]*=[ \t]*\"{quoted_spec}\""
+    )
+    return re.compile(
+        rf"^[ \t]*\{{[ \t]*(?:{crate_first}|{reason_first})"
+        rf"[ \t]*\}}[ \t]*,?[ \t]*\n",
+        flags=re.MULTILINE,
+    )
+
+
+def apply_skip_drops(content: str, drops: list[str]) -> str:
+    """Remove inline-table skip lines for the given crate@version specs."""
+    updated = content
+    for spec in drops:
+        pattern = _skip_drop_pattern(spec)
+        updated, count = pattern.subn("", updated, count=1)
+        if count != 1:
+            msg = f"deny.toml missing skip entry for {spec}"
             raise SyncDenySkipsError(msg)
     return updated
 
@@ -163,17 +201,23 @@ def sync_deny_skips(
     """
     lock_versions = parse_cargo_lock_versions(lock_path)
     updates: list[tuple[str, str, str]] = []
+    drops: list[str] = []
     for spec in extract_skip_specs(deny_path):
         name, pinned = parse_skip_spec(spec)
-        replacement = find_replacement_version(name, pinned, lock_versions)
-        if replacement is not None:
-            updates.append((name, pinned, replacement))
+        decision = find_replacement_version(name, pinned, lock_versions)
+        if decision is None:
+            continue
+        if isinstance(decision, SkipDrop):
+            drops.append(spec)
+        else:
+            updates.append((name, pinned, decision.version))
 
-    if not updates:
+    if not updates and not drops:
         return False
 
     content = deny_path.read_text(encoding="utf-8")
     new_content = apply_skip_updates(content, updates)
+    new_content = apply_skip_drops(new_content, drops)
     if check:
         return new_content != content
 
