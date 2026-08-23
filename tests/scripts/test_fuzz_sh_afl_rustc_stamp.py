@@ -43,7 +43,7 @@ def test_fuzz_sh_compares_rustc_identity_for_stamp() -> None:
 
 def test_fuzz_sh_rebuilds_afl_when_stamp_mismatches() -> None:
     text = _fuzz_sh_text()
-    assert "cargo afl config --build" in text
+    assert "_cargo_afl_config --build" in text
     assert "--force" in text, (
         "fuzz.sh must fall back to cargo afl config --build --force when plain --build fails"
     )
@@ -64,4 +64,29 @@ def test_fuzz_sh_resolves_targets_before_afl_bootstrap() -> None:
     assert resolve_pos < afl_install_pos, (
         "fuzz.sh must resolve --changed targets before cargo-afl / AFL bootstrap"
     )
+
+
+def test_fuzz_sh_pins_aflplusplus_release_tag_on_bootstrap() -> None:
+    """Bootstrap must pin AFL++ via --tag (not origin/stable tip)."""
+    text = _fuzz_sh_text()
+    assert "${VLZ_AFL_TAG:-v4.40c}" in text, (
+        "fuzz.sh must default VLZ_AFL_TAG to v4.40c"
+    )
+    assert '--build --update --tag "$_afl_tag"' in text, (
+        "fuzz.sh must pass --build --update --tag on AFLplusplus bootstrap"
+    )
+    assert "afl-tag-stamp" in text, (
+        "fuzz.sh must stamp the pinned AFL++ tag so existing clones re-pin on change"
+    )
+    assert "_cargo_afl_config" in text, (
+        "fuzz.sh must wrap cargo afl config to isolate CI linker env"
+    )
+    assert "env -u CC" in text and "RUSTFLAGS" in text, (
+        "AFL++ bootstrap must unset CC and RUSTFLAGS so job env cannot poison config"
+    )
+    # Require RUSTFLAGS cleared in the config wrapper (not only elsewhere in the file).
+    wrapper_start = text.index("_cargo_afl_config()")
+    wrapper_end = text.index("}", wrapper_start)
+    wrapper = text[wrapper_start:wrapper_end]
+    assert "-u RUSTFLAGS" in wrapper or "env -u CC -u RUSTFLAGS" in wrapper
 

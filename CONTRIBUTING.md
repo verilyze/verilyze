@@ -1608,13 +1608,19 @@ AFL++ with ClusterFuzzLite.
   `reports/fuzz-crashes.txt`.
 - **Prerequisites:** [cargo-afl](https://github.com/rust-fuzz/afl.rs) and
   [AFL++](https://github.com/AFLplusplus/AFLplusplus). The first fuzz run clones
-  and builds AFL++ under the XDG data dir via cargo-afl; on Debian/Ubuntu you
-  typically need **build-essential**, **llvm-dev**, **clang**, and **git**
-  so `make clean install` in that tree succeeds. When you change the default
-  `rustc` (e.g. `rustup update`), `./scripts/fuzz.sh` reruns `cargo afl config --build`
-  as needed and stores `rustc -vV` in `rustc-stamp-for-afl` next to the AFL++
-  clone under `$XDG_DATA_HOME/afl.rs` (or `~/.local/share/afl.rs`). For unusual
-  failures you can still run `cargo afl config --build` or `--build --force` by hand.
+  and builds AFL++ under the XDG data dir via cargo-afl (`cargo afl config
+  --build --update --tag`); the default tag is **v4.40c** (override with
+  `VLZ_AFL_TAG`) so CI does not track AFLplusplus `origin/stable` tip. An
+  `afl-tag-stamp` next to the clone records the pin; changing `VLZ_AFL_TAG`
+  (or a missing stamp) re-runs `--update --tag` so existing clones heal.
+  On Debian/Ubuntu you typically need **build-essential**, **llvm-dev**,
+  **clang**, and **git** so `make clean install` in that tree succeeds. When
+  you change the default `rustc` (e.g. `rustup update`), `./scripts/fuzz.sh`
+  reruns `cargo afl config --build` as needed and stores `rustc -vV` in
+  `rustc-stamp-for-afl` next to the AFL++ clone under `$XDG_DATA_HOME/afl.rs`
+  (or `~/.local/share/afl.rs`). For unusual failures you can still run
+  `cargo afl config --build` or `--build --force` by hand; if a clone is still
+  stuck, remove that AFLplusplus directory and re-run fuzz.
 - **Targets:** AFL `[[bin]]` names in `tests/fuzz/Cargo.toml` (e.g.
   `fuzz_config_toml`, `fuzz_requirements_txt`, `fuzz_parse_config_set_arg`,
   Python/Rust/Go/JavaScript manifest parsers). Seed corpus in
