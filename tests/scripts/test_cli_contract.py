@@ -887,11 +887,18 @@ def test_isolated_env_replaces_existing_copy(tmp_path: Path) -> None:
     assert (xdg / "bin" / "vlz").is_file()
 
 
-def test_bash_completion_with_stub(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("stdout_contains", "expected_ok"),
+    [(["scan"], True), (["missing"], False)],
+)
+def test_bash_completion_with_stub(
+    tmp_path: Path, stdout_contains: list[str], expected_ok: bool
+) -> None:
     completions = tmp_path / "completions"
     completions.mkdir()
     (completions / "vlz.bash").write_text(
-        "_vlz() { COMPREPLY=(scan languages); }\n",
+        # Require $2/$3 like clap_complete under set -u (complete -F protocol).
+        '_vlz() { : "$2" "$3"; COMPREPLY=(scan languages); }\n',
         encoding="utf-8",
     )
     binary = tmp_path / "vlz"
@@ -903,8 +910,28 @@ def test_bash_completion_with_stub(tmp_path: Path) -> None:
         {
             "id": "bash-stub",
             "shell": "bash",
-            "stdout_contains": ["scan"],
+            "stdout_contains": stdout_contains,
         },
+    )
+    assert result.ok is expected_ok, result.detail
+    if not expected_ok:
+        assert "completion missing" in result.detail
+
+
+def test_bash_completion_allows_empty_reply(tmp_path: Path) -> None:
+    completions = tmp_path / "completions"
+    completions.mkdir()
+    (completions / "vlz.bash").write_text(
+        '_vlz() { : "$2" "$3"; COMPREPLY=(); }\n',
+        encoding="utf-8",
+    )
+    binary = tmp_path / "vlz"
+    binary.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    binary.chmod(0o755)
+    result = run_completion_shell(
+        tmp_path,
+        binary,
+        {"id": "bash-empty-reply", "shell": "bash"},
     )
     assert result.ok, result.detail
 

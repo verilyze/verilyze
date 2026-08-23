@@ -473,8 +473,7 @@ def _bash_completion(
         return CaseResult(case_id, "completion", True, 0, "bash not installed")
     helper = r"""
 set -euo pipefail
-VLZ_BIN="$1"
-COMP_SCRIPT="$2"
+COMP_SCRIPT="$1"
 # shellcheck disable=SC1090
 source "$COMP_SCRIPT"
 COMP_LINE="vlz "
@@ -482,18 +481,24 @@ COMP_POINT=${#COMP_LINE}
 COMP_WORDS=(vlz "")
 COMP_CWORD=1
 if declare -F _vlz >/dev/null; then
-  _vlz
+  comp_fn=_vlz
 elif declare -F _vlz_cli >/dev/null; then
-  _vlz_cli
+  comp_fn=_vlz_cli
 else
   echo "no bash completion function" >&2
   exit 1
 fi
-printf '%s\n' "${COMPREPLY[@]}"
+# complete -F supplies $1 command, $2 current word, $3 previous word.
+"$comp_fn" "${COMP_WORDS[0]}" "${COMP_WORDS[COMP_CWORD]}" \
+  "${COMP_WORDS[$((COMP_CWORD - 1))]}"
+# Bash before 4.4 treats an empty array as unset under nounset.
+for reply in ${COMPREPLY[@]+"${COMPREPLY[@]}"}; do
+  printf '%s\n' "$reply"
+done
 """
     try:
         proc = subprocess.run(  # nosec B603
-            [bash, "-c", helper, "bash", str(binary), str(script)],
+            [bash, "-c", helper, "bash", str(script)],
             capture_output=True,
             text=True,
             check=False,
@@ -501,20 +506,19 @@ printf '%s\n' "${COMPREPLY[@]}"
         )
     except OSError as exc:
         return CaseResult(case_id, "completion", False, None, str(exc))
-    expect = case.get("stdout_contains") or DEFAULT_LANGUAGES[:1]
-    ok = proc.returncode == 0
-    detail = ""
     out = proc.stdout or ""
-    for needle in expect:
-        if str(needle) not in out and str(needle) not in (proc.stderr or ""):
-            # clap_complete may use _vlz with complete -F; empty COMPREPLY
-            # still succeeds if function exists.
-            continue
-    if not ok:
+    missing = [
+        str(needle)
+        for needle in case.get("stdout_contains") or []
+        if str(needle) not in out
+    ]
+    ok = proc.returncode == 0 and not missing
+    if proc.returncode != 0:
         detail = proc.stderr or f"exit {proc.returncode}"
-    elif "no bash completion function" in (proc.stderr or ""):
-        ok = False
-        detail = "no bash completion function"
+    else:
+        detail = "; ".join(
+            f"completion missing {needle!r}" for needle in missing
+        )
     return CaseResult(case_id, "completion", ok, proc.returncode, detail)
 
 
