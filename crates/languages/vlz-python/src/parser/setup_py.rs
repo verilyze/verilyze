@@ -500,8 +500,7 @@ mod tests {
 
     #[test]
     fn syntax_error() {
-        let content =
-            include_str!("../../tests/fixtures/setup_py/syntax_error.py");
+        let content = "def broken(\n    pass\n";
         let err = parse_setup_py(content).unwrap_err();
         assert!(err.to_string().contains("parse error"));
     }
