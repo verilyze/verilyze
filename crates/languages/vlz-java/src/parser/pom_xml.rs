@@ -161,9 +161,10 @@ fn should_skip_dependency(dep: &RawDependency) -> bool {
 }
 
 fn line_number_at(content: &str, byte_offset: usize) -> u32 {
-    content[..byte_offset.min(content.len())]
-        .bytes()
-        .filter(|&b| b == b'\n')
+    let end = byte_offset.min(content.len());
+    content.as_bytes()[..end]
+        .iter()
+        .filter(|&&b| b == b'\n')
         .count() as u32
         + 1
 }
@@ -321,7 +322,6 @@ fn parse_dependencies_block(
     let mut depth: u32 = 0;
 
     loop {
-        let offset = reader.buffer_position();
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(e)) => {
                 depth += 1;
@@ -339,7 +339,10 @@ fn parse_dependencies_block(
                 } else if in_dependencies && name == "dependency" {
                     in_dependency = true;
                     current = RawDependency::default();
-                    current.line = line_number_at(content, offset as usize);
+                    current.line = line_number_at(
+                        content,
+                        reader.buffer_position() as usize,
+                    );
                 } else if in_dependency {
                     current_field = Some(name);
                     field_buf.clear();
@@ -495,5 +498,59 @@ mod tests {
       <dependency><groupId>g</groupId><artifactId>a</artifactId><version>1.0</version><classifier>tests</classifier></dependency>
     </dependencies></project>"#;
         assert_eq!(parse_pom_xml(pom).unwrap()[0].name, "g:a");
+    }
+
+    #[test]
+    fn junit_dependency_start_line_in_simple_pom() {
+        let deps =
+            parse_pom_xml_with_declarations(SIMPLE, Path::new("pom.xml"))
+                .unwrap();
+        let junit = deps
+            .iter()
+            .find(|d| d.package.name == "org.junit.jupiter:junit-jupiter")
+            .expect("junit dependency");
+        assert_eq!(junit.start_line, 10);
+    }
+
+    #[test]
+    fn line_number_at_handles_non_char_boundary_offset() {
+        let content = "abc\u{feff}def\nghi";
+        // Byte 4 is inside the 3-byte BOM (bytes 3..6); must not panic.
+        assert_eq!(line_number_at(content, 4), 1);
+    }
+
+    #[test]
+    fn parses_pom_with_bom_before_dependency() {
+        let pom = "<project><dependencies>\u{feff}<dependency>\
+             <groupId>g</groupId><artifactId>a</artifactId>\
+             <version>1.0</version></dependency></dependencies></project>";
+        let deps = parse_pom_xml(pom).unwrap();
+        assert_eq!(deps.len(), 1);
+        assert_eq!(deps[0].name, "g:a");
+        assert_eq!(deps[0].version, "1.0");
+    }
+
+    #[test]
+    fn dependency_start_line_with_crlf() {
+        let lf = "<project>\n\
+                  <dependencies>\n\
+                  <dependency>\n\
+                  <groupId>g</groupId>\n\
+                  <artifactId>a</artifactId>\n\
+                  <version>1.0</version>\n\
+                  </dependency>\n\
+                  </dependencies>\n\
+                  </project>\n";
+        let crlf = lf.replace('\n', "\r\n");
+        let path = Path::new("pom.xml");
+        let lf_deps = parse_pom_xml_with_declarations(lf, path).unwrap();
+        let crlf_deps = parse_pom_xml_with_declarations(&crlf, path).unwrap();
+        assert_eq!(lf_deps.len(), 1);
+        assert_eq!(crlf_deps.len(), 1);
+        assert_eq!(crlf_deps[0].package.name, "g:a");
+        assert_eq!(
+            crlf_deps[0].start_line, lf_deps[0].start_line,
+            "CRLF must yield the same start_line as LF"
+        );
     }
 }
