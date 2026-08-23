@@ -77,7 +77,8 @@ class TestFindReplacementVersion:
             "0.23.0",
             {"base64": ["0.22.1", "0.23.1"]},
         )
-        assert result == "0.23.1"
+        assert isinstance(result, mod.SkipReplace)
+        assert result.version == "0.23.1"
 
     def test_updates_only_matching_major_minor_line(self) -> None:
         mod = _load_module()
@@ -86,7 +87,8 @@ class TestFindReplacementVersion:
             "0.45.0",
             {"windows-sys": ["0.45.1", "0.52.0"]},
         )
-        assert result == "0.45.1"
+        assert isinstance(result, mod.SkipReplace)
+        assert result.version == "0.45.1"
 
     def test_leaves_other_windows_sys_skip_untouched(self, tmp_path: Path) -> None:
         deny = _write_deny(
@@ -111,7 +113,7 @@ class TestFindReplacementVersion:
     def test_marks_drop_when_crate_missing_from_lock(self) -> None:
         mod = _load_module()
         result = mod.find_replacement_version("missing-crate", "1.0.0", {})
-        assert result == mod.DROP_SKIP
+        assert isinstance(result, mod.SkipDrop)
 
     def test_marks_drop_when_no_same_major_minor_candidate(self) -> None:
         mod = _load_module()
@@ -120,7 +122,7 @@ class TestFindReplacementVersion:
             "0.23.0",
             {"base64": ["0.22.1", "0.24.0"]},
         )
-        assert result == mod.DROP_SKIP
+        assert isinstance(result, mod.SkipDrop)
 
     def test_raises_when_multiple_same_major_minor_candidates(self) -> None:
         mod = _load_module()
@@ -231,6 +233,34 @@ class TestSyncDenySkips:
         assert drift is True
         assert deny.read_text(encoding="utf-8") == original
 
+    def test_combined_patch_bump_and_drop(self, tmp_path: Path) -> None:
+        deny = _write_deny(
+            tmp_path,
+            [
+                ("base64@0.23.0", "sonatype direct dep"),
+                ("thiserror@1.0.69", "legacy jni"),
+                ("syn@3.0.3", "proc-macro"),
+            ],
+        )
+        lock = _write_lock(
+            tmp_path,
+            [
+                ("base64", "0.22.1"),
+                ("base64", "0.23.1"),
+                ("thiserror", "2.0.20"),
+                ("syn", "2.0.0"),
+                ("syn", "3.0.3"),
+            ],
+        )
+        mod = _load_module()
+        changed = mod.sync_deny_skips(deny, lock)
+        assert changed is True
+        text = deny.read_text(encoding="utf-8")
+        assert "base64@0.23.1" in text
+        assert "base64@0.23.0" not in text
+        assert "thiserror@1.0.69" not in text
+        assert "syn@3.0.3" in text
+
     def test_repo_deny_skips_match_cargo_lock(self) -> None:
         mod = _load_module()
         root = repo_root()
@@ -272,6 +302,42 @@ class TestApplySkipUpdates:
         mod = _load_module()
         with pytest.raises(mod.SyncDenySkipsError, match="missing skip entry"):
             mod.apply_skip_drops('[bans]\nskip = []\n', ["thiserror@1.0.69"])
+
+    def test_drops_reason_before_crate(self) -> None:
+        mod = _load_module()
+        content = (
+            "[bans]\nskip = [\n"
+            '    { reason = "legacy jni", crate = "thiserror@1.0.69" },\n'
+            '    { crate = "base64@0.23.1", reason = "keep" },\n'
+            "]\n"
+        )
+        updated = mod.apply_skip_drops(content, ["thiserror@1.0.69"])
+        assert "thiserror@1.0.69" not in updated
+        assert "base64@0.23.1" in updated
+
+    def test_drops_compact_spacing_and_optional_comma(self) -> None:
+        mod = _load_module()
+        content = (
+            "[bans]\nskip = [\n"
+            '{crate="thiserror@1.0.69",reason="legacy"}\n'
+            '    { crate = "base64@0.23.1", reason = "keep" },\n'
+            "]\n"
+        )
+        updated = mod.apply_skip_drops(content, ["thiserror@1.0.69"])
+        assert "thiserror@1.0.69" not in updated
+        assert "base64@0.23.1" in updated
+
+    def test_drops_single_quoted_reason(self) -> None:
+        mod = _load_module()
+        content = (
+            "[bans]\nskip = [\n"
+            "    { crate = \"thiserror@1.0.69\", reason = 'legacy jni' },\n"
+            '    { crate = "base64@0.23.1", reason = "keep" },\n'
+            "]\n"
+        )
+        updated = mod.apply_skip_drops(content, ["thiserror@1.0.69"])
+        assert "thiserror@1.0.69" not in updated
+        assert "base64@0.23.1" in updated
 
 
 class TestExtractSkipSpecs:
