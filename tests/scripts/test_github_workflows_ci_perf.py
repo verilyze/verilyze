@@ -79,12 +79,18 @@ def test_check_job_conditional_cargo_deny_install() -> None:
 def test_check_job_always_installs_llvm_cov_about_not_bundled_afl() -> None:
     block = _check_job_block()
     deny_version = _cargo_deny_version()
-    assert "cargo-llvm-cov@0.8.5,cargo-about@0.9.0" in block
+    assert (
+        re.search(
+            r"tool:\s*cargo-llvm-cov@[^,\s]+,cargo-about@[^,\s]+",
+            block,
+        )
+        is not None
+    )
     install_tools = block.index("Install cargo tooling (llvm-cov, about)")
     install_afl = block.index("Install cargo-afl")
     assert install_tools < install_afl
     tools_section = block.split("Install cargo tooling")[1].split("Install cargo-afl")[0]
-    assert "cargo-afl@0.18.0" not in tools_section
+    assert "cargo-afl@" not in tools_section
     assert f"cargo-deny@{deny_version}" not in tools_section.split("Install cargo-deny")[0]
 
 
