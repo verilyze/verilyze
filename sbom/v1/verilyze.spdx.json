@@ -267,9 +267,9 @@
     {
       "@type": "Package",
       "name": "aho-corasick",
-      "packageUrl": "pkg:cargo/aho-corasick@1.1.4",
-      "spdxId": "urn:spdx.dev:pkg-cargo-aho-corasick-1-1-4",
-      "versionInfo": "1.1.4"
+      "packageUrl": "pkg:cargo/aho-corasick@1.1.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-aho-corasick-1-1-5",
+      "versionInfo": "1.1.5"
     },
     {
       "@type": "Package",
@@ -323,16 +323,16 @@
     {
       "@type": "Package",
       "name": "arrayvec",
-      "packageUrl": "pkg:cargo/arrayvec@0.7.7",
-      "spdxId": "urn:spdx.dev:pkg-cargo-arrayvec-0-7-7",
-      "versionInfo": "0.7.7"
+      "packageUrl": "pkg:cargo/arrayvec@0.7.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-arrayvec-0-7-8",
+      "versionInfo": "0.7.8"
     },
     {
       "@type": "Package",
       "name": "asn1-rs",
-      "packageUrl": "pkg:cargo/asn1-rs@0.7.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-asn1-rs-0-7-1",
-      "versionInfo": "0.7.1"
+      "packageUrl": "pkg:cargo/asn1-rs@0.7.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-asn1-rs-0-7-2",
+      "versionInfo": "0.7.2"
     },
     {
       "@type": "Package",
@@ -386,9 +386,9 @@
     {
       "@type": "Package",
       "name": "autocfg",
-      "packageUrl": "pkg:cargo/autocfg@1.5.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-autocfg-1-5-0",
-      "versionInfo": "1.5.0"
+      "packageUrl": "pkg:cargo/autocfg@1.5.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-autocfg-1-5-1",
+      "versionInfo": "1.5.1"
     },
     {
       "@type": "Package",
@@ -414,37 +414,44 @@
     {
       "@type": "Package",
       "name": "bitflags",
-      "packageUrl": "pkg:cargo/bitflags@2.11.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-bitflags-2-11-1",
-      "versionInfo": "2.11.1"
+      "packageUrl": "pkg:cargo/bitflags@1.3.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-bitflags-1-3-2",
+      "versionInfo": "1.3.2"
+    },
+    {
+      "@type": "Package",
+      "name": "bitflags",
+      "packageUrl": "pkg:cargo/bitflags@2.13.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-bitflags-2-13-1",
+      "versionInfo": "2.13.1"
     },
     {
       "@type": "Package",
       "name": "block-buffer",
-      "packageUrl": "pkg:cargo/block-buffer@0.12.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-block-buffer-0-12-0",
-      "versionInfo": "0.12.0"
+      "packageUrl": "pkg:cargo/block-buffer@0.12.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-block-buffer-0-12-1",
+      "versionInfo": "0.12.1"
     },
     {
       "@type": "Package",
       "name": "bstr",
-      "packageUrl": "pkg:cargo/bstr@1.12.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-bstr-1-12-3",
-      "versionInfo": "1.12.3"
+      "packageUrl": "pkg:cargo/bstr@1.13.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-bstr-1-13-1",
+      "versionInfo": "1.13.1"
     },
     {
       "@type": "Package",
       "name": "bumpalo",
-      "packageUrl": "pkg:cargo/bumpalo@3.20.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-bumpalo-3-20-2",
-      "versionInfo": "3.20.2"
+      "packageUrl": "pkg:cargo/bumpalo@3.20.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-bumpalo-3-20-3",
+      "versionInfo": "3.20.3"
     },
     {
       "@type": "Package",
       "name": "bytes",
-      "packageUrl": "pkg:cargo/bytes@1.11.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-bytes-1-11-1",
-      "versionInfo": "1.11.1"
+      "packageUrl": "pkg:cargo/bytes@1.12.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-bytes-1-12-1",
+      "versionInfo": "1.12.1"
     },
     {
       "@type": "Package",
@@ -456,16 +463,9 @@
     {
       "@type": "Package",
       "name": "cc",
-      "packageUrl": "pkg:cargo/cc@1.2.60",
-      "spdxId": "urn:spdx.dev:pkg-cargo-cc-1-2-60",
-      "versionInfo": "1.2.60"
-    },
-    {
-      "@type": "Package",
-      "name": "cesu8",
-      "packageUrl": "pkg:cargo/cesu8@1.1.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-cesu8-1-1-0",
-      "versionInfo": "1.1.0"
+      "packageUrl": "pkg:cargo/cc@1.4.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-cc-1-4-4",
+      "versionInfo": "1.4.4"
     },
     {
       "@type": "Package",
@@ -589,9 +589,9 @@
     {
       "@type": "Package",
       "name": "crypto-common",
-      "packageUrl": "pkg:cargo/crypto-common@0.2.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-crypto-common-0-2-1",
-      "versionInfo": "0.2.1"
+      "packageUrl": "pkg:cargo/crypto-common@0.2.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-crypto-common-0-2-2",
+      "versionInfo": "0.2.2"
     },
     {
       "@type": "Package",
@@ -603,9 +603,9 @@
     {
       "@type": "Package",
       "name": "data-encoding",
-      "packageUrl": "pkg:cargo/data-encoding@2.10.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-data-encoding-2-10-0",
-      "versionInfo": "2.10.0"
+      "packageUrl": "pkg:cargo/data-encoding@2.11.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-data-encoding-2-11-1",
+      "versionInfo": "2.11.1"
     },
     {
       "@type": "Package",
@@ -620,6 +620,27 @@
       "packageUrl": "pkg:cargo/deadpool-runtime@0.1.4",
       "spdxId": "urn:spdx.dev:pkg-cargo-deadpool-runtime-0-1-4",
       "versionInfo": "0.1.4"
+    },
+    {
+      "@type": "Package",
+      "name": "defmt",
+      "packageUrl": "pkg:cargo/defmt@1.1.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-defmt-1-1-1",
+      "versionInfo": "1.1.1"
+    },
+    {
+      "@type": "Package",
+      "name": "defmt-macros",
+      "packageUrl": "pkg:cargo/defmt-macros@1.1.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-defmt-macros-1-1-1",
+      "versionInfo": "1.1.1"
+    },
+    {
+      "@type": "Package",
+      "name": "defmt-parser",
+      "packageUrl": "pkg:cargo/defmt-parser@1.0.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-defmt-parser-1-0-0",
+      "versionInfo": "1.0.0"
     },
     {
       "@type": "Package",
@@ -645,16 +666,16 @@
     {
       "@type": "Package",
       "name": "digest",
-      "packageUrl": "pkg:cargo/digest@0.11.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-digest-0-11-2",
-      "versionInfo": "0.11.2"
+      "packageUrl": "pkg:cargo/digest@0.11.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-digest-0-11-3",
+      "versionInfo": "0.11.3"
     },
     {
       "@type": "Package",
       "name": "displaydoc",
-      "packageUrl": "pkg:cargo/displaydoc@0.2.5",
-      "spdxId": "urn:spdx.dev:pkg-cargo-displaydoc-0-2-5",
-      "versionInfo": "0.2.5"
+      "packageUrl": "pkg:cargo/displaydoc@0.2.7",
+      "spdxId": "urn:spdx.dev:pkg-cargo-displaydoc-0-2-7",
+      "versionInfo": "0.2.7"
     },
     {
       "@type": "Package",
@@ -666,9 +687,9 @@
     {
       "@type": "Package",
       "name": "either",
-      "packageUrl": "pkg:cargo/either@1.16.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-either-1-16-0",
-      "versionInfo": "1.16.0"
+      "packageUrl": "pkg:cargo/either@1.18.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-either-1-18-0",
+      "versionInfo": "1.18.0"
     },
     {
       "@type": "Package",
@@ -708,16 +729,16 @@
     {
       "@type": "Package",
       "name": "fastrand",
-      "packageUrl": "pkg:cargo/fastrand@2.4.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-fastrand-2-4-1",
-      "versionInfo": "2.4.1"
+      "packageUrl": "pkg:cargo/fastrand@2.5.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-fastrand-2-5-0",
+      "versionInfo": "2.5.0"
     },
     {
       "@type": "Package",
       "name": "find-msvc-tools",
-      "packageUrl": "pkg:cargo/find-msvc-tools@0.1.9",
-      "spdxId": "urn:spdx.dev:pkg-cargo-find-msvc-tools-0-1-9",
-      "versionInfo": "0.1.9"
+      "packageUrl": "pkg:cargo/find-msvc-tools@0.1.11",
+      "spdxId": "urn:spdx.dev:pkg-cargo-find-msvc-tools-0-1-11",
+      "versionInfo": "0.1.11"
     },
     {
       "@type": "Package",
@@ -725,13 +746,6 @@
       "packageUrl": "pkg:cargo/fnv@1.0.7",
       "spdxId": "urn:spdx.dev:pkg-cargo-fnv-1-0-7",
       "versionInfo": "1.0.7"
-    },
-    {
-      "@type": "Package",
-      "name": "foldhash",
-      "packageUrl": "pkg:cargo/foldhash@0.1.5",
-      "spdxId": "urn:spdx.dev:pkg-cargo-foldhash-0-1-5",
-      "versionInfo": "0.1.5"
     },
     {
       "@type": "Package",
@@ -834,9 +848,9 @@
     {
       "@type": "Package",
       "name": "getrandom",
-      "packageUrl": "pkg:cargo/getrandom@0.4.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-getrandom-0-4-2",
-      "versionInfo": "0.4.2"
+      "packageUrl": "pkg:cargo/getrandom@0.4.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-getrandom-0-4-3",
+      "versionInfo": "0.4.3"
     },
     {
       "@type": "Package",
@@ -848,16 +862,9 @@
     {
       "@type": "Package",
       "name": "hashbrown",
-      "packageUrl": "pkg:cargo/hashbrown@0.15.5",
-      "spdxId": "urn:spdx.dev:pkg-cargo-hashbrown-0-15-5",
-      "versionInfo": "0.15.5"
-    },
-    {
-      "@type": "Package",
-      "name": "hashbrown",
-      "packageUrl": "pkg:cargo/hashbrown@0.17.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-hashbrown-0-17-0",
-      "versionInfo": "0.17.0"
+      "packageUrl": "pkg:cargo/hashbrown@0.17.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-hashbrown-0-17-1",
+      "versionInfo": "0.17.1"
     },
     {
       "@type": "Package",
@@ -883,23 +890,23 @@
     {
       "@type": "Package",
       "name": "http",
-      "packageUrl": "pkg:cargo/http@1.4.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-http-1-4-0",
-      "versionInfo": "1.4.0"
+      "packageUrl": "pkg:cargo/http@1.5.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-http-1-5-0",
+      "versionInfo": "1.5.0"
     },
     {
       "@type": "Package",
       "name": "http-body",
-      "packageUrl": "pkg:cargo/http-body@1.0.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-http-body-1-0-1",
-      "versionInfo": "1.0.1"
+      "packageUrl": "pkg:cargo/http-body@1.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-http-body-1-1-0",
+      "versionInfo": "1.1.0"
     },
     {
       "@type": "Package",
       "name": "http-body-util",
-      "packageUrl": "pkg:cargo/http-body-util@0.1.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-http-body-util-0-1-3",
-      "versionInfo": "0.1.3"
+      "packageUrl": "pkg:cargo/http-body-util@0.1.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-http-body-util-0-1-5",
+      "versionInfo": "0.1.5"
     },
     {
       "@type": "Package",
@@ -918,16 +925,16 @@
     {
       "@type": "Package",
       "name": "hybrid-array",
-      "packageUrl": "pkg:cargo/hybrid-array@0.4.10",
-      "spdxId": "urn:spdx.dev:pkg-cargo-hybrid-array-0-4-10",
-      "versionInfo": "0.4.10"
+      "packageUrl": "pkg:cargo/hybrid-array@0.4.14",
+      "spdxId": "urn:spdx.dev:pkg-cargo-hybrid-array-0-4-14",
+      "versionInfo": "0.4.14"
     },
     {
       "@type": "Package",
       "name": "hyper",
-      "packageUrl": "pkg:cargo/hyper@1.9.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-hyper-1-9-0",
-      "versionInfo": "1.9.0"
+      "packageUrl": "pkg:cargo/hyper@1.11.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-hyper-1-11-0",
+      "versionInfo": "1.11.0"
     },
     {
       "@type": "Package",
@@ -946,58 +953,51 @@
     {
       "@type": "Package",
       "name": "icu_collections",
-      "packageUrl": "pkg:cargo/icu_collections@2.2.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-icu-collections-2-2-0",
-      "versionInfo": "2.2.0"
+      "packageUrl": "pkg:cargo/icu_collections@2.3.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-icu-collections-2-3-0",
+      "versionInfo": "2.3.0"
     },
     {
       "@type": "Package",
       "name": "icu_locale_core",
-      "packageUrl": "pkg:cargo/icu_locale_core@2.2.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-icu-locale-core-2-2-0",
-      "versionInfo": "2.2.0"
+      "packageUrl": "pkg:cargo/icu_locale_core@2.3.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-icu-locale-core-2-3-0",
+      "versionInfo": "2.3.0"
     },
     {
       "@type": "Package",
       "name": "icu_normalizer",
-      "packageUrl": "pkg:cargo/icu_normalizer@2.2.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-icu-normalizer-2-2-0",
-      "versionInfo": "2.2.0"
+      "packageUrl": "pkg:cargo/icu_normalizer@2.3.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-icu-normalizer-2-3-0",
+      "versionInfo": "2.3.0"
     },
     {
       "@type": "Package",
       "name": "icu_normalizer_data",
-      "packageUrl": "pkg:cargo/icu_normalizer_data@2.2.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-icu-normalizer-data-2-2-0",
-      "versionInfo": "2.2.0"
+      "packageUrl": "pkg:cargo/icu_normalizer_data@2.3.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-icu-normalizer-data-2-3-0",
+      "versionInfo": "2.3.0"
     },
     {
       "@type": "Package",
       "name": "icu_properties",
-      "packageUrl": "pkg:cargo/icu_properties@2.2.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-icu-properties-2-2-0",
-      "versionInfo": "2.2.0"
+      "packageUrl": "pkg:cargo/icu_properties@2.3.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-icu-properties-2-3-0",
+      "versionInfo": "2.3.0"
     },
     {
       "@type": "Package",
       "name": "icu_properties_data",
-      "packageUrl": "pkg:cargo/icu_properties_data@2.2.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-icu-properties-data-2-2-0",
-      "versionInfo": "2.2.0"
+      "packageUrl": "pkg:cargo/icu_properties_data@2.3.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-icu-properties-data-2-3-0",
+      "versionInfo": "2.3.0"
     },
     {
       "@type": "Package",
       "name": "icu_provider",
-      "packageUrl": "pkg:cargo/icu_provider@2.2.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-icu-provider-2-2-0",
-      "versionInfo": "2.2.0"
-    },
-    {
-      "@type": "Package",
-      "name": "id-arena",
-      "packageUrl": "pkg:cargo/id-arena@2.3.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-id-arena-2-3-0",
-      "versionInfo": "2.3.0"
+      "packageUrl": "pkg:cargo/icu_provider@2.3.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-icu-provider-2-3-1",
+      "versionInfo": "2.3.1"
     },
     {
       "@type": "Package",
@@ -1009,9 +1009,9 @@
     {
       "@type": "Package",
       "name": "idna_adapter",
-      "packageUrl": "pkg:cargo/idna_adapter@1.2.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-idna-adapter-1-2-1",
-      "versionInfo": "1.2.1"
+      "packageUrl": "pkg:cargo/idna_adapter@1.2.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-idna-adapter-1-2-2",
+      "versionInfo": "1.2.2"
     },
     {
       "@type": "Package",
@@ -1030,23 +1030,16 @@
     {
       "@type": "Package",
       "name": "ipnet",
-      "packageUrl": "pkg:cargo/ipnet@2.12.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ipnet-2-12-0",
-      "versionInfo": "2.12.0"
-    },
-    {
-      "@type": "Package",
-      "name": "iri-string",
-      "packageUrl": "pkg:cargo/iri-string@0.7.12",
-      "spdxId": "urn:spdx.dev:pkg-cargo-iri-string-0-7-12",
-      "versionInfo": "0.7.12"
+      "packageUrl": "pkg:cargo/ipnet@2.12.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ipnet-2-12-1",
+      "versionInfo": "2.12.1"
     },
     {
       "@type": "Package",
       "name": "is-macro",
-      "packageUrl": "pkg:cargo/is-macro@0.3.7",
-      "spdxId": "urn:spdx.dev:pkg-cargo-is-macro-0-3-7",
-      "versionInfo": "0.3.7"
+      "packageUrl": "pkg:cargo/is-macro@0.3.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-is-macro-0-3-8",
+      "versionInfo": "0.3.8"
     },
     {
       "@type": "Package",
@@ -1072,30 +1065,37 @@
     {
       "@type": "Package",
       "name": "jiff",
-      "packageUrl": "pkg:cargo/jiff@0.2.23",
-      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-0-2-23",
-      "versionInfo": "0.2.23"
+      "packageUrl": "pkg:cargo/jiff@0.2.35",
+      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-0-2-35",
+      "versionInfo": "0.2.35"
+    },
+    {
+      "@type": "Package",
+      "name": "jiff-core",
+      "packageUrl": "pkg:cargo/jiff-core@0.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-core-0-1-0",
+      "versionInfo": "0.1.0"
     },
     {
       "@type": "Package",
       "name": "jiff-static",
-      "packageUrl": "pkg:cargo/jiff-static@0.2.23",
-      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-static-0-2-23",
-      "versionInfo": "0.2.23"
+      "packageUrl": "pkg:cargo/jiff-static@0.2.35",
+      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-static-0-2-35",
+      "versionInfo": "0.2.35"
     },
     {
       "@type": "Package",
       "name": "jni",
-      "packageUrl": "pkg:cargo/jni@0.21.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-jni-0-21-1",
-      "versionInfo": "0.21.1"
+      "packageUrl": "pkg:cargo/jni@0.22.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-jni-0-22-4",
+      "versionInfo": "0.22.4"
     },
     {
       "@type": "Package",
-      "name": "jni-sys",
-      "packageUrl": "pkg:cargo/jni-sys@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-jni-sys-0-3-1",
-      "versionInfo": "0.3.1"
+      "name": "jni-macros",
+      "packageUrl": "pkg:cargo/jni-macros@0.22.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-jni-macros-0-22-4",
+      "versionInfo": "0.22.4"
     },
     {
       "@type": "Package",
@@ -1114,9 +1114,9 @@
     {
       "@type": "Package",
       "name": "js-sys",
-      "packageUrl": "pkg:cargo/js-sys@0.3.95",
-      "spdxId": "urn:spdx.dev:pkg-cargo-js-sys-0-3-95",
-      "versionInfo": "0.3.95"
+      "packageUrl": "pkg:cargo/js-sys@0.3.104",
+      "spdxId": "urn:spdx.dev:pkg-cargo-js-sys-0-3-104",
+      "versionInfo": "0.3.104"
     },
     {
       "@type": "Package",
@@ -1127,17 +1127,10 @@
     },
     {
       "@type": "Package",
-      "name": "leb128fmt",
-      "packageUrl": "pkg:cargo/leb128fmt@0.1.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-leb128fmt-0-1-0",
-      "versionInfo": "0.1.0"
-    },
-    {
-      "@type": "Package",
       "name": "libc",
-      "packageUrl": "pkg:cargo/libc@0.2.185",
-      "spdxId": "urn:spdx.dev:pkg-cargo-libc-0-2-185",
-      "versionInfo": "0.2.185"
+      "packageUrl": "pkg:cargo/libc@0.2.189",
+      "spdxId": "urn:spdx.dev:pkg-cargo-libc-0-2-189",
+      "versionInfo": "0.2.189"
     },
     {
       "@type": "Package",
@@ -1149,9 +1142,9 @@
     {
       "@type": "Package",
       "name": "litemap",
-      "packageUrl": "pkg:cargo/litemap@0.8.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-litemap-0-8-2",
-      "versionInfo": "0.8.2"
+      "packageUrl": "pkg:cargo/litemap@0.8.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-litemap-0-8-3",
+      "versionInfo": "0.8.3"
     },
     {
       "@type": "Package",
@@ -1184,9 +1177,9 @@
     {
       "@type": "Package",
       "name": "memchr",
-      "packageUrl": "pkg:cargo/memchr@2.8.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-memchr-2-8-0",
-      "versionInfo": "2.8.0"
+      "packageUrl": "pkg:cargo/memchr@2.8.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-memchr-2-8-3",
+      "versionInfo": "2.8.3"
     },
     {
       "@type": "Package",
@@ -1198,9 +1191,9 @@
     {
       "@type": "Package",
       "name": "mio",
-      "packageUrl": "pkg:cargo/mio@1.2.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-mio-1-2-0",
-      "versionInfo": "1.2.0"
+      "packageUrl": "pkg:cargo/mio@1.2.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-mio-1-2-2",
+      "versionInfo": "1.2.2"
     },
     {
       "@type": "Package",
@@ -1212,23 +1205,23 @@
     {
       "@type": "Package",
       "name": "num-bigint",
-      "packageUrl": "pkg:cargo/num-bigint@0.4.6",
-      "spdxId": "urn:spdx.dev:pkg-cargo-num-bigint-0-4-6",
-      "versionInfo": "0.4.6"
+      "packageUrl": "pkg:cargo/num-bigint@0.4.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-num-bigint-0-4-8",
+      "versionInfo": "0.4.8"
     },
     {
       "@type": "Package",
       "name": "num-conv",
-      "packageUrl": "pkg:cargo/num-conv@0.2.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-num-conv-0-2-1",
-      "versionInfo": "0.2.1"
+      "packageUrl": "pkg:cargo/num-conv@0.2.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-num-conv-0-2-2",
+      "versionInfo": "0.2.2"
     },
     {
       "@type": "Package",
       "name": "num-integer",
-      "packageUrl": "pkg:cargo/num-integer@0.1.46",
-      "spdxId": "urn:spdx.dev:pkg-cargo-num-integer-0-1-46",
-      "versionInfo": "0.1.46"
+      "packageUrl": "pkg:cargo/num-integer@0.1.47",
+      "spdxId": "urn:spdx.dev:pkg-cargo-num-integer-0-1-47",
+      "versionInfo": "0.1.47"
     },
     {
       "@type": "Package",
@@ -1345,9 +1338,9 @@
     {
       "@type": "Package",
       "name": "portable-atomic",
-      "packageUrl": "pkg:cargo/portable-atomic@1.13.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-portable-atomic-1-13-1",
-      "versionInfo": "1.13.1"
+      "packageUrl": "pkg:cargo/portable-atomic@1.15.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-portable-atomic-1-15-0",
+      "versionInfo": "1.15.0"
     },
     {
       "@type": "Package",
@@ -1359,9 +1352,9 @@
     {
       "@type": "Package",
       "name": "potential_utf",
-      "packageUrl": "pkg:cargo/potential_utf@0.1.5",
-      "spdxId": "urn:spdx.dev:pkg-cargo-potential-utf-0-1-5",
-      "versionInfo": "0.1.5"
+      "packageUrl": "pkg:cargo/potential_utf@0.1.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-potential-utf-0-1-6",
+      "versionInfo": "0.1.6"
     },
     {
       "@type": "Package",
@@ -1376,13 +1369,6 @@
       "packageUrl": "pkg:cargo/ppv-lite86@0.2.21",
       "spdxId": "urn:spdx.dev:pkg-cargo-ppv-lite86-0-2-21",
       "versionInfo": "0.2.21"
-    },
-    {
-      "@type": "Package",
-      "name": "prettyplease",
-      "packageUrl": "pkg:cargo/prettyplease@0.2.37",
-      "spdxId": "urn:spdx.dev:pkg-cargo-prettyplease-0-2-37",
-      "versionInfo": "0.2.37"
     },
     {
       "@type": "Package",
@@ -1443,9 +1429,9 @@
     {
       "@type": "Package",
       "name": "rand",
-      "packageUrl": "pkg:cargo/rand@0.8.6",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rand-0-8-6",
-      "versionInfo": "0.8.6"
+      "packageUrl": "pkg:cargo/rand@0.8.7",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rand-0-8-7",
+      "versionInfo": "0.8.7"
     },
     {
       "@type": "Package",
@@ -1492,9 +1478,9 @@
     {
       "@type": "Package",
       "name": "regex-automata",
-      "packageUrl": "pkg:cargo/regex-automata@0.4.16",
-      "spdxId": "urn:spdx.dev:pkg-cargo-regex-automata-0-4-16",
-      "versionInfo": "0.4.16"
+      "packageUrl": "pkg:cargo/regex-automata@0.4.18",
+      "spdxId": "urn:spdx.dev:pkg-cargo-regex-automata-0-4-18",
+      "versionInfo": "0.4.18"
     },
     {
       "@type": "Package",
@@ -1562,9 +1548,9 @@
     {
       "@type": "Package",
       "name": "rustc-hash",
-      "packageUrl": "pkg:cargo/rustc-hash@2.1.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rustc-hash-2-1-2",
-      "versionInfo": "2.1.2"
+      "packageUrl": "pkg:cargo/rustc-hash@2.1.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustc-hash-2-1-3",
+      "versionInfo": "2.1.3"
     },
     {
       "@type": "Package",
@@ -1604,16 +1590,16 @@
     {
       "@type": "Package",
       "name": "rustls-pki-types",
-      "packageUrl": "pkg:cargo/rustls-pki-types@1.14.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-pki-types-1-14-0",
-      "versionInfo": "1.14.0"
+      "packageUrl": "pkg:cargo/rustls-pki-types@1.15.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-pki-types-1-15-1",
+      "versionInfo": "1.15.1"
     },
     {
       "@type": "Package",
       "name": "rustls-platform-verifier",
-      "packageUrl": "pkg:cargo/rustls-platform-verifier@0.6.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-platform-verifier-0-6-2",
-      "versionInfo": "0.6.2"
+      "packageUrl": "pkg:cargo/rustls-platform-verifier@0.7.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-platform-verifier-0-7-0",
+      "versionInfo": "0.7.0"
     },
     {
       "@type": "Package",
@@ -1625,16 +1611,16 @@
     {
       "@type": "Package",
       "name": "rustls-webpki",
-      "packageUrl": "pkg:cargo/rustls-webpki@0.103.13",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-webpki-0-103-13",
-      "versionInfo": "0.103.13"
+      "packageUrl": "pkg:cargo/rustls-webpki@0.103.15",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-webpki-0-103-15",
+      "versionInfo": "0.103.15"
     },
     {
       "@type": "Package",
       "name": "rustversion",
-      "packageUrl": "pkg:cargo/rustversion@1.0.22",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rustversion-1-0-22",
-      "versionInfo": "1.0.22"
+      "packageUrl": "pkg:cargo/rustversion@1.0.23",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustversion-1-0-23",
+      "versionInfo": "1.0.23"
     },
     {
       "@type": "Package",
@@ -1744,9 +1730,9 @@
     {
       "@type": "Package",
       "name": "shlex",
-      "packageUrl": "pkg:cargo/shlex@1.3.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-shlex-1-3-0",
-      "versionInfo": "1.3.0"
+      "packageUrl": "pkg:cargo/shlex@2.0.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-shlex-2-0-1",
+      "versionInfo": "2.0.1"
     },
     {
       "@type": "Package",
@@ -1754,6 +1740,20 @@
       "packageUrl": "pkg:cargo/signal-hook-registry@1.4.8",
       "spdxId": "urn:spdx.dev:pkg-cargo-signal-hook-registry-1-4-8",
       "versionInfo": "1.4.8"
+    },
+    {
+      "@type": "Package",
+      "name": "simd_cesu8",
+      "packageUrl": "pkg:cargo/simd_cesu8@1.2.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-simd-cesu8-1-2-0",
+      "versionInfo": "1.2.0"
+    },
+    {
+      "@type": "Package",
+      "name": "simdutf8",
+      "packageUrl": "pkg:cargo/simdutf8@0.1.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-simdutf8-0-1-5",
+      "versionInfo": "0.1.5"
     },
     {
       "@type": "Package",
@@ -1772,16 +1772,16 @@
     {
       "@type": "Package",
       "name": "smallvec",
-      "packageUrl": "pkg:cargo/smallvec@1.15.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-smallvec-1-15-1",
-      "versionInfo": "1.15.1"
+      "packageUrl": "pkg:cargo/smallvec@1.15.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-smallvec-1-15-2",
+      "versionInfo": "1.15.2"
     },
     {
       "@type": "Package",
       "name": "socket2",
-      "packageUrl": "pkg:cargo/socket2@0.6.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-socket2-0-6-3",
-      "versionInfo": "0.6.3"
+      "packageUrl": "pkg:cargo/socket2@0.6.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-socket2-0-6-5",
+      "versionInfo": "0.6.5"
     },
     {
       "@type": "Package",
@@ -1877,16 +1877,9 @@
     {
       "@type": "Package",
       "name": "thin-vec",
-      "packageUrl": "pkg:cargo/thin-vec@0.2.18",
-      "spdxId": "urn:spdx.dev:pkg-cargo-thin-vec-0-2-18",
-      "versionInfo": "0.2.18"
-    },
-    {
-      "@type": "Package",
-      "name": "thiserror",
-      "packageUrl": "pkg:cargo/thiserror@1.0.69",
-      "spdxId": "urn:spdx.dev:pkg-cargo-thiserror-1-0-69",
-      "versionInfo": "1.0.69"
+      "packageUrl": "pkg:cargo/thin-vec@0.2.19",
+      "spdxId": "urn:spdx.dev:pkg-cargo-thin-vec-0-2-19",
+      "versionInfo": "0.2.19"
     },
     {
       "@type": "Package",
@@ -1898,13 +1891,6 @@
     {
       "@type": "Package",
       "name": "thiserror-impl",
-      "packageUrl": "pkg:cargo/thiserror-impl@1.0.69",
-      "spdxId": "urn:spdx.dev:pkg-cargo-thiserror-impl-1-0-69",
-      "versionInfo": "1.0.69"
-    },
-    {
-      "@type": "Package",
-      "name": "thiserror-impl",
       "packageUrl": "pkg:cargo/thiserror-impl@2.0.20",
       "spdxId": "urn:spdx.dev:pkg-cargo-thiserror-impl-2-0-20",
       "versionInfo": "2.0.20"
@@ -1912,37 +1898,37 @@
     {
       "@type": "Package",
       "name": "time",
-      "packageUrl": "pkg:cargo/time@0.3.47",
-      "spdxId": "urn:spdx.dev:pkg-cargo-time-0-3-47",
-      "versionInfo": "0.3.47"
+      "packageUrl": "pkg:cargo/time@0.3.55",
+      "spdxId": "urn:spdx.dev:pkg-cargo-time-0-3-55",
+      "versionInfo": "0.3.55"
     },
     {
       "@type": "Package",
       "name": "time-core",
-      "packageUrl": "pkg:cargo/time-core@0.1.8",
-      "spdxId": "urn:spdx.dev:pkg-cargo-time-core-0-1-8",
-      "versionInfo": "0.1.8"
+      "packageUrl": "pkg:cargo/time-core@0.1.9",
+      "spdxId": "urn:spdx.dev:pkg-cargo-time-core-0-1-9",
+      "versionInfo": "0.1.9"
     },
     {
       "@type": "Package",
       "name": "time-macros",
-      "packageUrl": "pkg:cargo/time-macros@0.2.27",
-      "spdxId": "urn:spdx.dev:pkg-cargo-time-macros-0-2-27",
-      "versionInfo": "0.2.27"
+      "packageUrl": "pkg:cargo/time-macros@0.2.32",
+      "spdxId": "urn:spdx.dev:pkg-cargo-time-macros-0-2-32",
+      "versionInfo": "0.2.32"
     },
     {
       "@type": "Package",
       "name": "tinystr",
-      "packageUrl": "pkg:cargo/tinystr@0.8.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-tinystr-0-8-3",
-      "versionInfo": "0.8.3"
+      "packageUrl": "pkg:cargo/tinystr@0.8.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tinystr-0-8-4",
+      "versionInfo": "0.8.4"
     },
     {
       "@type": "Package",
       "name": "tinyvec",
-      "packageUrl": "pkg:cargo/tinyvec@1.11.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-tinyvec-1-11-0",
-      "versionInfo": "1.11.0"
+      "packageUrl": "pkg:cargo/tinyvec@1.12.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tinyvec-1-12-0",
+      "versionInfo": "1.12.0"
     },
     {
       "@type": "Package",
@@ -1961,9 +1947,9 @@
     {
       "@type": "Package",
       "name": "tokio-macros",
-      "packageUrl": "pkg:cargo/tokio-macros@2.7.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-macros-2-7-0",
-      "versionInfo": "2.7.0"
+      "packageUrl": "pkg:cargo/tokio-macros@2.7.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-macros-2-7-2",
+      "versionInfo": "2.7.2"
     },
     {
       "@type": "Package",
@@ -1975,9 +1961,9 @@
     {
       "@type": "Package",
       "name": "tokio-util",
-      "packageUrl": "pkg:cargo/tokio-util@0.7.18",
-      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-util-0-7-18",
-      "versionInfo": "0.7.18"
+      "packageUrl": "pkg:cargo/tokio-util@0.7.19",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-util-0-7-19",
+      "versionInfo": "0.7.19"
     },
     {
       "@type": "Package",
@@ -2017,9 +2003,9 @@
     {
       "@type": "Package",
       "name": "tower-http",
-      "packageUrl": "pkg:cargo/tower-http@0.6.8",
-      "spdxId": "urn:spdx.dev:pkg-cargo-tower-http-0-6-8",
-      "versionInfo": "0.6.8"
+      "packageUrl": "pkg:cargo/tower-http@0.6.11",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tower-http-0-6-11",
+      "versionInfo": "0.6.11"
     },
     {
       "@type": "Package",
@@ -2059,9 +2045,9 @@
     {
       "@type": "Package",
       "name": "typenum",
-      "packageUrl": "pkg:cargo/typenum@1.20.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-typenum-1-20-0",
-      "versionInfo": "1.20.0"
+      "packageUrl": "pkg:cargo/typenum@1.20.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-typenum-1-20-1",
+      "versionInfo": "1.20.1"
     },
     {
       "@type": "Package",
@@ -2083,13 +2069,6 @@
       "packageUrl": "pkg:cargo/unicode-width@0.2.2",
       "spdxId": "urn:spdx.dev:pkg-cargo-unicode-width-0-2-2",
       "versionInfo": "0.2.2"
-    },
-    {
-      "@type": "Package",
-      "name": "unicode-xid",
-      "packageUrl": "pkg:cargo/unicode-xid@0.2.6",
-      "spdxId": "urn:spdx.dev:pkg-cargo-unicode-xid-0-2-6",
-      "versionInfo": "0.2.6"
     },
     {
       "@type": "Package",
@@ -2317,951 +2296,6 @@
     },
     {
       "@type": "Package",
-      "name": "wasip2",
-      "packageUrl": "pkg:cargo/wasip2@1.0.3+wasi-0.2.9",
-      "spdxId": "urn:spdx.dev:pkg-cargo-wasip2-1-0-3+wasi-0-2-9",
-      "versionInfo": "1.0.3+wasi-0.2.9"
-    },
-    {
-      "@type": "Package",
-      "name": "wasip3",
-      "packageUrl": "pkg:cargo/wasip3@0.4.0+wasi-0.3.0-rc-2026-01-06",
-      "spdxId": "urn:spdx.dev:pkg-cargo-wasip3-0-4-0+wasi-0-3-0-rc-2026-01-06",
-      "versionInfo": "0.4.0+wasi-0.3.0-rc-2026-01-06"
-    },
-    {
-      "@type": "Package",
-      "name": "wasm-bindgen",
-      "packageUrl": "pkg:cargo/wasm-bindgen@0.2.118",
-      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-0-2-118",
-      "versionInfo": "0.2.118"
-    },
-    {
-      "@type": "Package",
-      "name": "wasm-bindgen-futures",
-      "packageUrl": "pkg:cargo/wasm-bindgen-futures@0.4.68",
-      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-futures-0-4-68",
-      "versionInfo": "0.4.68"
-    },
-    {
-      "@type": "Package",
-      "name": "wasm-bindgen-macro",
-      "packageUrl": "pkg:cargo/wasm-bindgen-macro@0.2.118",
-      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-macro-0-2-118",
-      "versionInfo": "0.2.118"
-    },
-    {
-      "@type": "Package",
-      "name": "wasm-bindgen-macro-support",
-      "packageUrl": "pkg:cargo/wasm-bindgen-macro-support@0.2.118",
-      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-macro-support-0-2-118",
-      "versionInfo": "0.2.118"
-    },
-    {
-      "@type": "Package",
-      "name": "wasm-bindgen-shared",
-      "packageUrl": "pkg:cargo/wasm-bindgen-shared@0.2.118",
-      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-shared-0-2-118",
-      "versionInfo": "0.2.118"
-    },
-    {
-      "@type": "Package",
-      "name": "wasm-encoder",
-      "packageUrl": "pkg:cargo/wasm-encoder@0.244.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-encoder-0-244-0",
-      "versionInfo": "0.244.0"
-    },
-    {
-      "@type": "Package",
-      "name": "wasm-metadata",
-      "packageUrl": "pkg:cargo/wasm-metadata@0.244.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-metadata-0-244-0",
-      "versionInfo": "0.244.0"
-    },
-    {
-      "@type": "Package",
-      "name": "wasmparser",
-      "packageUrl": "pkg:cargo/wasmparser@0.244.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-wasmparser-0-244-0",
-      "versionInfo": "0.244.0"
-    },
-    {
-      "@type": "Package",
-      "name": "web-sys",
-      "packageUrl": "pkg:cargo/web-sys@0.3.95",
-      "spdxId": "urn:spdx.dev:pkg-cargo-web-sys-0-3-95",
-      "versionInfo": "0.3.95"
-    },
-    {
-      "@type": "Package",
-      "name": "webpki-root-certs",
-      "packageUrl": "pkg:cargo/webpki-root-certs@1.0.7",
-      "spdxId": "urn:spdx.dev:pkg-cargo-webpki-root-certs-1-0-7",
-      "versionInfo": "1.0.7"
-    },
-    {
-      "@type": "Package",
-      "name": "winapi-util",
-      "packageUrl": "pkg:cargo/winapi-util@0.1.11",
-      "spdxId": "urn:spdx.dev:pkg-cargo-winapi-util-0-1-11",
-      "versionInfo": "0.1.11"
-    },
-    {
-      "@type": "Package",
-      "name": "windows-link",
-      "packageUrl": "pkg:cargo/windows-link@0.2.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-link-0-2-1",
-      "versionInfo": "0.2.1"
-    },
-    {
-      "@type": "Package",
-      "name": "windows-registry",
-      "packageUrl": "pkg:cargo/windows-registry@0.6.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-registry-0-6-1",
-      "versionInfo": "0.6.1"
-    },
-    {
-      "@type": "Package",
-      "name": "windows-result",
-      "packageUrl": "pkg:cargo/windows-result@0.4.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-result-0-4-1",
-      "versionInfo": "0.4.1"
-    },
-    {
-      "@type": "Package",
-      "name": "windows-strings",
-      "packageUrl": "pkg:cargo/windows-strings@0.5.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-strings-0-5-1",
-      "versionInfo": "0.5.1"
-    },
-    {
-      "@type": "Package",
-      "name": "windows-sys",
-      "packageUrl": "pkg:cargo/windows-sys@0.45.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-sys-0-45-0",
-      "versionInfo": "0.45.0"
-    },
-    {
-      "@type": "Package",
-      "name": "windows-sys",
-      "packageUrl": "pkg:cargo/windows-sys@0.52.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-sys-0-52-0",
-      "versionInfo": "0.52.0"
-    },
-    {
-      "@type": "Package",
-      "name": "windows-sys",
-      "packageUrl": "pkg:cargo/windows-sys@0.61.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-sys-0-61-2",
-      "versionInfo": "0.61.2"
-    },
-    {
-      "@type": "Package",
-      "name": "windows-targets",
-      "packageUrl": "pkg:cargo/windows-targets@0.42.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-targets-0-42-2",
-      "versionInfo": "0.42.2"
-    },
-    {
-      "@type": "Package",
-      "name": "windows-targets",
-      "packageUrl": "pkg:cargo/windows-targets@0.52.6",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-targets-0-52-6",
-      "versionInfo": "0.52.6"
-    },
-    {
-      "@type": "Package",
-      "name": "windows_aarch64_gnullvm",
-      "packageUrl": "pkg:cargo/windows_aarch64_gnullvm@0.42.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-aarch64-gnullvm-0-42-2",
-      "versionInfo": "0.42.2"
-    },
-    {
-      "@type": "Package",
-      "name": "windows_aarch64_gnullvm",
-      "packageUrl": "pkg:cargo/windows_aarch64_gnullvm@0.52.6",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-aarch64-gnullvm-0-52-6",
-      "versionInfo": "0.52.6"
-    },
-    {
-      "@type": "Package",
-      "name": "windows_aarch64_msvc",
-      "packageUrl": "pkg:cargo/windows_aarch64_msvc@0.42.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-aarch64-msvc-0-42-2",
-      "versionInfo": "0.42.2"
-    },
-    {
-      "@type": "Package",
-      "name": "windows_aarch64_msvc",
-      "packageUrl": "pkg:cargo/windows_aarch64_msvc@0.52.6",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-aarch64-msvc-0-52-6",
-      "versionInfo": "0.52.6"
-    },
-    {
-      "@type": "Package",
-      "name": "windows_i686_gnu",
-      "packageUrl": "pkg:cargo/windows_i686_gnu@0.42.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-i686-gnu-0-42-2",
-      "versionInfo": "0.42.2"
-    },
-    {
-      "@type": "Package",
-      "name": "windows_i686_gnu",
-      "packageUrl": "pkg:cargo/windows_i686_gnu@0.52.6",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-i686-gnu-0-52-6",
-      "versionInfo": "0.52.6"
-    },
-    {
-      "@type": "Package",
-      "name": "windows_i686_gnullvm",
-      "packageUrl": "pkg:cargo/windows_i686_gnullvm@0.52.6",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-i686-gnullvm-0-52-6",
-      "versionInfo": "0.52.6"
-    },
-    {
-      "@type": "Package",
-      "name": "windows_i686_msvc",
-      "packageUrl": "pkg:cargo/windows_i686_msvc@0.42.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-i686-msvc-0-42-2",
-      "versionInfo": "0.42.2"
-    },
-    {
-      "@type": "Package",
-      "name": "windows_i686_msvc",
-      "packageUrl": "pkg:cargo/windows_i686_msvc@0.52.6",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-i686-msvc-0-52-6",
-      "versionInfo": "0.52.6"
-    },
-    {
-      "@type": "Package",
-      "name": "windows_x86_64_gnu",
-      "packageUrl": "pkg:cargo/windows_x86_64_gnu@0.42.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-x86-64-gnu-0-42-2",
-      "versionInfo": "0.42.2"
-    },
-    {
-      "@type": "Package",
-      "name": "windows_x86_64_gnu",
-      "packageUrl": "pkg:cargo/windows_x86_64_gnu@0.52.6",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-x86-64-gnu-0-52-6",
-      "versionInfo": "0.52.6"
-    },
-    {
-      "@type": "Package",
-      "name": "windows_x86_64_gnullvm",
-      "packageUrl": "pkg:cargo/windows_x86_64_gnullvm@0.42.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-x86-64-gnullvm-0-42-2",
-      "versionInfo": "0.42.2"
-    },
-    {
-      "@type": "Package",
-      "name": "windows_x86_64_gnullvm",
-      "packageUrl": "pkg:cargo/windows_x86_64_gnullvm@0.52.6",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-x86-64-gnullvm-0-52-6",
-      "versionInfo": "0.52.6"
-    },
-    {
-      "@type": "Package",
-      "name": "windows_x86_64_msvc",
-      "packageUrl": "pkg:cargo/windows_x86_64_msvc@0.42.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-x86-64-msvc-0-42-2",
-      "versionInfo": "0.42.2"
-    },
-    {
-      "@type": "Package",
-      "name": "windows_x86_64_msvc",
-      "packageUrl": "pkg:cargo/windows_x86_64_msvc@0.52.6",
-      "spdxId": "urn:spdx.dev:pkg-cargo-windows-x86-64-msvc-0-52-6",
-      "versionInfo": "0.52.6"
-    },
-    {
-      "@type": "Package",
-      "name": "winnow",
-      "packageUrl": "pkg:cargo/winnow@1.0.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-winnow-1-0-2",
-      "versionInfo": "1.0.2"
-    },
-    {
-      "@type": "Package",
-      "name": "wiremock",
-      "packageUrl": "pkg:cargo/wiremock@0.6.5",
-      "spdxId": "urn:spdx.dev:pkg-cargo-wiremock-0-6-5",
-      "versionInfo": "0.6.5"
-    },
-    {
-      "@type": "Package",
-      "name": "wit-bindgen",
-      "packageUrl": "pkg:cargo/wit-bindgen@0.51.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-wit-bindgen-0-51-0",
-      "versionInfo": "0.51.0"
-    },
-    {
-      "@type": "Package",
-      "name": "wit-bindgen",
-      "packageUrl": "pkg:cargo/wit-bindgen@0.57.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-wit-bindgen-0-57-1",
-      "versionInfo": "0.57.1"
-    },
-    {
-      "@type": "Package",
-      "name": "wit-bindgen-core",
-      "packageUrl": "pkg:cargo/wit-bindgen-core@0.51.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-wit-bindgen-core-0-51-0",
-      "versionInfo": "0.51.0"
-    },
-    {
-      "@type": "Package",
-      "name": "wit-bindgen-rust",
-      "packageUrl": "pkg:cargo/wit-bindgen-rust@0.51.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-wit-bindgen-rust-0-51-0",
-      "versionInfo": "0.51.0"
-    },
-    {
-      "@type": "Package",
-      "name": "wit-bindgen-rust-macro",
-      "packageUrl": "pkg:cargo/wit-bindgen-rust-macro@0.51.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-wit-bindgen-rust-macro-0-51-0",
-      "versionInfo": "0.51.0"
-    },
-    {
-      "@type": "Package",
-      "name": "wit-component",
-      "packageUrl": "pkg:cargo/wit-component@0.244.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-wit-component-0-244-0",
-      "versionInfo": "0.244.0"
-    },
-    {
-      "@type": "Package",
-      "name": "wit-parser",
-      "packageUrl": "pkg:cargo/wit-parser@0.244.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-wit-parser-0-244-0",
-      "versionInfo": "0.244.0"
-    },
-    {
-      "@type": "Package",
-      "name": "writeable",
-      "packageUrl": "pkg:cargo/writeable@0.6.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-writeable-0-6-3",
-      "versionInfo": "0.6.3"
-    },
-    {
-      "@type": "Package",
-      "name": "x509-parser",
-      "packageUrl": "pkg:cargo/x509-parser@0.18.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-x509-parser-0-18-1",
-      "versionInfo": "0.18.1"
-    },
-    {
-      "@type": "Package",
-      "name": "xdg",
-      "packageUrl": "pkg:cargo/xdg@3.0.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-xdg-3-0-0",
-      "versionInfo": "3.0.0"
-    },
-    {
-      "@type": "Package",
-      "name": "yasna",
-      "packageUrl": "pkg:cargo/yasna@0.6.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-yasna-0-6-0",
-      "versionInfo": "0.6.0"
-    },
-    {
-      "@type": "Package",
-      "name": "yoke",
-      "packageUrl": "pkg:cargo/yoke@0.8.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-yoke-0-8-2",
-      "versionInfo": "0.8.2"
-    },
-    {
-      "@type": "Package",
-      "name": "yoke-derive",
-      "packageUrl": "pkg:cargo/yoke-derive@0.8.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-yoke-derive-0-8-2",
-      "versionInfo": "0.8.2"
-    },
-    {
-      "@type": "Package",
-      "name": "zerocopy",
-      "packageUrl": "pkg:cargo/zerocopy@0.8.52",
-      "spdxId": "urn:spdx.dev:pkg-cargo-zerocopy-0-8-52",
-      "versionInfo": "0.8.52"
-    },
-    {
-      "@type": "Package",
-      "name": "zerocopy-derive",
-      "packageUrl": "pkg:cargo/zerocopy-derive@0.8.52",
-      "spdxId": "urn:spdx.dev:pkg-cargo-zerocopy-derive-0-8-52",
-      "versionInfo": "0.8.52"
-    },
-    {
-      "@type": "Package",
-      "name": "zerofrom",
-      "packageUrl": "pkg:cargo/zerofrom@0.1.7",
-      "spdxId": "urn:spdx.dev:pkg-cargo-zerofrom-0-1-7",
-      "versionInfo": "0.1.7"
-    },
-    {
-      "@type": "Package",
-      "name": "zerofrom-derive",
-      "packageUrl": "pkg:cargo/zerofrom-derive@0.1.7",
-      "spdxId": "urn:spdx.dev:pkg-cargo-zerofrom-derive-0-1-7",
-      "versionInfo": "0.1.7"
-    },
-    {
-      "@type": "Package",
-      "name": "zeroize",
-      "packageUrl": "pkg:cargo/zeroize@1.8.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-zeroize-1-8-2",
-      "versionInfo": "1.8.2"
-    },
-    {
-      "@type": "Package",
-      "name": "zerotrie",
-      "packageUrl": "pkg:cargo/zerotrie@0.2.4",
-      "spdxId": "urn:spdx.dev:pkg-cargo-zerotrie-0-2-4",
-      "versionInfo": "0.2.4"
-    },
-    {
-      "@type": "Package",
-      "name": "zerovec",
-      "packageUrl": "pkg:cargo/zerovec@0.11.6",
-      "spdxId": "urn:spdx.dev:pkg-cargo-zerovec-0-11-6",
-      "versionInfo": "0.11.6"
-    },
-    {
-      "@type": "Package",
-      "name": "zerovec-derive",
-      "packageUrl": "pkg:cargo/zerovec-derive@0.11.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-zerovec-derive-0-11-3",
-      "versionInfo": "0.11.3"
-    },
-    {
-      "@type": "Package",
-      "name": "zmij",
-      "packageUrl": "pkg:cargo/zmij@1.0.21",
-      "spdxId": "urn:spdx.dev:pkg-cargo-zmij-1-0-21",
-      "versionInfo": "1.0.21"
-    },
-    {
-      "@type": "Package",
-      "name": "aho-corasick",
-      "packageUrl": "pkg:cargo/aho-corasick@1.1.5",
-      "spdxId": "urn:spdx.dev:pkg-cargo-aho-corasick-1-1-5",
-      "versionInfo": "1.1.5"
-    },
-    {
-      "@type": "Package",
-      "name": "arbitrary",
-      "packageUrl": "pkg:cargo/arbitrary@1.4.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-arbitrary-1-4-2",
-      "versionInfo": "1.4.2"
-    },
-    {
-      "@type": "Package",
-      "name": "arrayvec",
-      "packageUrl": "pkg:cargo/arrayvec@0.7.8",
-      "spdxId": "urn:spdx.dev:pkg-cargo-arrayvec-0-7-8",
-      "versionInfo": "0.7.8"
-    },
-    {
-      "@type": "Package",
-      "name": "bitflags",
-      "packageUrl": "pkg:cargo/bitflags@1.3.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-bitflags-1-3-2",
-      "versionInfo": "1.3.2"
-    },
-    {
-      "@type": "Package",
-      "name": "bitflags",
-      "packageUrl": "pkg:cargo/bitflags@2.13.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-bitflags-2-13-1",
-      "versionInfo": "2.13.1"
-    },
-    {
-      "@type": "Package",
-      "name": "block-buffer",
-      "packageUrl": "pkg:cargo/block-buffer@0.12.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-block-buffer-0-12-1",
-      "versionInfo": "0.12.1"
-    },
-    {
-      "@type": "Package",
-      "name": "bstr",
-      "packageUrl": "pkg:cargo/bstr@1.13.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-bstr-1-13-1",
-      "versionInfo": "1.13.1"
-    },
-    {
-      "@type": "Package",
-      "name": "bumpalo",
-      "packageUrl": "pkg:cargo/bumpalo@3.20.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-bumpalo-3-20-3",
-      "versionInfo": "3.20.3"
-    },
-    {
-      "@type": "Package",
-      "name": "bytes",
-      "packageUrl": "pkg:cargo/bytes@1.12.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-bytes-1-12-1",
-      "versionInfo": "1.12.1"
-    },
-    {
-      "@type": "Package",
-      "name": "cc",
-      "packageUrl": "pkg:cargo/cc@1.4.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-cc-1-4-2",
-      "versionInfo": "1.4.2"
-    },
-    {
-      "@type": "Package",
-      "name": "clap_mangen",
-      "packageUrl": "pkg:cargo/clap_mangen@0.3.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-mangen-0-3-2",
-      "versionInfo": "0.3.2"
-    },
-    {
-      "@type": "Package",
-      "name": "crypto-common",
-      "packageUrl": "pkg:cargo/crypto-common@0.2.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-crypto-common-0-2-2",
-      "versionInfo": "0.2.2"
-    },
-    {
-      "@type": "Package",
-      "name": "defmt",
-      "packageUrl": "pkg:cargo/defmt@1.1.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-defmt-1-1-1",
-      "versionInfo": "1.1.1"
-    },
-    {
-      "@type": "Package",
-      "name": "defmt-macros",
-      "packageUrl": "pkg:cargo/defmt-macros@1.1.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-defmt-macros-1-1-1",
-      "versionInfo": "1.1.1"
-    },
-    {
-      "@type": "Package",
-      "name": "defmt-parser",
-      "packageUrl": "pkg:cargo/defmt-parser@1.0.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-defmt-parser-1-0-0",
-      "versionInfo": "1.0.0"
-    },
-    {
-      "@type": "Package",
-      "name": "digest",
-      "packageUrl": "pkg:cargo/digest@0.11.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-digest-0-11-3",
-      "versionInfo": "0.11.3"
-    },
-    {
-      "@type": "Package",
-      "name": "displaydoc",
-      "packageUrl": "pkg:cargo/displaydoc@0.2.7",
-      "spdxId": "urn:spdx.dev:pkg-cargo-displaydoc-0-2-7",
-      "versionInfo": "0.2.7"
-    },
-    {
-      "@type": "Package",
-      "name": "either",
-      "packageUrl": "pkg:cargo/either@1.17.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-either-1-17-0",
-      "versionInfo": "1.17.0"
-    },
-    {
-      "@type": "Package",
-      "name": "fastrand",
-      "packageUrl": "pkg:cargo/fastrand@2.5.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-fastrand-2-5-0",
-      "versionInfo": "2.5.0"
-    },
-    {
-      "@type": "Package",
-      "name": "find-msvc-tools",
-      "packageUrl": "pkg:cargo/find-msvc-tools@0.1.10",
-      "spdxId": "urn:spdx.dev:pkg-cargo-find-msvc-tools-0-1-10",
-      "versionInfo": "0.1.10"
-    },
-    {
-      "@type": "Package",
-      "name": "futures",
-      "packageUrl": "pkg:cargo/futures@0.3.33",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-0-3-33",
-      "versionInfo": "0.3.33"
-    },
-    {
-      "@type": "Package",
-      "name": "futures-channel",
-      "packageUrl": "pkg:cargo/futures-channel@0.3.33",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-channel-0-3-33",
-      "versionInfo": "0.3.33"
-    },
-    {
-      "@type": "Package",
-      "name": "futures-core",
-      "packageUrl": "pkg:cargo/futures-core@0.3.33",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-core-0-3-33",
-      "versionInfo": "0.3.33"
-    },
-    {
-      "@type": "Package",
-      "name": "futures-executor",
-      "packageUrl": "pkg:cargo/futures-executor@0.3.33",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-executor-0-3-33",
-      "versionInfo": "0.3.33"
-    },
-    {
-      "@type": "Package",
-      "name": "futures-io",
-      "packageUrl": "pkg:cargo/futures-io@0.3.33",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-io-0-3-33",
-      "versionInfo": "0.3.33"
-    },
-    {
-      "@type": "Package",
-      "name": "futures-macro",
-      "packageUrl": "pkg:cargo/futures-macro@0.3.33",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-macro-0-3-33",
-      "versionInfo": "0.3.33"
-    },
-    {
-      "@type": "Package",
-      "name": "futures-sink",
-      "packageUrl": "pkg:cargo/futures-sink@0.3.33",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-sink-0-3-33",
-      "versionInfo": "0.3.33"
-    },
-    {
-      "@type": "Package",
-      "name": "futures-task",
-      "packageUrl": "pkg:cargo/futures-task@0.3.33",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-task-0-3-33",
-      "versionInfo": "0.3.33"
-    },
-    {
-      "@type": "Package",
-      "name": "futures-util",
-      "packageUrl": "pkg:cargo/futures-util@0.3.33",
-      "spdxId": "urn:spdx.dev:pkg-cargo-futures-util-0-3-33",
-      "versionInfo": "0.3.33"
-    },
-    {
-      "@type": "Package",
-      "name": "getrandom",
-      "packageUrl": "pkg:cargo/getrandom@0.4.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-getrandom-0-4-3",
-      "versionInfo": "0.4.3"
-    },
-    {
-      "@type": "Package",
-      "name": "hashbrown",
-      "packageUrl": "pkg:cargo/hashbrown@0.17.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-hashbrown-0-17-1",
-      "versionInfo": "0.17.1"
-    },
-    {
-      "@type": "Package",
-      "name": "http",
-      "packageUrl": "pkg:cargo/http@1.5.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-http-1-5-0",
-      "versionInfo": "1.5.0"
-    },
-    {
-      "@type": "Package",
-      "name": "http-body",
-      "packageUrl": "pkg:cargo/http-body@1.1.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-http-body-1-1-0",
-      "versionInfo": "1.1.0"
-    },
-    {
-      "@type": "Package",
-      "name": "http-body-util",
-      "packageUrl": "pkg:cargo/http-body-util@0.1.4",
-      "spdxId": "urn:spdx.dev:pkg-cargo-http-body-util-0-1-4",
-      "versionInfo": "0.1.4"
-    },
-    {
-      "@type": "Package",
-      "name": "hybrid-array",
-      "packageUrl": "pkg:cargo/hybrid-array@0.4.14",
-      "spdxId": "urn:spdx.dev:pkg-cargo-hybrid-array-0-4-14",
-      "versionInfo": "0.4.14"
-    },
-    {
-      "@type": "Package",
-      "name": "hyper",
-      "packageUrl": "pkg:cargo/hyper@1.11.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-hyper-1-11-0",
-      "versionInfo": "1.11.0"
-    },
-    {
-      "@type": "Package",
-      "name": "idna_adapter",
-      "packageUrl": "pkg:cargo/idna_adapter@1.2.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-idna-adapter-1-2-2",
-      "versionInfo": "1.2.2"
-    },
-    {
-      "@type": "Package",
-      "name": "ipnet",
-      "packageUrl": "pkg:cargo/ipnet@2.12.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ipnet-2-12-1",
-      "versionInfo": "2.12.1"
-    },
-    {
-      "@type": "Package",
-      "name": "jiff",
-      "packageUrl": "pkg:cargo/jiff@0.2.35",
-      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-0-2-35",
-      "versionInfo": "0.2.35"
-    },
-    {
-      "@type": "Package",
-      "name": "jiff-core",
-      "packageUrl": "pkg:cargo/jiff-core@0.1.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-core-0-1-0",
-      "versionInfo": "0.1.0"
-    },
-    {
-      "@type": "Package",
-      "name": "jiff-static",
-      "packageUrl": "pkg:cargo/jiff-static@0.2.35",
-      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-static-0-2-35",
-      "versionInfo": "0.2.35"
-    },
-    {
-      "@type": "Package",
-      "name": "jni",
-      "packageUrl": "pkg:cargo/jni@0.22.4",
-      "spdxId": "urn:spdx.dev:pkg-cargo-jni-0-22-4",
-      "versionInfo": "0.22.4"
-    },
-    {
-      "@type": "Package",
-      "name": "jni-macros",
-      "packageUrl": "pkg:cargo/jni-macros@0.22.4",
-      "spdxId": "urn:spdx.dev:pkg-cargo-jni-macros-0-22-4",
-      "versionInfo": "0.22.4"
-    },
-    {
-      "@type": "Package",
-      "name": "jobserver",
-      "packageUrl": "pkg:cargo/jobserver@0.1.35",
-      "spdxId": "urn:spdx.dev:pkg-cargo-jobserver-0-1-35",
-      "versionInfo": "0.1.35"
-    },
-    {
-      "@type": "Package",
-      "name": "js-sys",
-      "packageUrl": "pkg:cargo/js-sys@0.3.104",
-      "spdxId": "urn:spdx.dev:pkg-cargo-js-sys-0-3-104",
-      "versionInfo": "0.3.104"
-    },
-    {
-      "@type": "Package",
-      "name": "libc",
-      "packageUrl": "pkg:cargo/libc@0.2.189",
-      "spdxId": "urn:spdx.dev:pkg-cargo-libc-0-2-189",
-      "versionInfo": "0.2.189"
-    },
-    {
-      "@type": "Package",
-      "name": "libfuzzer-sys",
-      "packageUrl": "pkg:cargo/libfuzzer-sys@0.4.13",
-      "spdxId": "urn:spdx.dev:pkg-cargo-libfuzzer-sys-0-4-13",
-      "versionInfo": "0.4.13"
-    },
-    {
-      "@type": "Package",
-      "name": "log",
-      "packageUrl": "pkg:cargo/log@0.4.33",
-      "spdxId": "urn:spdx.dev:pkg-cargo-log-0-4-33",
-      "versionInfo": "0.4.33"
-    },
-    {
-      "@type": "Package",
-      "name": "memchr",
-      "packageUrl": "pkg:cargo/memchr@2.8.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-memchr-2-8-3",
-      "versionInfo": "2.8.3"
-    },
-    {
-      "@type": "Package",
-      "name": "mio",
-      "packageUrl": "pkg:cargo/mio@1.2.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-mio-1-2-2",
-      "versionInfo": "1.2.2"
-    },
-    {
-      "@type": "Package",
-      "name": "portable-atomic",
-      "packageUrl": "pkg:cargo/portable-atomic@1.15.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-portable-atomic-1-15-0",
-      "versionInfo": "1.15.0"
-    },
-    {
-      "@type": "Package",
-      "name": "rand",
-      "packageUrl": "pkg:cargo/rand@0.8.7",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rand-0-8-7",
-      "versionInfo": "0.8.7"
-    },
-    {
-      "@type": "Package",
-      "name": "redb",
-      "packageUrl": "pkg:cargo/redb@4.1.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-redb-4-1-0",
-      "versionInfo": "4.1.0"
-    },
-    {
-      "@type": "Package",
-      "name": "regex-automata",
-      "packageUrl": "pkg:cargo/regex-automata@0.4.18",
-      "spdxId": "urn:spdx.dev:pkg-cargo-regex-automata-0-4-18",
-      "versionInfo": "0.4.18"
-    },
-    {
-      "@type": "Package",
-      "name": "ruff_python_ast",
-      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.9",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-9",
-      "versionInfo": "0.0.9"
-    },
-    {
-      "@type": "Package",
-      "name": "ruff_python_parser",
-      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.9",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-9",
-      "versionInfo": "0.0.9"
-    },
-    {
-      "@type": "Package",
-      "name": "ruff_python_trivia",
-      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.9",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-9",
-      "versionInfo": "0.0.9"
-    },
-    {
-      "@type": "Package",
-      "name": "ruff_source_file",
-      "packageUrl": "pkg:cargo/ruff_source_file@0.0.9",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-9",
-      "versionInfo": "0.0.9"
-    },
-    {
-      "@type": "Package",
-      "name": "ruff_text_size",
-      "packageUrl": "pkg:cargo/ruff_text_size@0.0.9",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-9",
-      "versionInfo": "0.0.9"
-    },
-    {
-      "@type": "Package",
-      "name": "rustc-hash",
-      "packageUrl": "pkg:cargo/rustc-hash@2.1.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rustc-hash-2-1-3",
-      "versionInfo": "2.1.3"
-    },
-    {
-      "@type": "Package",
-      "name": "rustls-pki-types",
-      "packageUrl": "pkg:cargo/rustls-pki-types@1.15.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-pki-types-1-15-1",
-      "versionInfo": "1.15.1"
-    },
-    {
-      "@type": "Package",
-      "name": "rustls-platform-verifier",
-      "packageUrl": "pkg:cargo/rustls-platform-verifier@0.7.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-platform-verifier-0-7-0",
-      "versionInfo": "0.7.0"
-    },
-    {
-      "@type": "Package",
-      "name": "rustversion",
-      "packageUrl": "pkg:cargo/rustversion@1.0.23",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rustversion-1-0-23",
-      "versionInfo": "1.0.23"
-    },
-    {
-      "@type": "Package",
-      "name": "shlex",
-      "packageUrl": "pkg:cargo/shlex@2.0.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-shlex-2-0-1",
-      "versionInfo": "2.0.1"
-    },
-    {
-      "@type": "Package",
-      "name": "simd_cesu8",
-      "packageUrl": "pkg:cargo/simd_cesu8@1.2.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-simd-cesu8-1-2-0",
-      "versionInfo": "1.2.0"
-    },
-    {
-      "@type": "Package",
-      "name": "simdutf8",
-      "packageUrl": "pkg:cargo/simdutf8@0.1.5",
-      "spdxId": "urn:spdx.dev:pkg-cargo-simdutf8-0-1-5",
-      "versionInfo": "0.1.5"
-    },
-    {
-      "@type": "Package",
-      "name": "smallvec",
-      "packageUrl": "pkg:cargo/smallvec@1.15.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-smallvec-1-15-2",
-      "versionInfo": "1.15.2"
-    },
-    {
-      "@type": "Package",
-      "name": "socket2",
-      "packageUrl": "pkg:cargo/socket2@0.6.5",
-      "spdxId": "urn:spdx.dev:pkg-cargo-socket2-0-6-5",
-      "versionInfo": "0.6.5"
-    },
-    {
-      "@type": "Package",
-      "name": "thin-vec",
-      "packageUrl": "pkg:cargo/thin-vec@0.2.19",
-      "spdxId": "urn:spdx.dev:pkg-cargo-thin-vec-0-2-19",
-      "versionInfo": "0.2.19"
-    },
-    {
-      "@type": "Package",
-      "name": "tinyvec",
-      "packageUrl": "pkg:cargo/tinyvec@1.12.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-tinyvec-1-12-0",
-      "versionInfo": "1.12.0"
-    },
-    {
-      "@type": "Package",
-      "name": "tokio-macros",
-      "packageUrl": "pkg:cargo/tokio-macros@2.7.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-macros-2-7-2",
-      "versionInfo": "2.7.2"
-    },
-    {
-      "@type": "Package",
-      "name": "tower-http",
-      "packageUrl": "pkg:cargo/tower-http@0.6.11",
-      "spdxId": "urn:spdx.dev:pkg-cargo-tower-http-0-6-11",
-      "versionInfo": "0.6.11"
-    },
-    {
-      "@type": "Package",
-      "name": "typenum",
-      "packageUrl": "pkg:cargo/typenum@1.20.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-typenum-1-20-1",
-      "versionInfo": "1.20.1"
-    },
-    {
-      "@type": "Package",
-      "name": "vlz-fuzz-cflite",
-      "packageUrl": "pkg:cargo/vlz-fuzz-cflite@0.0.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-fuzz-cflite-0-0-0",
-      "versionInfo": "0.0.0"
-    },
-    {
-      "@type": "Package",
       "name": "wasm-bindgen",
       "packageUrl": "pkg:cargo/wasm-bindgen@0.2.127",
       "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-0-2-127",
@@ -3311,6 +2345,118 @@
     },
     {
       "@type": "Package",
+      "name": "winapi-util",
+      "packageUrl": "pkg:cargo/winapi-util@0.1.11",
+      "spdxId": "urn:spdx.dev:pkg-cargo-winapi-util-0-1-11",
+      "versionInfo": "0.1.11"
+    },
+    {
+      "@type": "Package",
+      "name": "windows-link",
+      "packageUrl": "pkg:cargo/windows-link@0.2.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-link-0-2-1",
+      "versionInfo": "0.2.1"
+    },
+    {
+      "@type": "Package",
+      "name": "windows-registry",
+      "packageUrl": "pkg:cargo/windows-registry@0.6.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-registry-0-6-1",
+      "versionInfo": "0.6.1"
+    },
+    {
+      "@type": "Package",
+      "name": "windows-result",
+      "packageUrl": "pkg:cargo/windows-result@0.4.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-result-0-4-1",
+      "versionInfo": "0.4.1"
+    },
+    {
+      "@type": "Package",
+      "name": "windows-strings",
+      "packageUrl": "pkg:cargo/windows-strings@0.5.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-strings-0-5-1",
+      "versionInfo": "0.5.1"
+    },
+    {
+      "@type": "Package",
+      "name": "windows-sys",
+      "packageUrl": "pkg:cargo/windows-sys@0.52.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-sys-0-52-0",
+      "versionInfo": "0.52.0"
+    },
+    {
+      "@type": "Package",
+      "name": "windows-sys",
+      "packageUrl": "pkg:cargo/windows-sys@0.61.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-sys-0-61-2",
+      "versionInfo": "0.61.2"
+    },
+    {
+      "@type": "Package",
+      "name": "windows-targets",
+      "packageUrl": "pkg:cargo/windows-targets@0.52.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-targets-0-52-6",
+      "versionInfo": "0.52.6"
+    },
+    {
+      "@type": "Package",
+      "name": "windows_aarch64_gnullvm",
+      "packageUrl": "pkg:cargo/windows_aarch64_gnullvm@0.52.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-aarch64-gnullvm-0-52-6",
+      "versionInfo": "0.52.6"
+    },
+    {
+      "@type": "Package",
+      "name": "windows_aarch64_msvc",
+      "packageUrl": "pkg:cargo/windows_aarch64_msvc@0.52.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-aarch64-msvc-0-52-6",
+      "versionInfo": "0.52.6"
+    },
+    {
+      "@type": "Package",
+      "name": "windows_i686_gnu",
+      "packageUrl": "pkg:cargo/windows_i686_gnu@0.52.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-i686-gnu-0-52-6",
+      "versionInfo": "0.52.6"
+    },
+    {
+      "@type": "Package",
+      "name": "windows_i686_gnullvm",
+      "packageUrl": "pkg:cargo/windows_i686_gnullvm@0.52.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-i686-gnullvm-0-52-6",
+      "versionInfo": "0.52.6"
+    },
+    {
+      "@type": "Package",
+      "name": "windows_i686_msvc",
+      "packageUrl": "pkg:cargo/windows_i686_msvc@0.52.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-i686-msvc-0-52-6",
+      "versionInfo": "0.52.6"
+    },
+    {
+      "@type": "Package",
+      "name": "windows_x86_64_gnu",
+      "packageUrl": "pkg:cargo/windows_x86_64_gnu@0.52.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-x86-64-gnu-0-52-6",
+      "versionInfo": "0.52.6"
+    },
+    {
+      "@type": "Package",
+      "name": "windows_x86_64_gnullvm",
+      "packageUrl": "pkg:cargo/windows_x86_64_gnullvm@0.52.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-x86-64-gnullvm-0-52-6",
+      "versionInfo": "0.52.6"
+    },
+    {
+      "@type": "Package",
+      "name": "windows_x86_64_msvc",
+      "packageUrl": "pkg:cargo/windows_x86_64_msvc@0.52.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-windows-x86-64-msvc-0-52-6",
+      "versionInfo": "0.52.6"
+    },
+    {
+      "@type": "Package",
       "name": "winnow",
       "packageUrl": "pkg:cargo/winnow@1.0.4",
       "spdxId": "urn:spdx.dev:pkg-cargo-winnow-1-0-4",
@@ -3318,10 +2464,52 @@
     },
     {
       "@type": "Package",
+      "name": "wiremock",
+      "packageUrl": "pkg:cargo/wiremock@0.6.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wiremock-0-6-5",
+      "versionInfo": "0.6.5"
+    },
+    {
+      "@type": "Package",
+      "name": "writeable",
+      "packageUrl": "pkg:cargo/writeable@0.6.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-writeable-0-6-4",
+      "versionInfo": "0.6.4"
+    },
+    {
+      "@type": "Package",
+      "name": "x509-parser",
+      "packageUrl": "pkg:cargo/x509-parser@0.18.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-x509-parser-0-18-1",
+      "versionInfo": "0.18.1"
+    },
+    {
+      "@type": "Package",
+      "name": "xdg",
+      "packageUrl": "pkg:cargo/xdg@3.0.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-xdg-3-0-0",
+      "versionInfo": "3.0.0"
+    },
+    {
+      "@type": "Package",
+      "name": "yasna",
+      "packageUrl": "pkg:cargo/yasna@0.6.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-yasna-0-6-0",
+      "versionInfo": "0.6.0"
+    },
+    {
+      "@type": "Package",
       "name": "yoke",
       "packageUrl": "pkg:cargo/yoke@0.8.3",
       "spdxId": "urn:spdx.dev:pkg-cargo-yoke-0-8-3",
       "versionInfo": "0.8.3"
+    },
+    {
+      "@type": "Package",
+      "name": "yoke-derive",
+      "packageUrl": "pkg:cargo/yoke-derive@0.8.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-yoke-derive-0-8-2",
+      "versionInfo": "0.8.2"
     },
     {
       "@type": "Package",
@@ -3346,6 +2534,13 @@
     },
     {
       "@type": "Package",
+      "name": "zerofrom-derive",
+      "packageUrl": "pkg:cargo/zerofrom-derive@0.1.7",
+      "spdxId": "urn:spdx.dev:pkg-cargo-zerofrom-derive-0-1-7",
+      "versionInfo": "0.1.7"
+    },
+    {
+      "@type": "Package",
       "name": "zeroize",
       "packageUrl": "pkg:cargo/zeroize@1.9.0",
       "spdxId": "urn:spdx.dev:pkg-cargo-zeroize-1-9-0",
@@ -3353,10 +2548,59 @@
     },
     {
       "@type": "Package",
+      "name": "zerotrie",
+      "packageUrl": "pkg:cargo/zerotrie@0.2.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-zerotrie-0-2-5",
+      "versionInfo": "0.2.5"
+    },
+    {
+      "@type": "Package",
+      "name": "zerovec",
+      "packageUrl": "pkg:cargo/zerovec@0.11.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-zerovec-0-11-8",
+      "versionInfo": "0.11.8"
+    },
+    {
+      "@type": "Package",
+      "name": "zerovec-derive",
+      "packageUrl": "pkg:cargo/zerovec-derive@0.11.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-zerovec-derive-0-11-6",
+      "versionInfo": "0.11.6"
+    },
+    {
+      "@type": "Package",
       "name": "zmij",
       "packageUrl": "pkg:cargo/zmij@1.0.23",
       "spdxId": "urn:spdx.dev:pkg-cargo-zmij-1-0-23",
       "versionInfo": "1.0.23"
+    },
+    {
+      "@type": "Package",
+      "name": "arbitrary",
+      "packageUrl": "pkg:cargo/arbitrary@1.4.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-arbitrary-1-4-2",
+      "versionInfo": "1.4.2"
+    },
+    {
+      "@type": "Package",
+      "name": "jobserver",
+      "packageUrl": "pkg:cargo/jobserver@0.1.35",
+      "spdxId": "urn:spdx.dev:pkg-cargo-jobserver-0-1-35",
+      "versionInfo": "0.1.35"
+    },
+    {
+      "@type": "Package",
+      "name": "libfuzzer-sys",
+      "packageUrl": "pkg:cargo/libfuzzer-sys@0.4.13",
+      "spdxId": "urn:spdx.dev:pkg-cargo-libfuzzer-sys-0-4-13",
+      "versionInfo": "0.4.13"
+    },
+    {
+      "@type": "Package",
+      "name": "vlz-fuzz-cflite",
+      "packageUrl": "pkg:cargo/vlz-fuzz-cflite@0.0.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-fuzz-cflite-0-0-0",
+      "versionInfo": "0.0.0"
     }
   ],
   "relationship": [],
