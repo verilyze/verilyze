@@ -1815,11 +1815,11 @@
       "version": "2.0.119"
     },
     {
-      "bom-ref": "pkg:cargo/syn@3.0.3",
+      "bom-ref": "pkg:cargo/syn@3.0.4",
       "name": "syn",
-      "purl": "pkg:cargo/syn@3.0.3",
+      "purl": "pkg:cargo/syn@3.0.4",
       "type": "library",
-      "version": "3.0.3"
+      "version": "3.0.4"
     },
     {
       "bom-ref": "pkg:cargo/sync_wrapper@1.0.2",
@@ -2583,6 +2583,13 @@
       "purl": "pkg:cargo/libfuzzer-sys@0.4.13",
       "type": "library",
       "version": "0.4.13"
+    },
+    {
+      "bom-ref": "pkg:cargo/syn@3.0.3",
+      "name": "syn",
+      "purl": "pkg:cargo/syn@3.0.3",
+      "type": "library",
+      "version": "3.0.3"
     },
     {
       "bom-ref": "pkg:cargo/vlz-fuzz-cflite@0.0.0",

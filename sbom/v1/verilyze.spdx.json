@@ -1828,9 +1828,9 @@
     {
       "@type": "Package",
       "name": "syn",
-      "packageUrl": "pkg:cargo/syn@3.0.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-syn-3-0-3",
-      "versionInfo": "3.0.3"
+      "packageUrl": "pkg:cargo/syn@3.0.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-syn-3-0-4",
+      "versionInfo": "3.0.4"
     },
     {
       "@type": "Package",
@@ -2594,6 +2594,13 @@
       "packageUrl": "pkg:cargo/libfuzzer-sys@0.4.13",
       "spdxId": "urn:spdx.dev:pkg-cargo-libfuzzer-sys-0-4-13",
       "versionInfo": "0.4.13"
+    },
+    {
+      "@type": "Package",
+      "name": "syn",
+      "packageUrl": "pkg:cargo/syn@3.0.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-syn-3-0-3",
+      "versionInfo": "3.0.3"
     },
     {
       "@type": "Package",
