@@ -10,6 +10,25 @@ Human-readable release notes for each version.
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-08-24
+
+### Fixed
+
+- Java `pom.xml` parsing: UTF-8 panic in `line_number_at` (#439).
+- Java `pom_xml` resolver migrated to `quick-xml` 0.42.
+- Python plugin: inline `setup.py` syntax-error test fixture.
+- Bash completion passes `-F` to `complete` correctly.
+- SBOM regeneration drops stale `syn@3.0.3` after the 3.0.4 lockfile bump
+  (#450).
+- `deny.toml`: remove obsolete skip pins; harden skip-drop sync with CI.
+- `h2` dependency bump addresses RUSTSEC-2026-0258.
+- ClusterFuzzLite workflow pins aligned with upstream v1.
+- Coverage nightly AFL++ pin; benchmark gate quiet by default.
+
+### Changed
+
+- Rust toolchain 1.98.0; routine dependency and CI image updates.
+
 ## [0.9.0] - 2026-08-15
 
 ### Added
