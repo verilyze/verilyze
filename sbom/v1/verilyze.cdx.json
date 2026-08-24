@@ -1381,11 +1381,11 @@
       "version": "0.1.32"
     },
     {
-      "bom-ref": "pkg:cargo/quick-xml@0.41.0",
+      "bom-ref": "pkg:cargo/quick-xml@0.42.0",
       "name": "quick-xml",
-      "purl": "pkg:cargo/quick-xml@0.41.0",
+      "purl": "pkg:cargo/quick-xml@0.42.0",
       "type": "library",
-      "version": "0.41.0"
+      "version": "0.42.0"
     },
     {
       "bom-ref": "pkg:cargo/quote@1.0.47",
