@@ -2597,6 +2597,13 @@
     },
     {
       "@type": "Package",
+      "name": "syn",
+      "packageUrl": "pkg:cargo/syn@3.0.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-syn-3-0-3",
+      "versionInfo": "3.0.3"
+    },
+    {
+      "@type": "Package",
       "name": "vlz-fuzz-cflite",
       "packageUrl": "pkg:cargo/vlz-fuzz-cflite@0.0.0",
       "spdxId": "urn:spdx.dev:pkg-cargo-vlz-fuzz-cflite-0-0-0",
