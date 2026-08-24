@@ -1394,9 +1394,9 @@
     {
       "@type": "Package",
       "name": "quick-xml",
-      "packageUrl": "pkg:cargo/quick-xml@0.41.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-quick-xml-0-41-0",
-      "versionInfo": "0.41.0"
+      "packageUrl": "pkg:cargo/quick-xml@0.42.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-quick-xml-0-42-0",
+      "versionInfo": "0.42.0"
     },
     {
       "@type": "Package",

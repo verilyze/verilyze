@@ -5,7 +5,6 @@
 //! Parse Maven `pom.xml` with [`quick-xml`] (NFR-025: XML is incompatible with
 //! TOML/JSON; hand-rolled XML is impractical; quick-xml does not enable DTD/XXE).
 
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -25,14 +24,14 @@ pub const POM_MAX_DEPTH: u32 = 256;
 type ProjectCoords = (Option<String>, Option<String>, Option<String>);
 
 fn text_content(text: &quick_xml::events::BytesText<'_>) -> String {
-    text.decode().map(Cow::into_owned).unwrap_or_default()
+    text.as_ref().to_owned()
 }
 
 fn append_general_ref(
     buf: &mut String,
     reference: &quick_xml::events::BytesRef<'_>,
 ) {
-    let name = std::str::from_utf8(reference.as_ref()).unwrap_or("");
+    let name = reference.as_ref();
     match name {
         "amp" => buf.push('&'),
         "lt" => buf.push('<'),
@@ -191,8 +190,7 @@ fn parse_properties(
                         "pom.xml exceeds maximum nesting depth".into(),
                     ));
                 }
-                let name = String::from_utf8_lossy(e.local_name().as_ref())
-                    .into_owned();
+                let name = e.local_name().as_ref().to_string();
                 if name == "properties" {
                     in_properties = true;
                 } else if in_properties {
@@ -209,7 +207,7 @@ fn parse_properties(
             }
             Ok(Event::End(e)) => {
                 let local = e.local_name();
-                let name = std::str::from_utf8(local.as_ref()).unwrap_or("");
+                let name = local.as_ref();
                 if name == "properties" {
                     in_properties = false;
                 }
@@ -252,8 +250,7 @@ fn parse_project_coords(
                         "pom.xml exceeds maximum nesting depth".into(),
                     ));
                 }
-                let name = String::from_utf8_lossy(e.local_name().as_ref())
-                    .into_owned();
+                let name = e.local_name().as_ref().to_string();
                 if name == "project" {
                     in_project = true;
                 } else if in_project && depth <= 3 {
@@ -274,7 +271,7 @@ fn parse_project_coords(
                 }
             }
             Ok(Event::End(e)) => {
-                if e.local_name().as_ref() == b"project" {
+                if e.local_name().as_ref() == "project" {
                     in_project = false;
                 }
                 depth = depth.saturating_sub(1);
@@ -330,8 +327,7 @@ fn parse_dependencies_block(
                         "pom.xml exceeds maximum nesting depth".into(),
                     ));
                 }
-                let name = String::from_utf8_lossy(e.local_name().as_ref())
-                    .into_owned();
+                let name = e.local_name().as_ref().to_string();
                 if name == "dependencyManagement" {
                     in_dependency_management = true;
                 } else if name == "dependencies" && !in_dependency_management {
@@ -360,7 +356,7 @@ fn parse_dependencies_block(
             }
             Ok(Event::End(e)) => {
                 let local = e.local_name();
-                let name = std::str::from_utf8(local.as_ref()).unwrap_or("");
+                let name = local.as_ref();
                 if in_dependency
                     && let Some(field) = current_field.as_ref()
                     && name == field.as_str()

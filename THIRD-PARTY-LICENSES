@@ -233,7 +233,7 @@ COMPONENTS
 - memchr v2.8.3 (Unlicense OR MIT)
 - strsim v0.11.1 (MIT)
 - combine v4.6.7 (MIT)
-- quick-xml v0.41.0 (MIT)
+- quick-xml v0.42.0 (MIT)
 - unicode-ident v1.0.24 ((MIT OR Apache-2.0) AND Unicode-3.0)
 - icu_collections v2.3.0 (Unicode-3.0)
 - icu_locale_core v2.3.0 (Unicode-3.0)
