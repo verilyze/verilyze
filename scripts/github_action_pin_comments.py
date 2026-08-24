@@ -11,6 +11,10 @@ Digest pins must use the exact release tag (# v2.9.2) so nightly
 super-linter-full stays stable when newer tags appear. See CONTRIBUTING
 Renovate / super-linter section.
 
+Actions whose upstream publishes only a moving major tag (ClusterFuzzLite)
+require that tag instead (# v1). Renovate resolves digests against the real
+tag, so a missing or invented tag comment stops automatic digest bumps.
+
 Scans digest-pinned uses: lines under .github/workflows/ and examples/.
 Skips reusable workflow refs (action path contains /.github/workflows/)
 and non-SHA refs.
@@ -25,6 +29,13 @@ from pathlib import Path
 
 # Shared with tests: exact release tag form for digest pin comments.
 FULL_SEMVER_TAG_RE = re.compile(r"v\d+\.\d+\.\d+")
+
+# Tag form for actions that publish no full-semver release tag.
+MAJOR_TAG_RE = re.compile(r"v\d+")
+
+# ClusterFuzzLite ships a moving v1 tag only; pins carry # v1 plus
+# # zizmor: ignore[ref-version-mismatch].
+MOVING_MAJOR_TAG_ACTION_PREFIXES = ("google/clusterfuzzlite/",)
 
 _DIGEST_SHA = r"[a-f0-9]{40}"
 _USES_DIGEST_RE = re.compile(
@@ -69,6 +80,13 @@ def _comment_from_tail(tail: str) -> str | None:
     return body or None
 
 
+def _tag_requirement(action: str) -> tuple[re.Pattern[str], str]:
+    """Return the allowed tag pattern and its hint for one action."""
+    if action.startswith(MOVING_MAJOR_TAG_ACTION_PREFIXES):
+        return MAJOR_TAG_RE, "# vN"
+    return FULL_SEMVER_TAG_RE, "# vX.Y.Z"
+
+
 def find_pin_comment_issues(
     text: str, *, path: str
 ) -> list[PinCommentFinding]:
@@ -82,6 +100,7 @@ def find_pin_comment_issues(
         # Reusable workflow refs; comment policy differs (zizmor ignore).
         if "/.github/workflows/" in action:
             continue
+        allowed, hint = _tag_requirement(action)
         token = _version_token(_comment_from_tail(match.group("tail")))
         if token is None:
             findings.append(
@@ -89,20 +108,20 @@ def find_pin_comment_issues(
                     path=path,
                     line=line_no,
                     message=(
-                        "missing full-semver version comment "
-                        f"(# vX.Y.Z) on digest pin for {action}"
+                        f"missing release tag comment ({hint}) "
+                        f"on digest pin for {action}"
                     ),
                 )
             )
             continue
-        if FULL_SEMVER_TAG_RE.fullmatch(token) is None:
+        if allowed.fullmatch(token) is None:
             findings.append(
                 PinCommentFinding(
                     path=path,
                     line=line_no,
                     message=(
-                        f"version comment {token!r} must be full semver "
-                        f"(# vX.Y.Z), not major-only, for {action}"
+                        f"version comment {token!r} must be the upstream "
+                        f"release tag ({hint}) for {action}"
                     ),
                 )
             )
@@ -155,7 +174,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     print(
         "Error: GitHub Actions digest pins must use a full-semver trailing "
-        "comment (# vX.Y.Z), not major-only (# v2). "
+        "comment (# vX.Y.Z), not major-only (# v2). Actions that publish "
+        "only a moving major tag (ClusterFuzzLite) use that tag (# v1). "
         "See CONTRIBUTING Renovate / super-linter section.",
         file=sys.stderr,
     )

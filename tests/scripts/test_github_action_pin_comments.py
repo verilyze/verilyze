@@ -13,6 +13,8 @@ import pytest
 
 from scripts.github_action_pin_comments import (
     FULL_SEMVER_TAG_RE,
+    MAJOR_TAG_RE,
+    MOVING_MAJOR_TAG_ACTION_PREFIXES,
     check_pin_comments,
     find_pin_comment_issues,
     get_repo_root,
@@ -25,6 +27,9 @@ _ROOT = repo_root()
 _SHA_A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 _SHA_B = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 
+# Same prefix production uses, so a rename cannot silently skip these tests.
+_MOVING_TAG_ACTION = f"{MOVING_MAJOR_TAG_ACTION_PREFIXES[0]}actions/build_fuzzers"
+
 
 class TestFullSemverConstant:
     def test_accepts_v_x_y_z(self) -> None:
@@ -34,6 +39,16 @@ class TestFullSemverConstant:
     def test_rejects_major_or_major_minor(self) -> None:
         assert FULL_SEMVER_TAG_RE.fullmatch("v2") is None
         assert FULL_SEMVER_TAG_RE.fullmatch("v2.9") is None
+
+
+class TestMajorTagConstant:
+    def test_accepts_major_only(self) -> None:
+        assert MAJOR_TAG_RE.fullmatch("v1")
+        assert MAJOR_TAG_RE.fullmatch("v2")
+
+    def test_rejects_full_semver_and_non_tags(self) -> None:
+        assert MAJOR_TAG_RE.fullmatch("v1.0.0") is None
+        assert MAJOR_TAG_RE.fullmatch("main") is None
 
 
 class TestFindPinCommentIssues:
@@ -129,6 +144,43 @@ jobs:
       - uses: actions/checkout@v4
 """
         assert find_pin_comment_issues(text, path="ci.yml") == []
+
+    def test_clusterfuzzlite_major_only_comment_passes(self) -> None:
+        text = (
+            f"      - uses: {_MOVING_TAG_ACTION}@{_SHA_A}"
+            " # v1  # zizmor: ignore[ref-version-mismatch]\n"
+        )
+        assert find_pin_comment_issues(text, path="cflite_pr.yml") == []
+
+    def test_clusterfuzzlite_missing_comment_fails(self) -> None:
+        text = f"      - uses: {_MOVING_TAG_ACTION}@{_SHA_A}\n"
+        findings = find_pin_comment_issues(text, path="cflite_pr.yml")
+        assert len(findings) == 1
+        assert "missing" in findings[0].message.lower()
+        assert "# vN" in findings[0].message
+
+    def test_clusterfuzzlite_non_tag_comment_fails(self) -> None:
+        text = f"      - uses: {_MOVING_TAG_ACTION}@{_SHA_A} # latest\n"
+        findings = find_pin_comment_issues(text, path="cflite_pr.yml")
+        assert len(findings) == 1
+        assert "latest" in findings[0].message
+
+    def test_clusterfuzzlite_full_semver_comment_fails(self) -> None:
+        text = f"      - uses: {_MOVING_TAG_ACTION}@{_SHA_A} # v1.0.0\n"
+        findings = find_pin_comment_issues(text, path="cflite_pr.yml")
+        assert len(findings) == 1
+        assert "v1.0.0" in findings[0].message
+
+    def test_non_exempt_major_only_comment_still_fails(self) -> None:
+        text = f"""\
+jobs:
+  check:
+    steps:
+      - uses: actions/checkout@{_SHA_A} # v1
+"""
+        findings = find_pin_comment_issues(text, path="ci.yml")
+        assert len(findings) == 1
+        assert "v1" in findings[0].message
 
 
 class TestCheckPinComments:

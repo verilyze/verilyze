@@ -1285,7 +1285,10 @@ releases](#versioning-and-releases) below.
   `make super-linter-full` when a newer tag appears without a workflow change.
   **`make check-github-action-pin-comments`** (in **`make check-fast`**) fails
   when any digest pin under `.github/workflows/` or `examples/` lacks a full
-  `vX.Y.Z` comment. **Minor** and **patch** action updates are grouped into
+  `vX.Y.Z` comment. Actions that publish **only** a moving major tag
+  (**`google/clusterfuzzlite/`**) must instead carry that real tag (`# v1`), so
+  Renovate can resolve a digest; an invented `# v1.0.0` breaks digest lookups.
+  **Minor** and **patch** action updates are grouped into
   **one** PR; **major** upgrades stay in **separate** PRs.
   After **any** GitHub Actions update (any update type), **`postUpgradeTasks`**
   run **`bash scripts/renovate-post-upgrade-upload-sarif.sh`**
@@ -1662,8 +1665,11 @@ AFL++ with ClusterFuzzLite.
   third-party license, and SBOM gates do not cover `fuzz/Cargo.lock`; Trivy in
   Super-Linter still scans that lockfile.
 - **Action pins:** ClusterFuzzLite upstream publishes a moving `v1` tag only.
-  Workflows pin the action by commit SHA with a `# v1.0.0` label and
+  Workflows pin the action by commit SHA with a `# v1` label and
   `# zizmor: ignore[ref-version-mismatch]` (digest is the source of truth).
+  `make check-github-action-pin-comments` requires that real tag here rather
+  than full semver: Renovate looks the tag up to compute new digests, so an
+  invented `# v1.0.0` produces "Could not determine new digest for update".
 
 ## Test scope and layering
 
