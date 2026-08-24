@@ -2585,13 +2585,6 @@
       "version": "0.4.13"
     },
     {
-      "bom-ref": "pkg:cargo/syn@3.0.3",
-      "name": "syn",
-      "purl": "pkg:cargo/syn@3.0.3",
-      "type": "library",
-      "version": "3.0.3"
-    },
-    {
       "bom-ref": "pkg:cargo/vlz-fuzz-cflite@0.0.0",
       "name": "vlz-fuzz-cflite",
       "purl": "pkg:cargo/vlz-fuzz-cflite@0.0.0",
