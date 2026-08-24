@@ -176,7 +176,7 @@ COMPONENTS
 - simdutf8 v0.1.5 (MIT OR Apache-2.0)
 - siphasher v1.0.3 (MIT OR Apache-2.0)
 - syn v2.0.119 (MIT OR Apache-2.0)
-- syn v3.0.3 (MIT OR Apache-2.0)
+- syn v3.0.4 (MIT OR Apache-2.0)
 - sync_wrapper v1.0.2 (Apache-2.0)
 - thin-vec v0.2.19 (MIT OR Apache-2.0)
 - thiserror-impl v2.0.20 (MIT OR Apache-2.0)

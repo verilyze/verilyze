@@ -1828,9 +1828,9 @@
     {
       "@type": "Package",
       "name": "syn",
-      "packageUrl": "pkg:cargo/syn@3.0.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-syn-3-0-3",
-      "versionInfo": "3.0.3"
+      "packageUrl": "pkg:cargo/syn@3.0.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-syn-3-0-4",
+      "versionInfo": "3.0.4"
     },
     {
       "@type": "Package",
