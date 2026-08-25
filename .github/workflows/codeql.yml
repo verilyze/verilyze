@@ -6,6 +6,9 @@
 name: "CodeQL Advanced"
 
 on:
+  # Default-branch baseline for Security tab alerts; PR/merge_group are not a substitute.
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
   merge_group:
