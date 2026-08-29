@@ -38,7 +38,8 @@ def test_render_build_metadata_from_pyproject(tmp_path: Path) -> None:
     assert "line-length = 88" in rendered
     assert "default_copyright = 'Example Contributors'" in rendered
     assert "default_license = 'MIT'" in rendered
-    assert "SPDX-License-Identifier: GPL-3.0-or-later" in rendered
+    assert "SPDX-FileCopyrightText: 2026 Example Contributors" in rendered
+    assert "SPDX-License-Identifier: MIT" in rendered
 
 
 def test_render_build_metadata_defaults_when_tool_sections_missing(

@@ -11,19 +11,30 @@ import textwrap
 import tomllib
 from pathlib import Path
 
-HEADER = """\
-# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
-#
-# SPDX-License-Identifier: GPL-3.0-or-later
-
-# Crate-local build constants (mirrors pyproject.toml [tool.verilyze]).
-# Regenerate from repo root via: make sync-vlz-crate-assets
-"""
+_DEFAULT_COPYRIGHT = "The verilyze contributors"
+_DEFAULT_LICENSE = "GPL-3.0-or-later"
+# REUSE-IgnoreStart -- tags used only when writing generated TOML
+_SPDX_COPYRIGHT_TAG = "SPDX-FileCopyrightText"
+_SPDX_LICENSE_TAG = "SPDX-License-Identifier"
+# REUSE-IgnoreEnd
 
 
 def get_repo_root() -> Path:
     """Return repository root (parent of scripts/)."""
     return Path(__file__).resolve().parent.parent
+
+
+def _spdx_header(copyright_holder: str, license_id: str) -> str:
+    """Render SPDX header for generated build-metadata.toml."""
+    return (
+        f"# {_SPDX_COPYRIGHT_TAG}: 2026 {copyright_holder}\n"
+        "#\n"
+        f"# {_SPDX_LICENSE_TAG}: {license_id}\n"
+        "\n"
+        "# Crate-local build constants (mirrors pyproject.toml "
+        "[tool.verilyze]).\n"
+        "# Regenerate from repo root via: make sync-vlz-crate-assets\n"
+    )
 
 
 def render_build_metadata(pyproject: Path) -> str:
@@ -38,13 +49,12 @@ def render_build_metadata(pyproject: Path) -> str:
     else:
         line_length = 79
     if isinstance(headers, dict):
-        spdx_copyright = headers.get(
-            "default_copyright", "The verilyze contributors"
-        )
-        license_id = headers.get("default_license", "GPL-3.0-or-later")
+        spdx_copyright = headers.get("default_copyright", _DEFAULT_COPYRIGHT)
+        license_id = headers.get("default_license", _DEFAULT_LICENSE)
     else:
-        spdx_copyright = "The verilyze contributors"
-        license_id = "GPL-3.0-or-later"
+        spdx_copyright = _DEFAULT_COPYRIGHT
+        license_id = _DEFAULT_LICENSE
+    header = _spdx_header(str(spdx_copyright), str(license_id))
     body = textwrap.dedent(f"""\
         [tool.verilyze]
         line-length = {int(line_length)}
@@ -53,7 +63,7 @@ def render_build_metadata(pyproject: Path) -> str:
         default_copyright = {spdx_copyright!r}
         default_license = {license_id!r}
         """)
-    return f"{HEADER}\n{body}"
+    return f"{header}\n{body}"
 
 
 def main(argv: list[str] | None = None) -> int:
