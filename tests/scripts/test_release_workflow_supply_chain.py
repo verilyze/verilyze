@@ -366,3 +366,15 @@ def test_publish_release_sets_repo_without_checkout() -> None:
     assert "actions/checkout@" not in block
     assert 'gh release edit "${TAG}" --repo "${GITHUB_REPOSITORY}" --draft=false' in block
 
+
+def test_publish_crates_supports_trusted_publishing_or_token() -> None:
+    workflow = _release_workflow_text()
+    block = _job_block(workflow, "publish-crates")
+    assert "id-token: write" in block
+    assert "rust-lang/crates-io-auth-action@" in block
+    assert "steps.crates-io-auth.outputs.token" in block
+    assert "secrets.CARGO_REGISTRY_TOKEN" in block
+    assert "cargo-publish-release.sh" in block
+    auth_idx = block.index("crates-io-auth-action@")
+    publish_idx = block.index("cargo-publish-release.sh")
+    assert auth_idx < publish_idx

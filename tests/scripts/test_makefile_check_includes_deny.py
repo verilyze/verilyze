@@ -72,7 +72,19 @@ def test_check_fast_includes_github_action_pin_comments() -> None:
     )
 
 
-def test_check_fast_includes_fuzz_target_parity() -> None:
+def test_check_config_docs_checks_vlz_crate_assets() -> None:
+    text = (repo_root() / "Makefile").read_text(encoding="utf-8")
+    match = re.search(
+        r"^check-config-docs:.*?(?=\n\S|\Z)",
+        text,
+        re.MULTILINE | re.DOTALL,
+    )
+    assert match is not None, "Makefile missing check-config-docs target"
+    recipe = match.group(0)
+    assert "sync-vlz-crate-assets.sh --check" in recipe, (
+        "check-config-docs must verify crates/core/vlz/assets stay in sync "
+        "with scripts/config-comments.toml and man/vlz.1"
+    )
     text = (repo_root() / "Makefile").read_text(encoding="utf-8")
     block = _extract_prerequisite_block(text, "check-fast-parallel")
     tokens = block.replace("\\", " ").split()

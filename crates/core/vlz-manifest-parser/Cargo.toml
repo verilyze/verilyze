@@ -7,13 +7,19 @@ name = "vlz-manifest-parser"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Trait for parsing manifests into a dependency graph"
-publish = false
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+description = "Manifest parsing trait for the verilyze SCA tool"
 
 [dependencies]
 async-trait.workspace = true
 thiserror.workspace = true
-vlz-db = { path = "../vlz-db" }   # re‑uses the Package struct
+vlz-db.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt", "macros"] }

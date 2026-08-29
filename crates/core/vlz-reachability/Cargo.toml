@@ -7,15 +7,21 @@ name = "vlz-reachability"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+rust-version.workspace = true
 description = "Tier B import-based reachability hints for verilyze (FR-032)"
-publish = false
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
-vlz-db = { path = "../vlz-db" }
-vlz-cve-client = { path = "../vlz-cve-client" }
-vlz-reachability-trait = { path = "../vlz-reachability-trait" }
+vlz-db.workspace = true
+vlz-cve-client.workspace = true
+vlz-reachability-trait.workspace = true
 
 [features]
 perf-instrumentation = ["vlz-reachability-trait/perf-instrumentation"]

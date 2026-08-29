@@ -13,6 +13,7 @@ Run from repository root:
 Updates:
   packaging/alpine/APKBUILD   pkgver=
   packaging/arch/PKGBUILD    pkgver=
+  Cargo.toml                 [workspace.dependencies] vlz-* version=
 
 RPM spec and Docker get version via Makefile at build time.
 cargo-deb and cargo-aur read Cargo.toml directly.
@@ -65,6 +66,20 @@ def update_pkgbuild(content: str, version: str) -> str:
     )
 
 
+def update_workspace_internal_dep_versions(content: str, version: str) -> str:
+    """Set version = \"<version>\" on internal vlz-* workspace dependencies."""
+    lines: list[str] = []
+    for line in content.splitlines():
+        if re.match(r"^vlz-", line) and "version" in line:
+            line = re.sub(
+                r'version = "[^"]*"',
+                f'version = "{version}"',
+                line,
+            )
+        lines.append(line)
+    return "\n".join(lines) + "\n"
+
+
 def main() -> int:
     """Entry point."""
     parser = argparse.ArgumentParser(
@@ -93,15 +108,18 @@ def main() -> int:
         return 1
 
     version = get_version(cargo_toml)
+    cargo_content = cargo_toml.read_text(encoding="utf-8")
     apkbuild_content = apkbuild_path.read_text(encoding="utf-8")
     pkgbuild_content = pkgbuild_path.read_text(encoding="utf-8")
 
+    new_cargo = update_workspace_internal_dep_versions(cargo_content, version)
     new_apkbuild = update_apkbuild(apkbuild_content, version)
     new_pkgbuild = update_pkgbuild(pkgbuild_content, version)
 
     if args.check:
         out_of_sync = (
-            apkbuild_content != new_apkbuild
+            cargo_content != new_cargo
+            or apkbuild_content != new_apkbuild
             or pkgbuild_content != new_pkgbuild
         )
         if out_of_sync:
@@ -115,6 +133,7 @@ def main() -> int:
 
     apkbuild_path.write_text(new_apkbuild, encoding="utf-8")
     pkgbuild_path.write_text(new_pkgbuild, encoding="utf-8")
+    cargo_toml.write_text(new_cargo, encoding="utf-8")
     return 0
 
 

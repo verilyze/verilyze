@@ -7,7 +7,7 @@ use std::fs;
 use std::path::PathBuf;
 
 #[derive(serde::Deserialize)]
-struct PyProject {
+struct BuildMetadata {
     tool: Option<Tool>,
 }
 
@@ -36,9 +36,9 @@ fn main() {
     const DEFAULT_LICENSE: &str = "GPL-3.0-or-later";
 
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let pyproject = manifest_dir.join("../../../pyproject.toml");
-    let content = fs::read_to_string(&pyproject).unwrap_or_default();
-    let parsed = toml::from_str::<PyProject>(&content).ok();
+    let metadata_path = manifest_dir.join("build-metadata.toml");
+    let content = fs::read_to_string(&metadata_path).unwrap_or_default();
+    let parsed = toml::from_str::<BuildMetadata>(&content).ok();
     let line_length: u64 = parsed
         .as_ref()
         .and_then(|p| p.tool.as_ref())
@@ -71,11 +71,11 @@ fn main() {
     let constants_path = out_dir.join("constants.rs");
     fs::write(constants_path, constants).unwrap();
 
-    let man_src = manifest_dir.join("../../../man/vlz.1");
+    let man_src = manifest_dir.join("assets/vlz.1");
     let man_dst = out_dir.join("embedded_vlz.1");
     let man_content = fs::read_to_string(man_src).unwrap_or_default();
     fs::write(man_dst, man_content).unwrap();
 
-    println!("cargo:rerun-if-changed=../../../pyproject.toml");
-    println!("cargo:rerun-if-changed=../../../man/vlz.1");
+    println!("cargo:rerun-if-changed=build-metadata.toml");
+    println!("cargo:rerun-if-changed=assets/vlz.1");
 }

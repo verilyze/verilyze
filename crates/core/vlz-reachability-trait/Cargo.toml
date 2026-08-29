@@ -7,11 +7,17 @@ name = "vlz-reachability-trait"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Trait contracts and shared types for Tier B reachability analyzers"
-publish = false
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+description = "Reachability analyzer trait contracts for the verilyze SCA tool"
 
 [dependencies]
-vlz-db = { path = "../vlz-db" }
+vlz-db.workspace = true
 
 [features]
 perf-instrumentation = []

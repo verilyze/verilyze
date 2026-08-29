@@ -101,6 +101,22 @@ class TestUpdatePkgbuild:
         assert result.count("pkgver=1.0.0") == 1
 
 
+class TestUpdateWorkspaceInternalDepVersions:
+    """Tests for update_workspace_internal_dep_versions."""
+
+    def test_updates_vlz_workspace_dependency_versions(self) -> None:
+        content = (
+            'vlz-db = { path = "crates/core/vlz-db", version = "0.1.0" }\n'
+            'async-trait = "0.1"\n'
+        )
+        result = generate_packaging_versions.update_workspace_internal_dep_versions(
+            content, "0.9.2"
+        )
+        assert 'version = "0.9.2"' in result
+        assert 'version = "0.1.0"' not in result
+        assert 'async-trait = "0.1"' in result
+
+
 class TestMain:
     """Tests for main."""
 

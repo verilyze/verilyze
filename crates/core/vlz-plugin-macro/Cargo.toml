@@ -7,8 +7,14 @@ name = "vlz-plugin-macro"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Procedural macro used by plug‑in crates to register themselves"
-publish = false
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+description = "Procedural macro used by verilyze plugins to register themselves"
 
 [lib]
 proc-macro = true

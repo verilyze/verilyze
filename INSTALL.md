@@ -11,14 +11,33 @@ Choose an install path, then follow the linked section. For development setup
 
 | Method | When to use | Details |
 |--------|-------------|---------|
+| **`cargo install vlz`** | Install the CLI from [crates.io](https://crates.io/crates/vlz) | [Cargo install](#cargo-install-from-cratesio) |
 | **Platform archive** | Manual install of a tagged release (`vlz` / `vlz.exe`) | [docs/install-archive.md](docs/install-archive.md) |
 | **`.deb` / RPM** | Debian/Ubuntu or Fedora/RHEL-style package installs | [Packaging](#packaging-from-this-tree-op-013) |
 | **Container (GHCR)** | Run without installing a host binary | [Container image](#container-image) |
 | **`make install`** | Build from a clone into `PREFIX` (default `/usr/local`) | [`make install`](#make-install-prefix-layout) |
-| **Cargo / source** | Development builds | [Cargo install](#cargo-install-from-a-clone) |
+| **Cargo / source** | Development builds from a clone | [Cargo install from a clone](#cargo-install-from-a-clone) |
 
-[crates.io](https://crates.io/) packages and third-party distro/community
-repository publication are not included in this release scope.
+## Cargo install from crates.io
+
+Install the published `vlz` binary (default features: all language plugins,
+RedB cache, shell completions, embedded man page help):
+
+```bash
+cargo install vlz --locked
+```
+
+Ensure `~/.cargo/bin` is on your `PATH`. Use `--features nvd` (and optional
+`github`, `sonatype`) when you need providers beyond the default OSV client.
+Minimal builds:
+
+```bash
+cargo install vlz --locked --no-default-features --features runtime,completions,docs
+```
+
+Requires a [Rust toolchain](https://rustup.rs/) compatible with the crate
+edition. Tagged releases publish all workspace crates to crates.io in dependency
+order via `.github/workflows/release.yml`.
 
 ## GitHub Release assets
 

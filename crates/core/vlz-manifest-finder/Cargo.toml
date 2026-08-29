@@ -7,8 +7,14 @@ name = "vlz-manifest-finder"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Trait and stub implementations for discovering manifest files"
-publish = false
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+description = "Manifest discovery trait for the verilyze SCA tool"
 
 [dependencies]
 async-trait.workspace = true

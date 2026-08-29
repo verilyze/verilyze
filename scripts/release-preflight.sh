@@ -28,6 +28,8 @@ fi
 make check-obs-packaging
 make check-packaging
 
+./scripts/check-crates-publish.sh --manifest-only
+
 ./scripts/release-verify-upload-roundtrip.sh
 
 cat <<EOF

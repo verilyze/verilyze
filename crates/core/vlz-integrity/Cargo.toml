@@ -7,14 +7,20 @@ name = "vlz-integrity"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Optional integrity‑checking plug‑ins (SHA‑256, FIPS‑204, …)"
-publish = false
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+description = "Optional integrity-checking plugins for verilyze (SHA-256, FIPS-204)"
 
 [dependencies]
 async-trait.workspace = true
 thiserror.workspace = true
-vlz-db = { path = "../vlz-db" }   # uses DatabaseBackend trait
-sha2.workspace = true                    # SHA‑256 implementation (default)
+vlz-db.workspace = true
+sha2.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

@@ -7,8 +7,14 @@ name = "vlz"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+rust-version.workspace = true
 description = "verilyze - fast, modular SCA command-line tool"
-publish = false               # internal binary, not published to crates.io
 
 [lib]
 name = "vlz"
@@ -17,6 +23,11 @@ path = "src/lib.rs"
 [[bin]]
 name = "vlz"
 path = "src/main.rs"
+
+[[bin]]
+name = "vlz-manpage-gen"
+path = "src/bin/vlz-manpage-gen.rs"
+required-features = ["manpage-gen"]
 
 [dependencies]
 # Core utilities
@@ -33,33 +44,33 @@ serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 thiserror.workspace = true
 
-# Workspace‑internal trait crates (core siblings)
-vlz-db = { path = "../vlz-db" }
-vlz-manifest-finder = { path = "../vlz-manifest-finder" }
-vlz-manifest-parser = { path = "../vlz-manifest-parser" }
-vlz-reachability-trait = { path = "../vlz-reachability-trait" }
-vlz-reachability = { path = "../vlz-reachability" }
-vlz-cve-client = { path = "../vlz-cve-client" }
-vlz-report = { path = "../vlz-report" }
-vlz-integrity = { path = "../vlz-integrity" }
-vlz-plugin-macro = { path = "../vlz-plugin-macro" }
+# Workspace-internal trait crates (core siblings)
+vlz-db.workspace = true
+vlz-manifest-finder.workspace = true
+vlz-manifest-parser.workspace = true
+vlz-reachability-trait.workspace = true
+vlz-reachability.workspace = true
+vlz-cve-client.workspace = true
+vlz-report.workspace = true
+vlz-integrity.workspace = true
+vlz-plugin-macro.workspace = true
 
 # Language plugins
-vlz-python = { path = "../../languages/vlz-python", optional = true }
-vlz-rust = { path = "../../languages/vlz-rust", optional = true }
-vlz-go = { path = "../../languages/vlz-go", optional = true }
-vlz-javascript = { path = "../../languages/vlz-javascript", optional = true }
-vlz-java = { path = "../../languages/vlz-java", optional = true }
-vlz-ruby = { path = "../../languages/vlz-ruby", optional = true }
+vlz-python = { workspace = true, optional = true }
+vlz-rust = { workspace = true, optional = true }
+vlz-go = { workspace = true, optional = true }
+vlz-javascript = { workspace = true, optional = true }
+vlz-java = { workspace = true, optional = true }
+vlz-ruby = { workspace = true, optional = true }
 
 # CVE providers (optional)
-vlz-cve-provider-nvd = { path = "../../providers/vlz-cve-provider-nvd", optional = true }
-vlz-cve-provider-github = { path = "../../providers/vlz-cve-provider-github", optional = true }
-vlz-cve-provider-sonatype = { path = "../../providers/vlz-cve-provider-sonatype", optional = true }
+vlz-cve-provider-nvd = { workspace = true, optional = true }
+vlz-cve-provider-github = { workspace = true, optional = true }
+vlz-cve-provider-sonatype = { workspace = true, optional = true }
 
-# Default database implementation (feature‑gated)
-vlz-db-redb = { path = "../../db-backends/vlz-db-redb", optional = true }
-vlz-db-mem = { path = "../../db-backends/vlz-db-mem", optional = true }
+# Default database implementation (feature-gated)
+vlz-db-redb = { workspace = true, optional = true }
+vlz-db-mem = { workspace = true, optional = true }
 
 # For mock implementations (feature = "testing")
 async-trait = { workspace = true, optional = true }
@@ -100,6 +111,7 @@ runtime = ["redb", "python", "rust", "go", "javascript", "java", "ruby"]
 runtime-mem = ["mem", "python", "rust", "go", "javascript", "java", "ruby"]
 default = ["runtime", "completions", "docs"]
 docs = []           # Man page via vlz help; omit for minimal binary
+manpage-gen = []    # Maintainer-only vlz-manpage-gen binary (not installed by default)
 completions = ["dep:clap_complete"]
 docker = ["runtime-mem"]
 redb = ["dep:vlz-db-redb"]
