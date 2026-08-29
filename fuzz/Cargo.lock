@@ -297,9 +297,9 @@ checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
 
 [[package]]
 name = "combine"
-version = "4.6.7"
+version = "4.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba5a308b75df32fe02788e748662718f03fde005016435c444eea572398219fd"
+checksum = "cfc320937d09e6de266b31b9afb480f197d7a861be86be7cb2ea7e5d1bfffc5e"
 dependencies = [
  "bytes",
  "memchr",
@@ -352,9 +352,9 @@ checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
 
 [[package]]
 name = "cpufeatures"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b2a41393f66f16b0823bb79094d54ac5fbd34ab292ddafb9a0456ac9f87d201"
+checksum = "5ca28b0ae3115b884660db4118d803791fd6756b6e88f39c0f3f7859060d7566"
 dependencies = [
  "libc",
 ]
@@ -728,9 +728,9 @@ dependencies = [
 
 [[package]]
 name = "hyper"
-version = "1.11.0"
+version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d22053281f852e11534f5198498373cbb59295120a20771d90f7ed1897490a72"
+checksum = "27b501faa50e7a26c3d3560ca625132f4078a17771f4810baf70475ae48cbe43"
 dependencies = [
  "atomic-waker",
  "bytes",
@@ -892,9 +892,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.14.0"
+version = "2.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d466e9454f08e4a911e14806c24e16fba1b4c121d1ea474396f396069cf949d9"
+checksum = "07aa2048142242915a31d35844fb311e0e53fcca590c3a0a40dcf1b841fa09eb"
 dependencies = [
  "equivalent",
  "hashbrown",
@@ -1163,9 +1163,9 @@ checksum = "7c87def4c32ab89d880effc9e097653c8da5d6ef28e6b539d313baaacfbafcbe"
 
 [[package]]
 name = "ordermap"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f7476a5b122ff1fce7208e7ee9dccd0a516e835f5b8b19b8f3c98a34cf757c1"
+checksum = "b1288aecc871a8edf4d48083fb911efe2716700ba47bee1854c03466ff3627de"
 dependencies = [
  "indexmap",
 ]
@@ -1355,9 +1355,9 @@ checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 
 [[package]]
 name = "rand"
-version = "0.8.7"
+version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22f6172bdec972074665ed81ed53b71da00bfc44b65a753cfde883ec4c702a1a"
+checksum = "e058c7de0b26af77780c769414d6257830bb240f3c38477dbc2c16e5f54d6d4c"
 dependencies = [
  "libc",
  "rand_chacha",
@@ -1489,9 +1489,9 @@ checksum = "323c417e1d9665a65b263ec744ba09030cfb277e9daa0b018a4ab62e57bc8189"
 
 [[package]]
 name = "ruff_python_ast"
-version = "0.0.10"
+version = "0.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "439b17073024a8fd1a420987e2f11721930120f74a5a995dc86ef8df2c442a07"
+checksum = "ac3b71594172c232139cdc90e2122adb3d66b45269152f39f3ae4b530543882f"
 dependencies = [
  "aho-corasick",
  "arrayvec",
@@ -1511,9 +1511,9 @@ dependencies = [
 
 [[package]]
 name = "ruff_python_parser"
-version = "0.0.10"
+version = "0.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4938de7992b53ea16070ee180eddba74431e2219578444b75a7689f6b27fa2a"
+checksum = "2c594645c2b92e988ea74dd8b90f9156b93e37212f2e01151990590b406d2b34"
 dependencies = [
  "bitflags 2.13.1",
  "bstr",
@@ -1534,9 +1534,9 @@ dependencies = [
 
 [[package]]
 name = "ruff_python_trivia"
-version = "0.0.10"
+version = "0.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16eef02a116ba556c4492a3c1c00fd0413e8df2e9d96b81d13df686effcd5f4d"
+checksum = "02da0941bb4529c5a4f393f1d7e04421f582ae2d9992df4d9ccb05f6dba820b5"
 dependencies = [
  "itertools",
  "ruff_source_file",
@@ -1547,9 +1547,9 @@ dependencies = [
 
 [[package]]
 name = "ruff_source_file"
-version = "0.0.10"
+version = "0.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a79181d6bc7477e06fb3aefdd618622b7ff5e6d99f8e829610172ab161a30275"
+checksum = "8908271a26103a142c97f752662458c54554782f74f23d9e123b5a46f555c73d"
 dependencies = [
  "memchr",
  "ruff_text_size",
@@ -1557,9 +1557,9 @@ dependencies = [
 
 [[package]]
 name = "ruff_text_size"
-version = "0.0.10"
+version = "0.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80cdd98100ecff240f6a3f67d162726e13e92cfe60ef8f1b3c57c8fcb18e52f7"
+checksum = "e4c87ba4fa867d5a413a6282f5cdaa89d2c347c57b8f01db658440c82866c4bb"
 dependencies = [
  "get-size2",
 ]
@@ -2276,7 +2276,7 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "vlz"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -2311,7 +2311,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-cve-client"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "async-trait",
  "cvssrust",
@@ -2328,7 +2328,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-db"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "async-trait",
  "rustix",
@@ -2339,7 +2339,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-db-redb"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "async-trait",
  "redb",
@@ -2366,7 +2366,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-go"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "async-trait",
  "regex",
@@ -2380,7 +2380,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-integrity"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "async-trait",
  "sha2",
@@ -2390,7 +2390,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-java"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "async-trait",
  "quick-xml",
@@ -2407,7 +2407,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-javascript"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "async-trait",
  "regex",
@@ -2425,7 +2425,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-manifest-finder"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "async-trait",
  "thiserror",
@@ -2433,7 +2433,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-manifest-parser"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "async-trait",
  "thiserror",
@@ -2442,7 +2442,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-plugin-macro"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2451,7 +2451,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-python"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "async-trait",
  "regex",
@@ -2472,7 +2472,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-reachability"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -2483,14 +2483,14 @@ dependencies = [
 
 [[package]]
 name = "vlz-reachability-trait"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "vlz-db",
 ]
 
 [[package]]
 name = "vlz-report"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "async-trait",
  "serde",
@@ -2501,7 +2501,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-ruby"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "async-trait",
  "regex",
@@ -2516,7 +2516,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-rust"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "async-trait",
  "regex",
