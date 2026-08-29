@@ -226,7 +226,7 @@ jobs:
       contents: read
       actions: write
     container:
-      image: fedora:45
+      image: fedora:46
     steps:
       # Git must exist before actions/checkout so the clone uses a real .git
       # tree (not the REST API tarball). make rpm runs git archive on HEAD.
