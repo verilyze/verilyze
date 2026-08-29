@@ -1450,9 +1450,9 @@
     {
       "@type": "Package",
       "name": "rcgen",
-      "packageUrl": "pkg:cargo/rcgen@0.14.9",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rcgen-0-14-9",
-      "versionInfo": "0.14.9"
+      "packageUrl": "pkg:cargo/rcgen@0.14.10",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rcgen-0-14-10",
+      "versionInfo": "0.14.10"
     },
     {
       "@type": "Package",
@@ -1513,37 +1513,37 @@
     {
       "@type": "Package",
       "name": "ruff_python_ast",
-      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.10",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-10",
-      "versionInfo": "0.0.10"
+      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.11",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-11",
+      "versionInfo": "0.0.11"
     },
     {
       "@type": "Package",
       "name": "ruff_python_parser",
-      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.10",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-10",
-      "versionInfo": "0.0.10"
+      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.11",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-11",
+      "versionInfo": "0.0.11"
     },
     {
       "@type": "Package",
       "name": "ruff_python_trivia",
-      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.10",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-10",
-      "versionInfo": "0.0.10"
+      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.11",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-11",
+      "versionInfo": "0.0.11"
     },
     {
       "@type": "Package",
       "name": "ruff_source_file",
-      "packageUrl": "pkg:cargo/ruff_source_file@0.0.10",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-10",
-      "versionInfo": "0.0.10"
+      "packageUrl": "pkg:cargo/ruff_source_file@0.0.11",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-11",
+      "versionInfo": "0.0.11"
     },
     {
       "@type": "Package",
       "name": "ruff_text_size",
-      "packageUrl": "pkg:cargo/ruff_text_size@0.0.10",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-10",
-      "versionInfo": "0.0.10"
+      "packageUrl": "pkg:cargo/ruff_text_size@0.0.11",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-11",
+      "versionInfo": "0.0.11"
     },
     {
       "@type": "Package",
@@ -2594,6 +2594,41 @@
       "packageUrl": "pkg:cargo/libfuzzer-sys@0.4.13",
       "spdxId": "urn:spdx.dev:pkg-cargo-libfuzzer-sys-0-4-13",
       "versionInfo": "0.4.13"
+    },
+    {
+      "@type": "Package",
+      "name": "ruff_python_ast",
+      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.10",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-10",
+      "versionInfo": "0.0.10"
+    },
+    {
+      "@type": "Package",
+      "name": "ruff_python_parser",
+      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.10",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-10",
+      "versionInfo": "0.0.10"
+    },
+    {
+      "@type": "Package",
+      "name": "ruff_python_trivia",
+      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.10",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-10",
+      "versionInfo": "0.0.10"
+    },
+    {
+      "@type": "Package",
+      "name": "ruff_source_file",
+      "packageUrl": "pkg:cargo/ruff_source_file@0.0.10",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-10",
+      "versionInfo": "0.0.10"
+    },
+    {
+      "@type": "Package",
+      "name": "ruff_text_size",
+      "packageUrl": "pkg:cargo/ruff_text_size@0.0.10",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-10",
+      "versionInfo": "0.0.10"
     },
     {
       "@type": "Package",
