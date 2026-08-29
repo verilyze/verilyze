@@ -53,8 +53,23 @@ fn render_with_generated_spdx_header(content: &str) -> String {
     out
 }
 
+fn resolve_manpage_source(
+    manifest_dir: &std::path::Path,
+) -> std::path::PathBuf {
+    // Workspace source of truth is man/vlz.1; assets/ is a publishable copy.
+    let workspace_man = manifest_dir.join("../../../man/vlz.1");
+    if workspace_man.is_file() {
+        workspace_man
+    } else {
+        manifest_dir.join("assets/vlz.1")
+    }
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let content = std::fs::read_to_string("man/vlz.1")?;
+    let manifest_dir =
+        std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?);
+    let content =
+        std::fs::read_to_string(resolve_manpage_source(&manifest_dir))?;
     let rendered = render_with_generated_spdx_header(content.as_str());
     let mut stdout = std::io::stdout().lock();
     stdout.write_all(rendered.as_bytes())?;
@@ -183,5 +198,36 @@ mod tests {
         assert!(rendered.contains(MANPAGE_SPDX_COPYRIGHT));
         assert!(rendered.contains(MANPAGE_SPDX_LICENSE));
         assert!(rendered.ends_with(input));
+    }
+
+    #[test]
+    fn resolve_manpage_source_prefers_workspace_man() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let manifest_dir = tmp.path().join("crates/core/vlz");
+        let man_dir = tmp.path().join("man");
+        let assets_dir = manifest_dir.join("assets");
+        std::fs::create_dir_all(&man_dir).expect("man dir");
+        std::fs::create_dir_all(&assets_dir).expect("assets dir");
+        std::fs::write(man_dir.join("vlz.1"), "workspace man").expect("man");
+        std::fs::write(assets_dir.join("vlz.1"), "stale assets")
+            .expect("assets");
+
+        let resolved = resolve_manpage_source(&manifest_dir);
+        let content = std::fs::read_to_string(&resolved).expect("read");
+        assert_eq!(content, "workspace man");
+    }
+
+    #[test]
+    fn resolve_manpage_source_falls_back_to_assets() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let manifest_dir = tmp.path().join("crates/core/vlz");
+        let assets_dir = manifest_dir.join("assets");
+        std::fs::create_dir_all(&assets_dir).expect("assets dir");
+        std::fs::write(assets_dir.join("vlz.1"), "packaged assets")
+            .expect("assets");
+
+        let resolved = resolve_manpage_source(&manifest_dir);
+        let content = std::fs::read_to_string(&resolved).expect("read");
+        assert_eq!(content, "packaged assets");
     }
 }

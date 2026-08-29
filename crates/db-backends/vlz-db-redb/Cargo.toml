@@ -7,19 +7,25 @@ name = "vlz-db-redb"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "RedB‑backed implementation of the DatabaseBackend trait"
-publish = false
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+description = "RedB-backed CVE cache backend for the verilyze SCA tool"
 
 [dependencies]
 async-trait.workspace = true
 redb = "4"
-vlz-cve-client = { path = "../../core/vlz-cve-client" }
-vlz-db = { path = "../../core/vlz-db" }
-sha2.workspace = true          # for SEC‑004 integrity verification
+vlz-cve-client.workspace = true
+vlz-db.workspace = true
+sha2.workspace = true
 serde = { workspace = true, features = ["derive"] }
-serde_json.workspace = true     # for serialising cache entries to table values
+serde_json.workspace = true
 
 [dev-dependencies]
-vlz-db = { path = "../../core/vlz-db" }
+vlz-db.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["rt", "macros"] }

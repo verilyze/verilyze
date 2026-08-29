@@ -53,6 +53,7 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: generate-completions completions completions-release check-completions
 .PHONY: generate-packaging check-packaging check-obs-signing
 .PHONY: release-preflight release-verify-upload release-tag-push release-tag-move
+.PHONY: sync-vlz-crate-assets check-crates-publish
 .PHONY: sync-rpm-specs check-rpm-spec-sync
 .PHONY: check-obs-packaging check-super-linter-native obs-upload-dry-run
 .PHONY: sync-license-config check-license-config sync-deny-skips check-deny-skips deny-check
@@ -108,6 +109,8 @@ help:
 	@echo "    make check-completions   - Verify completions are in sync"
 	@echo "    make generate-packaging  - Update packaging specs with version from Cargo.toml"
 	@echo "    make release-preflight  - CHANGELOG, OBS, packaging, upload round-trip"
+	@echo "    make check-crates-publish - crates.io manifest/package validation"
+	@echo "    make sync-vlz-crate-assets - Sync vlz crate assets for crates.io"
 	@echo "    make release-tag-push TAG=vX.Y.Z - Signed tag + push tag only"
 	@echo "    make release-tag-move TAG=vX.Y.Z - Retarget signed tag (draft only)"
 	@echo "    make check-packaging     - Verify packaging versions are in sync"
@@ -445,16 +448,17 @@ generate-config-example: debug $(VENV_TEST)/bin/pytest
 # Use a unique temp file so parallel make jobs do not race.
 generate-manpages:
 	@cd "$(MKFILE_DIR)" && TMP_MANPAGE="$$(mktemp man/vlz.1.tmp.XXXXXX)" && \
-		cargo run -q -p vlz --bin vlz-manpage-gen > "$$TMP_MANPAGE" && \
+		cargo run -q -p vlz --bin vlz-manpage-gen --features manpage-gen > "$$TMP_MANPAGE" && \
 		mv "$$TMP_MANPAGE" man/vlz.1
+	@$(MAKE) sync-vlz-crate-assets
 
 # check-manpages: verify CLI man page is in sync (CI/local).
 check-manpages: generate-manpages
 	@$(MAKE_RUN_LEAF) check-manpages -- bash -c 'cd "$(MKFILE_DIR)" && git diff --exit-code man/vlz.1 || (echo "man/vlz.1 is out of sync. Run: make generate-manpages" && exit 1)'
 
-# check-config-docs: verify config docs are in sync (CI)
+# check-config-docs: verify config docs and published vlz assets are in sync (CI)
 check-config-docs: debug $(VENV_TEST)/bin/pytest
-	@$(MAKE_RUN_LEAF) check-config-docs -- "$(VENV_TEST)/bin/python" "$(SCRIPTS_DIR)/generate_config_example.py" --check
+	@$(MAKE_RUN_LEAF) check-config-docs -- bash -c '$(SCRIPTS_DIR)/sync-vlz-crate-assets.sh --check && "$(VENV_TEST)/bin/python" "$(SCRIPTS_DIR)/generate_config_example.py" --check'
 
 # generate-packaging: Update APKBUILD and PKGBUILD with version from Cargo.toml.
 # Run after bumping version; required before make apk.
@@ -582,6 +586,12 @@ check-signatures:
 # release-preflight: CHANGELOG, tag/version, OBS, packaging, upload round-trip
 release-preflight:
 	$(SCRIPTS_DIR)/release-preflight.sh
+
+sync-vlz-crate-assets:
+	$(SCRIPTS_DIR)/sync-vlz-crate-assets.sh
+
+check-crates-publish:
+	@$(MAKE_RUN_LEAF) check-crates-publish -- "$(SCRIPTS_DIR)/check-crates-publish.sh"
 
 # Signed tag push/move: agents use these so Cursor can allowlist one command.
 # TAG must be vX.Y.Z. Never pushes main.

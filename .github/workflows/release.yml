@@ -598,12 +598,72 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  publish-crates:
+    if: github.event_name == 'push'
+    needs:
+      - preflight-release
+      - create-draft
+      - cli-contract-draft
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.RELEASE_CHECKOUT_REF }}
+          persist-credentials: false
+
+      - name: Install Rust (rust-toolchain.toml)
+        run: |
+          set -euo pipefail
+          rustc -vV
+          cargo -V
+
+      - name: Validate crates.io packaging
+        run: |
+          set -euo pipefail
+          ./scripts/check-crates-publish.sh
+
+      - name: Authenticate with crates.io (OIDC)
+        id: crates-io-auth
+        continue-on-error: true
+        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
+
+      - name: Publish workspace crates to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates-io-auth.outputs.token || secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${CARGO_REGISTRY_TOKEN}" ]]; then
+            echo "error: set CARGO_REGISTRY_TOKEN or configure crates.io trusted publishing" >&2
+            exit 1
+          fi
+          ./scripts/cargo-publish-release.sh
+
+      - name: Smoke test cargo install vlz
+        env:
+          VERSION: ${{ needs.preflight-release.outputs.version }}
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5 6; do
+            if cargo install vlz --version "${VERSION}" --locked; then
+              vlz --version
+              exit 0
+            fi
+            echo "cargo install attempt ${attempt} failed; retrying in 30s"
+            sleep 30
+          done
+          echo "error: cargo install vlz ${VERSION} failed after retries" >&2
+          exit 1
+
   publish-release:
     if: github.event_name == 'push' && success()
     needs:
       - create-draft
       - cli-contract-draft
       - wait-obs-builds
+      - publish-crates
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -7,13 +7,19 @@ name = "vlz-report"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Reporting trait – renders JSON, SARIF, HTML, etc."
-publish = false
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+description = "Reporting trait for verilyze -- renders JSON, SARIF, HTML, etc."
 
 [dependencies]
 async-trait.workspace = true
 thiserror.workspace = true
-vlz-db = { path = "../vlz-db" }   # re‑uses Package & CveRecord structs
+vlz-db.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 

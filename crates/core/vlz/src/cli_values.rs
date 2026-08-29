@@ -52,7 +52,7 @@ pub fn provider_names() -> Vec<&'static str> {
         feature = "testing"
     )))]
     {
-        return vec!["osv"];
+        vec!["osv"]
     }
     #[cfg(any(
         feature = "nvd",

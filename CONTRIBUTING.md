@@ -383,22 +383,29 @@ with `RUSTFLAGS=-Dwarnings` so rustc warnings fail the build.
    to populate the GitHub Release body; it **fails** if that section is
    missing (OpenSSF Best Practices `release_notes`).
 2. Bump `version` in the root `Cargo.toml` `[workspace.package]` section
-   per SemVer.
+   per SemVer, and update matching `version` fields in
+   `[workspace.dependencies]` for internal `vlz-*` crates (or run
+   `make generate-packaging`, which syncs both packaging specs and workspace
+   dependency versions).
 3. Run `make generate-packaging` to update APKBUILD and PKGBUILD with the
    new version.
-4. Merge to `main` and run `make check`.
-5. Run `make release-preflight` (CHANGELOG, OBS/packaging, and local publish
-   layout round-trip via
+4. Run `make sync-vlz-crate-assets` so `crates/core/vlz/assets/` and
+   `build-metadata.toml` match `scripts/config-comments.toml`, `man/vlz.1`,
+   and `pyproject.toml`.
+5. Merge to `main` and run `make check`.
+6. Run `make release-preflight` (CHANGELOG, OBS/packaging, crates.io manifest
+   checks, and local publish layout round-trip via
    [scripts/release-verify-upload-roundtrip.sh](scripts/release-verify-upload-roundtrip.sh)).
    Re-run after the release PR merges if `release.yml` or `scripts/release-*.sh`
    changed.
-6. Create and push the signed tag (tag only, never `main`):
+7. Create and push the signed tag (tag only, never `main`):
    `make release-tag-push TAG=v0.1.0`
    (or `./scripts/release-signed-tag.sh push v0.1.0`).
-7. Confirm `release.yml` creates a **draft** GitHub Release, re-verifies
+8. Confirm `release.yml` creates a **draft** GitHub Release, re-verifies
    checksums and Sigstore bundles from `gh release download`, runs the
-   three-OS **CLI contract smoke** against those native archives, waits for
-   OBS builds, and only then publishes (`gh release edit --draft=false`).
+   three-OS **CLI contract smoke** against those native archives, publishes
+   workspace crates to crates.io (`publish-crates` job), waits for OBS builds,
+   and only then publishes the GitHub Release (`gh release edit --draft=false`).
    A failed CLI contract leaves the release in draft; fix and use the
   tag-move loop. After publish, failures need a new patch version.
   On a failed `release.yml` run, search `label:ai-learnings` and create or
@@ -440,6 +447,20 @@ changes):
   inside is covered transitively by the archive digest (SEC-021).
 - `slsa-verifier` builder regex must accept both the generator version tag
   and the Renovate-pinned workflow SHA (`SLSA_GENERATOR_PIN_SHA`).
+
+**crates.io** (OP-001, DOC-009):
+
+- All production workspace crates publish on tagged releases in bottom-up
+  dependency order via [scripts/cargo-publish-release.sh](scripts/cargo-publish-release.sh).
+- Set repository secret `CARGO_REGISTRY_TOKEN`, or configure crates.io
+  trusted publishing for this repository/workflow (`release.yml`). The
+  `publish-crates` job prefers an OIDC token from
+  `rust-lang/crates-io-auth-action` and falls back to the secret.
+- Local preflight: `make check-crates-publish` (manifest, vlz assets, leaf
+  `cargo package` checks). Full `cargo package -p vlz` succeeds only after
+  dependencies exist on the registry.
+- Once a version is on crates.io it is immutable; cut the next patch release
+  instead of republishing the same SemVer.
 
 **Future work:** `workflow_dispatch` on `release.yml` still skips
 `create-draft` / `publish-release` (`if: github.event_name == 'push'`).

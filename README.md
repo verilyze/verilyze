@@ -109,7 +109,13 @@ see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Installation
 
-GitHub-hosted release assets are available for tagged releases:
+Install from [crates.io](https://crates.io/crates/vlz) (recommended for end users):
+
+```bash
+cargo install vlz --locked
+```
+
+GitHub-hosted release assets are also available for tagged releases:
 - Platform archives: `vlz-<version>-linux-x86_64.tar.gz`,
   `vlz-<version>-macos-aarch64.tar.gz`, `vlz-<version>-windows-x86_64.zip`
   (executable is always `vlz` or `vlz.exe` inside the archive)
@@ -118,8 +124,7 @@ GitHub-hosted release assets are available for tagged releases:
   (`*.sigstore.json`), and provenance bundles (`*.intoto.jsonl`)
 - GHCR container image tags: versioned tag and `latest`
 
-crates.io packages and external distro/community repository publication are not
-included in this release scope. Typical local/source-based approaches remain:
+Other install paths (clone build, system install, packages):
 
 - **Local build:** `make release`, then run `target/release/vlz` (see Quick start).
 - **System install:** `make install` with optional `PREFIX` / `DESTDIR`.

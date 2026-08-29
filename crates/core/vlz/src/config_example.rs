@@ -9,8 +9,7 @@ include!(concat!(env!("OUT_DIR"), "/constants.rs"));
 
 use std::collections::HashMap;
 
-const CONFIG_COMMENTS: &str =
-    include_str!("../../../../scripts/config-comments.toml");
+const CONFIG_COMMENTS: &str = include_str!("../assets/config-comments.toml");
 
 /// Wrap text into comment lines, each prefixed with "# " and at most `width` chars.
 /// Returns empty vec for empty or whitespace-only text.

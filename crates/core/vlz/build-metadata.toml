@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Crate-local build constants (mirrors pyproject.toml [tool.verilyze]).
+# Regenerate from repo root via: make sync-vlz-crate-assets
+
+[tool.verilyze]
+line-length = 79
+
+[tool.vlz-headers]
+default_copyright = 'The verilyze contributors'
+default_license = 'GPL-3.0-or-later'

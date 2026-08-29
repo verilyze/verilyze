@@ -7,17 +7,23 @@ name = "vlz-go"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+rust-version.workspace = true
 description = "Go language plugin for verilyze (manifest finder, parser, resolver)"
-publish = false
 
 [dependencies]
 async-trait.workspace = true
 thiserror.workspace = true
 regex.workspace = true  # CVE-2022-24713 fix (SEC-022)
-vlz-db = { path = "../../core/vlz-db" }
-vlz-manifest-finder = { path = "../../core/vlz-manifest-finder" }
-vlz-manifest-parser = { path = "../../core/vlz-manifest-parser" }
-vlz-reachability-trait = { path = "../../core/vlz-reachability-trait" }
+vlz-db.workspace = true
+vlz-manifest-finder.workspace = true
+vlz-manifest-parser.workspace = true
+vlz-reachability-trait.workspace = true
 tokio = { workspace = true, features = ["fs", "rt"] }
 
 [features]

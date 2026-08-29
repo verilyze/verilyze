@@ -10,6 +10,15 @@ Human-readable release notes for each version.
 
 ## [Unreleased]
 
+### Added
+
+- crates.io publication: `cargo install vlz` installs the default-feature CLI;
+  tagged releases publish all workspace crates via `publish-crates` in
+  `release.yml` (requires `CARGO_REGISTRY_TOKEN` or crates.io trusted
+  publishing). Published crates inherit workspace keywords, categories,
+  README, and rust-version (MSRV 1.98). `check-config-docs` verifies
+  crate-local assets stay synced with repo sources.
+
 ## [0.9.1] - 2026-08-24
 
 ### Fixed
