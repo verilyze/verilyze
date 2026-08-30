@@ -17,11 +17,10 @@ use serde::Serialize;
 use std::io::Write;
 use std::path::PathBuf;
 use vlz_db::{
-    CRATES_IO_ECOSYSTEM, CveEvidenceLocation, CveRecord, CvssVersion,
-    DeclarationKind, GO_ECOSYSTEM, MAVEN_ECOSYSTEM,
-    MAX_DECLARATIONS_PER_FINDING, NPM_ECOSYSTEM, PYPI_ECOSYSTEM, Package,
-    PackageDeclarationLocation, RUBYGEMS_ECOSYSTEM, Severity,
-    dedupe_sort_declarations,
+    CveEvidenceLocation, CveRecord, CvssVersion, DeclarationKind,
+    MAX_DECLARATIONS_PER_FINDING, Package, PackageDeclarationLocation,
+    Severity, dedupe_sort_declarations, purl_for_package,
+    purl_type_for_ecosystem,
 };
 
 const DESCRIPTION_MAX_LEN: usize = 60;
@@ -1007,23 +1006,16 @@ fn severity_level_sarif(s: &Severity) -> &'static str {
     }
 }
 
-/// PURL type for SBOM output from a package ecosystem (SEC-019 CycloneDX 1.6).
-fn purl_type_for_ecosystem(ecosystem: Option<&str>) -> &'static str {
-    match ecosystem {
-        Some(CRATES_IO_ECOSYSTEM) => "cargo",
-        Some(GO_ECOSYSTEM) => "golang",
-        Some(NPM_ECOSYSTEM) => "npm",
-        Some(MAVEN_ECOSYSTEM) => "maven",
-        Some(RUBYGEMS_ECOSYSTEM) => "gem",
-        Some(PYPI_ECOSYSTEM) | None => "pypi",
-        _ => "pypi",
+/// SPDX ID prefix for a package ecosystem (SEC-019 SPDX 3.0).
+fn spdx_id_prefix_for_ecosystem(ecosystem: Option<&str>) -> &'static str {
+    match purl_type_for_ecosystem(ecosystem) {
+        "cargo" => "pkg-cargo",
+        "golang" => "pkg-golang",
+        "npm" => "pkg-npm",
+        "maven" => "pkg-maven",
+        "gem" => "pkg-gem",
+        _ => "pkg-pypi",
     }
-}
-
-/// PURL for a resolved package (SEC-019 CycloneDX 1.6, SPDX 3.0).
-fn purl_for_package(pkg: &Package) -> String {
-    let purl_type = purl_type_for_ecosystem(pkg.ecosystem.as_deref());
-    format!("pkg:{}/{}@{}", purl_type, pkg.name, pkg.version)
 }
 
 /// RFC 3339 timestamp for BOM metadata (no external deps).
@@ -1175,18 +1167,6 @@ impl Reporter for CycloneDxReporter {
     }
 }
 
-/// SPDX ID prefix for a package ecosystem (SEC-019 SPDX 3.0).
-fn spdx_id_prefix_for_ecosystem(ecosystem: Option<&str>) -> &'static str {
-    match purl_type_for_ecosystem(ecosystem) {
-        "cargo" => "pkg-cargo",
-        "golang" => "pkg-golang",
-        "npm" => "pkg-npm",
-        "maven" => "pkg-maven",
-        "gem" => "pkg-gem",
-        _ => "pkg-pypi",
-    }
-}
-
 /// SPDX ID for a package (SEC-019 SPDX 3.0).
 fn spdx_id_pkg(pkg: &Package) -> String {
     let prefix = spdx_id_prefix_for_ecosystem(pkg.ecosystem.as_deref());
@@ -1322,6 +1302,10 @@ impl Reporter for SpdxReporter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use vlz_db::{
+        CRATES_IO_ECOSYSTEM, GO_ECOSYSTEM, MAVEN_ECOSYSTEM, NPM_ECOSYSTEM,
+        PYPI_ECOSYSTEM, RUBYGEMS_ECOSYSTEM,
+    };
 
     #[test]
     fn secs_to_ymdhms_unix_epoch() {

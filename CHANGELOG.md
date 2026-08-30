@@ -12,6 +12,10 @@ Human-readable release notes for each version.
 
 ### Added
 
+- SBOM inventory input (FR-038): `vlz scan` / `vlz preload` accept
+  CycloneDX 1.6 and SPDX 3.0 JSON via `--from-sbom` and allowlisted
+  discovery (`bom.json`, `*.cdx.json`, `*.spdx.json`); packages are
+  treated as pre-resolved for CVE lookup.
 - crates.io publication: `cargo install vlz` installs the default-feature CLI;
   tagged releases publish all workspace crates via `publish-crates` in
   `release.yml` (requires `CARGO_REGISTRY_TOKEN` or crates.io trusted

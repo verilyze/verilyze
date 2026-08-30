@@ -62,6 +62,7 @@ vlz-go = { workspace = true, optional = true }
 vlz-javascript = { workspace = true, optional = true }
 vlz-java = { workspace = true, optional = true }
 vlz-ruby = { workspace = true, optional = true }
+vlz-sbom = { workspace = true, optional = true }
 
 # CVE providers (optional)
 vlz-cve-provider-nvd = { workspace = true, optional = true }
@@ -107,8 +108,8 @@ required-features = ["testing", "mem", "python"]
 
 # Feature gating – matches MOD‑003, MOD‑009
 [features]
-runtime = ["redb", "python", "rust", "go", "javascript", "java", "ruby"]
-runtime-mem = ["mem", "python", "rust", "go", "javascript", "java", "ruby"]
+runtime = ["redb", "python", "rust", "go", "javascript", "java", "ruby", "sbom"]
+runtime-mem = ["mem", "python", "rust", "go", "javascript", "java", "ruby", "sbom"]
 default = ["runtime", "completions", "docs"]
 docs = []           # Man page via vlz help; omit for minimal binary
 manpage-gen = []    # Maintainer-only vlz-manpage-gen binary (not installed by default)
@@ -123,6 +124,7 @@ go = ["vlz-go"]
 javascript = ["vlz-javascript"]
 java = ["vlz-java"]
 ruby = ["vlz-ruby"]
+sbom = ["vlz-sbom"]
 nvd = ["dep:vlz-cve-provider-nvd"]
 github = ["dep:vlz-cve-provider-github"]
 sonatype = ["dep:vlz-cve-provider-sonatype"]

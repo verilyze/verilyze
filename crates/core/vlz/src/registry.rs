@@ -192,6 +192,10 @@ pub fn ensure_default_manifest_finder() {
     if !f.iter().any(|x| x.language_name() == "ruby") {
         f.push(Box::new(vlz_ruby::RubyManifestFinder::new()));
     }
+    #[cfg(feature = "sbom")]
+    if !f.iter().any(|x| x.language_name() == "sbom") {
+        f.push(Box::new(vlz_sbom::SbomManifestFinder::new()));
+    }
 }
 
 /// Ensures language parsers are registered (when language features enabled).
@@ -222,6 +226,10 @@ pub fn ensure_default_parser() {
     if !p.iter().any(|x| x.language_name() == "ruby") {
         p.push(Box::new(vlz_ruby::RubyManifestParser::new()));
     }
+    #[cfg(feature = "sbom")]
+    if !p.iter().any(|x| x.language_name() == "sbom") {
+        p.push(Box::new(vlz_sbom::SbomParser::new()));
+    }
 }
 
 /// Ensures language resolvers are registered (when language features enabled).
@@ -250,6 +258,10 @@ pub fn ensure_default_resolver() {
     #[cfg(feature = "ruby")]
     if !r.iter().any(|x| x.language_name() == "ruby") {
         r.push(Box::new(vlz_ruby::RubyResolver::new()));
+    }
+    #[cfg(feature = "sbom")]
+    if !r.iter().any(|x| x.language_name() == "sbom") {
+        r.push(Box::new(vlz_sbom::SbomResolver::new()));
     }
 }
 
@@ -577,7 +589,8 @@ mod tests {
             feature = "go",
             feature = "javascript",
             feature = "java",
-            feature = "ruby"
+            feature = "ruby",
+            feature = "sbom"
         ))]
         {
             let expected: usize = [
@@ -587,6 +600,7 @@ mod tests {
                 cfg!(feature = "javascript"),
                 cfg!(feature = "java"),
                 cfg!(feature = "ruby"),
+                cfg!(feature = "sbom"),
             ]
             .into_iter()
             .filter(|b| *b)

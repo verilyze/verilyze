@@ -157,6 +157,15 @@ pub enum Commands {
         )]
         lock_file: Vec<String>,
 
+        /// Scan SBOM inventory file (CycloneDX 1.6 / SPDX 3.0 JSON; repeatable)
+        #[arg(
+            long = "from-sbom",
+            value_name = "PATH",
+            value_hint = ValueHint::FilePath,
+            help_heading = HELP_RESOLUTION,
+        )]
+        from_sbom: Vec<String>,
+
         /// Default TTL in seconds for new cache entries (default: 432000 = 5 days).
         /// Does not change existing entries; use `vlz db set-ttl` to update those.
         #[arg(long, value_name = "SECS", help_heading = HELP_PROVIDER_CACHE)]
@@ -384,6 +393,15 @@ pub enum Commands {
             help_heading = HELP_RESOLUTION,
         )]
         lock_file: Vec<String>,
+
+        /// Scan SBOM inventory file (CycloneDX 1.6 / SPDX 3.0 JSON; repeatable)
+        #[arg(
+            long = "from-sbom",
+            value_name = "PATH",
+            value_hint = ValueHint::FilePath,
+            help_heading = HELP_RESOLUTION,
+        )]
+        from_sbom: Vec<String>,
 
         /// Default TTL in seconds for new cache entries (default: 432000 = 5 days).
         #[arg(long, value_name = "SECS", help_heading = HELP_PROVIDER_CACHE)]

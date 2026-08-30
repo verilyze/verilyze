@@ -6,6 +6,7 @@
 
 mod cache_entry;
 mod file_ignore;
+mod purl;
 
 pub use cache_entry::{
     PurgeEntry, StoredEntry, entry_is_expired, new_stored_entry,
@@ -15,6 +16,10 @@ pub use file_ignore::{
     DEFAULT_IGNORE_FILE_NAME, FileIgnoreDb, FpEntry,
     IGNORE_FILE_SCHEMA_VERSION, LEGACY_IGNORE_REDB_FILE_NAME,
     legacy_redb_path_for_json,
+};
+pub use purl::{
+    ecosystem_for_purl_type, package_from_purl, purl_for_package,
+    purl_type_for_ecosystem,
 };
 
 use async_trait::async_trait;

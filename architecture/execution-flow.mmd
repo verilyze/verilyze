@@ -12,9 +12,9 @@ flowchart TD
     BackoffCfg["Back‑off & retry settings"]
 
     %% Scanning phases
-    Find["ManifestFinder::find(root)"]
-    Parse["Parser::parse(manifest)"]
-    Resolve["Resolver::resolve(dep‑graph)"]
+    Find["ManifestFinder::find(root) or SBOM --from-sbom / discover"]
+    Parse["Parser::parse(manifest or SBOM)"]
+    Resolve["Resolver::resolve(dep-graph; SBOM identity)"]
     Reachability["Reachability analysis (optional / phased, FR-032)"]
 
     %% Cache handling

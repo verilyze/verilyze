@@ -504,6 +504,7 @@ pub async fn run(args: Cli) -> Result<i32> {
             reachability_mode: _cli_reachability_mode_scan,
             scan_exclude_dir: cli_scan_exclude_dir_scan,
             lock_file: cli_lock_files_scan,
+            from_sbom: cli_from_sbom_scan,
             severity_v2_critical_min,
             severity_v2_high_min,
             severity_v2_medium_min,
@@ -595,6 +596,13 @@ pub async fn run(args: Cli) -> Result<i32> {
                         error!("{}", message);
                         anyhow!(message)
                     })?;
+            }
+            #[cfg(feature = "sbom")]
+            if !cli_from_sbom_scan.is_empty() {
+                effective.from_sbom = cli_from_sbom_scan
+                    .into_iter()
+                    .map(std::path::PathBuf::from)
+                    .collect();
             }
             let code = run_scan(
                 root,
@@ -1066,6 +1074,7 @@ pub async fn run(args: Cli) -> Result<i32> {
             cache_db: cli_cache_db_preload,
             scan_exclude_dir: cli_scan_exclude_dir_preload,
             lock_file: cli_lock_files_preload,
+            from_sbom: cli_from_sbom_preload,
             cache_ttl_secs: cli_cache_ttl_secs_preload,
             offline,
             package_manager_required,
@@ -1146,6 +1155,13 @@ pub async fn run(args: Cli) -> Result<i32> {
                         error!("{}", message);
                         anyhow!(message)
                     })?;
+            }
+            #[cfg(feature = "sbom")]
+            if !cli_from_sbom_preload.is_empty() {
+                effective.from_sbom = cli_from_sbom_preload
+                    .into_iter()
+                    .map(std::path::PathBuf::from)
+                    .collect();
             }
             run_preload(root, provider, effective, args.verbose, db_backend)
                 .await

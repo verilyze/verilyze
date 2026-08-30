@@ -77,7 +77,11 @@ Run scans with the built binary (adjust the path if you use `CARGO_TARGET_DIR`):
 ./target/release/vlz scan --format cyclonedx
 ./target/release/vlz scan -s cyclonedx:sbom.cdx.json,spdx:sbom.spdx.json
 
-# List supported manifest languages
+# Scan from an existing SBOM inventory (CycloneDX 1.6 / SPDX 3.0 JSON)
+./target/release/vlz scan --from-sbom sbom.cdx.json
+./target/release/vlz scan --from-sbom bom.json /path/to/project
+
+# List supported manifest languages (includes sbom)
 ./target/release/vlz languages
 ```
 
@@ -202,6 +206,7 @@ uses the installed man page. Source: [man/vlz.1](man/vlz.1).
 **Scan options (examples):** `-f`/`--format plain|json|sarif|cyclonedx|spdx`,
 `-o`/`--output PATH` (write primary report to file; no stdout),
 `-s`/`--report TYPE:PATH` (alias `--summary-file`; additional typed files),
+`--from-sbom PATH` (repeatable; CycloneDX 1.6 / SPDX 3.0 JSON inventory),
 `--provider osv|nvd|github|sonatype`, `-j`/`--parallel N`, `--project-id ID`,
 `--cache-ttl-secs SECS`, `--offline`, `--benchmark`, `--min-score`, `--min-count`,
 `--exit-code` (alias `--exit-code-on-cve`), `--fp-exit-code`, `--cache-db`, `--ignore-db`,

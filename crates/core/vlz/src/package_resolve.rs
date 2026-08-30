@@ -119,6 +119,13 @@ fn discover_manifests_one_pass(
                     .push(entry.path());
                 continue;
             }
+            #[cfg(feature = "sbom")]
+            if vlz_sbom::is_sbom_basename(name) {
+                out.entry("sbom".to_string())
+                    .or_default()
+                    .push(entry.path());
+                continue;
+            }
             #[cfg(feature = "java")]
             {
                 if vlz_java::JAVA_MANIFEST_NAMES.contains(&name) {
@@ -920,7 +927,13 @@ pub(crate) async fn resolve_packages_with_plugins(
         && paired.iter().all(|(finder, _, _)| {
             matches!(
                 finder.language_name(),
-                "python" | "rust" | "go" | "javascript" | "java" | "ruby"
+                "python"
+                    | "rust"
+                    | "go"
+                    | "javascript"
+                    | "java"
+                    | "ruby"
+                    | "sbom"
             )
         });
 
@@ -936,6 +949,24 @@ pub(crate) async fn resolve_packages_with_plugins(
         } else {
             (HashMap::new(), Vec::new())
         };
+
+    #[cfg(feature = "sbom")]
+    {
+        if !effective.from_sbom.is_empty() {
+            let entry =
+                manifests_by_language.entry("sbom".to_string()).or_default();
+            for path in &effective.from_sbom {
+                let abs = if path.is_absolute() {
+                    path.clone()
+                } else {
+                    root_path.join(path)
+                };
+                entry.push(abs);
+            }
+            entry.sort();
+            entry.dedup();
+        }
+    }
 
     for (dir, lock_names) in &orphan_multi_lock_warnings {
         eprintln!(

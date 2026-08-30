@@ -1,0 +1,1 @@
+{"@context":"https://spdx.org/rdf/3.0.1/spdx-context.jsonld","@type":"SpdxDocument","element":[{"@type":"Package","name":"requests","versionInfo":"2.31.0","packageUrl":"pkg:pypi/requests@2.31.0"}]}

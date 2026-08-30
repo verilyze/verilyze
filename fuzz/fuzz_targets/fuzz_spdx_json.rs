@@ -1,0 +1,9 @@
+// SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#![no_main]
+
+libfuzzer_sys::fuzz_target!(|data: &[u8]| {
+    let _ = vlz_sbom::parse_sbom_bytes(data);
+});

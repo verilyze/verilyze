@@ -12,7 +12,7 @@ use vlz::registry::{ensure_default_manifest_finder, finders};
 
 /// Languages registered by the default `runtime` feature set.
 const RUNTIME_FINDER_LANGUAGES: &[&str] =
-    &["go", "java", "javascript", "python", "ruby", "rust"];
+    &["go", "java", "javascript", "python", "ruby", "rust", "sbom"];
 
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
