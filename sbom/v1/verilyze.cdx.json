@@ -37,11 +37,11 @@
       "version": "26.5.1"
     },
     {
-      "bom-ref": "pkg:pypi/click@8.4.2",
+      "bom-ref": "pkg:pypi/click@8.5.0",
       "name": "click",
-      "purl": "pkg:pypi/click@8.4.2",
+      "purl": "pkg:pypi/click@8.5.0",
       "type": "library",
-      "version": "8.4.2"
+      "version": "8.5.0"
     },
     {
       "bom-ref": "pkg:pypi/codespell@2.4.3",
@@ -51,11 +51,11 @@
       "version": "2.4.3"
     },
     {
-      "bom-ref": "pkg:pypi/coverage@7.15.4",
+      "bom-ref": "pkg:pypi/coverage@7.16.0",
       "name": "coverage",
-      "purl": "pkg:pypi/coverage@7.15.4",
+      "purl": "pkg:pypi/coverage@7.16.0",
       "type": "library",
-      "version": "7.15.4"
+      "version": "7.16.0"
     },
     {
       "bom-ref": "pkg:pypi/dill@0.4.1",
@@ -72,11 +72,11 @@
       "version": "2.3.0"
     },
     {
-      "bom-ref": "pkg:pypi/isort@8.0.1",
+      "bom-ref": "pkg:pypi/isort@9.0.1",
       "name": "isort",
-      "purl": "pkg:pypi/isort@8.0.1",
+      "purl": "pkg:pypi/isort@9.0.1",
       "type": "library",
-      "version": "8.0.1"
+      "version": "9.0.1"
     },
     {
       "bom-ref": "pkg:pypi/jsonschema@4.26.0",
@@ -149,11 +149,11 @@
       "version": "1.1.1"
     },
     {
-      "bom-ref": "pkg:pypi/platformdirs@4.11.3",
+      "bom-ref": "pkg:pypi/platformdirs@4.11.5",
       "name": "platformdirs",
-      "purl": "pkg:pypi/platformdirs@4.11.3",
+      "purl": "pkg:pypi/platformdirs@4.11.5",
       "type": "library",
-      "version": "4.11.3"
+      "version": "4.11.5"
     },
     {
       "bom-ref": "pkg:pypi/pluggy@1.6.0",
@@ -163,18 +163,18 @@
       "version": "1.6.0"
     },
     {
-      "bom-ref": "pkg:pypi/pygments@2.20.0",
+      "bom-ref": "pkg:pypi/pygments@2.21.0",
       "name": "pygments",
-      "purl": "pkg:pypi/pygments@2.20.0",
+      "purl": "pkg:pypi/pygments@2.21.0",
       "type": "library",
-      "version": "2.20.0"
+      "version": "2.21.0"
     },
     {
-      "bom-ref": "pkg:pypi/pylint@4.0.7",
+      "bom-ref": "pkg:pypi/pylint@4.0.8",
       "name": "pylint",
-      "purl": "pkg:pypi/pylint@4.0.7",
+      "purl": "pkg:pypi/pylint@4.0.8",
       "type": "library",
-      "version": "4.0.7"
+      "version": "4.0.8"
     },
     {
       "bom-ref": "pkg:pypi/pytest@9.1.1",
@@ -226,11 +226,11 @@
       "version": "2026.6.3"
     },
     {
-      "bom-ref": "pkg:pypi/stevedore@5.9.0",
+      "bom-ref": "pkg:pypi/stevedore@5.9.1",
       "name": "stevedore",
-      "purl": "pkg:pypi/stevedore@5.9.0",
+      "purl": "pkg:pypi/stevedore@5.9.1",
       "type": "library",
-      "version": "5.9.0"
+      "version": "5.9.1"
     },
     {
       "bom-ref": "pkg:pypi/tomlkit@0.15.1",
