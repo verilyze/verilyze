@@ -2263,6 +2263,13 @@
       "version": "0.9.1"
     },
     {
+      "bom-ref": "pkg:cargo/vlz-sbom@0.9.1",
+      "name": "vlz-sbom",
+      "purl": "pkg:cargo/vlz-sbom@0.9.1",
+      "type": "library",
+      "version": "0.9.1"
+    },
+    {
       "bom-ref": "pkg:cargo/walkdir@2.5.0",
       "name": "walkdir",
       "purl": "pkg:cargo/walkdir@2.5.0",

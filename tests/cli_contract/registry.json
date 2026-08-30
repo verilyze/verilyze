@@ -29,7 +29,15 @@
       "modes": ["smoke", "full"],
       "args": ["languages"],
       "expect_exit": [0],
-      "stdout_contains": ["python", "rust", "go", "javascript", "java", "ruby", "sbom"]
+      "stdout_contains": [
+        "python",
+        "rust",
+        "go",
+        "javascript",
+        "java",
+        "ruby",
+        "sbom"
+      ]
     },
     {
       "id": "python-lock-offline",

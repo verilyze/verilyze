@@ -2275,6 +2275,13 @@
     },
     {
       "@type": "Package",
+      "name": "vlz-sbom",
+      "packageUrl": "pkg:cargo/vlz-sbom@0.9.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-sbom-0-9-1",
+      "versionInfo": "0.9.1"
+    },
+    {
+      "@type": "Package",
       "name": "walkdir",
       "packageUrl": "pkg:cargo/walkdir@2.5.0",
       "spdxId": "urn:spdx.dev:pkg-cargo-walkdir-2-5-0",
