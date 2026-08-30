@@ -2943,8 +2943,8 @@ regex = "^req\\.txt$"
             .join("path")
             .join("verilyze")
             .join("verilyze.conf");
-        set_config_key_in_path(&config_path, "python.regex", "^test$")
-            .expect("should create parent dirs and write config");
+        let r = set_config_key_in_path(&config_path, "python.regex", "^test$");
+        assert!(r.is_ok(), "{r:?}");
         assert!(config_path.exists());
         let content = std::fs::read_to_string(&config_path).unwrap();
         assert!(content.contains("^test$"));
