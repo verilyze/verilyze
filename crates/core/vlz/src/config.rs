@@ -2945,19 +2945,17 @@ regex = "^req\\.txt$"
     #[test]
     fn set_config_key_create_parent_dirs() {
         let dir = tempfile::tempdir().unwrap();
-        let xdg = dir.path().join("new").join("path");
-        let config_path = xdg.join("verilyze").join("verilyze.conf");
-        temp_env::with_var(
-            "XDG_CONFIG_HOME",
-            Some(xdg.to_str().unwrap()),
-            || {
-                let r = set_config_key("python.regex", "^test$");
-                assert!(r.is_ok());
-                assert!(config_path.exists());
-                let content = std::fs::read_to_string(&config_path).unwrap();
-                assert!(content.contains("^test$"));
-            },
-        );
+        let config_path = dir
+            .path()
+            .join("new")
+            .join("path")
+            .join("verilyze")
+            .join("verilyze.conf");
+        let r = set_config_key_in_path(&config_path, "python.regex", "^test$");
+        assert!(r.is_ok(), "{r:?}");
+        assert!(config_path.exists());
+        let content = std::fs::read_to_string(&config_path).unwrap();
+        assert!(content.contains("^test$"));
     }
 
     #[test]
