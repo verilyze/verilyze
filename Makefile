@@ -219,8 +219,12 @@ setup-cargo-deny:
 		$(MAKE_RUN_LEAF) setup-cargo-deny -- cargo install cargo-deny --locked
 
 setup-cargo-about:
-	@command -v cargo-about >/dev/null 2>&1 || \
-		$(MAKE_RUN_LEAF) setup-cargo-about -- cargo install cargo-about --locked
+	@ver=$$(grep -oE 'cargo-about@[0-9]+\.[0-9]+\.[0-9]+' .github/workflows/ci.yml | head -1 | cut -d@ -f2); \
+	test -n "$$ver" || (echo "error: cargo-about pin missing in .github/workflows/ci.yml" >&2; exit 1); \
+	if ! command -v cargo-about >/dev/null 2>&1 \
+		|| ! cargo-about --version 2>/dev/null | grep -Fq "$$ver"; then \
+		$(MAKE_RUN_LEAF) setup-cargo-about -- cargo install cargo-about --locked --version "$$ver" --features cli; \
+	fi
 
 setup-cargo-llvm-cov:
 	@command -v cargo-llvm-cov >/dev/null 2>&1 || \
