@@ -78,10 +78,10 @@ fn parse_cyclonedx(value: &serde_json::Value) -> Vec<Package> {
 }
 
 fn package_from_component(component: &serde_json::Value) -> Option<Package> {
-    if let Some(purl) = component.get("purl").and_then(|p| p.as_str()) {
-        if let Some(pkg) = package_from_purl(purl) {
-            return Some(pkg);
-        }
+    if let Some(purl) = component.get("purl").and_then(|p| p.as_str())
+        && let Some(pkg) = package_from_purl(purl)
+    {
+        return Some(pkg);
     }
     let name = component.get("name").and_then(|n| n.as_str())?;
     let version = component.get("version").and_then(|v| v.as_str())?;

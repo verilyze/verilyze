@@ -624,16 +624,19 @@ mod tests {
             ensure_default_resolver();
             assert_eq!(resolvers().lock().unwrap().len(), expected);
 
+            // SBOM has no Tier B analyzer; reachability count excludes sbom.
+            let expected_reachability =
+                expected - if cfg!(feature = "sbom") { 1 } else { 0 };
             clear_reachability_analyzers();
             ensure_default_reachability_analyzer();
             assert_eq!(
                 reachability_analyzers().lock().unwrap().len(),
-                expected
+                expected_reachability
             );
             ensure_default_reachability_analyzer();
             assert_eq!(
                 reachability_analyzers().lock().unwrap().len(),
-                expected
+                expected_reachability
             );
         }
 
