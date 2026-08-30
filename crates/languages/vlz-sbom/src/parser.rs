@@ -19,20 +19,28 @@ pub fn parse_sbom_bytes(bytes: &[u8]) -> Result<Vec<Package>, ParserError> {
     parse_sbom_json(&value)
 }
 
+/// Error when a claimed SBOM yields no importable packages (FR-038).
+pub const EMPTY_SBOM_PACKAGES_MSG: &str =
+    "SBOM contained no usable packages with ecosystem and version";
+
 /// Parse a JSON value as CycloneDX or SPDX 3.0 inventory.
 pub fn parse_sbom_json(
     value: &serde_json::Value,
 ) -> Result<Vec<Package>, ParserError> {
-    if is_cyclonedx(value) {
-        return Ok(parse_cyclonedx(value));
+    let packages = if is_cyclonedx(value) {
+        parse_cyclonedx(value)
+    } else if is_spdx3(value) {
+        parse_spdx3(value)
+    } else {
+        return Err(ParserError::Parse(
+            "unrecognized SBOM: expected CycloneDX (bomFormat) or SPDX 3.0 SpdxDocument"
+                .to_string(),
+        ));
+    };
+    if packages.is_empty() {
+        return Err(ParserError::Parse(EMPTY_SBOM_PACKAGES_MSG.to_string()));
     }
-    if is_spdx3(value) {
-        return Ok(parse_spdx3(value));
-    }
-    Err(ParserError::Parse(
-        "unrecognized SBOM: expected CycloneDX (bomFormat) or SPDX 3.0 SpdxDocument"
-            .to_string(),
-    ))
+    Ok(packages)
 }
 
 fn is_cyclonedx(value: &serde_json::Value) -> bool {
@@ -244,6 +252,27 @@ mod tests {
     #[test]
     fn rejects_unrecognized_json() {
         let err = parse_sbom_json(&serde_json::json!({"foo": 1})).unwrap_err();
+        assert!(matches!(err, ParserError::Parse(_)));
+    }
+
+    #[test]
+    fn rejects_claimed_bom_with_zero_usable_packages() {
+        let empty_components = serde_json::json!({
+            "bomFormat": "CycloneDX",
+            "specVersion": "1.6",
+            "components": []
+        });
+        let err = parse_sbom_json(&empty_components).unwrap_err();
+        assert!(matches!(err, ParserError::Parse(_)));
+
+        let all_skipped = serde_json::json!({
+            "bomFormat": "CycloneDX",
+            "specVersion": "1.6",
+            "components": [
+                { "type": "library", "name": "x", "version": "1.0.0" }
+            ]
+        });
+        let err = parse_sbom_json(&all_skipped).unwrap_err();
         assert!(matches!(err, ParserError::Parse(_)));
     }
 

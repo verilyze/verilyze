@@ -13,5 +13,7 @@ mod resolver;
 
 pub use finder::SbomManifestFinder;
 pub use names::{SBOM_LANGUAGE_NAME, is_sbom_basename, is_sbom_entry_path};
-pub use parser::{SbomParser, parse_sbom_bytes, parse_sbom_json};
+pub use parser::{
+    EMPTY_SBOM_PACKAGES_MSG, SbomParser, parse_sbom_bytes, parse_sbom_json,
+};
 pub use resolver::SbomResolver;

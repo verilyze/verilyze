@@ -789,10 +789,10 @@ architecture/PRD.md DOC-003 and design notes on single source of truth).
 
 The `vlz` binary supports optional capabilities via Cargo features:
 
-- **runtime** = `["redb", "python", "rust", "go", "javascript", "java", "ruby"]`
+- **runtime** = `["redb", "python", "rust", "go", "javascript", "java", "ruby", "sbom"]`
   -- desktop scan capabilities with on-disk RedB **CVE cache**. When adding a
   new language, add it here **and** to `runtime-mem` so Docker stays in sync.
-- **runtime-mem** = `["mem", "python", "rust", "go", "javascript", "java", "ruby"]`
+- **runtime-mem** = `["mem", "python", "rust", "go", "javascript", "java", "ruby", "sbom"]`
   -- same languages with an in-memory CVE cache (no `redb`; for ephemeral /
   Docker).
 - **default** = `["runtime", "completions", "docs"]` -- full build with runtime
