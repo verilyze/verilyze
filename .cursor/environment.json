@@ -1,0 +1,6 @@
+{
+  "name": "verilyze (vlz)",
+  "user": "ubuntu",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/sign-setup.sh"
+}
