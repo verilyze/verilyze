@@ -8,7 +8,6 @@
   <repository name="openSUSE_Tumbleweed">
     <path project="openSUSE:Tumbleweed" repository="standard"/>
     <arch>x86_64</arch>
-    <arch>aarch64</arch>
   </repository>
   <repository name="Fedora_44">
     <path project="Fedora:Rawhide" repository="standard"/>
