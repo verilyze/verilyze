@@ -17,13 +17,16 @@ URL:            https://github.com/verilyze/verilyze
 Source0:        %{pkg_name}-%{version}.tar.xz
 Source1:        vendor.tar.zst
 
-BuildRequires:  cargo >= 1.78.0
-BuildRequires:  rust >= 1.78.0
 BuildRequires:  make
 BuildRequires:  zstd
 
 %if 0%{?suse_version}
+BuildRequires:  cargo1.98
+BuildRequires:  rust1.98
 BuildRequires:  libopenssl-devel
+%else
+BuildRequires:  cargo >= 1.98.0
+BuildRequires:  rust >= 1.98.0
 %endif
 %if 0%{?fedora} || 0%{?rhel}
 BuildRequires:  openssl-devel
