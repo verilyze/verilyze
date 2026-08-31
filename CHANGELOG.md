@@ -37,6 +37,11 @@ Human-readable release notes for each version.
 - Third-party license regeneration pinned to the `cargo-about` version used
   in CI.
 
+### Changed
+
+- Lock file maintenance (Renovate #473): refresh fuzz lockfile and SBOM
+  vendored metadata.
+
 ## [0.9.1] - 2026-08-24
 
 ### Fixed
