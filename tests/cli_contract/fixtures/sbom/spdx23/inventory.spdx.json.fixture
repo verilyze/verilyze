@@ -1,0 +1,22 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "example",
+  "documentNamespace": "https://example.com/spdx",
+  "dataLicense": "CC0-1.0",
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-Package-requests",
+      "name": "requests",
+      "versionInfo": "2.31.0",
+      "downloadLocation": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:pypi/cli-contract-pkg@1.0.0"
+        }
+      ]
+    }
+  ]
+}

@@ -604,6 +604,13 @@ pub async fn run(args: Cli) -> Result<i32> {
                     .map(std::path::PathBuf::from)
                     .collect();
             }
+            #[cfg(not(feature = "sbom"))]
+            if !cli_from_sbom_scan.is_empty() {
+                error!(
+                    "--from-sbom requires a build with the sbom feature enabled"
+                );
+                return Ok(2);
+            }
             let code = run_scan(
                 root,
                 format,
@@ -1162,6 +1169,13 @@ pub async fn run(args: Cli) -> Result<i32> {
                     .into_iter()
                     .map(std::path::PathBuf::from)
                     .collect();
+            }
+            #[cfg(not(feature = "sbom"))]
+            if !cli_from_sbom_preload.is_empty() {
+                error!(
+                    "--from-sbom requires a build with the sbom feature enabled"
+                );
+                return Ok(2);
             }
             run_preload(root, provider, effective, args.verbose, db_backend)
                 .await

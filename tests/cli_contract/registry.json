@@ -369,6 +369,32 @@
       "stdout_contains": ["No vulnerabilities found."]
     },
     {
+      "id": "sbom-from-sbom-flag-offline",
+      "category": "lock_parse",
+      "language": "sbom",
+      "modes": ["full"],
+      "fixture": "sbom/from-sbom-flag",
+      "args": [
+        "scan",
+        "{fixture}",
+        "--from-sbom",
+        "{fixture}/bom.json",
+        "--offline"
+      ],
+      "expect_exit": [6, 86],
+      "stdout_forbids": ["No vulnerabilities found."]
+    },
+    {
+      "id": "sbom-spdx23-offline",
+      "category": "lock_parse",
+      "language": "sbom",
+      "modes": ["full"],
+      "fixture": "sbom/spdx23",
+      "args": ["scan", "{fixture}", "--offline"],
+      "expect_exit": [6, 86],
+      "stdout_forbids": ["No vulnerabilities found."]
+    },
+    {
       "id": "generate-completions-bash",
       "category": "completion",
       "modes": ["smoke", "full"],

@@ -29,11 +29,11 @@ pub fn parse_sbom_json(
     if is_cyclonedx(value) {
         return Ok(parse_cyclonedx(value));
     }
-    if is_spdx3(value) {
-        return Ok(parse_spdx3(value));
-    }
     if is_spdx2(value) {
         return Ok(parse_spdx2(value));
+    }
+    if is_spdx3(value) {
+        return Ok(parse_spdx3(value));
     }
     Err(ParserError::Parse(
         "unrecognized SBOM: expected CycloneDX (bomFormat) or SPDX 2.x/3.0 JSON"
@@ -53,11 +53,6 @@ fn is_spdx3(value: &serde_json::Value) -> bool {
         .get("@type")
         .and_then(|v| v.as_str())
         .is_some_and(|s| s == "SpdxDocument")
-        || value.get("element").is_some()
-            && value
-                .get("@context")
-                .and_then(|v| v.as_str())
-                .is_some_and(|c| c.contains("spdx.org"))
 }
 
 fn is_spdx2(value: &serde_json::Value) -> bool {
@@ -71,11 +66,19 @@ fn is_spdx2(value: &serde_json::Value) -> bool {
 }
 
 fn parse_cyclonedx(value: &serde_json::Value) -> Vec<Package> {
+    let mut out = Vec::new();
+    collect_cyclonedx_components(value, &mut out);
+    dedupe_packages(out)
+}
+
+fn collect_cyclonedx_components(
+    value: &serde_json::Value,
+    out: &mut Vec<Package>,
+) {
     let Some(components) = value.get("components").and_then(|c| c.as_array())
     else {
-        return Vec::new();
+        return;
     };
-    let mut out = Vec::new();
     for component in components {
         match package_from_component(component) {
             Some(pkg) => out.push(pkg),
@@ -89,32 +92,18 @@ fn parse_cyclonedx(value: &serde_json::Value) -> Vec<Package> {
                 );
             }
         }
+        collect_cyclonedx_components(component, out);
     }
-    dedupe_packages(out)
 }
 
 fn package_from_component(component: &serde_json::Value) -> Option<Package> {
-    if let Some(purl) = component.get("purl").and_then(|p| p.as_str())
-        && let Some(pkg) = package_from_purl(purl)
-    {
-        return Some(pkg);
-    }
-    let name = component.get("name").and_then(|n| n.as_str())?;
-    let version = component.get("version").and_then(|v| v.as_str())?;
-    if name.is_empty() || version.is_empty() {
-        return None;
-    }
-    // Without purl we cannot map ecosystem reliably; skip (FR-038).
-    None
+    let purl = component.get("purl").and_then(|p| p.as_str())?;
+    package_from_purl(purl)
 }
 
 fn parse_spdx3(value: &serde_json::Value) -> Vec<Package> {
-    let Some(elements) = value.get("element").and_then(|e| e.as_array())
-    else {
-        return Vec::new();
-    };
     let mut out = Vec::new();
-    for element in elements {
+    for element in spdx3_elements(value) {
         let ty = element.get("@type").and_then(|t| t.as_str()).unwrap_or("");
         if ty != "Package" {
             continue;
@@ -133,6 +122,14 @@ fn parse_spdx3(value: &serde_json::Value) -> Vec<Package> {
         }
     }
     dedupe_packages(out)
+}
+
+fn spdx3_elements(value: &serde_json::Value) -> Vec<&serde_json::Value> {
+    match value.get("element") {
+        Some(serde_json::Value::Array(elements)) => elements.iter().collect(),
+        Some(element) => vec![element],
+        None => Vec::new(),
+    }
 }
 
 fn package_from_spdx3_package(element: &serde_json::Value) -> Option<Package> {
@@ -424,6 +421,74 @@ mod tests {
         let pkgs = parse_sbom_json(&json).unwrap();
         assert_eq!(pkgs.len(), 1);
         assert_eq!(pkgs[0].name, "y");
+    }
+
+    #[test]
+    fn parse_cyclonedx_nested_components() {
+        let json = serde_json::json!({
+            "bomFormat": "CycloneDX",
+            "specVersion": "1.6",
+            "components": [{
+                "type": "library",
+                "name": "parent",
+                "version": "1.0.0",
+                "components": [{
+                    "type": "library",
+                    "name": "child",
+                    "version": "2.0.0",
+                    "purl": "pkg:npm/child@2.0.0"
+                }]
+            }]
+        });
+        let pkgs = parse_sbom_json(&json).unwrap();
+        assert_eq!(pkgs.len(), 1);
+        assert_eq!(pkgs[0].name, "child");
+    }
+
+    #[test]
+    fn parse_spdx3_single_element_object() {
+        let json = serde_json::json!({
+            "@context": "https://spdx.org/rdf/3.0.1/spdx-context.jsonld",
+            "@type": "SpdxDocument",
+            "spdxId": "urn:spdx.dev:doc-single",
+            "element": {
+                "@type": "Package",
+                "spdxId": "urn:spdx.dev:pkg-pypi-requests",
+                "name": "requests",
+                "versionInfo": "2.31.0",
+                "packageUrl": "pkg:pypi/requests@2.31.0"
+            }
+        });
+        let pkgs = parse_sbom_json(&json).unwrap();
+        assert_eq!(pkgs.len(), 1);
+        assert_eq!(pkgs[0].name, "requests");
+    }
+
+    #[test]
+    fn spdx2_takes_precedence_over_spdx3_shape() {
+        let json = serde_json::json!({
+            "spdxVersion": "SPDX-2.3",
+            "SPDXID": "SPDXRef-DOCUMENT",
+            "name": "example",
+            "documentNamespace": "https://example.com/spdx",
+            "dataLicense": "CC0-1.0",
+            "@context": "https://spdx.org/rdf/3.0.1/spdx-context.jsonld",
+            "element": [],
+            "packages": [{
+                "SPDXID": "SPDXRef-Package-requests",
+                "name": "requests",
+                "versionInfo": "2.31.0",
+                "downloadLocation": "NOASSERTION",
+                "externalRefs": [{
+                    "referenceCategory": "PACKAGE-MANAGER",
+                    "referenceType": "purl",
+                    "referenceLocator": "pkg:pypi/requests@2.31.0"
+                }]
+            }]
+        });
+        let pkgs = parse_sbom_json(&json).unwrap();
+        assert_eq!(pkgs.len(), 1);
+        assert_eq!(pkgs[0].name, "requests");
     }
 
     #[tokio::test]

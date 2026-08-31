@@ -60,7 +60,8 @@ pub fn package_from_purl(purl: &str) -> Option<Package> {
         return None;
     }
     let ecosystem = ecosystem_for_purl_type(purl_type)?;
-    let name = normalize_purl_name(purl_type, name_path)?;
+    let decoded_name_path = percent_decode_purl_segment(name_path)?;
+    let name = normalize_purl_name(purl_type, &decoded_name_path)?;
     if name.is_empty() {
         return None;
     }
@@ -69,6 +70,40 @@ pub fn package_from_purl(purl: &str) -> Option<Package> {
         version: version.to_string(),
         ecosystem: Some(ecosystem.to_string()),
     })
+}
+
+fn hex_digit(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}
+
+/// Decode percent-encoded PURL name segments (FR-038 import).
+fn percent_decode_purl_segment(segment: &str) -> Option<String> {
+    if !segment.as_bytes().contains(&b'%') {
+        return Some(segment.to_string());
+    }
+    let mut out = Vec::with_capacity(segment.len());
+    let bytes = segment.as_bytes();
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' {
+            if index + 2 >= bytes.len() {
+                return None;
+            }
+            let hi = hex_digit(bytes[index + 1])?;
+            let lo = hex_digit(bytes[index + 2])?;
+            out.push((hi << 4) | lo);
+            index += 3;
+        } else {
+            out.push(bytes[index]);
+            index += 1;
+        }
+    }
+    String::from_utf8(out).ok()
 }
 
 fn normalize_purl_name(purl_type: &str, name_path: &str) -> Option<String> {
@@ -143,6 +178,21 @@ mod tests {
         assert!(package_from_purl("pkg:apk/openssl@3.0.0").is_none());
         assert!(package_from_purl("not-a-purl").is_none());
         assert!(package_from_purl("pkg:pypi/foo@").is_none());
+    }
+
+    #[test]
+    fn package_from_purl_decodes_percent_encoded_name() {
+        let scoped =
+            package_from_purl("pkg:npm/%40scope%2Fpkg@1.0.0").unwrap();
+        assert_eq!(scoped.name, "@scope/pkg");
+        assert_eq!(scoped.version, "1.0.0");
+        assert_eq!(scoped.ecosystem.as_deref(), Some(NPM_ECOSYSTEM));
+    }
+
+    #[test]
+    fn package_from_purl_rejects_invalid_percent_encoding() {
+        assert!(package_from_purl("pkg:npm/%ZZ/pkg@1.0.0").is_none());
+        assert!(package_from_purl("pkg:npm/%@1.0.0").is_none());
     }
 
     #[test]
