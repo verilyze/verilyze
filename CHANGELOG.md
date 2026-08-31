@@ -10,6 +10,8 @@ Human-readable release notes for each version.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-08-31
+
 ### Added
 
 - SBOM inventory input (FR-038): `vlz scan` / `vlz preload` accept
@@ -23,6 +25,13 @@ Human-readable release notes for each version.
   publishing). Published crates inherit workspace keywords, categories,
   README, and rust-version (MSRV 1.98). `check-config-docs` verifies
   crate-local assets stay synced with repo sources.
+
+### Fixed
+
+- SBOM import: CLI contract coverage, empty BOM handling, and review
+  hardening for CycloneDX and SPDX parsers.
+- Third-party license regeneration pinned to the `cargo-about` version used
+  in CI.
 
 ## [0.9.1] - 2026-08-24
 

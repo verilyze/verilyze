@@ -52,7 +52,7 @@ strip = true
 # Shared workspace-wide metadata (optional but useful)
 # ----------------------------------------------------------------
 [workspace.package]
-version = "0.9.1"
+version = "0.10.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/verilyze/verilyze"
@@ -67,27 +67,27 @@ rust-version = "1.98"
 # CVE provider HTTP client (OP-018); system-proxy enables macOS/Windows OS proxy when env unset.
 [workspace.dependencies]
 # Internal workspace crates (version must match [workspace.package].version for crates.io).
-vlz-db = { path = "crates/core/vlz-db", version = "0.9.1" }
-vlz-manifest-finder = { path = "crates/core/vlz-manifest-finder", version = "0.9.1" }
-vlz-manifest-parser = { path = "crates/core/vlz-manifest-parser", version = "0.9.1" }
-vlz-reachability-trait = { path = "crates/core/vlz-reachability-trait", version = "0.9.1" }
-vlz-reachability = { path = "crates/core/vlz-reachability", version = "0.9.1" }
-vlz-cve-client = { path = "crates/core/vlz-cve-client", version = "0.9.1" }
-vlz-report = { path = "crates/core/vlz-report", version = "0.9.1" }
-vlz-integrity = { path = "crates/core/vlz-integrity", version = "0.9.1" }
-vlz-plugin-macro = { path = "crates/core/vlz-plugin-macro", version = "0.9.1" }
-vlz-python = { path = "crates/languages/vlz-python", version = "0.9.1" }
-vlz-rust = { path = "crates/languages/vlz-rust", version = "0.9.1" }
-vlz-go = { path = "crates/languages/vlz-go", version = "0.9.1" }
-vlz-javascript = { path = "crates/languages/vlz-javascript", version = "0.9.1" }
-vlz-java = { path = "crates/languages/vlz-java", version = "0.9.1" }
-vlz-ruby = { path = "crates/languages/vlz-ruby", version = "0.9.1" }
-vlz-sbom = { path = "crates/languages/vlz-sbom", version = "0.9.1" }
-vlz-cve-provider-nvd = { path = "crates/providers/vlz-cve-provider-nvd", version = "0.9.1" }
-vlz-cve-provider-github = { path = "crates/providers/vlz-cve-provider-github", version = "0.9.1" }
-vlz-cve-provider-sonatype = { path = "crates/providers/vlz-cve-provider-sonatype", version = "0.9.1" }
-vlz-db-redb = { path = "crates/db-backends/vlz-db-redb", version = "0.9.1" }
-vlz-db-mem = { path = "crates/db-backends/vlz-db-mem", version = "0.9.1" }
+vlz-db = { path = "crates/core/vlz-db", version = "0.10.0" }
+vlz-manifest-finder = { path = "crates/core/vlz-manifest-finder", version = "0.10.0" }
+vlz-manifest-parser = { path = "crates/core/vlz-manifest-parser", version = "0.10.0" }
+vlz-reachability-trait = { path = "crates/core/vlz-reachability-trait", version = "0.10.0" }
+vlz-reachability = { path = "crates/core/vlz-reachability", version = "0.10.0" }
+vlz-cve-client = { path = "crates/core/vlz-cve-client", version = "0.10.0" }
+vlz-report = { path = "crates/core/vlz-report", version = "0.10.0" }
+vlz-integrity = { path = "crates/core/vlz-integrity", version = "0.10.0" }
+vlz-plugin-macro = { path = "crates/core/vlz-plugin-macro", version = "0.10.0" }
+vlz-python = { path = "crates/languages/vlz-python", version = "0.10.0" }
+vlz-rust = { path = "crates/languages/vlz-rust", version = "0.10.0" }
+vlz-go = { path = "crates/languages/vlz-go", version = "0.10.0" }
+vlz-javascript = { path = "crates/languages/vlz-javascript", version = "0.10.0" }
+vlz-java = { path = "crates/languages/vlz-java", version = "0.10.0" }
+vlz-ruby = { path = "crates/languages/vlz-ruby", version = "0.10.0" }
+vlz-sbom = { path = "crates/languages/vlz-sbom", version = "0.10.0" }
+vlz-cve-provider-nvd = { path = "crates/providers/vlz-cve-provider-nvd", version = "0.10.0" }
+vlz-cve-provider-github = { path = "crates/providers/vlz-cve-provider-github", version = "0.10.0" }
+vlz-cve-provider-sonatype = { path = "crates/providers/vlz-cve-provider-sonatype", version = "0.10.0" }
+vlz-db-redb = { path = "crates/db-backends/vlz-db-redb", version = "0.10.0" }
+vlz-db-mem = { path = "crates/db-backends/vlz-db-mem", version = "0.10.0" }
 async-trait = "0.1"
 clap = "4.6"
 clap_complete = "4.6"
