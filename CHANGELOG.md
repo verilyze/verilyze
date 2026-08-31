@@ -28,6 +28,10 @@ Human-readable release notes for each version.
 
 ### Fixed
 
+- OBS RPM builds on aarch64 when distro `rustc` is below MSRV 1.98: require
+  `rust1.98` / `cargo1.98` on openSUSE targets.
+- Release workflow: tolerate crates.io publish failures (for example an
+  unverified registry email) without blocking GitHub Release promotion.
 - SBOM import: CLI contract coverage, empty BOM handling, and review
   hardening for CycloneDX and SPDX parsers.
 - Third-party license regeneration pinned to the `cargo-about` version used
