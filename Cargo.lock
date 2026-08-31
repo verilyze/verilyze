@@ -2579,7 +2579,7 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "vlz"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2621,7 +2621,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-cve-client"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "async-trait",
  "cvssrust",
@@ -2643,7 +2643,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-cve-provider-github"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "async-trait",
  "reqwest",
@@ -2658,7 +2658,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-cve-provider-nvd"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "async-trait",
  "reqwest",
@@ -2673,7 +2673,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-cve-provider-sonatype"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "async-trait",
  "base64 0.23.1",
@@ -2689,7 +2689,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-db"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "async-trait",
  "rustix",
@@ -2702,7 +2702,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-db-mem"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "async-trait",
  "serde",
@@ -2715,7 +2715,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-db-redb"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "async-trait",
  "redb",
@@ -2730,7 +2730,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-fuzz"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "afl",
  "vlz",
@@ -2745,7 +2745,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-go"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "async-trait",
  "regex",
@@ -2761,7 +2761,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-integrity"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "async-trait",
  "serde_json",
@@ -2773,7 +2773,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-java"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "async-trait",
  "quick-xml",
@@ -2792,7 +2792,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-javascript"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "async-trait",
  "regex",
@@ -2811,7 +2811,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-manifest-finder"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "async-trait",
  "thiserror",
@@ -2820,7 +2820,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-manifest-parser"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "async-trait",
  "thiserror",
@@ -2830,7 +2830,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-plugin-macro"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2839,7 +2839,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-python"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2862,7 +2862,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-reachability"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2875,7 +2875,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-reachability-trait"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "tempfile",
  "vlz-db",
@@ -2883,7 +2883,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-report"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "async-trait",
  "serde",
@@ -2895,7 +2895,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-ruby"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "async-trait",
  "regex",
@@ -2911,7 +2911,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-rust"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "async-trait",
  "regex",
@@ -2930,7 +2930,7 @@ dependencies = [
 
 [[package]]
 name = "vlz-sbom"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "async-trait",
  "regex",
