@@ -31,6 +31,7 @@ PUBLISHED_CRATE_NAMES: tuple[str, ...] = (
     "vlz-javascript",
     "vlz-java",
     "vlz-ruby",
+    "vlz-sbom",
     "vlz-cve-provider-nvd",
     "vlz-cve-provider-github",
     "vlz-cve-provider-sonatype",
@@ -42,7 +43,7 @@ PUBLISHED_CRATE_NAMES: tuple[str, ...] = (
 WORKSPACE_INTERNAL_DEP_RE = re.compile(
     r"^vlz-(?:db|manifest-finder|manifest-parser|reachability-trait|"
     r"reachability|cve-client|report|integrity|plugin-macro|python|rust|go|"
-    r"javascript|java|ruby|cve-provider-nvd|cve-provider-github|"
+    r"javascript|java|ruby|sbom|cve-provider-nvd|cve-provider-github|"
     r"cve-provider-sonatype|db-redb|db-mem)$"
 )
 

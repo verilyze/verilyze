@@ -32,6 +32,27 @@ Bash/Zsh/Fish install (generation plus zip layout only). Default lock-less
 Python, JavaScript, Java, and Ruby scans exit 4. Lock-less `--offline` is
 FR-022a DirectOnly (never unqualified `No vulnerabilities found.`).
 
+## SBOM inventory input (FR-038)
+
+**Cause:** You have an existing CycloneDX or SPDX JSON SBOM and want CVE
+analysis without re-resolving from language manifests.
+
+**Remediation:** Pass `--from-sbom PATH` (repeatable) and/or place allowlisted
+files under the scan root (`bom.json`, `sbom.json`, `*.cdx.json`,
+`*.spdx.json`). Import accepts **CycloneDX 1.x** JSON and **SPDX 2.2 / 2.3 /
+3.0** JSON. Packages need a supported Package URL (purl) with version;
+unsupported components are skipped with a warning. Empty but valid SBOMs
+complete as transitive coverage with zero packages (exit 0 when no CVEs).
+Malformed or unrecognized JSON exits **4** (`failed_parse`). Embedded BOM
+vulnerability sections are ignored; CVE lookup uses the configured provider.
+Scan **output** SBOMs remain CycloneDX 1.6 and SPDX 3.0 (FR-017).
+
+```sh
+vlz scan --from-sbom sbom.cdx.json
+vlz scan --from-sbom inventory.spdx.json /path/to/project
+vlz preload --from-sbom bom.json
+```
+
 ## Docker
 
 ### Docker cache files owned by root
