@@ -36,6 +36,35 @@ fn should_skip_dir(path: &Path, exclude: &HashSet<String>) -> bool {
         .unwrap_or(false)
 }
 
+fn path_intersects_excluded_dir(
+    path: &Path,
+    exclude: &HashSet<String>,
+) -> bool {
+    if exclude.is_empty() {
+        return false;
+    }
+    path.components().any(|component| {
+        if let std::path::Component::Normal(name) = component {
+            name.to_str().is_some_and(|n| exclude.contains(n))
+        } else {
+            false
+        }
+    })
+}
+
+fn filter_manifests_in_excluded_dirs(
+    manifests: Vec<PathBuf>,
+    exclude: &HashSet<String>,
+) -> Vec<PathBuf> {
+    if exclude.is_empty() {
+        return manifests;
+    }
+    manifests
+        .into_iter()
+        .filter(|path| !path_intersects_excluded_dir(path, exclude))
+        .collect()
+}
+
 type ManifestDiscoveryResult =
     (HashMap<String, Vec<PathBuf>>, Vec<(PathBuf, Vec<String>)>);
 
@@ -115,6 +144,13 @@ fn discover_manifests_one_pass(
             #[cfg(feature = "ruby")]
             if vlz_ruby::is_ruby_manifest_name(name) {
                 out.entry("ruby".to_string())
+                    .or_default()
+                    .push(entry.path());
+                continue;
+            }
+            #[cfg(feature = "sbom")]
+            if vlz_sbom::is_sbom_basename(name) {
+                out.entry("sbom".to_string())
                     .or_default()
                     .push(entry.path());
                 continue;
@@ -301,6 +337,7 @@ async fn discover_manifests_for_language(
     finder: &dyn ManifestFinder,
     effective: &EffectiveConfig,
     precomputed: Option<Vec<PathBuf>>,
+    scan_exclude_dirs: &HashSet<String>,
 ) -> Result<(Vec<PathBuf>, Vec<String>)> {
     let mut deferred_messages = Vec::new();
     let used_finder_discovery = precomputed.is_none();
@@ -332,6 +369,8 @@ async fn discover_manifests_for_language(
             .await
             .context("Failed during manifest discovery")?
     };
+    manifests =
+        filter_manifests_in_excluded_dirs(manifests, scan_exclude_dirs);
     manifests.sort();
     #[cfg(feature = "python")]
     if language == "python" && used_finder_discovery {
@@ -372,6 +411,7 @@ struct LanguagePhaseArgs<'a> {
     effective: &'a EffectiveConfig,
     resolve_ctx: &'a ResolveContext,
     resolution_semaphore: Arc<Semaphore>,
+    scan_exclude_dirs: &'a HashSet<String>,
 }
 
 async fn run_language_phase(
@@ -387,6 +427,7 @@ async fn run_language_phase(
         effective,
         resolve_ctx,
         resolution_semaphore,
+        scan_exclude_dirs,
     } = args;
     let language_discovery_started_at = Instant::now();
     let (manifests, deferred_messages) = discover_manifests_for_language(
@@ -395,6 +436,7 @@ async fn run_language_phase(
         finder,
         effective,
         precomputed,
+        scan_exclude_dirs,
     )
     .await?;
     let discovery_ms = language_discovery_started_at.elapsed().as_millis();
@@ -666,6 +708,7 @@ pub async fn resolve_packages_for_path(
             && first_lang != Some("javascript")
             && first_lang != Some("java")
             && first_lang != Some("ruby")
+            && first_lang != Some("sbom")
         {
             match vlz_python::PythonManifestFinder::with_patterns(
                 patterns.clone(),
@@ -688,7 +731,8 @@ pub async fn resolve_packages_for_path(
                 && first_lang != Some("go")
                 && first_lang != Some("javascript")
                 && first_lang != Some("java")
-                && first_lang != Some("ruby"))
+                && first_lang != Some("ruby")
+                && first_lang != Some("sbom"))
         {
             match vlz_rust::RustManifestFinder::with_patterns(patterns.clone())
             {
@@ -707,7 +751,8 @@ pub async fn resolve_packages_for_path(
             || (finders.is_empty()
                 && first_lang != Some("javascript")
                 && first_lang != Some("java")
-                && first_lang != Some("ruby"))
+                && first_lang != Some("ruby")
+                && first_lang != Some("sbom"))
         {
             match vlz_go::GoManifestFinder::with_patterns(patterns.clone()) {
                 Ok(f) => finders.push(Box::new(f)),
@@ -724,7 +769,8 @@ pub async fn resolve_packages_for_path(
         if first_lang == Some("javascript")
             || (finders.is_empty()
                 && first_lang != Some("java")
-                && first_lang != Some("ruby"))
+                && first_lang != Some("ruby")
+                && first_lang != Some("sbom"))
         {
             match vlz_javascript::JsManifestFinder::with_patterns(
                 patterns.clone(),
@@ -741,7 +787,9 @@ pub async fn resolve_packages_for_path(
         }
         #[cfg(feature = "java")]
         if first_lang == Some("java")
-            || (finders.is_empty() && first_lang != Some("ruby"))
+            || (finders.is_empty()
+                && first_lang != Some("ruby")
+                && first_lang != Some("sbom"))
         {
             match vlz_java::JavaManifestFinder::with_patterns(patterns.clone())
             {
@@ -756,8 +804,24 @@ pub async fn resolve_packages_for_path(
             }
         }
         #[cfg(feature = "ruby")]
-        if first_lang == Some("ruby") || finders.is_empty() {
-            match vlz_ruby::RubyManifestFinder::with_patterns(patterns) {
+        if first_lang == Some("ruby")
+            || (finders.is_empty() && first_lang != Some("sbom"))
+        {
+            match vlz_ruby::RubyManifestFinder::with_patterns(patterns.clone())
+            {
+                Ok(f) => finders.push(Box::new(f)),
+                Err(e) => {
+                    error!("Invalid language regex in config: {}", e);
+                    return Err(anyhow!(
+                        "Invalid language regex in config: {}",
+                        e
+                    ));
+                }
+            }
+        }
+        #[cfg(feature = "sbom")]
+        if first_lang == Some("sbom") || finders.is_empty() {
+            match vlz_sbom::SbomManifestFinder::with_patterns(patterns) {
                 Ok(f) => finders.push(Box::new(f)),
                 Err(e) => {
                     error!("Invalid language regex in config: {}", e);
@@ -774,11 +838,12 @@ pub async fn resolve_packages_for_path(
             feature = "go",
             feature = "javascript",
             feature = "java",
-            feature = "ruby"
+            feature = "ruby",
+            feature = "sbom"
         )))]
         {
             error!(
-                "Custom language regexes require a language plugin (e.g. python, rust, go, javascript, java, or ruby feature)"
+                "Custom language regexes require a language plugin (e.g. python, rust, go, javascript, java, ruby, or sbom feature)"
             );
             return Err(anyhow!(
                 "Custom language regexes require a language plugin"
@@ -920,7 +985,13 @@ pub(crate) async fn resolve_packages_with_plugins(
         && paired.iter().all(|(finder, _, _)| {
             matches!(
                 finder.language_name(),
-                "python" | "rust" | "go" | "javascript" | "java" | "ruby"
+                "python"
+                    | "rust"
+                    | "go"
+                    | "javascript"
+                    | "java"
+                    | "ruby"
+                    | "sbom"
             )
         });
 
@@ -936,6 +1007,24 @@ pub(crate) async fn resolve_packages_with_plugins(
         } else {
             (HashMap::new(), Vec::new())
         };
+
+    #[cfg(feature = "sbom")]
+    {
+        if !effective.from_sbom.is_empty() {
+            let entry =
+                manifests_by_language.entry("sbom".to_string()).or_default();
+            for path in &effective.from_sbom {
+                let abs = if path.is_absolute() {
+                    path.clone()
+                } else {
+                    root_path.join(path)
+                };
+                entry.push(abs);
+            }
+            entry.sort();
+            entry.dedup();
+        }
+    }
 
     for (dir, lock_names) in &orphan_multi_lock_warnings {
         eprintln!(
@@ -989,6 +1078,7 @@ pub(crate) async fn resolve_packages_with_plugins(
             let root_for_tasks = root_path.clone();
             let cfg = effective.clone();
             let ctx = resolve_ctx.clone();
+            let exclude_dirs_for_tasks = exclude_dirs.clone();
             let tasks: Vec<_> = jobs
                 .into_iter()
                 .map(|job| {
@@ -996,6 +1086,7 @@ pub(crate) async fn resolve_packages_with_plugins(
                     let root = root_for_tasks.clone();
                     let cfg = cfg.clone();
                     let ctx = ctx.clone();
+                    let exclude = exclude_dirs_for_tasks.clone();
                     async move {
                         run_language_phase(LanguagePhaseArgs {
                             language: job.language,
@@ -1007,6 +1098,7 @@ pub(crate) async fn resolve_packages_with_plugins(
                             effective: &cfg,
                             resolve_ctx: &ctx,
                             resolution_semaphore: sem,
+                            scan_exclude_dirs: &exclude,
                         })
                         .await
                     }
@@ -1040,6 +1132,7 @@ pub(crate) async fn resolve_packages_with_plugins(
                     effective,
                     resolve_ctx: &resolve_ctx,
                     resolution_semaphore: resolution_semaphore.clone(),
+                    scan_exclude_dirs: &exclude_dirs,
                 })
                 .await?;
                 for msg in &phase.deferred_messages {
@@ -1078,6 +1171,24 @@ mod tests {
     use vlz_manifest_parser::{
         DependencyGraph, ParserError, ResolveResult, ResolverError,
     };
+
+    #[test]
+    fn filter_manifests_in_excluded_dirs_drops_paths_under_node_modules() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let excluded = root.join("node_modules").join("bom.json");
+        let kept = root.join("bom.json");
+        std::fs::create_dir_all(excluded.parent().unwrap()).unwrap();
+        std::fs::write(&excluded, "{}").unwrap();
+        std::fs::write(&kept, "{}").unwrap();
+        let mut exclude = HashSet::new();
+        exclude.insert("node_modules".to_string());
+        let filtered = filter_manifests_in_excluded_dirs(
+            vec![excluded.clone(), kept.clone()],
+            &exclude,
+        );
+        assert_eq!(filtered, vec![kept]);
+    }
 
     #[test]
     fn normalized_exclude_dir_names_trims_and_deduplicates() {

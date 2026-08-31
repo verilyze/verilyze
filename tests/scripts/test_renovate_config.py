@@ -284,6 +284,29 @@ def test_renovate_cargo_post_upgrade_syncs_deny_skips() -> None:
     assert tasks["executionMode"] == "branch"
 
 
+def test_renovate_post_upgrade_licenses_reads_cargo_about_from_ci() -> None:
+    """License regen must install the same cargo-about pin as ci.yml."""
+    script = (
+        _ROOT / "scripts" / "renovate-post-upgrade-licenses.sh"
+    ).read_text(encoding="utf-8")
+    assert 'CARGO_ABOUT_VERSION="0.8.4"' not in script
+    assert "cargo-about@[0-9]" in script or "cargo-about@" in script
+    assert ".github/workflows/ci.yml" in script
+    assert "cargo-about --version" in script
+    ci_yml = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(
+        encoding="utf-8"
+    )
+    ci_match = re.search(r"cargo-about@([^\s,]+)", ci_yml)
+    assert ci_match is not None
+    makefile = (_ROOT / "Makefile").read_text(encoding="utf-8")
+    about_block = makefile.split("setup-cargo-about:")[1].split(
+        "setup-cargo-llvm-cov:"
+    )[0]
+    assert ".github/workflows/ci.yml" in about_block
+    assert "--version" in about_block
+    assert "--features cli" in about_block
+
+
 def test_renovate_cargo_deny_manager_matches_ci_env_and_coverage_nightly() -> None:
     """Renovate must bump CARGO_DENY_VERSION in ci.yml and coverage-nightly pin."""
     data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))

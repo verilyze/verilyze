@@ -75,6 +75,16 @@ Override cache database path.
 Override false-positive database path.
 .It Fl -scan-exclude-dir Ar dir
 Exclude directory name from manifest discovery (repeatable).
+.It Fl -lock-file Ar path
+Only discover/merge listed Python lock file basenames (repeatable).
+.It Fl -from-sbom Ar path
+Scan SBOM inventory file (CycloneDX 1.x or SPDX 2.x/3.0 JSON; repeatable).
+Directory scans also discover allowlisted basenames such as
+.Pa bom.json ,
+.Pa *.cdx.json ,
+and
+.Pa *.spdx.json
+(FR-038).
 .It Fl -cache-ttl-secs Ar secs
 Default TTL for new cache entries (default: 432000 = 5 days).
 .It Fl -offline
@@ -243,7 +253,7 @@ Resolve dependencies and warm the vulnerability cache for packages discovered un
 without generating a scan report (FR-021). Uses the same manifest
 discovery and resolution settings as
 .Nm scan
-(cache, provider, offline, lock-file, reachability flags, and related options).
+(cache, provider, offline, lock-file, from-sbom, reachability flags, and related options).
 Accepts the same short flags as
 .Nm scan
 where applicable (e.g.

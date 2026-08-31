@@ -22,6 +22,8 @@ FIXTURES_REL = Path("tests/cli_contract/fixtures")
 VLZ_CARGO_REL = Path("crates/core/vlz/Cargo.toml")
 CACHE_FEATURE_NAMES = frozenset({"redb", "mem"})
 LOCKLESS_PM_ON_PATH = frozenset({"rust", "go"})
+# Empty inventory is a successful Transitive scan (FR-038), not exit 4.
+EMPTY_INVENTORY_OK = frozenset({"sbom"})
 DEFAULT_LANGUAGES = (
     "python",
     "rust",
@@ -29,6 +31,7 @@ DEFAULT_LANGUAGES = (
     "javascript",
     "java",
     "ruby",
+    "sbom",
 )
 VALID_MODES = ("smoke", "full")
 
@@ -211,9 +214,10 @@ def _empty_lock_errors(cases: list[Any], lang: str) -> list[str]:
     if not matched:
         return [f"{lang}: missing default empty-lock case"]
     errors: list[str] = []
+    expected = [0] if lang in EMPTY_INVENTORY_OK else [4]
     for case in matched:
-        if case.get("expect_exit") != [4]:
-            errors.append(f"{case.get('id')}: empty-lock expect [4]")
+        if case.get("expect_exit") != expected:
+            errors.append(f"{case.get('id')}: empty-lock expect {expected}")
     return errors
 
 

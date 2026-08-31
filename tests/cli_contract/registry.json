@@ -29,7 +29,15 @@
       "modes": ["smoke", "full"],
       "args": ["languages"],
       "expect_exit": [0],
-      "stdout_contains": ["python", "rust", "go", "javascript", "java", "ruby"]
+      "stdout_contains": [
+        "python",
+        "rust",
+        "go",
+        "javascript",
+        "java",
+        "ruby",
+        "sbom"
+      ]
     },
     {
       "id": "python-lock-offline",
@@ -317,6 +325,73 @@
       "fixture": "ruby/empty-lock",
       "args": ["scan", "{fixture}"],
       "expect_exit": [4],
+      "stdout_forbids": ["No vulnerabilities found."]
+    },
+    {
+      "id": "sbom-lock-offline",
+      "category": "lock_parse",
+      "language": "sbom",
+      "modes": ["smoke", "full"],
+      "fixture": "sbom/lock",
+      "args": ["scan", "{fixture}", "--offline"],
+      "expect_exit": [6, 86],
+      "stdout_forbids": ["No vulnerabilities found."]
+    },
+    {
+      "id": "sbom-lockless",
+      "category": "exit_code",
+      "language": "sbom",
+      "modes": ["smoke", "full"],
+      "fixture": "sbom/lockless",
+      "args": ["scan", "{fixture}"],
+      "expect_exit": [4],
+      "stdout_forbids": ["No vulnerabilities found."]
+    },
+    {
+      "id": "sbom-lock-offline-pin",
+      "category": "lock_parse",
+      "language": "sbom",
+      "modes": ["full"],
+      "fixture": "sbom/lock",
+      "args": ["scan", "{fixture}", "--offline", "--format", "cyclonedx"],
+      "expect_exit": [6, 86],
+      "stdout_contains": ["cli-contract-pkg"],
+      "stdout_forbids": ["No vulnerabilities found."]
+    },
+    {
+      "id": "sbom-empty-lock",
+      "category": "exit_code",
+      "language": "sbom",
+      "modes": ["full"],
+      "fixture": "sbom/empty-lock",
+      "args": ["scan", "{fixture}"],
+      "expect_exit": [0],
+      "stdout_contains": ["No vulnerabilities found."]
+    },
+    {
+      "id": "sbom-from-sbom-flag-offline",
+      "category": "lock_parse",
+      "language": "sbom",
+      "modes": ["full"],
+      "fixture": "sbom/from-sbom-flag",
+      "args": [
+        "scan",
+        "{fixture}",
+        "--from-sbom",
+        "{fixture}/bom.json",
+        "--offline"
+      ],
+      "expect_exit": [6, 86],
+      "stdout_forbids": ["No vulnerabilities found."]
+    },
+    {
+      "id": "sbom-spdx23-offline",
+      "category": "lock_parse",
+      "language": "sbom",
+      "modes": ["full"],
+      "fixture": "sbom/spdx23",
+      "args": ["scan", "{fixture}", "--offline"],
+      "expect_exit": [6, 86],
       "stdout_forbids": ["No vulnerabilities found."]
     },
     {

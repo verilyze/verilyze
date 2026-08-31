@@ -2616,6 +2616,7 @@ dependencies = [
  "vlz-report",
  "vlz-ruby",
  "vlz-rust",
+ "vlz-sbom",
 ]
 
 [[package]]
@@ -2739,6 +2740,7 @@ dependencies = [
  "vlz-python",
  "vlz-ruby",
  "vlz-rust",
+ "vlz-sbom",
 ]
 
 [[package]]
@@ -2924,6 +2926,20 @@ dependencies = [
  "vlz-manifest-finder",
  "vlz-manifest-parser",
  "vlz-reachability-trait",
+]
+
+[[package]]
+name = "vlz-sbom"
+version = "0.9.1"
+dependencies = [
+ "async-trait",
+ "regex",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "vlz-db",
+ "vlz-manifest-finder",
+ "vlz-manifest-parser",
 ]
 
 [[package]]

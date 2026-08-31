@@ -25,6 +25,7 @@ default-members = [
     "crates/languages/vlz-javascript",
     "crates/languages/vlz-java",
     "crates/languages/vlz-ruby",
+    "crates/languages/vlz-sbom",
     "crates/core/vlz-manifest-finder",
     "crates/core/vlz-manifest-parser",
     "crates/core/vlz-reachability-trait",
@@ -81,6 +82,7 @@ vlz-go = { path = "crates/languages/vlz-go", version = "0.9.1" }
 vlz-javascript = { path = "crates/languages/vlz-javascript", version = "0.9.1" }
 vlz-java = { path = "crates/languages/vlz-java", version = "0.9.1" }
 vlz-ruby = { path = "crates/languages/vlz-ruby", version = "0.9.1" }
+vlz-sbom = { path = "crates/languages/vlz-sbom", version = "0.9.1" }
 vlz-cve-provider-nvd = { path = "crates/providers/vlz-cve-provider-nvd", version = "0.9.1" }
 vlz-cve-provider-github = { path = "crates/providers/vlz-cve-provider-github", version = "0.9.1" }
 vlz-cve-provider-sonatype = { path = "crates/providers/vlz-cve-provider-sonatype", version = "0.9.1" }

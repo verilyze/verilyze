@@ -35,6 +35,7 @@ Crates are organized by plugin type under `crates/`:
   - **vlz-javascript** -- JavaScript and TypeScript: package.json with npm/Yarn/pnpm/Bun locks (language name `javascript`; OSV ecosystem `npm`).
   - **vlz-java** -- Java and Kotlin: Maven (`pom.xml`) and Gradle (`build.gradle`, `gradle.lockfile`, version catalog; language name `java`; OSV ecosystem `Maven`).
   - **vlz-ruby** -- Ruby: Gemfile, gems.rb, `*.gemspec` with Gemfile.lock / gems.locked (language name `ruby`; OSV ecosystem `RubyGems`).
+  - **vlz-sbom** -- SBOM inventory: CycloneDX 1.x / SPDX 2.x and 3.0 JSON via discovery and `--from-sbom` (language name `sbom`; FR-038).
 - **crates/providers/** -- CVE providers (optional, feature-gated):
   - **vlz-cve-provider-nvd** -- NVD (NIST); `nvd` feature.
   - **vlz-cve-provider-github** -- GitHub Advisory Database; `github` feature.
@@ -788,10 +789,10 @@ architecture/PRD.md DOC-003 and design notes on single source of truth).
 
 The `vlz` binary supports optional capabilities via Cargo features:
 
-- **runtime** = `["redb", "python", "rust", "go", "javascript", "java", "ruby"]`
+- **runtime** = `["redb", "python", "rust", "go", "javascript", "java", "ruby", "sbom"]`
   -- desktop scan capabilities with on-disk RedB **CVE cache**. When adding a
   new language, add it here **and** to `runtime-mem` so Docker stays in sync.
-- **runtime-mem** = `["mem", "python", "rust", "go", "javascript", "java", "ruby"]`
+- **runtime-mem** = `["mem", "python", "rust", "go", "javascript", "java", "ruby", "sbom"]`
   -- same languages with an in-memory CVE cache (no `redb`; for ephemeral /
   Docker).
 - **default** = `["runtime", "completions", "docs"]` -- full build with runtime
@@ -823,6 +824,8 @@ The `vlz` binary supports optional capabilities via Cargo features:
   manifests with Gradle lock-first transitive resolution; OSV ecosystem `Maven`.
 - **ruby** -- Ruby language plugin (`vlz-ruby` crate); Bundler Gemfile/gems.rb
   and gemspec manifests with Gemfile.lock / gems.locked (OSV `RubyGems`).
+- **sbom** -- SBOM inventory plugin (`vlz-sbom` crate); CycloneDX 1.x and
+  SPDX 2.2 / 2.3 / 3.0 JSON via allowlisted basenames and `--from-sbom` (FR-038).
 - **nvd** -- NVD CVE provider (`vlz-cve-provider-nvd` crate); opt-in.
 - **github** -- GitHub Advisory CVE provider (`vlz-cve-provider-github` crate);
   opt-in.

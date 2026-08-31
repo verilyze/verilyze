@@ -24,9 +24,19 @@ if ! command -v cargo >/dev/null 2>&1; then
 fi
 
 # Pinned to match CI install-action list in .github/workflows/ci.yml.
-CARGO_ABOUT_VERSION="0.8.4"
-if ! command -v cargo-about >/dev/null 2>&1; then
-  cargo install cargo-about --locked --version "${CARGO_ABOUT_VERSION}"
+CARGO_ABOUT_VERSION="$(
+  grep -oE 'cargo-about@[0-9]+\.[0-9]+\.[0-9]+' \
+    "${ROOT}/.github/workflows/ci.yml" \
+    | head -1 \
+    | cut -d@ -f2
+)"
+if [[ -z "${CARGO_ABOUT_VERSION}" ]]; then
+  echo "ERROR: could not read cargo-about pin from .github/workflows/ci.yml" >&2
+  exit 1
+fi
+if ! command -v cargo-about >/dev/null 2>&1 \
+  || ! cargo-about --version 2>/dev/null | grep -Fq "${CARGO_ABOUT_VERSION}"; then
+  cargo install cargo-about --locked --version "${CARGO_ABOUT_VERSION}" --features cli
 fi
 
 if ! command -v python3 >/dev/null 2>&1; then

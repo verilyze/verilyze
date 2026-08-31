@@ -134,6 +134,8 @@ pub struct EffectiveConfig {
     pub language_regexes: Vec<(String, String)>,
     /// Python lock-file allowlist (Phase 2); empty = union all supported locks.
     pub python_lock_files: Vec<String>,
+    /// Explicit SBOM inventory paths from `--from-sbom` (FR-038).
+    pub from_sbom: Vec<PathBuf>,
     /// Directory names to skip during manifest discovery.
     pub scan_exclude_dirs: Vec<String>,
     /// If true, exit 3 with hint when required package manager (e.g. pip) is not on PATH (FR-024).
@@ -182,6 +184,7 @@ impl Default for EffectiveConfig {
             project_id: None,
             language_regexes: Vec::new(),
             python_lock_files: Vec::new(),
+            from_sbom: Vec::new(),
             scan_exclude_dirs: DEFAULT_SCAN_EXCLUDE_DIRS
                 .iter()
                 .map(|v| (*v).to_string())

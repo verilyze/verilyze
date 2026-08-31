@@ -32,4 +32,5 @@ version_catalog=crates/languages/vlz-java/src/parser/version_catalog.rs
 gemfile=crates/languages/vlz-ruby/src/parser/gemfile.rs
 gemfile_lock=crates/languages/vlz-ruby/src/parser/gemfile_lock.rs
 gemspec=crates/languages/vlz-ruby/src/parser/gemspec.rs
-
+cyclonedx_json=crates/languages/vlz-sbom/src/parser.rs
+spdx_json=crates/languages/vlz-sbom/src/parser.rs

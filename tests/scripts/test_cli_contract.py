@@ -15,6 +15,7 @@ from scripts.cli_contract import (
     UNQUALIFIED_NO_VULNS,
     CaseResult,
     DEFAULT_LANGUAGES,
+    EMPTY_INVENTORY_OK,
     LOCKLESS_PM_ON_PATH,
     _shell_bin,
     cases_for_mode,
@@ -101,6 +102,7 @@ def test_lock_offline_pin_cases_use_cyclonedx_full_only() -> None:
         "javascript-lock-offline-pin": "cli-contract-pkg",
         "java-gradle-lock-offline-pin": "cli-contract",
         "ruby-lock-offline-pin": "cli_contract_demo",
+        "sbom-lock-offline-pin": "cli-contract-pkg",
     }
     assert {c["id"] for c in pins} == set(expected)
     for case in pins:
@@ -127,6 +129,7 @@ def test_default_lockless_cases_expect_exit_4() -> None:
         "javascript-lockless",
         "java-pom-lockless",
         "ruby-lockless",
+        "sbom-lockless",
     }
     for case in default_lockless:
         assert case.get("expect_exit") == [4]
@@ -160,6 +163,7 @@ def test_registry_covers_each_runtime_language() -> None:
     assert errors == []
     assert langs == DEFAULT_LANGUAGES
     assert LOCKLESS_PM_ON_PATH == frozenset({"rust", "go"})
+    assert EMPTY_INVENTORY_OK == frozenset({"sbom"})
 
 
 def test_registry_covers_runtime_languages_reports_gaps() -> None:
