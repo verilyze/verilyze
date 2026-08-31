@@ -2592,6 +2592,13 @@
       "version": "0.4.13"
     },
     {
+      "bom-ref": "pkg:cargo/vlz-fuzz-cflite@0.0.0",
+      "name": "vlz-fuzz-cflite",
+      "purl": "pkg:cargo/vlz-fuzz-cflite@0.0.0",
+      "type": "library",
+      "version": "0.0.0"
+    },
+    {
       "bom-ref": "pkg:cargo/vlz@0.9.1",
       "name": "vlz",
       "purl": "pkg:cargo/vlz@0.9.1",
@@ -2606,9 +2613,37 @@
       "version": "0.9.1"
     },
     {
+      "bom-ref": "pkg:cargo/vlz-cve-provider-github@0.9.1",
+      "name": "vlz-cve-provider-github",
+      "purl": "pkg:cargo/vlz-cve-provider-github@0.9.1",
+      "type": "library",
+      "version": "0.9.1"
+    },
+    {
+      "bom-ref": "pkg:cargo/vlz-cve-provider-nvd@0.9.1",
+      "name": "vlz-cve-provider-nvd",
+      "purl": "pkg:cargo/vlz-cve-provider-nvd@0.9.1",
+      "type": "library",
+      "version": "0.9.1"
+    },
+    {
+      "bom-ref": "pkg:cargo/vlz-cve-provider-sonatype@0.9.1",
+      "name": "vlz-cve-provider-sonatype",
+      "purl": "pkg:cargo/vlz-cve-provider-sonatype@0.9.1",
+      "type": "library",
+      "version": "0.9.1"
+    },
+    {
       "bom-ref": "pkg:cargo/vlz-db@0.9.1",
       "name": "vlz-db",
       "purl": "pkg:cargo/vlz-db@0.9.1",
+      "type": "library",
+      "version": "0.9.1"
+    },
+    {
+      "bom-ref": "pkg:cargo/vlz-db-mem@0.9.1",
+      "name": "vlz-db-mem",
+      "purl": "pkg:cargo/vlz-db-mem@0.9.1",
       "type": "library",
       "version": "0.9.1"
     },
@@ -2620,11 +2655,11 @@
       "version": "0.9.1"
     },
     {
-      "bom-ref": "pkg:cargo/vlz-fuzz-cflite@0.0.0",
-      "name": "vlz-fuzz-cflite",
-      "purl": "pkg:cargo/vlz-fuzz-cflite@0.0.0",
+      "bom-ref": "pkg:cargo/vlz-fuzz@0.9.1",
+      "name": "vlz-fuzz",
+      "purl": "pkg:cargo/vlz-fuzz@0.9.1",
       "type": "library",
-      "version": "0.0.0"
+      "version": "0.9.1"
     },
     {
       "bom-ref": "pkg:cargo/vlz-go@0.9.1",
@@ -2714,41 +2749,6 @@
       "bom-ref": "pkg:cargo/vlz-rust@0.9.1",
       "name": "vlz-rust",
       "purl": "pkg:cargo/vlz-rust@0.9.1",
-      "type": "library",
-      "version": "0.9.1"
-    },
-    {
-      "bom-ref": "pkg:cargo/vlz-cve-provider-github@0.9.1",
-      "name": "vlz-cve-provider-github",
-      "purl": "pkg:cargo/vlz-cve-provider-github@0.9.1",
-      "type": "library",
-      "version": "0.9.1"
-    },
-    {
-      "bom-ref": "pkg:cargo/vlz-cve-provider-nvd@0.9.1",
-      "name": "vlz-cve-provider-nvd",
-      "purl": "pkg:cargo/vlz-cve-provider-nvd@0.9.1",
-      "type": "library",
-      "version": "0.9.1"
-    },
-    {
-      "bom-ref": "pkg:cargo/vlz-cve-provider-sonatype@0.9.1",
-      "name": "vlz-cve-provider-sonatype",
-      "purl": "pkg:cargo/vlz-cve-provider-sonatype@0.9.1",
-      "type": "library",
-      "version": "0.9.1"
-    },
-    {
-      "bom-ref": "pkg:cargo/vlz-db-mem@0.9.1",
-      "name": "vlz-db-mem",
-      "purl": "pkg:cargo/vlz-db-mem@0.9.1",
-      "type": "library",
-      "version": "0.9.1"
-    },
-    {
-      "bom-ref": "pkg:cargo/vlz-fuzz@0.9.1",
-      "name": "vlz-fuzz",
-      "purl": "pkg:cargo/vlz-fuzz@0.9.1",
       "type": "library",
       "version": "0.9.1"
     },
