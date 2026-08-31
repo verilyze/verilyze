@@ -365,8 +365,8 @@
       "modes": ["full"],
       "fixture": "sbom/empty-lock",
       "args": ["scan", "{fixture}"],
-      "expect_exit": [4],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "expect_exit": [0],
+      "stdout_contains": ["No vulnerabilities found."]
     },
     {
       "id": "generate-completions-bash",

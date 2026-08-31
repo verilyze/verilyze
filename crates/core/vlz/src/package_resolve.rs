@@ -673,6 +673,7 @@ pub async fn resolve_packages_for_path(
             && first_lang != Some("javascript")
             && first_lang != Some("java")
             && first_lang != Some("ruby")
+            && first_lang != Some("sbom")
         {
             match vlz_python::PythonManifestFinder::with_patterns(
                 patterns.clone(),
@@ -695,7 +696,8 @@ pub async fn resolve_packages_for_path(
                 && first_lang != Some("go")
                 && first_lang != Some("javascript")
                 && first_lang != Some("java")
-                && first_lang != Some("ruby"))
+                && first_lang != Some("ruby")
+                && first_lang != Some("sbom"))
         {
             match vlz_rust::RustManifestFinder::with_patterns(patterns.clone())
             {
@@ -714,7 +716,8 @@ pub async fn resolve_packages_for_path(
             || (finders.is_empty()
                 && first_lang != Some("javascript")
                 && first_lang != Some("java")
-                && first_lang != Some("ruby"))
+                && first_lang != Some("ruby")
+                && first_lang != Some("sbom"))
         {
             match vlz_go::GoManifestFinder::with_patterns(patterns.clone()) {
                 Ok(f) => finders.push(Box::new(f)),
@@ -731,7 +734,8 @@ pub async fn resolve_packages_for_path(
         if first_lang == Some("javascript")
             || (finders.is_empty()
                 && first_lang != Some("java")
-                && first_lang != Some("ruby"))
+                && first_lang != Some("ruby")
+                && first_lang != Some("sbom"))
         {
             match vlz_javascript::JsManifestFinder::with_patterns(
                 patterns.clone(),
@@ -748,7 +752,9 @@ pub async fn resolve_packages_for_path(
         }
         #[cfg(feature = "java")]
         if first_lang == Some("java")
-            || (finders.is_empty() && first_lang != Some("ruby"))
+            || (finders.is_empty()
+                && first_lang != Some("ruby")
+                && first_lang != Some("sbom"))
         {
             match vlz_java::JavaManifestFinder::with_patterns(patterns.clone())
             {
@@ -763,8 +769,24 @@ pub async fn resolve_packages_for_path(
             }
         }
         #[cfg(feature = "ruby")]
-        if first_lang == Some("ruby") || finders.is_empty() {
-            match vlz_ruby::RubyManifestFinder::with_patterns(patterns) {
+        if first_lang == Some("ruby")
+            || (finders.is_empty() && first_lang != Some("sbom"))
+        {
+            match vlz_ruby::RubyManifestFinder::with_patterns(patterns.clone())
+            {
+                Ok(f) => finders.push(Box::new(f)),
+                Err(e) => {
+                    error!("Invalid language regex in config: {}", e);
+                    return Err(anyhow!(
+                        "Invalid language regex in config: {}",
+                        e
+                    ));
+                }
+            }
+        }
+        #[cfg(feature = "sbom")]
+        if first_lang == Some("sbom") || finders.is_empty() {
+            match vlz_sbom::SbomManifestFinder::with_patterns(patterns) {
                 Ok(f) => finders.push(Box::new(f)),
                 Err(e) => {
                     error!("Invalid language regex in config: {}", e);
@@ -781,11 +803,12 @@ pub async fn resolve_packages_for_path(
             feature = "go",
             feature = "javascript",
             feature = "java",
-            feature = "ruby"
+            feature = "ruby",
+            feature = "sbom"
         )))]
         {
             error!(
-                "Custom language regexes require a language plugin (e.g. python, rust, go, javascript, java, or ruby feature)"
+                "Custom language regexes require a language plugin (e.g. python, rust, go, javascript, java, ruby, or sbom feature)"
             );
             return Err(anyhow!(
                 "Custom language regexes require a language plugin"

@@ -157,7 +157,7 @@ pub enum Commands {
         )]
         lock_file: Vec<String>,
 
-        /// Scan SBOM inventory file (CycloneDX 1.6 / SPDX 3.0 JSON; repeatable)
+        /// Scan SBOM inventory file (CycloneDX 1.x / SPDX 2.x or 3.0 JSON; repeatable)
         #[arg(
             long = "from-sbom",
             value_name = "PATH",
@@ -394,7 +394,7 @@ pub enum Commands {
         )]
         lock_file: Vec<String>,
 
-        /// Scan SBOM inventory file (CycloneDX 1.6 / SPDX 3.0 JSON; repeatable)
+        /// Scan SBOM inventory file (CycloneDX 1.x / SPDX 2.x or 3.0 JSON; repeatable)
         #[arg(
             long = "from-sbom",
             value_name = "PATH",

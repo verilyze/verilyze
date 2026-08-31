@@ -14,13 +14,12 @@ keywords.workspace = true
 categories.workspace = true
 readme.workspace = true
 rust-version.workspace = true
-description = "SBOM inventory plugin for verilyze (CycloneDX / SPDX import, FR-038)"
+description = "SBOM inventory plugin for verilyze (CycloneDX 1.x / SPDX 2.x+3.0 import, FR-038)"
 
 [dependencies]
 async-trait.workspace = true
 regex.workspace = true
 serde_json.workspace = true
-thiserror.workspace = true
 vlz-db.workspace = true
 vlz-manifest-finder.workspace = true
 vlz-manifest-parser.workspace = true

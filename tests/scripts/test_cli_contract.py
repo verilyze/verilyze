@@ -15,6 +15,7 @@ from scripts.cli_contract import (
     UNQUALIFIED_NO_VULNS,
     CaseResult,
     DEFAULT_LANGUAGES,
+    EMPTY_INVENTORY_OK,
     LOCKLESS_PM_ON_PATH,
     _shell_bin,
     cases_for_mode,
@@ -162,6 +163,7 @@ def test_registry_covers_each_runtime_language() -> None:
     assert errors == []
     assert langs == DEFAULT_LANGUAGES
     assert LOCKLESS_PM_ON_PATH == frozenset({"rust", "go"})
+    assert EMPTY_INVENTORY_OK == frozenset({"sbom"})
 
 
 def test_registry_covers_runtime_languages_reports_gaps() -> None:

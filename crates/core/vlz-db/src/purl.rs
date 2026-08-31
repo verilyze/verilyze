@@ -49,7 +49,9 @@ pub fn purl_for_package(pkg: &Package) -> String {
 /// (the latter matches vlz export).
 pub fn package_from_purl(purl: &str) -> Option<Package> {
     let rest = purl.strip_prefix("pkg:")?;
-    let (type_and_name, version) = rest.rsplit_once('@')?;
+    let (type_and_name, version_raw) = rest.rsplit_once('@')?;
+    // PURL: version may be followed by ?qualifiers and/or #subpath.
+    let version = version_raw.split(['?', '#']).next().unwrap_or(version_raw);
     if version.is_empty() {
         return None;
     }
@@ -119,6 +121,21 @@ mod tests {
         )
         .unwrap();
         assert_eq!(colon.name, "org.apache.commons:commons-lang3");
+    }
+
+    #[test]
+    fn package_from_purl_strips_qualifiers_and_subpath() {
+        let pkg = package_from_purl(
+            "pkg:maven/org.apache.commons/commons-lang3@3.12.0?type=jar",
+        )
+        .unwrap();
+        assert_eq!(pkg.version, "3.12.0");
+        assert_eq!(pkg.name, "org.apache.commons:commons-lang3");
+
+        let with_sub =
+            package_from_purl("pkg:npm/lodash@4.17.21#lib/index.js").unwrap();
+        assert_eq!(with_sub.version, "4.17.21");
+        assert_eq!(with_sub.name, "lodash");
     }
 
     #[test]
