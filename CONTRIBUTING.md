@@ -464,6 +464,12 @@ changes):
   trusted publishing for this repository/workflow (`release.yml`). The
   `publish-crates` job prefers an OIDC token from
   `rust-lang/crates-io-auth-action` and falls back to the secret.
+- When a GitHub Release is already published but crates.io publish was
+  incomplete (for example HTTP 429 on first-time crate names), finish the
+  same SemVer with **Actions → Publish crates** (`crates-publish.yml`,
+  `workflow_dispatch`). The job is idempotent: it skips versions already on
+  the registry and retries rate limits using the same script as
+  `publish-crates`.
 - Local preflight: `make check-crates-publish` (manifest, vlz assets, leaf
   `cargo package` checks). Full `cargo package -p vlz` succeeds only after
   dependencies exist on the registry.
