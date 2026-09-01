@@ -4,5 +4,6 @@
   <url>https://github.com/verilyze/verilyze</url>
   <build>
     <disable repository="Fedora_43"/>
+    <disable repository="16.0"/>
   </build>
 </package>

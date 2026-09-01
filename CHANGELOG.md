@@ -30,6 +30,8 @@ Human-readable release notes for each version.
 
 - OBS RPM builds on aarch64 when distro `rustc` is below MSRV 1.98: require
   `rust1.98` / `cargo1.98` on openSUSE targets.
+- OBS: disable Leap 16.0 and openSUSE Tumbleweed aarch64 until `rust1.98`
+  is published for those targets (`nothing provides rust1.98`).
 - Release workflow: tolerate crates.io publish failures (for example an
   unverified registry email) without blocking GitHub Release promotion.
 - SBOM import: CLI contract coverage, empty BOM handling, and review
