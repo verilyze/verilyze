@@ -285,7 +285,9 @@ and report):
    for CI green; merge to `main`. File or bump `ai-learnings` issues for
    the failed `release.yml` fingerprints first (intake above).
 2. Add bullets under the existing `## [X.Y.Z]` section (not a new version
-   header).
+   header) per CONTRIBUTING **Changelog audience** (compare to the previous
+   published tag; pipeline fixes are not **Fixed** unless users of that tag
+   could observe the defect).
 3. Sync `main`, re-run `make release-preflight`, verify the GitHub Release is
    still a draft (or absent), then move the tag locally and on origin
    (authorized by the original Publish grant):
@@ -314,6 +316,11 @@ make release-tag-move TAG=vX.Y.Z
 | Immutable release or registry artifacts consumed downstream | New patch version only |
 | Unrecoverable failure or missing secrets the agent cannot fix | Stop and report |
 | Stabilization retry cap exceeded | Stop and report |
+
+**Changelog during stabilization:** Follow CONTRIBUTING **Changelog audience**.
+Do not list every stabilization commit under **Fixed**. After
+`gh release edit --draft=false`, that version's CHANGELOG section and
+GitHub Release body are frozen; do not retroactively edit them.
 
 **Optional:** Run `workflow_dispatch` on `release.yml` from a branch ref to
 exercise build and OBS jobs without pushing a tag. It does **not** run
