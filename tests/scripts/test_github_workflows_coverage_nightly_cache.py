@@ -50,6 +50,28 @@ def test_coverage_nightly_cargo_afl_pin_matches_ci() -> None:
     )
 
 
+def test_coverage_nightly_cargo_about_pin_matches_ci() -> None:
+    """Nightly must use the same cargo-about pin as ci.yml install-action."""
+    ci = (repo_root() / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    nightly = _COVERAGE_NIGHTLY.read_text(encoding="utf-8")
+    ci_match = re.search(r"cargo-about@([^\s,]+)", ci)
+    assert ci_match is not None, "ci.yml must pin cargo-about@"
+    assert f"cargo-about@{ci_match.group(1)}" in nightly, (
+        f"coverage-nightly must pin cargo-about@{ci_match.group(1)} to match ci.yml"
+    )
+
+
+def test_coverage_nightly_cargo_llvm_cov_pin_matches_ci() -> None:
+    """Nightly must use the same cargo-llvm-cov pin as ci.yml install-action."""
+    ci = (repo_root() / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    nightly = _COVERAGE_NIGHTLY.read_text(encoding="utf-8")
+    ci_match = re.search(r"cargo-llvm-cov@([^\s,]+)", ci)
+    assert ci_match is not None, "ci.yml must pin cargo-llvm-cov@"
+    assert f"cargo-llvm-cov@{ci_match.group(1)}" in nightly, (
+        f"coverage-nightly must pin cargo-llvm-cov@{ci_match.group(1)} to match ci.yml"
+    )
+
+
 def test_coverage_nightly_sets_afl_verbose_on_coverage_step() -> None:
     text = _COVERAGE_NIGHTLY.read_text(encoding="utf-8")
     start = text.index(

@@ -37,8 +37,11 @@
     },
     {
       "customType": "regex",
-      "description": "CI taiki-e/install-action: cargo-llvm-cov (ci.yml tool: line)",
-      "managerFilePatterns": ["/^\\.github\\/workflows\\/ci\\.yml$/"],
+      "description": "CI taiki-e/install-action: cargo-llvm-cov (ci.yml and coverage-nightly)",
+      "managerFilePatterns": [
+        "/^\\.github\\/workflows\\/ci\\.yml$/",
+        "/^\\.github\\/workflows\\/coverage-nightly\\.yml$/"
+      ],
       "matchStrings": ["cargo-llvm-cov@(?<currentValue>[^,\\s]+)"],
       "datasourceTemplate": "crate",
       "depNameTemplate": "cargo-llvm-cov",
@@ -73,8 +76,11 @@
     },
     {
       "customType": "regex",
-      "description": "CI taiki-e/install-action: cargo-about (ci.yml tool: line)",
-      "managerFilePatterns": ["/^\\.github\\/workflows\\/ci\\.yml$/"],
+      "description": "CI taiki-e/install-action: cargo-about (ci.yml and coverage-nightly)",
+      "managerFilePatterns": [
+        "/^\\.github\\/workflows\\/ci\\.yml$/",
+        "/^\\.github\\/workflows\\/coverage-nightly\\.yml$/"
+      ],
       "matchStrings": ["cargo-about@(?<currentValue>[^,\\s]+)"],
       "datasourceTemplate": "crate",
       "depNameTemplate": "cargo-about",
