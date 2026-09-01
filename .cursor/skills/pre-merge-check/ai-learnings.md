@@ -106,6 +106,23 @@ always runs and temp bodies are cleaned up:
 4. Repo secret scanning is a backstop after the fact; the wrappers are the
    preventive control.
 
+**Do not bypass the wrapper.** Do not create ai-learnings issues via Cursor
+GitHub integration, native issue tools, or raw `gh issue create`. Cloud and
+desktop agents must run `./scripts/ai-learnings-gh-post.sh` from the repo
+checkout (install gitleaks via `make setup` when missing). If
+`issue-create` fails (gitleaks, `gh` auth, or metadata repair), stop and
+leave a **link-only** note for a human; do not fall back to unwrapped
+create.
+
+After `issue-create`, confirm the issue has label `ai-learnings` and type
+`Learning` (the wrapper verifies and repairs). Prefer issues authored via
+your `gh` identity, not the `cursor` bot app.
+
+GitHub Actions workflow `ai-learnings-issue-hygiene.yml` is a metadata-only
+backstop on `issues.opened` (title `ci-gap:` / `agent:` or body sections
+`## Fingerprint` + `## Classification`). It does not replace the wrapper
+gitleaks preflight.
+
 Caller-owned body files: pass `--rm-body` to delete after a successful post,
 or `rm -f` yourself. Never leave excerpts with possible secrets in `/tmp`.
 
