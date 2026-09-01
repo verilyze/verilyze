@@ -27,7 +27,7 @@ vlz-db.workspace = true
 vlz-manifest-finder.workspace = true
 vlz-manifest-parser.workspace = true
 vlz-reachability-trait.workspace = true
-tokio = { workspace = true, features = ["fs"] }
+tokio = { workspace = true, features = ["fs", "rt"] }
 
 [features]
 perf-instrumentation = ["vlz-reachability-trait/perf-instrumentation"]
