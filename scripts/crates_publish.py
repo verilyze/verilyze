@@ -6,12 +6,17 @@
 """crates.io publish order and manifest validation."""
 
 import argparse
+import math
 import os
 import re
 import subprocess  # nosec B404
 import sys
+import time
 import tomllib
 from collections import deque
+from collections.abc import Callable
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 # Production crates published to crates.io (fuzz crates excluded).
@@ -49,6 +54,26 @@ WORKSPACE_INTERNAL_DEP_RE = re.compile(
 
 VLZ_INSTALL_BINARIES = frozenset({"vlz"})
 REGISTRY_INHERIT_FIELDS = ("keywords", "categories", "readme", "rust-version")
+
+PUBLISH_RATE_LIMIT_MAX_RETRIES = 5
+PUBLISH_RATE_LIMIT_FALLBACK_SECS = 600
+PUBLISH_RATE_LIMIT_MAX_WAIT_SECS = 3600
+PUBLISH_RATE_LIMIT_SKEW_SECS = 5
+
+PUBLISH_RETRY_AFTER_BODY_RE = re.compile(
+    r"try again after\s+"
+    r"([A-Za-z]{3},\s+\d{1,2}\s+[A-Za-z]{3}\s+\d{4}\s+"
+    r"\d{2}:\d{2}:\d{2}\s+(?:GMT|UTC))",
+    re.IGNORECASE,
+)
+PUBLISH_RETRY_AFTER_HEADER_RE = re.compile(
+    r"^[\t ]*retry-after:\s*(.+)$",
+    re.IGNORECASE | re.MULTILINE,
+)
+_PUBLISH_RATE_LIMIT_RE = re.compile(
+    r"status 429|\bgot 429\b",
+    re.IGNORECASE,
+)
 
 
 def get_repo_root() -> Path:
@@ -380,6 +405,66 @@ def is_publish_duplicate_error(output: str) -> bool:
     )
 
 
+def is_publish_rate_limit_error(output: str) -> bool:
+    """Return True when cargo publish failed due to HTTP 429 rate limiting."""
+    return _PUBLISH_RATE_LIMIT_RE.search(output) is not None
+
+
+def _wait_secs_until_retry_at(retry_at: datetime, *, now: datetime) -> int:
+    """Return seconds to wait for a retry timestamp, with clock-skew buffer."""
+    if retry_at.tzinfo is None:
+        retry_at = retry_at.replace(tzinfo=UTC)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=UTC)
+    diff_secs = (retry_at - now).total_seconds()
+    if diff_secs <= 0:
+        return PUBLISH_RATE_LIMIT_SKEW_SECS
+    return math.ceil(diff_secs) + PUBLISH_RATE_LIMIT_SKEW_SECS
+
+
+def _wait_secs_from_retry_after_value(
+    value: str, *, now: datetime
+) -> int | None:
+    """Parse a Retry-After header value (seconds or HTTP-date)."""
+    stripped = value.strip()
+    if stripped.isdigit():
+        seconds = int(stripped)
+        if seconds <= 0:
+            return PUBLISH_RATE_LIMIT_SKEW_SECS
+        return seconds + PUBLISH_RATE_LIMIT_SKEW_SECS
+    try:
+        retry_at = parsedate_to_datetime(stripped)
+    except (TypeError, ValueError):
+        return None
+    return _wait_secs_until_retry_at(retry_at, now=now)
+
+
+def parse_publish_retry_after_secs(
+    output: str, *, now: datetime
+) -> int | None:
+    """Return seconds to wait before retrying a crates.io publish 429.
+
+    crates.io sets ``Retry-After`` to the same HTTP-date as the JSON error
+    body. Modern cargo surfaces the body in compact errors; legacy cargo may
+    dump response headers instead. Prefer the body, then header lines.
+    """
+    body_match = PUBLISH_RETRY_AFTER_BODY_RE.search(output)
+    if body_match:
+        parsed = _wait_secs_from_retry_after_value(
+            body_match.group(1).strip(),
+            now=now,
+        )
+        if parsed is not None:
+            return parsed
+    header_match = PUBLISH_RETRY_AFTER_HEADER_RE.search(output)
+    if header_match:
+        return _wait_secs_from_retry_after_value(
+            header_match.group(1).strip(),
+            now=now,
+        )
+    return None
+
+
 def run_cargo_registry_search(
     crate: str, version: str, repo_root: Path
 ) -> subprocess.CompletedProcess[str]:
@@ -423,6 +508,58 @@ def run_cargo_publish(
     )
 
 
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+def publish_crate_with_retry(
+    crate: str,
+    repo_root: Path,
+    *,
+    max_retries: int = PUBLISH_RATE_LIMIT_MAX_RETRIES,
+    sleep_fn: Callable[[float], None] | None = None,
+    now_fn: Callable[[], datetime] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Publish one crate, retrying on crates.io HTTP 429 rate limits."""
+    current_time = now_fn if now_fn is not None else _utc_now
+    do_sleep = sleep_fn if sleep_fn is not None else time.sleep
+    retries = max(0, max_retries)
+    result: subprocess.CompletedProcess[str] | None = None
+    for attempt in range(retries + 1):
+        result = run_cargo_publish(crate, repo_root)
+        if result.returncode == 0:
+            return result
+        combined = f"{result.stdout}\n{result.stderr}"
+        if not is_publish_rate_limit_error(combined):
+            return result
+        if attempt >= retries:
+            return result
+        wait_secs = parse_publish_retry_after_secs(
+            combined, now=current_time()
+        )
+        if wait_secs is None:
+            wait_secs = PUBLISH_RATE_LIMIT_FALLBACK_SECS
+        if wait_secs > PUBLISH_RATE_LIMIT_MAX_WAIT_SECS:
+            print(
+                f"cargo-publish-release: rate limited publishing {crate}; "
+                f"server requested {wait_secs}s wait "
+                f"(exceeds {PUBLISH_RATE_LIMIT_MAX_WAIT_SECS}s cap); "
+                "re-run the release job after the throttle clears",
+                flush=True,
+            )
+            return result
+        print(
+            f"cargo-publish-release: rate limited publishing {crate}; "
+            f"retry {attempt + 1}/{retries} in {wait_secs}s",
+            flush=True,
+        )
+        do_sleep(float(wait_secs))
+    if result is None:
+        msg = "publish_crate_with_retry did not invoke cargo publish"
+        raise RuntimeError(msg)
+    return result
+
+
 def publish_release_crates(
     repo_root: Path,
     *,
@@ -441,7 +578,7 @@ def publish_release_crates(
             )
             continue
         print(f"cargo-publish-release: publishing {crate} {workspace_version}")
-        result = run_cargo_publish(crate, repo_root)
+        result = publish_crate_with_retry(crate, repo_root)
         if result.returncode == 0:
             continue
         combined = f"{result.stdout}\n{result.stderr}"

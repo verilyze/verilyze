@@ -6,11 +6,16 @@
 
 import subprocess
 import tomllib
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
 from scripts.crates_publish import (
+    PUBLISH_RATE_LIMIT_FALLBACK_SECS,
+    PUBLISH_RATE_LIMIT_MAX_WAIT_SECS,
+    PUBLISH_RATE_LIMIT_SKEW_SECS,
+    _wait_secs_until_retry_at,
     PUBLISHED_CRATE_NAMES,
     check_crates_publish,
     crate_already_on_registry,
@@ -18,10 +23,13 @@ from scripts.crates_publish import (
     default_feature_set,
     discover_crate_manifests,
     is_publish_duplicate_error,
+    is_publish_rate_limit_error,
     leaf_crates,
     list_vlz_package_binaries,
     main,
     parse_internal_dependencies,
+    parse_publish_retry_after_secs,
+    publish_crate_with_retry,
     publish_order,
     publish_release_crates,
     run_cargo_package,
@@ -273,6 +281,126 @@ def test_validate_registry_metadata_handles_missing_toolchain(
 )
 def test_is_publish_duplicate_error(output: str, expected: bool) -> None:
     assert is_publish_duplicate_error(output) is expected
+
+
+MODERN_429_ERROR = (
+    "the remote server responded with an error (status 429 Too Many "
+    "Requests): You have published too many updates to existing crates in a "
+    "short period of time. Please try again after Mon, 30 Mar 2026 21:36:35 "
+    "GMT and see https://crates.io/docs/rate-limits for more details."
+)
+
+
+@pytest.mark.parametrize(
+    ("output", "expected"),
+    [
+        (MODERN_429_ERROR, True),
+        ("error: failed to get a 200 OK response, got 429\nbody:\n", True),
+        ("error: failed to verify compressed package", False),
+        ("too many dependencies in this manifest", False),
+        ("error: failed to get a 200 OK response, got 4290", False),
+    ],
+)
+def test_is_publish_rate_limit_error(output: str, expected: bool) -> None:
+    assert is_publish_rate_limit_error(output) is expected
+
+
+def test_parse_publish_retry_after_secs_future_date() -> None:
+    now = datetime(2026, 3, 30, 21, 30, 0, tzinfo=UTC)
+    retry_at = datetime(2026, 3, 30, 21, 36, 35, tzinfo=UTC)
+    expected = int((retry_at - now).total_seconds()) + PUBLISH_RATE_LIMIT_SKEW_SECS
+    assert (
+        parse_publish_retry_after_secs(
+            "Please try again after Mon, 30 Mar 2026 21:36:35 GMT",
+            now=now,
+        )
+        == expected
+    )
+
+
+def test_parse_publish_retry_after_secs_accepts_utc_suffix() -> None:
+    now = datetime(2026, 3, 30, 21, 30, 0, tzinfo=UTC)
+    assert (
+        parse_publish_retry_after_secs(
+            "Please try again after Mon, 30 Mar 2026 21:36:35 UTC",
+            now=now,
+        )
+        == 400
+    )
+
+
+def test_parse_publish_retry_after_secs_or_email_variant() -> None:
+    now = datetime(2026, 3, 30, 21, 30, 0, tzinfo=UTC)
+    message = (
+        "Please try again after Mon, 30 Mar 2026 21:36:35 GMT or email "
+        "help@crates.io to have your limit increased."
+    )
+    assert parse_publish_retry_after_secs(message, now=now) == 400
+
+
+def test_parse_publish_retry_after_secs_from_retry_after_header() -> None:
+    now = datetime(2026, 3, 30, 21, 30, 0, tzinfo=UTC)
+    output = (
+        "error: failed to get a 200 OK response, got 429\n"
+        "headers:\n"
+        "\tHTTP/1.1 429\n"
+        "\tRetry-After: Mon, 30 Mar 2026 21:36:35 GMT\n"
+        "body:\n"
+    )
+    assert parse_publish_retry_after_secs(output, now=now) == 400
+
+
+def test_parse_publish_retry_after_secs_header_seconds() -> None:
+    assert (
+        parse_publish_retry_after_secs(
+            "headers:\n\tRetry-After: 120\n",
+            now=datetime(2026, 3, 30, 21, 30, 0, tzinfo=UTC),
+        )
+        == 120 + PUBLISH_RATE_LIMIT_SKEW_SECS
+    )
+
+
+def test_parse_publish_retry_after_secs_header_zero_seconds() -> None:
+    assert (
+        parse_publish_retry_after_secs(
+            "headers:\n\tRetry-After: 0\n",
+            now=datetime(2026, 3, 30, 21, 30, 0, tzinfo=UTC),
+        )
+        == PUBLISH_RATE_LIMIT_SKEW_SECS
+    )
+
+
+def test_parse_publish_retry_after_secs_invalid_header_date() -> None:
+    now = datetime(2026, 3, 30, 21, 30, 0, tzinfo=UTC)
+    assert (
+        parse_publish_retry_after_secs(
+            "headers:\n\tRetry-After: not-a-date\n",
+            now=now,
+        )
+        is None
+    )
+
+
+def test_wait_secs_until_retry_at_naive_datetimes() -> None:
+    retry_at = datetime(2026, 3, 30, 21, 36, 35)
+    now = datetime(2026, 3, 30, 21, 30, 0)
+    assert _wait_secs_until_retry_at(retry_at, now=now) == 400
+
+
+def test_parse_publish_retry_after_secs_past_date() -> None:
+    now = datetime(2026, 3, 30, 22, 0, 0, tzinfo=UTC)
+    assert (
+        parse_publish_retry_after_secs(
+            "Please try again after Mon, 30 Mar 2026 21:36:35 GMT",
+            now=now,
+        )
+        == PUBLISH_RATE_LIMIT_SKEW_SECS
+    )
+
+
+def test_parse_publish_retry_after_secs_unparseable() -> None:
+    now = datetime(2026, 3, 30, 21, 30, 0, tzinfo=UTC)
+    assert parse_publish_retry_after_secs("no retry hint here", now=now) is None
 
 
 def test_publish_continues_after_duplicate_publish_error(
@@ -689,3 +817,308 @@ def test_run_cargo_registry_search_and_publish_invoked(
     run_cargo_publish("vlz", tmp_path)
     assert any("search" in cmd for cmd in seen)
     assert any("publish" in cmd for cmd in seen)
+
+
+def test_publish_crate_with_retry_retries_after_rate_limit(
+    repo_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    now = datetime(2026, 3, 30, 21, 30, 0, tzinfo=UTC)
+    sleeps: list[float] = []
+    attempts = {"count": 0}
+
+    def fake_publish(
+        _crate: str, _root: Path
+    ) -> subprocess.CompletedProcess[str]:
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            return subprocess.CompletedProcess(
+                args=["cargo", "publish"],
+                returncode=1,
+                stdout="",
+                stderr=MODERN_429_ERROR,
+            )
+        return subprocess.CompletedProcess(
+            args=["cargo", "publish"],
+            returncode=0,
+            stdout="",
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        "scripts.crates_publish.run_cargo_publish",
+        fake_publish,
+    )
+
+    result = publish_crate_with_retry(
+        "vlz-db",
+        repo_root,
+        sleep_fn=lambda secs: sleeps.append(secs),
+        now_fn=lambda: now,
+    )
+    assert result.returncode == 0
+    assert attempts["count"] == 2
+    assert sleeps == [400.0]
+    out = capsys.readouterr().out
+    assert "rate limited publishing vlz-db" in out
+    assert "retry 1/5 in 400s" in out
+
+
+def test_publish_crate_with_retry_exhausts_retries(
+    repo_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = datetime(2026, 3, 30, 21, 30, 0, tzinfo=UTC)
+
+    monkeypatch.setattr(
+        "scripts.crates_publish.run_cargo_publish",
+        lambda _crate, _root: subprocess.CompletedProcess(
+            args=["cargo", "publish"],
+            returncode=1,
+            stdout="",
+            stderr=MODERN_429_ERROR,
+        ),
+    )
+
+    result = publish_crate_with_retry(
+        "vlz-db",
+        repo_root,
+        max_retries=2,
+        sleep_fn=lambda _secs: None,
+        now_fn=lambda: now,
+    )
+    assert result.returncode == 1
+    assert "status 429" in result.stderr
+
+
+def test_publish_crate_with_retry_non_rate_limit_no_retry(
+    repo_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    attempts = {"count": 0}
+
+    def fake_publish(
+        _crate: str, _root: Path
+    ) -> subprocess.CompletedProcess[str]:
+        attempts["count"] += 1
+        return subprocess.CompletedProcess(
+            args=["cargo", "publish"],
+            returncode=1,
+            stdout="",
+            stderr="error: failed to verify compressed package",
+        )
+
+    monkeypatch.setattr(
+        "scripts.crates_publish.run_cargo_publish",
+        fake_publish,
+    )
+
+    result = publish_crate_with_retry("vlz-db", repo_root)
+    assert result.returncode == 1
+    assert attempts["count"] == 1
+
+
+def test_publish_crate_with_retry_wait_above_cap_fails_without_sleep(
+    repo_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    now = datetime(2026, 3, 30, 20, 0, 0, tzinfo=UTC)
+    sleeps: list[float] = []
+
+    monkeypatch.setattr(
+        "scripts.crates_publish.run_cargo_publish",
+        lambda _crate, _root: subprocess.CompletedProcess(
+            args=["cargo", "publish"],
+            returncode=1,
+            stdout="",
+            stderr=MODERN_429_ERROR,
+        ),
+    )
+
+    result = publish_crate_with_retry(
+        "vlz-db",
+        repo_root,
+        sleep_fn=lambda secs: sleeps.append(secs),
+        now_fn=lambda: now,
+    )
+    assert result.returncode == 1
+    assert sleeps == []
+    assert PUBLISH_RATE_LIMIT_MAX_WAIT_SECS < 5795
+    out = capsys.readouterr().out
+    assert "exceeds 3600s cap" in out
+    assert "re-run the release job" in out
+
+
+def test_publish_crate_with_retry_unparseable_uses_fallback(
+    repo_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sleeps: list[float] = []
+    attempts = {"count": 0}
+
+    def fake_publish(
+        _crate: str, _root: Path
+    ) -> subprocess.CompletedProcess[str]:
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            return subprocess.CompletedProcess(
+                args=["cargo", "publish"],
+                returncode=1,
+                stdout="",
+                stderr="error: failed to get a 200 OK response, got 429",
+            )
+        return subprocess.CompletedProcess(
+            args=["cargo", "publish"],
+            returncode=0,
+            stdout="",
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        "scripts.crates_publish.run_cargo_publish",
+        fake_publish,
+    )
+
+    result = publish_crate_with_retry(
+        "vlz-db",
+        repo_root,
+        sleep_fn=lambda secs: sleeps.append(secs),
+        now_fn=lambda: datetime.now(UTC),
+    )
+    assert result.returncode == 0
+    assert sleeps == [float(PUBLISH_RATE_LIMIT_FALLBACK_SECS)]
+
+
+def test_publish_release_crates_uses_rate_limit_retry(
+    repo_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ordered = ["vlz-db"]
+    now = datetime(2026, 3, 30, 21, 30, 0, tzinfo=UTC)
+    sleeps: list[float] = []
+    attempts = {"count": 0}
+
+    def fake_publish(
+        _crate: str, _root: Path
+    ) -> subprocess.CompletedProcess[str]:
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            return subprocess.CompletedProcess(
+                args=["cargo", "publish"],
+                returncode=1,
+                stdout="",
+                stderr=MODERN_429_ERROR,
+            )
+        return subprocess.CompletedProcess(
+            args=["cargo", "publish"],
+            returncode=0,
+            stdout="",
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        "scripts.crates_publish.publish_order",
+        lambda _manifests: ordered,
+    )
+    monkeypatch.setattr(
+        "scripts.crates_publish.crate_already_on_registry",
+        lambda _crate, _version, _root: False,
+    )
+    monkeypatch.setattr(
+        "scripts.crates_publish.run_cargo_publish",
+        fake_publish,
+    )
+    monkeypatch.setattr("scripts.crates_publish._utc_now", lambda: now)
+    monkeypatch.setattr(
+        "scripts.crates_publish.time.sleep",
+        lambda secs: sleeps.append(secs),
+    )
+
+    errors = publish_release_crates(repo_root, version="0.9.1")
+    assert errors == []
+    assert attempts["count"] == 2
+    assert sleeps == [400.0]
+
+
+def test_publish_release_crates_skips_duplicate_after_rate_limit_retry(
+    repo_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    ordered = ["vlz-db"]
+    now = datetime(2026, 3, 30, 21, 30, 0, tzinfo=UTC)
+    attempts = {"count": 0}
+
+    def fake_publish(
+        _crate: str, _root: Path
+    ) -> subprocess.CompletedProcess[str]:
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            return subprocess.CompletedProcess(
+                args=["cargo", "publish"],
+                returncode=1,
+                stdout="",
+                stderr=MODERN_429_ERROR,
+            )
+        return subprocess.CompletedProcess(
+            args=["cargo", "publish"],
+            returncode=1,
+            stdout="",
+            stderr=(
+                "error: crate version `0.9.1` is already uploaded on crates.io index"
+            ),
+        )
+
+    monkeypatch.setattr(
+        "scripts.crates_publish.publish_order",
+        lambda _manifests: ordered,
+    )
+    monkeypatch.setattr(
+        "scripts.crates_publish.crate_already_on_registry",
+        lambda _crate, _version, _root: False,
+    )
+    monkeypatch.setattr(
+        "scripts.crates_publish.run_cargo_publish",
+        fake_publish,
+    )
+    monkeypatch.setattr("scripts.crates_publish._utc_now", lambda: now)
+    monkeypatch.setattr("scripts.crates_publish.time.sleep", lambda _secs: None)
+
+    errors = publish_release_crates(repo_root, version="0.9.1")
+    assert errors == []
+    assert attempts["count"] == 2
+    out = capsys.readouterr().out
+    assert "skip vlz-db 0.9.1 (already published; registry index lag)" in out
+
+
+def test_publish_release_crates_fails_when_wait_exceeds_cap(
+    repo_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    ordered = ["vlz-db"]
+    now = datetime(2026, 3, 30, 20, 0, 0, tzinfo=UTC)
+
+    monkeypatch.setattr(
+        "scripts.crates_publish.publish_order",
+        lambda _manifests: ordered,
+    )
+    monkeypatch.setattr(
+        "scripts.crates_publish.crate_already_on_registry",
+        lambda _crate, _version, _root: False,
+    )
+    monkeypatch.setattr(
+        "scripts.crates_publish.run_cargo_publish",
+        lambda _crate, _root: subprocess.CompletedProcess(
+            args=["cargo", "publish"],
+            returncode=1,
+            stdout="",
+            stderr=MODERN_429_ERROR,
+        ),
+    )
+    monkeypatch.setattr("scripts.crates_publish._utc_now", lambda: now)
+
+    errors = publish_release_crates(repo_root, version="0.9.1")
+    assert len(errors) == 1
+    assert "status 429" in errors[0]
+    out = capsys.readouterr().out
+    assert "exceeds 3600s cap" in out
