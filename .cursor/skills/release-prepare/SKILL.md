@@ -242,6 +242,13 @@ On each failed `release.yml` run (and on each later failed retry):
 4. Then continue the fix PR / tag-move loop. Do not treat "we will fix it
    in this session" as a reason to skip the issue.
 
+**Anti-pattern (do not):** Create issues through Cursor GitHub integration
+or raw `gh issue create`. That path skips gitleaks and often omits label
+`ai-learnings` and type `Learning` (see issues #469, #470, #474). Use only
+`scripts/ai-learnings-gh-post.sh issue-create`. If it fails, leave a
+link-only note; never fall back to unwrapped create. Success: issue has
+label and type at create time; author is your `gh` user, not `cursor` bot.
+
 Local `make` races (quota, `TMPDIR` inside the tree, venv rebuild) stay
 `change defect` / infrastructure: no issue unless a durable fingerprint
 recurs across sessions.

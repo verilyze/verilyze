@@ -116,6 +116,66 @@ maybe_rm_caller_body() {
   fi
 }
 
+issue_has_label() {
+  local issue_num=$1
+  local result
+  local gh_status=0
+  result=$(
+    gh issue view "${issue_num}" --json labels \
+      --jq "any(.labels[]; .name == \"${AI_LEARNINGS_LABEL}\")"
+  ) || gh_status=$?
+  if [[ "${gh_status}" -ne 0 ]]; then
+    die "gh issue view #${issue_num} failed (labels)"
+  fi
+  [[ "${result}" == "true" ]]
+}
+
+issue_has_type() {
+  local issue_num=$1
+  local result
+  local gh_status=0
+  result=$(
+    gh issue view "${issue_num}" --json issueType \
+      --jq ".issueType.name == \"${AI_LEARNINGS_ISSUE_TYPE}\""
+  ) || gh_status=$?
+  if [[ "${gh_status}" -ne 0 ]]; then
+    die "gh issue view #${issue_num} failed (issueType)"
+  fi
+  [[ "${result}" == "true" ]]
+}
+
+issue_metadata_ok() {
+  local issue_num=$1
+  issue_has_label "${issue_num}" && issue_has_type "${issue_num}"
+}
+
+repair_issue_metadata() {
+  local issue_num=$1
+  local edit_args=()
+  if ! issue_has_label "${issue_num}"; then
+    edit_args+=(--add-label "${AI_LEARNINGS_LABEL}")
+  fi
+  if ! issue_has_type "${issue_num}"; then
+    edit_args+=(--type "${AI_LEARNINGS_ISSUE_TYPE}")
+  fi
+  if [[ ${#edit_args[@]} -gt 0 ]]; then
+    gh issue edit "${issue_num}" "${edit_args[@]}"
+  fi
+}
+
+verify_issue_metadata_or_die() {
+  local issue_num=$1
+  local issue_url=$2
+  if issue_metadata_ok "${issue_num}"; then
+    return 0
+  fi
+  repair_issue_metadata "${issue_num}"
+  if issue_metadata_ok "${issue_num}"; then
+    return 0
+  fi
+  die "issue #${issue_num} (${issue_url}) missing label '${AI_LEARNINGS_LABEL}' or type '${AI_LEARNINGS_ISSUE_TYPE}' after repair; do not create a duplicate -- bump or fix the existing issue"
+}
+
 if [[ $# -lt 1 ]]; then
   usage
   exit 2
@@ -131,13 +191,28 @@ case "${CMD}" in
     require_gh
     run_preflight
     gh_status=0
-    gh issue create --title "${TITLE}" --label "${AI_LEARNINGS_LABEL}" \
-      --type "${AI_LEARNINGS_ISSUE_TYPE}" \
-      --body-file "${BODY_FILE}" || gh_status=$?
+    create_err="$(mktemp)"
+    issue_fields=$(
+      gh issue create --title "${TITLE}" --label "${AI_LEARNINGS_LABEL}" \
+        --type "${AI_LEARNINGS_ISSUE_TYPE}" \
+        --body-file "${BODY_FILE}" \
+        --json number,url --jq '"\(.number) \(.url)"' 2>"${create_err}"
+    ) || gh_status=$?
     if [[ "${gh_status}" -ne 0 ]]; then
+      if [[ -s "${create_err}" ]]; then
+        cat "${create_err}" >&2
+      fi
+      rm -f "${create_err}"
       echo "ERROR: issue create failed (need org Issue Type '${AI_LEARNINGS_ISSUE_TYPE}' and label '${AI_LEARNINGS_LABEL}')" >&2
       exit "${gh_status}"
     fi
+    rm -f "${create_err}"
+    read -r issue_num issue_url <<<"${issue_fields}"
+    if [[ -z "${issue_num}" || -z "${issue_url}" ]]; then
+      die "issue create returned unexpected output: ${issue_fields}"
+    fi
+    verify_issue_metadata_or_die "${issue_num}" "${issue_url}"
+    printf '%s\n' "${issue_url}"
     maybe_rm_caller_body
     ;;
   issue-comment)

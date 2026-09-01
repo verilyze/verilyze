@@ -1,0 +1,59 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+---
+# Apply ai-learnings label and Learning issue type when agents open issues
+# without the wrapper (e.g. Cursor GitHub App). Metadata only; no body paste.
+# Runs on opened only so later edits do not re-apply removed metadata.
+
+name: AI learnings issue hygiene
+
+on:
+  issues:
+    types: [opened]
+
+permissions: {}
+
+jobs:
+  apply-metadata:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Ensure label and Learning type
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          title=$(gh issue view "${ISSUE_NUMBER}" --json title --jq .title)
+          body=$(gh issue view "${ISSUE_NUMBER}" --json body --jq .body)
+          candidate=false
+          if printf '%s' "${title}" | grep -Eq '^(ci-gap|agent):'; then
+            candidate=true
+          elif printf '%s' "${body}" | grep -q '## Fingerprint' \
+            && printf '%s' "${body}" | grep -q '## Classification'; then
+            candidate=true
+          fi
+          if [ "${candidate}" != "true" ]; then
+            echo "Not an ai-learning candidate; skip"
+            exit 0
+          fi
+          label_ok=$(gh issue view "${ISSUE_NUMBER}" --json labels \
+            --jq 'any(.labels[]; .name == "ai-learnings")')
+          type_ok=$(gh issue view "${ISSUE_NUMBER}" --json issueType \
+            --jq '.issueType.name == "Learning"')
+          edit_args=()
+          if [ "${label_ok}" != "true" ]; then
+            edit_args+=(--add-label ai-learnings)
+          fi
+          if [ "${type_ok}" != "true" ]; then
+            edit_args+=(--type Learning)
+          fi
+          if [ "${#edit_args[@]}" -eq 0 ]; then
+            echo "Metadata already correct"
+            exit 0
+          fi
+          gh issue edit "${ISSUE_NUMBER}" "${edit_args[@]}"
+          echo "Applied ai-learnings metadata to #${ISSUE_NUMBER}"
