@@ -36,7 +36,7 @@ if [[ -z "${CARGO_ABOUT_VERSION}" ]]; then
 fi
 if ! command -v cargo-about >/dev/null 2>&1 \
   || ! cargo-about --version 2>/dev/null | grep -Fq "${CARGO_ABOUT_VERSION}"; then
-  cargo install cargo-about --locked --version "${CARGO_ABOUT_VERSION}" --features cli
+  cargo install cargo-about --locked --version "${CARGO_ABOUT_VERSION}" --features cli --force
 fi
 
 if ! command -v python3 >/dev/null 2>&1; then

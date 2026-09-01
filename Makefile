@@ -223,12 +223,16 @@ setup-cargo-about:
 	test -n "$$ver" || (echo "error: cargo-about pin missing in .github/workflows/ci.yml" >&2; exit 1); \
 	if ! command -v cargo-about >/dev/null 2>&1 \
 		|| ! cargo-about --version 2>/dev/null | grep -Fq "$$ver"; then \
-		$(MAKE_RUN_LEAF) setup-cargo-about -- cargo install cargo-about --locked --version "$$ver" --features cli; \
+		$(MAKE_RUN_LEAF) setup-cargo-about -- cargo install cargo-about --locked --version "$$ver" --features cli --force; \
 	fi
 
 setup-cargo-llvm-cov:
-	@command -v cargo-llvm-cov >/dev/null 2>&1 || \
-		$(MAKE_RUN_LEAF) setup-cargo-llvm-cov -- cargo install cargo-llvm-cov --locked
+	@ver=$$(grep -oE 'cargo-llvm-cov@[0-9]+\.[0-9]+\.[0-9]+' .github/workflows/ci.yml | head -1 | cut -d@ -f2); \
+	test -n "$$ver" || (echo "error: cargo-llvm-cov pin missing in .github/workflows/ci.yml" >&2; exit 1); \
+	if ! command -v cargo-llvm-cov >/dev/null 2>&1 \
+		|| ! cargo llvm-cov --version 2>/dev/null | grep -Fq "$$ver"; then \
+		$(MAKE_RUN_LEAF) setup-cargo-llvm-cov -- cargo install cargo-llvm-cov --locked --version "$$ver" --force; \
+	fi
 
 setup-cargo-afl:
 	@command -v cargo-afl >/dev/null 2>&1 || \

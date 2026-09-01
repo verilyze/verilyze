@@ -105,7 +105,7 @@ jobs:
         uses: taiki-e/install-action@1ed6d7be6168f6c9046541087ff549b6bc581fdf # v2.87.2
         with:
           tool: >-
-            cargo-llvm-cov@0.8.5,cargo-deny@0.20.2,cargo-afl@0.18.0,cargo-about@0.8.4
+            cargo-llvm-cov@0.9.0,cargo-deny@0.20.2,cargo-afl@0.18.0,cargo-about@0.9.0
 
       - name: Run make coverage-extended (fuzz + optional features + Cobertura)
         id: coverage

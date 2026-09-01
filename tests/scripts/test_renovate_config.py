@@ -293,6 +293,7 @@ def test_renovate_post_upgrade_licenses_reads_cargo_about_from_ci() -> None:
     assert "cargo-about@[0-9]" in script or "cargo-about@" in script
     assert ".github/workflows/ci.yml" in script
     assert "cargo-about --version" in script
+    assert "--force" in script
     ci_yml = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(
         encoding="utf-8"
     )
@@ -305,6 +306,14 @@ def test_renovate_post_upgrade_licenses_reads_cargo_about_from_ci() -> None:
     assert ".github/workflows/ci.yml" in about_block
     assert "--version" in about_block
     assert "--features cli" in about_block
+    assert "--force" in about_block
+    llvm_cov_block = makefile.split("setup-cargo-llvm-cov:")[1].split(
+        "setup-cargo-afl:"
+    )[0]
+    assert ".github/workflows/ci.yml" in llvm_cov_block
+    assert "cargo llvm-cov --version" in llvm_cov_block
+    assert "--version" in llvm_cov_block
+    assert "--force" in llvm_cov_block
 
 
 def test_renovate_cargo_deny_manager_matches_ci_env_and_coverage_nightly() -> None:
@@ -360,6 +369,60 @@ def test_renovate_cargo_afl_manager_matches_ci_and_coverage_nightly() -> None:
     ci_match = re.search(r"cargo-afl@([^\s,]+)", ci_yml)
     assert ci_match is not None
     assert f"cargo-afl@{ci_match.group(1)}" in nightly
+
+
+def test_renovate_cargo_llvm_cov_manager_matches_ci_and_coverage_nightly() -> None:
+    """Renovate must bump cargo-llvm-cov@ in both ci.yml and coverage-nightly.yml."""
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    managers = data.get("customManagers", [])
+    llvm_cov = next(
+        (
+            m
+            for m in managers
+            if m.get("depNameTemplate") == "cargo-llvm-cov"
+            and m.get("datasourceTemplate") == "crate"
+        ),
+        None,
+    )
+    assert llvm_cov is not None, (
+        "customManagers must include cargo-llvm-cov regex manager"
+    )
+    patterns = llvm_cov.get("managerFilePatterns", [])
+    assert any("ci\\.yml" in p for p in patterns)
+    assert any("coverage-nightly" in p for p in patterns)
+    ci_yml = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    nightly = (
+        _ROOT / ".github" / "workflows" / "coverage-nightly.yml"
+    ).read_text(encoding="utf-8")
+    ci_match = re.search(r"cargo-llvm-cov@([^\s,]+)", ci_yml)
+    assert ci_match is not None
+    assert f"cargo-llvm-cov@{ci_match.group(1)}" in nightly
+
+
+def test_renovate_cargo_about_manager_matches_ci_and_coverage_nightly() -> None:
+    """Renovate must bump cargo-about@ in both ci.yml and coverage-nightly.yml."""
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    managers = data.get("customManagers", [])
+    about = next(
+        (
+            m
+            for m in managers
+            if m.get("depNameTemplate") == "cargo-about"
+            and m.get("datasourceTemplate") == "crate"
+        ),
+        None,
+    )
+    assert about is not None, "customManagers must include cargo-about regex manager"
+    patterns = about.get("managerFilePatterns", [])
+    assert any("ci\\.yml" in p for p in patterns)
+    assert any("coverage-nightly" in p for p in patterns)
+    ci_yml = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    nightly = (
+        _ROOT / ".github" / "workflows" / "coverage-nightly.yml"
+    ).read_text(encoding="utf-8")
+    ci_match = re.search(r"cargo-about@([^\s,]+)", ci_yml)
+    assert ci_match is not None
+    assert f"cargo-about@{ci_match.group(1)}" in nightly
 
 
 def test_renovate_package_rule_groups_cargo_deny_workflow_pins() -> None:
