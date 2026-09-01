@@ -10,6 +10,11 @@ Human-readable release notes for each version.
 
 ## [Unreleased]
 
+### Fixed
+
+- crates.io publish retries on HTTP 429 using the server `try again after`
+  timestamp in the cargo error body (with per-crate retry budget and wait cap).
+
 ## [0.10.0] - 2026-08-31
 
 ### Added

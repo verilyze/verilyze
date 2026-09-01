@@ -453,6 +453,13 @@ changes):
 
 - All production workspace crates publish on tagged releases in bottom-up
   dependency order via [scripts/cargo-publish-release.sh](scripts/cargo-publish-release.sh).
+  That script retries HTTP 429 rate limits using the `try again after` timestamp
+  in the cargo error body (and the matching `Retry-After` header when legacy
+  cargo dumps response headers), up to five retries per crate, honoring waits
+  up to one hour. Re-run the release job if a longer throttle applies; publish
+  is idempotent for crates already on the registry. First-time publish of many
+  **new** crates can take several hours (burst of five, then ten minutes per
+  additional new crate).
 - Set repository secret `CARGO_REGISTRY_TOKEN`, or configure crates.io
   trusted publishing for this repository/workflow (`release.yml`). The
   `publish-crates` job prefers an OIDC token from
