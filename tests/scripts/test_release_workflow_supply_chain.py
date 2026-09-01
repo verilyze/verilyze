@@ -15,11 +15,16 @@ _RESTORE_SCRIPT = _ROOT / "scripts" / "release-restore-download-layout.sh"
 _STAGE_SCRIPT = _ROOT / "scripts" / "release-stage-github-upload.sh"
 _ROUNDTRIP_SCRIPT = _ROOT / "scripts" / "release-verify-upload-roundtrip.sh"
 _RELEASE_WORKFLOW = _ROOT / ".github" / "workflows" / "release.yml"
+_CRATES_PUBLISH_WORKFLOW = _ROOT / ".github" / "workflows" / "crates-publish.yml"
 _SLSA_PIN_SHA = "f7dd8c54c2067bafc12ca7a55595d5ee9b75204a"
 
 
 def _release_workflow_text() -> str:
     return _RELEASE_WORKFLOW.read_text(encoding="utf-8")
+
+
+def _crates_publish_workflow_text() -> str:
+    return _CRATES_PUBLISH_WORKFLOW.read_text(encoding="utf-8")
 
 
 def _gh_release_files_block(workflow: str) -> str:
@@ -387,3 +392,31 @@ def test_publish_crates_tolerates_registry_publish_failure() -> None:
     smoke_step = block.split("- name: Smoke test cargo install vlz")[1]
     assert "continue-on-error: true" in publish_step.split("Smoke test")[0]
     assert "steps.publish.outcome == 'success'" in smoke_step
+
+
+def test_crates_publish_workflow_is_dispatchable() -> None:
+    workflow = _crates_publish_workflow_text()
+    assert "workflow_dispatch:" in workflow
+    assert "ref:" in workflow
+    assert "default: main" in workflow
+
+
+def test_crates_publish_workflow_publishes_without_continue_on_error() -> None:
+    workflow = _crates_publish_workflow_text()
+    block = _job_block(workflow, "publish")
+    publish_step = block.split("- name: Publish workspace crates to crates.io")[1]
+    assert "continue-on-error" not in publish_step.split("Smoke test")[0]
+    assert "cargo-publish-release.sh" in block
+    assert "timeout-minutes: 360" in block
+
+
+def test_crates_publish_workflow_supports_trusted_publishing_or_token() -> None:
+    workflow = _crates_publish_workflow_text()
+    block = _job_block(workflow, "publish")
+    assert "id-token: write" in block
+    assert "rust-lang/crates-io-auth-action@" in block
+    assert "steps.crates-io-auth.outputs.token" in block
+    assert "secrets.CARGO_REGISTRY_TOKEN" in block
+    auth_idx = block.index("crates-io-auth-action@")
+    publish_idx = block.index("cargo-publish-release.sh")
+    assert auth_idx < publish_idx
