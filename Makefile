@@ -370,7 +370,7 @@ lint-python: $(VENV_LINT)/bin/black
 # lint-shell: ShellCheck (NFR-022). Requires shellcheck. Run from scripts/ so
 # shellcheck source= paths in repo scripts resolve; -x follows sourced libs.
 lint-shell:
-	@$(MAKE_RUN_LEAF) lint-shell -- bash -c 'cd "$(SCRIPTS_DIR)" && shellcheck -x *.sh lib/*.sh && shellcheck "$(MKFILE_DIR)/completions/vlz.bash"'
+	@$(MAKE_RUN_LEAF) lint-shell -- bash -c 'cd "$(SCRIPTS_DIR)" && shellcheck -x *.sh lib/*.sh && shellcheck "$(MKFILE_DIR)/completions/vlz.bash" && shellcheck "$(MKFILE_DIR)/.cursor/skills/verilyze-ship-pr/scripts/ship-pr.sh"'
 
 # super-linter: Docker slim image; VALIDATE_ALL_CODEBASE=false (changed files only).
 super-linter:
