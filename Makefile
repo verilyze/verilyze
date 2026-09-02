@@ -16,7 +16,9 @@ MAKE_RUN_LEAF := $(SCRIPTS_DIR)/lib/make-run-leaf.sh
 # Leaf recipes that print tool output (check-* gates and cargo build prereqs)
 # should use MAKE_RUN_LEAF so CI brief mode (VLZ_CHECK_BRIEF=1 via
 # scripts/run-check.sh) suppresses success chatter. Do not wrap lint-python
-# (per-scanner status lives in lint-python.sh).
+# (per-scanner status lives in lint-python.sh). Check-reachable helpers
+# invoked as prerequisites or via $(MAKE) must still prefix recipes with @;
+# tool commands need MAKE_RUN_LEAF (see tests/scripts/makefile_graph.py).
 VENV_LINT := $(MKFILE_DIR)/.venv-lint
 VENV_REUSE := $(MKFILE_DIR)/.venv-reuse
 VENV_TEST := $(MKFILE_DIR)/.venv-test
@@ -219,20 +221,20 @@ setup-cargo-deny:
 		$(MAKE_RUN_LEAF) setup-cargo-deny -- cargo install cargo-deny --locked
 
 setup-cargo-about:
-	@ver=$$(grep -oE 'cargo-about@[0-9]+\.[0-9]+\.[0-9]+' .github/workflows/ci.yml | head -1 | cut -d@ -f2); \
+	@$(MAKE_RUN_LEAF) setup-cargo-about -- bash -c 'ver=$$(grep -oE '\''cargo-about@[0-9]+\.[0-9]+\.[0-9]+'\'' .github/workflows/ci.yml | head -1 | cut -d@ -f2); \
 	test -n "$$ver" || (echo "error: cargo-about pin missing in .github/workflows/ci.yml" >&2; exit 1); \
 	if ! command -v cargo-about >/dev/null 2>&1 \
 		|| ! cargo-about --version 2>/dev/null | grep -Fq "$$ver"; then \
-		$(MAKE_RUN_LEAF) setup-cargo-about -- cargo install cargo-about --locked --version "$$ver" --features cli --force; \
-	fi
+		cargo install cargo-about --locked --version "$$ver" --features cli --force; \
+	fi'
 
 setup-cargo-llvm-cov:
-	@ver=$$(grep -oE 'cargo-llvm-cov@[0-9]+\.[0-9]+\.[0-9]+' .github/workflows/ci.yml | head -1 | cut -d@ -f2); \
+	@$(MAKE_RUN_LEAF) setup-cargo-llvm-cov -- bash -c 'ver=$$(grep -oE '\''cargo-llvm-cov@[0-9]+\.[0-9]+\.[0-9]+'\'' .github/workflows/ci.yml | head -1 | cut -d@ -f2); \
 	test -n "$$ver" || (echo "error: cargo-llvm-cov pin missing in .github/workflows/ci.yml" >&2; exit 1); \
 	if ! command -v cargo-llvm-cov >/dev/null 2>&1 \
 		|| ! cargo llvm-cov --version 2>/dev/null | grep -Fq "$$ver"; then \
-		$(MAKE_RUN_LEAF) setup-cargo-llvm-cov -- cargo install cargo-llvm-cov --locked --version "$$ver" --force; \
-	fi
+		cargo install cargo-llvm-cov --locked --version "$$ver" --force; \
+	fi'
 
 setup-cargo-afl:
 	@command -v cargo-afl >/dev/null 2>&1 || \
@@ -288,12 +290,12 @@ completions: completions/.generated
 
 completions/.generated: $(VLZ_DEBUG)
 	@mkdir -p "$(MKFILE_DIR)/completions"
-	@cd "$(MKFILE_DIR)" && $(SCRIPTS_DIR)/generate_completions.sh "$(VLZ_DEBUG)"
+	@$(MAKE_RUN_LEAF) generate-completions -- bash -c 'cd "$(MKFILE_DIR)" && "$(SCRIPTS_DIR)/generate_completions.sh" "$(VLZ_DEBUG)"'
 	@touch "$@"
 
 generate-completions: $(VLZ_DEBUG)
 	@mkdir -p "$(MKFILE_DIR)/completions"
-	@cd "$(MKFILE_DIR)" && $(SCRIPTS_DIR)/generate_completions.sh "$(VLZ_DEBUG)"
+	@$(MAKE_RUN_LEAF) generate-completions -- bash -c 'cd "$(MKFILE_DIR)" && "$(SCRIPTS_DIR)/generate_completions.sh" "$(VLZ_DEBUG)"'
 	@touch "$(MKFILE_DIR)/completions/.generated"
 
 # Completions from release binary; used by packaging targets (deb, etc.).
@@ -455,9 +457,12 @@ generate-config-example: debug $(VENV_TEST)/bin/pytest
 # generate-manpages: produce man/vlz.1 from the Clap CLI definition.
 # Use a unique temp file so parallel make jobs do not race.
 generate-manpages:
-	@cd "$(MKFILE_DIR)" && TMP_MANPAGE="$$(mktemp man/vlz.1.tmp.XXXXXX)" && \
-		cargo run -q -p vlz --bin vlz-manpage-gen --features manpage-gen > "$$TMP_MANPAGE" && \
-		mv "$$TMP_MANPAGE" man/vlz.1
+	@$(MAKE_RUN_LEAF) generate-manpages -- bash -c 'cd "$(MKFILE_DIR)" && TMP_MANPAGE="$$(mktemp man/vlz.1.tmp.XXXXXX)" && \
+		if [ "$${VLZ_CHECK_VERBOSE:-}" = "1" ]; then \
+		  cargo run -p vlz --bin vlz-manpage-gen --features manpage-gen > "$$TMP_MANPAGE"; \
+		else \
+		  cargo run -q -p vlz --bin vlz-manpage-gen --features manpage-gen > "$$TMP_MANPAGE"; \
+		fi && mv "$$TMP_MANPAGE" man/vlz.1'
 	@$(MAKE) sync-vlz-crate-assets
 
 # check-manpages: verify CLI man page is in sync (CI/local).
@@ -546,11 +551,11 @@ sync-upload-sarif-example:
 
 # check-upload-sarif-example: fail when example upload-sarif pin drifts from supply-chain.yml.
 check-upload-sarif-example:
-	PYTHONPATH=. python3 $(SCRIPTS_DIR)/upload_sarif_pins.py --check
+	@$(MAKE_RUN_LEAF) check-upload-sarif-example -- bash -c 'PYTHONPATH=. python3 "$(SCRIPTS_DIR)/upload_sarif_pins.py" --check'
 
 # check-github-action-pin-comments: full-semver (# vX.Y.Z) on digest pins (zizmor).
 check-github-action-pin-comments:
-	PYTHONPATH=. python3 $(SCRIPTS_DIR)/github_action_pin_comments.py --check
+	@$(MAKE_RUN_LEAF) check-github-action-pin-comments -- bash -c 'PYTHONPATH=. python3 "$(SCRIPTS_DIR)/github_action_pin_comments.py" --check'
 
 # check-fuzz-target-parity: AFL [[bin]] names match cargo-fuzz fuzz_targets basenames.
 check-fuzz-target-parity:
@@ -596,7 +601,7 @@ release-preflight:
 	$(SCRIPTS_DIR)/release-preflight.sh
 
 sync-vlz-crate-assets:
-	$(SCRIPTS_DIR)/sync-vlz-crate-assets.sh
+	@$(MAKE_RUN_LEAF) sync-vlz-crate-assets -- "$(SCRIPTS_DIR)/sync-vlz-crate-assets.sh"
 
 check-crates-publish:
 	@$(MAKE_RUN_LEAF) check-crates-publish -- "$(SCRIPTS_DIR)/check-crates-publish.sh"

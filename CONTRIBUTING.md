@@ -1628,7 +1628,11 @@ Stderr can stay as `eprintln!` or `log::error!`.
   variable), including cargo build prereqs labeled `debug-cargo`,
   `release-cargo`, and `vlz-debug`; do not wrap `lint-python` at the Make level
   (per-scanner status is inside
-  [`scripts/lint-python.sh`](scripts/lint-python.sh)). **Verbose check mode**
+  [`scripts/lint-python.sh`](scripts/lint-python.sh)). Check-reachable targets
+  (`make check`, `check-fast`, `check-pr`, including prerequisites and nested
+  `$(MAKE)` helpers) must prefix every recipe line with `@` and route tool
+  commands through `MAKE_RUN_LEAF`; see
+  [`tests/scripts/makefile_graph.py`](tests/scripts/makefile_graph.py). **Verbose check mode**
   (`VLZ_CHECK_VERBOSE=1`): streams full tool output (including cargo
   `Compiling` lines), sets `RUST_LOG=info`, coverage phase markers, pytest `-v`,
   and full `cargo test` / probe output.
