@@ -379,7 +379,9 @@ with `RUSTFLAGS=-Dwarnings` so rustc warnings fail the build.
 1. Update [CHANGELOG.md](CHANGELOG.md): add a curated `## [X.Y.Z]` section
    matching the new tag (without `v`) **before** creating the release tag.
    Keep version bullets only; do not add maintainer workflow text to the
-   CHANGELOG header (release mechanics live here). The Release workflow uses
+   CHANGELOG header (release mechanics live here). Curate bullets for users
+   of the **previous published tag** (see **Changelog audience** below). The
+   Release workflow uses
    [scripts/extract-changelog-for-release.sh](scripts/extract-changelog-for-release.sh)
    to populate the GitHub Release body; it **fails** if that section is
    missing (OpenSSF Best Practices `release_notes`).
@@ -488,7 +490,8 @@ If `release.yml` fails **before** the GitHub Release is published
 **one** tag name. Do not bump the patch version for each CI fix attempt.
 
 1. Fix on the release branch with ordinary commits (keep `Cargo.toml` at `X.Y.Z`).
-2. Add bullets under the existing `## [X.Y.Z]` section in `CHANGELOG.md`.
+2. Add bullets under the existing `## [X.Y.Z]` section in `CHANGELOG.md` per
+   **Changelog audience** below (not every stabilization commit is **Fixed**).
 3. Choose recovery by failure type:
 
 | Situation | Action |
@@ -508,6 +511,34 @@ Re-pushing the tag triggers a new `release.yml` run on the updated commit.
 
 **After publish:** If the release was already published, do **not** move the
 tag. Cut the next patch version (`X.Y.(Z+1)`) instead.
+
+### Changelog audience
+
+When drafting or stabilizing `## [X.Y.Z]` **before** `gh release edit
+--draft=false`:
+
+1. Compare against the **previous published tag** (`git describe --tags
+   --abbrev=0` on the parent release), not against failed draft attempts of
+   the current version.
+2. **Fixed** -- only defects a user of that previous tag could observe.
+3. **Added** -- new capabilities; include polish on features that never
+   shipped in any earlier tag.
+4. **Changed / Removed** -- packaging matrix, MSRV BuildRequires, OBS target
+   enablement, or breaking behavior vs the previous tag.
+5. **Omit** -- `release.yml`, CI, secrets, registry account, and other
+   maintainer-only workflow changes. File or bump `ai-learnings` when systemic
+   (see release-prepare skill).
+
+**v0.10.0 lesson (case study, do not retroactively edit published sections):**
+stabilization bullets such as OBS `rust1.98` BuildRequires, disabling OBS
+targets, and tolerating crates.io publish failures were pipeline or packaging
+changes vs v0.9.1, not **Fixed** defects users of v0.9.1 could have hit.
+SBOM import hardening was new-feature polish, not a regression fix.
+
+**After publish (frozen):** Once `gh release edit --draft=false` has run for
+`vX.Y.Z`, do **not** retroactively edit that `## [X.Y.Z]` section in
+CHANGELOG.md or the published GitHub Release body for that tag. Cut
+`X.Y.(Z+1)` for further user-facing fixes.
 
 **Optional:** Trigger `release.yml` via **workflow_dispatch** from a branch ref
 to exercise build and OBS jobs without pushing a tag. Tag push remains the
