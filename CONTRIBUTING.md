@@ -1108,6 +1108,8 @@ Project-scoped Cursor rules, skills, and hooks live under [`.cursor/`](.cursor/)
 - **AI learnings:** [`.cursor/skills/pre-merge-check/ai-learnings.md`](.cursor/skills/pre-merge-check/ai-learnings.md)
   (GitHub label `ai-learnings`, Issue Type `Learning`; promote into durable gates)
 - **Release preparation:** [`.cursor/skills/release-prepare/SKILL.md`](.cursor/skills/release-prepare/SKILL.md)
+- **Ship PR pipeline:** [`.cursor/skills/verilyze-ship-pr/SKILL.md`](.cursor/skills/verilyze-ship-pr/SKILL.md)
+  (commit, push, open PR, monitor CI, admin merge; explicit user request only)
 - **CI gates reference:** [`.cursor/rules/ci-validation.mdc`](.cursor/rules/ci-validation.mdc)
 
 **AI learnings (label `ai-learnings`, type `Learning`):** One GitHub issue
@@ -1158,6 +1160,32 @@ via `scripts/ai-learnings-gh-post.sh` (do not skip intake because a
 stabilization fix is in progress).
 Human maintainers may still cut releases manually per [Versioning and
 releases](#versioning-and-releases) below.
+
+**Agent-assisted ship PRs:** AI agents may run the ship-PR pipeline (local
+validation, signed commits, super-linter, push, open or reuse PR, monitor CI,
+admin merge, sync `main`) when a human **explicitly requests** it in chat.
+Agents must not inline `git push`, `git push --force-with-lease`, `gh pr create`,
+or `gh pr merge --admin` in the Shell command; resolve
+`SHIP_PR_SH="$(git rev-parse --show-toplevel)/.cursor/skills/verilyze-ship-pr/scripts/ship-pr.sh"`
+and invoke only `"${SHIP_PR_SH}" <mode>` so Cursor Auto-run can allowlist one
+stable path (pattern:
+`*/verilyze-ship-pr/scripts/ship-pr.sh*`). Agents must not start ship work
+proactively. See
+[`.cursor/skills/verilyze-ship-pr/SKILL.md`](.cursor/skills/verilyze-ship-pr/SKILL.md).
+
+**Cursor Cloud Agent prerequisites (ship-pr and release):** Cloud VMs use
+[`.cursor/environment.json`](.cursor/environment.json) (`install.sh`,
+`sign-setup.sh`). Non-interactive push, PR create, and admin merge also need:
+
+- **`GH_TOKEN` secret:** fine-grained or classic PAT with repo access and
+  permission to bypass branch rulesets (for `gh pr merge --admin`).
+- **Commit signing secrets:** `ssh_key` (and optional `git_signing_key` /
+  `git_signing_key_passphrase`) so `commit.gpgsign` works on the VM.
+- **Auto-run allowlist:** approve `ship-pr.sh` and `make release-tag-*`
+  patterns in Cursor Settings so Auto-review does not block each remote write.
+
+Git operations use the Cursor GitHub App integration; `gh` API calls (merge,
+PR create, issue intake) use `GH_TOKEN` when set.
 
 ## Code style and checks
 
