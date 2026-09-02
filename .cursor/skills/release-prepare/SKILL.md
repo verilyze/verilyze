@@ -317,10 +317,11 @@ make release-tag-move TAG=vX.Y.Z
 | Unrecoverable failure or missing secrets the agent cannot fix | Stop and report |
 | Stabilization retry cap exceeded | Stop and report |
 
-**Changelog during stabilization:** Follow CONTRIBUTING **Changelog audience**.
-Do not list every stabilization commit under **Fixed**. After
-`gh release edit --draft=false`, that version's CHANGELOG section and
-GitHub Release body are frozen; do not retroactively edit them.
+**Changelog during stabilization:** Follow CONTRIBUTING **Changelog audience**
+(decision flow diagram and v0.10.0 case study table). Do not list every
+stabilization commit under **Fixed**. After `gh release edit --draft=false`,
+that version's CHANGELOG section and GitHub Release body are frozen; do not
+retroactively edit them, squash stabilization commits, or move the tag.
 
 **Optional:** Run `workflow_dispatch` on `release.yml` from a branch ref to
 exercise build and OBS jobs without pushing a tag. It does **not** run

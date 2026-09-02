@@ -528,17 +528,62 @@ When drafting or stabilizing `## [X.Y.Z]` **before** `gh release edit
 5. **Omit** -- `release.yml`, CI, secrets, registry account, and other
    maintainer-only workflow changes. File or bump `ai-learnings` when systemic
    (see release-prepare skill).
+6. When unsure, use the decision flow below.
 
-**v0.10.0 lesson (case study, do not retroactively edit published sections):**
-stabilization bullets such as OBS `rust1.98` BuildRequires, disabling OBS
-targets, and tolerating crates.io publish failures were pipeline or packaging
-changes vs v0.9.1, not **Fixed** defects users of v0.9.1 could have hit.
-SBOM import hardening was new-feature polish, not a regression fix.
+**Decision flow** (audience: users and packagers of the **previous published
+tag**, not maintainers debugging a failed draft release):
+
+```mermaid
+flowchart TD
+  prev["Previous published tag T_prev"]
+  change["Change during vX.Y.Z cycle"]
+  q1{"Observable defect in T_prev artifacts or behavior?"}
+  q2{"Packaging or install surface change vs T_prev?"}
+  q3{"New feature polish never shipped before vX.Y.Z?"}
+  q4{"CI, workflow, secrets, or registry account only?"}
+  q5{"Notable user or packager impact vs T_prev?"}
+  fixed["CHANGELOG Fixed"]
+  changed["CHANGELOG Changed or Removed"]
+  added["Fold into Added"]
+  omitLearnings["Omit; file or bump ai-learnings if systemic"]
+  omitQuiet["Omit"]
+  prev --> change --> q1
+  q1 -->|yes| fixed
+  q1 -->|no| q2
+  q2 -->|yes| changed
+  q2 -->|no| q3
+  q3 -->|yes| added
+  q3 -->|no| q4
+  q4 -->|yes| omitLearnings
+  q4 -->|no| q5
+  q5 -->|yes| changed
+  q5 -->|no| omitQuiet
+```
+
+**v0.10.0 case study** (illustrative only; do **not** retroactively edit
+published `[0.10.0]` text). Compare against **v0.9.1**, not failed draft
+attempts of 0.10.0:
+
+| Published `[0.10.0]` bullet | Correct category vs v0.9.1 | Why (for future writers) |
+|-----------------------------|----------------------------|---------------------------|
+| OBS require `rust1.98` / `cargo1.98` | **Changed** (packaging) | MSRV packaging new in 0.10.0; not a bug in 0.9.1 |
+| Disable Leap `16.0` and Tumbleweed `aarch64` | **Changed** | OBS matrix change vs v0.9.1 targets |
+| Tolerate crates.io publish failures | **Omit** | Maintainer workflow; see #470 |
+| SBOM CLI contract / empty BOM / review hardening | **Added** or omit | Feature never shipped before 0.10.0 |
+| `cargo-about` pin | **Omit** | CI/tooling |
+| Lock file maintenance | **Omit** (or **Changed** if truly notable) | Routine Renovate noise |
+
+A **Fixed** section for 0.10.0 would only list defects observable in
+**v0.9.1**; none of the stabilization bullets qualify. This table is
+documentation; it does **not** authorize editing the live `[0.10.0]` section.
 
 **After publish (frozen):** Once `gh release edit --draft=false` has run for
-`vX.Y.Z`, do **not** retroactively edit that `## [X.Y.Z]` section in
-CHANGELOG.md or the published GitHub Release body for that tag. Cut
-`X.Y.(Z+1)` for further user-facing fixes.
+`vX.Y.Z`:
+
+- Do **not** retroactively edit that `## [X.Y.Z]` section in CHANGELOG.md.
+- Do **not** edit the published GitHub Release body for that tag.
+- Do **not** squash stabilization commits or move the tag.
+- Cut `X.Y.(Z+1)` for further user-facing fixes.
 
 **Optional:** Trigger `release.yml` via **workflow_dispatch** from a branch ref
 to exercise build and OBS jobs without pushing a tag. Tag push remains the
