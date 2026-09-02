@@ -31,23 +31,11 @@ Human-readable release notes for each version.
   README, and rust-version (MSRV 1.98). `check-config-docs` verifies
   crate-local assets stay synced with repo sources.
 
-### Fixed
-
-- OBS RPM builds on aarch64 when distro `rustc` is below MSRV 1.98: require
-  `rust1.98` / `cargo1.98` on openSUSE targets.
-- OBS: disable Leap 16.0 and openSUSE Tumbleweed aarch64 until `rust1.98`
-  is published for those targets (`nothing provides rust1.98`).
-- Release workflow: tolerate crates.io publish failures (for example an
-  unverified registry email) without blocking GitHub Release promotion.
-- SBOM import: CLI contract coverage, empty BOM handling, and review
-  hardening for CycloneDX and SPDX parsers.
-- Third-party license regeneration pinned to the `cargo-about` version used
-  in CI.
-
 ### Changed
 
-- Lock file maintenance (Renovate #473): refresh fuzz lockfile and SBOM
-  vendored metadata.
+- openSUSE OBS RPM builds require `rust1.98` / `cargo1.98`. Leap 16.0 and
+  openSUSE Tumbleweed aarch64 OBS targets are disabled until those packages
+  are available on OBS (`nothing provides rust1.98`).
 
 ## [0.9.1] - 2026-08-24
 

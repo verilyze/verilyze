@@ -529,16 +529,16 @@ When drafting or stabilizing `## [X.Y.Z]` **before** `gh release edit
    maintainer-only workflow changes. File or bump `ai-learnings` when systemic
    (see release-prepare skill).
 
-**v0.10.0 lesson (case study, do not retroactively edit published sections):**
-stabilization bullets such as OBS `rust1.98` BuildRequires, disabling OBS
-targets, and tolerating crates.io publish failures were pipeline or packaging
-changes vs v0.9.1, not **Fixed** defects users of v0.9.1 could have hit.
-SBOM import hardening was new-feature polish, not a regression fix.
+**v0.10.0 lesson:** stabilization bullets such as OBS `rust1.98`
+BuildRequires, disabling OBS targets, and tolerating crates.io publish failures
+were pipeline or packaging changes vs v0.9.1, not **Fixed** defects users of
+v0.9.1 could have hit. SBOM import hardening was new-feature polish, not a
+regression fix.
 
-**After publish (frozen):** Once `gh release edit --draft=false` has run for
-`vX.Y.Z`, do **not** retroactively edit that `## [X.Y.Z]` section in
-CHANGELOG.md or the published GitHub Release body for that tag. Cut
-`X.Y.(Z+1)` for further user-facing fixes.
+**After publish:** Do **not** move the tag or squash stabilization commits.
+You may still correct `CHANGELOG.md` and the GitHub Release body for that
+version so they match curated notes (no new SemVer). Cut `X.Y.(Z+1)` for
+binary, registry, or provenance changes.
 
 **Optional:** Trigger `release.yml` via **workflow_dispatch** from a branch ref
 to exercise build and OBS jobs without pushing a tag. Tag push remains the

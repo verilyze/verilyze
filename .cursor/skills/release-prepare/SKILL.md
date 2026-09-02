@@ -318,9 +318,9 @@ make release-tag-move TAG=vX.Y.Z
 | Stabilization retry cap exceeded | Stop and report |
 
 **Changelog during stabilization:** Follow CONTRIBUTING **Changelog audience**.
-Do not list every stabilization commit under **Fixed**. After
-`gh release edit --draft=false`, that version's CHANGELOG section and
-GitHub Release body are frozen; do not retroactively edit them.
+Do not list every stabilization commit under **Fixed**. After publish, do
+not move the tag; you may still align `CHANGELOG.md` and the GitHub Release
+body with curated notes for that version.
 
 **Optional:** Run `workflow_dispatch` on `release.yml` from a branch ref to
 exercise build and OBS jobs without pushing a tag. It does **not** run
