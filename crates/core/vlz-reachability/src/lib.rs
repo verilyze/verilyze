@@ -610,6 +610,7 @@ mod tests {
                 advisory_symbols: Vec::new(),
                 evidence: Vec::new(),
                 symbol_usage: None,
+                affected_ranges: Vec::new(),
             }],
         )];
         apply_tier_b_to_findings(
@@ -654,6 +655,7 @@ mod tests {
                 advisory_symbols: Vec::new(),
                 evidence: Vec::new(),
                 symbol_usage: None,
+                affected_ranges: Vec::new(),
             }],
         )];
         apply_tier_b_to_findings(
@@ -701,6 +703,7 @@ mod tests {
                 advisory_symbols: Vec::new(),
                 evidence: Vec::new(),
                 symbol_usage: None,
+                affected_ranges: Vec::new(),
             }],
         )];
         apply_tier_b_to_findings(
@@ -903,6 +906,7 @@ mod tests {
                     advisory_symbols: Vec::new(),
                     evidence: Vec::new(),
                     symbol_usage: None,
+                    affected_ranges: Vec::new(),
                 }],
             ),
             (
@@ -916,6 +920,7 @@ mod tests {
                     advisory_symbols: Vec::new(),
                     evidence: Vec::new(),
                     symbol_usage: None,
+                    affected_ranges: Vec::new(),
                 }],
             ),
         ];
@@ -999,6 +1004,7 @@ mod tests {
                     advisory_symbols: Vec::new(),
                     evidence: Vec::new(),
                     symbol_usage: None,
+                    affected_ranges: Vec::new(),
                 },
                 CveRecord {
                     id: "CVE-B".to_string(),
@@ -1009,6 +1015,7 @@ mod tests {
                     advisory_symbols: Vec::new(),
                     evidence: Vec::new(),
                     symbol_usage: None,
+                    affected_ranges: Vec::new(),
                 },
             ],
         )];
@@ -1089,6 +1096,7 @@ mod tests {
                 advisory_symbols: Vec::new(),
                 evidence: Vec::new(),
                 symbol_usage: None,
+                affected_ranges: Vec::new(),
             }],
         )];
         let raw_vulns = HashMap::from([(
@@ -1168,6 +1176,7 @@ mod tests {
                 advisory_symbols: Vec::new(),
                 evidence: Vec::new(),
                 symbol_usage: None,
+                affected_ranges: Vec::new(),
             }],
         )];
         let raw_vulns = HashMap::from([(
@@ -1266,6 +1275,7 @@ mod tests {
                 advisory_symbols: Vec::new(),
                 evidence: Vec::new(),
                 symbol_usage: None,
+                affected_ranges: Vec::new(),
             }],
         )];
         let raw_vulns = HashMap::from([(
@@ -1318,6 +1328,7 @@ mod tests {
                 advisory_symbols: Vec::new(),
                 evidence: Vec::new(),
                 symbol_usage: None,
+                affected_ranges: Vec::new(),
             }],
         )];
         temp_env::with_var(
@@ -1391,6 +1402,7 @@ mod tests {
                 advisory_symbols: Vec::new(),
                 evidence: Vec::new(),
                 symbol_usage: None,
+                affected_ranges: Vec::new(),
             }],
         )];
         let raw_vulns = HashMap::from([(

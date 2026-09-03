@@ -100,8 +100,15 @@ pub async fn warm_cache_for_packages(
             if let Some(raw_vulns) =
                 db.as_ref().get_raw_vulns(&pkg, prov.name()).await?
             {
-                let records =
+                let mut records =
                     vlz_cve_client::decode_raw_vulns(prov.name(), &raw_vulns);
+                // FR-039: attach ranges on decode-on-read (warm hit bypasses
+                // DatabaseBackend::get, which also attaches).
+                vlz_cve_client::attach_affected_ranges(
+                    &mut records,
+                    &raw_vulns,
+                    &pkg,
+                );
                 return Ok(WarmPackageResult {
                     pkg: pkg.clone(),
                     records,
@@ -215,9 +222,12 @@ mod tests {
         ) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
             let guard = self.inner.lock().unwrap();
             let key = Self::key(pkg, provider_id);
-            Ok(guard
-                .get(&key)
-                .map(|raw| vlz_cve_client::decode_raw_vulns(provider_id, raw)))
+            Ok(guard.get(&key).map(|raw| {
+                let mut records =
+                    vlz_cve_client::decode_raw_vulns(provider_id, raw);
+                vlz_cve_client::attach_affected_ranges(&mut records, raw, pkg);
+                records
+            }))
         }
 
         async fn get_raw_vulns(
@@ -288,6 +298,7 @@ mod tests {
                     advisory_symbols: Vec::new(),
                     evidence: Vec::new(),
                     symbol_usage: None,
+                    affected_ranges: Vec::new(),
                 }],
             })
         }
@@ -356,6 +367,57 @@ mod tests {
         assert_eq!(outcome.summary.cache_hits, 1);
         assert_eq!(outcome.summary.fetched, 0);
         assert_eq!(*calls.lock().unwrap(), 0);
+    }
+
+    #[tokio::test]
+    async fn warm_cache_hit_attaches_affected_ranges_fr039() {
+        vlz_cve_client::ensure_default_decoders();
+        let db = Arc::new(Box::new(MapDb::new())
+            as Box<dyn DatabaseBackend + Send + Sync + 'static>);
+        let raw = serde_json::json!({
+            "id": "CVE-RANGE-HIT",
+            "summary": "cached with ranges",
+            "affected": [{
+                "package": { "name": "pkg", "ecosystem": "PyPI" },
+                "ranges": [{
+                    "type": "ECOSYSTEM",
+                    "events": [
+                        { "introduced": "0" },
+                        { "fixed": "1.2.3" }
+                    ]
+                }]
+            }]
+        });
+        db.put(&sample_pkg(), "osv", &[raw], None).await.unwrap();
+        let calls = Arc::new(Mutex::new(0));
+        let provider = Arc::new(Box::new(StaticProvider {
+            name: "osv",
+            calls: calls.clone(),
+        })
+            as Box<dyn CveProvider + Send + Sync + 'static>);
+        let opts = CacheWarmOptions {
+            parallel: 1,
+            offline: true,
+            benchmark: false,
+        };
+        let outcome =
+            warm_cache_for_packages(&[sample_pkg()], db, provider, &opts)
+                .await
+                .unwrap();
+        assert_eq!(outcome.summary.cache_hits, 1);
+        assert_eq!(*calls.lock().unwrap(), 0);
+        let records = &outcome.findings[0].1;
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].id, "CVE-RANGE-HIT");
+        assert_eq!(records[0].affected_ranges.len(), 1);
+        assert_eq!(
+            records[0].affected_ranges[0].range_type,
+            vlz_db::AffectedRangeType::Ecosystem
+        );
+        assert_eq!(
+            records[0].affected_ranges[0].events[1].fixed.as_deref(),
+            Some("1.2.3")
+        );
     }
 
     #[tokio::test]
@@ -709,6 +771,7 @@ mod tests {
                         advisory_symbols: Vec::new(),
                         evidence: Vec::new(),
                         symbol_usage: None,
+                        affected_ranges: Vec::new(),
                     }],
                 })
             }

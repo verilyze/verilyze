@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock};
 
-use vlz_cve_client::decode_raw_vulns;
+use vlz_cve_client::{attach_affected_ranges, decode_raw_vulns};
 use vlz_db::{
     CacheEntryInfo, CveRecord, DatabaseBackend, DatabaseError, DatabaseStats,
     Package, StoredEntry, TtlSelector, entry_is_expired, new_stored_entry,
@@ -117,7 +117,9 @@ impl DatabaseBackend for MemBackend {
             self.inner.misses.fetch_add(1, Ordering::Relaxed);
             return Ok(None);
         }
-        let records = decode_raw_vulns(&stored.provider_id, &stored.raw_vulns);
+        let mut records =
+            decode_raw_vulns(&stored.provider_id, &stored.raw_vulns);
+        attach_affected_ranges(&mut records, &stored.raw_vulns, pkg);
         self.inner.hits.fetch_add(1, Ordering::Relaxed);
         Ok(Some(records))
     }

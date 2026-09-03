@@ -25,6 +25,9 @@ use vlz_db::{
 
 const DESCRIPTION_MAX_LEN: usize = 60;
 
+/// SBOM / report property name for compact advisory ranges (FR-039, NFR-024).
+pub const VLZ_AFFECTED_RANGES_PROPERTY: &str = "vlz:affected_ranges";
+
 /// Plain/HTML message when scan completed with no CVE findings (FR-010).
 pub const NO_VULNERABILITIES_FOUND_MESSAGE: &str = "No vulnerabilities found.";
 /// Plain/HTML message when findings are empty but analysis did not complete (FR-010).
@@ -122,6 +125,55 @@ fn manifest_coverage_json_array(
             serde_json::to_value(entry).expect("manifest coverage entry")
         })
         .collect()
+}
+
+/// Compact advisory-range summary for plain/HTML/SBOM (FR-039).
+///
+/// Empty ranges render as `-`. Example: `ECOSYSTEM introduced:0 fixed:1.2.3`.
+pub fn format_affected_ranges_compact(cve: &CveRecord) -> String {
+    if cve.affected_ranges.is_empty() {
+        return "-".to_string();
+    }
+    let pieces: Vec<String> = cve
+        .affected_ranges
+        .iter()
+        .map(|range| {
+            let mut parts = vec![range.range_type.as_str().to_string()];
+            for event in &range.events {
+                parts.extend(format_affected_event_parts(event));
+            }
+            parts.join(" ")
+        })
+        .collect();
+    let joined = pieces.join("; ");
+    truncate_display(&joined, DESCRIPTION_MAX_LEN)
+}
+
+fn format_affected_event_parts(event: &vlz_db::AffectedEvent) -> Vec<String> {
+    let mut parts = Vec::new();
+    if let Some(v) = event.introduced.as_deref() {
+        parts.push(format!("introduced:{v}"));
+    }
+    if let Some(v) = event.fixed.as_deref() {
+        parts.push(format!("fixed:{v}"));
+    }
+    if let Some(v) = event.last_affected.as_deref() {
+        parts.push(format!("last_affected:{v}"));
+    }
+    if let Some(v) = event.limit.as_deref() {
+        parts.push(format!("limit:{v}"));
+    }
+    parts
+}
+
+fn truncate_display(s: &str, max_len: usize) -> String {
+    let mut chars = s.chars();
+    let truncated: String = chars.by_ref().take(max_len).collect();
+    if chars.next().is_some() {
+        format!("{}...", truncated.trim_end())
+    } else {
+        truncated
+    }
 }
 
 /// Format manifest paths for display. When root_path is provided, makes paths relative.
@@ -554,7 +606,7 @@ impl Reporter for DefaultReporter {
         }
         writeln!(
             w,
-            "Package | Version | CVE ID | Severity | Manifest(s) | Description"
+            "Package | Version | CVE ID | Severity | Manifest(s) | Ranges | Description"
         )?;
         writeln!(w, "{}", "-".repeat(100))?;
         for finding in &data.findings {
@@ -572,6 +624,7 @@ impl Reporter for DefaultReporter {
             }
             for (idx, (cve, severity)) in finding.cves.iter().enumerate() {
                 let severity_display = severity.as_str();
+                let ranges_display = format_affected_ranges_compact(cve);
                 let mut chars = cve.description.chars();
                 let truncated: String =
                     chars.by_ref().take(DESCRIPTION_MAX_LEN).collect();
@@ -585,19 +638,20 @@ impl Reporter for DefaultReporter {
                 if idx == 0 {
                     writeln!(
                         w,
-                        "{} | {} | {} | {} | {} | {}",
+                        "{} | {} | {} | {} | {} | {} | {}",
                         finding.package.name,
                         finding.package.version,
                         cve.id,
                         severity_display,
                         manifests_display,
+                        ranges_display,
                         desc_display
                     )?;
                 } else {
                     writeln!(
                         w,
-                        "  |  | {} | {} |  | {}",
-                        cve.id, severity_display, desc_display
+                        "  |  | {} | {} |  | {} | {}",
+                        cve.id, severity_display, ranges_display, desc_display
                     )?;
                 }
                 if let Some(details) = format_cve_symbol_details(cve) {
@@ -771,7 +825,7 @@ impl Reporter for HtmlReporter {
         } else {
             writeln!(
                 w,
-                "<table border=\"1\"><thead><tr><th>Package</th><th>Version</th><th>CVE ID</th><th>Severity</th><th>Manifest(s)</th><th>Description</th></tr></thead><tbody>"
+                "<table border=\"1\"><thead><tr><th>Package</th><th>Version</th><th>CVE ID</th><th>Severity</th><th>Manifest(s)</th><th>Ranges</th><th>Description</th></tr></thead><tbody>"
             )?;
             for finding in &data.findings {
                 let manifests_display = format_manifest_paths(
@@ -780,20 +834,22 @@ impl Reporter for HtmlReporter {
                 );
                 for (cve, severity) in &finding.cves {
                     let desc_escaped = html_escape(&cve.description);
+                    let ranges_display = format_affected_ranges_compact(cve);
                     writeln!(
                         w,
-                        "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                        "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
                         html_escape(&finding.package.name),
                         html_escape(&finding.package.version),
                         html_escape(&cve.id),
                         severity.as_str(),
                         html_escape(&manifests_display),
+                        html_escape(&ranges_display),
                         desc_escaped
                     )?;
                     if let Some(details) = format_cve_symbol_details(cve) {
                         writeln!(
                             w,
-                            "<tr><td colspan=\"6\"><em>{}</em></td></tr>",
+                            "<tr><td colspan=\"7\"><em>{}</em></td></tr>",
                             html_escape(&details)
                         )?;
                     }
@@ -899,6 +955,10 @@ impl Reporter for SarifReporter {
                     if let Some(reachable) = cve.reachable {
                         result["properties"]["reachable"] =
                             serde_json::json!(reachable);
+                    }
+                    if !cve.affected_ranges.is_empty() {
+                        result["properties"]["affected_ranges"] =
+                            serde_json::json!(cve.affected_ranges);
                     }
                     if !cve.advisory_symbols.is_empty() {
                         result["properties"]["advisory_symbols"] =
@@ -1107,11 +1167,15 @@ impl Reporter for CycloneDxReporter {
                         .iter()
                         .map(|p| p.to_string_lossy().into_owned())
                         .collect();
+                    let ranges_compact = format_affected_ranges_compact(cve);
                     let mut vuln = serde_json::json!({
                         "id": cve.id,
                         "description": cve.description,
                         "affects": [{ "ref": bom_ref }],
-                        "properties": [{ "name": "vlz:manifest_paths", "value": manifest_paths.join("; ") }]
+                        "properties": [
+                            { "name": "vlz:manifest_paths", "value": manifest_paths.join("; ") },
+                            { "name": VLZ_AFFECTED_RANGES_PROPERTY, "value": ranges_compact }
+                        ]
                     });
                     if let Some(score) = cve.cvss_score {
                         let method = match cve.cvss_version {
@@ -1226,6 +1290,7 @@ impl Reporter for SpdxReporter {
             .flat_map(|finding| {
                 finding.cves.iter().map(|(cve, _)| {
                     let vuln_id = spdx_id_vuln(&cve.id);
+                    let ranges_compact = format_affected_ranges_compact(cve);
                     serde_json::json!({
                         "@type": "Vulnerability",
                         "spdxId": vuln_id,
@@ -1235,7 +1300,14 @@ impl Reporter for SpdxReporter {
                             "externalIdentifierType": "securityAdvisory",
                             "identifier": cve.id,
                             "identifierLocation": format!("https://nvd.nist.gov/vuln/detail/{}", cve.id)
-                        }
+                        },
+                        "annotation": [{
+                            "@type": "Annotation",
+                            "annotationType": "other",
+                            "annotator": { "annotatorType": "tool", "name": "vlz" },
+                            "annotationDate": format_timestamp_rfc3339(),
+                            "comment": format!("{}={}", VLZ_AFFECTED_RANGES_PROPERTY, ranges_compact)
+                        }]
                     })
                 })
             })
@@ -1303,9 +1375,197 @@ impl Reporter for SpdxReporter {
 mod tests {
     use super::*;
     use vlz_db::{
-        CRATES_IO_ECOSYSTEM, GO_ECOSYSTEM, MAVEN_ECOSYSTEM, NPM_ECOSYSTEM,
-        PYPI_ECOSYSTEM, RUBYGEMS_ECOSYSTEM,
+        AffectedEvent, AffectedRange, AffectedRangeType, CRATES_IO_ECOSYSTEM,
+        GO_ECOSYSTEM, MAVEN_ECOSYSTEM, NPM_ECOSYSTEM, PYPI_ECOSYSTEM,
+        RUBYGEMS_ECOSYSTEM,
     };
+
+    fn cve_with_ranges(ranges: Vec<AffectedRange>) -> CveRecord {
+        CveRecord {
+            id: "CVE-RANGE-1".to_string(),
+            cvss_score: None,
+            cvss_version: None,
+            description: "range test".to_string(),
+            reachable: None,
+            advisory_symbols: Vec::new(),
+            evidence: Vec::new(),
+            symbol_usage: None,
+            affected_ranges: ranges,
+        }
+    }
+
+    #[test]
+    fn format_affected_ranges_compact_empty_is_dash() {
+        let cve = cve_with_ranges(Vec::new());
+        assert_eq!(format_affected_ranges_compact(&cve), "-");
+    }
+
+    #[test]
+    fn format_affected_ranges_compact_ecosystem_fixed() {
+        let cve = cve_with_ranges(vec![AffectedRange {
+            range_type: AffectedRangeType::Ecosystem,
+            events: vec![
+                AffectedEvent {
+                    introduced: Some("0".to_string()),
+                    ..Default::default()
+                },
+                AffectedEvent {
+                    fixed: Some("1.2.3".to_string()),
+                    ..Default::default()
+                },
+            ],
+            package_name: Some("pkg".to_string()),
+            ecosystem: Some("npm".to_string()),
+        }]);
+        assert_eq!(
+            format_affected_ranges_compact(&cve),
+            "ECOSYSTEM introduced:0 fixed:1.2.3"
+        );
+    }
+
+    #[test]
+    fn format_affected_ranges_compact_joins_multiple_ranges() {
+        let cve = cve_with_ranges(vec![
+            AffectedRange {
+                range_type: AffectedRangeType::Semver,
+                events: vec![AffectedEvent {
+                    fixed: Some("2.0.0".to_string()),
+                    ..Default::default()
+                }],
+                package_name: None,
+                ecosystem: None,
+            },
+            AffectedRange {
+                range_type: AffectedRangeType::Git,
+                events: vec![AffectedEvent {
+                    last_affected: Some("abc".to_string()),
+                    ..Default::default()
+                }],
+                package_name: None,
+                ecosystem: None,
+            },
+        ]);
+        assert_eq!(
+            format_affected_ranges_compact(&cve),
+            "SEMVER fixed:2.0.0; GIT last_affected:abc"
+        );
+    }
+
+    fn sample_report_data_with_ranges() -> ReportData {
+        let mut data = sample_report_data_one_finding();
+        data.findings[0].cves[0].0.affected_ranges = vec![AffectedRange {
+            range_type: AffectedRangeType::Ecosystem,
+            events: vec![
+                AffectedEvent {
+                    introduced: Some("0".to_string()),
+                    ..Default::default()
+                },
+                AffectedEvent {
+                    fixed: Some("1.2.3".to_string()),
+                    ..Default::default()
+                },
+            ],
+            package_name: Some("foo".to_string()),
+            ecosystem: Some("crates.io".to_string()),
+        }];
+        data
+    }
+
+    #[tokio::test]
+    async fn plain_and_html_include_ranges_column_fr039() {
+        let data = sample_report_data_with_ranges();
+        let mut plain = Vec::new();
+        DefaultReporter::new()
+            .render_to_writer(&data, &mut plain)
+            .await
+            .unwrap();
+        let plain_out = String::from_utf8(plain).unwrap();
+        assert!(plain_out.contains("Ranges"));
+        assert!(plain_out.contains("ECOSYSTEM introduced:0 fixed:1.2.3"));
+        assert!(!plain_out.contains("| Fix |"));
+
+        let mut html = Vec::new();
+        HtmlReporter::new()
+            .render_to_writer(&data, &mut html)
+            .await
+            .unwrap();
+        let html_out = String::from_utf8(html).unwrap();
+        assert!(html_out.contains("<th>Ranges</th>"));
+        assert!(html_out.contains("ECOSYSTEM introduced:0 fixed:1.2.3"));
+        assert!(!html_out.contains("<th>Fix</th>"));
+    }
+
+    #[tokio::test]
+    async fn json_and_sarif_include_structured_affected_ranges_fr039() {
+        let data = sample_report_data_with_ranges();
+        let mut json_buf = Vec::new();
+        JsonReporter::new()
+            .render_to_writer(&data, &mut json_buf)
+            .await
+            .unwrap();
+        let json: serde_json::Value =
+            serde_json::from_str(String::from_utf8(json_buf).unwrap().trim())
+                .unwrap();
+        let ranges = json["findings"][0]["cves"][0]["affected_ranges"]
+            .as_array()
+            .expect("affected_ranges in JSON");
+        assert_eq!(ranges.len(), 1);
+        assert_eq!(ranges[0]["type"], "ECOSYSTEM");
+        assert_eq!(ranges[0]["events"][1]["fixed"], "1.2.3");
+
+        let mut sarif_buf = Vec::new();
+        SarifReporter::new()
+            .render_to_writer(&data, &mut sarif_buf)
+            .await
+            .unwrap();
+        let sarif: serde_json::Value =
+            serde_json::from_str(String::from_utf8(sarif_buf).unwrap().trim())
+                .unwrap();
+        let result = &sarif["runs"][0]["results"][0];
+        assert!(result.get("fixes").is_none());
+        let props = result["properties"]["affected_ranges"]
+            .as_array()
+            .expect("affected_ranges in SARIF properties");
+        assert_eq!(props[0]["type"], "ECOSYSTEM");
+    }
+
+    #[tokio::test]
+    async fn cyclonedx_and_spdx_include_compact_range_property_fr039() {
+        let data = sample_report_data_with_ranges();
+        let mut cdx_buf = Vec::new();
+        CycloneDxReporter::new()
+            .render_to_writer(&data, &mut cdx_buf)
+            .await
+            .unwrap();
+        let cdx: serde_json::Value =
+            serde_json::from_str(String::from_utf8(cdx_buf).unwrap().trim())
+                .unwrap();
+        let props =
+            cdx["vulnerabilities"][0]["properties"].as_array().unwrap();
+        let range_prop = props
+            .iter()
+            .find(|p| p["name"] == VLZ_AFFECTED_RANGES_PROPERTY)
+            .expect("vlz:affected_ranges property");
+        assert_eq!(range_prop["value"], "ECOSYSTEM introduced:0 fixed:1.2.3");
+        assert!(props.iter().all(|p| p["name"] != "recommendation"));
+
+        let mut spdx_buf = Vec::new();
+        SpdxReporter::new()
+            .render_to_writer(&data, &mut spdx_buf)
+            .await
+            .unwrap();
+        let spdx: serde_json::Value =
+            serde_json::from_str(String::from_utf8(spdx_buf).unwrap().trim())
+                .unwrap();
+        let elements = spdx["element"].as_array().unwrap();
+        let vuln = elements
+            .iter()
+            .find(|e| e["@type"] == "Vulnerability")
+            .expect("vulnerability element");
+        let comment = vuln["annotation"][0]["comment"].as_str().unwrap();
+        assert!(comment.contains(VLZ_AFFECTED_RANGES_PROPERTY));
+        assert!(comment.contains("ECOSYSTEM introduced:0 fixed:1.2.3"));
+    }
 
     #[test]
     fn secs_to_ymdhms_unix_epoch() {
@@ -1420,6 +1680,7 @@ mod tests {
             advisory_symbols: Vec::new(),
             evidence: Vec::new(),
             symbol_usage: None,
+            affected_ranges: Vec::new(),
         };
         ReportData {
             findings: vec![Finding {
@@ -1486,6 +1747,7 @@ mod tests {
             advisory_symbols: Vec::new(),
             evidence: Vec::new(),
             symbol_usage: None,
+            affected_ranges: Vec::new(),
         };
         ReportData {
             findings: vec![Finding {
@@ -1633,6 +1895,7 @@ mod tests {
         assert!(out.contains("CVE-2023-1234"));
         assert!(out.contains("HIGH"));
         assert!(out.contains("Manifest(s)"));
+        assert!(out.contains("Ranges"));
         assert!(out.contains("Cargo.toml"));
     }
 
@@ -1859,6 +2122,7 @@ mod tests {
             advisory_symbols: Vec::new(),
             evidence: Vec::new(),
             symbol_usage: None,
+            affected_ranges: Vec::new(),
         };
         let data = ReportData {
             findings: vec![Finding {
@@ -1911,6 +2175,7 @@ mod tests {
             advisory_symbols: Vec::new(),
             evidence: Vec::new(),
             symbol_usage: None,
+            affected_ranges: Vec::new(),
         };
         let data = ReportData {
             findings: vec![Finding {
@@ -1978,6 +2243,7 @@ mod tests {
                 symbol: "VulnFn".to_string(),
             }],
             symbol_usage: Some("used".to_string()),
+            affected_ranges: Vec::new(),
         };
         let data = ReportData {
             findings: vec![Finding {
@@ -2050,6 +2316,7 @@ mod tests {
                 symbol: "VulnFn".to_string(),
             }],
             symbol_usage: Some("used".to_string()),
+            affected_ranges: Vec::new(),
         };
         let data = ReportData {
             findings: vec![Finding {

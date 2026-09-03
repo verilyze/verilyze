@@ -53,6 +53,49 @@ def test_rust_file_rates_maps_cobertura_classes() -> None:
     assert rates["crates/foo/src/b.rs"]["line"] == 50.0
 
 
+def test_rust_file_rates_dedupes_llvm_cov_method_clones() -> None:
+    """cargo-llvm-cov Cobertura emits duplicate method names with 0/1 rates."""
+    import xml.etree.ElementTree as ET
+
+    root = ET.fromstring(
+        """<coverage branches-valid="0"><packages><package><classes>
+          <class filename="crates/foo/src/a.rs" line-rate="0.99"
+                 branch-rate="0">
+            <methods>
+              <method name="parse" line-rate="0"/>
+              <method name="parse" line-rate="1"/>
+              <method name="parse::{closure#0}" line-rate="0"/>
+              <method name="parse::{closure#0}" line-rate="1"/>
+            </methods>
+          </class>
+        </classes></package></packages></coverage>"""
+    )
+    rates = rust_file_rates(root)
+    assert rates["crates/foo/src/a.rs"]["function"] == 100.0
+
+
+def test_rust_file_rates_region_falls_back_when_branches_absent() -> None:
+    """llvm-cov Cobertura sets branch-rate=0 with branches-valid=0 (no data)."""
+    import xml.etree.ElementTree as ET
+
+    root = ET.fromstring(
+        """<coverage branches-valid="0" branches-covered="0" branch-rate="0">
+        <packages><package><classes>
+          <class filename="crates/foo/src/a.rs" line-rate="0.97"
+                 branch-rate="0">
+            <methods><method name="run" line-rate="0.97"/></methods>
+            <lines>
+              <line number="1" hits="1"/>
+              <line number="2" hits="1"/>
+            </lines>
+          </class>
+        </classes></package></packages></coverage>"""
+    )
+    rates = rust_file_rates(root)
+    assert rates["crates/foo/src/a.rs"]["region"] == 97.0
+    assert rates["crates/foo/src/a.rs"]["line"] == 97.0
+
+
 def test_rust_file_rates_skips_non_rust_filenames() -> None:
     import xml.etree.ElementTree as ET
 

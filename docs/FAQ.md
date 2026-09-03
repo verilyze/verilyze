@@ -285,6 +285,25 @@ declarations show where a dependency is declared, not where vulnerable code runs
 
 ---
 
+## Advisory ranges (FR-039)
+
+### What is the Ranges column / `affected_ranges` field?
+
+**Meaning:** When the CVE provider is OSV (or stores OSV-shaped `raw_vulns`),
+`vlz` decodes `affected[].ranges` for the scanned package onto each CVE.
+Plain and HTML reports show a **Ranges** summary (for example
+`ECOSYSTEM introduced:0 fixed:1.2.3`). JSON and SARIF include structured
+`affected_ranges`. CycloneDX/SPDX attach the same compact string as
+`vlz:affected_ranges`. Offline cache hits still attach ranges by decoding
+cached raw vulns.
+
+**Limits:** Ranges are advisory metadata from OSV, not an auto-upgrade plan
+and not a single "fix to this version" recommendation. Non-OSV providers may
+omit ranges. A later remediation planner (not in this release) will turn
+ranges into upgrade plans.
+
+---
+
 ## CVE providers
 
 ### Provider authentication
