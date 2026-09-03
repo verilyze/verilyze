@@ -88,14 +88,58 @@ def normalize_rust_path(filename: str, target: str) -> str | None:
 
 
 def _method_function_rate(cls: ET.Element) -> float | None:
-    rates: list[float] = []
+    """Average per-method line rates, deduping llvm-cov Cobertura clones.
+
+    cargo-llvm-cov emits the same method name multiple times (often one
+    uncovered clone at line-rate 0 and one covered clone at 1). Averaging
+    every entry understates function coverage; take the max rate per name.
+    """
+    best_by_name: dict[str, float] = {}
     for method in cls.findall("methods/method"):
         raw = method.get("line-rate")
-        if raw is not None:
-            rates.append(float(raw) * 100.0)
-    if not rates:
+        if raw is None:
+            continue
+        name = method.get("name") or ""
+        rate = float(raw) * 100.0
+        prev = best_by_name.get(name)
+        if prev is None or rate > prev:
+            best_by_name[name] = rate
+    if not best_by_name:
         return None
-    return sum(rates) / len(rates)
+    return sum(best_by_name.values()) / len(best_by_name)
+
+
+def _class_has_branch_lines(cls: ET.Element) -> bool:
+    """Return True when the class lists branch/condition observations."""
+    for line in cls.findall("lines/line"):
+        if line.get("branch") == "true":
+            return True
+        if line.find("conditions") is not None:
+            return True
+    return False
+
+
+def _region_rate_percent(
+    root: ET.Element, cls: ET.Element, line_rate: float
+) -> float:
+    """Cobertura branch-rate as region percent, with llvm-cov fallback.
+
+    cargo-llvm-cov Cobertura exports set ``branches-valid="0"`` and
+    ``branch-rate="0"`` for every class even when llvm region coverage is
+    high. When branch observations are absent, fall back to line rate so
+    the ship-pr region gate is not a permanent false fail (aggregate region
+    still comes from ``cargo llvm-cov --fail-under-regions``).
+    """
+    branch_rate = float(cls.get("branch-rate", "0")) * 100.0
+    root_valid_raw = root.get("branches-valid")
+    root_valid = int(root_valid_raw) if root_valid_raw is not None else None
+    if branch_rate > 0.0:
+        return branch_rate
+    if _class_has_branch_lines(cls):
+        return branch_rate
+    if root_valid is not None and root_valid > 0:
+        return branch_rate
+    return line_rate
 
 
 def rust_file_rates(root: ET.Element) -> dict[str, dict[str, float]]:
@@ -107,7 +151,7 @@ def rust_file_rates(root: ET.Element) -> dict[str, dict[str, float]]:
             if not filename.endswith(".rs"):
                 continue
             line_rate = float(cls.get("line-rate", "0")) * 100.0
-            region_rate = float(cls.get("branch-rate", "0")) * 100.0
+            region_rate = _region_rate_percent(root, cls, line_rate)
             function_rate = _method_function_rate(cls)
             if function_rate is None:
                 function_rate = line_rate
