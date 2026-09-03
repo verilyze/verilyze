@@ -53,7 +53,13 @@ fn run_list_alias_exits_0() {
 #[test]
 fn run_preload_exits_0() {
     let _ = env_logger::try_init();
-    with_temp_xdg(|| assert_eq!(run_async(&["preload"]), 0));
+    with_temp_xdg(|| {
+        // Empty project root: hermetic (no live OSV). Bare `preload` without a
+        // path would scan the repo cwd and require network.
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().to_str().unwrap();
+        assert_eq!(run_async(&["preload", root]), 0);
+    });
 }
 
 #[cfg(feature = "python")]
