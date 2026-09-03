@@ -73,8 +73,13 @@ fn walk_dir(
         let file_type = entry.file_type()?;
         if file_type.is_file() {
             let matches = match patterns {
-                Some(regexes) => regexes.iter().any(|r| r.is_match(name)),
-                None => name == JS_MANIFEST_NAME,
+                Some(regexes) => {
+                    // FR-006 filters *manifest* names, but JS lockfiles must be
+                    // discovered for lock-only roots (no `package.json`).
+                    is_js_lock_file(name)
+                        || regexes.iter().any(|r| r.is_match(name))
+                }
+                None => name == JS_MANIFEST_NAME || is_js_lock_file(name),
             };
             if matches {
                 out.push(entry.path());
