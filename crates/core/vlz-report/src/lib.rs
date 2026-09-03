@@ -22,6 +22,7 @@ use vlz_db::{
     Severity, dedupe_sort_declarations, purl_for_package,
     purl_type_for_ecosystem,
 };
+use vlz_remediate::UpgradePlan;
 
 const DESCRIPTION_MAX_LEN: usize = 60;
 
@@ -147,6 +148,20 @@ pub fn format_affected_ranges_compact(cve: &CveRecord) -> String {
         .collect();
     let joined = pieces.join("; ");
     truncate_display(&joined, DESCRIPTION_MAX_LEN)
+}
+
+/// Compact representation of the Phase-1 upgrade plan for human output.
+///
+/// Empty/unknown plans render as `-`.
+pub fn format_upgrade_plan_compact(plan: &UpgradePlan) -> String {
+    if plan.minimal_fixed_version == vlz_remediate::MIN_FIXED_VERSION_UNKNOWN {
+        return "-".to_string();
+    }
+    format!(
+        "{} ({})",
+        plan.minimal_fixed_version,
+        plan.confidence.as_str()
+    )
 }
 
 fn format_affected_event_parts(event: &vlz_db::AffectedEvent) -> Vec<String> {
@@ -445,6 +460,8 @@ pub struct Finding {
     pub manifest_paths: Vec<PathBuf>,
     /// Declaration line locations (FR-036a Tier 1). Sorted and deduplicated.
     pub declarations: Vec<PackageDeclarationLocation>,
+    /// Finding-level upgrade plan (FR-040).
+    pub upgrade_plan: vlz_remediate::UpgradePlan,
     pub cves: Vec<(CveRecord, Severity)>,
 }
 
@@ -606,7 +623,7 @@ impl Reporter for DefaultReporter {
         }
         writeln!(
             w,
-            "Package | Version | CVE ID | Severity | Manifest(s) | Ranges | Description"
+            "Package | Version | CVE ID | Severity | Manifest(s) | Ranges | Fix | Description"
         )?;
         writeln!(w, "{}", "-".repeat(100))?;
         for finding in &data.findings {
@@ -622,6 +639,8 @@ impl Reporter for DefaultReporter {
                 manifests_display =
                     format!("{manifests_display}; decl: {decl_display}");
             }
+            let fix_display =
+                format_upgrade_plan_compact(&finding.upgrade_plan);
             for (idx, (cve, severity)) in finding.cves.iter().enumerate() {
                 let severity_display = severity.as_str();
                 let ranges_display = format_affected_ranges_compact(cve);
@@ -638,19 +657,20 @@ impl Reporter for DefaultReporter {
                 if idx == 0 {
                     writeln!(
                         w,
-                        "{} | {} | {} | {} | {} | {} | {}",
+                        "{} | {} | {} | {} | {} | {} | {} | {}",
                         finding.package.name,
                         finding.package.version,
                         cve.id,
                         severity_display,
                         manifests_display,
                         ranges_display,
+                        fix_display,
                         desc_display
                     )?;
                 } else {
                     writeln!(
                         w,
-                        "  |  | {} | {} |  | {} | {}",
+                        "  |  | {} | {} |  | {} |  | {}",
                         cve.id, severity_display, ranges_display, desc_display
                     )?;
                 }
@@ -686,6 +706,7 @@ struct JsonFinding<'a> {
         skip_serializing_if = "<[PackageDeclarationLocation]>::is_empty"
     )]
     declarations: &'a [PackageDeclarationLocation],
+    upgrade_plan: &'a UpgradePlan,
     cves: Vec<JsonCveWithSeverity<'a>>,
 }
 
@@ -742,6 +763,7 @@ impl Reporter for JsonReporter {
                     package: &f.package,
                     manifest_paths: &f.manifest_paths,
                     declarations: &f.declarations,
+                    upgrade_plan: &f.upgrade_plan,
                     cves: f
                         .cves
                         .iter()
@@ -825,31 +847,34 @@ impl Reporter for HtmlReporter {
         } else {
             writeln!(
                 w,
-                "<table border=\"1\"><thead><tr><th>Package</th><th>Version</th><th>CVE ID</th><th>Severity</th><th>Manifest(s)</th><th>Ranges</th><th>Description</th></tr></thead><tbody>"
+                "<table border=\"1\"><thead><tr><th>Package</th><th>Version</th><th>CVE ID</th><th>Severity</th><th>Manifest(s)</th><th>Ranges</th><th>Fix</th><th>Description</th></tr></thead><tbody>"
             )?;
             for finding in &data.findings {
                 let manifests_display = format_manifest_paths(
                     &finding.manifest_paths,
                     data.root_path.as_deref(),
                 );
+                let fix_display =
+                    format_upgrade_plan_compact(&finding.upgrade_plan);
                 for (cve, severity) in &finding.cves {
                     let desc_escaped = html_escape(&cve.description);
                     let ranges_display = format_affected_ranges_compact(cve);
                     writeln!(
                         w,
-                        "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                        "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
                         html_escape(&finding.package.name),
                         html_escape(&finding.package.version),
                         html_escape(&cve.id),
                         severity.as_str(),
                         html_escape(&manifests_display),
                         html_escape(&ranges_display),
+                        html_escape(&fix_display),
                         desc_escaped
                     )?;
                     if let Some(details) = format_cve_symbol_details(cve) {
                         writeln!(
                             w,
-                            "<tr><td colspan=\"7\"><em>{}</em></td></tr>",
+                            "<tr><td colspan=\"8\"><em>{}</em></td></tr>",
                             html_escape(&details)
                         )?;
                     }
@@ -952,6 +977,8 @@ impl Reporter for SarifReporter {
                             "manifest_paths": manifest_uris
                         }
                     });
+                    result["properties"]["upgrade_plan"] =
+                        serde_json::json!(finding.upgrade_plan);
                     if let Some(reachable) = cve.reachable {
                         result["properties"]["reachable"] =
                             serde_json::json!(reachable);
@@ -1168,13 +1195,26 @@ impl Reporter for CycloneDxReporter {
                         .map(|p| p.to_string_lossy().into_owned())
                         .collect();
                     let ranges_compact = format_affected_ranges_compact(cve);
+                    let minimal_fixed_value =
+                        if finding.upgrade_plan.minimal_fixed_version
+                            == vlz_remediate::MIN_FIXED_VERSION_UNKNOWN
+                        {
+                            "-".to_string()
+                        } else {
+                            finding
+                                .upgrade_plan
+                                .minimal_fixed_version
+                                .clone()
+                        };
                     let mut vuln = serde_json::json!({
                         "id": cve.id,
                         "description": cve.description,
                         "affects": [{ "ref": bom_ref }],
                         "properties": [
                             { "name": "vlz:manifest_paths", "value": manifest_paths.join("; ") },
-                            { "name": VLZ_AFFECTED_RANGES_PROPERTY, "value": ranges_compact }
+                            { "name": VLZ_AFFECTED_RANGES_PROPERTY, "value": ranges_compact },
+                            { "name": "vlz:minimal_fixed_version", "value": minimal_fixed_value },
+                            { "name": "vlz:upgrade_plan_confidence", "value": finding.upgrade_plan.confidence.as_str() }
                         ]
                     });
                     if let Some(score) = cve.cvss_score {
@@ -1291,6 +1331,17 @@ impl Reporter for SpdxReporter {
                 finding.cves.iter().map(|(cve, _)| {
                     let vuln_id = spdx_id_vuln(&cve.id);
                     let ranges_compact = format_affected_ranges_compact(cve);
+                    let minimal_fixed_value =
+                        if finding.upgrade_plan.minimal_fixed_version
+                            == vlz_remediate::MIN_FIXED_VERSION_UNKNOWN
+                        {
+                            "-".to_string()
+                        } else {
+                            finding
+                                .upgrade_plan
+                                .minimal_fixed_version
+                                .clone()
+                        };
                     serde_json::json!({
                         "@type": "Vulnerability",
                         "spdxId": vuln_id,
@@ -1306,7 +1357,13 @@ impl Reporter for SpdxReporter {
                             "annotationType": "other",
                             "annotator": { "annotatorType": "tool", "name": "vlz" },
                             "annotationDate": format_timestamp_rfc3339(),
-                            "comment": format!("{}={}", VLZ_AFFECTED_RANGES_PROPERTY, ranges_compact)
+                            "comment": format!(
+                                "{}={}; vlz:minimal_fixed_version={}; vlz:upgrade_plan_confidence={}",
+                                VLZ_AFFECTED_RANGES_PROPERTY,
+                                ranges_compact,
+                                minimal_fixed_value,
+                                finding.upgrade_plan.confidence.as_str()
+                            )
                         }]
                     })
                 })
@@ -1482,7 +1539,7 @@ mod tests {
         let plain_out = String::from_utf8(plain).unwrap();
         assert!(plain_out.contains("Ranges"));
         assert!(plain_out.contains("ECOSYSTEM introduced:0 fixed:1.2.3"));
-        assert!(!plain_out.contains("| Fix |"));
+        assert!(plain_out.contains("| Fix |"));
 
         let mut html = Vec::new();
         HtmlReporter::new()
@@ -1492,7 +1549,7 @@ mod tests {
         let html_out = String::from_utf8(html).unwrap();
         assert!(html_out.contains("<th>Ranges</th>"));
         assert!(html_out.contains("ECOSYSTEM introduced:0 fixed:1.2.3"));
-        assert!(!html_out.contains("<th>Fix</th>"));
+        assert!(html_out.contains("<th>Fix</th>"));
     }
 
     #[tokio::test]
@@ -1687,6 +1744,13 @@ mod tests {
                 package: pkg,
                 manifest_paths: vec![PathBuf::from("Cargo.toml")],
                 declarations: Vec::new(),
+                upgrade_plan: vlz_remediate::UpgradePlan {
+                    minimal_fixed_version:
+                        vlz_remediate::MIN_FIXED_VERSION_UNKNOWN.to_string(),
+                    dependency_kind: vlz_remediate::DependencyKind::Unknown,
+                    apply_strategy: vlz_remediate::ApplyStrategy::Unavailable,
+                    confidence: vlz_remediate::UpgradePlanConfidence::Unknown,
+                },
                 cves: vec![(cve, Severity::High)],
             }],
             all_packages: None,
@@ -1754,6 +1818,13 @@ mod tests {
                 package: pkg_foo.clone(),
                 manifest_paths: vec![PathBuf::from("Cargo.toml")],
                 declarations: Vec::new(),
+                upgrade_plan: vlz_remediate::UpgradePlan {
+                    minimal_fixed_version:
+                        vlz_remediate::MIN_FIXED_VERSION_UNKNOWN.to_string(),
+                    dependency_kind: vlz_remediate::DependencyKind::Unknown,
+                    apply_strategy: vlz_remediate::ApplyStrategy::Unavailable,
+                    confidence: vlz_remediate::UpgradePlanConfidence::Unknown,
+                },
                 cves: vec![(cve, Severity::High)],
             }],
             all_packages: Some(vec![pkg_foo, pkg_bar]),
@@ -2129,6 +2200,13 @@ mod tests {
                 package: pkg,
                 manifest_paths: vec![PathBuf::from("pyproject.toml")],
                 declarations: Vec::new(),
+                upgrade_plan: vlz_remediate::UpgradePlan {
+                    minimal_fixed_version:
+                        vlz_remediate::MIN_FIXED_VERSION_UNKNOWN.to_string(),
+                    dependency_kind: vlz_remediate::DependencyKind::Unknown,
+                    apply_strategy: vlz_remediate::ApplyStrategy::Unavailable,
+                    confidence: vlz_remediate::UpgradePlanConfidence::Unknown,
+                },
                 cves: vec![(cve, Severity::Medium)],
             }],
             all_packages: None,
@@ -2190,6 +2268,13 @@ mod tests {
                     )
                     .unwrap(),
                 ],
+                upgrade_plan: vlz_remediate::UpgradePlan {
+                    minimal_fixed_version:
+                        vlz_remediate::MIN_FIXED_VERSION_UNKNOWN.to_string(),
+                    dependency_kind: vlz_remediate::DependencyKind::Unknown,
+                    apply_strategy: vlz_remediate::ApplyStrategy::Unavailable,
+                    confidence: vlz_remediate::UpgradePlanConfidence::Unknown,
+                },
                 cves: vec![(cve, Severity::Medium)],
             }],
             all_packages: None,
@@ -2258,6 +2343,13 @@ mod tests {
                     )
                     .unwrap(),
                 ],
+                upgrade_plan: vlz_remediate::UpgradePlan {
+                    minimal_fixed_version:
+                        vlz_remediate::MIN_FIXED_VERSION_UNKNOWN.to_string(),
+                    dependency_kind: vlz_remediate::DependencyKind::Unknown,
+                    apply_strategy: vlz_remediate::ApplyStrategy::Unavailable,
+                    confidence: vlz_remediate::UpgradePlanConfidence::Unknown,
+                },
                 cves: vec![(cve, Severity::High)],
             }],
             all_packages: None,
@@ -2323,6 +2415,13 @@ mod tests {
                 package: pkg,
                 manifest_paths: vec![PathBuf::from("go.mod")],
                 declarations: Vec::new(),
+                upgrade_plan: vlz_remediate::UpgradePlan {
+                    minimal_fixed_version:
+                        vlz_remediate::MIN_FIXED_VERSION_UNKNOWN.to_string(),
+                    dependency_kind: vlz_remediate::DependencyKind::Unknown,
+                    apply_strategy: vlz_remediate::ApplyStrategy::Unavailable,
+                    confidence: vlz_remediate::UpgradePlanConfidence::Unknown,
+                },
                 cves: vec![(cve, Severity::High)],
             }],
             all_packages: None,

@@ -10,6 +10,9 @@ use clap::builder::PossibleValuesParser;
 pub const SCAN_OUTPUT_FORMATS: &[&str] =
     &["plain", "json", "sarif", "cyclonedx", "spdx"];
 
+/// Output formats for `vlz fix --dry-run --format`.
+pub const FIX_OUTPUT_FORMATS: &[&str] = &["plain", "json"];
+
 /// Output formats for `vlz db show --format`.
 pub const DB_SHOW_FORMATS: &[&str] = &["json"];
 
@@ -24,6 +27,7 @@ pub const COMPLETION_OMIT_ALIASES: &[&str] = &[
 #[cfg(not(feature = "completions"))]
 const HELP_SUBCOMMANDS_BASE: &[&str] = &[
     "scan",
+    "fix",
     "languages",
     "list",
     "config",
@@ -80,6 +84,7 @@ pub fn help_subcommand_names() -> &'static [&'static str] {
     {
         const WITH_COMPLETIONS: &[&str] = &[
             "scan",
+            "fix",
             "languages",
             "list",
             "config",
@@ -100,6 +105,11 @@ pub fn help_subcommand_names() -> &'static [&'static str] {
 /// `value_parser` for `scan --format`.
 pub fn scan_format_parser() -> PossibleValuesParser {
     PossibleValuesParser::new(SCAN_OUTPUT_FORMATS)
+}
+
+/// `value_parser` for `fix --dry-run --format`.
+pub fn fix_format_parser() -> PossibleValuesParser {
+    PossibleValuesParser::new(FIX_OUTPUT_FORMATS)
 }
 
 /// `value_parser` for `db show --format`.

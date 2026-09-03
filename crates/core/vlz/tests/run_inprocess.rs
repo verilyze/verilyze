@@ -2702,3 +2702,514 @@ fn run_fp_unmark_exits_0() {
         assert_eq!(run_async(&["fp", "unmark", "CVE-2020-5678"]), 0);
     });
 }
+
+fn version_triplet(v: &str) -> Option<(u64, u64, u64)> {
+    let trimmed = v.trim().trim_start_matches('v');
+    let mut parts = trimmed.split('.');
+    let major = parts.next()?.parse().ok()?;
+    let minor = parts.next().unwrap_or("0").parse().ok()?;
+    let patch = parts.next().unwrap_or("0").parse().ok()?;
+    Some((major, minor, patch))
+}
+
+fn version_lt(a: &str, b: &str) -> bool {
+    let (ma, nia, pa) = version_triplet(a).unwrap_or((0, 0, 0));
+    let (mb, nib, pb) = version_triplet(b).unwrap_or((0, 0, 0));
+    (ma, nia, pa) < (mb, nib, pb)
+}
+
+/// Version-aware OSV-like provider for hermetic `vlz fix` tests.
+///
+/// - When `pkg.version` is lower than `fixed_version`, it returns one CVE
+///   with an `affected` ECOSYSTEM range containing `fixed`.
+/// - When `pkg.version` is at least `fixed_version`, it returns no CVEs.
+#[derive(Clone, Debug)]
+struct VersionAwareOsvProvider {
+    pkg_name: &'static str,
+    ecosystem: &'static str,
+    fixed_version: &'static str,
+    cve_id: &'static str,
+}
+
+#[cfg(all(unix, feature = "testing"))]
+#[async_trait::async_trait]
+impl vlz_cve_client::CveProvider for VersionAwareOsvProvider {
+    fn name(&self) -> &'static str {
+        // Use the built-in OSV decoder so cache hits can reconstruct
+        // `affected_ranges` offline.
+        "osv"
+    }
+
+    async fn fetch(
+        &self,
+        pkg: &vlz_db::Package,
+    ) -> Result<vlz_cve_client::FetchedCves, vlz_cve_client::ProviderError>
+    {
+        let ecosystem_matches = pkg
+            .ecosystem
+            .as_deref()
+            .map(|e| e.eq_ignore_ascii_case(self.ecosystem))
+            .unwrap_or(false);
+
+        if pkg.name != self.pkg_name || !ecosystem_matches {
+            return Ok(vlz_cve_client::FetchedCves {
+                raw_vulns: vec![],
+                records: vec![],
+            });
+        }
+
+        if !version_lt(&pkg.version, self.fixed_version) {
+            return Ok(vlz_cve_client::FetchedCves {
+                raw_vulns: vec![],
+                records: vec![],
+            });
+        }
+
+        let raw = serde_json::json!([{
+            "id": self.cve_id,
+            "summary": "test vuln",
+            "database_specific": { "cvss_v3_score": 7.5 },
+            "affected": [{
+                "package": { "name": self.pkg_name, "ecosystem": self.ecosystem },
+                "ranges": [{
+                    "type": "ECOSYSTEM",
+                    "events": [
+                        { "introduced": "0" },
+                        { "fixed": self.fixed_version }
+                    ]
+                }]
+            }]
+        }]);
+
+        let affected_ranges = vec![vlz_db::AffectedRange {
+            range_type: vlz_db::AffectedRangeType::Ecosystem,
+            events: vec![vlz_db::AffectedEvent {
+                introduced: Some("0".to_string()),
+                fixed: Some(self.fixed_version.to_string()),
+                ..Default::default()
+            }],
+            package_name: Some(self.pkg_name.to_string()),
+            ecosystem: Some(self.ecosystem.to_string()),
+        }];
+
+        let record = vlz_db::CveRecord {
+            id: self.cve_id.to_string(),
+            cvss_score: Some(7.5),
+            cvss_version: Some(vlz_db::CvssVersion::V3),
+            description: "test vuln".to_string(),
+            reachable: None,
+            advisory_symbols: vec![],
+            evidence: vec![],
+            symbol_usage: None,
+            affected_ranges,
+        };
+
+        Ok(vlz_cve_client::FetchedCves {
+            raw_vulns: raw.as_array().cloned().unwrap_or_default(),
+            records: vec![record],
+        })
+    }
+}
+
+#[cfg(unix)]
+fn write_executable_script(path: &std::path::Path, body: &str) {
+    std::fs::write(path, body).expect("write script");
+    use std::os::unix::fs::PermissionsExt;
+    let mut perms = std::fs::metadata(path).expect("metadata").permissions();
+    perms.set_mode(0o755);
+    std::fs::set_permissions(path, perms).expect("chmod");
+}
+
+#[cfg(all(feature = "javascript", unix))]
+fn write_npm_package_lock(root: &std::path::Path, pkg: &str, version: &str) {
+    let key = format!("node_modules/{pkg}");
+    let content = serde_json::json!({
+        "name": "app",
+        "lockfileVersion": 3,
+        "packages": {
+            "": { "name": "app", "version": "1.0.0" },
+            key: { "version": version }
+        }
+    });
+    std::fs::write(
+        root.join("package-lock.json"),
+        serde_json::to_string_pretty(&content).unwrap(),
+    )
+    .expect("write package-lock.json");
+}
+
+#[cfg(all(feature = "javascript", unix))]
+fn read_npm_package_lock_version(root: &std::path::Path, pkg: &str) -> String {
+    let content = std::fs::read_to_string(root.join("package-lock.json"))
+        .expect("read package-lock.json");
+    let parsed: serde_json::Value =
+        serde_json::from_str(&content).expect("parse package-lock.json");
+    parsed["packages"][format!("node_modules/{pkg}")]["version"]
+        .as_str()
+        .expect("lock version")
+        .to_string()
+}
+
+#[cfg(all(feature = "javascript", unix))]
+fn write_fake_npm(fake_bin_dir: &std::path::Path) {
+    let path = fake_bin_dir.join("npm");
+    let body = r#"#!/usr/bin/env python3
+import json
+import sys
+from pathlib import Path
+
+def main() -> int:
+    if len(sys.argv) > 1 and sys.argv[1] == "--version":
+        print("9.9.9")
+        return 0
+
+    spec = None
+    for a in sys.argv[1:]:
+        if "@" in a and not a.startswith("-"):
+            spec = a
+
+    if not spec:
+        print("fake npm: missing <pkg>@<version> arg", file=sys.stderr)
+        return 2
+
+    pkg, ver = spec.split("@", 1)
+
+    lock_path = Path("package-lock.json")
+    data = json.loads(lock_path.read_text(encoding="utf-8"))
+    key = f"node_modules/{pkg}"
+    packages = data.get("packages", {})
+    entry = packages.get(key, {})
+    entry["version"] = ver
+    packages[key] = entry
+    data["packages"] = packages
+    lock_path.write_text(json.dumps(data, indent=2) + "\\n", encoding="utf-8")
+    return 0
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+"#;
+    // The bash script above relies on JSON updates; it keeps the repo
+    // completely hermetic by only mutating lock files in the cwd.
+    write_executable_script(&path, body);
+}
+
+#[cfg(all(feature = "rust", unix))]
+fn write_cargo_lock(root: &std::path::Path, pkg: &str, version: &str) {
+    let content = format!(
+        r#"version = 3
+
+[[package]]
+name = "{pkg}"
+version = "{version}"
+"#
+    );
+    std::fs::write(root.join("Cargo.lock"), content)
+        .expect("write Cargo.lock");
+}
+
+#[cfg(all(feature = "rust", unix))]
+fn read_cargo_lock_version(root: &std::path::Path, pkg: &str) -> String {
+    let content = std::fs::read_to_string(root.join("Cargo.lock"))
+        .expect("read Cargo.lock");
+    let needle = format!("name = \"{pkg}\"");
+    let idx = content
+        .find(&needle)
+        .unwrap_or_else(|| panic!("Cargo.lock missing stanza for {pkg}"));
+    let after = &content[idx + needle.len()..];
+    let version_prefix = "version = \"";
+    let vstart = after
+        .find(version_prefix)
+        .map(|o| o + version_prefix.len())
+        .expect("find version field");
+    let vend = after[vstart..].find('"').expect("closing quote") + vstart;
+    content[vstart..vend].to_string()
+}
+
+#[cfg(all(feature = "rust", unix))]
+fn write_fake_cargo(fake_bin_dir: &std::path::Path) {
+    let path = fake_bin_dir.join("cargo");
+    let body = r#"#!/usr/bin/env python3
+import re
+import sys
+from pathlib import Path
+
+def main() -> int:
+    if len(sys.argv) > 1 and sys.argv[1] == "--version":
+        print("1.77.0")
+        return 0
+
+    args = sys.argv[1:]
+    pkg = None
+    ver = None
+    for i, a in enumerate(args):
+        if a == "-p" and i + 1 < len(args):
+            pkg = args[i + 1]
+        if a == "--precise" and i + 1 < len(args):
+            ver = args[i + 1]
+
+    if not pkg or not ver:
+        print("fake cargo: missing -p/--precise args", file=sys.stderr)
+        return 2
+
+    lock_path = Path("Cargo.lock")
+    text = lock_path.read_text(encoding="utf-8")
+
+    pattern = re.compile(
+        r'(\\[\\[package\\]\\][\\s\\S]*?name\\s*=\\s*"' +
+        re.escape(pkg) +
+        r'"[\\s\\S]*?version\\s*=\\s*")([^"]+)(")'
+    )
+
+    def repl(m: re.Match[str]) -> str:
+        return m.group(1) + ver + m.group(3)
+
+    new_text, count = pattern.subn(repl, text, count=1)
+    if count != 1:
+        raise SystemExit(f"fake cargo: stanza not found for {pkg}")
+
+    lock_path.write_text(new_text, encoding="utf-8")
+    return 0
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+"#;
+    write_executable_script(&path, body);
+}
+
+#[cfg(all(feature = "javascript", unix, feature = "testing"))]
+#[test]
+fn run_fix_dry_run_npm_custom_exit_code_exits_0_and_emits_upgrade_plan() {
+    use vlz::registry::Plugin;
+
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        temp_env::with_var("VLZ_EXIT_CODE_ON_CVE", Some("99"), || {
+            let dir = tempfile::tempdir().expect("tempdir");
+            write_npm_package_lock(dir.path(), "pkg", "1.0.0");
+            let root = dir.path().to_str().unwrap();
+
+            let out_path = dir.path().join("fix-out.json");
+
+            let provider = VersionAwareOsvProvider {
+                pkg_name: "pkg",
+                ecosystem: vlz_db::NPM_ECOSYSTEM,
+                fixed_version: "2.0.0",
+                cve_id: "CVE-TEST-NPM-FIX",
+            };
+            vlz::registry::clear_providers();
+            vlz::registry::register(Plugin::CveProvider(Box::new(provider)));
+
+            let code = run_async(&[
+                "fix",
+                root,
+                "--dry-run",
+                "--format",
+                "json",
+                "--output",
+                out_path.to_str().unwrap(),
+            ]);
+            assert_eq!(code, 0, "dry-run must exit 0");
+
+            let content =
+                std::fs::read_to_string(&out_path).expect("read fix output");
+            let parsed: serde_json::Value =
+                serde_json::from_str(&content).expect("parse fix JSON");
+            let findings = parsed["findings"].as_array().unwrap();
+            assert_eq!(findings.len(), 1);
+            assert_eq!(
+                findings[0]["upgrade_plan"]["minimal_fixed_version"],
+                "2.0.0"
+            );
+            assert_eq!(findings[0]["upgrade_plan"]["apply_strategy"], "npm");
+
+            assert_eq!(
+                read_npm_package_lock_version(dir.path(), "pkg"),
+                "1.0.0",
+                "dry-run must not mutate lockfile"
+            );
+        });
+    });
+}
+
+#[cfg(all(feature = "javascript", unix, feature = "testing"))]
+#[test]
+fn run_fix_apply_npm_updates_lockfile_even_with_custom_exit_code() {
+    use vlz::registry::Plugin;
+
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        temp_env::with_var("VLZ_EXIT_CODE_ON_CVE", Some("99"), || {
+            let dir = tempfile::tempdir().expect("tempdir");
+            write_npm_package_lock(dir.path(), "pkg", "1.0.0");
+            let root = dir.path().to_str().unwrap();
+
+            let fake_bin_dir = tempfile::tempdir().expect("fake bin tempdir");
+            write_fake_npm(fake_bin_dir.path());
+            let old_path =
+                std::env::var("PATH").unwrap_or_else(|_| String::new());
+            let new_path =
+                format!("{}:{}", fake_bin_dir.path().display(), old_path);
+
+            let provider = VersionAwareOsvProvider {
+                pkg_name: "pkg",
+                ecosystem: vlz_db::NPM_ECOSYSTEM,
+                fixed_version: "2.0.0",
+                cve_id: "CVE-TEST-NPM-FIX",
+            };
+            vlz::registry::clear_providers();
+            vlz::registry::register(Plugin::CveProvider(Box::new(provider)));
+
+            temp_env::with_var("PATH", Some(new_path.as_str()), || {
+                let code = run_async(&["fix", root]);
+                assert_eq!(code, 0, "apply must succeed");
+            });
+
+            assert_eq!(
+                read_npm_package_lock_version(dir.path(), "pkg"),
+                "2.0.0",
+                "apply must update package-lock.json"
+            );
+        });
+    });
+}
+
+#[cfg(all(feature = "rust", unix, feature = "testing"))]
+#[test]
+fn run_fix_apply_cargo_updates_lockfile() {
+    use vlz::registry::Plugin;
+
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_cargo_lock(dir.path(), "pkg", "1.0.0");
+        let root = dir.path().to_str().unwrap();
+
+        let fake_bin_dir = tempfile::tempdir().expect("fake bin tempdir");
+        write_fake_cargo(fake_bin_dir.path());
+        let old_path = std::env::var("PATH").unwrap_or_else(|_| String::new());
+        let new_path =
+            format!("{}:{}", fake_bin_dir.path().display(), old_path);
+
+        let provider = VersionAwareOsvProvider {
+            pkg_name: "pkg",
+            ecosystem: vlz_db::CRATES_IO_ECOSYSTEM,
+            fixed_version: "2.0.0",
+            cve_id: "CVE-TEST-CARGO-FIX",
+        };
+        vlz::registry::clear_providers();
+        vlz::registry::register(Plugin::CveProvider(Box::new(provider)));
+
+        temp_env::with_var("PATH", Some(new_path.as_str()), || {
+            let code = run_async(&["fix", root]);
+            assert_eq!(code, 0, "cargo apply must succeed");
+        });
+
+        assert_eq!(
+            read_cargo_lock_version(dir.path(), "pkg"),
+            "2.0.0",
+            "apply must update Cargo.lock"
+        );
+    });
+}
+
+#[cfg(all(feature = "javascript", unix, feature = "testing"))]
+#[test]
+fn run_fix_offline_apply_blocks_remediation_with_exit_6() {
+    use vlz::registry::Plugin;
+
+    let _ = env_logger::try_init();
+    vlz_cve_client::ensure_default_decoders();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_npm_package_lock(dir.path(), "pkg", "1.0.0");
+        let root = dir.path().to_str().unwrap();
+
+        let provider = VersionAwareOsvProvider {
+            pkg_name: "pkg",
+            ecosystem: vlz_db::NPM_ECOSYSTEM,
+            fixed_version: "2.0.0",
+            cve_id: "CVE-TEST-NPM-FIX",
+        };
+
+        vlz::registry::clear_providers();
+        vlz::registry::register(Plugin::CveProvider(Box::new(
+            provider.clone(),
+        )));
+
+        // Warm the cache so `--offline` does not cause an offline
+        // cache miss scan exit 6.
+        assert_eq!(run_async(&["preload", root, "--provider", "osv"]), 0);
+
+        #[cfg(feature = "redb")]
+        reregister_db_backend();
+        vlz::registry::clear_providers();
+        vlz::registry::register(Plugin::CveProvider(Box::new(provider)));
+
+        // Capture output even in apply mode (run_fix renders plans before
+        // attempting remediation).
+        let out_path = dir.path().join("fix-out.json");
+        let code = run_async(&[
+            "fix",
+            root,
+            "--offline",
+            "--format",
+            "json",
+            "--output",
+            out_path.to_str().unwrap(),
+        ]);
+
+        assert_eq!(
+            code, 6,
+            "offline apply must exit 6 when remediation needs network"
+        );
+
+        let content =
+            std::fs::read_to_string(&out_path).expect("read fix output");
+        let parsed: serde_json::Value =
+            serde_json::from_str(&content).expect("parse fix JSON");
+        let findings = parsed["findings"].as_array().unwrap();
+        assert_eq!(findings.len(), 1);
+
+        assert_eq!(
+            findings[0]["upgrade_plan"]["minimal_fixed_version"],
+            "2.0.0"
+        );
+        // Remediation must not have been applied.
+        assert_eq!(read_npm_package_lock_version(dir.path(), "pkg"), "1.0.0");
+    });
+}
+
+#[cfg(all(feature = "javascript", unix, feature = "testing"))]
+#[test]
+fn run_fix_missing_package_manager_exits_3() {
+    use vlz::registry::Plugin;
+
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_npm_package_lock(dir.path(), "pkg", "1.0.0");
+        let root = dir.path().to_str().unwrap();
+
+        let provider = VersionAwareOsvProvider {
+            pkg_name: "pkg",
+            ecosystem: vlz_db::NPM_ECOSYSTEM,
+            fixed_version: "2.0.0",
+            cve_id: "CVE-TEST-NPM-FIX",
+        };
+
+        vlz::registry::clear_providers();
+        vlz::registry::register(Plugin::CveProvider(Box::new(provider)));
+
+        let empty_bin = tempfile::tempdir().expect("empty bin tempdir");
+        temp_env::with_var("PATH", Some(empty_bin.path().as_os_str()), || {
+            let code = run_async(&["fix", root]);
+            assert_eq!(code, 3, "missing npm must exit 3");
+        });
+
+        assert_eq!(
+            read_npm_package_lock_version(dir.path(), "pkg"),
+            "1.0.0",
+            "failure must not mutate lockfile"
+        );
+    });
+}

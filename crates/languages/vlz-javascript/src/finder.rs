@@ -89,6 +89,7 @@ fn walk_dir(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     #[test]
     fn language_name_returns_javascript() {
@@ -141,5 +142,29 @@ mod tests {
         ];
         want.sort();
         assert_eq!(got, want);
+    }
+
+    #[tokio::test]
+    async fn find_lockfile_in_lock_only_root() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+
+        fs::write(
+            tmp.join("package-lock.json"),
+            r#"{
+  "name": "app",
+  "lockfileVersion": 3,
+  "packages": {
+    "node_modules/pkg": { "version": "1.0.0" }
+  }
+}"#,
+        )
+        .unwrap();
+
+        let finder = JsManifestFinder::new();
+        let mut got = finder.find(tmp).await.unwrap();
+        got.sort();
+
+        assert_eq!(got, vec![tmp.join("package-lock.json")]);
     }
 }

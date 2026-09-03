@@ -123,6 +123,26 @@
         }
       }
     },
+    "upgrade_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimal_fixed_version", "dependency_kind", "apply_strategy", "confidence"],
+      "properties": {
+        "minimal_fixed_version": { "type": "string" },
+        "dependency_kind": {
+          "type": "string",
+          "enum": ["direct", "transitive", "unknown"]
+        },
+        "apply_strategy": {
+          "type": "string",
+          "enum": ["unavailable", "npm", "cargo"]
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["high", "unknown"]
+        }
+      }
+    },
     "finding": {
       "type": "object",
       "additionalProperties": false,
