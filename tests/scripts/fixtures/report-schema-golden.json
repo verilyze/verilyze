@@ -47,6 +47,17 @@
           "cvss_score": 7.5,
           "cvss_version": "v3",
           "reachable": false,
+          "affected_ranges": [
+            {
+              "type": "ECOSYSTEM",
+              "events": [
+                { "introduced": "0" },
+                { "fixed": "2.32.0" }
+              ],
+              "package_name": "requests",
+              "ecosystem": "PyPI"
+            }
+          ],
           "severity": "HIGH"
         },
         {

@@ -60,10 +60,42 @@
           "type": "string",
           "enum": ["used", "not_found", "unknown"]
         },
+        "affected_ranges": {
+          "type": "array",
+          "description": "OSV advisory version ranges for the scanned package (FR-039).",
+          "items": { "$ref": "#/$defs/affected_range" }
+        },
         "severity": {
           "type": "string",
           "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"]
         }
+      }
+    },
+    "affected_event": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "introduced": { "type": "string" },
+        "fixed": { "type": "string" },
+        "last_affected": { "type": "string" },
+        "limit": { "type": "string" }
+      }
+    },
+    "affected_range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "events"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["ECOSYSTEM", "SEMVER", "GIT"]
+        },
+        "events": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/affected_event" }
+        },
+        "package_name": { "type": "string" },
+        "ecosystem": { "type": "string" }
       }
     },
     "cve_evidence_location": {

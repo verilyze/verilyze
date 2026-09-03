@@ -288,6 +288,7 @@ mod tests {
                     advisory_symbols: Vec::new(),
                     evidence: Vec::new(),
                     symbol_usage: None,
+                    affected_ranges: Vec::new(),
                 }],
             })
         }
@@ -709,6 +710,7 @@ mod tests {
                         advisory_symbols: Vec::new(),
                         evidence: Vec::new(),
                         symbol_usage: None,
+                        affected_ranges: Vec::new(),
                     }],
                 })
             }

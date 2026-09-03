@@ -217,6 +217,81 @@ pub fn dedupe_sort_declarations(
     sort_declarations(declarations);
 }
 
+/// OSV advisory range type string for ECOSYSTEM ranges (FR-039, NFR-024).
+pub const RANGE_TYPE_ECOSYSTEM: &str = "ECOSYSTEM";
+/// OSV advisory range type string for SEMVER ranges (FR-039, NFR-024).
+pub const RANGE_TYPE_SEMVER: &str = "SEMVER";
+/// OSV advisory range type string for GIT ranges (FR-039, NFR-024).
+pub const RANGE_TYPE_GIT: &str = "GIT";
+
+/// OSV `affected[].ranges[].type` values we decode (FR-039).
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum AffectedRangeType {
+    Ecosystem,
+    Semver,
+    Git,
+}
+
+impl AffectedRangeType {
+    /// Stable wire/schema string (NFR-024).
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Ecosystem => RANGE_TYPE_ECOSYSTEM,
+            Self::Semver => RANGE_TYPE_SEMVER,
+            Self::Git => RANGE_TYPE_GIT,
+        }
+    }
+
+    /// Parse an OSV range type string; unknown types return None.
+    pub fn from_osv(s: &str) -> Option<Self> {
+        match s {
+            RANGE_TYPE_ECOSYSTEM => Some(Self::Ecosystem),
+            RANGE_TYPE_SEMVER => Some(Self::Semver),
+            RANGE_TYPE_GIT => Some(Self::Git),
+            _ => None,
+        }
+    }
+}
+
+/// One OSV range event (`introduced` / `fixed` / `last_affected` / `limit`).
+#[derive(
+    Debug, Clone, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize,
+)]
+pub struct AffectedEvent {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub introduced: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fixed: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_affected: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<String>,
+}
+
+/// One advisory version range from a provider (FR-039).
+#[derive(
+    Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
+pub struct AffectedRange {
+    #[serde(rename = "type")]
+    pub range_type: AffectedRangeType,
+    pub events: Vec<AffectedEvent>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub package_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ecosystem: Option<String>,
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CveRecord {
     pub id: String,
@@ -235,6 +310,9 @@ pub struct CveRecord {
     /// Symbol usage in first-party source: `used`, `not_found`, or `unknown`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub symbol_usage: Option<String>,
+    /// Provider advisory version ranges for this CVE (FR-039).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub affected_ranges: Vec<AffectedRange>,
 }
 
 #[derive(Debug, Default)]
@@ -465,6 +543,7 @@ mod tests {
             advisory_symbols: Vec::new(),
             evidence: Vec::new(),
             symbol_usage: None,
+            affected_ranges: Vec::new(),
         };
         assert_eq!(c.id, "CVE-2023-1234");
         assert_eq!(c.cvss_score, Some(7.5));

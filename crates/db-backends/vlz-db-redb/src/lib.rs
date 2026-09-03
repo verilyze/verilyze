@@ -14,7 +14,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use vlz_cve_client::decode_raw_vulns;
+use vlz_cve_client::{attach_affected_ranges, decode_raw_vulns};
 use vlz_db::{
     CacheEntryInfo, CveRecord, DatabaseBackend, DatabaseError, DatabaseStats,
     Package, PurgeEntry, StoredEntry, TtlSelector, entry_is_expired,
@@ -268,7 +268,9 @@ impl DatabaseBackend for RedbBackend {
         let Some(stored) = self.load_stored_entry(pkg, provider_id)? else {
             return Ok(None);
         };
-        let records = decode_raw_vulns(&stored.provider_id, &stored.raw_vulns);
+        let mut records =
+            decode_raw_vulns(&stored.provider_id, &stored.raw_vulns);
+        attach_affected_ranges(&mut records, &stored.raw_vulns, pkg);
         self.inner.hits.fetch_add(1, Ordering::Relaxed);
         Ok(Some(records))
     }

@@ -416,6 +416,7 @@ impl CveProvider for CveReturningProvider {
             advisory_symbols: Vec::new(),
             evidence: Vec::new(),
             symbol_usage: None,
+            affected_ranges: Vec::new(),
         };
         Ok(FetchedCves {
             raw_vulns: vec![serde_json::json!({"id": record.id})],
@@ -454,6 +455,7 @@ impl CveProvider for TierCReachabilityProvider {
             advisory_symbols: Vec::new(),
             evidence: Vec::new(),
             symbol_usage: None,
+            affected_ranges: Vec::new(),
         };
         let record_b = CveRecord {
             id: "CVE-TIER-C-B".to_string(),
@@ -464,6 +466,7 @@ impl CveProvider for TierCReachabilityProvider {
             advisory_symbols: Vec::new(),
             evidence: Vec::new(),
             symbol_usage: None,
+            affected_ranges: Vec::new(),
         };
         Ok(FetchedCves {
             raw_vulns: vec![
