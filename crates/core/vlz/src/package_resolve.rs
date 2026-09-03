@@ -1667,13 +1667,16 @@ mod tests {
         let manifest = dir.path().join("requirements.txt");
         std::fs::write(&manifest, "pkg==1.0\n").unwrap();
         let cfg = EffectiveConfig::default();
-        let finders = vec![Box::new(FakeFinder {
-            language: "python",
-            manifests: vec![manifest],
-            find_calls: Arc::new(AtomicUsize::new(0)),
-        })];
-        let parsers = vec![Box::new(FakeParser { language: "python" })];
-        let resolvers = vec![Box::new(CauseChainFailingResolver::new())];
+        let finders: Vec<Box<dyn ManifestFinder>> =
+            vec![Box::new(FakeFinder {
+                language: "python",
+                manifests: vec![manifest],
+                find_calls: Arc::new(AtomicUsize::new(0)),
+            })];
+        let parsers: Vec<Box<dyn Parser>> =
+            vec![Box::new(FakeParser { language: "python" })];
+        let resolvers: Vec<Box<dyn Resolver>> =
+            vec![Box::new(CauseChainFailingResolver::new())];
         let out = resolve_packages_with_plugins(
             dir.path().to_path_buf(),
             &cfg,
@@ -1714,13 +1717,15 @@ mod tests {
         let mut cfg = test_cfg(1);
         cfg.offline = true;
         cfg.package_manager_required = false;
-        let finders = vec![Box::new(FakeFinder {
-            language: "python",
-            manifests: vec![mf],
-            find_calls: Arc::new(AtomicUsize::new(0)),
-        })];
-        let parsers = vec![Box::new(FakeParser { language: "python" })];
-        let resolvers = vec![Box::new(
+        let finders: Vec<Box<dyn ManifestFinder>> =
+            vec![Box::new(FakeFinder {
+                language: "python",
+                manifests: vec![mf],
+                find_calls: Arc::new(AtomicUsize::new(0)),
+            })];
+        let parsers: Vec<Box<dyn Parser>> =
+            vec![Box::new(FakeParser { language: "python" })];
+        let resolvers: Vec<Box<dyn Resolver>> = vec![Box::new(
             crate::mocks::ConfigurablePmResolver::new(
                 "python", false, "pip hint",
             )
@@ -2053,7 +2058,7 @@ mod tests {
         let py_mf = dir.path().join("requirements.txt");
         std::fs::write(&py_mf, "pkg==1.0\n").unwrap();
         let cfg = test_cfg(1);
-        let finders = vec![
+        let finders: Vec<Box<dyn ManifestFinder>> = vec![
             Box::new(FakeFinder {
                 language: "rust",
                 manifests: vec![],
@@ -2065,8 +2070,9 @@ mod tests {
                 find_calls: Arc::new(AtomicUsize::new(0)),
             }),
         ];
-        let parsers = vec![Box::new(FakeParser { language: "python" })];
-        let resolvers = vec![Box::new(FakeResolver {
+        let parsers: Vec<Box<dyn Parser>> =
+            vec![Box::new(FakeParser { language: "python" })];
+        let resolvers: Vec<Box<dyn Resolver>> = vec![Box::new(FakeResolver {
             language: "python",
             barrier: None,
             current: Arc::new(AtomicUsize::new(0)),
