@@ -2613,6 +2613,7 @@ dependencies = [
  "vlz-python",
  "vlz-reachability",
  "vlz-reachability-trait",
+ "vlz-remediate",
  "vlz-report",
  "vlz-ruby",
  "vlz-rust",
@@ -2882,6 +2883,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "vlz-remediate"
+version = "0.10.0"
+dependencies = [
+ "semver",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "vlz-db",
+]
+
+[[package]]
 name = "vlz-report"
 version = "0.10.0"
 dependencies = [
@@ -2891,6 +2903,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "vlz-db",
+ "vlz-remediate",
 ]
 
 [[package]]
