@@ -682,8 +682,10 @@ pub async fn resolve_packages_for_path(
     let mut finders = Vec::new();
     let mut parsers = Vec::new();
     let mut resolvers = Vec::new();
+    let mut swapped_registries = false;
 
     if effective.language_regexes.is_empty() {
+        swapped_registries = true;
         std::mem::swap(
             &mut *crate::registry::finders().lock().unwrap(),
             &mut finders,
@@ -863,10 +865,27 @@ pub async fn resolve_packages_for_path(
         resolvers = matched_resolvers;
     }
 
-    resolve_packages_with_plugins(
-        root_path, effective, finders, parsers, resolvers,
+    let result = resolve_packages_with_plugins(
+        root_path, effective, &finders, &parsers, &resolvers,
     )
-    .await
+    .await;
+
+    if swapped_registries {
+        std::mem::swap(
+            &mut *crate::registry::finders().lock().unwrap(),
+            &mut finders,
+        );
+        std::mem::swap(
+            &mut *crate::registry::parsers().lock().unwrap(),
+            &mut parsers,
+        );
+        std::mem::swap(
+            &mut *crate::registry::resolvers().lock().unwrap(),
+            &mut resolvers,
+        );
+    }
+
+    result
 }
 
 /// Take parser/resolver plugins that match finder language names (FR-006).
@@ -899,41 +918,37 @@ pub(crate) fn take_matching_language_plugins(
     (out_parsers, out_resolvers)
 }
 
-type LanguagePluginTriple =
-    (Box<dyn ManifestFinder>, Box<dyn Parser>, Box<dyn Resolver>);
+type LanguagePluginTripleRef<'a> =
+    (&'a dyn ManifestFinder, &'a dyn Parser, &'a dyn Resolver);
 
 /// Pair finder/parser/resolver plugins by `language_name` (not vec index).
-fn pair_language_plugins(
-    finders: Vec<Box<dyn ManifestFinder>>,
-    mut parsers: Vec<Box<dyn Parser>>,
-    mut resolvers: Vec<Box<dyn Resolver>>,
-) -> Vec<LanguagePluginTriple> {
+fn pair_language_plugins<'a>(
+    finders: &'a [Box<dyn ManifestFinder>],
+    parsers: &'a [Box<dyn Parser>],
+    resolvers: &'a [Box<dyn Resolver>],
+) -> Vec<LanguagePluginTripleRef<'a>> {
     let mut out = Vec::new();
     for finder in finders {
         let language = finder.language_name();
-        let Some(parser_i) = parsers
+        let Some(parser) = parsers
             .iter()
-            .position(|parser| parser.language_name() == language)
+            .find(|parser| parser.language_name() == language)
         else {
             warn!(
                 "Skipping language {language}: no Parser plug-in registered"
             );
             continue;
         };
-        let Some(resolver_i) = resolvers
+        let Some(resolver) = resolvers
             .iter()
-            .position(|resolver| resolver.language_name() == language)
+            .find(|resolver| resolver.language_name() == language)
         else {
             warn!(
                 "Skipping language {language}: no Resolver plug-in registered"
             );
             continue;
         };
-        out.push((
-            finder,
-            parsers.remove(parser_i),
-            resolvers.remove(resolver_i),
-        ));
+        out.push((finder.as_ref(), parser.as_ref(), resolver.as_ref()));
     }
     out
 }
@@ -942,9 +957,9 @@ fn pair_language_plugins(
 pub(crate) async fn resolve_packages_with_plugins(
     root_path: PathBuf,
     effective: &EffectiveConfig,
-    finders: Vec<Box<dyn ManifestFinder>>,
-    parsers: Vec<Box<dyn Parser>>,
-    resolvers: Vec<Box<dyn Resolver>>,
+    finders: &[Box<dyn ManifestFinder>],
+    parsers: &[Box<dyn Parser>],
+    resolvers: &[Box<dyn Resolver>],
 ) -> Result<ResolvePackagesOutput> {
     let paired = pair_language_plugins(finders, parsers, resolvers);
     let n = paired.len();
@@ -1042,15 +1057,15 @@ pub(crate) async fn resolve_packages_with_plugins(
         Arc::new(Semaphore::new(effective_resolution_parallel));
     let parallel_languages = parallel_languages_enabled(effective, n);
 
-    struct LanguageJob {
+    struct LanguageJob<'a> {
         language: String,
         precomputed: Option<Vec<PathBuf>>,
-        finder: Box<dyn ManifestFinder>,
-        parser: Box<dyn Parser>,
-        resolver: Box<dyn Resolver>,
+        finder: &'a dyn ManifestFinder,
+        parser: &'a dyn Parser,
+        resolver: &'a dyn Resolver,
     }
 
-    let mut jobs: Vec<LanguageJob> = Vec::with_capacity(n);
+    let mut jobs: Vec<LanguageJob<'_>> = Vec::with_capacity(n);
     for (finder, parser, resolver) in paired {
         let language = finder.language_name().to_string();
         let precomputed = if can_use_shared_discovery {
@@ -1094,9 +1109,9 @@ pub(crate) async fn resolve_packages_with_plugins(
                             language: job.language,
                             precomputed: job.precomputed,
                             root_path: root.as_path(),
-                            finder: job.finder.as_ref(),
-                            parser: job.parser.as_ref(),
-                            resolver: job.resolver.as_ref(),
+                            finder: job.finder,
+                            parser: job.parser,
+                            resolver: job.resolver,
                             effective: &cfg,
                             resolve_ctx: &ctx,
                             resolution_semaphore: sem,
@@ -1128,9 +1143,9 @@ pub(crate) async fn resolve_packages_with_plugins(
                     language: job.language,
                     precomputed: job.precomputed,
                     root_path: root_path.as_path(),
-                    finder: job.finder.as_ref(),
-                    parser: job.parser.as_ref(),
-                    resolver: job.resolver.as_ref(),
+                    finder: job.finder,
+                    parser: job.parser,
+                    resolver: job.resolver,
                     effective,
                     resolve_ctx: &resolve_ctx,
                     resolution_semaphore: resolution_semaphore.clone(),
@@ -1531,9 +1546,9 @@ mod tests {
         resolve_packages_with_plugins(
             dir.path().to_path_buf(),
             cfg,
-            finders,
-            parsers,
-            resolvers,
+            &finders,
+            &parsers,
+            &resolvers,
         )
         .await
         .expect("resolve")
@@ -1652,16 +1667,19 @@ mod tests {
         let manifest = dir.path().join("requirements.txt");
         std::fs::write(&manifest, "pkg==1.0\n").unwrap();
         let cfg = EffectiveConfig::default();
+        let finders = vec![Box::new(FakeFinder {
+            language: "python",
+            manifests: vec![manifest],
+            find_calls: Arc::new(AtomicUsize::new(0)),
+        })];
+        let parsers = vec![Box::new(FakeParser { language: "python" })];
+        let resolvers = vec![Box::new(CauseChainFailingResolver::new())];
         let out = resolve_packages_with_plugins(
             dir.path().to_path_buf(),
             &cfg,
-            vec![Box::new(FakeFinder {
-                language: "python",
-                manifests: vec![manifest],
-                find_calls: Arc::new(AtomicUsize::new(0)),
-            })],
-            vec![Box::new(FakeParser { language: "python" })],
-            vec![Box::new(CauseChainFailingResolver::new())],
+            &finders,
+            &parsers,
+            &resolvers,
         )
         .await
         .expect("resolve");
@@ -1696,21 +1714,24 @@ mod tests {
         let mut cfg = test_cfg(1);
         cfg.offline = true;
         cfg.package_manager_required = false;
+        let finders = vec![Box::new(FakeFinder {
+            language: "python",
+            manifests: vec![mf],
+            find_calls: Arc::new(AtomicUsize::new(0)),
+        })];
+        let parsers = vec![Box::new(FakeParser { language: "python" })];
+        let resolvers = vec![Box::new(
+            crate::mocks::ConfigurablePmResolver::new(
+                "python", false, "pip hint",
+            )
+            .with_pm_probe_calls(probes.clone()),
+        )];
         let _out = resolve_packages_with_plugins(
             dir.path().to_path_buf(),
             &cfg,
-            vec![Box::new(FakeFinder {
-                language: "python",
-                manifests: vec![mf],
-                find_calls: Arc::new(AtomicUsize::new(0)),
-            })],
-            vec![Box::new(FakeParser { language: "python" })],
-            vec![Box::new(
-                crate::mocks::ConfigurablePmResolver::new(
-                    "python", false, "pip hint",
-                )
-                .with_pm_probe_calls(probes.clone()),
-            )],
+            &finders,
+            &parsers,
+            &resolvers,
         )
         .await
         .expect("resolve");
@@ -1759,9 +1780,9 @@ mod tests {
         resolve_packages_with_plugins(
             dir.path().to_path_buf(),
             &cfg,
-            finders,
-            parsers,
-            resolvers,
+            &finders,
+            &parsers,
+            &resolvers,
         )
         .await
         .expect("resolve")
@@ -1856,9 +1877,9 @@ mod tests {
         let out = resolve_packages_with_plugins(
             dir.path().to_path_buf(),
             &cfg,
-            finders,
-            parsers,
-            resolvers,
+            &finders,
+            &parsers,
+            &resolvers,
         )
         .await
         .expect("resolve");
@@ -2009,9 +2030,9 @@ mod tests {
         let out = resolve_packages_with_plugins(
             dir.path().to_path_buf(),
             &cfg,
-            finders,
-            parsers,
-            resolvers,
+            &finders,
+            &parsers,
+            &resolvers,
         )
         .await
         .expect("resolve");
@@ -2032,33 +2053,36 @@ mod tests {
         let py_mf = dir.path().join("requirements.txt");
         std::fs::write(&py_mf, "pkg==1.0\n").unwrap();
         let cfg = test_cfg(1);
+        let finders = vec![
+            Box::new(FakeFinder {
+                language: "rust",
+                manifests: vec![],
+                find_calls: Arc::new(AtomicUsize::new(0)),
+            }),
+            Box::new(FakeFinder {
+                language: "python",
+                manifests: vec![py_mf],
+                find_calls: Arc::new(AtomicUsize::new(0)),
+            }),
+        ];
+        let parsers = vec![Box::new(FakeParser { language: "python" })];
+        let resolvers = vec![Box::new(FakeResolver {
+            language: "python",
+            barrier: None,
+            current: Arc::new(AtomicUsize::new(0)),
+            peak: Arc::new(AtomicUsize::new(0)),
+            resolve_calls: Arc::new(AtomicUsize::new(0)),
+            fail: false,
+            hold: None,
+            overlap_flag: None,
+            in_resolve: None,
+        })];
         let out = resolve_packages_with_plugins(
             dir.path().to_path_buf(),
             &cfg,
-            vec![
-                Box::new(FakeFinder {
-                    language: "rust",
-                    manifests: vec![],
-                    find_calls: Arc::new(AtomicUsize::new(0)),
-                }),
-                Box::new(FakeFinder {
-                    language: "python",
-                    manifests: vec![py_mf],
-                    find_calls: Arc::new(AtomicUsize::new(0)),
-                }),
-            ],
-            vec![Box::new(FakeParser { language: "python" })],
-            vec![Box::new(FakeResolver {
-                language: "python",
-                barrier: None,
-                current: Arc::new(AtomicUsize::new(0)),
-                peak: Arc::new(AtomicUsize::new(0)),
-                resolve_calls: Arc::new(AtomicUsize::new(0)),
-                fail: false,
-                hold: None,
-                overlap_flag: None,
-                in_resolve: None,
-            })],
+            &finders,
+            &parsers,
+            &resolvers,
         )
         .await
         .expect("python triple must still resolve");
