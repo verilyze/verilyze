@@ -55,7 +55,7 @@ COMPONENTS
 - once_cell_polyfill v1.70.2 (MIT OR Apache-2.0)
 - roff v1.1.1 (MIT OR Apache-2.0)
 - serde_spanned v1.1.1 (MIT OR Apache-2.0)
-- toml v1.1.4+spec-1.1.0 (MIT OR Apache-2.0)
+- toml v1.1.5+spec-1.1.0 (MIT OR Apache-2.0)
 - toml_datetime v1.1.1+spec-1.1.0 (MIT OR Apache-2.0)
 - toml_parser v1.1.3+spec-1.1.0 (MIT OR Apache-2.0)
 - toml_writer v1.1.2+spec-1.1.0 (MIT OR Apache-2.0)

@@ -1968,9 +1968,9 @@
     {
       "@type": "Package",
       "name": "toml",
-      "packageUrl": "pkg:cargo/toml@1.1.4+spec-1.1.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-toml-1-1-4+spec-1-1-0",
-      "versionInfo": "1.1.4+spec-1.1.0"
+      "packageUrl": "pkg:cargo/toml@1.1.5+spec-1.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-toml-1-1-5+spec-1-1-0",
+      "versionInfo": "1.1.5+spec-1.1.0"
     },
     {
       "@type": "Package",
@@ -2601,6 +2601,13 @@
       "packageUrl": "pkg:cargo/libfuzzer-sys@0.4.13",
       "spdxId": "urn:spdx.dev:pkg-cargo-libfuzzer-sys-0-4-13",
       "versionInfo": "0.4.13"
+    },
+    {
+      "@type": "Package",
+      "name": "toml",
+      "packageUrl": "pkg:cargo/toml@1.1.4+spec-1.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-toml-1-1-4+spec-1-1-0",
+      "versionInfo": "1.1.4+spec-1.1.0"
     },
     {
       "@type": "Package",
