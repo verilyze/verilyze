@@ -135,7 +135,9 @@ fn discover_manifests_one_pass(
                 continue;
             }
             #[cfg(feature = "javascript")]
-            if name == vlz_javascript::JS_MANIFEST_NAME {
+            if name == vlz_javascript::JS_MANIFEST_NAME
+                || vlz_javascript::is_js_lock_file(name)
+            {
                 out.entry("javascript".to_string())
                     .or_default()
                     .push(entry.path());
