@@ -50,10 +50,7 @@
           "affected_ranges": [
             {
               "type": "ECOSYSTEM",
-              "events": [
-                { "introduced": "0" },
-                { "fixed": "2.32.0" }
-              ],
+              "events": [{ "introduced": "0" }, { "fixed": "2.32.0" }],
               "package_name": "requests",
               "ecosystem": "PyPI"
             }
