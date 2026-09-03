@@ -300,6 +300,22 @@ pub fn ensure_default_reachability_analyzer() {
 pub fn ensure_default_cve_provider(cfg: &crate::config::EffectiveConfig) {
     vlz_cve_client::ensure_default_decoders();
     let mut providers = providers().lock().unwrap();
+    // In test builds, avoid network access in tests that run commands without
+    // explicitly selecting a provider (e.g. `vlz preload`).
+    //
+    // We still register a provider named `osv` so tests that explicitly
+    // request `--provider osv` can rely on the provider name for cache
+    // lookups.
+    #[cfg(feature = "testing")]
+    {
+        use crate::mocks::OsvMockCveProvider;
+        if !providers.iter().any(|p| p.name() == "osv") {
+            // Append, rather than insert, to preserve any test-registered
+            // provider ordering (select_provider_impl defaults to the first
+            // provider when --provider is not specified).
+            providers.push(Box::new(OsvMockCveProvider));
+        }
+    }
     let c = cfg.provider_http_connect_timeout_secs;
     let r = cfg.provider_http_request_timeout_secs;
     let crl = cfg.tls_crl_bundle.as_deref();

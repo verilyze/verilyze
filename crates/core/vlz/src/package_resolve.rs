@@ -123,7 +123,9 @@ fn discover_manifests_one_pass(
                 }
             }
             #[cfg(feature = "rust")]
-            if name == vlz_rust::RUST_MANIFEST_NAME {
+            if name == vlz_rust::RUST_MANIFEST_NAME
+                || name == vlz_rust::RUST_LOCK_FILE_NAME
+            {
                 out.entry("rust".to_string())
                     .or_default()
                     .push(entry.path());
@@ -456,8 +458,26 @@ async fn run_language_phase(
             missing_package_manager: None,
         });
     }
-    if manifest_count > 1 {
-        info!("Resolving {manifest_count} {language} manifest(s)...");
+    // Log "Resolving N ... manifest(s)" using the count of actual manifests,
+    // excluding lock files from the progress signal. Lock files can still be
+    // included in `manifests` for dependency resolution (e.g. lock-only
+    // projects), but they should not affect the user-facing progress count.
+    let resolving_manifest_count = if language == "rust" {
+        manifests
+            .iter()
+            .filter(|p| {
+                p.file_name().is_some_and(|name| {
+                    name == std::ffi::OsStr::new(vlz_rust::RUST_MANIFEST_NAME)
+                })
+            })
+            .count()
+    } else {
+        manifest_count
+    };
+    if resolving_manifest_count > 1 {
+        info!(
+            "Resolving {resolving_manifest_count} {language} manifest(s)..."
+        );
     }
     let missing_package_manager = if effective.package_manager_required
         && !resolve_ctx.skip_pip_resolution

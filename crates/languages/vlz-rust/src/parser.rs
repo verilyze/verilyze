@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use std::path::Path;
 use vlz_db::{CRATES_IO_ECOSYSTEM, DeclarationKind};
 
+use crate::finder::RUST_LOCK_FILE_NAME;
 use vlz_manifest_parser::{
     DependencyGraph, ParsedDependency, Parser, ParserError,
     scan_toml_section_deps,
@@ -175,6 +176,18 @@ impl Parser for CargoTomlParser {
         &self,
         manifest: &Path,
     ) -> Result<DependencyGraph, ParserError> {
+        let basename =
+            manifest.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        if basename == RUST_LOCK_FILE_NAME {
+            // Lock-only projects: `CargoResolver` can parse `Cargo.lock`
+            // later using `graph.manifest_path`, so the skeleton graph
+            // can safely omit package declarations here.
+            return Ok(DependencyGraph {
+                packages: Vec::new(),
+                parsed_dependencies: Vec::new(),
+                manifest_path: Some(manifest.to_path_buf()),
+            });
+        }
         let content = tokio::fs::read_to_string(manifest).await?;
         let value: toml::Value = toml::from_str(&content).map_err(|e| {
             ParserError::Parse(format!("Cargo.toml parse error: {}", e))

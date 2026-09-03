@@ -635,57 +635,56 @@ pub async fn run(args: Cli) -> Result<i32> {
             dry_run,
             offline,
         } => {
-            let mut effective =
-                crate::config::load_with_reachability_overrides(
-                    args.config.as_deref(),
-                    crate::config::env_parallel(),
-                    crate::config::env_parallel_resolutions(),
-                    crate::config::env_cache_db(),
-                    crate::config::env_ignore_db(),
-                    crate::config::env_cache_ttl_secs(),
-                    crate::config::env_min_score(),
-                    crate::config::env_min_count(),
-                    crate::config::env_exit_code_on_cve(),
-                    crate::config::env_fp_exit_code(),
-                    crate::config::env_project_id(),
-                    crate::config::env_backoff_base_ms(),
-                    crate::config::env_backoff_max_ms(),
-                    crate::config::env_max_retries(),
-                    crate::config::env_provider_http_connect_timeout_secs(),
-                    crate::config::env_provider_http_request_timeout_secs(),
-                    crate::config::env_tls_crl_bundle(),
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    offline,
-                    false,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    false,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    crate::config::env_reachability_mode(),
-                    None,
-                    false,
-                    false,
-                    false,
-                    false,
-                    crate::config::env_severity_overrides(),
-                    crate::config::SeverityOverrides::default(),
-                )
-                .map_err(|e| {
-                    error!("{}", e);
-                    anyhow!(e)
-                })?;
+            let effective = crate::config::load_with_reachability_overrides(
+                args.config.as_deref(),
+                crate::config::env_parallel(),
+                crate::config::env_parallel_resolutions(),
+                crate::config::env_cache_db(),
+                crate::config::env_ignore_db(),
+                crate::config::env_cache_ttl_secs(),
+                crate::config::env_min_score(),
+                crate::config::env_min_count(),
+                crate::config::env_exit_code_on_cve(),
+                crate::config::env_fp_exit_code(),
+                crate::config::env_project_id(),
+                crate::config::env_backoff_base_ms(),
+                crate::config::env_backoff_max_ms(),
+                crate::config::env_max_retries(),
+                crate::config::env_provider_http_connect_timeout_secs(),
+                crate::config::env_provider_http_request_timeout_secs(),
+                crate::config::env_tls_crl_bundle(),
+                None,
+                None,
+                None,
+                None,
+                None,
+                offline,
+                false,
+                None,
+                None,
+                None,
+                None,
+                None,
+                false,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                crate::config::env_reachability_mode(),
+                None,
+                false,
+                false,
+                false,
+                false,
+                crate::config::env_severity_overrides(),
+                crate::config::SeverityOverrides::default(),
+            )
+            .map_err(|e| {
+                error!("{}", e);
+                anyhow!(e)
+            })?;
 
             run_fix(
                 root,
@@ -1957,6 +1956,7 @@ async fn scan_findings_for_fix(
 }
 
 /// Apply remediations (FR-041).
+#[allow(clippy::too_many_arguments)]
 async fn run_fix(
     root: Option<String>,
     format: String,
@@ -2067,7 +2067,7 @@ async fn run_fix(
             serde_json::to_string_pretty(&output_body)?
         ));
     } else if let Some(s) = output_body.as_str() {
-        write_stdout(s.as_ref());
+        write_stdout(s);
     }
 
     // -----------------------------------------------------------------
@@ -2174,15 +2174,14 @@ async fn run_fix(
         scan_findings_for_fix(root, &effective, provider_impl, db_backend)
             .await?;
 
-    if has_unavailable_apply_strategy {
-        if after_scan.exit_code == EXIT_SUCCESS
-            || after_scan.exit_code == cve_exit_code
-        {
-            eprintln!(
-                "Some findings have apply_strategy=unavailable and cannot be remediated by the first phase-2 remediators."
-            );
-            return Ok(EXIT_RESOLUTION_FAILED);
-        }
+    if has_unavailable_apply_strategy
+        && (after_scan.exit_code == EXIT_SUCCESS
+            || after_scan.exit_code == cve_exit_code)
+    {
+        eprintln!(
+            "Some findings have apply_strategy=unavailable and cannot be remediated by the first phase-2 remediators."
+        );
+        return Ok(EXIT_RESOLUTION_FAILED);
     }
     Ok(after_scan.exit_code)
 }

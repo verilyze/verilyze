@@ -2882,7 +2882,7 @@ def main() -> int:
     entry["version"] = ver
     packages[key] = entry
     data["packages"] = packages
-    lock_path.write_text(json.dumps(data, indent=2) + "\\n", encoding="utf-8")
+    lock_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     return 0
 
 if __name__ == "__main__":
@@ -2922,7 +2922,7 @@ fn read_cargo_lock_version(root: &std::path::Path, pkg: &str) -> String {
         .map(|o| o + version_prefix.len())
         .expect("find version field");
     let vend = after[vstart..].find('"').expect("closing quote") + vstart;
-    content[vstart..vend].to_string()
+    after[vstart..vend].to_string()
 }
 
 #[cfg(all(feature = "rust", unix))]
@@ -2955,9 +2955,9 @@ def main() -> int:
     text = lock_path.read_text(encoding="utf-8")
 
     pattern = re.compile(
-        r'(\\[\\[package\\]\\][\\s\\S]*?name\\s*=\\s*"' +
+        r'(\[\[package\]\][\s\S]*?name\s*=\s*"' +
         re.escape(pkg) +
-        r'"[\\s\\S]*?version\\s*=\\s*")([^"]+)(")'
+        r'"[\s\S]*?version\s*=\s*")([^"]+)(")'
     )
 
     def repl(m: re.Match[str]) -> str:

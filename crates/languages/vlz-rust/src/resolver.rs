@@ -92,9 +92,35 @@ pub fn parse_cargo_lock(
 /// Resolver that prefers Cargo.lock, falls back to graph packages.
 /// Caches parsed Cargo.lock content to avoid re-reading when multiple
 /// manifests share the same lock file (e.g. workspace members).
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LockFileFingerprint {
+    len: u64,
+    modified_nanos: Option<u128>,
+}
+
+fn lock_fingerprint(lock_path: &Path) -> Option<LockFileFingerprint> {
+    let meta = std::fs::metadata(lock_path).ok()?;
+    let len = meta.len();
+    let modified_nanos = meta
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_nanos());
+    Some(LockFileFingerprint {
+        len,
+        modified_nanos,
+    })
+}
+
+#[derive(Debug, Clone)]
+struct CachedLockResolution {
+    fingerprint: Option<LockFileFingerprint>,
+    resolution: CachedResolution,
+}
+
 #[derive(Debug)]
 pub struct CargoResolver {
-    lock_cache: Mutex<HashMap<String, CachedResolution>>,
+    lock_cache: Mutex<HashMap<String, CachedLockResolution>>,
     metadata_cache: Mutex<HashMap<String, Vec<vlz_db::Package>>>,
 }
 
@@ -146,23 +172,31 @@ impl Resolver for CargoResolver {
             && let Some(lock_path) = find_lock_file(manifest_path)
         {
             let cache_key = lock_path.to_string_lossy().to_string();
+            let current_fingerprint = lock_fingerprint(&lock_path);
             if let Ok(cache) = self.lock_cache.lock()
-                && let Some(cached) = cache.get(&cache_key)
-                && !cached.packages.is_empty()
+                && let Some(cached_entry) = cache.get(&cache_key)
+                && current_fingerprint.is_some()
+                && cached_entry.fingerprint == current_fingerprint
             {
-                let package_declarations = resolve_declarations_for_packages(
-                    &cached.packages,
-                    graph,
-                    &cached.package_declarations,
-                );
-                return Ok(ResolveResult {
-                    packages: cached.packages.clone(),
-                    depth: ResolutionDepth::Transitive,
-                    direct_only_reason: None,
-                    package_source_paths: cached.package_source_paths.clone(),
-                    package_declarations,
-                    resolved_lock_paths: vec![lock_path.clone()],
-                });
+                let cached = &cached_entry.resolution;
+                if !cached.packages.is_empty() {
+                    let package_declarations =
+                        resolve_declarations_for_packages(
+                            &cached.packages,
+                            graph,
+                            &cached.package_declarations,
+                        );
+                    return Ok(ResolveResult {
+                        packages: cached.packages.clone(),
+                        depth: ResolutionDepth::Transitive,
+                        direct_only_reason: None,
+                        package_source_paths: cached
+                            .package_source_paths
+                            .clone(),
+                        package_declarations,
+                        resolved_lock_paths: vec![lock_path.clone()],
+                    });
+                }
             }
             if let Ok(content) = tokio::fs::read_to_string(&lock_path).await
                 && let Ok((packages, lock_declarations)) =
@@ -182,7 +216,13 @@ impl Resolver for CargoResolver {
                     package_source_paths: package_source_paths.clone(),
                 };
                 if let Ok(mut cache) = self.lock_cache.lock() {
-                    cache.insert(cache_key, cached);
+                    cache.insert(
+                        cache_key,
+                        CachedLockResolution {
+                            fingerprint: current_fingerprint,
+                            resolution: cached,
+                        },
+                    );
                 }
                 let package_declarations = resolve_declarations_for_packages(
                     &packages,
