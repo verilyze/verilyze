@@ -132,11 +132,27 @@ suppress tool stderr (including `eprintln!` such as FR-022a), not only
 - **Python modern style:** Follow CONTRIBUTING Python style (3.11+ typing; no
   `__future__` imports or legacy `typing` aliases).
 
+## Cursor Cloud specific instructions
+
+Cloud Agents use [`.cursor/environment.json`](.cursor/environment.json):
+
+- **Base image:** [`.cursor/Dockerfile`](.cursor/Dockerfile) installs Docker CE
+  (fuse-overlayfs) and Rust `1.98.0` so `install.sh` can build `vlz`.
+- **Per boot:** `start` runs `sign-setup.sh` then
+  [`.cursor/docker-start.sh`](.cursor/docker-start.sh) (starts `dockerd`;
+  falls back to `vfs` if fuse-overlayfs cannot start).
+- **Verify:** `docker info` then `make super-linter` (needed by
+  verilyze-ship-pr). Trivy inside super-linter downloads its DB from
+  `mirror.gcr.io`; that host must be on the environment egress allowlist.
+- New agents pick up Dockerfile changes only after an environment **Build**
+  from the revision that contains them.
+
 ## Quick links
 
 | Topic                | Where to look                                            |
 |----------------------|----------------------------------------------------------|
 | Install / build      | [INSTALL.md](INSTALL.md); README “Quick start”           |
+| Cursor Cloud env     | This file "Cursor Cloud specific instructions"; [`.cursor/environment.json`](.cursor/environment.json) |
 | Exit codes           | PRD FR-009, FR-010, FR-016; README “Exit codes”          |
 | Shell script style   | CONTRIBUTING "Code style and checks"; PRD NFR-022        |
 | Config precedence    | PRD CFG-001--CFG-008; README “Configuration precedence”  |

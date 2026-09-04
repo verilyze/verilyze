@@ -10,6 +10,9 @@
 #   - cargo-deny (dependency/license gate used by `make check-fast`)
 #   - the Python test (.venv-test) and lint (.venv-lint) virtualenvs
 #
+# Docker CE for `make super-linter` lives in `.cursor/Dockerfile` and is
+# started each boot by `.cursor/docker-start.sh` (see environment.json).
+#
 # Safe to re-run: every step checks for existing state before doing work.
 
 set -euo pipefail

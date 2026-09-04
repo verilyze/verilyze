@@ -1,6 +1,9 @@
 {
   "name": "verilyze (vlz)",
   "user": "ubuntu",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
   "install": "bash .cursor/install.sh",
-  "start": "bash .cursor/sign-setup.sh"
+  "start": "bash .cursor/sign-setup.sh && bash .cursor/docker-start.sh"
 }
