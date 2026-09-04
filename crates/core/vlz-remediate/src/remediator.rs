@@ -120,13 +120,36 @@ pub trait Remediator {
     ) -> Result<(), RemediationError>;
 }
 
+const NPM_BIN_NAME: &str = "npm";
+const CARGO_BIN_NAME: &str = "cargo";
+
 /// Apply npm remediation by invoking:
 /// `npm install --ignore-scripts --package-lock-only <name>@<version>`
-pub struct NpmRemediator;
+#[derive(Debug, Clone)]
+pub struct NpmRemediator {
+    bin: String,
+}
+
+impl Default for NpmRemediator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl NpmRemediator {
+    pub fn new() -> Self {
+        Self {
+            bin: NPM_BIN_NAME.to_string(),
+        }
+    }
+
+    /// Override the npm executable path (tests inject a stub binary).
+    pub fn with_bin(bin: impl Into<String>) -> Self {
+        Self { bin: bin.into() }
+    }
+
     fn npm_available(&self) -> bool {
-        Command::new("npm")
+        Command::new(&self.bin)
             .arg("--version")
             .output()
             .is_ok_and(|o| o.status.success())
@@ -162,7 +185,7 @@ impl Remediator for NpmRemediator {
         }
         if !self.npm_available() {
             return Err(RemediationError::MissingPackageManager(
-                "npm".to_string(),
+                NPM_BIN_NAME.to_string(),
             ));
         }
         let lock_dir = self
@@ -173,7 +196,7 @@ impl Remediator for NpmRemediator {
                 )
             })?;
 
-        let mut cmd = Command::new("npm");
+        let mut cmd = Command::new(&self.bin);
         cmd.current_dir(lock_dir);
         cmd.arg("install");
         if !ctx.allow_dependency_code_execution {
@@ -192,7 +215,7 @@ impl Remediator for NpmRemediator {
         } else {
             let stderr = String::from_utf8_lossy(&out.stderr);
             Err(RemediationError::CommandFailed {
-                strategy: "npm".to_string(),
+                strategy: NPM_BIN_NAME.to_string(),
                 message: stderr.trim().to_string(),
             })
         }
@@ -201,11 +224,31 @@ impl Remediator for NpmRemediator {
 
 /// Apply Cargo remediation by invoking:
 /// `cargo update -p <name> --precise <version>`
-pub struct CargoRemediator;
+#[derive(Debug, Clone)]
+pub struct CargoRemediator {
+    bin: String,
+}
+
+impl Default for CargoRemediator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl CargoRemediator {
+    pub fn new() -> Self {
+        Self {
+            bin: CARGO_BIN_NAME.to_string(),
+        }
+    }
+
+    /// Override the cargo executable path (tests inject a stub binary).
+    pub fn with_bin(bin: impl Into<String>) -> Self {
+        Self { bin: bin.into() }
+    }
+
     fn cargo_available(&self) -> bool {
-        Command::new("cargo")
+        Command::new(&self.bin)
             .arg("--version")
             .output()
             .is_ok_and(|o| o.status.success())
@@ -242,7 +285,7 @@ impl Remediator for CargoRemediator {
         }
         if !self.cargo_available() {
             return Err(RemediationError::MissingPackageManager(
-                "cargo".to_string(),
+                CARGO_BIN_NAME.to_string(),
             ));
         }
         let lock_dir = self.select_cargo_lock_dir(ctx).ok_or_else(|| {
@@ -251,7 +294,7 @@ impl Remediator for CargoRemediator {
             )
         })?;
 
-        let mut cmd = Command::new("cargo");
+        let mut cmd = Command::new(&self.bin);
         cmd.current_dir(lock_dir);
         cmd.arg("update");
         cmd.arg("-p");
@@ -265,9 +308,371 @@ impl Remediator for CargoRemediator {
         } else {
             let stderr = String::from_utf8_lossy(&out.stderr);
             Err(RemediationError::CommandFailed {
-                strategy: "cargo".to_string(),
+                strategy: CARGO_BIN_NAME.to_string(),
                 message: stderr.trim().to_string(),
             })
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+    use vlz_db::{CRATES_IO_ECOSYSTEM, NPM_ECOSYSTEM};
+
+    fn lock_decl(path: &str) -> PackageDeclarationLocation {
+        PackageDeclarationLocation {
+            path: path.to_string(),
+            start_line: 1,
+            end_line: None,
+            kind: DeclarationKind::Lockfile,
+        }
+    }
+
+    fn manifest_decl(path: &str) -> PackageDeclarationLocation {
+        PackageDeclarationLocation {
+            path: path.to_string(),
+            start_line: 1,
+            end_line: None,
+            kind: DeclarationKind::Manifest,
+        }
+    }
+
+    fn pkg(ecosystem: &str, name: &str) -> Package {
+        Package {
+            name: name.to_string(),
+            version: "1.0.0".to_string(),
+            ecosystem: Some(ecosystem.to_string()),
+        }
+    }
+
+    fn write_exec(path: &Path, body: &str) {
+        fs::write(path, body).unwrap();
+        fs::set_permissions(path, PermissionsExt::from_mode(0o755)).unwrap();
+    }
+
+    #[test]
+    fn strategy_selects_npm_for_package_lock_and_shrinkwrap() {
+        let package = pkg(NPM_ECOSYSTEM, "left-pad");
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &package,
+                "2.0.0",
+                &[lock_decl("package-lock.json")],
+            ),
+            ApplyStrategy::Npm
+        );
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &package,
+                "2.0.0",
+                &[lock_decl("nested/npm-shrinkwrap.json")],
+            ),
+            ApplyStrategy::Npm
+        );
+    }
+
+    #[test]
+    fn strategy_selects_cargo_for_cargo_lock() {
+        let package = pkg(CRATES_IO_ECOSYSTEM, "serde");
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &package,
+                "1.0.200",
+                &[lock_decl("Cargo.lock")],
+            ),
+            ApplyStrategy::Cargo
+        );
+    }
+
+    #[test]
+    fn strategy_unavailable_without_supported_lock_or_unknown_fixed() {
+        let npm = pkg(NPM_ECOSYSTEM, "left-pad");
+        let cargo = pkg(CRATES_IO_ECOSYSTEM, "serde");
+        let other = pkg("pypi", "requests");
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &npm,
+                MIN_FIXED_VERSION_UNKNOWN,
+                &[lock_decl("package-lock.json")],
+            ),
+            ApplyStrategy::Unavailable
+        );
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &npm,
+                "2.0.0",
+                &[lock_decl("yarn.lock")],
+            ),
+            ApplyStrategy::Unavailable
+        );
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &npm,
+                "2.0.0",
+                &[manifest_decl("package.json")],
+            ),
+            ApplyStrategy::Unavailable
+        );
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &cargo,
+                "1.0.0",
+                &[lock_decl("Cargo.toml")],
+            ),
+            ApplyStrategy::Unavailable
+        );
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &other,
+                "2.0.0",
+                &[lock_decl("package-lock.json")],
+            ),
+            ApplyStrategy::Unavailable
+        );
+    }
+
+    #[test]
+    fn npm_apply_rejects_unknown_offline_missing_bin_and_lock() {
+        let root = std::env::temp_dir()
+            .join(format!("vlz-npm-rej-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let decls = [lock_decl("package-lock.json")];
+        let ok_bin = root.join("npm-ok");
+        write_exec(&ok_bin, "#!/bin/sh\nexit 0\n");
+        let rem = NpmRemediator::with_bin(ok_bin.to_string_lossy());
+
+        let err = rem
+            .apply(&RemediationContext {
+                scan_root: &root,
+                declarations: &decls,
+                package_name: "left-pad",
+                target_version: MIN_FIXED_VERSION_UNKNOWN,
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::TargetVersionUnknown));
+
+        let err = rem
+            .apply(&RemediationContext {
+                scan_root: &root,
+                declarations: &decls,
+                package_name: "left-pad",
+                target_version: "2.0.0",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: true,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::OfflineBlocked));
+
+        let err = rem
+            .apply(&RemediationContext {
+                scan_root: &root,
+                declarations: &[manifest_decl("package.json")],
+                package_name: "left-pad",
+                target_version: "2.0.0",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+
+        let missing = NpmRemediator::with_bin(
+            root.join("no-such-npm").to_string_lossy(),
+        );
+        let err = missing
+            .apply(&RemediationContext {
+                scan_root: &root,
+                declarations: &decls,
+                package_name: "left-pad",
+                target_version: "2.0.0",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::MissingPackageManager(_)));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn cargo_apply_rejects_unknown_offline_missing_bin_and_lock() {
+        let root = std::env::temp_dir()
+            .join(format!("vlz-cargo-rej-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let decls = [lock_decl("Cargo.lock")];
+        let ok_bin = root.join("cargo-ok");
+        write_exec(&ok_bin, "#!/bin/sh\nexit 0\n");
+        let rem = CargoRemediator::with_bin(ok_bin.to_string_lossy());
+
+        let err = rem
+            .apply(&RemediationContext {
+                scan_root: &root,
+                declarations: &decls,
+                package_name: "serde",
+                target_version: MIN_FIXED_VERSION_UNKNOWN,
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::TargetVersionUnknown));
+
+        let err = rem
+            .apply(&RemediationContext {
+                scan_root: &root,
+                declarations: &decls,
+                package_name: "serde",
+                target_version: "1.0.200",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: true,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::OfflineBlocked));
+
+        let err = rem
+            .apply(&RemediationContext {
+                scan_root: &root,
+                declarations: &[manifest_decl("Cargo.toml")],
+                package_name: "serde",
+                target_version: "1.0.200",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+
+        let missing = CargoRemediator::with_bin(
+            root.join("no-such-cargo").to_string_lossy(),
+        );
+        let err = missing
+            .apply(&RemediationContext {
+                scan_root: &root,
+                declarations: &decls,
+                package_name: "serde",
+                target_version: "1.0.200",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::MissingPackageManager(_)));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn npm_apply_stub_bin_success_and_command_failed() {
+        let root = std::env::temp_dir()
+            .join(format!("vlz-npm-stub-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("package-lock.json"), "{}\n").unwrap();
+        let decls = [lock_decl("package-lock.json")];
+
+        let ok_bin = root.join("npm-ok");
+        write_exec(&ok_bin, "#!/bin/sh\nexit 0\n");
+        NpmRemediator::with_bin(ok_bin.to_string_lossy())
+            .apply(&RemediationContext {
+                scan_root: &root,
+                declarations: &decls,
+                package_name: "left-pad",
+                target_version: "2.0.0",
+                dependency_kind: DependencyKind::Transitive,
+                allow_dependency_code_execution: true,
+                offline: false,
+            })
+            .unwrap();
+
+        let fail_bin = root.join("npm-fail");
+        write_exec(
+            &fail_bin,
+            "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then exit 0; fi\necho boom >&2\nexit 1\n",
+        );
+        let err = NpmRemediator::with_bin(fail_bin.to_string_lossy())
+            .apply(&RemediationContext {
+                scan_root: &root,
+                declarations: &decls,
+                package_name: "left-pad",
+                target_version: "2.0.0",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        match err {
+            RemediationError::CommandFailed { strategy, message } => {
+                assert_eq!(strategy, NPM_BIN_NAME);
+                assert!(message.contains("boom"));
+            }
+            other => panic!("expected CommandFailed, got {other:?}"),
+        }
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn cargo_apply_stub_bin_success_and_command_failed() {
+        let root = std::env::temp_dir()
+            .join(format!("vlz-cargo-stub-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("Cargo.lock"), "# lock\n").unwrap();
+        let decls = [lock_decl("Cargo.lock")];
+
+        let ok_bin = root.join("cargo-ok");
+        write_exec(&ok_bin, "#!/bin/sh\nexit 0\n");
+        CargoRemediator::with_bin(ok_bin.to_string_lossy())
+            .apply(&RemediationContext {
+                scan_root: &root,
+                declarations: &decls,
+                package_name: "serde",
+                target_version: "1.0.200",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap();
+
+        let fail_bin = root.join("cargo-fail");
+        write_exec(
+            &fail_bin,
+            "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then exit 0; fi\necho cargo-fail >&2\nexit 1\n",
+        );
+        let err = CargoRemediator::with_bin(fail_bin.to_string_lossy())
+            .apply(&RemediationContext {
+                scan_root: &root,
+                declarations: &decls,
+                package_name: "serde",
+                target_version: "1.0.200",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        match err {
+            RemediationError::CommandFailed { strategy, message } => {
+                assert_eq!(strategy, CARGO_BIN_NAME);
+                assert!(message.contains("cargo-fail"));
+            }
+            other => panic!("expected CommandFailed, got {other:?}"),
+        }
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn default_constructors_use_standard_bin_names() {
+        assert_eq!(NpmRemediator::new().bin, NPM_BIN_NAME);
+        assert_eq!(NpmRemediator::default().bin, NPM_BIN_NAME);
+        assert_eq!(CargoRemediator::new().bin, CARGO_BIN_NAME);
+        assert_eq!(CargoRemediator::default().bin, CARGO_BIN_NAME);
     }
 }

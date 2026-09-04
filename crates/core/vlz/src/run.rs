@@ -2114,7 +2114,7 @@ async fn run_fix(
 
         match e.upgrade_plan.apply_strategy {
             vlz_remediate::ApplyStrategy::Npm => {
-                let rem = vlz_remediate::NpmRemediator;
+                let rem = vlz_remediate::NpmRemediator::new();
                 if let Err(err) = rem.apply(&ctx) {
                     return Ok(match err {
                         vlz_remediate::RemediationError::OfflineBlocked => {
@@ -2139,7 +2139,7 @@ async fn run_fix(
                 }
             }
             vlz_remediate::ApplyStrategy::Cargo => {
-                let rem = vlz_remediate::CargoRemediator;
+                let rem = vlz_remediate::CargoRemediator::new();
                 if let Err(err) = rem.apply(&ctx) {
                     return Ok(match err {
                         vlz_remediate::RemediationError::OfflineBlocked => {

@@ -381,4 +381,56 @@ mod tests {
         assert_eq!(DependencyKind::Transitive.as_str(), "transitive");
         assert_eq!(DependencyKind::Unknown.as_str(), "unknown");
     }
+
+    #[test]
+    fn plan_sets_npm_and_cargo_apply_strategy_from_lockfiles() {
+        use vlz_db::{CRATES_IO_ECOSYSTEM, NPM_ECOSYSTEM};
+
+        let npm_pkg = Package {
+            name: "left-pad".to_string(),
+            version: "1.0.0".to_string(),
+            ecosystem: Some(NPM_ECOSYSTEM.to_string()),
+        };
+        let npm_decls = vec![PackageDeclarationLocation {
+            path: "package-lock.json".to_string(),
+            start_line: 1,
+            end_line: None,
+            kind: DeclarationKind::Lockfile,
+        }];
+        let npm_plan = plan_upgrade_for_finding(
+            &npm_pkg,
+            &npm_decls,
+            &[cve_with_fixed(
+                "CVE-1",
+                AffectedRangeType::Ecosystem,
+                Some("2.0.0"),
+            )],
+        );
+        assert_eq!(npm_plan.apply_strategy, ApplyStrategy::Npm);
+        assert_eq!(npm_plan.dependency_kind, DependencyKind::Transitive);
+        assert_eq!(npm_plan.confidence, UpgradePlanConfidence::High);
+
+        let cargo_pkg = Package {
+            name: "serde".to_string(),
+            version: "1.0.0".to_string(),
+            ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
+        };
+        let cargo_decls = vec![PackageDeclarationLocation {
+            path: "Cargo.lock".to_string(),
+            start_line: 1,
+            end_line: None,
+            kind: DeclarationKind::Lockfile,
+        }];
+        let cargo_plan = plan_upgrade_for_finding(
+            &cargo_pkg,
+            &cargo_decls,
+            &[cve_with_fixed(
+                "CVE-2",
+                AffectedRangeType::Semver,
+                Some("1.0.200"),
+            )],
+        );
+        assert_eq!(cargo_plan.apply_strategy, ApplyStrategy::Cargo);
+        assert_eq!(cargo_plan.minimal_fixed_version, "1.0.200");
+    }
 }
