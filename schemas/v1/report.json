@@ -123,10 +123,30 @@
         }
       }
     },
+    "upgrade_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimal_fixed_version", "dependency_kind", "apply_strategy", "confidence"],
+      "properties": {
+        "minimal_fixed_version": { "type": "string" },
+        "dependency_kind": {
+          "type": "string",
+          "enum": ["direct", "transitive", "unknown"]
+        },
+        "apply_strategy": {
+          "type": "string",
+          "enum": ["unavailable"]
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["high", "unknown"]
+        }
+      }
+    },
     "finding": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["package", "manifest_paths", "cves"],
+      "required": ["package", "manifest_paths", "upgrade_plan", "cves"],
       "properties": {
         "package": { "$ref": "#/$defs/package" },
         "manifest_paths": {
@@ -137,6 +157,7 @@
           "type": "array",
           "items": { "$ref": "#/$defs/manifest_declaration" }
         },
+        "upgrade_plan": { "$ref": "#/$defs/upgrade_plan" },
         "cves": {
           "type": "array",
           "items": { "$ref": "#/$defs/cve_with_severity" }

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 [package]
-name = "vlz-report"
+name = "vlz-remediate"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -14,15 +14,13 @@ keywords.workspace = true
 categories.workspace = true
 readme.workspace = true
 rust-version.workspace = true
-description = "Reporting trait for verilyze -- renders JSON, SARIF, HTML, etc."
+description = "Upgrade-plan planning for vulnerability remediation (FR-040)"
 
 [dependencies]
-async-trait.workspace = true
-thiserror.workspace = true
-vlz-db.workspace = true
-vlz-remediate.workspace = true
 serde = { workspace = true, features = ["derive"] }
-serde_json.workspace = true
+semver = "1.0.28"
+vlz-db.workspace = true
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["rt", "macros"] }
+serde_json.workspace = true
+

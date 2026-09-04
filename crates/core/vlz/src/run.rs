@@ -1506,17 +1506,6 @@ async fn run_scan(
     let report_findings: Vec<vlz_report::Finding> = findings
         .into_iter()
         .map(|(pkg, recs)| {
-            let with_severity: Vec<_> = recs
-                .into_iter()
-                .map(|cve| {
-                    let severity = vlz_report::resolve_severity(
-                        cve.cvss_score,
-                        cve.cvss_version,
-                        &severity_config,
-                    );
-                    (cve, severity)
-                })
-                .collect();
             let mut manifest_paths: Vec<std::path::PathBuf> = pkg_to_manifests
                 .get(&pkg)
                 .map(|s| {
@@ -1540,10 +1529,27 @@ async fn run_scan(
                     .unwrap_or_else(|_| decl.path.clone());
             }
             vlz_db::dedupe_sort_declarations(&mut declarations);
+            let upgrade_plan = vlz_remediate::plan_upgrade_for_finding(
+                &pkg,
+                &declarations,
+                &recs,
+            );
+            let with_severity: Vec<_> = recs
+                .into_iter()
+                .map(|cve| {
+                    let severity = vlz_report::resolve_severity(
+                        cve.cvss_score,
+                        cve.cvss_version,
+                        &severity_config,
+                    );
+                    (cve, severity)
+                })
+                .collect();
             vlz_report::Finding {
                 package: pkg,
                 manifest_paths,
                 declarations,
+                upgrade_plan,
                 cves: with_severity,
             }
         })
