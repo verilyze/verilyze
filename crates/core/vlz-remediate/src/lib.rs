@@ -172,9 +172,7 @@ fn parse_fixed_version(s: &str) -> Option<Version> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use vlz_db::{
-        AffectedEvent, AffectedRange, CveEvidenceLocation, CvssVersion,
-    };
+    use vlz_db::{AffectedEvent, AffectedRange, CvssVersion};
 
     fn empty_decl(kind: DeclarationKind) -> PackageDeclarationLocation {
         PackageDeclarationLocation {
