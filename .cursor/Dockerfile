@@ -17,6 +17,9 @@
 # ubuntu:24.04 @ 2026-03 (re-pin periodically via docker buildx imagetools).
 FROM ubuntu:24.04@sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517
 
+# Pipefail for RUN lines that use | (Hadolint DL4006).
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 ENV DEBIAN_FRONTEND=noninteractive \
     RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
@@ -24,6 +27,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 # Base tools required by Cloud Agents and install.sh.
 # acl: setfacl for docker.sock without world-writable mode.
+# Ubuntu archive package pins drift; ignore DL3008 for this layer only.
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
@@ -62,6 +67,7 @@ $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
 
 # Nested-container storage + legacy iptables (Cursor Docker recipe).
 # vfs fallback is per-boot via dockerd --storage-driver (docker-start.sh).
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends fuse-overlayfs \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /etc/docker \
@@ -73,7 +79,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends fuse-overlayfs 
     && update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy
 
 # Non-root agent user (matches environment.json "user": "ubuntu").
-RUN id -u ubuntu >/dev/null 2>&1 || useradd -m -s /bin/bash ubuntu \
+RUN if ! id -u ubuntu >/dev/null 2>&1; then \
+      useradd -m -u 1000 -s /bin/bash ubuntu; \
+    fi \
     && groupadd -f docker \
     && usermod -aG docker ubuntu \
     && usermod -aG sudo ubuntu \
@@ -83,15 +91,22 @@ RUN id -u ubuntu >/dev/null 2>&1 || useradd -m -s /bin/bash ubuntu \
 # Rust channel + components from repo rust-toolchain.toml (DRY / NFR-024).
 COPY rust-toolchain.toml /tmp/rust-toolchain.toml
 RUN RUST_VERSION="$(sed -n 's/^channel = "\(.*\)"/\1/p' /tmp/rust-toolchain.toml)" \
-    && RUST_COMPONENTS="$(sed -n 's/^components = \[\(.*\)\]/\1/p' /tmp/rust-toolchain.toml \
-        | tr -d '" ' | tr ',' ' ')" \
     && test -n "${RUST_VERSION}" \
     && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-      | sh -s -- -y --default-toolchain "${RUST_VERSION}" \
-        --profile minimal \
-        --component ${RUST_COMPONENTS} \
+      | sh -s -- -y --default-toolchain "${RUST_VERSION}" --profile minimal \
+    && COMPONENTS="$(sed -n 's/^components = \[\(.*\)\]/\1/p' /tmp/rust-toolchain.toml \
+        | tr -d '" ')" \
+    && OLDIFS="${IFS}" \
+    && IFS=, \
+    && for c in ${COMPONENTS}; do \
+         IFS="${OLDIFS}"; \
+         test -n "${c}" || continue; \
+         rustup component add "${c}"; \
+       done \
+    && IFS="${OLDIFS}" \
     && chmod -R a+rwX "${RUSTUP_HOME}" "${CARGO_HOME}" \
     && rm -f /tmp/rust-toolchain.toml
 
-USER ubuntu
+# Numeric UID matches ubuntu user created above (Hadolint DL3066).
+USER 1000:1000
 WORKDIR /home/ubuntu

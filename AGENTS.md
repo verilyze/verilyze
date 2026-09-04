@@ -144,8 +144,9 @@ Cloud Agents use [`.cursor/environment.json`](.cursor/environment.json):
   falls back to `vfs` via `--storage-driver` if fuse-overlayfs cannot start).
   Docker start is soft-fail: a dockerd outage warns and the agent continues.
 - **Verify:** `docker info` then `make super-linter` (needed by
-  verilyze-ship-pr). Trivy inside super-linter downloads its DB from
-  `mirror.gcr.io`; that host must be on the environment egress allowlist.
+  verilyze-ship-pr). Trivy prefers `ghcr.io/aquasecurity/trivy-db` (see
+  `trivy.yaml`); allowlist `ghcr.io` (and optionally `mirror.gcr.io` /
+  `public.ecr.aws` as fallbacks).
 - New agents pick up Dockerfile changes only after an environment **Build**
   from the revision that contains them.
 
