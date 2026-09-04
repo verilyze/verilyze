@@ -13,10 +13,10 @@ use std::sync::Mutex;
 use lsp_server::{Connection, Message, Notification, Response};
 use lsp_types::{
     CodeActionKind, CodeActionOptions, CodeActionProviderCapability,
-    Diagnostic, DiagnosticSeverity, InitializeParams, NumberOrString,
-    PublishDiagnosticsParams, ServerCapabilities, TextDocumentSyncCapability,
-    TextDocumentSyncKind, WorkspaceFoldersServerCapabilities,
-    WorkspaceServerCapabilities,
+    Diagnostic, DiagnosticSeverity, ExecuteCommandOptions, InitializeParams,
+    NumberOrString, PublishDiagnosticsParams, SaveOptions, ServerCapabilities,
+    TextDocumentSyncCapability, TextDocumentSyncOptions,
+    WorkspaceFoldersServerCapabilities, WorkspaceServerCapabilities,
 };
 use serde_json::json;
 use url::Url;
@@ -87,6 +87,16 @@ impl LspServer {
 /// Run the blocking stdio protocol loop.
 pub fn run_stdio(scan_service: Box<dyn ScanService>) -> anyhow::Result<()> {
     let (connection, io_threads) = Connection::stdio();
+    run_connection(connection, scan_service)?;
+    io_threads.join()?;
+    Ok(())
+}
+
+/// Run the LSP lifecycle for a connection.
+fn run_connection(
+    connection: Connection,
+    scan_service: Box<dyn ScanService>,
+) -> anyhow::Result<()> {
     let (initialize_id, initialize_params) = connection.initialize_start()?;
     let params: InitializeParams = serde_json::from_value(initialize_params)?;
     let workspace_root = workspace_root(&params);
@@ -160,14 +170,24 @@ pub fn run_stdio(scan_service: Box<dyn ScanService>) -> anyhow::Result<()> {
             _ => {}
         }
     }
-    io_threads.join()?;
+    let Connection { sender, receiver } = connection;
+    drop(sender);
+    drop(receiver);
     Ok(())
 }
 
 fn server_capabilities() -> ServerCapabilities {
     ServerCapabilities {
-        text_document_sync: Some(TextDocumentSyncCapability::Kind(
-            TextDocumentSyncKind::FULL,
+        text_document_sync: Some(TextDocumentSyncCapability::Options(
+            TextDocumentSyncOptions {
+                save: Some(
+                    SaveOptions {
+                        include_text: Some(false),
+                    }
+                    .into(),
+                ),
+                ..Default::default()
+            },
         )),
         code_action_provider: Some(CodeActionProviderCapability::Options(
             CodeActionOptions {
@@ -176,6 +196,10 @@ fn server_capabilities() -> ServerCapabilities {
                 work_done_progress_options: Default::default(),
             },
         )),
+        execute_command_provider: Some(ExecuteCommandOptions {
+            commands: vec![SHOW_UPGRADE_PLAN_COMMAND.to_string()],
+            work_done_progress_options: Default::default(),
+        }),
         workspace: Some(WorkspaceServerCapabilities {
             workspace_folders: Some(WorkspaceFoldersServerCapabilities {
                 supported: Some(true),
@@ -188,12 +212,17 @@ fn server_capabilities() -> ServerCapabilities {
 }
 
 fn workspace_root(params: &InitializeParams) -> Option<PathBuf> {
-    let uri = params
+    let workspace_folder_uri = params
         .workspace_folders
         .as_ref()
         .and_then(|folders| folders.first())
-        .map(|folder| folder.uri.as_str())?;
-    local_file_path(uri)
+        .map(|folder| folder.uri.as_str());
+    if let Some(uri) = workspace_folder_uri {
+        return local_file_path(uri);
+    }
+    #[allow(deprecated)]
+    let root_uri = params.root_uri.as_ref()?;
+    local_file_path(root_uri.as_str())
 }
 
 fn local_file_path(uri: &str) -> Option<PathBuf> {
@@ -365,13 +394,16 @@ fn execute_command(
 #[cfg(test)]
 mod tests {
     use super::{
-        SHOW_UPGRADE_PLAN_COMMAND, server_capabilities, workspace_root,
+        SHOW_UPGRADE_PLAN_COMMAND, ScanResult, ScanService, run_connection,
+        server_capabilities, workspace_root,
     };
+    use lsp_server::{Connection, Message, Notification, Request, RequestId};
     use lsp_types::{
         InitializeParams, TextDocumentSyncCapability,
         TextDocumentSyncSaveOptions,
     };
     use serde_json::json;
+    use std::path::Path;
 
     #[test]
     fn root_uri_is_used_without_workspace_folders() {
@@ -409,5 +441,55 @@ mod tests {
                 .commands,
             vec![SHOW_UPGRADE_PLAN_COMMAND.to_string()]
         );
+    }
+
+    #[test]
+    fn exit_returns_after_initialization() {
+        let (server, client) = Connection::memory();
+        client
+            .sender
+            .send(
+                Request::new(
+                    RequestId::from(1),
+                    "initialize".to_string(),
+                    json!({
+                        "processId": null,
+                        "capabilities": {},
+                    }),
+                )
+                .into(),
+            )
+            .expect("client should initialize server");
+        let server = std::thread::spawn(move || {
+            run_connection(server, Box::new(EmptyScanService))
+        });
+        let response = client
+            .receiver
+            .recv()
+            .expect("server should respond to initialize");
+        assert!(matches!(response, Message::Response(_)));
+        client
+            .sender
+            .send(
+                Notification::new("initialized".to_string(), json!({})).into(),
+            )
+            .expect("client should complete initialization");
+        client
+            .sender
+            .send(Notification::new("exit".to_string(), json!(null)).into())
+            .expect("client should stop server");
+
+        server
+            .join()
+            .expect("server thread should not panic")
+            .expect("server should exit cleanly");
+    }
+
+    struct EmptyScanService;
+
+    impl ScanService for EmptyScanService {
+        fn scan(&self, _root: Option<&Path>) -> ScanResult {
+            ScanResult::default()
+        }
     }
 }
