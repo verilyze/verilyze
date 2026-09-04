@@ -137,10 +137,12 @@ suppress tool stderr (including `eprintln!` such as FR-022a), not only
 Cloud Agents use [`.cursor/environment.json`](.cursor/environment.json):
 
 - **Base image:** [`.cursor/Dockerfile`](.cursor/Dockerfile) installs Docker CE
-  (fuse-overlayfs) and Rust `1.98.0` so `install.sh` can build `vlz`.
+  (fuse-overlayfs) and the Rust channel from `rust-toolchain.toml` so
+  `install.sh` can build `vlz`. Build context is the repo root.
 - **Per boot:** `start` runs `sign-setup.sh` then
   [`.cursor/docker-start.sh`](.cursor/docker-start.sh) (starts `dockerd`;
-  falls back to `vfs` if fuse-overlayfs cannot start).
+  falls back to `vfs` via `--storage-driver` if fuse-overlayfs cannot start).
+  Docker start is soft-fail: a dockerd outage warns and the agent continues.
 - **Verify:** `docker info` then `make super-linter` (needed by
   verilyze-ship-pr). Trivy inside super-linter downloads its DB from
   `mirror.gcr.io`; that host must be on the environment egress allowlist.

@@ -2,8 +2,9 @@
   "name": "verilyze (vlz)",
   "user": "ubuntu",
   "build": {
-    "dockerfile": "Dockerfile"
+    "dockerfile": "Dockerfile",
+    "context": ".."
   },
   "install": "bash .cursor/install.sh",
-  "start": "bash .cursor/sign-setup.sh && bash .cursor/docker-start.sh"
+  "start": "bash .cursor/sign-setup.sh && { bash .cursor/docker-start.sh || printf '%s\\n' '[docker-start] warning: Docker unavailable; agent continues without dockerd' >&2; }"
 }

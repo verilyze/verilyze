@@ -10,23 +10,27 @@
 # can `cargo build` after checkout (a custom Dockerfile replaces Cursor's
 # default base image).
 #
-# Do not COPY the repository; Cursor checks out the requested revision.
+# Build context is the repository root (`environment.json` build.context
+# `..`) so Rust is derived from `rust-toolchain.toml`. Do not COPY the rest
+# of the repository; Cursor checks out the requested revision.
 
-FROM ubuntu:24.04
+# ubuntu:24.04 @ 2026-03 (re-pin periodically via docker buildx imagetools).
+FROM ubuntu:24.04@sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517
 
 ENV DEBIAN_FRONTEND=noninteractive \
     RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
-    PATH=/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
-    RUST_VERSION=1.98.0
+    PATH=/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 # Base tools required by Cloud Agents and install.sh.
+# acl: setfacl for docker.sock without world-writable mode.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     gnupg \
     git \
     sudo \
+    acl \
     build-essential \
     pkg-config \
     libssl-dev \
@@ -36,7 +40,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     iptables \
     && rm -rf /var/lib/apt/lists/*
 
-# Docker CE (pinned) for nested Cloud Agent VMs.
+# Docker CE (pinned engine + companions) for nested Cloud Agent VMs.
 # See https://cursor.com/docs/cloud-agent/setup -- Running Docker.
 RUN install -m 0755 -d /etc/apt/keyrings \
     && curl --retry 3 --retry-delay 5 -fsSL \
@@ -51,12 +55,13 @@ $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
     && apt-get install -y --no-install-recommends \
       docker-ce=5:28.5.2-1~ubuntu.24.04~noble \
       docker-ce-cli=5:28.5.2-1~ubuntu.24.04~noble \
-      containerd.io \
-      docker-buildx-plugin \
-      docker-compose-plugin \
+      containerd.io=1.7.28-2~ubuntu.24.04~noble \
+      docker-buildx-plugin=0.29.1-1~ubuntu.24.04~noble \
+      docker-compose-plugin=2.40.3-1~ubuntu.24.04~noble \
     && rm -rf /var/lib/apt/lists/*
 
 # Nested-container storage + legacy iptables (Cursor Docker recipe).
+# vfs fallback is per-boot via dockerd --storage-driver (docker-start.sh).
 RUN apt-get update && apt-get install -y --no-install-recommends fuse-overlayfs \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /etc/docker \
@@ -75,12 +80,18 @@ RUN id -u ubuntu >/dev/null 2>&1 || useradd -m -s /bin/bash ubuntu \
     && echo "ubuntu ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/ubuntu \
     && chmod 0440 /etc/sudoers.d/ubuntu
 
-# Rust toolchain matching rust-toolchain.toml (install.sh expects cargo on PATH).
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+# Rust channel + components from repo rust-toolchain.toml (DRY / NFR-024).
+COPY rust-toolchain.toml /tmp/rust-toolchain.toml
+RUN RUST_VERSION="$(sed -n 's/^channel = "\(.*\)"/\1/p' /tmp/rust-toolchain.toml)" \
+    && RUST_COMPONENTS="$(sed -n 's/^components = \[\(.*\)\]/\1/p' /tmp/rust-toolchain.toml \
+        | tr -d '" ' | tr ',' ' ')" \
+    && test -n "${RUST_VERSION}" \
+    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
       | sh -s -- -y --default-toolchain "${RUST_VERSION}" \
         --profile minimal \
-        --component rustfmt,clippy,llvm-tools \
-    && chmod -R a+rwX "${RUSTUP_HOME}" "${CARGO_HOME}"
+        --component ${RUST_COMPONENTS} \
+    && chmod -R a+rwX "${RUSTUP_HOME}" "${CARGO_HOME}" \
+    && rm -f /tmp/rust-toolchain.toml
 
 USER ubuntu
 WORKDIR /home/ubuntu
