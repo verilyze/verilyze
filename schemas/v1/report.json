@@ -135,7 +135,7 @@
         },
         "apply_strategy": {
           "type": "string",
-          "enum": ["unavailable"]
+          "enum": ["unavailable", "npm", "cargo"]
         },
         "confidence": {
           "type": "string",

@@ -16,6 +16,12 @@ use vlz_db::{
 
 pub const MIN_FIXED_VERSION_UNKNOWN: &str = "unknown";
 
+mod remediator;
+pub use remediator::{
+    CargoRemediator, NpmRemediator, RemediationContext, RemediationError,
+    Remediator, remediation_apply_strategy_for_finding,
+};
+
 /// Upgrade plan confidence for a planned remediation.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize,
@@ -42,12 +48,16 @@ impl UpgradePlanConfidence {
 #[serde(rename_all = "snake_case")]
 pub enum ApplyStrategy {
     Unavailable,
+    Npm,
+    Cargo,
 }
 
 impl ApplyStrategy {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Unavailable => "unavailable",
+            Self::Npm => "npm",
+            Self::Cargo => "cargo",
         }
     }
 }
@@ -122,12 +132,18 @@ pub fn plan_upgrade_for_finding(
             UpgradePlanConfidence::Unknown
         };
 
-    UpgradePlan {
+    let mut plan = UpgradePlan {
         minimal_fixed_version: min_fixed_version,
         dependency_kind,
         apply_strategy: ApplyStrategy::Unavailable,
         confidence,
-    }
+    };
+    plan.apply_strategy = remediation_apply_strategy_for_finding(
+        _package,
+        &plan.minimal_fixed_version,
+        declarations,
+    );
+    plan
 }
 
 fn compute_minimal_fixed_version(cves: &[CveRecord]) -> (bool, String) {
@@ -359,6 +375,8 @@ mod tests {
         assert_eq!(UpgradePlanConfidence::High.as_str(), "high");
         assert_eq!(UpgradePlanConfidence::Unknown.as_str(), "unknown");
         assert_eq!(ApplyStrategy::Unavailable.as_str(), "unavailable");
+        assert_eq!(ApplyStrategy::Npm.as_str(), "npm");
+        assert_eq!(ApplyStrategy::Cargo.as_str(), "cargo");
         assert_eq!(DependencyKind::Direct.as_str(), "direct");
         assert_eq!(DependencyKind::Transitive.as_str(), "transitive");
         assert_eq!(DependencyKind::Unknown.as_str(), "unknown");

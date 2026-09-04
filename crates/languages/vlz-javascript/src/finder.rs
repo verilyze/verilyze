@@ -73,8 +73,13 @@ fn walk_dir(
         let file_type = entry.file_type()?;
         if file_type.is_file() {
             let matches = match patterns {
-                Some(regexes) => regexes.iter().any(|r| r.is_match(name)),
-                None => name == JS_MANIFEST_NAME,
+                Some(regexes) => {
+                    // FR-006 filters *manifest* names, but JS lockfiles must be
+                    // discovered for lock-only roots (no `package.json`).
+                    is_js_lock_file(name)
+                        || regexes.iter().any(|r| r.is_match(name))
+                }
+                None => name == JS_MANIFEST_NAME || is_js_lock_file(name),
             };
             if matches {
                 out.push(entry.path());
@@ -89,6 +94,7 @@ fn walk_dir(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     #[test]
     fn language_name_returns_javascript() {
@@ -141,5 +147,29 @@ mod tests {
         ];
         want.sort();
         assert_eq!(got, want);
+    }
+
+    #[tokio::test]
+    async fn find_lockfile_in_lock_only_root() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+
+        fs::write(
+            tmp.join("package-lock.json"),
+            r#"{
+  "name": "app",
+  "lockfileVersion": 3,
+  "packages": {
+    "node_modules/pkg": { "version": "1.0.0" }
+  }
+}"#,
+        )
+        .unwrap();
+
+        let finder = JsManifestFinder::new();
+        let mut got = finder.find(tmp).await.unwrap();
+        got.sort();
+
+        assert_eq!(got, vec![tmp.join("package-lock.json")]);
     }
 }

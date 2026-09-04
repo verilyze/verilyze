@@ -41,7 +41,7 @@ _arguments "${_arguments_options[@]}" : \
 '--output=[Write primary report to file instead of stdout]:PATH:_files' \
 '*-s+[Write additional report files\: e.g. html\:/tmp/out.html,cyclonedx\:/tmp/sbom.json]:TYPE:PATH:_default' \
 '*--report=[Write additional report files\: e.g. html\:/tmp/out.html,cyclonedx\:/tmp/sbom.json]:TYPE:PATH:_default' \
-'--provider=[Force a particular vulnerability provider]:PROVIDER:(osv)' \
+'--provider=[Force a particular vulnerability provider]:PROVIDER:(osv failing counting cve_returning panicking tier_c_reachability)' \
 '-j+[Parallel query limit (default 10, max 50)]:PARALLEL:_default' \
 '--parallel=[Parallel query limit (default 10, max 50)]:PARALLEL:_default' \
 '--parallel-resolutions=[Parallel dependency resolution limit (default\: CPU count, max 32)]:N:_default' \
@@ -84,6 +84,23 @@ _arguments "${_arguments_options[@]}" : \
 '--allow-dependency-code-execution[Allow package managers to execute dependency build/lifecycle code (SEC-023)]' \
 '--allow-direct-only-fallback[Fall back to direct-only scan with warning when transitive resolution fails (FR-022a). Applies to all Python project manifests (requirements.txt, pyproject.toml, Pipfile, setup.cfg, setup.py), Rust Cargo.toml without Cargo.lock, Go go.mod when go list or cargo metadata cannot run, JavaScript/TypeScript package.json without a usable adjacent or parent lock when package-manager execution is disabled, and Ruby Gemfile/gems.rb/*.gemspec without a usable Gemfile.lock/gems.locked when Bundler execution is disabled]' \
 '--fail-fast[Stop on first manifest parse/resolution failure; skip CVE lookup (FR-037)]' \
+'*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'::root -- Root directory (defaults to current working dir):_files -/' \
+&& ret=0
+;;
+(fix)
+_arguments "${_arguments_options[@]}" : \
+'-f+[Output format for dry-run (plain or json)]:FORMAT:(plain json)' \
+'--format=[Output format for dry-run (plain or json)]:FORMAT:(plain json)' \
+'-o+[Write dry-run output to file instead of stdout]:PATH:_files' \
+'--output=[Write dry-run output to file instead of stdout]:PATH:_files' \
+'-c+[Override configuration file location]:PATH:_files' \
+'--config=[Override configuration file location]:PATH:_files' \
+'--dry-run[Preview the upgrade plan; do not write files]' \
+'--offline[Disable network access (offline apply exits 6 when network is needed)]' \
 '*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '-h[Print help]' \
@@ -253,7 +270,7 @@ esac
 ;;
 (preload)
 _arguments "${_arguments_options[@]}" : \
-'--provider=[Force a particular vulnerability provider]:PROVIDER:(osv)' \
+'--provider=[Force a particular vulnerability provider]:PROVIDER:(osv failing counting cve_returning panicking tier_c_reachability)' \
 '-j+[Parallel query limit (default 10, max 50)]:PARALLEL:_default' \
 '--parallel=[Parallel query limit (default 10, max 50)]:PARALLEL:_default' \
 '--parallel-resolutions=[Parallel dependency resolution limit (default\: CPU count, max 32)]:N:_default' \
@@ -291,7 +308,7 @@ _arguments "${_arguments_options[@]}" : \
 '*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '-h[Print help]' \
 '--help[Print help]' \
-'::subcommand:(scan languages config db fp preload help generate-completions)' \
+'::subcommand:(scan fix languages config db fp preload help generate-completions)' \
 && ret=0
 ;;
 (generate-completions)
@@ -314,6 +331,7 @@ esac
 _vlz_commands() {
     local commands; commands=(
 'scan:Scan project dependencies for known vulnerabilities' \
+'fix:Apply remediations (updates lock/manifest files by default)' \
 'languages:List supported manifest languages' \
 'config:Show or set configuration values' \
 'db:Inspect and maintain the vulnerability cache' \
@@ -370,6 +388,11 @@ _vlz__subcmd__db__subcmd__stats_commands() {
 _vlz__subcmd__db__subcmd__verify_commands() {
     local commands; commands=()
     _describe -t commands 'vlz db verify commands' commands "$@"
+}
+(( $+functions[_vlz__subcmd__fix_commands] )) ||
+_vlz__subcmd__fix_commands() {
+    local commands; commands=()
+    _describe -t commands 'vlz fix commands' commands "$@"
 }
 (( $+functions[_vlz__subcmd__fp_commands] )) ||
 _vlz__subcmd__fp_commands() {

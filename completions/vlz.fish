@@ -30,6 +30,7 @@ complete -c vlz -n "__fish_vlz_needs_command" -s v -l verbose -d 'Increase verbo
 complete -c vlz -n "__fish_vlz_needs_command" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_needs_command" -s V -l version -d 'Print version'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "scan" -d 'Scan project dependencies for known vulnerabilities'
+complete -c vlz -n "__fish_vlz_needs_command" -f -a "fix" -d 'Apply remediations (updates lock/manifest files by default)'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "languages" -d 'List supported manifest languages'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "config" -d 'Show or set configuration values'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "db" -d 'Inspect and maintain the vulnerability cache'
@@ -44,7 +45,12 @@ cyclonedx\t''
 spdx\t''"
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -s o -l output -d 'Write primary report to file instead of stdout' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -s s -l report -d 'Write additional report files: e.g. html:/tmp/out.html,cyclonedx:/tmp/sbom.json' -r
-complete -c vlz -n "__fish_vlz_using_subcommand scan" -l provider -d 'Force a particular vulnerability provider' -r -f -a "osv\t''"
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l provider -d 'Force a particular vulnerability provider' -r -f -a "osv\t''
+failing\t''
+counting\t''
+cve_returning\t''
+panicking\t''
+tier_c_reachability\t''"
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -s j -l parallel -d 'Parallel query limit (default 10, max 50)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l parallel-resolutions -d 'Parallel dependency resolution limit (default: CPU count, max 32)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l cache-db -d 'Override cache database path' -r -F
@@ -89,6 +95,14 @@ complete -c vlz -n "__fish_vlz_using_subcommand scan" -l allow-direct-only-fallb
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l fail-fast -d 'Stop on first manifest parse/resolution failure; skip CVE lookup (FR-037)'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -s h -l help -d 'Print help'
+complete -c vlz -n "__fish_vlz_using_subcommand fix" -s f -l format -d 'Output format for dry-run (plain or json)' -r -f -a "plain\t''
+json\t''"
+complete -c vlz -n "__fish_vlz_using_subcommand fix" -s o -l output -d 'Write dry-run output to file instead of stdout' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand fix" -s c -l config -d 'Override configuration file location' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand fix" -l dry-run -d 'Preview the upgrade plan; do not write files'
+complete -c vlz -n "__fish_vlz_using_subcommand fix" -l offline -d 'Disable network access (offline apply exits 6 when network is needed)'
+complete -c vlz -n "__fish_vlz_using_subcommand fix" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
+complete -c vlz -n "__fish_vlz_using_subcommand fix" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand languages" -s c -l config -d 'Override configuration file location' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand languages" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
 complete -c vlz -n "__fish_vlz_using_subcommand languages" -s h -l help -d 'Print help'
@@ -145,7 +159,12 @@ complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_f
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from unmark" -s c -l config -d 'Override configuration file location' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from unmark" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from unmark" -s h -l help -d 'Print help'
-complete -c vlz -n "__fish_vlz_using_subcommand preload" -l provider -d 'Force a particular vulnerability provider' -r -f -a "osv\t''"
+complete -c vlz -n "__fish_vlz_using_subcommand preload" -l provider -d 'Force a particular vulnerability provider' -r -f -a "osv\t''
+failing\t''
+counting\t''
+cve_returning\t''
+panicking\t''
+tier_c_reachability\t''"
 complete -c vlz -n "__fish_vlz_using_subcommand preload" -s j -l parallel -d 'Parallel query limit (default 10, max 50)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand preload" -l parallel-resolutions -d 'Parallel dependency resolution limit (default: CPU count, max 32)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand preload" -l cache-db -d 'Override cache database path' -r -F

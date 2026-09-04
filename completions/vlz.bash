@@ -22,6 +22,9 @@ _vlz() {
             vlz,db)
                 cmd="vlz__subcmd__db"
                 ;;
+            vlz,fix)
+                cmd="vlz__subcmd__fix"
+                ;;
             vlz,fp)
                 cmd="vlz__subcmd__fp"
                 ;;
@@ -71,7 +74,7 @@ _vlz() {
 
     case "${cmd}" in
         vlz)
-            opts="-v -c -h -V --verbose --config --env-overrides --help --version scan languages config db fp preload help generate-completions"
+            opts="-v -c -h -V --verbose --config --env-overrides --help --version scan fix languages config db fp preload help generate-completions"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -498,6 +501,88 @@ _vlz() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        vlz__subcmd__fix)
+            opts="-f -o -v -c -h --format --output --dry-run --offline --verbose --config --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --format)
+                    COMPREPLY=($(compgen -W "plain json" -- "${cur}"))
+                    return 0
+                    ;;
+                -f)
+                    COMPREPLY=($(compgen -W "plain json" -- "${cur}"))
+                    return 0
+                    ;;
+                --output)
+                    local oldifs
+                    if [ -n "${IFS+x}" ]; then
+                        oldifs="$IFS"
+                    fi
+                    IFS=$'\n'
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    if [ -n "${oldifs+x}" ]; then
+                        IFS="$oldifs"
+                    fi
+                    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+                        compopt -o filenames
+                    fi
+                    return 0
+                    ;;
+                -o)
+                    local oldifs
+                    if [ -n "${IFS+x}" ]; then
+                        oldifs="$IFS"
+                    fi
+                    IFS=$'\n'
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    if [ -n "${oldifs+x}" ]; then
+                        IFS="$oldifs"
+                    fi
+                    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+                        compopt -o filenames
+                    fi
+                    return 0
+                    ;;
+                --config)
+                    local oldifs
+                    if [ -n "${IFS+x}" ]; then
+                        oldifs="$IFS"
+                    fi
+                    IFS=$'\n'
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    if [ -n "${oldifs+x}" ]; then
+                        IFS="$oldifs"
+                    fi
+                    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+                        compopt -o filenames
+                    fi
+                    return 0
+                    ;;
+                -c)
+                    local oldifs
+                    if [ -n "${IFS+x}" ]; then
+                        oldifs="$IFS"
+                    fi
+                    IFS=$'\n'
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    if [ -n "${oldifs+x}" ]; then
+                        IFS="$oldifs"
+                    fi
+                    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+                        compopt -o filenames
+                    fi
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         vlz__subcmd__fp)
             opts="-v -c -h --verbose --config --help mark unmark"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
@@ -683,7 +768,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__help)
-            opts="-v -c -h --verbose --config --help scan languages config db fp preload help generate-completions"
+            opts="-v -c -h --verbose --config --help scan fix languages config db fp preload help generate-completions"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -778,7 +863,7 @@ _vlz() {
             fi
             case "${prev}" in
                 --provider)
-                    COMPREPLY=($(compgen -W "osv" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "osv failing counting cve_returning panicking tier_c_reachability" -- "${cur}"))
                     return 0
                     ;;
                 --parallel)
@@ -975,7 +1060,7 @@ _vlz() {
                     return 0
                     ;;
                 --provider)
-                    COMPREPLY=($(compgen -W "osv" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "osv failing counting cve_returning panicking tier_c_reachability" -- "${cur}"))
                     return 0
                     ;;
                 --parallel)

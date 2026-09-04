@@ -26,6 +26,26 @@ use crate::parser::{
 /// Default timeout for package-manager subprocesses.
 const PM_TIMEOUT: Duration = Duration::from_secs(120);
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LockFileFingerprint {
+    len: u64,
+    modified_nanos: Option<u128>,
+}
+
+fn lock_fingerprint(lock_path: &Path) -> Option<LockFileFingerprint> {
+    let meta = std::fs::metadata(lock_path).ok()?;
+    let len = meta.len();
+    let modified_nanos = meta
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_nanos());
+    Some(LockFileFingerprint {
+        len,
+        modified_nanos,
+    })
+}
+
 /// Find a usable lock file next to the manifest or in parent directories.
 ///
 /// When `scan_root` is set, the walk stops at that directory and never
@@ -104,7 +124,13 @@ pub use crate::parser::{
 /// Resolver: adjacent/parent lock preferred; PM only with SEC-023 opt-in.
 #[derive(Debug, Default)]
 pub struct JsResolver {
-    lock_cache: Mutex<HashMap<String, CachedResolution>>,
+    lock_cache: Mutex<HashMap<String, CachedLockResolution>>,
+}
+
+#[derive(Debug, Clone)]
+struct CachedLockResolution {
+    fingerprint: Option<LockFileFingerprint>,
+    resolution: CachedResolution,
 }
 
 impl JsResolver {
@@ -284,20 +310,33 @@ impl Resolver for JsResolver {
             find_js_lock_file(manifest_path, pm_field.as_deref(), scan_root)
         {
             let cache_key = lock_path.to_string_lossy().to_string();
+            let current_fingerprint = lock_fingerprint(&lock_path);
             let cached = {
                 let cache = self.lock_cache.lock().map_err(|e| {
                     ResolverError::Other(format!("lock cache lock: {e}"))
                 })?;
                 cache.get(&cache_key).cloned()
             };
-            let resolution = if let Some(c) = cached {
-                c
-            } else {
-                let parsed = parse_lock_path(&lock_path)?;
-                if let Ok(mut cache) = self.lock_cache.lock() {
-                    cache.insert(cache_key, parsed.clone());
+            let resolution = match cached {
+                Some(cached_entry)
+                    if current_fingerprint.is_some()
+                        && cached_entry.fingerprint == current_fingerprint =>
+                {
+                    cached_entry.resolution
                 }
-                parsed
+                _ => {
+                    let parsed = parse_lock_path(&lock_path)?;
+                    if let Ok(mut cache) = self.lock_cache.lock() {
+                        cache.insert(
+                            cache_key,
+                            CachedLockResolution {
+                                fingerprint: current_fingerprint,
+                                resolution: parsed.clone(),
+                            },
+                        );
+                    }
+                    parsed
+                }
             };
 
             if !resolution.packages.is_empty() {

@@ -120,6 +120,7 @@ pub fn ensure_registries_for_run() {
         .unwrap_or_else(|e| e.into_inner());
     vlz::registry::ensure_default_manifest_finder();
     vlz::registry::ensure_default_parser();
+    vlz::registry::clear_resolvers();
     vlz::registry::ensure_default_resolver();
     let cfg = vlz::config::EffectiveConfig {
         provider_http_connect_timeout_secs:

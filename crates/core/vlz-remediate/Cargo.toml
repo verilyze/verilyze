@@ -20,6 +20,7 @@ description = "Upgrade-plan planning for vulnerability remediation (FR-040)"
 serde = { workspace = true, features = ["derive"] }
 semver = "1.0.28"
 vlz-db.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

@@ -300,8 +300,9 @@ cached raw vulns.
 **Limits:** Ranges are advisory metadata from OSV, not an auto-upgrade plan
 and not a single "fix to this version" recommendation. Non-OSV providers may
 omit ranges. Scan JSON/SARIF findings include a structured `upgrade_plan`
-(FR-040) derived from those ranges; plain/HTML keep Ranges only. Applying
-upgrades is reserved for `vlz fix` (FR-041).
+(FR-040) derived from those ranges; plain/HTML keep Ranges only. Applying upgrades uses `vlz fix` (FR-041): default writes lock updates for
+supported strategies (npm / Cargo); `vlz fix --dry-run` previews without
+writing.
 
 ---
 

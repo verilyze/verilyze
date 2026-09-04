@@ -150,6 +150,20 @@ pub fn format_affected_ranges_compact(cve: &CveRecord) -> String {
     truncate_display(&joined, DESCRIPTION_MAX_LEN)
 }
 
+/// Compact representation of an upgrade plan for `vlz fix` dry-run text.
+///
+/// Empty/unknown plans render as `-`.
+pub fn format_upgrade_plan_compact(plan: &UpgradePlan) -> String {
+    if plan.minimal_fixed_version == vlz_remediate::MIN_FIXED_VERSION_UNKNOWN {
+        return "-".to_string();
+    }
+    format!(
+        "{} ({})",
+        plan.minimal_fixed_version,
+        plan.confidence.as_str()
+    )
+}
+
 fn format_affected_event_parts(event: &vlz_db::AffectedEvent) -> Vec<String> {
     let mut parts = Vec::new();
     if let Some(v) = event.introduced.as_deref() {
