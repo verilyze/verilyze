@@ -361,3 +361,53 @@ fn execute_command(
     )?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        SHOW_UPGRADE_PLAN_COMMAND, server_capabilities, workspace_root,
+    };
+    use lsp_types::{
+        InitializeParams, TextDocumentSyncCapability,
+        TextDocumentSyncSaveOptions,
+    };
+    use serde_json::json;
+
+    #[test]
+    fn root_uri_is_used_without_workspace_folders() {
+        let params: InitializeParams = serde_json::from_value(json!({
+            "processId": null,
+            "rootUri": "file:///workspace",
+            "capabilities": {},
+        }))
+        .expect("initialize parameters should deserialize");
+
+        assert_eq!(
+            workspace_root(&params).as_deref(),
+            Some("/workspace".as_ref())
+        );
+    }
+
+    #[test]
+    fn capabilities_advertise_save_only_sync_and_plan_command() {
+        let capabilities = server_capabilities();
+        let TextDocumentSyncCapability::Options(sync) = capabilities
+            .text_document_sync
+            .expect("server should advertise text sync options")
+        else {
+            panic!("server must not advertise unsupported full document sync");
+        };
+        assert_eq!(sync.change, None);
+        assert!(matches!(
+            sync.save,
+            Some(TextDocumentSyncSaveOptions::SaveOptions(_))
+        ));
+        assert_eq!(
+            capabilities
+                .execute_command_provider
+                .expect("server should advertise the plan command")
+                .commands,
+            vec![SHOW_UPGRADE_PLAN_COMMAND.to_string()]
+        );
+    }
+}
