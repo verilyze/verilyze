@@ -2877,7 +2877,6 @@ name = "vlz-lsp"
 version = "0.10.0"
 dependencies = [
  "anyhow",
- "async-trait",
  "lsp-server",
  "lsp-types",
  "serde_json",
