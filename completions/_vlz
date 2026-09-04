@@ -41,7 +41,7 @@ _arguments "${_arguments_options[@]}" : \
 '--output=[Write primary report to file instead of stdout]:PATH:_files' \
 '*-s+[Write additional report files\: e.g. html\:/tmp/out.html,cyclonedx\:/tmp/sbom.json]:TYPE:PATH:_default' \
 '*--report=[Write additional report files\: e.g. html\:/tmp/out.html,cyclonedx\:/tmp/sbom.json]:TYPE:PATH:_default' \
-'--provider=[Force a particular vulnerability provider]:PROVIDER:(osv failing counting cve_returning panicking tier_c_reachability)' \
+'--provider=[Force a particular vulnerability provider]:PROVIDER:(osv)' \
 '-j+[Parallel query limit (default 10, max 50)]:PARALLEL:_default' \
 '--parallel=[Parallel query limit (default 10, max 50)]:PARALLEL:_default' \
 '--parallel-resolutions=[Parallel dependency resolution limit (default\: CPU count, max 32)]:N:_default' \
@@ -270,7 +270,7 @@ esac
 ;;
 (preload)
 _arguments "${_arguments_options[@]}" : \
-'--provider=[Force a particular vulnerability provider]:PROVIDER:(osv failing counting cve_returning panicking tier_c_reachability)' \
+'--provider=[Force a particular vulnerability provider]:PROVIDER:(osv)' \
 '-j+[Parallel query limit (default 10, max 50)]:PARALLEL:_default' \
 '--parallel=[Parallel query limit (default 10, max 50)]:PARALLEL:_default' \
 '--parallel-resolutions=[Parallel dependency resolution limit (default\: CPU count, max 32)]:N:_default' \

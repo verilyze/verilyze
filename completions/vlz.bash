@@ -863,7 +863,7 @@ _vlz() {
             fi
             case "${prev}" in
                 --provider)
-                    COMPREPLY=($(compgen -W "osv failing counting cve_returning panicking tier_c_reachability" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "osv" -- "${cur}"))
                     return 0
                     ;;
                 --parallel)
@@ -1060,7 +1060,7 @@ _vlz() {
                     return 0
                     ;;
                 --provider)
-                    COMPREPLY=($(compgen -W "osv failing counting cve_returning panicking tier_c_reachability" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "osv" -- "${cur}"))
                     return 0
                     ;;
                 --parallel)
