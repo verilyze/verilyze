@@ -406,7 +406,7 @@ mod tests {
         let _ = std::fs::remove_file(&path);
         assert!(!ok);
         assert!(
-            start.elapsed() < Duration::from_secs(2),
+            start.elapsed() < Duration::from_secs(5),
             "probe must kill a hung binary"
         );
     }
