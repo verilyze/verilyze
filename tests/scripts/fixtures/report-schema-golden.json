@@ -40,6 +40,12 @@
           "kind": "lockfile"
         }
       ],
+      "upgrade_plan": {
+        "minimal_fixed_version": "2.32.0",
+        "dependency_kind": "direct",
+        "apply_strategy": "unavailable",
+        "confidence": "high"
+      },
       "cves": [
         {
           "id": "CVE-2024-0001",
