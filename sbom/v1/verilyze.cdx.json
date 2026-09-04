@@ -2242,6 +2242,13 @@
       "version": "0.10.0"
     },
     {
+      "bom-ref": "pkg:cargo/vlz-remediate@0.10.0",
+      "name": "vlz-remediate",
+      "purl": "pkg:cargo/vlz-remediate@0.10.0",
+      "type": "library",
+      "version": "0.10.0"
+    },
+    {
       "bom-ref": "pkg:cargo/vlz-report@0.10.0",
       "name": "vlz-report",
       "purl": "pkg:cargo/vlz-report@0.10.0",
