@@ -2836,6 +2836,16 @@ fn write_npm_package_lock(root: &std::path::Path, pkg: &str, version: &str) {
         serde_json::to_string_pretty(&content).unwrap(),
     )
     .expect("write package-lock.json");
+    std::fs::write(
+        root.join("package.json"),
+        serde_json::json!({
+            "name": "app",
+            "version": "1.0.0",
+            "dependencies": { pkg: version }
+        })
+        .to_string(),
+    )
+    .expect("write package.json");
 }
 
 #[cfg(all(feature = "javascript", unix))]
@@ -2905,6 +2915,20 @@ version = "{version}"
     );
     std::fs::write(root.join("Cargo.lock"), content)
         .expect("write Cargo.lock");
+    std::fs::write(
+        root.join("Cargo.toml"),
+        format!(
+            r#"[package]
+name = "app"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+{pkg} = "{version}"
+"#
+        ),
+    )
+    .expect("write Cargo.toml");
 }
 
 #[cfg(all(feature = "rust", unix))]
@@ -2942,13 +2966,13 @@ def main() -> int:
     pkg = None
     ver = None
     for i, a in enumerate(args):
-        if a == "-p" and i + 1 < len(args):
+        if a in ("-p", "--package") and i + 1 < len(args):
             pkg = args[i + 1]
         if a == "--precise" and i + 1 < len(args):
             ver = args[i + 1]
 
     if not pkg or not ver:
-        print("fake cargo: missing -p/--precise args", file=sys.stderr)
+        print("fake cargo: missing --package/--precise args", file=sys.stderr)
         return 2
 
     lock_path = Path("Cargo.lock")
@@ -3210,6 +3234,71 @@ fn run_fix_missing_package_manager_exits_3() {
             read_npm_package_lock_version(dir.path(), "pkg"),
             "1.0.0",
             "failure must not mutate lockfile"
+        );
+    });
+}
+
+#[cfg(all(feature = "python", unix, feature = "testing"))]
+#[test]
+fn run_fix_dry_run_unavailable_strategy_exits_0_not_4() {
+    use vlz::registry::Plugin;
+
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        temp_env::with_var(
+            "VLZ_ALLOW_DIRECT_ONLY_FALLBACK",
+            Some("true"),
+            || {
+                let dir = tempfile::tempdir().expect("tempdir");
+                std::fs::write(
+                    dir.path().join("requirements.txt"),
+                    "pkg==1.0.0\n",
+                )
+                .expect("write requirements.txt");
+                let root = dir.path().to_str().unwrap();
+
+                let out_path = dir.path().join("fix-out.json");
+
+                let provider = VersionAwareOsvProvider {
+                    pkg_name: "pkg",
+                    ecosystem: vlz_db::PYPI_ECOSYSTEM,
+                    fixed_version: "2.0.0",
+                    cve_id: "CVE-TEST-PY-FIX",
+                };
+                vlz::registry::clear_providers();
+                vlz::registry::register(Plugin::CveProvider(Box::new(
+                    provider,
+                )));
+
+                let code = run_async(&[
+                    "fix",
+                    root,
+                    "--dry-run",
+                    "--format",
+                    "json",
+                    "--output",
+                    out_path.to_str().unwrap(),
+                ]);
+                assert_eq!(
+                    code, 0,
+                    "dry-run with unavailable strategy must exit 0 (not 4)"
+                );
+
+                let content = std::fs::read_to_string(&out_path)
+                    .expect("read fix output");
+                let parsed: serde_json::Value =
+                    serde_json::from_str(&content).expect("parse fix JSON");
+                let findings = parsed["findings"].as_array().unwrap();
+                assert_eq!(findings.len(), 1);
+                assert_eq!(
+                    findings[0]["upgrade_plan"]["apply_strategy"],
+                    "unavailable"
+                );
+                assert_eq!(
+                    findings[0]["upgrade_plan"]["minimal_fixed_version"],
+                    "2.0.0"
+                );
+            },
         );
     });
 }

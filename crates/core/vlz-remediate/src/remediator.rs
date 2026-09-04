@@ -4,8 +4,12 @@
 
 //! Remediation application via package-manager argv.
 //!
-//! Phase 1 computes upgrade plans only (apply strategy "unavailable").
-//! Phase 2 applies supported remediations via lock/manifest mutation.
+//! Supported Phase-2 strategies (SEC-025):
+//! - npm via `package-lock.json` / `npm-shrinkwrap.json`
+//! - Cargo via `Cargo.lock`
+//!
+//! Apply is fail-fast (first remediator error stops the batch). Earlier
+//! successful writes are not rolled back.
 
 use std::path::Path;
 use std::process::Command;
@@ -24,6 +28,130 @@ use crate::{
 const NPM_LOCKFILE_PACKAGE_LOCK_JSON: &str = "package-lock.json";
 const NPM_LOCKFILE_NPM_SHRINKWRAP_JSON: &str = "npm-shrinkwrap.json";
 const CARGO_LOCK_FILE_NAME: &str = "Cargo.lock";
+const NPM_MANIFEST_FILE_NAME: &str = "package.json";
+const CARGO_MANIFEST_FILE_NAME: &str = "Cargo.toml";
+const NPM_BIN_NAME: &str = "npm";
+const CARGO_BIN_NAME: &str = "cargo";
+
+/// Resolve a lockfile declaration to a working directory under `scan_root`.
+///
+/// Absolute declaration paths replace `scan_root` under [`Path::join`]; this
+/// helper canonicalizes and rejects any lock path (or parent) outside the
+/// scan root (SEC-025).
+fn resolve_lock_workdir_under_root(
+    scan_root: &Path,
+    declaration_path: &str,
+) -> Option<std::path::PathBuf> {
+    let root = std::fs::canonicalize(scan_root).ok()?;
+    let joined = {
+        let decl = Path::new(declaration_path);
+        if decl.is_absolute() {
+            decl.to_path_buf()
+        } else {
+            scan_root.join(decl)
+        }
+    };
+    let file_abs = std::fs::canonicalize(&joined).ok()?;
+    if !file_abs.starts_with(&root) {
+        return None;
+    }
+    let dir = file_abs.parent()?.to_path_buf();
+    if !dir.starts_with(&root) {
+        return None;
+    }
+    Some(dir)
+}
+
+fn require_sibling_manifest(
+    lock_dir: &Path,
+    file_name: &str,
+) -> Result<(), RemediationError> {
+    let manifest = lock_dir.join(file_name);
+    if manifest.is_file() {
+        Ok(())
+    } else {
+        Err(RemediationError::UnsupportedLockLayout(format!(
+            "missing sibling {file_name} next to lockfile"
+        )))
+    }
+}
+
+/// Allowlisted npm package name (optionally scoped) for argv operands.
+fn is_allowlisted_npm_package_name(name: &str) -> bool {
+    if name.is_empty() || name.len() > 214 {
+        return false;
+    }
+    let (scope, pkg) = if let Some(rest) = name.strip_prefix('@') {
+        match rest.split_once('/') {
+            Some((scope, pkg)) => (Some(scope), pkg),
+            None => return false,
+        }
+    } else {
+        (None, name)
+    };
+    let ok_part = |s: &str| {
+        !s.is_empty()
+            && !s.starts_with('.')
+            && !s.starts_with('-')
+            && s.chars().all(|c| {
+                c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.')
+            })
+    };
+    scope.is_none_or(ok_part) && ok_part(pkg)
+}
+
+/// Allowlisted crates.io package name for `cargo update --package`.
+fn is_allowlisted_cargo_package_name(name: &str) -> bool {
+    if name.is_empty() || name.len() > 64 || name.starts_with('-') {
+        return false;
+    }
+    name.chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_'))
+}
+
+/// Allowlisted version operand (no leading dash / whitespace / shell metachars).
+fn is_allowlisted_version_operand(version: &str) -> bool {
+    if version.is_empty()
+        || version.len() > 128
+        || version.starts_with('-')
+        || version.contains([' ', '\t', '\n', '\r', ';', '|', '&', '$', '`'])
+    {
+        return false;
+    }
+    version.chars().all(|c| {
+        c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_' | '+')
+    })
+}
+
+fn require_allowlisted_npm_operands(
+    package_name: &str,
+    target_version: &str,
+) -> Result<(), RemediationError> {
+    if is_allowlisted_npm_package_name(package_name)
+        && is_allowlisted_version_operand(target_version)
+    {
+        Ok(())
+    } else {
+        Err(RemediationError::InvalidOperand(format!(
+            "npm package/version not allowlisted: {package_name}@{target_version}"
+        )))
+    }
+}
+
+fn require_allowlisted_cargo_operands(
+    package_name: &str,
+    target_version: &str,
+) -> Result<(), RemediationError> {
+    if is_allowlisted_cargo_package_name(package_name)
+        && is_allowlisted_version_operand(target_version)
+    {
+        Ok(())
+    } else {
+        Err(RemediationError::InvalidOperand(format!(
+            "cargo package/version not allowlisted: {package_name}@{target_version}"
+        )))
+    }
+}
 
 /// Where remediation can be applied.
 ///
@@ -95,6 +223,9 @@ pub enum RemediationError {
     #[error("remediation not supported for lock/manifest layout: {0}")]
     UnsupportedLockLayout(String),
 
+    #[error("remediation package or version is not allowlisted: {0}")]
+    InvalidOperand(String),
+
     #[error("remediation command failed ({strategy}): {message}")]
     CommandFailed { strategy: String, message: String },
     #[error("IO error: {0}")]
@@ -120,11 +251,8 @@ pub trait Remediator {
     ) -> Result<(), RemediationError>;
 }
 
-const NPM_BIN_NAME: &str = "npm";
-const CARGO_BIN_NAME: &str = "cargo";
-
 /// Apply npm remediation by invoking:
-/// `npm install --ignore-scripts --package-lock-only <name>@<version>`
+/// `npm install --ignore-scripts --package-lock-only -- <name>@<version>`
 #[derive(Debug, Clone)]
 pub struct NpmRemediator {
     bin: String,
@@ -155,9 +283,9 @@ impl NpmRemediator {
             .is_ok_and(|o| o.status.success())
     }
 
-    fn select_npm_lock_dir<'a>(
+    fn select_npm_lock_dir(
         &self,
-        ctx: &'a RemediationContext<'a>,
+        ctx: &RemediationContext<'_>,
     ) -> Option<std::path::PathBuf> {
         ctx.declarations.iter().find_map(|d| {
             if d.kind != DeclarationKind::Lockfile
@@ -165,9 +293,7 @@ impl NpmRemediator {
             {
                 return None;
             }
-            let rel = Path::new(d.path.as_str());
-            let file_abs = ctx.scan_root.join(rel);
-            Some(file_abs.parent().unwrap_or(ctx.scan_root).to_path_buf())
+            resolve_lock_workdir_under_root(ctx.scan_root, d.path.as_str())
         })
     }
 }
@@ -183,21 +309,24 @@ impl Remediator for NpmRemediator {
         if ctx.offline {
             return Err(RemediationError::OfflineBlocked);
         }
+        require_allowlisted_npm_operands(
+            ctx.package_name,
+            ctx.target_version,
+        )?;
         if !self.npm_available() {
             return Err(RemediationError::MissingPackageManager(
                 NPM_BIN_NAME.to_string(),
             ));
         }
-        let lock_dir = self
-            .select_npm_lock_dir(ctx)
-            .ok_or_else(|| {
-                RemediationError::UnsupportedLockLayout(
-                    "supported npm lockfile not found (need package-lock.json or npm-shrinkwrap.json)".to_string()
-                )
-            })?;
+        let lock_dir = self.select_npm_lock_dir(ctx).ok_or_else(|| {
+            RemediationError::UnsupportedLockLayout(
+                "supported npm lockfile not found under scan root (need package-lock.json or npm-shrinkwrap.json)".to_string(),
+            )
+        })?;
+        require_sibling_manifest(&lock_dir, NPM_MANIFEST_FILE_NAME)?;
 
         let mut cmd = Command::new(&self.bin);
-        cmd.current_dir(lock_dir);
+        cmd.current_dir(&lock_dir);
         cmd.arg("install");
         if !ctx.allow_dependency_code_execution {
             cmd.arg("--ignore-scripts");
@@ -207,6 +336,7 @@ impl Remediator for NpmRemediator {
             // For transitive remediation, avoid mutating package.json.
             cmd.arg("--no-save");
         }
+        cmd.arg("--");
         cmd.arg(format!("{}@{}", ctx.package_name, ctx.target_version));
 
         let out = cmd.output()?;
@@ -223,7 +353,7 @@ impl Remediator for NpmRemediator {
 }
 
 /// Apply Cargo remediation by invoking:
-/// `cargo update -p <name> --precise <version>`
+/// `cargo update --package <name> --precise <version>`
 #[derive(Debug, Clone)]
 pub struct CargoRemediator {
     bin: String,
@@ -254,9 +384,9 @@ impl CargoRemediator {
             .is_ok_and(|o| o.status.success())
     }
 
-    fn select_cargo_lock_dir<'a>(
+    fn select_cargo_lock_dir(
         &self,
-        ctx: &'a RemediationContext<'a>,
+        ctx: &RemediationContext<'_>,
     ) -> Option<std::path::PathBuf> {
         ctx.declarations.iter().find_map(|d| {
             if d.kind != DeclarationKind::Lockfile {
@@ -266,8 +396,7 @@ impl CargoRemediator {
             if !file.file_name().is_some_and(|n| n == CARGO_LOCK_FILE_NAME) {
                 return None;
             }
-            let file_abs = ctx.scan_root.join(file);
-            Some(file_abs.parent().unwrap_or(ctx.scan_root).to_path_buf())
+            resolve_lock_workdir_under_root(ctx.scan_root, d.path.as_str())
         })
     }
 }
@@ -283,6 +412,10 @@ impl Remediator for CargoRemediator {
         if ctx.offline {
             return Err(RemediationError::OfflineBlocked);
         }
+        require_allowlisted_cargo_operands(
+            ctx.package_name,
+            ctx.target_version,
+        )?;
         if !self.cargo_available() {
             return Err(RemediationError::MissingPackageManager(
                 CARGO_BIN_NAME.to_string(),
@@ -290,14 +423,15 @@ impl Remediator for CargoRemediator {
         }
         let lock_dir = self.select_cargo_lock_dir(ctx).ok_or_else(|| {
             RemediationError::UnsupportedLockLayout(
-                "Cargo.lock not found in declarations".to_string(),
+                "Cargo.lock not found under scan root".to_string(),
             )
         })?;
+        require_sibling_manifest(&lock_dir, CARGO_MANIFEST_FILE_NAME)?;
 
         let mut cmd = Command::new(&self.bin);
-        cmd.current_dir(lock_dir);
+        cmd.current_dir(&lock_dir);
         cmd.arg("update");
-        cmd.arg("-p");
+        cmd.arg("--package");
         cmd.arg(ctx.package_name);
         cmd.arg("--precise");
         cmd.arg(ctx.target_version);
@@ -351,6 +485,19 @@ mod tests {
     fn write_exec(path: &Path, body: &str) {
         fs::write(path, body).unwrap();
         fs::set_permissions(path, PermissionsExt::from_mode(0o755)).unwrap();
+    }
+
+    fn write_npm_tree(root: &Path) {
+        fs::create_dir_all(root).unwrap();
+        fs::write(root.join("package-lock.json"), "{}\n").unwrap();
+        fs::write(root.join("package.json"), "{\"name\":\"app\"}\n").unwrap();
+    }
+
+    fn write_cargo_tree(root: &Path) {
+        fs::create_dir_all(root).unwrap();
+        fs::write(root.join("Cargo.lock"), "# lock\n").unwrap();
+        fs::write(root.join("Cargo.toml"), "[package]\nname=\"app\"\n")
+            .unwrap();
     }
 
     #[test]
@@ -575,8 +722,7 @@ mod tests {
         let root = std::env::temp_dir()
             .join(format!("vlz-npm-stub-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
-        fs::create_dir_all(&root).unwrap();
-        fs::write(root.join("package-lock.json"), "{}\n").unwrap();
+        write_npm_tree(&root);
         let decls = [lock_decl("package-lock.json")];
 
         let ok_bin = root.join("npm-ok");
@@ -624,8 +770,7 @@ mod tests {
         let root = std::env::temp_dir()
             .join(format!("vlz-cargo-stub-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
-        fs::create_dir_all(&root).unwrap();
-        fs::write(root.join("Cargo.lock"), "# lock\n").unwrap();
+        write_cargo_tree(&root);
         let decls = [lock_decl("Cargo.lock")];
 
         let ok_bin = root.join("cargo-ok");
@@ -666,6 +811,147 @@ mod tests {
             other => panic!("expected CommandFailed, got {other:?}"),
         }
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn npm_apply_rejects_lock_path_outside_scan_root() {
+        let pid = std::process::id();
+        let root =
+            std::env::temp_dir().join(format!("vlz-npm-esc-root-{pid}"));
+        let outside =
+            std::env::temp_dir().join(format!("vlz-npm-esc-out-{pid}"));
+        let _ = fs::remove_dir_all(&root);
+        let _ = fs::remove_dir_all(&outside);
+        write_npm_tree(&root);
+        write_npm_tree(&outside);
+        let ok_bin = root.join("npm-ok");
+        write_exec(&ok_bin, "#!/bin/sh\nexit 0\n");
+        let rem = NpmRemediator::with_bin(ok_bin.to_string_lossy());
+
+        let abs = outside
+            .join("package-lock.json")
+            .canonicalize()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        let err = rem
+            .apply(&RemediationContext {
+                scan_root: &root,
+                declarations: &[lock_decl(&abs)],
+                package_name: "left-pad",
+                target_version: "2.0.0",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+
+        let rel = format!("../vlz-npm-esc-out-{pid}/package-lock.json");
+        let err = rem
+            .apply(&RemediationContext {
+                scan_root: &root,
+                declarations: &[lock_decl(&rel)],
+                package_name: "left-pad",
+                target_version: "2.0.0",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+        let _ = fs::remove_dir_all(&root);
+        let _ = fs::remove_dir_all(&outside);
+    }
+
+    #[test]
+    fn npm_apply_rejects_missing_sibling_manifest() {
+        let root = std::env::temp_dir()
+            .join(format!("vlz-npm-nosib-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("package-lock.json"), "{}\n").unwrap();
+        let ok_bin = root.join("npm-ok");
+        write_exec(&ok_bin, "#!/bin/sh\nexit 0\n");
+        let err = NpmRemediator::with_bin(ok_bin.to_string_lossy())
+            .apply(&RemediationContext {
+                scan_root: &root,
+                declarations: &[lock_decl("package-lock.json")],
+                package_name: "left-pad",
+                target_version: "2.0.0",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn npm_and_cargo_apply_reject_invalid_operands() {
+        let root = std::env::temp_dir()
+            .join(format!("vlz-operand-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        write_npm_tree(&root);
+        let cargo_root = root.join("cargo-tree");
+        write_cargo_tree(&cargo_root);
+        let npm_bin = root.join("npm-ok");
+        let cargo_bin = root.join("cargo-ok");
+        write_exec(&npm_bin, "#!/bin/sh\nexit 0\n");
+        write_exec(&cargo_bin, "#!/bin/sh\nexit 0\n");
+
+        let err = NpmRemediator::with_bin(npm_bin.to_string_lossy())
+            .apply(&RemediationContext {
+                scan_root: &root,
+                declarations: &[lock_decl("package-lock.json")],
+                package_name: "-evil",
+                target_version: "2.0.0",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::InvalidOperand(_)));
+
+        let err = CargoRemediator::with_bin(cargo_bin.to_string_lossy())
+            .apply(&RemediationContext {
+                scan_root: &cargo_root,
+                declarations: &[lock_decl("Cargo.lock")],
+                package_name: "-evil",
+                target_version: "1.0.0",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::InvalidOperand(_)));
+
+        let err = CargoRemediator::with_bin(cargo_bin.to_string_lossy())
+            .apply(&RemediationContext {
+                scan_root: &cargo_root,
+                declarations: &[lock_decl("Cargo.lock")],
+                package_name: "serde",
+                target_version: "--precise",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::InvalidOperand(_)));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn allowlist_helpers_accept_scoped_npm_and_reject_bad_versions() {
+        assert!(is_allowlisted_npm_package_name("@scope/pkg"));
+        assert!(!is_allowlisted_npm_package_name("@scope"));
+        assert!(!is_allowlisted_npm_package_name(""));
+        assert!(is_allowlisted_cargo_package_name("serde_json"));
+        assert!(!is_allowlisted_cargo_package_name("-x"));
+        assert!(is_allowlisted_version_operand("1.2.3-beta+meta"));
+        assert!(!is_allowlisted_version_operand("-1"));
+        assert!(!is_allowlisted_version_operand("1;rm"));
     }
 
     #[test]

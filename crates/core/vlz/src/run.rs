@@ -1992,7 +1992,7 @@ async fn run_fix(
     }
 
     let mut plan_entries: Vec<FixPlanEntry> = Vec::new();
-    let mut has_unavailable_apply_strategy = false;
+    let mut skipped_unavailable: usize = 0;
 
     for (pkg, recs) in findings {
         let declarations =
@@ -2012,7 +2012,7 @@ async fn run_fix(
             upgrade_plan.apply_strategy,
             vlz_remediate::ApplyStrategy::Unavailable
         ) {
-            has_unavailable_apply_strategy = true;
+            skipped_unavailable += 1;
         }
 
         plan_entries.push(FixPlanEntry {
@@ -2071,20 +2071,13 @@ async fn run_fix(
     }
 
     // -----------------------------------------------------------------
-    // Dry-run exit codes.
+    // Dry-run exit codes (FR-010 / FR-041): preview only; CVE hits are not
+    // exit 86. Unavailable strategies stay in the plan and do not force
+    // exit 4.
     // -----------------------------------------------------------------
     let cve_exit_code: i32 =
         effective.exit_code_on_cve.unwrap_or(DEFAULT_CVE_EXIT_CODE) as i32;
     if dry_run {
-        if has_unavailable_apply_strategy
-            && (first_exit_code == EXIT_SUCCESS
-                || first_exit_code == cve_exit_code)
-        {
-            eprintln!(
-                "Some findings have apply_strategy=unavailable and cannot be remediated by the first phase-2 remediators."
-            );
-            return Ok(EXIT_RESOLUTION_FAILED);
-        }
         if first_exit_code == EXIT_SUCCESS || first_exit_code == cve_exit_code
         {
             return Ok(EXIT_SUCCESS);
@@ -2099,7 +2092,14 @@ async fn run_fix(
         return Ok(first_exit_code);
     }
 
-    // Apply only strategies that are available.
+    if skipped_unavailable > 0 {
+        eprintln!(
+            "Skipping {skipped_unavailable} finding(s) with apply_strategy=unavailable (no Phase-2 remediator for that lock/ecosystem)."
+        );
+    }
+
+    // Apply only strategies that are available. Fail-fast: first remediator
+    // error stops the batch (earlier successful writes are not rolled back).
     for e in &plan_entries {
         let ctx = vlz_remediate::RemediationContext {
             scan_root: &scan_root_path,
@@ -2112,77 +2112,47 @@ async fn run_fix(
             offline,
         };
 
+        let map_remediation_err =
+            |err: vlz_remediate::RemediationError| match err {
+                vlz_remediate::RemediationError::OfflineBlocked => {
+                    EXIT_OFFLINE_CACHE_MISS
+                }
+                vlz_remediate::RemediationError::MissingPackageManager(_) => {
+                    EXIT_MISSING_PACKAGE_MANAGER
+                }
+                vlz_remediate::RemediationError::TargetVersionUnknown
+                | vlz_remediate::RemediationError::UnsupportedLockLayout(_)
+                | vlz_remediate::RemediationError::InvalidOperand(_)
+                | vlz_remediate::RemediationError::CommandFailed { .. }
+                | vlz_remediate::RemediationError::Io(_) => {
+                    EXIT_RESOLUTION_FAILED
+                }
+            };
+
         match e.upgrade_plan.apply_strategy {
             vlz_remediate::ApplyStrategy::Npm => {
                 let rem = vlz_remediate::NpmRemediator::new();
                 if let Err(err) = rem.apply(&ctx) {
-                    return Ok(match err {
-                        vlz_remediate::RemediationError::OfflineBlocked => {
-                            EXIT_OFFLINE_CACHE_MISS
-                        }
-                        vlz_remediate::RemediationError::MissingPackageManager(_) => {
-                            EXIT_MISSING_PACKAGE_MANAGER
-                        }
-                        vlz_remediate::RemediationError::TargetVersionUnknown => {
-                            EXIT_RESOLUTION_FAILED
-                        }
-                        vlz_remediate::RemediationError::UnsupportedLockLayout(_) => {
-                            EXIT_RESOLUTION_FAILED
-                        }
-                        vlz_remediate::RemediationError::CommandFailed { .. } => {
-                            EXIT_RESOLUTION_FAILED
-                        }
-                        vlz_remediate::RemediationError::Io(_) => {
-                            EXIT_RESOLUTION_FAILED
-                        }
-                    });
+                    return Ok(map_remediation_err(err));
                 }
             }
             vlz_remediate::ApplyStrategy::Cargo => {
                 let rem = vlz_remediate::CargoRemediator::new();
                 if let Err(err) = rem.apply(&ctx) {
-                    return Ok(match err {
-                        vlz_remediate::RemediationError::OfflineBlocked => {
-                            EXIT_OFFLINE_CACHE_MISS
-                        }
-                        vlz_remediate::RemediationError::MissingPackageManager(_) => {
-                            EXIT_MISSING_PACKAGE_MANAGER
-                        }
-                        vlz_remediate::RemediationError::TargetVersionUnknown => {
-                            EXIT_RESOLUTION_FAILED
-                        }
-                        vlz_remediate::RemediationError::UnsupportedLockLayout(_) => {
-                            EXIT_RESOLUTION_FAILED
-                        }
-                        vlz_remediate::RemediationError::CommandFailed { .. } => {
-                            EXIT_RESOLUTION_FAILED
-                        }
-                        vlz_remediate::RemediationError::Io(_) => {
-                            EXIT_RESOLUTION_FAILED
-                        }
-                    });
+                    return Ok(map_remediation_err(err));
                 }
             }
             vlz_remediate::ApplyStrategy::Unavailable => {
-                // Preview already warned via apply_strategy; enforce exit code below.
+                // Skipped; warned above when any unavailable findings exist.
             }
         }
     }
 
-    // Re-scan after successful apply to decide if CVEs remain (FR-041).
+    // Re-scan after apply to decide if CVEs remain (FR-041). Exit codes follow
+    // the post-apply scan (FR-010); unavailable skips do not force exit 4.
     let after_scan =
         scan_findings_for_fix(root, &effective, provider_impl, db_backend)
             .await?;
-
-    if has_unavailable_apply_strategy
-        && (after_scan.exit_code == EXIT_SUCCESS
-            || after_scan.exit_code == cve_exit_code)
-    {
-        eprintln!(
-            "Some findings have apply_strategy=unavailable and cannot be remediated by the first phase-2 remediators."
-        );
-        return Ok(EXIT_RESOLUTION_FAILED);
-    }
     Ok(after_scan.exit_code)
 }
 
