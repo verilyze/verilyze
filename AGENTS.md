@@ -132,11 +132,30 @@ suppress tool stderr (including `eprintln!` such as FR-022a), not only
 - **Python modern style:** Follow CONTRIBUTING Python style (3.11+ typing; no
   `__future__` imports or legacy `typing` aliases).
 
+## Cursor Cloud specific instructions
+
+Cloud Agents use [`.cursor/environment.json`](.cursor/environment.json):
+
+- **Base image:** [`.cursor/Dockerfile`](.cursor/Dockerfile) installs Docker CE
+  (fuse-overlayfs) and the Rust channel from `rust-toolchain.toml` so
+  `install.sh` can build `vlz`. Build context is the repo root.
+- **Per boot:** `start` runs `sign-setup.sh` then
+  [`.cursor/docker-start.sh`](.cursor/docker-start.sh) (starts `dockerd`;
+  falls back to `vfs` via `--storage-driver` if fuse-overlayfs cannot start).
+  Docker start is soft-fail: a dockerd outage warns and the agent continues.
+- **Verify:** `docker info` then `make super-linter` (needed by
+  verilyze-ship-pr). Trivy prefers `ghcr.io/aquasecurity/trivy-db` (see
+  `trivy.yaml`); allowlist `ghcr.io` (and optionally `mirror.gcr.io` /
+  `public.ecr.aws` as fallbacks).
+- New agents pick up Dockerfile changes only after an environment **Build**
+  from the revision that contains them.
+
 ## Quick links
 
 | Topic                | Where to look                                            |
 |----------------------|----------------------------------------------------------|
 | Install / build      | [INSTALL.md](INSTALL.md); README “Quick start”           |
+| Cursor Cloud env     | This file "Cursor Cloud specific instructions"; [`.cursor/environment.json`](.cursor/environment.json) |
 | Exit codes           | PRD FR-009, FR-010, FR-016; README “Exit codes”          |
 | Shell script style   | CONTRIBUTING "Code style and checks"; PRD NFR-022        |
 | Config precedence    | PRD CFG-001--CFG-008; README “Configuration precedence”  |

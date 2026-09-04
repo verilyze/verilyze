@@ -10,6 +10,17 @@
 
 db:
   no-progress: true
+  # Prefer ghcr.io first: Cursor Cloud (and some local egress policies) block
+  # mirror.gcr.io, which is Trivy's default and fails hard before fallback.
+  # Keep mirror + ECR as alternatives when ghcr is rate-limited.
+  repository:
+    - ghcr.io/aquasecurity/trivy-db:2
+    - public.ecr.aws/aquasecurity/trivy-db:2
+    - mirror.gcr.io/aquasec/trivy-db:2
+  java-repository:
+    - ghcr.io/aquasecurity/trivy-java-db:1
+    - public.ecr.aws/aquasecurity/trivy-java-db:1
+    - mirror.gcr.io/aquasec/trivy-java-db:1
 
 scan:
   skip-dirs:
