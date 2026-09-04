@@ -37,6 +37,9 @@ _vlz() {
             vlz,languages)
                 cmd="vlz__subcmd__languages"
                 ;;
+            vlz,lsp)
+                cmd="vlz__subcmd__lsp"
+                ;;
             vlz,preload)
                 cmd="vlz__subcmd__preload"
                 ;;
@@ -74,7 +77,7 @@ _vlz() {
 
     case "${cmd}" in
         vlz)
-            opts="-v -c -h -V --verbose --config --env-overrides --help --version scan fix languages config db fp preload help generate-completions"
+            opts="-v -c -h -V --verbose --config --env-overrides --help --version scan fix lsp languages config db fp preload help generate-completions"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -812,6 +815,50 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__languages)
+            opts="-v -c -h --verbose --config --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --config)
+                    local oldifs
+                    if [ -n "${IFS+x}" ]; then
+                        oldifs="$IFS"
+                    fi
+                    IFS=$'\n'
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    if [ -n "${oldifs+x}" ]; then
+                        IFS="$oldifs"
+                    fi
+                    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+                        compopt -o filenames
+                    fi
+                    return 0
+                    ;;
+                -c)
+                    local oldifs
+                    if [ -n "${IFS+x}" ]; then
+                        oldifs="$IFS"
+                    fi
+                    IFS=$'\n'
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    if [ -n "${oldifs+x}" ]; then
+                        IFS="$oldifs"
+                    fi
+                    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+                        compopt -o filenames
+                    fi
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vlz__subcmd__lsp)
             opts="-v -c -h --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
