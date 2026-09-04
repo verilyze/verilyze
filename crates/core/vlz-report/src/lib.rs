@@ -22,6 +22,7 @@ use vlz_db::{
     Severity, dedupe_sort_declarations, purl_for_package,
     purl_type_for_ecosystem,
 };
+use vlz_remediate::UpgradePlan;
 
 const DESCRIPTION_MAX_LEN: usize = 60;
 
@@ -147,6 +148,20 @@ pub fn format_affected_ranges_compact(cve: &CveRecord) -> String {
         .collect();
     let joined = pieces.join("; ");
     truncate_display(&joined, DESCRIPTION_MAX_LEN)
+}
+
+/// Compact representation of an upgrade plan for `vlz fix` dry-run text.
+///
+/// Empty/unknown plans render as `-`.
+pub fn format_upgrade_plan_compact(plan: &UpgradePlan) -> String {
+    if plan.minimal_fixed_version == vlz_remediate::MIN_FIXED_VERSION_UNKNOWN {
+        return "-".to_string();
+    }
+    format!(
+        "{} ({})",
+        plan.minimal_fixed_version,
+        plan.confidence.as_str()
+    )
 }
 
 fn format_affected_event_parts(event: &vlz_db::AffectedEvent) -> Vec<String> {
@@ -445,6 +460,8 @@ pub struct Finding {
     pub manifest_paths: Vec<PathBuf>,
     /// Declaration line locations (FR-036a Tier 1). Sorted and deduplicated.
     pub declarations: Vec<PackageDeclarationLocation>,
+    /// Finding-level upgrade plan (FR-040).
+    pub upgrade_plan: vlz_remediate::UpgradePlan,
     pub cves: Vec<(CveRecord, Severity)>,
 }
 
@@ -686,6 +703,7 @@ struct JsonFinding<'a> {
         skip_serializing_if = "<[PackageDeclarationLocation]>::is_empty"
     )]
     declarations: &'a [PackageDeclarationLocation],
+    upgrade_plan: &'a UpgradePlan,
     cves: Vec<JsonCveWithSeverity<'a>>,
 }
 
@@ -742,6 +760,7 @@ impl Reporter for JsonReporter {
                     package: &f.package,
                     manifest_paths: &f.manifest_paths,
                     declarations: &f.declarations,
+                    upgrade_plan: &f.upgrade_plan,
                     cves: f
                         .cves
                         .iter()
@@ -952,6 +971,8 @@ impl Reporter for SarifReporter {
                             "manifest_paths": manifest_uris
                         }
                     });
+                    result["properties"]["upgrade_plan"] =
+                        serde_json::json!(finding.upgrade_plan);
                     if let Some(reachable) = cve.reachable {
                         result["properties"]["reachable"] =
                             serde_json::json!(reachable);
@@ -1306,7 +1327,11 @@ impl Reporter for SpdxReporter {
                             "annotationType": "other",
                             "annotator": { "annotatorType": "tool", "name": "vlz" },
                             "annotationDate": format_timestamp_rfc3339(),
-                            "comment": format!("{}={}", VLZ_AFFECTED_RANGES_PROPERTY, ranges_compact)
+                            "comment": format!(
+                                "{}={}",
+                                VLZ_AFFECTED_RANGES_PROPERTY,
+                                ranges_compact
+                            )
                         }]
                     })
                 })
@@ -1468,6 +1493,19 @@ mod tests {
             package_name: Some("foo".to_string()),
             ecosystem: Some("crates.io".to_string()),
         }];
+        data.findings[0].upgrade_plan = vlz_remediate::UpgradePlan {
+            minimal_fixed_version: "1.2.3".to_string(),
+            dependency_kind: vlz_remediate::DependencyKind::Direct,
+            apply_strategy: vlz_remediate::ApplyStrategy::Unavailable,
+            confidence: vlz_remediate::UpgradePlanConfidence::High,
+        };
+        data.findings[0].declarations =
+            vec![vlz_db::PackageDeclarationLocation {
+                path: "Cargo.toml".to_string(),
+                start_line: 1,
+                end_line: None,
+                kind: vlz_db::DeclarationKind::Manifest,
+            }];
         data
     }
 
@@ -1493,6 +1531,37 @@ mod tests {
         assert!(html_out.contains("<th>Ranges</th>"));
         assert!(html_out.contains("ECOSYSTEM introduced:0 fixed:1.2.3"));
         assert!(!html_out.contains("<th>Fix</th>"));
+    }
+
+    #[tokio::test]
+    async fn json_and_sarif_include_upgrade_plan_fr040() {
+        let data = sample_report_data_with_ranges();
+        let mut json_buf = Vec::new();
+        JsonReporter::new()
+            .render_to_writer(&data, &mut json_buf)
+            .await
+            .unwrap();
+        let json: serde_json::Value =
+            serde_json::from_str(String::from_utf8(json_buf).unwrap().trim())
+                .unwrap();
+        let plan = &json["findings"][0]["upgrade_plan"];
+        assert_eq!(plan["minimal_fixed_version"], "1.2.3");
+        assert_eq!(plan["apply_strategy"], "unavailable");
+        assert_eq!(plan["confidence"], "high");
+        assert_eq!(plan["dependency_kind"], "direct");
+
+        let mut sarif_buf = Vec::new();
+        SarifReporter::new()
+            .render_to_writer(&data, &mut sarif_buf)
+            .await
+            .unwrap();
+        let sarif: serde_json::Value =
+            serde_json::from_str(String::from_utf8(sarif_buf).unwrap().trim())
+                .unwrap();
+        let props =
+            &sarif["runs"][0]["results"][0]["properties"]["upgrade_plan"];
+        assert_eq!(props["minimal_fixed_version"], "1.2.3");
+        assert_eq!(props["apply_strategy"], "unavailable");
     }
 
     #[tokio::test]
@@ -1687,6 +1756,13 @@ mod tests {
                 package: pkg,
                 manifest_paths: vec![PathBuf::from("Cargo.toml")],
                 declarations: Vec::new(),
+                upgrade_plan: vlz_remediate::UpgradePlan {
+                    minimal_fixed_version:
+                        vlz_remediate::MIN_FIXED_VERSION_UNKNOWN.to_string(),
+                    dependency_kind: vlz_remediate::DependencyKind::Unknown,
+                    apply_strategy: vlz_remediate::ApplyStrategy::Unavailable,
+                    confidence: vlz_remediate::UpgradePlanConfidence::Unknown,
+                },
                 cves: vec![(cve, Severity::High)],
             }],
             all_packages: None,
@@ -1754,6 +1830,13 @@ mod tests {
                 package: pkg_foo.clone(),
                 manifest_paths: vec![PathBuf::from("Cargo.toml")],
                 declarations: Vec::new(),
+                upgrade_plan: vlz_remediate::UpgradePlan {
+                    minimal_fixed_version:
+                        vlz_remediate::MIN_FIXED_VERSION_UNKNOWN.to_string(),
+                    dependency_kind: vlz_remediate::DependencyKind::Unknown,
+                    apply_strategy: vlz_remediate::ApplyStrategy::Unavailable,
+                    confidence: vlz_remediate::UpgradePlanConfidence::Unknown,
+                },
                 cves: vec![(cve, Severity::High)],
             }],
             all_packages: Some(vec![pkg_foo, pkg_bar]),
@@ -2129,6 +2212,13 @@ mod tests {
                 package: pkg,
                 manifest_paths: vec![PathBuf::from("pyproject.toml")],
                 declarations: Vec::new(),
+                upgrade_plan: vlz_remediate::UpgradePlan {
+                    minimal_fixed_version:
+                        vlz_remediate::MIN_FIXED_VERSION_UNKNOWN.to_string(),
+                    dependency_kind: vlz_remediate::DependencyKind::Unknown,
+                    apply_strategy: vlz_remediate::ApplyStrategy::Unavailable,
+                    confidence: vlz_remediate::UpgradePlanConfidence::Unknown,
+                },
                 cves: vec![(cve, Severity::Medium)],
             }],
             all_packages: None,
@@ -2190,6 +2280,13 @@ mod tests {
                     )
                     .unwrap(),
                 ],
+                upgrade_plan: vlz_remediate::UpgradePlan {
+                    minimal_fixed_version:
+                        vlz_remediate::MIN_FIXED_VERSION_UNKNOWN.to_string(),
+                    dependency_kind: vlz_remediate::DependencyKind::Unknown,
+                    apply_strategy: vlz_remediate::ApplyStrategy::Unavailable,
+                    confidence: vlz_remediate::UpgradePlanConfidence::Unknown,
+                },
                 cves: vec![(cve, Severity::Medium)],
             }],
             all_packages: None,
@@ -2258,6 +2355,13 @@ mod tests {
                     )
                     .unwrap(),
                 ],
+                upgrade_plan: vlz_remediate::UpgradePlan {
+                    minimal_fixed_version:
+                        vlz_remediate::MIN_FIXED_VERSION_UNKNOWN.to_string(),
+                    dependency_kind: vlz_remediate::DependencyKind::Unknown,
+                    apply_strategy: vlz_remediate::ApplyStrategy::Unavailable,
+                    confidence: vlz_remediate::UpgradePlanConfidence::Unknown,
+                },
                 cves: vec![(cve, Severity::High)],
             }],
             all_packages: None,
@@ -2323,6 +2427,13 @@ mod tests {
                 package: pkg,
                 manifest_paths: vec![PathBuf::from("go.mod")],
                 declarations: Vec::new(),
+                upgrade_plan: vlz_remediate::UpgradePlan {
+                    minimal_fixed_version:
+                        vlz_remediate::MIN_FIXED_VERSION_UNKNOWN.to_string(),
+                    dependency_kind: vlz_remediate::DependencyKind::Unknown,
+                    apply_strategy: vlz_remediate::ApplyStrategy::Unavailable,
+                    confidence: vlz_remediate::UpgradePlanConfidence::Unknown,
+                },
                 cves: vec![(cve, Severity::High)],
             }],
             all_packages: None,

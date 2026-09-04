@@ -91,6 +91,23 @@ _arguments "${_arguments_options[@]}" : \
 '::root -- Root directory (defaults to current working dir):_files -/' \
 && ret=0
 ;;
+(fix)
+_arguments "${_arguments_options[@]}" : \
+'-f+[Output format for dry-run (plain or json)]:FORMAT:(plain json)' \
+'--format=[Output format for dry-run (plain or json)]:FORMAT:(plain json)' \
+'-o+[Write dry-run output to file instead of stdout]:PATH:_files' \
+'--output=[Write dry-run output to file instead of stdout]:PATH:_files' \
+'-c+[Override configuration file location]:PATH:_files' \
+'--config=[Override configuration file location]:PATH:_files' \
+'--dry-run[Preview the upgrade plan; do not write files]' \
+'--offline[Disable network access (offline apply exits 6 when network is needed)]' \
+'*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'::root -- Root directory (defaults to current working dir):_files -/' \
+&& ret=0
+;;
 (languages)
 _arguments "${_arguments_options[@]}" : \
 '-c+[Override configuration file location]:PATH:_files' \
@@ -291,7 +308,7 @@ _arguments "${_arguments_options[@]}" : \
 '*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '-h[Print help]' \
 '--help[Print help]' \
-'::subcommand:(scan languages config db fp preload help generate-completions)' \
+'::subcommand:(scan fix languages config db fp preload help generate-completions)' \
 && ret=0
 ;;
 (generate-completions)
@@ -314,6 +331,7 @@ esac
 _vlz_commands() {
     local commands; commands=(
 'scan:Scan project dependencies for known vulnerabilities' \
+'fix:Apply remediations (updates lock/manifest files by default)' \
 'languages:List supported manifest languages' \
 'config:Show or set configuration values' \
 'db:Inspect and maintain the vulnerability cache' \
@@ -370,6 +388,11 @@ _vlz__subcmd__db__subcmd__stats_commands() {
 _vlz__subcmd__db__subcmd__verify_commands() {
     local commands; commands=()
     _describe -t commands 'vlz db verify commands' commands "$@"
+}
+(( $+functions[_vlz__subcmd__fix_commands] )) ||
+_vlz__subcmd__fix_commands() {
+    local commands; commands=()
+    _describe -t commands 'vlz fix commands' commands "$@"
 }
 (( $+functions[_vlz__subcmd__fp_commands] )) ||
 _vlz__subcmd__fp_commands() {

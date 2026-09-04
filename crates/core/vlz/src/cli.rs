@@ -9,8 +9,8 @@ use clap::{Parser as ClapParser, Subcommand, ValueHint};
 use clap_complete::Shell;
 
 use crate::cli_values::{
-    db_show_format_parser, help_subcommand_parser, provider_parser,
-    scan_format_parser,
+    db_show_format_parser, fix_format_parser, help_subcommand_parser,
+    provider_parser, scan_format_parser,
 };
 
 /// Parse KEY=VALUE for `config --set`. Returns None if key is empty or no `=` present.
@@ -306,6 +306,42 @@ pub enum Commands {
         /// CVSS v4 low severity minimum score (default 0.1)
         #[arg(long, value_name = "SCORE", help_heading = HELP_SEVERITY_MAPPING)]
         severity_v4_low_min: Option<f32>,
+    },
+
+    /// Apply remediations (updates lock/manifest files by default)
+    Fix {
+        /// Root directory (defaults to current working dir)
+        #[arg(value_name = "PATH", value_hint = ValueHint::DirPath)]
+        root: Option<String>,
+
+        /// Output format for dry-run (plain or json)
+        #[arg(
+            short,
+            long,
+            default_value = "plain",
+            value_parser = fix_format_parser(),
+            ignore_case = true,
+            help_heading = HELP_OUTPUT,
+        )]
+        format: String,
+
+        /// Write dry-run output to file instead of stdout
+        #[arg(
+            short,
+            long,
+            value_name = "PATH",
+            value_hint = ValueHint::FilePath,
+            help_heading = HELP_OUTPUT,
+        )]
+        output: Option<String>,
+
+        /// Preview the upgrade plan; do not write files
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Disable network access (offline apply exits 6 when network is needed)
+        #[arg(long, help_heading = HELP_PROVIDER_CACHE)]
+        offline: bool,
     },
 
     /// List supported manifest languages
@@ -1114,5 +1150,50 @@ mod tests {
         assert_eq!(*provider_http_request_timeout_secs, Some(90));
         assert_eq!(tls_crl_bundle.as_deref(), Some("/etc/crl.pem"));
         assert_eq!(*backoff_base, Some(150));
+    }
+
+    #[test]
+    fn parse_fix_defaults() {
+        let cli = parse(&["fix"]);
+        let Commands::Fix {
+            root,
+            format,
+            output,
+            dry_run,
+            offline,
+        } = &cli.cmd
+        else {
+            panic!("expected fix")
+        };
+        assert!(root.is_none());
+        assert_eq!(format, "plain");
+        assert!(output.is_none());
+        assert!(!dry_run);
+        assert!(!offline);
+    }
+
+    #[test]
+    fn parse_fix_dry_run_json() {
+        let cli = parse(&["fix", "--dry-run", "--format", "json"]);
+        let Commands::Fix {
+            root,
+            format,
+            dry_run,
+            offline,
+            ..
+        } = &cli.cmd
+        else {
+            panic!("expected fix")
+        };
+        assert!(root.is_none());
+        assert_eq!(format, "json");
+        assert!(*dry_run);
+        assert!(!offline);
+    }
+
+    #[test]
+    fn parse_fix_rejects_unexpected_format() {
+        let result = Cli::try_parse_from(["vlz", "fix", "--format", "sarif"]);
+        assert!(result.is_err());
     }
 }

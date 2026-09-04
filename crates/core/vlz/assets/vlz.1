@@ -196,6 +196,25 @@ or
 (Tier C where supported; default:
 .Cm tier-b ) .
 .El
+.It Nm fix
+.Op Ar path
+Apply remediations for scan findings (FR-041). Default root is current directory.
+Writes supported lock or manifest updates by default (npm and Cargo in this
+release). Use
+.Fl -dry-run
+to preview without writing.
+.Bl -tag -width Ds
+.It Fl f Ar fmt , Fl -format Ar fmt
+Dry-run output format: plain or json (default: plain).
+.It Fl o Ar path , Fl -output Ar path
+Write dry-run output to file instead of stdout.
+.It Fl -dry-run
+Preview the upgrade plan and intended changes; do not write files.
+.It Fl -offline
+Disable network access. Offline apply exits
+.Sy 6
+when a remediator would need the network.
+.El
 .It Nm languages
 List supported manifest languages (alias:
 .Nm list ) .

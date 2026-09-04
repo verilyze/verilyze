@@ -386,6 +386,31 @@ impl CveProvider for CountingCveProvider {
     }
 }
 
+/// Safe default CVE provider for `vlz/testing` integration tests.
+///
+/// The production default `osv` provider performs network requests, which is
+/// undesirable under hermetic tests. This mock keeps the provider name as
+/// `osv` so cache lookups continue to work (keyed by provider name).
+#[derive(Debug, Default)]
+pub struct OsvMockCveProvider;
+
+#[async_trait]
+impl CveProvider for OsvMockCveProvider {
+    fn name(&self) -> &'static str {
+        "osv"
+    }
+
+    async fn fetch(
+        &self,
+        _pkg: &Package,
+    ) -> Result<FetchedCves, ProviderError> {
+        Ok(FetchedCves {
+            raw_vulns: vec![],
+            records: vec![],
+        })
+    }
+}
+
 /// CVE provider that returns one CVE per package. Used to test report output
 /// (e.g. manifest_paths in findings).
 #[derive(Debug, Default)]

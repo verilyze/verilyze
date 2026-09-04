@@ -192,20 +192,26 @@ fi
 publish_obs_start="$(grep -n '^  publish-obs:' "${RELEASE_WORKFLOW}" | cut -d: -f1)"
 wait_obs_start="$(grep -n '^  wait-obs-builds:' "${RELEASE_WORKFLOW}" | cut -d: -f1)"
 publish_obs_block="$(sed -n "${publish_obs_start},${wait_obs_start}p" "${RELEASE_WORKFLOW}")"
-if ! printf '%s' "${publish_obs_block}" | grep -q 'sync-obs-project-meta.sh'; then
+# Use here-strings (not printf|grep -q) so set -o pipefail does not treat
+# SIGPIPE from early grep -q exit as a failed assertion (Broken pipe flake).
+if ! grep -q 'sync-obs-project-meta.sh' <<<"${publish_obs_block}"; then
   echo "ERROR: publish-obs job must invoke sync-obs-project-meta.sh" >&2
   exit 1
 fi
-if ! printf '%s' "${publish_obs_block}" | grep -q -- '--check'; then
+if ! grep -q -- '--check' <<<"${publish_obs_block}"; then
   echo "ERROR: publish-obs job must verify project _meta with --check" >&2
   exit 1
 fi
-if ! printf '%s' "${publish_obs_block}" | grep -q -- '--push'; then
+if ! grep -q -- '--push' <<<"${publish_obs_block}"; then
   echo "ERROR: publish-obs job must push project _meta with --push when --check fails" >&2
   exit 1
 fi
-sync_line="$(printf '%s' "${publish_obs_block}" | grep -n 'sync-obs-project-meta.sh' | head -n1 | cut -d: -f1)"
-upload_line="$(printf '%s' "${publish_obs_block}" | grep -n 'obs-upload-release-sources.sh' | head -n1 | cut -d: -f1)"
+sync_line="$(
+  grep -m1 -n 'sync-obs-project-meta.sh' <<<"${publish_obs_block}" | cut -d: -f1
+)"
+upload_line="$(
+  grep -m1 -n 'obs-upload-release-sources.sh' <<<"${publish_obs_block}" | cut -d: -f1
+)"
 if [[ -z "${sync_line}" || -z "${upload_line}" || "${sync_line}" -ge "${upload_line}" ]]; then
   echo "ERROR: publish-obs must run sync-obs-project-meta.sh before obs-upload-release-sources.sh" >&2
   exit 1

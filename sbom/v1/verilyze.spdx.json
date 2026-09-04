@@ -2254,6 +2254,13 @@
     },
     {
       "@type": "Package",
+      "name": "vlz-remediate",
+      "packageUrl": "pkg:cargo/vlz-remediate@0.10.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-remediate-0-10-0",
+      "versionInfo": "0.10.0"
+    },
+    {
+      "@type": "Package",
       "name": "vlz-report",
       "packageUrl": "pkg:cargo/vlz-report@0.10.0",
       "spdxId": "urn:spdx.dev:pkg-cargo-vlz-report-0-10-0",

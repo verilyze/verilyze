@@ -43,10 +43,25 @@ impl Parser for JsManifestParser {
         manifest: &Path,
     ) -> Result<DependencyGraph, ParserError> {
         let content = tokio::fs::read_to_string(manifest).await?;
-        let (packages, parsed) =
-            package_json::parse_package_json_with_declarations(
+        let basename =
+            manifest.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        let (packages, parsed) = match basename {
+            "package-lock.json" | "npm-shrinkwrap.json" => {
+                parse_npm_lock_with_declarations(&content, manifest)?
+            }
+            "yarn.lock" => {
+                parse_yarn_lock_with_declarations(&content, manifest)?
+            }
+            "pnpm-lock.yaml" => {
+                parse_pnpm_lock_with_declarations(&content, manifest)?
+            }
+            "bun.lock" => {
+                parse_bun_lock_with_declarations(&content, manifest)?
+            }
+            _ => package_json::parse_package_json_with_declarations(
                 &content, manifest,
-            )?;
+            )?,
+        };
         Ok(DependencyGraph {
             packages,
             parsed_dependencies: parsed,

@@ -52,6 +52,7 @@ vlz-reachability-trait.workspace = true
 vlz-reachability.workspace = true
 vlz-cve-client.workspace = true
 vlz-report.workspace = true
+vlz-remediate.workspace = true
 vlz-integrity.workspace = true
 vlz-plugin-macro.workspace = true
 

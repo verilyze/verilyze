@@ -17,9 +17,12 @@ use crate::cache_warm::{
 use crate::cli::{Cli, Commands, FpCommands};
 use crate::exit_code::{
     self, DEFAULT_CVE_EXIT_CODE, EXIT_INTERNAL_ERROR, EXIT_MISCONFIGURATION,
-    EXIT_MISSING_PACKAGE_MANAGER, EXIT_SUCCESS, ExitSignals,
+    EXIT_MISSING_PACKAGE_MANAGER, EXIT_OFFLINE_CACHE_MISS,
+    EXIT_RESOLUTION_FAILED, EXIT_SUCCESS, ExitSignals,
 };
 use crate::package_resolve::resolve_packages_for_path;
+
+use vlz_remediate::Remediator;
 
 /// Write all bytes to `w`; propagates I/O errors (e.g. BrokenPipe).
 /// Used by write_stdout and by tests with a buffer.
@@ -623,6 +626,77 @@ pub async fn run(args: Cli) -> Result<i32> {
             )
             .await?;
             Ok(code)
+        }
+
+        Commands::Fix {
+            root,
+            format,
+            output,
+            dry_run,
+            offline,
+        } => {
+            let effective = crate::config::load_with_reachability_overrides(
+                args.config.as_deref(),
+                crate::config::env_parallel(),
+                crate::config::env_parallel_resolutions(),
+                crate::config::env_cache_db(),
+                crate::config::env_ignore_db(),
+                crate::config::env_cache_ttl_secs(),
+                crate::config::env_min_score(),
+                crate::config::env_min_count(),
+                crate::config::env_exit_code_on_cve(),
+                crate::config::env_fp_exit_code(),
+                crate::config::env_project_id(),
+                crate::config::env_backoff_base_ms(),
+                crate::config::env_backoff_max_ms(),
+                crate::config::env_max_retries(),
+                crate::config::env_provider_http_connect_timeout_secs(),
+                crate::config::env_provider_http_request_timeout_secs(),
+                crate::config::env_tls_crl_bundle(),
+                None,
+                None,
+                None,
+                None,
+                None,
+                offline,
+                false,
+                None,
+                None,
+                None,
+                None,
+                None,
+                false,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                crate::config::env_reachability_mode(),
+                None,
+                false,
+                false,
+                false,
+                false,
+                crate::config::env_severity_overrides(),
+                crate::config::SeverityOverrides::default(),
+            )
+            .map_err(|e| {
+                error!("{}", e);
+                anyhow!(e)
+            })?;
+
+            run_fix(
+                root,
+                format,
+                output,
+                dry_run,
+                effective,
+                args.verbose,
+                db_backend,
+                offline,
+            )
+            .await
         }
 
         Commands::Languages => {
@@ -1506,17 +1580,6 @@ async fn run_scan(
     let report_findings: Vec<vlz_report::Finding> = findings
         .into_iter()
         .map(|(pkg, recs)| {
-            let with_severity: Vec<_> = recs
-                .into_iter()
-                .map(|cve| {
-                    let severity = vlz_report::resolve_severity(
-                        cve.cvss_score,
-                        cve.cvss_version,
-                        &severity_config,
-                    );
-                    (cve, severity)
-                })
-                .collect();
             let mut manifest_paths: Vec<std::path::PathBuf> = pkg_to_manifests
                 .get(&pkg)
                 .map(|s| {
@@ -1540,10 +1603,27 @@ async fn run_scan(
                     .unwrap_or_else(|_| decl.path.clone());
             }
             vlz_db::dedupe_sort_declarations(&mut declarations);
+            let upgrade_plan = vlz_remediate::plan_upgrade_for_finding(
+                &pkg,
+                &declarations,
+                &recs,
+            );
+            let with_severity: Vec<_> = recs
+                .into_iter()
+                .map(|cve| {
+                    let severity = vlz_report::resolve_severity(
+                        cve.cvss_score,
+                        cve.cvss_version,
+                        &severity_config,
+                    );
+                    (cve, severity)
+                })
+                .collect();
             vlz_report::Finding {
                 package: pkg,
                 manifest_paths,
                 declarations,
+                upgrade_plan,
                 cves: with_severity,
             }
         })
@@ -1661,6 +1741,419 @@ async fn run_scan(
     // -----------------------------------------------------------------
     let _ = db_backend.stats().await;
     Ok(exit_code)
+}
+
+struct ScanFixOutcome {
+    root_path: std::path::PathBuf,
+    pkg_declarations: std::collections::HashMap<
+        vlz_db::Package,
+        Vec<vlz_db::PackageDeclarationLocation>,
+    >,
+    findings: Vec<(vlz_db::Package, Vec<vlz_db::CveRecord>)>,
+    exit_code: i32,
+}
+
+/// Scan for fix plans and compute the scan exit code precedence (FR-010).
+///
+/// This intentionally does not render full scan reports. `vlz fix` only
+/// needs findings, declarations, and the exit-code decision signals.
+async fn scan_findings_for_fix(
+    root: Option<String>,
+    effective: &crate::config::EffectiveConfig,
+    provider_impl: Arc<
+        Box<dyn vlz_cve_client::CveProvider + Send + Sync + 'static>,
+    >,
+    db_backend: Arc<Box<dyn vlz_db::DatabaseBackend + Send + Sync + 'static>>,
+) -> Result<ScanFixOutcome> {
+    let resolved = resolve_packages_for_path(root, effective).await?;
+    if resolved.package_manager_missing {
+        return Ok(ScanFixOutcome {
+            root_path: resolved.root_path,
+            pkg_declarations: Default::default(),
+            findings: vec![],
+            exit_code: EXIT_MISSING_PACKAGE_MANAGER,
+        });
+    }
+
+    let root_path = resolved.root_path;
+    let exclude_dirs = resolved.exclude_dirs;
+    let pkg_declarations = resolved.pkg_declarations;
+    let pkg_contexts = resolved.pkg_contexts;
+    let packages_to_check = resolved.packages_to_check;
+    let manifest_coverage = resolved.manifest_coverage;
+    let skip_cve_phase = resolved.skip_cve_phase;
+
+    let effective_parallel = if effective.benchmark {
+        1
+    } else {
+        effective.parallel_queries
+    };
+
+    let mut offline_cache_miss = false;
+    let mut provider_fetch_failed = false;
+    let mut findings: Vec<(vlz_db::Package, Vec<vlz_db::CveRecord>)> =
+        Vec::new();
+    let mut raw_vulns_by_package = std::collections::HashMap::new();
+
+    if !skip_cve_phase {
+        let warm = warm_cache_for_packages(
+            &packages_to_check,
+            db_backend,
+            provider_impl,
+            &CacheWarmOptions {
+                parallel: effective_parallel,
+                offline: effective.offline,
+                benchmark: effective.benchmark,
+            },
+        )
+        .await?;
+        offline_cache_miss = warm.summary.offline_cache_miss;
+        provider_fetch_failed = warm.summary.provider_fetch_failed;
+        findings = warm.findings;
+        raw_vulns_by_package = warm.raw_vulns_by_package;
+    }
+
+    // Apply false-positive filter (FR-015).
+    let ignore_path = effective
+        .ignore_db
+        .clone()
+        .unwrap_or_else(crate::config::default_ignore_path);
+    let marked_fp: std::collections::HashSet<String> =
+        match crate::registry::open_ignore_db(ignore_path) {
+            Ok(db) => match db.marked_ids(effective.project_id.as_deref()) {
+                Ok(ids) => ids,
+                Err(e) => {
+                    error!("Failed to read ignore database: {}", e);
+                    return Ok(ScanFixOutcome {
+                        root_path,
+                        pkg_declarations,
+                        findings: vec![],
+                        exit_code: EXIT_MISCONFIGURATION,
+                    });
+                }
+            },
+            Err(e) => {
+                error!("Failed to open ignore database: {}", e);
+                return Ok(ScanFixOutcome {
+                    root_path,
+                    pkg_declarations,
+                    findings: vec![],
+                    exit_code: EXIT_MISCONFIGURATION,
+                });
+            }
+        };
+    let had_any_cves_before_fp_filter =
+        findings.iter().map(|(_, r)| r.len()).sum::<usize>() > 0;
+    findings = findings
+        .into_iter()
+        .map(|(pkg, recs)| {
+            let kept: Vec<_> = recs
+                .into_iter()
+                .filter(|cve| !marked_fp.contains(&cve.id))
+                .collect();
+            (pkg, kept)
+        })
+        .filter(|(_, recs)| !recs.is_empty())
+        .collect();
+
+    // -----------------------------------------------------------------
+    // Tier analysis (FR-032 / FR-033).
+    // -----------------------------------------------------------------
+    if should_apply_tier_b(effective.reachability_mode) {
+        #[cfg(feature = "perf-instrumentation")]
+        vlz_reachability::reset_tier_b_counters();
+        #[cfg(feature = "perf-instrumentation")]
+        let tier_b_started_at = Instant::now();
+        {
+            let reachability_analyzers =
+                crate::registry::reachability_analyzers()
+                    .lock()
+                    .expect("REACHABILITY_ANALYZERS lock poisoned");
+            vlz_reachability::apply_tier_b_to_findings(
+                &root_path,
+                &exclude_dirs,
+                &mut findings,
+                &pkg_contexts,
+                &reachability_analyzers,
+            );
+        }
+        #[cfg(feature = "perf-instrumentation")]
+        {
+            let (enum_calls, files_enumerated, read_attempts, read_successes) =
+                vlz_reachability::snapshot_tier_b_counters();
+            if let Some(line) = tier_b_metrics_line(
+                tier_b_started_at.elapsed().as_millis(),
+                enum_calls,
+                files_enumerated,
+                read_attempts,
+                read_successes,
+            ) {
+                info!("{}", line);
+            }
+        }
+    }
+
+    if should_apply_tier_c(effective.reachability_mode) {
+        let reachability_analyzers = crate::registry::reachability_analyzers()
+            .lock()
+            .expect("REACHABILITY_ANALYZERS lock poisoned");
+        vlz_reachability::apply_tier_c_to_findings(
+            &root_path,
+            &exclude_dirs,
+            &mut findings,
+            &pkg_contexts,
+            &reachability_analyzers,
+            &raw_vulns_by_package,
+        );
+    }
+
+    #[cfg(feature = "python-tier-d")]
+    if should_apply_tier_c(effective.reachability_mode) {
+        let reachability_analyzers = crate::registry::reachability_analyzers()
+            .lock()
+            .expect("REACHABILITY_ANALYZERS lock poisoned");
+        vlz_reachability::apply_tier_d_to_findings(
+            &root_path,
+            &exclude_dirs,
+            &mut findings,
+            &pkg_contexts,
+            &reachability_analyzers,
+            &raw_vulns_by_package,
+        );
+    }
+
+    let real_cve_count: usize = findings.iter().map(|(_, r)| r.len()).sum();
+
+    // Apply threshold logic (FR-014, FR-010) and decide scan exit code.
+    let meeting_threshold: usize = findings
+        .iter()
+        .flat_map(|(_, recs)| recs.iter())
+        .filter(|cve| {
+            cve_meets_score_threshold(cve.cvss_score, effective.min_score)
+        })
+        .count();
+
+    let manifest_blocking =
+        crate::scan::count_blocking_manifest_failures(&manifest_coverage);
+    let exit_code = exit_code::pick_exit_code(&ExitSignals::for_scan_end(
+        manifest_blocking,
+        provider_fetch_failed,
+        offline_cache_miss,
+        meeting_threshold,
+        effective.min_count,
+        effective.exit_code_on_cve,
+        had_any_cves_before_fp_filter,
+        real_cve_count,
+        effective.fp_exit_code,
+    ));
+
+    Ok(ScanFixOutcome {
+        root_path,
+        pkg_declarations,
+        findings,
+        exit_code,
+    })
+}
+
+/// Apply remediations (FR-041).
+#[allow(clippy::too_many_arguments)]
+async fn run_fix(
+    root: Option<String>,
+    format: String,
+    output: Option<String>,
+    dry_run: bool,
+    effective: crate::config::EffectiveConfig,
+    _verbosity: u8,
+    db_backend: Arc<Box<dyn vlz_db::DatabaseBackend + Send + Sync + 'static>>,
+    offline: bool,
+) -> Result<i32> {
+    let provider_impl = select_provider_impl(None, &effective).await?;
+
+    let first_scan = scan_findings_for_fix(
+        root.clone(),
+        &effective,
+        provider_impl.clone(),
+        db_backend.clone(),
+    )
+    .await?;
+    let ScanFixOutcome {
+        root_path: scan_root_path,
+        pkg_declarations,
+        findings,
+        exit_code: first_exit_code,
+    } = first_scan;
+
+    // Compute upgrade plans (with remediation apply_strategy) for output and apply.
+    #[derive(Clone)]
+    struct FixPlanEntry {
+        package: vlz_db::Package,
+        declarations: Vec<vlz_db::PackageDeclarationLocation>,
+        upgrade_plan: vlz_remediate::UpgradePlan,
+    }
+
+    let mut plan_entries: Vec<FixPlanEntry> = Vec::new();
+    let mut skipped_unavailable: usize = 0;
+
+    for (pkg, recs) in findings {
+        let declarations =
+            pkg_declarations.get(&pkg).cloned().unwrap_or_default();
+        let mut upgrade_plan = vlz_remediate::plan_upgrade_for_finding(
+            &pkg,
+            &declarations,
+            &recs,
+        );
+        upgrade_plan.apply_strategy =
+            vlz_remediate::remediation_apply_strategy_for_finding(
+                &pkg,
+                &upgrade_plan.minimal_fixed_version,
+                &declarations,
+            );
+        if matches!(
+            upgrade_plan.apply_strategy,
+            vlz_remediate::ApplyStrategy::Unavailable
+        ) {
+            skipped_unavailable += 1;
+        }
+
+        plan_entries.push(FixPlanEntry {
+            package: pkg,
+            declarations,
+            upgrade_plan,
+        });
+    }
+
+    // -----------------------------------------------------------------
+    // Emit dry-run output (and also preview before apply).
+    // -----------------------------------------------------------------
+    let output_body = if format.eq_ignore_ascii_case("json") {
+        let findings: Vec<serde_json::Value> = plan_entries
+            .iter()
+            .map(|e| {
+                serde_json::json!({
+                    "package": e.package,
+                    "upgrade_plan": e.upgrade_plan,
+                })
+            })
+            .collect();
+        serde_json::json!({ "findings": findings })
+    } else {
+        let mut lines = String::new();
+        if plan_entries.is_empty() {
+            lines.push_str("No upgrade plan entries produced.\n");
+        } else {
+            for e in &plan_entries {
+                let compact =
+                    vlz_report::format_upgrade_plan_compact(&e.upgrade_plan);
+                let strategy_name = e.upgrade_plan.apply_strategy.as_str();
+                lines.push_str(&format!(
+                    "{}@{}: {} [{}]\n",
+                    e.package.name, e.package.version, compact, strategy_name
+                ));
+            }
+        }
+        serde_json::Value::String(lines)
+    };
+
+    if let Some(path) = output.as_deref() {
+        if format.eq_ignore_ascii_case("json") {
+            std::fs::write(path, serde_json::to_string_pretty(&output_body)?)
+                .context("Writing fix JSON output")?;
+        } else if let Some(s) = output_body.as_str() {
+            std::fs::write(path, s).context("Writing fix plain output")?;
+        }
+    } else if format.eq_ignore_ascii_case("json") {
+        write_stdout(&format!(
+            "{}\n",
+            serde_json::to_string_pretty(&output_body)?
+        ));
+    } else if let Some(s) = output_body.as_str() {
+        write_stdout(s);
+    }
+
+    // -----------------------------------------------------------------
+    // Dry-run exit codes (FR-010 / FR-041): preview only; CVE hits are not
+    // exit 86. Unavailable strategies stay in the plan and do not force
+    // exit 4.
+    // -----------------------------------------------------------------
+    let cve_exit_code: i32 =
+        effective.exit_code_on_cve.unwrap_or(DEFAULT_CVE_EXIT_CODE) as i32;
+    if dry_run {
+        if first_exit_code == EXIT_SUCCESS || first_exit_code == cve_exit_code
+        {
+            return Ok(EXIT_SUCCESS);
+        }
+        return Ok(first_exit_code);
+    }
+
+    // -----------------------------------------------------------------
+    // Apply mode: stop on hard scan errors except CVE threshold.
+    // -----------------------------------------------------------------
+    if first_exit_code != EXIT_SUCCESS && first_exit_code != cve_exit_code {
+        return Ok(first_exit_code);
+    }
+
+    if skipped_unavailable > 0 {
+        eprintln!(
+            "Skipping {skipped_unavailable} finding(s) with apply_strategy=unavailable (no Phase-2 remediator for that lock/ecosystem)."
+        );
+    }
+
+    // Apply only strategies that are available. Fail-fast: first remediator
+    // error stops the batch (earlier successful writes are not rolled back).
+    for e in &plan_entries {
+        let ctx = vlz_remediate::RemediationContext {
+            scan_root: &scan_root_path,
+            declarations: &e.declarations,
+            package_name: &e.package.name,
+            target_version: &e.upgrade_plan.minimal_fixed_version,
+            dependency_kind: e.upgrade_plan.dependency_kind,
+            allow_dependency_code_execution: effective
+                .allow_dependency_code_execution,
+            offline,
+        };
+
+        let map_remediation_err =
+            |err: vlz_remediate::RemediationError| match err {
+                vlz_remediate::RemediationError::OfflineBlocked => {
+                    EXIT_OFFLINE_CACHE_MISS
+                }
+                vlz_remediate::RemediationError::MissingPackageManager(_) => {
+                    EXIT_MISSING_PACKAGE_MANAGER
+                }
+                vlz_remediate::RemediationError::TargetVersionUnknown
+                | vlz_remediate::RemediationError::UnsupportedLockLayout(_)
+                | vlz_remediate::RemediationError::InvalidOperand(_)
+                | vlz_remediate::RemediationError::CommandFailed { .. }
+                | vlz_remediate::RemediationError::Io(_) => {
+                    EXIT_RESOLUTION_FAILED
+                }
+            };
+
+        match e.upgrade_plan.apply_strategy {
+            vlz_remediate::ApplyStrategy::Npm => {
+                let rem = vlz_remediate::NpmRemediator::new();
+                if let Err(err) = rem.apply(&ctx) {
+                    return Ok(map_remediation_err(err));
+                }
+            }
+            vlz_remediate::ApplyStrategy::Cargo => {
+                let rem = vlz_remediate::CargoRemediator::new();
+                if let Err(err) = rem.apply(&ctx) {
+                    return Ok(map_remediation_err(err));
+                }
+            }
+            vlz_remediate::ApplyStrategy::Unavailable => {
+                // Skipped; warned above when any unavailable findings exist.
+            }
+        }
+    }
+
+    // Re-scan after apply to decide if CVEs remain (FR-041). Exit codes follow
+    // the post-apply scan (FR-010); unavailable skips do not force exit 4.
+    let after_scan =
+        scan_findings_for_fix(root, &effective, provider_impl, db_backend)
+            .await?;
+    Ok(after_scan.exit_code)
 }
 
 #[cfg(test)]
