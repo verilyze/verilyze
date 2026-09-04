@@ -157,10 +157,14 @@ fn compute_minimal_fixed_version(cves: &[CveRecord]) -> (bool, String) {
     if !saw_fixed {
         return (false, MIN_FIXED_VERSION_UNKNOWN.to_string());
     }
-    let version = max_fixed
-        .map(|v| v.to_string())
-        .unwrap_or_else(|| MIN_FIXED_VERSION_UNKNOWN.to_string());
-    (version != MIN_FIXED_VERSION_UNKNOWN, version)
+    // Every `saw_fixed` path either returns early on parse failure or updates
+    // `max_fixed`, so this is always `Some` here.
+    (
+        true,
+        max_fixed
+            .expect("saw_fixed implies a parsed max_fixed version")
+            .to_string(),
+    )
 }
 
 fn parse_fixed_version(s: &str) -> Option<Version> {
@@ -312,5 +316,51 @@ mod tests {
         assert_eq!(plan.dependency_kind, DependencyKind::Transitive);
         assert_eq!(plan.minimal_fixed_version, MIN_FIXED_VERSION_UNKNOWN);
         assert_eq!(plan.confidence, UpgradePlanConfidence::Unknown);
+    }
+
+    #[test]
+    fn plan_unknown_dependency_kind_without_declarations() {
+        let pkg = Package {
+            name: "foo".to_string(),
+            version: "1.0.0".to_string(),
+            ecosystem: Some("npm".to_string()),
+        };
+        let cves = vec![cve_with_fixed(
+            "CVE-1",
+            AffectedRangeType::Ecosystem,
+            Some("1.2.3"),
+        )];
+        let plan = plan_upgrade_for_finding(&pkg, &[], &cves);
+        assert_eq!(plan.dependency_kind, DependencyKind::Unknown);
+        assert_eq!(plan.minimal_fixed_version, "1.2.3");
+        assert_eq!(plan.confidence, UpgradePlanConfidence::Unknown);
+    }
+
+    #[test]
+    fn plan_accepts_v_prefixed_semver() {
+        let pkg = Package {
+            name: "foo".to_string(),
+            version: "1.0.0".to_string(),
+            ecosystem: Some("npm".to_string()),
+        };
+        let decls = vec![empty_decl(DeclarationKind::Manifest)];
+        let cves = vec![cve_with_fixed(
+            "CVE-1",
+            AffectedRangeType::Semver,
+            Some("v2.0.0"),
+        )];
+        let plan = plan_upgrade_for_finding(&pkg, &decls, &cves);
+        assert_eq!(plan.minimal_fixed_version, "2.0.0");
+        assert_eq!(plan.confidence, UpgradePlanConfidence::High);
+    }
+
+    #[test]
+    fn enum_as_str_covers_all_variants() {
+        assert_eq!(UpgradePlanConfidence::High.as_str(), "high");
+        assert_eq!(UpgradePlanConfidence::Unknown.as_str(), "unknown");
+        assert_eq!(ApplyStrategy::Unavailable.as_str(), "unavailable");
+        assert_eq!(DependencyKind::Direct.as_str(), "direct");
+        assert_eq!(DependencyKind::Transitive.as_str(), "transitive");
+        assert_eq!(DependencyKind::Unknown.as_str(), "unknown");
     }
 }
