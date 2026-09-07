@@ -1377,9 +1377,9 @@ fn set_config_key_in_path(
     key: &str,
     value: &str,
 ) -> Result<(), ConfigError> {
-    if let Some(parent) = path.parent()
-        && !parent.exists()
-    {
+    // Always create parents (idempotent). Avoid exists()-then-create races that
+    // can yield Io(NotFound) under parallel lib tests on Linux CI.
+    if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
     let raw = load_file_opt(path)?.unwrap_or_else(String::new);
