@@ -394,8 +394,10 @@ fn execute_command(
 #[cfg(test)]
 mod tests {
     use super::{
-        SHOW_UPGRADE_PLAN_COMMAND, ScanResult, ScanService, run_connection,
-        server_capabilities, workspace_root,
+        DIAGNOSTIC_SOURCE, LspServer, MAX_MESSAGE_BYTES,
+        SHOW_UPGRADE_PLAN_COMMAND, ScanDiagnostic, ScanResult, ScanService,
+        file_uri_for_path, run_connection, server_capabilities,
+        workspace_root,
     };
     use lsp_server::{Connection, Message, Notification, Request, RequestId};
     use lsp_types::{
@@ -403,13 +405,33 @@ mod tests {
         TextDocumentSyncSaveOptions,
     };
     use serde_json::json;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
+    use std::sync::{Arc, Mutex};
 
     #[test]
     fn root_uri_is_used_without_workspace_folders() {
         let params: InitializeParams = serde_json::from_value(json!({
             "processId": null,
             "rootUri": "file:///workspace",
+            "capabilities": {},
+        }))
+        .expect("initialize parameters should deserialize");
+
+        assert_eq!(
+            workspace_root(&params).as_deref(),
+            Some("/workspace".as_ref())
+        );
+    }
+
+    #[test]
+    fn workspace_folders_take_precedence_over_root_uri() {
+        let params: InitializeParams = serde_json::from_value(json!({
+            "processId": null,
+            "rootUri": "file:///ignored",
+            "workspaceFolders": [{
+                "uri": "file:///workspace",
+                "name": "workspace"
+            }],
             "capabilities": {},
         }))
         .expect("initialize parameters should deserialize");
@@ -444,7 +466,241 @@ mod tests {
     }
 
     #[test]
+    fn initialized_publishes_diagnostic_from_scan_service() {
+        let server = LspServer::new(Box::new(FixedScanService));
+        let output = server.handle_message(
+            r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#,
+        );
+
+        assert!(
+            output.contains("textDocument/publishDiagnostics"),
+            "initialized should publish diagnostics: {output}"
+        );
+        assert!(
+            output.contains("CVE-2026-1234"),
+            "diagnostic should contain the advisory ID: {output}"
+        );
+        assert!(
+            output.contains(DIAGNOSTIC_SOURCE),
+            "diagnostic should identify vlz as the source: {output}"
+        );
+    }
+
+    #[test]
+    fn handle_message_ignores_oversized_invalid_and_other_methods() {
+        let server = LspServer::new(Box::new(EmptyScanService));
+        let oversized = format!(
+            r#"{{"jsonrpc":"2.0","method":"initialized","params":{{"pad":"{}"}}}}"#,
+            "x".repeat(MAX_MESSAGE_BYTES)
+        );
+        assert!(server.handle_message(&oversized).is_empty());
+        assert!(server.handle_message("not-json").is_empty());
+        assert!(
+            server
+                .handle_message(r#"{"jsonrpc":"2.0","method":"exit"}"#)
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn file_uri_for_path_round_trips_absolute_paths() {
+        let path = Path::new("/tmp/vlz-lsp-fixture/Cargo.toml");
+        let uri =
+            file_uri_for_path(path).expect("absolute path should encode");
+        assert!(uri.starts_with("file://"));
+        assert!(uri.contains("Cargo.toml"));
+        assert_eq!(file_uri_for_path(Path::new("relative.toml")), None);
+    }
+
+    #[test]
     fn exit_returns_after_initialization() {
+        let messages = drive_connection(
+            Box::new(EmptyScanService),
+            vec![Message::Notification(Notification::new(
+                "exit".to_string(),
+                json!(null),
+            ))],
+        );
+        assert!(
+            messages
+                .iter()
+                .any(|message| { matches!(message, Message::Response(_)) })
+        );
+    }
+
+    #[test]
+    fn did_save_republishes_diagnostics() {
+        let scans = Arc::new(Mutex::new(0_u32));
+        let messages = drive_connection(
+            Box::new(CountingScanService {
+                count: Arc::clone(&scans),
+            }),
+            vec![
+                Message::Notification(Notification::new(
+                    "textDocument/didSave".to_string(),
+                    json!({
+                        "textDocument": {"uri": "file:///workspace/Cargo.toml"}
+                    }),
+                )),
+                Message::Notification(Notification::new(
+                    "exit".to_string(),
+                    json!(null),
+                )),
+            ],
+        );
+        assert!(*scans.lock().expect("scan count lock") >= 2);
+        assert!(messages.iter().any(is_publish_diagnostics));
+    }
+
+    #[test]
+    fn shutdown_code_action_and_execute_command_are_handled() {
+        let messages = drive_connection(
+            Box::new(FixedScanService),
+            vec![
+                Message::Request(Request::new(
+                    RequestId::from(2),
+                    "shutdown".to_string(),
+                    json!(null),
+                )),
+                Message::Request(Request::new(
+                    RequestId::from(3),
+                    "textDocument/codeAction".to_string(),
+                    json!({
+                        "textDocument": {"uri": "file:///workspace/Cargo.toml"},
+                        "range": {
+                            "start": {"line": 0, "character": 0},
+                            "end": {"line": 0, "character": 0}
+                        },
+                        "context": {
+                            "diagnostics": [{
+                                "message": "CVE-2026-1234: upgrade to 1.2.3"
+                            }]
+                        }
+                    }),
+                )),
+                Message::Request(Request::new(
+                    RequestId::from(4),
+                    "workspace/executeCommand".to_string(),
+                    json!({
+                        "command": SHOW_UPGRADE_PLAN_COMMAND,
+                        "arguments": ["CVE-2026-1234: upgrade to 1.2.3"]
+                    }),
+                )),
+                Message::Request(Request::new(
+                    RequestId::from(5),
+                    "workspace/executeCommand".to_string(),
+                    json!({ "command": "vlz.unknown" }),
+                )),
+                Message::Request(Request::new(
+                    RequestId::from(6),
+                    "textDocument/hover".to_string(),
+                    json!({}),
+                )),
+                Message::Notification(Notification::new(
+                    "exit".to_string(),
+                    json!(null),
+                )),
+            ],
+        );
+
+        assert!(messages.iter().any(|message| matches!(
+            message,
+            Message::Response(response)
+                if response.id == RequestId::from(2)
+                    && response
+                        .response_result
+                        .as_ref()
+                        .is_ok_and(|value| value == &json!(null))
+        )));
+        assert!(messages.iter().any(|message| matches!(
+            message,
+            Message::Response(response)
+                if response.id == RequestId::from(3)
+                    && response.response_result.as_ref().is_ok_and(|value| {
+                        value.to_string().contains("Show upgrade plan")
+                    })
+        )));
+        assert!(messages.iter().any(|message| {
+            matches!(
+                message,
+                Message::Notification(notification)
+                    if notification.method == "window/showMessage"
+                        && notification.params.to_string().contains(
+                            "CVE-2026-1234"
+                        )
+            )
+        }));
+        assert!(messages.iter().any(|message| matches!(
+            message,
+            Message::Response(response)
+                if response.id == RequestId::from(5)
+                    && response.response_result.is_err()
+        )));
+        assert!(messages.iter().any(|message| matches!(
+            message,
+            Message::Response(response)
+                if response.id == RequestId::from(6)
+                    && response.response_result.is_err()
+        )));
+    }
+
+    #[test]
+    fn diagnostic_messages_clear_stale_uris_and_filter_workspace() {
+        let root = tempfile_workspace();
+        let inside = root.join("Cargo.toml");
+        std::fs::write(&inside, "[package]\nname=\"demo\"\n")
+            .expect("fixture file");
+        let inside_uri =
+            file_uri_for_path(&inside).expect("inside path should encode");
+        let outside_uri = "file:///tmp/outside-vlz-lsp/Cargo.toml".to_string();
+        let service = SequenceScanService {
+            results: Mutex::new(vec![
+                ScanResult {
+                    diagnostics: vec![
+                        ScanDiagnostic {
+                            uri: inside_uri.clone(),
+                            line: 0,
+                            code: "CVE-2026-1".to_string(),
+                            message: "first".to_string(),
+                        },
+                        ScanDiagnostic {
+                            uri: outside_uri,
+                            line: 0,
+                            code: "CVE-2026-2".to_string(),
+                            message: "outside".to_string(),
+                        },
+                    ],
+                },
+                ScanResult::default(),
+            ]),
+        };
+        let server = LspServer::new(Box::new(service));
+        let first = server.diagnostic_messages(
+            server.scan_service.scan(Some(root.as_path())),
+            Some(root.as_path()),
+        );
+        assert_eq!(first.len(), 1);
+        assert!(first[0].contains("CVE-2026-1"));
+        assert!(!first[0].contains("CVE-2026-2"));
+
+        let second = server.diagnostic_messages(
+            server.scan_service.scan(Some(root.as_path())),
+            Some(root.as_path()),
+        );
+        assert_eq!(second.len(), 1);
+        assert!(second[0].contains("\"diagnostics\":[]"));
+    }
+
+    #[test]
+    fn show_plan_action_falls_back_when_diagnostic_missing() {
+        let actions = super::show_plan_action(&json!({ "context": {} }));
+        assert!(actions.to_string().contains("No upgrade plan is available"));
+    }
+
+    fn drive_connection(
+        scan_service: Box<dyn ScanService>,
+        client_messages: Vec<Message>,
+    ) -> Vec<Message> {
         let (server, client) = Connection::memory();
         client
             .sender
@@ -454,42 +710,107 @@ mod tests {
                     "initialize".to_string(),
                     json!({
                         "processId": null,
+                        "rootUri": "file:///workspace",
                         "capabilities": {},
                     }),
                 )
                 .into(),
             )
             .expect("client should initialize server");
-        let server = std::thread::spawn(move || {
-            run_connection(server, Box::new(EmptyScanService))
-        });
-        let response = client
-            .receiver
-            .recv()
-            .expect("server should respond to initialize");
-        assert!(matches!(response, Message::Response(_)));
+        let server =
+            std::thread::spawn(move || run_connection(server, scan_service));
+        let mut messages = Vec::new();
+        messages.push(
+            client
+                .receiver
+                .recv()
+                .expect("server should respond to initialize"),
+        );
         client
             .sender
             .send(
                 Notification::new("initialized".to_string(), json!({})).into(),
             )
             .expect("client should complete initialization");
-        client
-            .sender
-            .send(Notification::new("exit".to_string(), json!(null)).into())
-            .expect("client should stop server");
-
+        for message in client_messages {
+            client
+                .sender
+                .send(message)
+                .expect("client should send lifecycle message");
+        }
         server
             .join()
             .expect("server thread should not panic")
             .expect("server should exit cleanly");
+        while let Ok(message) = client.receiver.try_recv() {
+            messages.push(message);
+        }
+        messages
     }
 
+    fn is_publish_diagnostics(message: &Message) -> bool {
+        matches!(
+            message,
+            Message::Notification(notification)
+                if notification.method == "textDocument/publishDiagnostics"
+        )
+    }
+
+    fn tempfile_workspace() -> PathBuf {
+        let root = std::env::temp_dir()
+            .join(format!("vlz-lsp-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("temp workspace");
+        root
+    }
+
+    #[derive(Default)]
     struct EmptyScanService;
 
     impl ScanService for EmptyScanService {
         fn scan(&self, _root: Option<&Path>) -> ScanResult {
             ScanResult::default()
+        }
+    }
+
+    #[derive(Default)]
+    struct FixedScanService;
+
+    impl ScanService for FixedScanService {
+        fn scan(&self, _root: Option<&Path>) -> ScanResult {
+            ScanResult {
+                diagnostics: vec![ScanDiagnostic {
+                    uri: "file:///workspace/Cargo.toml".to_string(),
+                    line: 0,
+                    code: "CVE-2026-1234".to_string(),
+                    message: "CVE-2026-1234: update to 1.2.3".to_string(),
+                }],
+            }
+        }
+    }
+
+    struct CountingScanService {
+        count: Arc<Mutex<u32>>,
+    }
+
+    impl ScanService for CountingScanService {
+        fn scan(&self, _root: Option<&Path>) -> ScanResult {
+            *self.count.lock().expect("count lock") += 1;
+            FixedScanService.scan(None)
+        }
+    }
+
+    struct SequenceScanService {
+        results: Mutex<Vec<ScanResult>>,
+    }
+
+    impl ScanService for SequenceScanService {
+        fn scan(&self, _root: Option<&Path>) -> ScanResult {
+            let mut results = self.results.lock().expect("results lock");
+            if results.is_empty() {
+                return ScanResult::default();
+            }
+            results.remove(0)
         }
     }
 }
