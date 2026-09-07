@@ -2962,6 +2962,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror",
  "vlz-db",
 ]

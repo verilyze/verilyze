@@ -1448,13 +1448,42 @@ pub fn set_config_key(key: &str, value: &str) -> Result<(), ConfigError> {
 mod tests {
     use super::*;
 
+    /// Create a tempdir that ignores a process-wide `TMPDIR` override.
+    ///
+    /// Parallel `secure_temp_base_*` tests temporarily set `TMPDIR` to a path
+    /// under another tempdir. Plain `tempfile::tempdir()` follows `TMPDIR`, so
+    /// a sibling test can nest into a directory that is then deleted
+    /// (`Io(NotFound)`). Always create under a stable base instead.
+    fn test_tempdir() -> tempfile::TempDir {
+        tempfile::Builder::new()
+            .prefix("vlz-config-")
+            .tempdir_in(stable_test_temp_base())
+            .expect("create isolated test tempdir")
+    }
+
+    fn stable_test_temp_base() -> PathBuf {
+        #[cfg(unix)]
+        {
+            PathBuf::from("/tmp")
+        }
+        #[cfg(not(unix))]
+        {
+            std::env::temp_dir()
+        }
+    }
+
+    /// Serialize tests that mutate `TMPDIR` / `XDG_RUNTIME_DIR` for
+    /// `secure_temp_base` so they cannot race each other.
+    static SECURE_TEMP_ENV_LOCK: std::sync::Mutex<()> =
+        std::sync::Mutex::new(());
+
     /// Isolate `load` from host `/etc/verilyze.conf` and `VLZ_SCAN_EXCLUDE_DIRS`.
     ///
     /// Does not override `XDG_CONFIG_HOME` so callers can still pin a user
     /// config directory. Prefer [`with_isolated_load_env_empty_xdg`] when the
     /// test must also ignore the real user config.
     fn with_isolated_load_env<R>(f: impl FnOnce() -> R) -> R {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = test_tempdir();
         let absent_system = dir.path().join("absent-system-verilyze.conf");
         set_mock_system_config_path(Some(absent_system));
         let _clear = ClearSystemConfigMock;
@@ -1463,7 +1492,7 @@ mod tests {
 
     /// Like [`with_isolated_load_env`], and also pin empty `XDG_CONFIG_HOME`.
     fn with_isolated_load_env_empty_xdg<R>(f: impl FnOnce() -> R) -> R {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = test_tempdir();
         let xdg = dir.path().join("xdg");
         std::fs::create_dir_all(&xdg).unwrap();
         let xdg_str = xdg.to_string_lossy().into_owned();
@@ -1568,7 +1597,7 @@ mod tests {
 
     #[test]
     fn mock_system_config_path_loads_file() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = test_tempdir();
         let sys = dir.path().join("system.conf");
         std::fs::write(&sys, "parallel_queries = 11\n").unwrap();
         let xdg = dir.path().join("xdg");
@@ -1639,7 +1668,7 @@ mod tests {
     #[test]
     fn load_rejects_missing_tls_crl_bundle_sec021() {
         with_isolated_load_env(|| {
-            let dir = tempfile::tempdir().unwrap();
+            let dir = test_tempdir();
             let conf = dir.path().join("verilyze.conf");
             std::fs::write(
                 &conf,
@@ -1754,7 +1783,7 @@ mod tests {
 
     #[test]
     fn set_config_key_invalid_key_returns_unknown_key() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = test_tempdir();
         let config_path = dir.path().join("verilyze").join("verilyze.conf");
         let r = set_config_key_in_path(&config_path, "nodot", "value");
         assert!(r.is_err());
@@ -1763,7 +1792,7 @@ mod tests {
 
     #[test]
     fn default_cache_path_under_xdg_cache_home() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = test_tempdir();
         let path_str = dir.path().to_string_lossy().into_owned();
         set_mock_privileged(Some(false));
         temp_env::with_var("XDG_CACHE_HOME", Some(path_str.as_str()), || {
@@ -1776,7 +1805,7 @@ mod tests {
 
     #[test]
     fn default_ignore_path_under_xdg_data_home() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = test_tempdir();
         let path_str = dir.path().to_string_lossy().into_owned();
         set_mock_privileged(Some(false));
         temp_env::with_var("XDG_DATA_HOME", Some(path_str.as_str()), || {
@@ -1932,7 +1961,7 @@ mod tests {
 
     #[test]
     fn user_relative_path_home_tilde_with_rest() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = test_tempdir();
         let config_path = dir.path().join("verilyze").join("verilyze.conf");
         std::fs::create_dir_all(config_path.parent().unwrap()).unwrap();
         std::fs::write(&config_path, "invalid {{{").unwrap();
@@ -1986,7 +2015,7 @@ mod tests {
 
     #[test]
     fn user_relative_path_no_home_uses_full_path() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = test_tempdir();
         let config_path = dir.path().join("vlz.conf");
         std::fs::write(&config_path, "invalid {{{").unwrap();
         temp_env::with_var("HOME", None::<&str>, || {
@@ -2039,7 +2068,7 @@ mod tests {
     #[test]
     fn apply_file_config_all_fields_from_file() {
         with_isolated_load_env_empty_xdg(|| {
-            let dir = tempfile::tempdir().unwrap();
+            let dir = test_tempdir();
             let config_path = dir.path().join("vlz.conf");
             let toml = r#"
 cache_db = "/tmp/cache.redb"
@@ -2138,7 +2167,7 @@ regex = "^req\\.txt$"
     #[test]
     fn load_config_file_override_uses_given_path() {
         with_isolated_load_env(|| {
-            let dir = tempfile::tempdir().unwrap();
+            let dir = test_tempdir();
             let config_path = dir.path().join("custom.conf");
             std::fs::write(&config_path, "parallel_queries = 3").unwrap();
             let path_str = config_path.to_string_lossy().into_owned();
@@ -2419,7 +2448,7 @@ regex = "^req\\.txt$"
     #[test]
     fn load_provider_http_from_file() {
         with_isolated_load_env(|| {
-            let dir = tempfile::tempdir().unwrap();
+            let dir = test_tempdir();
             let path = dir.path().join("vlz.conf");
             std::fs::write(
                 &path,
@@ -2475,7 +2504,7 @@ regex = "^req\\.txt$"
 
     #[test]
     fn load_provider_http_env_overrides_file() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = test_tempdir();
         let path = dir.path().join("vlz.conf");
         std::fs::write(
             &path,
@@ -2538,7 +2567,7 @@ regex = "^req\\.txt$"
 
     #[test]
     fn load_provider_http_cli_overrides_file_and_env() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = test_tempdir();
         let path = dir.path().join("vlz.conf");
         std::fs::write(
             &path,
@@ -2697,7 +2726,7 @@ regex = "^req\\.txt$"
 
     #[test]
     fn set_config_key_config_path_is_directory_returns_io_error() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = test_tempdir();
         let config_path = dir.path().join("verilyze.conf");
         std::fs::create_dir(&config_path).unwrap();
         let r = set_config_key_in_path(&config_path, "python.regex", "x");
@@ -2707,7 +2736,7 @@ regex = "^req\\.txt$"
 
     #[test]
     fn user_config_path_xdg_overrides_home() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = test_tempdir();
         let xdg = dir.path().join("xdg-config");
         std::fs::create_dir_all(xdg.join("verilyze")).unwrap();
         std::fs::write(
@@ -2769,7 +2798,7 @@ regex = "^req\\.txt$"
 
     #[test]
     fn user_config_path_home_fallback() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = test_tempdir();
         let home = dir.path().join("home");
         std::fs::create_dir_all(home.join(".config").join("verilyze"))
             .unwrap();
@@ -2873,7 +2902,10 @@ regex = "^req\\.txt$"
 
     #[test]
     fn secure_temp_base_prefers_xdg_runtime_dir() {
-        let dir = tempfile::tempdir().unwrap();
+        let _guard = SECURE_TEMP_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let dir = test_tempdir();
         let path_str = dir.path().to_path_buf();
         temp_env::with_var(
             "XDG_RUNTIME_DIR",
@@ -2893,7 +2925,10 @@ regex = "^req\\.txt$"
 
     #[test]
     fn secure_temp_base_falls_back_to_tmpdir_when_no_xdg_runtime() {
-        let dir = tempfile::tempdir().unwrap();
+        let _guard = SECURE_TEMP_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let dir = test_tempdir();
         let path_str = dir.path().to_path_buf();
         temp_env::with_var("XDG_RUNTIME_DIR", None::<&str>, || {
             temp_env::with_var("TMPDIR", Some(path_str.as_os_str()), || {
@@ -2905,6 +2940,9 @@ regex = "^req\\.txt$"
 
     #[test]
     fn secure_temp_base_falls_back_to_temp_dir_when_no_xdg_or_tmpdir() {
+        let _guard = SECURE_TEMP_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         temp_env::with_vars(
             [("XDG_RUNTIME_DIR", None::<&str>), ("TMPDIR", None::<&str>)],
             || {
@@ -2929,7 +2967,7 @@ regex = "^req\\.txt$"
 
     #[test]
     fn set_config_key_invalid_existing_toml_returns_error() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = test_tempdir();
         let config_path = dir.path().join("verilyze.conf");
         std::fs::write(&config_path, "invalid toml {{{").unwrap();
         let r = set_config_key_in_path(&config_path, "python.regex", "x");
@@ -2939,7 +2977,7 @@ regex = "^req\\.txt$"
 
     #[test]
     fn set_config_key_create_parent_dirs() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = test_tempdir();
         let config_path = dir
             .path()
             .join("new")
@@ -2955,7 +2993,7 @@ regex = "^req\\.txt$"
 
     #[test]
     fn set_config_key_value_not_table_returns_error() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = test_tempdir();
         let config_path = dir
             .path()
             .join("xdg")
@@ -2974,7 +3012,7 @@ regex = "^req\\.txt$"
     fn severity_defaults_match_vlz_report_defaults() {
         // EffectiveConfig.severity defaults must match SeverityConfig::default().
         // Use an empty temp dir for XDG_CONFIG_HOME to avoid picking up the real user config.
-        let dir = tempfile::tempdir().unwrap();
+        let dir = test_tempdir();
         temp_env::with_var(
             "XDG_CONFIG_HOME",
             Some(dir.path().to_str().unwrap()),
@@ -2990,7 +3028,7 @@ regex = "^req\\.txt$"
 
     #[test]
     fn severity_v3_critical_min_from_config_file() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = test_tempdir();
         let config_dir = dir.path().join("xdg").join("verilyze");
         std::fs::create_dir_all(&config_dir).unwrap();
         std::fs::write(
@@ -3012,7 +3050,7 @@ regex = "^req\\.txt$"
 
     #[test]
     fn severity_env_var_overrides_config_file() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = test_tempdir();
         let config_dir = dir.path().join("xdg").join("verilyze");
         std::fs::create_dir_all(&config_dir).unwrap();
         std::fs::write(
@@ -3042,7 +3080,7 @@ regex = "^req\\.txt$"
 
     #[test]
     fn severity_cli_overrides_env_and_file() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = test_tempdir();
         temp_env::with_vars(
             [
                 ("XDG_CONFIG_HOME", Some(dir.path().to_str().unwrap())),
@@ -3062,7 +3100,7 @@ regex = "^req\\.txt$"
 
     #[test]
     fn severity_v2_v4_independently_configurable() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = test_tempdir();
         let config_dir = dir.path().join("xdg").join("verilyze");
         std::fs::create_dir_all(&config_dir).unwrap();
         std::fs::write(
@@ -3106,7 +3144,7 @@ regex = "^req\\.txt$"
 
     #[test]
     fn reachability_mode_from_config_file() {
-        let dir = tempfile::tempdir().expect("tempdir");
+        let dir = test_tempdir();
         let config_path = dir.path().join("verilyze.conf");
         std::fs::write(&config_path, "reachability_mode = \"off\"\n")
             .expect("write config");
@@ -3121,7 +3159,7 @@ regex = "^req\\.txt$"
 
     #[test]
     fn reachability_mode_env_overrides_config_file() {
-        let dir = tempfile::tempdir().expect("tempdir");
+        let dir = test_tempdir();
         let config_path = dir.path().join("verilyze.conf");
         std::fs::write(
             &config_path,
@@ -3141,7 +3179,7 @@ regex = "^req\\.txt$"
 
     #[test]
     fn reachability_mode_cli_overrides_env_and_file() {
-        let dir = tempfile::tempdir().expect("tempdir");
+        let dir = test_tempdir();
         let config_path = dir.path().join("verilyze.conf");
         std::fs::write(&config_path, "reachability_mode = \"off\"\n")
             .expect("write config");
@@ -3172,7 +3210,7 @@ regex = "^req\\.txt$"
 
     #[test]
     fn reachability_mode_invalid_file_value_returns_error() {
-        let dir = tempfile::tempdir().expect("tempdir");
+        let dir = test_tempdir();
         let config_path = dir.path().join("verilyze.conf");
         std::fs::write(&config_path, "reachability_mode = \"bad\"\n")
             .expect("write config");
@@ -3355,7 +3393,7 @@ regex = "^req\\.txt$"
 
     #[test]
     fn allow_direct_only_fallback_from_config_file() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = test_tempdir();
         let config_path = dir.path().join("verilyze.conf");
         std::fs::write(&config_path, "allow_direct_only_fallback = true\n")
             .unwrap();
@@ -3369,7 +3407,7 @@ regex = "^req\\.txt$"
 
     #[test]
     fn allow_direct_only_fallback_env_overrides_file() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = test_tempdir();
         let config_path = dir.path().join("verilyze.conf");
         std::fs::write(&config_path, "allow_direct_only_fallback = true\n")
             .unwrap();

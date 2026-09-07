@@ -616,9 +616,43 @@ mod tests {
         }
     }
 
+    /// Isolated tempdir under `/tmp` (not process `TMPDIR`) so parallel
+    /// suites cannot nest into a deleted parent.
+    fn test_tempdir() -> tempfile::TempDir {
+        tempfile::Builder::new()
+            .prefix("vlz-remediate-")
+            .tempdir_in(Path::new("/tmp"))
+            .expect("create isolated remediator test tempdir")
+    }
+
     fn write_exec(path: &Path, body: &str) {
-        fs::write(path, body).unwrap();
-        fs::set_permissions(path, PermissionsExt::from_mode(0o755)).unwrap();
+        // Write via a sibling temp name then rename so the final path is never
+        // open for write when we exec it (avoids Linux ETXTBSY flakes).
+        let tmp = path.with_extension("write-tmp");
+        fs::write(&tmp, body).unwrap();
+        fs::set_permissions(&tmp, PermissionsExt::from_mode(0o755)).unwrap();
+        fs::rename(&tmp, path).unwrap();
+        let mut last_err = None;
+        for _ in 0..8 {
+            match Command::new(path).arg("--version").status() {
+                Ok(status) if status.success() => return,
+                Ok(status) => {
+                    panic!("stub {} --version exited {status}", path.display())
+                }
+                Err(e)
+                    if e.kind() == std::io::ErrorKind::ExecutableFileBusy
+                        || e.raw_os_error() == Some(26) =>
+                {
+                    last_err = Some(e);
+                    std::thread::sleep(std::time::Duration::from_millis(5));
+                }
+                Err(e) => panic!("exec {} --version: {e}", path.display()),
+            }
+        }
+        panic!(
+            "exec {} --version still busy after retries: {last_err:?}",
+            path.display()
+        );
     }
 
     fn write_npm_tree(root: &Path) {
@@ -717,10 +751,9 @@ mod tests {
 
     #[test]
     fn npm_apply_rejects_unknown_offline_missing_bin_and_lock() {
-        let root = std::env::temp_dir()
-            .join(format!("vlz-npm-rej-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
-        fs::create_dir_all(&root).unwrap();
+        let dir = test_tempdir();
+        let root = dir.path();
+        fs::create_dir_all(root).unwrap();
         let decls = [lock_decl("package-lock.json")];
         let ok_bin = root.join("npm-ok");
         write_exec(&ok_bin, "#!/bin/sh\nexit 0\n");
@@ -728,7 +761,7 @@ mod tests {
 
         let err = rem
             .apply(&RemediationContext {
-                scan_root: &root,
+                scan_root: root,
                 declarations: &decls,
                 package_name: "left-pad",
                 target_version: MIN_FIXED_VERSION_UNKNOWN,
@@ -741,7 +774,7 @@ mod tests {
 
         let err = rem
             .apply(&RemediationContext {
-                scan_root: &root,
+                scan_root: root,
                 declarations: &decls,
                 package_name: "left-pad",
                 target_version: "2.0.0",
@@ -754,7 +787,7 @@ mod tests {
 
         let err = rem
             .apply(&RemediationContext {
-                scan_root: &root,
+                scan_root: root,
                 declarations: &[manifest_decl("package.json")],
                 package_name: "left-pad",
                 target_version: "2.0.0",
@@ -770,7 +803,7 @@ mod tests {
         );
         let err = missing
             .apply(&RemediationContext {
-                scan_root: &root,
+                scan_root: root,
                 declarations: &decls,
                 package_name: "left-pad",
                 target_version: "2.0.0",
@@ -780,15 +813,13 @@ mod tests {
             })
             .unwrap_err();
         assert!(matches!(err, RemediationError::MissingPackageManager(_)));
-        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
     fn cargo_apply_rejects_unknown_offline_missing_bin_and_lock() {
-        let root = std::env::temp_dir()
-            .join(format!("vlz-cargo-rej-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
-        fs::create_dir_all(&root).unwrap();
+        let dir = test_tempdir();
+        let root = dir.path();
+        fs::create_dir_all(root).unwrap();
         let decls = [lock_decl("Cargo.lock")];
         let ok_bin = root.join("cargo-ok");
         write_exec(&ok_bin, "#!/bin/sh\nexit 0\n");
@@ -796,7 +827,7 @@ mod tests {
 
         let err = rem
             .apply(&RemediationContext {
-                scan_root: &root,
+                scan_root: root,
                 declarations: &decls,
                 package_name: "serde",
                 target_version: MIN_FIXED_VERSION_UNKNOWN,
@@ -809,7 +840,7 @@ mod tests {
 
         let err = rem
             .apply(&RemediationContext {
-                scan_root: &root,
+                scan_root: root,
                 declarations: &decls,
                 package_name: "serde",
                 target_version: "1.0.200",
@@ -822,7 +853,7 @@ mod tests {
 
         let err = rem
             .apply(&RemediationContext {
-                scan_root: &root,
+                scan_root: root,
                 declarations: &[manifest_decl("Cargo.toml")],
                 package_name: "serde",
                 target_version: "1.0.200",
@@ -838,7 +869,7 @@ mod tests {
         );
         let err = missing
             .apply(&RemediationContext {
-                scan_root: &root,
+                scan_root: root,
                 declarations: &decls,
                 package_name: "serde",
                 target_version: "1.0.200",
@@ -848,22 +879,20 @@ mod tests {
             })
             .unwrap_err();
         assert!(matches!(err, RemediationError::MissingPackageManager(_)));
-        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
     fn npm_apply_stub_bin_success_and_command_failed() {
-        let root = std::env::temp_dir()
-            .join(format!("vlz-npm-stub-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
-        write_npm_tree(&root);
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_npm_tree(root);
         let decls = [lock_decl("package-lock.json")];
 
         let ok_bin = root.join("npm-ok");
         write_exec(&ok_bin, "#!/bin/sh\nexit 0\n");
         NpmRemediator::with_bin(ok_bin.to_string_lossy())
             .apply(&RemediationContext {
-                scan_root: &root,
+                scan_root: root,
                 declarations: &decls,
                 package_name: "left-pad",
                 target_version: "2.0.0",
@@ -880,7 +909,7 @@ mod tests {
         );
         let err = NpmRemediator::with_bin(fail_bin.to_string_lossy())
             .apply(&RemediationContext {
-                scan_root: &root,
+                scan_root: root,
                 declarations: &decls,
                 package_name: "left-pad",
                 target_version: "2.0.0",
@@ -896,22 +925,20 @@ mod tests {
             }
             other => panic!("expected CommandFailed, got {other:?}"),
         }
-        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
     fn cargo_apply_stub_bin_success_and_command_failed() {
-        let root = std::env::temp_dir()
-            .join(format!("vlz-cargo-stub-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
-        write_cargo_tree(&root);
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_cargo_tree(root);
         let decls = [lock_decl("Cargo.lock")];
 
         let ok_bin = root.join("cargo-ok");
         write_exec(&ok_bin, "#!/bin/sh\nexit 0\n");
         CargoRemediator::with_bin(ok_bin.to_string_lossy())
             .apply(&RemediationContext {
-                scan_root: &root,
+                scan_root: root,
                 declarations: &decls,
                 package_name: "serde",
                 target_version: "1.0.200",
@@ -928,7 +955,7 @@ mod tests {
         );
         let err = CargoRemediator::with_bin(fail_bin.to_string_lossy())
             .apply(&RemediationContext {
-                scan_root: &root,
+                scan_root: root,
                 declarations: &decls,
                 package_name: "serde",
                 target_version: "1.0.200",
@@ -944,20 +971,16 @@ mod tests {
             }
             other => panic!("expected CommandFailed, got {other:?}"),
         }
-        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
     fn npm_apply_rejects_lock_path_outside_scan_root() {
-        let pid = std::process::id();
-        let root =
-            std::env::temp_dir().join(format!("vlz-npm-esc-root-{pid}"));
-        let outside =
-            std::env::temp_dir().join(format!("vlz-npm-esc-out-{pid}"));
-        let _ = fs::remove_dir_all(&root);
-        let _ = fs::remove_dir_all(&outside);
-        write_npm_tree(&root);
-        write_npm_tree(&outside);
+        let root_dir = test_tempdir();
+        let outside_dir = test_tempdir();
+        let root = root_dir.path();
+        let outside = outside_dir.path();
+        write_npm_tree(root);
+        write_npm_tree(outside);
         let ok_bin = root.join("npm-ok");
         write_exec(&ok_bin, "#!/bin/sh\nexit 0\n");
         let rem = NpmRemediator::with_bin(ok_bin.to_string_lossy());
@@ -970,7 +993,7 @@ mod tests {
             .into_owned();
         let err = rem
             .apply(&RemediationContext {
-                scan_root: &root,
+                scan_root: root,
                 declarations: &[lock_decl(&abs)],
                 package_name: "left-pad",
                 target_version: "2.0.0",
@@ -981,10 +1004,14 @@ mod tests {
             .unwrap_err();
         assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
 
-        let rel = format!("../vlz-npm-esc-out-{pid}/package-lock.json");
+        // Sibling tempdirs under /tmp: build a relative escape path.
+        let rel = format!(
+            "../{}/package-lock.json",
+            outside.file_name().unwrap().to_string_lossy()
+        );
         let err = rem
             .apply(&RemediationContext {
-                scan_root: &root,
+                scan_root: root,
                 declarations: &[lock_decl(&rel)],
                 package_name: "left-pad",
                 target_version: "2.0.0",
@@ -994,22 +1021,19 @@ mod tests {
             })
             .unwrap_err();
         assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
-        let _ = fs::remove_dir_all(&root);
-        let _ = fs::remove_dir_all(&outside);
     }
 
     #[test]
     fn npm_apply_rejects_missing_sibling_manifest() {
-        let root = std::env::temp_dir()
-            .join(format!("vlz-npm-nosib-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
-        fs::create_dir_all(&root).unwrap();
+        let dir = test_tempdir();
+        let root = dir.path();
+        fs::create_dir_all(root).unwrap();
         fs::write(root.join("package-lock.json"), "{}\n").unwrap();
         let ok_bin = root.join("npm-ok");
         write_exec(&ok_bin, "#!/bin/sh\nexit 0\n");
         let err = NpmRemediator::with_bin(ok_bin.to_string_lossy())
             .apply(&RemediationContext {
-                scan_root: &root,
+                scan_root: root,
                 declarations: &[lock_decl("package-lock.json")],
                 package_name: "left-pad",
                 target_version: "2.0.0",
@@ -1019,15 +1043,13 @@ mod tests {
             })
             .unwrap_err();
         assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
-        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
     fn npm_and_cargo_apply_reject_invalid_operands() {
-        let root = std::env::temp_dir()
-            .join(format!("vlz-operand-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
-        write_npm_tree(&root);
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_npm_tree(root);
         let cargo_root = root.join("cargo-tree");
         write_cargo_tree(&cargo_root);
         let npm_bin = root.join("npm-ok");
@@ -1037,7 +1059,7 @@ mod tests {
 
         let err = NpmRemediator::with_bin(npm_bin.to_string_lossy())
             .apply(&RemediationContext {
-                scan_root: &root,
+                scan_root: root,
                 declarations: &[lock_decl("package-lock.json")],
                 package_name: "-evil",
                 target_version: "2.0.0",
@@ -1073,7 +1095,6 @@ mod tests {
             })
             .unwrap_err();
         assert!(matches!(err, RemediationError::InvalidOperand(_)));
-        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
@@ -1098,17 +1119,16 @@ mod tests {
 
     #[test]
     fn npm_preview_matches_allowlisted_argv_and_ignore_scripts_gate() {
-        let root = std::env::temp_dir()
-            .join(format!("vlz-npm-preview-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
-        write_npm_tree(&root);
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_npm_tree(root);
         let decls = [lock_decl("package-lock.json")];
         let rem = NpmRemediator::new();
         assert_eq!(rem.strategy(), ApplyStrategy::Npm);
 
         let preview = rem
             .preview(&RemediationContext {
-                scan_root: &root,
+                scan_root: root,
                 declarations: &decls,
                 package_name: "left-pad",
                 target_version: "2.0.0",
@@ -1143,7 +1163,7 @@ mod tests {
 
         let with_scripts = rem
             .preview(&RemediationContext {
-                scan_root: &root,
+                scan_root: root,
                 declarations: &decls,
                 package_name: "left-pad",
                 target_version: "2.0.0",
@@ -1163,21 +1183,19 @@ mod tests {
                 .files
                 .contains(&root.join(NPM_MANIFEST_FILE_NAME))
         );
-        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
     fn cargo_preview_matches_allowlisted_argv() {
-        let root = std::env::temp_dir()
-            .join(format!("vlz-cargo-preview-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
-        write_cargo_tree(&root);
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_cargo_tree(root);
         let decls = [lock_decl("Cargo.lock")];
         let rem = CargoRemediator::new();
         assert_eq!(rem.strategy(), ApplyStrategy::Cargo);
         let preview = rem
             .preview(&RemediationContext {
-                scan_root: &root,
+                scan_root: root,
                 declarations: &decls,
                 package_name: "serde",
                 target_version: "1.0.200",
@@ -1191,7 +1209,6 @@ mod tests {
             cargo_update_argv(CARGO_BIN_NAME, "serde", "1.0.200")
         );
         assert_eq!(preview.files, vec![root.join(CARGO_LOCK_FILE_NAME)]);
-        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
