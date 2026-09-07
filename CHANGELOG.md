@@ -12,6 +12,9 @@ Human-readable release notes for each version.
 
 ### Added
 
+- Read-only `vlz lsp` Language Server Protocol diagnostics and non-writing
+  upgrade-plan Code Actions (FR-042). Editor scans never execute dependency
+  code.
 - Finding-level `upgrade_plan` in JSON/SARIF scan reports (FR-040), derived
   from OSV advisory ranges; plain/HTML keep Ranges only (no Fix column).
 - PRD rows for FR-040--043, MOD-011, SEC-025, NFR-026, and DOC-014

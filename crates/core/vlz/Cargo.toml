@@ -79,6 +79,7 @@ async-trait = { workspace = true, optional = true }
 
 # Secure temp file/dir creation (SEC-013, FR-023)
 tempfile.workspace = true
+vlz-lsp = { version = "0.10.0", path = "../vlz-lsp", optional = true }
 
 [build-dependencies]
 serde = { workspace = true, features = ["derive"] }
@@ -111,8 +112,9 @@ required-features = ["testing", "mem", "python"]
 [features]
 runtime = ["redb", "python", "rust", "go", "javascript", "java", "ruby", "sbom"]
 runtime-mem = ["mem", "python", "rust", "go", "javascript", "java", "ruby", "sbom"]
-default = ["runtime", "completions", "docs"]
+default = ["runtime", "completions", "docs", "lsp"]
 docs = []           # Man page via vlz help; omit for minimal binary
+lsp = ["dep:vlz-lsp"]
 manpage-gen = []    # Maintainer-only vlz-manpage-gen binary (not installed by default)
 completions = ["dep:clap_complete"]
 docker = ["runtime-mem"]
@@ -143,6 +145,7 @@ perf-instrumentation = [
     "vlz-ruby?/perf-instrumentation",
 ]
 sqlite = []      # placeholder for a future SQLite backend
+vlz-lsp = ["dep:vlz-lsp"]
 
 # ---- Packaging metadata (OP-013) ----
 

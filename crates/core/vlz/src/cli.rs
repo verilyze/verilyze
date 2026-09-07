@@ -344,6 +344,9 @@ pub enum Commands {
         offline: bool,
     },
 
+    /// Run the Language Server Protocol server over standard I/O
+    Lsp,
+
     /// List supported manifest languages
     #[command(visible_alias = "list")]
     Languages,

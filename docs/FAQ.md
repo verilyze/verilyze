@@ -304,6 +304,18 @@ omit ranges. Scan JSON/SARIF findings include a structured `upgrade_plan`
 supported strategies (npm / Cargo); `vlz fix --dry-run` previews without
 writing.
 
+### How do I use editor diagnostics?
+
+Run `vlz lsp` from an editor Language Server configuration. It uses standard
+input and output for JSON-RPC, so do not run it directly in an interactive
+terminal. The server publishes diagnostics for vulnerable dependency
+declarations and offers a non-writing **Show upgrade plan** Code Action.
+
+Editor diagnostics never execute dependency code, even when the configuration
+enables `allow_dependency_code_execution`. `vlz fix` modifies supported lock
+files; use `vlz fix --dry-run` to preview changes. Folder trust and applying
+an upgrade from an editor are planned separately.
+
 ---
 
 ## CVE providers

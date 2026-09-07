@@ -108,6 +108,16 @@ _arguments "${_arguments_options[@]}" : \
 '::root -- Root directory (defaults to current working dir):_files -/' \
 && ret=0
 ;;
+(lsp)
+_arguments "${_arguments_options[@]}" : \
+'-c+[Override configuration file location]:PATH:_files' \
+'--config=[Override configuration file location]:PATH:_files' \
+'*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
 (languages)
 _arguments "${_arguments_options[@]}" : \
 '-c+[Override configuration file location]:PATH:_files' \
@@ -332,6 +342,7 @@ _vlz_commands() {
     local commands; commands=(
 'scan:Scan project dependencies for known vulnerabilities' \
 'fix:Apply remediations (updates lock/manifest files by default)' \
+'lsp:Run the Language Server Protocol server over standard I/O' \
 'languages:List supported manifest languages' \
 'config:Show or set configuration values' \
 'db:Inspect and maintain the vulnerability cache' \
@@ -426,6 +437,11 @@ _vlz__subcmd__help_commands() {
 _vlz__subcmd__languages_commands() {
     local commands; commands=()
     _describe -t commands 'vlz languages commands' commands "$@"
+}
+(( $+functions[_vlz__subcmd__lsp_commands] )) ||
+_vlz__subcmd__lsp_commands() {
+    local commands; commands=()
+    _describe -t commands 'vlz lsp commands' commands "$@"
 }
 (( $+functions[_vlz__subcmd__preload_commands] )) ||
 _vlz__subcmd__preload_commands() {

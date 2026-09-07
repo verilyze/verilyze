@@ -1255,6 +1255,18 @@ pub async fn run(args: Cli) -> Result<i32> {
                 .await
         }
 
+        #[cfg(feature = "lsp")]
+        Commands::Lsp => run_lsp(early_cfg, db_backend).await,
+
+        #[cfg(not(feature = "lsp"))]
+        Commands::Lsp => {
+            error!(
+                "vlz was built without Language Server support. Rebuild with \
+                 `--features lsp`."
+            );
+            Ok(EXIT_MISCONFIGURATION)
+        }
+
         Commands::Help { .. } => {
             // Handled at start of run(); unreachable here
             unreachable!("help returns early")
@@ -1356,6 +1368,143 @@ async fn run_preload(
         0,
         effective.fp_exit_code,
     )))
+}
+
+/// Read-only scan adapter for `vlz lsp` (FR-042).
+#[cfg(feature = "lsp")]
+struct LspScanService {
+    effective: crate::config::EffectiveConfig,
+    db_backend: Arc<Box<dyn vlz_db::DatabaseBackend + Send + Sync + 'static>>,
+    runtime: tokio::runtime::Handle,
+}
+
+#[cfg(feature = "lsp")]
+impl vlz_lsp::ScanService for LspScanService {
+    fn scan(&self, root: Option<&std::path::Path>) -> vlz_lsp::ScanResult {
+        let Some(root) = root else {
+            return vlz_lsp::ScanResult::default();
+        };
+        let Ok(report_file) = tempfile::NamedTempFile::new() else {
+            error!("Unable to create temporary LSP report file");
+            return vlz_lsp::ScanResult::default();
+        };
+        let Some(output) = report_file.path().to_str().map(str::to_owned)
+        else {
+            error!("Temporary LSP report path is not valid UTF-8");
+            return vlz_lsp::ScanResult::default();
+        };
+        let mut effective = self.effective.clone();
+        // FR-043: read-only editor diagnostics never execute project code.
+        effective.allow_dependency_code_execution = false;
+        let report_root = root.to_path_buf();
+        let root = root.to_string_lossy().into_owned();
+        let result = self.runtime.block_on(run_scan(
+            Some(root),
+            "json".to_string(),
+            Some(output),
+            Vec::new(),
+            None,
+            effective,
+            0,
+            self.db_backend.clone(),
+        ));
+        if let Err(err) = result {
+            error!("LSP scan failed: {err}");
+            return vlz_lsp::ScanResult::default();
+        }
+        lsp_diagnostics_from_report(report_file.path(), &report_root)
+    }
+}
+
+/// Map the JSON report's declaration lines to LSP diagnostics.
+#[cfg(feature = "lsp")]
+fn lsp_diagnostics_from_report(
+    path: &std::path::Path,
+    root: &std::path::Path,
+) -> vlz_lsp::ScanResult {
+    #[derive(serde::Deserialize)]
+    struct Report {
+        findings: Vec<Finding>,
+    }
+    #[derive(serde::Deserialize)]
+    struct Finding {
+        declarations: Vec<Declaration>,
+        upgrade_plan: UpgradePlan,
+        cves: Vec<Cve>,
+    }
+    #[derive(serde::Deserialize)]
+    struct Declaration {
+        path: String,
+        start_line: u32,
+    }
+    #[derive(serde::Deserialize)]
+    struct UpgradePlan {
+        minimal_fixed_version: String,
+        apply_strategy: String,
+    }
+    #[derive(serde::Deserialize)]
+    struct Cve {
+        id: String,
+    }
+
+    let Ok(contents) = std::fs::read_to_string(path) else {
+        error!("Unable to read temporary LSP report");
+        return vlz_lsp::ScanResult::default();
+    };
+    let Ok(report) = serde_json::from_str::<Report>(&contents) else {
+        error!("Unable to parse temporary LSP report");
+        return vlz_lsp::ScanResult::default();
+    };
+    let diagnostics = report
+        .findings
+        .into_iter()
+        .flat_map(|finding| {
+            let title = format!(
+                "upgrade to {} ({})",
+                finding.upgrade_plan.minimal_fixed_version,
+                finding.upgrade_plan.apply_strategy,
+            );
+            finding
+                .declarations
+                .into_iter()
+                .flat_map(move |declaration| {
+                    let Some(uri) = vlz_lsp::file_uri_for_path(
+                        &root.join(&declaration.path),
+                    ) else {
+                        return Vec::new();
+                    };
+                    finding
+                        .cves
+                        .iter()
+                        .map(|cve| vlz_lsp::ScanDiagnostic {
+                            uri: uri.clone(),
+                            line: declaration.start_line.saturating_sub(1),
+                            code: cve.id.clone(),
+                            message: format!("{}: {title}", cve.id),
+                        })
+                        .collect::<Vec<_>>()
+                })
+        })
+        .collect();
+    vlz_lsp::ScanResult { diagnostics }
+}
+
+#[cfg(feature = "lsp")]
+async fn run_lsp(
+    mut effective: crate::config::EffectiveConfig,
+    db_backend: Arc<Box<dyn vlz_db::DatabaseBackend + Send + Sync + 'static>>,
+) -> Result<i32> {
+    effective.allow_dependency_code_execution = false;
+    let service = LspScanService {
+        effective,
+        db_backend,
+        runtime: tokio::runtime::Handle::current(),
+    };
+    tokio::task::spawn_blocking(move || vlz_lsp::run_stdio(Box::new(service)))
+        .await
+        .context("LSP server task failed")?
+        .context("LSP server failed")?;
+    Ok(EXIT_SUCCESS)
 }
 
 /// Runs the scan pipeline; returns the exit code to use (0, 1, 3, 4, 86, etc.).

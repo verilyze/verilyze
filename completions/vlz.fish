@@ -31,6 +31,7 @@ complete -c vlz -n "__fish_vlz_needs_command" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_needs_command" -s V -l version -d 'Print version'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "scan" -d 'Scan project dependencies for known vulnerabilities'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "fix" -d 'Apply remediations (updates lock/manifest files by default)'
+complete -c vlz -n "__fish_vlz_needs_command" -f -a "lsp" -d 'Run the Language Server Protocol server over standard I/O'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "languages" -d 'List supported manifest languages'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "config" -d 'Show or set configuration values'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "db" -d 'Inspect and maintain the vulnerability cache'
@@ -98,6 +99,9 @@ complete -c vlz -n "__fish_vlz_using_subcommand fix" -l dry-run -d 'Preview the 
 complete -c vlz -n "__fish_vlz_using_subcommand fix" -l offline -d 'Disable network access (offline apply exits 6 when network is needed)'
 complete -c vlz -n "__fish_vlz_using_subcommand fix" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
 complete -c vlz -n "__fish_vlz_using_subcommand fix" -s h -l help -d 'Print help'
+complete -c vlz -n "__fish_vlz_using_subcommand lsp" -s c -l config -d 'Override configuration file location' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand lsp" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
+complete -c vlz -n "__fish_vlz_using_subcommand lsp" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand languages" -s c -l config -d 'Override configuration file location' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand languages" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
 complete -c vlz -n "__fish_vlz_using_subcommand languages" -s h -l help -d 'Print help'

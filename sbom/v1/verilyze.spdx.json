@@ -588,6 +588,20 @@
     },
     {
       "@type": "Package",
+      "name": "crossbeam-channel",
+      "packageUrl": "pkg:cargo/crossbeam-channel@0.5.16",
+      "spdxId": "urn:spdx.dev:pkg-cargo-crossbeam-channel-0-5-16",
+      "versionInfo": "0.5.16"
+    },
+    {
+      "@type": "Package",
+      "name": "crossbeam-utils",
+      "packageUrl": "pkg:cargo/crossbeam-utils@0.8.22",
+      "spdxId": "urn:spdx.dev:pkg-cargo-crossbeam-utils-0-8-22",
+      "versionInfo": "0.8.22"
+    },
+    {
+      "@type": "Package",
       "name": "crypto-common",
       "packageUrl": "pkg:cargo/crypto-common@0.2.2",
       "spdxId": "urn:spdx.dev:pkg-cargo-crypto-common-0-2-2",
@@ -739,6 +753,13 @@
       "packageUrl": "pkg:cargo/find-msvc-tools@0.1.11",
       "spdxId": "urn:spdx.dev:pkg-cargo-find-msvc-tools-0-1-11",
       "versionInfo": "0.1.11"
+    },
+    {
+      "@type": "Package",
+      "name": "fluent-uri",
+      "packageUrl": "pkg:cargo/fluent-uri@0.1.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-fluent-uri-0-1-4",
+      "versionInfo": "0.1.4"
     },
     {
       "@type": "Package",
@@ -1159,6 +1180,20 @@
       "packageUrl": "pkg:cargo/log@0.4.34",
       "spdxId": "urn:spdx.dev:pkg-cargo-log-0-4-34",
       "versionInfo": "0.4.34"
+    },
+    {
+      "@type": "Package",
+      "name": "lsp-server",
+      "packageUrl": "pkg:cargo/lsp-server@0.10.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-lsp-server-0-10-0",
+      "versionInfo": "0.10.0"
+    },
+    {
+      "@type": "Package",
+      "name": "lsp-types",
+      "packageUrl": "pkg:cargo/lsp-types@0.97.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-lsp-types-0-97-0",
+      "versionInfo": "0.97.0"
     },
     {
       "@type": "Package",
@@ -1708,6 +1743,13 @@
     },
     {
       "@type": "Package",
+      "name": "serde_repr",
+      "packageUrl": "pkg:cargo/serde_repr@0.1.21",
+      "spdxId": "urn:spdx.dev:pkg-cargo-serde-repr-0-1-21",
+      "versionInfo": "0.1.21"
+    },
+    {
+      "@type": "Package",
       "name": "serde_spanned",
       "packageUrl": "pkg:cargo/serde_spanned@1.1.1",
       "spdxId": "urn:spdx.dev:pkg-cargo-serde-spanned-1-1-1",
@@ -2208,6 +2250,13 @@
       "name": "vlz-javascript",
       "packageUrl": "pkg:cargo/vlz-javascript@0.10.0",
       "spdxId": "urn:spdx.dev:pkg-cargo-vlz-javascript-0-10-0",
+      "versionInfo": "0.10.0"
+    },
+    {
+      "@type": "Package",
+      "name": "vlz-lsp",
+      "packageUrl": "pkg:cargo/vlz-lsp@0.10.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-lsp-0-10-0",
       "versionInfo": "0.10.0"
     },
     {

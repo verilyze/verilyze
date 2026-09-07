@@ -576,6 +576,20 @@
       "version": "0.3.1"
     },
     {
+      "bom-ref": "pkg:cargo/crossbeam-channel@0.5.16",
+      "name": "crossbeam-channel",
+      "purl": "pkg:cargo/crossbeam-channel@0.5.16",
+      "type": "library",
+      "version": "0.5.16"
+    },
+    {
+      "bom-ref": "pkg:cargo/crossbeam-utils@0.8.22",
+      "name": "crossbeam-utils",
+      "purl": "pkg:cargo/crossbeam-utils@0.8.22",
+      "type": "library",
+      "version": "0.8.22"
+    },
+    {
       "bom-ref": "pkg:cargo/crypto-common@0.2.2",
       "name": "crypto-common",
       "purl": "pkg:cargo/crypto-common@0.2.2",
@@ -728,6 +742,13 @@
       "purl": "pkg:cargo/find-msvc-tools@0.1.11",
       "type": "library",
       "version": "0.1.11"
+    },
+    {
+      "bom-ref": "pkg:cargo/fluent-uri@0.1.4",
+      "name": "fluent-uri",
+      "purl": "pkg:cargo/fluent-uri@0.1.4",
+      "type": "library",
+      "version": "0.1.4"
     },
     {
       "bom-ref": "pkg:cargo/fnv@1.0.7",
@@ -1148,6 +1169,20 @@
       "purl": "pkg:cargo/log@0.4.34",
       "type": "library",
       "version": "0.4.34"
+    },
+    {
+      "bom-ref": "pkg:cargo/lsp-server@0.10.0",
+      "name": "lsp-server",
+      "purl": "pkg:cargo/lsp-server@0.10.0",
+      "type": "library",
+      "version": "0.10.0"
+    },
+    {
+      "bom-ref": "pkg:cargo/lsp-types@0.97.0",
+      "name": "lsp-types",
+      "purl": "pkg:cargo/lsp-types@0.97.0",
+      "type": "library",
+      "version": "0.97.0"
     },
     {
       "bom-ref": "pkg:cargo/manyhow@0.11.4",
@@ -1696,6 +1731,13 @@
       "version": "0.9.42"
     },
     {
+      "bom-ref": "pkg:cargo/serde_repr@0.1.21",
+      "name": "serde_repr",
+      "purl": "pkg:cargo/serde_repr@0.1.21",
+      "type": "library",
+      "version": "0.1.21"
+    },
+    {
       "bom-ref": "pkg:cargo/serde_spanned@1.1.1",
       "name": "serde_spanned",
       "purl": "pkg:cargo/serde_spanned@1.1.1",
@@ -2196,6 +2238,13 @@
       "bom-ref": "pkg:cargo/vlz-javascript@0.10.0",
       "name": "vlz-javascript",
       "purl": "pkg:cargo/vlz-javascript@0.10.0",
+      "type": "library",
+      "version": "0.10.0"
+    },
+    {
+      "bom-ref": "pkg:cargo/vlz-lsp@0.10.0",
+      "name": "vlz-lsp",
+      "purl": "pkg:cargo/vlz-lsp@0.10.0",
       "type": "library",
       "version": "0.10.0"
     },

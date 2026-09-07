@@ -525,24 +525,41 @@ description = "   \n  "
 
     #[test]
     fn generate_example_uses_default_paths_when_db_options_none() {
-        let cfg = example_config_default_paths();
-        let out = generate_example(&cfg);
-        let cache_line = format!(
-            "# cache_db = \"{}\"",
-            crate::config::default_cache_path().display()
+        // Pin XDG homes for the whole assertion: generate_example and the
+        // expected path helpers both read process env, and parallel vlz
+        // tests mutate HOME/XDG_* via temp_env (coverage-quick flake).
+        let cache_dir = tempfile::tempdir().expect("temp cache home");
+        let data_dir = tempfile::tempdir().expect("temp data home");
+        let cache_home = cache_dir.path().to_string_lossy().into_owned();
+        let data_home = data_dir.path().to_string_lossy().into_owned();
+        crate::config::set_mock_privileged(Some(false));
+        temp_env::with_vars(
+            [
+                ("XDG_CACHE_HOME", Some(cache_home.as_str())),
+                ("XDG_DATA_HOME", Some(data_home.as_str())),
+            ],
+            || {
+                let cfg = example_config_default_paths();
+                let out = generate_example(&cfg);
+                let cache_line = format!(
+                    "# cache_db = \"{}\"",
+                    crate::config::default_cache_path().display()
+                );
+                let ignore_line = format!(
+                    "# ignore_db = \"{}\"",
+                    crate::config::default_ignore_path().display()
+                );
+                assert!(
+                    out.contains(&cache_line),
+                    "expected default cache path line in output"
+                );
+                assert!(
+                    out.contains(&ignore_line),
+                    "expected default ignore path line in output"
+                );
+            },
         );
-        let ignore_line = format!(
-            "# ignore_db = \"{}\"",
-            crate::config::default_ignore_path().display()
-        );
-        assert!(
-            out.contains(&cache_line),
-            "expected default cache path line in output"
-        );
-        assert!(
-            out.contains(&ignore_line),
-            "expected default ignore path line in output"
-        );
+        crate::config::set_mock_privileged(None);
     }
 
     #[test]

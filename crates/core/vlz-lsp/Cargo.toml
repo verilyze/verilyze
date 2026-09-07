@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[package]
+name = "vlz-lsp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+description = "LSP protocol adapter for verilyze"
+
+[dependencies]
+anyhow = "1.0.104"
+lsp-server = "0.10.0"
+lsp-types = "0.97.0"
+serde_json.workspace = true
+url = "2.5.8"
+

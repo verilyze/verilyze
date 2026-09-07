@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use clap::Parser;
 use std::path::Path;
 use std::process::{Command, Stdio};
-use vlz::cli::DOCS_ONLINE_URL;
+use vlz::cli::{Cli, Commands, DOCS_ONLINE_URL};
 
 /// Path to the vlz binary (set by Cargo when running tests).
 fn vlz_exe() -> String {
@@ -237,6 +238,13 @@ fn cli_db_show_help_succeeds() {
     );
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("show") || stdout.contains("cache"));
+}
+
+#[test]
+fn cli_parses_lsp_subcommand() {
+    let cli =
+        Cli::try_parse_from(["vlz", "lsp"]).expect("vlz lsp should parse");
+    assert!(matches!(cli.cmd, Commands::Lsp));
 }
 
 #[test]
