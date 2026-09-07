@@ -218,8 +218,9 @@ when a remediator would need the network.
 .It Nm lsp
 Run the Language Server Protocol server over standard I/O (FR-042). Editors
 connect to this process for vulnerability diagnostics. Non-writing Code Actions
-include show upgrade plan and copy
-.Nm fix Fl -dry-run .
+include show upgrade plan and show
+.Nm fix Fl -dry-run
+(via editor message UI; not clipboard).
 Writing apply actions require folder trust (FR-043). Do not run
 .Nm lsp
 in an interactive terminal.

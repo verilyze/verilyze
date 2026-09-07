@@ -310,7 +310,8 @@ Run `vlz lsp` from an editor Language Server configuration. It uses standard
 input and output for JSON-RPC, so do not run it directly in an interactive
 terminal. The server publishes diagnostics for vulnerable dependency
 declarations and offers non-writing Code Actions: **Show upgrade plan** and
-**Copy vlz fix --dry-run**.
+**Show vlz fix --dry-run** (displays the CLI command via the editor message
+UI; it does not write the system clipboard).
 
 Editor diagnostics never execute dependency code, even when the configuration
 enables `allow_dependency_code_execution`. `vlz fix` modifies supported lock

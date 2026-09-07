@@ -2211,22 +2211,59 @@ async fn run_fix(
                 skipped_unavailable += 1;
             }
 
-            let preview = remediator_registry
-                .iter()
-                .find(|r| r.strategy() == upgrade_plan.apply_strategy)
-                .and_then(|rem| {
-                    rem.preview(&vlz_remediate::RemediationContext {
-                        scan_root: &scan_root_path,
-                        declarations: &declarations,
-                        package_name: &pkg.name,
-                        target_version: &upgrade_plan.minimal_fixed_version,
-                        dependency_kind: upgrade_plan.dependency_kind,
-                        allow_dependency_code_execution: effective
-                            .allow_dependency_code_execution,
-                        offline,
-                    })
-                    .ok()
-                });
+            // Preview failures must not silently omit files/argv while still
+            // advertising an applyable strategy (FR-041 dry-run fidelity).
+            let preview = if matches!(
+                upgrade_plan.apply_strategy,
+                vlz_remediate::ApplyStrategy::Unavailable
+            ) {
+                None
+            } else {
+                match remediator_registry
+                    .iter()
+                    .find(|r| r.strategy() == upgrade_plan.apply_strategy)
+                {
+                    None => {
+                        eprintln!(
+                            "No remediator registered for strategy {}; marking {} unavailable.",
+                            upgrade_plan.apply_strategy.as_str(),
+                            pkg.name
+                        );
+                        upgrade_plan.apply_strategy =
+                            vlz_remediate::ApplyStrategy::Unavailable;
+                        skipped_unavailable += 1;
+                        None
+                    }
+                    Some(rem) => {
+                        let ctx = vlz_remediate::RemediationContext {
+                            scan_root: &scan_root_path,
+                            declarations: &declarations,
+                            package_name: &pkg.name,
+                            target_version: &upgrade_plan
+                                .minimal_fixed_version,
+                            dependency_kind: upgrade_plan.dependency_kind,
+                            allow_dependency_code_execution: effective
+                                .allow_dependency_code_execution,
+                            offline,
+                        };
+                        match rem.preview(&ctx) {
+                            Ok(preview) => Some(preview),
+                            Err(err) => {
+                                eprintln!(
+                                    "Remediation preview failed for {} ({}): {}; marking unavailable.",
+                                    pkg.name,
+                                    upgrade_plan.apply_strategy.as_str(),
+                                    err
+                                );
+                                upgrade_plan.apply_strategy =
+                                    vlz_remediate::ApplyStrategy::Unavailable;
+                                skipped_unavailable += 1;
+                                None
+                            }
+                        }
+                    }
+                }
+            };
 
             plan_entries.push(FixPlanEntry {
                 package: pkg,
@@ -2239,7 +2276,8 @@ async fn run_fix(
     }
 
     // -----------------------------------------------------------------
-    // Emit dry-run output (and also preview before apply).
+    // Emit plan output. Detailed files/argv preview is dry-run only so
+    // apply stdout stays compact for scripts (FR-041).
     // -----------------------------------------------------------------
     let output_body = if format.eq_ignore_ascii_case("json") {
         let findings: Vec<serde_json::Value> = plan_entries
@@ -2250,7 +2288,7 @@ async fn run_fix(
                     "upgrade_plan": e.upgrade_plan,
                     "sbom_only": e.sbom_only,
                 });
-                if let Some(preview) = &e.preview {
+                if dry_run && let Some(preview) = &e.preview {
                     obj["preview"] = serde_json::json!({
                         "strategy": preview.strategy.as_str(),
                         "workdir": preview.workdir,
@@ -2275,24 +2313,26 @@ async fn run_fix(
                     "{}@{}: {} [{}]\n",
                     e.package.name, e.package.version, compact, strategy_name
                 ));
-                if let Some(preview) = &e.preview {
-                    lines.push_str(&format!(
-                        "  files: {}\n",
-                        preview
-                            .files
-                            .iter()
-                            .map(|p| p.display().to_string())
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    ));
-                    lines.push_str(&format!(
-                        "  argv: {}\n",
-                        preview.argv.join(" ")
-                    ));
-                } else if e.sbom_only {
-                    lines.push_str(
-                        "  (SBOM entry point: dry-run only; never apply)\n",
-                    );
+                if dry_run {
+                    if let Some(preview) = &e.preview {
+                        lines.push_str(&format!(
+                            "  files: {}\n",
+                            preview
+                                .files
+                                .iter()
+                                .map(|p| p.display().to_string())
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        ));
+                        lines.push_str(&format!(
+                            "  argv: {}\n",
+                            preview.argv.join(" ")
+                        ));
+                    } else if e.sbom_only {
+                        lines.push_str(
+                            "  (SBOM entry point: dry-run only; never apply)\n",
+                        );
+                    }
                 }
             }
         }
@@ -2404,11 +2444,12 @@ async fn run_fix(
                 .find(|r| r.strategy() == e.upgrade_plan.apply_strategy)
             else {
                 eprintln!(
-                    "No registered remediator for strategy {}; skipping {}",
+                    "No registered remediator for strategy {}; failing closed on {}",
                     e.upgrade_plan.apply_strategy.as_str(),
                     e.package.name
                 );
-                continue;
+                early_exit = Some(EXIT_RESOLUTION_FAILED);
+                break;
             };
             if let Err(err) = rem.apply(&ctx) {
                 early_exit = Some(map_remediation_err(err));

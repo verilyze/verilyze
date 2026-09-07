@@ -24,8 +24,13 @@ use url::Url;
 pub const SERVER_NAME: &str = "vlz";
 pub const DIAGNOSTIC_SOURCE: &str = "vlz";
 pub const SHOW_UPGRADE_PLAN_COMMAND: &str = "vlz.showUpgradePlan";
-/// Non-writing Code Action: copy the CLI dry-run command (FR-042).
-pub const COPY_FIX_DRY_RUN_COMMAND: &str = "vlz.copyFixDryRun";
+/// Non-writing Code Action: show the CLI dry-run command (FR-042).
+///
+/// Uses `window/showMessage` (same as show upgrade plan); it does not write
+/// the system clipboard.
+pub const SHOW_FIX_DRY_RUN_COMMAND: &str = "vlz.showFixDryRun";
+/// Code Action title for [`SHOW_FIX_DRY_RUN_COMMAND`].
+pub const SHOW_FIX_DRY_RUN_TITLE: &str = "Show vlz fix --dry-run";
 pub const FIX_DRY_RUN_CLI: &str = "vlz fix --dry-run";
 pub const MAX_MESSAGE_BYTES: usize = 1_048_576;
 
@@ -202,7 +207,7 @@ fn server_capabilities() -> ServerCapabilities {
         execute_command_provider: Some(ExecuteCommandOptions {
             commands: vec![
                 SHOW_UPGRADE_PLAN_COMMAND.to_string(),
-                COPY_FIX_DRY_RUN_COMMAND.to_string(),
+                SHOW_FIX_DRY_RUN_COMMAND.to_string(),
             ],
             work_done_progress_options: Default::default(),
         }),
@@ -360,11 +365,11 @@ fn code_actions(params: &serde_json::Value) -> serde_json::Value {
             },
         },
         {
-            "title": "Copy vlz fix --dry-run",
+            "title": SHOW_FIX_DRY_RUN_TITLE,
             "kind": "quickfix",
             "command": {
-                "title": "Copy vlz fix --dry-run",
-                "command": COPY_FIX_DRY_RUN_COMMAND,
+                "title": SHOW_FIX_DRY_RUN_TITLE,
+                "command": SHOW_FIX_DRY_RUN_COMMAND,
                 "arguments": [FIX_DRY_RUN_CLI],
             },
         },
@@ -385,7 +390,7 @@ fn execute_command(
             .pointer("/arguments/0")
             .and_then(serde_json::Value::as_str)
             .unwrap_or("No upgrade plan is available for this diagnostic."),
-        Some(COPY_FIX_DRY_RUN_COMMAND) => request
+        Some(SHOW_FIX_DRY_RUN_COMMAND) => request
             .params
             .pointer("/arguments/0")
             .and_then(serde_json::Value::as_str)
@@ -418,10 +423,11 @@ fn execute_command(
 #[cfg(test)]
 mod tests {
     use super::{
-        COPY_FIX_DRY_RUN_COMMAND, DIAGNOSTIC_SOURCE, FIX_DRY_RUN_CLI,
-        LspServer, MAX_MESSAGE_BYTES, SHOW_UPGRADE_PLAN_COMMAND,
-        ScanDiagnostic, ScanResult, ScanService, file_uri_for_path,
-        run_connection, server_capabilities, workspace_root,
+        DIAGNOSTIC_SOURCE, FIX_DRY_RUN_CLI, LspServer, MAX_MESSAGE_BYTES,
+        SHOW_FIX_DRY_RUN_COMMAND, SHOW_FIX_DRY_RUN_TITLE,
+        SHOW_UPGRADE_PLAN_COMMAND, ScanDiagnostic, ScanResult, ScanService,
+        file_uri_for_path, run_connection, server_capabilities,
+        workspace_root,
     };
     use lsp_server::{Connection, Message, Notification, Request, RequestId};
     use lsp_types::{
@@ -487,7 +493,7 @@ mod tests {
                 .commands,
             vec![
                 SHOW_UPGRADE_PLAN_COMMAND.to_string(),
-                COPY_FIX_DRY_RUN_COMMAND.to_string(),
+                SHOW_FIX_DRY_RUN_COMMAND.to_string(),
             ]
         );
     }
@@ -633,10 +639,18 @@ mod tests {
                 Message::Request(Request::new(
                     RequestId::from(5),
                     "workspace/executeCommand".to_string(),
-                    json!({ "command": "vlz.unknown" }),
+                    json!({
+                        "command": SHOW_FIX_DRY_RUN_COMMAND,
+                        "arguments": [FIX_DRY_RUN_CLI]
+                    }),
                 )),
                 Message::Request(Request::new(
                     RequestId::from(6),
+                    "workspace/executeCommand".to_string(),
+                    json!({ "command": "vlz.unknown" }),
+                )),
+                Message::Request(Request::new(
+                    RequestId::from(7),
                     "textDocument/hover".to_string(),
                     json!({}),
                 )),
@@ -663,7 +677,8 @@ mod tests {
                     && response.response_result.as_ref().is_ok_and(|value| {
                         let text = value.to_string();
                         text.contains("Show upgrade plan")
-                            && text.contains("Copy vlz fix --dry-run")
+                            && text.contains(SHOW_FIX_DRY_RUN_TITLE)
+                            && text.contains(SHOW_FIX_DRY_RUN_COMMAND)
                     })
         )));
         assert!(messages.iter().any(|message| {
@@ -676,16 +691,27 @@ mod tests {
                         )
             )
         }));
+        assert!(messages.iter().any(|message| {
+            matches!(
+                message,
+                Message::Notification(notification)
+                    if notification.method == "window/showMessage"
+                        && notification
+                            .params
+                            .to_string()
+                            .contains(FIX_DRY_RUN_CLI)
+            )
+        }));
         assert!(messages.iter().any(|message| matches!(
             message,
             Message::Response(response)
-                if response.id == RequestId::from(5)
+                if response.id == RequestId::from(6)
                     && response.response_result.is_err()
         )));
         assert!(messages.iter().any(|message| matches!(
             message,
             Message::Response(response)
-                if response.id == RequestId::from(6)
+                if response.id == RequestId::from(7)
                     && response.response_result.is_err()
         )));
     }
@@ -742,9 +768,9 @@ mod tests {
         let actions = super::code_actions(&json!({ "context": {} }));
         let text = actions.to_string();
         assert!(text.contains("No upgrade plan is available"));
-        assert!(text.contains("Copy vlz fix --dry-run"));
+        assert!(text.contains(SHOW_FIX_DRY_RUN_TITLE));
         assert!(text.contains(FIX_DRY_RUN_CLI));
-        assert!(text.contains(COPY_FIX_DRY_RUN_COMMAND));
+        assert!(text.contains(SHOW_FIX_DRY_RUN_COMMAND));
     }
 
     fn drive_connection(

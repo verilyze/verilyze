@@ -3000,6 +3000,164 @@ if __name__ == "__main__":
     write_executable_script(&path, body);
 }
 
+/// Remediator that claims npm but always fails preview (review-fix fixture).
+#[cfg(all(feature = "javascript", unix, feature = "testing"))]
+struct PreviewFailNpmRemediator;
+
+#[cfg(all(feature = "javascript", unix, feature = "testing"))]
+impl vlz_remediate::Remediator for PreviewFailNpmRemediator {
+    fn strategy(&self) -> vlz_remediate::ApplyStrategy {
+        vlz_remediate::ApplyStrategy::Npm
+    }
+
+    fn preview(
+        &self,
+        _ctx: &vlz_remediate::RemediationContext<'_>,
+    ) -> Result<
+        vlz_remediate::RemediationPreview,
+        vlz_remediate::RemediationError,
+    > {
+        Err(vlz_remediate::RemediationError::UnsupportedLockLayout(
+            "missing sibling package.json next to lockfile".to_string(),
+        ))
+    }
+
+    fn apply(
+        &self,
+        _ctx: &vlz_remediate::RemediationContext<'_>,
+    ) -> Result<(), vlz_remediate::RemediationError> {
+        Err(vlz_remediate::RemediationError::UnsupportedLockLayout(
+            "preview-fail remediator must not apply".to_string(),
+        ))
+    }
+}
+
+#[cfg(all(feature = "javascript", unix, feature = "testing"))]
+#[test]
+fn run_fix_preview_failure_marks_unavailable_on_dry_run() {
+    use vlz::registry::Plugin;
+
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        temp_env::with_var("VLZ_EXIT_CODE_ON_CVE", Some("0"), || {
+            let dir = tempfile::tempdir().expect("tempdir");
+            write_npm_package_lock(dir.path(), "pkg", "1.0.0");
+            let root = dir.path().to_str().unwrap();
+            let out_path = dir.path().join("fix-out.json");
+
+            let provider = VersionAwareOsvProvider {
+                pkg_name: "pkg",
+                ecosystem: vlz_db::NPM_ECOSYSTEM,
+                fixed_version: "2.0.0",
+                cve_id: "CVE-TEST-PREVIEW-FAIL",
+            };
+            vlz::registry::clear_providers();
+            vlz::registry::register(Plugin::CveProvider(Box::new(provider)));
+
+            vlz::registry::clear_remediators();
+            vlz::registry::register(Plugin::Remediator(Box::new(
+                PreviewFailNpmRemediator,
+            )));
+            vlz::registry::ensure_default_remediator();
+
+            let code = run_async(&[
+                "fix",
+                root,
+                "--dry-run",
+                "--format",
+                "json",
+                "--output",
+                out_path.to_str().unwrap(),
+            ]);
+            assert_eq!(code, 0, "dry-run must exit 0 after preview failure");
+
+            let content =
+                std::fs::read_to_string(&out_path).expect("read fix output");
+            let parsed: serde_json::Value =
+                serde_json::from_str(&content).expect("parse fix JSON");
+            let findings = parsed["findings"].as_array().unwrap();
+            assert_eq!(findings.len(), 1);
+            assert_eq!(
+                findings[0]["upgrade_plan"]["apply_strategy"], "unavailable",
+                "failed preview must force apply_strategy unavailable"
+            );
+            assert!(
+                findings[0].get("preview").is_none(),
+                "failed preview must omit preview block"
+            );
+            assert_eq!(
+                read_npm_package_lock_version(dir.path(), "pkg"),
+                "1.0.0",
+                "dry-run must not mutate lockfile"
+            );
+        });
+    });
+}
+
+#[cfg(all(feature = "javascript", unix, feature = "testing"))]
+#[test]
+fn run_fix_apply_plain_output_omits_preview_files_argv() {
+    use vlz::registry::Plugin;
+
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        temp_env::with_var("VLZ_EXIT_CODE_ON_CVE", Some("0"), || {
+            let dir = tempfile::tempdir().expect("tempdir");
+            write_npm_package_lock(dir.path(), "pkg", "1.0.0");
+            let root = dir.path().to_str().unwrap();
+            let out_path = dir.path().join("fix-out.txt");
+
+            let fake_bin_dir = tempfile::tempdir().expect("fake bin tempdir");
+            write_fake_npm(fake_bin_dir.path());
+            let old_path =
+                std::env::var("PATH").unwrap_or_else(|_| String::new());
+            let new_path =
+                format!("{}:{}", fake_bin_dir.path().display(), old_path);
+
+            let provider = VersionAwareOsvProvider {
+                pkg_name: "pkg",
+                ecosystem: vlz_db::NPM_ECOSYSTEM,
+                fixed_version: "2.0.0",
+                cve_id: "CVE-TEST-APPLY-PLAIN",
+            };
+            vlz::registry::clear_providers();
+            vlz::registry::register(Plugin::CveProvider(Box::new(provider)));
+
+            temp_env::with_var("PATH", Some(new_path.as_str()), || {
+                let code = run_async(&[
+                    "fix",
+                    root,
+                    "--format",
+                    "plain",
+                    "--output",
+                    out_path.to_str().unwrap(),
+                ]);
+                assert_eq!(code, 0, "apply must succeed");
+            });
+
+            let content =
+                std::fs::read_to_string(&out_path).expect("read fix output");
+            assert!(
+                content.contains("[npm]"),
+                "apply output should keep compact plan line: {content}"
+            );
+            assert!(
+                !content.contains("files:"),
+                "apply plain output must omit dry-run files preview: {content}"
+            );
+            assert!(
+                !content.contains("argv:"),
+                "apply plain output must omit dry-run argv preview: {content}"
+            );
+            assert_eq!(
+                read_npm_package_lock_version(dir.path(), "pkg"),
+                "2.0.0",
+                "apply must still update lockfile"
+            );
+        });
+    });
+}
+
 #[cfg(all(feature = "javascript", unix, feature = "testing"))]
 #[test]
 fn run_fix_dry_run_npm_custom_exit_code_exits_0_and_emits_upgrade_plan() {
