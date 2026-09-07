@@ -2212,7 +2212,7 @@ async fn run_fix(
             }
 
             // Preview failures must not silently omit files/argv while still
-            // advertising an applyable strategy (FR-041 dry-run fidelity).
+            // advertising an applicable strategy (FR-041 dry-run fidelity).
             let preview = if matches!(
                 upgrade_plan.apply_strategy,
                 vlz_remediate::ApplyStrategy::Unavailable
