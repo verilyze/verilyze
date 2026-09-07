@@ -22,8 +22,6 @@ use crate::exit_code::{
 };
 use crate::package_resolve::resolve_packages_for_path;
 
-use vlz_remediate::Remediator;
-
 /// Write all bytes to `w`; propagates I/O errors (e.g. BrokenPipe).
 /// Used by write_stdout and by tests with a buffer.
 pub fn write_all_to<W: Write>(w: &mut W, s: &str) -> std::io::Result<()> {
@@ -450,6 +448,7 @@ pub async fn run(args: Cli) -> Result<i32> {
     crate::registry::ensure_default_cve_provider(&early_cfg);
     crate::registry::ensure_default_reporter();
     crate::registry::ensure_default_integrity_checker();
+    crate::registry::ensure_default_remediator();
 
     let db_backend = {
         let mut backends = crate::registry::db_backends()
@@ -1898,8 +1897,40 @@ struct ScanFixOutcome {
         vlz_db::Package,
         Vec<vlz_db::PackageDeclarationLocation>,
     >,
+    /// Packages discovered only via SBOM entry points (FR-041: never apply).
+    sbom_only_packages: std::collections::HashSet<vlz_db::Package>,
     findings: Vec<(vlz_db::Package, Vec<vlz_db::CveRecord>)>,
     exit_code: i32,
+}
+
+/// Packages whose only discovery language is SBOM (FR-041 never-apply).
+fn sbom_only_packages_from_manifests(
+    packages_with_manifests: &[(
+        vlz_db::Package,
+        std::path::PathBuf,
+        String,
+    )],
+) -> std::collections::HashSet<vlz_db::Package> {
+    #[cfg(feature = "sbom")]
+    let sbom_lang = vlz_sbom::SBOM_LANGUAGE_NAME;
+    #[cfg(not(feature = "sbom"))]
+    let sbom_lang = "sbom";
+
+    let mut by_pkg: std::collections::HashMap<
+        vlz_db::Package,
+        std::collections::HashSet<String>,
+    > = std::collections::HashMap::new();
+    for (pkg, _, language) in packages_with_manifests {
+        by_pkg
+            .entry(pkg.clone())
+            .or_default()
+            .insert(language.clone());
+    }
+    by_pkg
+        .into_iter()
+        .filter(|(_, langs)| langs.len() == 1 && langs.contains(sbom_lang))
+        .map(|(pkg, _)| pkg)
+        .collect()
 }
 
 /// Scan for fix plans and compute the scan exit code precedence (FR-010).
@@ -1919,6 +1950,7 @@ async fn scan_findings_for_fix(
         return Ok(ScanFixOutcome {
             root_path: resolved.root_path,
             pkg_declarations: Default::default(),
+            sbom_only_packages: Default::default(),
             findings: vec![],
             exit_code: EXIT_MISSING_PACKAGE_MANAGER,
         });
@@ -1931,6 +1963,8 @@ async fn scan_findings_for_fix(
     let packages_to_check = resolved.packages_to_check;
     let manifest_coverage = resolved.manifest_coverage;
     let skip_cve_phase = resolved.skip_cve_phase;
+    let sbom_only_packages =
+        sbom_only_packages_from_manifests(&resolved.packages_with_manifests);
 
     let effective_parallel = if effective.benchmark {
         1
@@ -1976,6 +2010,7 @@ async fn scan_findings_for_fix(
                     return Ok(ScanFixOutcome {
                         root_path,
                         pkg_declarations,
+                        sbom_only_packages,
                         findings: vec![],
                         exit_code: EXIT_MISCONFIGURATION,
                     });
@@ -1986,6 +2021,7 @@ async fn scan_findings_for_fix(
                 return Ok(ScanFixOutcome {
                     root_path,
                     pkg_declarations,
+                    sbom_only_packages,
                     findings: vec![],
                     exit_code: EXIT_MISCONFIGURATION,
                 });
@@ -2099,6 +2135,7 @@ async fn scan_findings_for_fix(
     Ok(ScanFixOutcome {
         root_path,
         pkg_declarations,
+        sbom_only_packages,
         findings,
         exit_code,
     })
@@ -2128,60 +2165,138 @@ async fn run_fix(
     let ScanFixOutcome {
         root_path: scan_root_path,
         pkg_declarations,
+        sbom_only_packages,
         findings,
         exit_code: first_exit_code,
     } = first_scan;
 
-    // Compute upgrade plans (with remediation apply_strategy) for output and apply.
+    // Compute upgrade plans for output and apply (planner owns apply_strategy).
     #[derive(Clone)]
     struct FixPlanEntry {
         package: vlz_db::Package,
         declarations: Vec<vlz_db::PackageDeclarationLocation>,
         upgrade_plan: vlz_remediate::UpgradePlan,
+        /// FR-041: SBOM-only findings never apply (explicit, not only unavailable).
+        sbom_only: bool,
+        preview: Option<vlz_remediate::RemediationPreview>,
     }
 
     let mut plan_entries: Vec<FixPlanEntry> = Vec::new();
     let mut skipped_unavailable: usize = 0;
+    let mut skipped_sbom: usize = 0;
 
-    for (pkg, recs) in findings {
-        let declarations =
-            pkg_declarations.get(&pkg).cloned().unwrap_or_default();
-        let mut upgrade_plan = vlz_remediate::plan_upgrade_for_finding(
-            &pkg,
-            &declarations,
-            &recs,
-        );
-        upgrade_plan.apply_strategy =
-            vlz_remediate::remediation_apply_strategy_for_finding(
+    crate::registry::ensure_default_remediator();
+    {
+        let remediator_registry = crate::registry::remediators()
+            .lock()
+            .expect("REMEDIATORS lock poisoned");
+
+        for (pkg, recs) in findings {
+            let declarations =
+                pkg_declarations.get(&pkg).cloned().unwrap_or_default();
+            let mut upgrade_plan = vlz_remediate::plan_upgrade_for_finding(
                 &pkg,
-                &upgrade_plan.minimal_fixed_version,
                 &declarations,
+                &recs,
             );
-        if matches!(
-            upgrade_plan.apply_strategy,
-            vlz_remediate::ApplyStrategy::Unavailable
-        ) {
-            skipped_unavailable += 1;
-        }
+            let sbom_only = sbom_only_packages.contains(&pkg);
+            if sbom_only {
+                upgrade_plan.apply_strategy =
+                    vlz_remediate::ApplyStrategy::Unavailable;
+                skipped_sbom += 1;
+            } else if matches!(
+                upgrade_plan.apply_strategy,
+                vlz_remediate::ApplyStrategy::Unavailable
+            ) {
+                skipped_unavailable += 1;
+            }
 
-        plan_entries.push(FixPlanEntry {
-            package: pkg,
-            declarations,
-            upgrade_plan,
-        });
+            // Preview failures must not silently omit files/argv while still
+            // advertising an applicable strategy (FR-041 dry-run fidelity).
+            let preview = if matches!(
+                upgrade_plan.apply_strategy,
+                vlz_remediate::ApplyStrategy::Unavailable
+            ) {
+                None
+            } else {
+                match remediator_registry
+                    .iter()
+                    .find(|r| r.strategy() == upgrade_plan.apply_strategy)
+                {
+                    None => {
+                        eprintln!(
+                            "No remediator registered for strategy {}; marking {} unavailable.",
+                            upgrade_plan.apply_strategy.as_str(),
+                            pkg.name
+                        );
+                        upgrade_plan.apply_strategy =
+                            vlz_remediate::ApplyStrategy::Unavailable;
+                        skipped_unavailable += 1;
+                        None
+                    }
+                    Some(rem) => {
+                        let ctx = vlz_remediate::RemediationContext {
+                            scan_root: &scan_root_path,
+                            declarations: &declarations,
+                            package_name: &pkg.name,
+                            target_version: &upgrade_plan
+                                .minimal_fixed_version,
+                            dependency_kind: upgrade_plan.dependency_kind,
+                            allow_dependency_code_execution: effective
+                                .allow_dependency_code_execution,
+                            offline,
+                        };
+                        match rem.preview(&ctx) {
+                            Ok(preview) => Some(preview),
+                            Err(err) => {
+                                eprintln!(
+                                    "Remediation preview failed for {} ({}): {}; marking unavailable.",
+                                    pkg.name,
+                                    upgrade_plan.apply_strategy.as_str(),
+                                    err
+                                );
+                                upgrade_plan.apply_strategy =
+                                    vlz_remediate::ApplyStrategy::Unavailable;
+                                skipped_unavailable += 1;
+                                None
+                            }
+                        }
+                    }
+                }
+            };
+
+            plan_entries.push(FixPlanEntry {
+                package: pkg,
+                declarations,
+                upgrade_plan,
+                sbom_only,
+                preview,
+            });
+        }
     }
 
     // -----------------------------------------------------------------
-    // Emit dry-run output (and also preview before apply).
+    // Emit plan output. Detailed files/argv preview is dry-run only so
+    // apply stdout stays compact for scripts (FR-041).
     // -----------------------------------------------------------------
     let output_body = if format.eq_ignore_ascii_case("json") {
         let findings: Vec<serde_json::Value> = plan_entries
             .iter()
             .map(|e| {
-                serde_json::json!({
+                let mut obj = serde_json::json!({
                     "package": e.package,
                     "upgrade_plan": e.upgrade_plan,
-                })
+                    "sbom_only": e.sbom_only,
+                });
+                if dry_run && let Some(preview) = &e.preview {
+                    obj["preview"] = serde_json::json!({
+                        "strategy": preview.strategy.as_str(),
+                        "workdir": preview.workdir,
+                        "files": preview.files,
+                        "argv": preview.argv,
+                    });
+                }
+                obj
             })
             .collect();
         serde_json::json!({ "findings": findings })
@@ -2198,6 +2313,27 @@ async fn run_fix(
                     "{}@{}: {} [{}]\n",
                     e.package.name, e.package.version, compact, strategy_name
                 ));
+                if dry_run {
+                    if let Some(preview) = &e.preview {
+                        lines.push_str(&format!(
+                            "  files: {}\n",
+                            preview
+                                .files
+                                .iter()
+                                .map(|p| p.display().to_string())
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        ));
+                        lines.push_str(&format!(
+                            "  argv: {}\n",
+                            preview.argv.join(" ")
+                        ));
+                    } else if e.sbom_only {
+                        lines.push_str(
+                            "  (SBOM entry point: dry-run only; never apply)\n",
+                        );
+                    }
+                }
             }
         }
         serde_json::Value::String(lines)
@@ -2241,60 +2377,89 @@ async fn run_fix(
         return Ok(first_exit_code);
     }
 
+    if skipped_sbom > 0 {
+        eprintln!(
+            "Skipping {skipped_sbom} SBOM-sourced finding(s) (FR-041: SBOM entry points never apply)."
+        );
+    }
     if skipped_unavailable > 0 {
         eprintln!(
-            "Skipping {skipped_unavailable} finding(s) with apply_strategy=unavailable (no Phase-2 remediator for that lock/ecosystem)."
+            "Skipping {skipped_unavailable} finding(s) with apply_strategy=unavailable (no remediator for that lock/ecosystem)."
         );
     }
 
     // Apply only strategies that are available. Fail-fast: first remediator
     // error stops the batch (earlier successful writes are not rolled back).
-    for e in &plan_entries {
-        let ctx = vlz_remediate::RemediationContext {
-            scan_root: &scan_root_path,
-            declarations: &e.declarations,
-            package_name: &e.package.name,
-            target_version: &e.upgrade_plan.minimal_fixed_version,
-            dependency_kind: e.upgrade_plan.dependency_kind,
-            allow_dependency_code_execution: effective
-                .allow_dependency_code_execution,
-            offline,
-        };
+    // Dispatch from the remediator registry (MOD-011), not a hard-coded match.
+    let apply_exit = {
+        let remediator_registry = crate::registry::remediators()
+            .lock()
+            .expect("REMEDIATORS lock poisoned");
+        let mut early_exit: Option<i32> = None;
+        for e in &plan_entries {
+            if e.sbom_only {
+                continue;
+            }
+            if matches!(
+                e.upgrade_plan.apply_strategy,
+                vlz_remediate::ApplyStrategy::Unavailable
+            ) {
+                continue;
+            }
 
-        let map_remediation_err =
-            |err: vlz_remediate::RemediationError| match err {
-                vlz_remediate::RemediationError::OfflineBlocked => {
-                    EXIT_OFFLINE_CACHE_MISS
-                }
-                vlz_remediate::RemediationError::MissingPackageManager(_) => {
-                    EXIT_MISSING_PACKAGE_MANAGER
-                }
-                vlz_remediate::RemediationError::TargetVersionUnknown
-                | vlz_remediate::RemediationError::UnsupportedLockLayout(_)
-                | vlz_remediate::RemediationError::InvalidOperand(_)
-                | vlz_remediate::RemediationError::CommandFailed { .. }
-                | vlz_remediate::RemediationError::Io(_) => {
-                    EXIT_RESOLUTION_FAILED
-                }
+            let ctx = vlz_remediate::RemediationContext {
+                scan_root: &scan_root_path,
+                declarations: &e.declarations,
+                package_name: &e.package.name,
+                target_version: &e.upgrade_plan.minimal_fixed_version,
+                dependency_kind: e.upgrade_plan.dependency_kind,
+                allow_dependency_code_execution: effective
+                    .allow_dependency_code_execution,
+                offline,
             };
 
-        match e.upgrade_plan.apply_strategy {
-            vlz_remediate::ApplyStrategy::Npm => {
-                let rem = vlz_remediate::NpmRemediator::new();
-                if let Err(err) = rem.apply(&ctx) {
-                    return Ok(map_remediation_err(err));
-                }
-            }
-            vlz_remediate::ApplyStrategy::Cargo => {
-                let rem = vlz_remediate::CargoRemediator::new();
-                if let Err(err) = rem.apply(&ctx) {
-                    return Ok(map_remediation_err(err));
-                }
-            }
-            vlz_remediate::ApplyStrategy::Unavailable => {
-                // Skipped; warned above when any unavailable findings exist.
+            let map_remediation_err =
+                |err: vlz_remediate::RemediationError| match err {
+                    vlz_remediate::RemediationError::OfflineBlocked => {
+                        EXIT_OFFLINE_CACHE_MISS
+                    }
+                    vlz_remediate::RemediationError::MissingPackageManager(
+                        _,
+                    ) => EXIT_MISSING_PACKAGE_MANAGER,
+                    vlz_remediate::RemediationError::TargetVersionUnknown
+                    | vlz_remediate::RemediationError::UnsupportedLockLayout(
+                        _,
+                    )
+                    | vlz_remediate::RemediationError::InvalidOperand(_)
+                    | vlz_remediate::RemediationError::CommandFailed {
+                        ..
+                    }
+                    | vlz_remediate::RemediationError::Io(_) => {
+                        EXIT_RESOLUTION_FAILED
+                    }
+                };
+
+            let Some(rem) = remediator_registry
+                .iter()
+                .find(|r| r.strategy() == e.upgrade_plan.apply_strategy)
+            else {
+                eprintln!(
+                    "No registered remediator for strategy {}; failing closed on {}",
+                    e.upgrade_plan.apply_strategy.as_str(),
+                    e.package.name
+                );
+                early_exit = Some(EXIT_RESOLUTION_FAILED);
+                break;
+            };
+            if let Err(err) = rem.apply(&ctx) {
+                early_exit = Some(map_remediation_err(err));
+                break;
             }
         }
+        early_exit
+    };
+    if let Some(code) = apply_exit {
+        return Ok(code);
     }
 
     // Re-scan after apply to decide if CVEs remain (FR-041). Exit codes follow
@@ -2451,6 +2616,51 @@ mod tests {
         assert!(entry_key_matches_pattern("foobar", "foo*"));
         assert!(!entry_key_matches_pattern("xfoo", "foo*"));
         assert!(entry_key_matches_pattern("pkg", "pkg*"));
+    }
+
+    #[test]
+    fn sbom_only_packages_from_manifests_skips_mixed_sources() {
+        let sbom_pkg = vlz_db::Package {
+            name: "left-pad".to_string(),
+            version: "1.0.0".to_string(),
+            ecosystem: Some(vlz_db::NPM_ECOSYSTEM.to_string()),
+        };
+        let npm_pkg = vlz_db::Package {
+            name: "right-pad".to_string(),
+            version: "1.0.0".to_string(),
+            ecosystem: Some(vlz_db::NPM_ECOSYSTEM.to_string()),
+        };
+        let mixed = vlz_db::Package {
+            name: "shared".to_string(),
+            version: "1.0.0".to_string(),
+            ecosystem: Some(vlz_db::NPM_ECOSYSTEM.to_string()),
+        };
+        let rows = vec![
+            (
+                sbom_pkg.clone(),
+                std::path::PathBuf::from("bom.json"),
+                "sbom".to_string(),
+            ),
+            (
+                npm_pkg.clone(),
+                std::path::PathBuf::from("package-lock.json"),
+                "javascript".to_string(),
+            ),
+            (
+                mixed.clone(),
+                std::path::PathBuf::from("bom.json"),
+                "sbom".to_string(),
+            ),
+            (
+                mixed.clone(),
+                std::path::PathBuf::from("package-lock.json"),
+                "javascript".to_string(),
+            ),
+        ];
+        let only = sbom_only_packages_from_manifests(&rows);
+        assert!(only.contains(&sbom_pkg));
+        assert!(!only.contains(&npm_pkg));
+        assert!(!only.contains(&mixed));
     }
 
     #[test]

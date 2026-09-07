@@ -132,6 +132,8 @@ pub fn ensure_registries_for_run() {
     vlz::registry::ensure_default_cve_provider(&cfg);
     vlz::registry::ensure_default_reporter();
     vlz::registry::ensure_default_integrity_checker();
+    vlz::registry::clear_remediators();
+    vlz::registry::ensure_default_remediator();
     #[cfg(feature = "redb")]
     {
         let cache_path = vlz::config::default_cache_path();

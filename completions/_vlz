@@ -99,7 +99,7 @@ _arguments "${_arguments_options[@]}" : \
 '--output=[Write dry-run output to file instead of stdout]:PATH:_files' \
 '-c+[Override configuration file location]:PATH:_files' \
 '--config=[Override configuration file location]:PATH:_files' \
-'--dry-run[Preview the upgrade plan; do not write files]' \
+'--dry-run[Preview the upgrade plan and intended file/argv changes; do not write]' \
 '--offline[Disable network access (offline apply exits 6 when network is needed)]' \
 '*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
@@ -114,8 +114,8 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[Override configuration file location]:PATH:_files' \
 '*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
-'-h[Print help]' \
-'--help[Print help]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
 && ret=0
 ;;
 (languages)
@@ -342,7 +342,7 @@ _vlz_commands() {
     local commands; commands=(
 'scan:Scan project dependencies for known vulnerabilities' \
 'fix:Apply remediations (updates lock/manifest files by default)' \
-'lsp:Run the Language Server Protocol server over standard I/O' \
+'lsp:Run the Language Server Protocol server over standard I/O (FR-042)' \
 'languages:List supported manifest languages' \
 'config:Show or set configuration values' \
 'db:Inspect and maintain the vulnerability cache' \

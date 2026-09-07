@@ -24,6 +24,14 @@ use url::Url;
 pub const SERVER_NAME: &str = "vlz";
 pub const DIAGNOSTIC_SOURCE: &str = "vlz";
 pub const SHOW_UPGRADE_PLAN_COMMAND: &str = "vlz.showUpgradePlan";
+/// Non-writing Code Action: show the CLI dry-run command (FR-042).
+///
+/// Uses `window/showMessage` (same as show upgrade plan); it does not write
+/// the system clipboard.
+pub const SHOW_FIX_DRY_RUN_COMMAND: &str = "vlz.showFixDryRun";
+/// Code Action title for [`SHOW_FIX_DRY_RUN_COMMAND`].
+pub const SHOW_FIX_DRY_RUN_TITLE: &str = "Show vlz fix --dry-run";
+pub const FIX_DRY_RUN_CLI: &str = "vlz fix --dry-run";
 pub const MAX_MESSAGE_BYTES: usize = 1_048_576;
 
 /// A diagnostic-ready scan result.
@@ -147,7 +155,7 @@ fn run_connection(
             Message::Request(request)
                 if request.method == "textDocument/codeAction" =>
             {
-                let actions = show_plan_action(&request.params);
+                let actions = code_actions(&request.params);
                 connection.sender.send(
                     Response::new_ok(request.id.clone(), actions).into(),
                 )?;
@@ -197,7 +205,10 @@ fn server_capabilities() -> ServerCapabilities {
             },
         )),
         execute_command_provider: Some(ExecuteCommandOptions {
-            commands: vec![SHOW_UPGRADE_PLAN_COMMAND.to_string()],
+            commands: vec![
+                SHOW_UPGRADE_PLAN_COMMAND.to_string(),
+                SHOW_FIX_DRY_RUN_COMMAND.to_string(),
+            ],
             work_done_progress_options: Default::default(),
         }),
         workspace: Some(WorkspaceServerCapabilities {
@@ -338,20 +349,31 @@ fn diagnostic_from_scan(scan: ScanDiagnostic) -> Option<Diagnostic> {
     })
 }
 
-fn show_plan_action(params: &serde_json::Value) -> serde_json::Value {
+fn code_actions(params: &serde_json::Value) -> serde_json::Value {
     let message = params
         .pointer("/context/diagnostics/0/message")
         .and_then(serde_json::Value::as_str)
         .unwrap_or("No upgrade plan is available for this diagnostic.");
-    json!([{
-        "title": "Show upgrade plan",
-        "kind": "quickfix",
-        "command": {
+    json!([
+        {
             "title": "Show upgrade plan",
-            "command": SHOW_UPGRADE_PLAN_COMMAND,
-            "arguments": [message],
+            "kind": "quickfix",
+            "command": {
+                "title": "Show upgrade plan",
+                "command": SHOW_UPGRADE_PLAN_COMMAND,
+                "arguments": [message],
+            },
         },
-    }])
+        {
+            "title": SHOW_FIX_DRY_RUN_TITLE,
+            "kind": "quickfix",
+            "command": {
+                "title": SHOW_FIX_DRY_RUN_TITLE,
+                "command": SHOW_FIX_DRY_RUN_COMMAND,
+                "arguments": [FIX_DRY_RUN_CLI],
+            },
+        },
+    ])
 }
 
 fn execute_command(
@@ -362,22 +384,29 @@ fn execute_command(
         .params
         .get("command")
         .and_then(serde_json::Value::as_str);
-    if command != Some(SHOW_UPGRADE_PLAN_COMMAND) {
-        connection.sender.send(
-            Response::new_err(
-                request.id.clone(),
-                lsp_server::ErrorCode::MethodNotFound as i32,
-                "unsupported LSP command".to_string(),
-            )
-            .into(),
-        )?;
-        return Ok(());
-    }
-    let message = request
-        .params
-        .pointer("/arguments/0")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("No upgrade plan is available for this diagnostic.");
+    let message = match command {
+        Some(SHOW_UPGRADE_PLAN_COMMAND) => request
+            .params
+            .pointer("/arguments/0")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("No upgrade plan is available for this diagnostic."),
+        Some(SHOW_FIX_DRY_RUN_COMMAND) => request
+            .params
+            .pointer("/arguments/0")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or(FIX_DRY_RUN_CLI),
+        _ => {
+            connection.sender.send(
+                Response::new_err(
+                    request.id.clone(),
+                    lsp_server::ErrorCode::MethodNotFound as i32,
+                    "unsupported LSP command".to_string(),
+                )
+                .into(),
+            )?;
+            return Ok(());
+        }
+    };
     connection.sender.send(
         Notification::new(
             "window/showMessage".to_string(),
@@ -394,7 +423,8 @@ fn execute_command(
 #[cfg(test)]
 mod tests {
     use super::{
-        DIAGNOSTIC_SOURCE, LspServer, MAX_MESSAGE_BYTES,
+        DIAGNOSTIC_SOURCE, FIX_DRY_RUN_CLI, LspServer, MAX_MESSAGE_BYTES,
+        SHOW_FIX_DRY_RUN_COMMAND, SHOW_FIX_DRY_RUN_TITLE,
         SHOW_UPGRADE_PLAN_COMMAND, ScanDiagnostic, ScanResult, ScanService,
         file_uri_for_path, run_connection, server_capabilities,
         workspace_root,
@@ -461,7 +491,10 @@ mod tests {
                 .execute_command_provider
                 .expect("server should advertise the plan command")
                 .commands,
-            vec![SHOW_UPGRADE_PLAN_COMMAND.to_string()]
+            vec![
+                SHOW_UPGRADE_PLAN_COMMAND.to_string(),
+                SHOW_FIX_DRY_RUN_COMMAND.to_string(),
+            ]
         );
     }
 
@@ -606,10 +639,18 @@ mod tests {
                 Message::Request(Request::new(
                     RequestId::from(5),
                     "workspace/executeCommand".to_string(),
-                    json!({ "command": "vlz.unknown" }),
+                    json!({
+                        "command": SHOW_FIX_DRY_RUN_COMMAND,
+                        "arguments": [FIX_DRY_RUN_CLI]
+                    }),
                 )),
                 Message::Request(Request::new(
                     RequestId::from(6),
+                    "workspace/executeCommand".to_string(),
+                    json!({ "command": "vlz.unknown" }),
+                )),
+                Message::Request(Request::new(
+                    RequestId::from(7),
                     "textDocument/hover".to_string(),
                     json!({}),
                 )),
@@ -634,7 +675,10 @@ mod tests {
             Message::Response(response)
                 if response.id == RequestId::from(3)
                     && response.response_result.as_ref().is_ok_and(|value| {
-                        value.to_string().contains("Show upgrade plan")
+                        let text = value.to_string();
+                        text.contains("Show upgrade plan")
+                            && text.contains(SHOW_FIX_DRY_RUN_TITLE)
+                            && text.contains(SHOW_FIX_DRY_RUN_COMMAND)
                     })
         )));
         assert!(messages.iter().any(|message| {
@@ -647,16 +691,27 @@ mod tests {
                         )
             )
         }));
+        assert!(messages.iter().any(|message| {
+            matches!(
+                message,
+                Message::Notification(notification)
+                    if notification.method == "window/showMessage"
+                        && notification
+                            .params
+                            .to_string()
+                            .contains(FIX_DRY_RUN_CLI)
+            )
+        }));
         assert!(messages.iter().any(|message| matches!(
             message,
             Message::Response(response)
-                if response.id == RequestId::from(5)
+                if response.id == RequestId::from(6)
                     && response.response_result.is_err()
         )));
         assert!(messages.iter().any(|message| matches!(
             message,
             Message::Response(response)
-                if response.id == RequestId::from(6)
+                if response.id == RequestId::from(7)
                     && response.response_result.is_err()
         )));
     }
@@ -710,8 +765,12 @@ mod tests {
 
     #[test]
     fn show_plan_action_falls_back_when_diagnostic_missing() {
-        let actions = super::show_plan_action(&json!({ "context": {} }));
-        assert!(actions.to_string().contains("No upgrade plan is available"));
+        let actions = super::code_actions(&json!({ "context": {} }));
+        let text = actions.to_string();
+        assert!(text.contains("No upgrade plan is available"));
+        assert!(text.contains(SHOW_FIX_DRY_RUN_TITLE));
+        assert!(text.contains(FIX_DRY_RUN_CLI));
+        assert!(text.contains(SHOW_FIX_DRY_RUN_COMMAND));
     }
 
     fn drive_connection(

@@ -28,6 +28,9 @@ Crates are organized by plugin type under `crates/`:
     `verify_integrity`.
   - **vlz-plugin-macro** -- `vlz_register!` macro for registering default plugins
     in the binary.
+  - **vlz-remediate** -- Upgrade-plan planner (FR-040) and Remediator trait /
+    npm + Cargo apply preview (FR-041 / MOD-011).
+  - **vlz-lsp** -- Stdio Language Server Protocol adapter (FR-042).
 - **crates/languages/** -- Language plugins (ManifestFinder, Parser, Resolver):
   - **vlz-python** -- Python: requirements.txt, pyproject.toml, Pipfile, setup.cfg, setup.py, etc.
   - **vlz-rust** -- Rust: Cargo.toml, Cargo.lock (workspace members supported).
@@ -46,7 +49,8 @@ Crates are organized by plugin type under `crates/`:
   - **vlz-db-mem** -- In-memory CVE cache for Docker / ephemeral builds.
 
 The binary uses **per-trait registries** (e.g. `FINDERS`, `PARSERS`,
-`RESOLVERS`, `PROVIDERS`, `DB_BACKENDS`, `REPORTERS`, `INTEGRITY_CHECKERS`) and
+`RESOLVERS`, `PROVIDERS`, `DB_BACKENDS`, `REPORTERS`, `INTEGRITY_CHECKERS`,
+`REMEDIATORS`) and
 calls `ensure_default_*` at startup to push default implementations. Language
 support (e.g. `vlz-python`) and optional backends (e.g. SQLite) are gated
 behind Cargo features; see **Feature gating** below.
@@ -567,7 +571,7 @@ sequenceDiagram
     participant Registries as "per-trait OnceLock registries"
     participant Plugin as "language / provider crate"
 
-    note over Registries: One Vec per trait: FINDERS, PARSERS,<br/>RESOLVERS, PROVIDERS, DB_BACKENDS,<br/>REPORTERS, INTEGRITY_CHECKERS
+    note over Registries: One Vec per trait: FINDERS, PARSERS,<br/>RESOLVERS, REACHABILITY_ANALYZERS,<br/>PROVIDERS, DB_BACKENDS, REPORTERS,<br/>INTEGRITY_CHECKERS, REMEDIATORS
 
     %% Plug‑in registration (compile-time, one-way)
     Plugin -) Registries: vlz_register!(Trait, Impl)  // pushes Box::new(Impl) to the matching registry
@@ -577,10 +581,12 @@ sequenceDiagram
     Registries -->> Core: ManifestFinder instances
     Registries -->> Core: Parser instances
     Registries -->> Core: Resolver instances
+    Registries -->> Core: ReachabilityAnalyzer instances
     Registries -->> Core: CveProvider instances
     Registries -->> Core: DatabaseBackend instances
     Registries -->> Core: IntegrityChecker instances
     Registries -->> Core: Reporter instances
+    Registries -->> Core: Remediator instances
 ```
 
 **Data pipeline** -- Your `ManifestFinder`, `Parser`, and `Resolver`
@@ -1555,6 +1561,29 @@ stdout (e.g. anything that would otherwise be `println!`). Do not use
 `println!` for that. This ensures every command exits with code 0 when stdout
 is a broken pipe (e.g. `vlz db show | less` then `q`), instead of panicking.
 Stderr can stay as `eprintln!` or `log::error!`.
+
+## Editor latency (`vlz lsp`, NFR-026)
+
+`vlz lsp` save-to-diagnostic latency budget is **2000 ms** for a typical
+mid-size project on reference hardware (PRD NFR-026).
+
+**What is measured today:** On `textDocument/didSave`, the server re-runs the
+scan adapter for the workspace root and republishes diagnostics. Timing is
+wall-clock from save notification handling start through the
+`textDocument/publishDiagnostics` responses for that republish. Incremental
+re-resolve is a follow-up optimization; the budget still applies to the
+current full republish path.
+
+**How to measure locally:**
+
+1. Open a mid-size fixture workspace (or this repository) in an editor using
+   `vlz lsp`.
+2. Touch and save a tracked manifest (for example `Cargo.toml` or
+   `package.json`).
+3. Record elapsed time from save to diagnostics refresh (editor LSP logs,
+   `RUST_LOG=info` on the server process, or an LSP client trace).
+4. Confirm the observed save-to-diagnostic time is <= 2000 ms. Investigate
+   regressions before release.
 
 ## Running tests and coverage
 

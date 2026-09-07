@@ -11,6 +11,9 @@ use vlz_manifest_finder::ManifestFinder;
 use vlz_manifest_parser::{Parser, Resolver};
 use vlz_plugin_macro::vlz_register;
 use vlz_reachability_trait::ReachabilityAnalyzer;
+use vlz_remediate::{
+    ApplyStrategy, CargoRemediator, NpmRemediator, Remediator,
+};
 use vlz_report::{DefaultReporter, Reporter};
 
 /// All possible plug‑in kinds.  The enum makes it easy to route a boxed
@@ -25,6 +28,7 @@ pub enum Plugin {
     DatabaseBackend(Box<dyn DatabaseBackend>),
     Reporter(Box<dyn Reporter>),
     IntegrityChecker(Box<dyn IntegrityChecker>),
+    Remediator(Box<dyn Remediator>),
 }
 
 /// Register a plug‑in.  Typical usage (inside a plug‑in crate) is:
@@ -60,6 +64,9 @@ pub fn register(plugin: Plugin) {
         }
         Plugin::IntegrityChecker(ic) => {
             integrity_checkers().lock().unwrap().push(ic);
+        }
+        Plugin::Remediator(r) => {
+            remediators().lock().unwrap().push(r);
         }
     }
 }
@@ -395,6 +402,26 @@ pub fn ensure_default_integrity_checker() {
     }
 }
 
+/// Ensures default remediators are registered (npm + Cargo; MOD-011 / NFR-016).
+pub fn ensure_default_remediator() {
+    if !remediators()
+        .lock()
+        .unwrap()
+        .iter()
+        .any(|r| r.strategy() == ApplyStrategy::Npm)
+    {
+        vlz_register!(Remediator, NpmRemediator);
+    }
+    if !remediators()
+        .lock()
+        .unwrap()
+        .iter()
+        .any(|r| r.strategy() == ApplyStrategy::Cargo)
+    {
+        vlz_register!(Remediator, CargoRemediator);
+    }
+}
+
 // ---------------------------------------------------------------------
 // Global registries – OnceLock + helpers so `main.rs` can read them.
 // ---------------------------------------------------------------------
@@ -449,6 +476,12 @@ pub fn integrity_checkers() -> &'static Mutex<Vec<Box<dyn IntegrityChecker>>> {
     INTEGRITY_CHECKERS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
+pub fn remediators() -> &'static Mutex<Vec<Box<dyn Remediator>>> {
+    static REMEDIATORS: OnceLock<Mutex<Vec<Box<dyn Remediator>>>> =
+        OnceLock::new();
+    REMEDIATORS.get_or_init(|| Mutex::new(Vec::new()))
+}
+
 /// Serializes tests that mutate or consume global registries (avoids races with main's run() tests).
 #[allow(dead_code)]
 pub fn registry_test_mutex() -> &'static Mutex<()> {
@@ -485,6 +518,11 @@ pub fn clear_reachability_analyzers() {
 #[cfg(any(test, feature = "testing"))]
 pub fn clear_integrity_checkers() {
     integrity_checkers().lock().unwrap().clear();
+}
+
+#[cfg(any(test, feature = "testing"))]
+pub fn clear_remediators() {
+    remediators().lock().unwrap().clear();
 }
 
 // ---------------------------------------------------------------------
@@ -685,6 +723,17 @@ mod tests {
         assert_eq!(integrity_checkers().lock().unwrap().len(), 1);
         ensure_default_integrity_checker();
         assert_eq!(integrity_checkers().lock().unwrap().len(), 1);
+
+        clear_remediators();
+        ensure_default_remediator();
+        {
+            let rem = remediators().lock().unwrap();
+            assert!(rem.iter().any(|r| r.strategy() == ApplyStrategy::Npm));
+            assert!(rem.iter().any(|r| r.strategy() == ApplyStrategy::Cargo));
+            assert_eq!(rem.len(), 2);
+        }
+        ensure_default_remediator();
+        assert_eq!(remediators().lock().unwrap().len(), 2);
 
         // 3) ensure_default_db_backend_with_path (redb) when empty adds one
         #[cfg(feature = "redb")]

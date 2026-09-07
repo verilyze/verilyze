@@ -18,8 +18,13 @@ pub const MIN_FIXED_VERSION_UNKNOWN: &str = "unknown";
 
 mod remediator;
 pub use remediator::{
-    CargoRemediator, NpmRemediator, RemediationContext, RemediationError,
-    Remediator, remediation_apply_strategy_for_finding,
+    CARGO_BIN_NAME, CARGO_LOCK_FILE_NAME, CARGO_MANIFEST_FILE_NAME,
+    CargoRemediator, NPM_BIN_NAME, NPM_IGNORE_SCRIPTS_FLAG,
+    NPM_LOCKFILE_NPM_SHRINKWRAP_JSON, NPM_LOCKFILE_PACKAGE_LOCK_JSON,
+    NPM_MANIFEST_FILE_NAME, NPM_NO_SAVE_FLAG, NPM_PACKAGE_LOCK_ONLY_FLAG,
+    NpmRemediator, RemediationContext, RemediationError, RemediationPreview,
+    Remediator, cargo_update_argv, npm_install_argv,
+    remediation_apply_strategy_for_finding,
 };
 
 /// Upgrade plan confidence for a planned remediation.
@@ -41,7 +46,7 @@ impl UpgradePlanConfidence {
     }
 }
 
-/// Planned apply strategy (Phase 1 is plan-only).
+/// Planned apply strategy for a finding-level upgrade plan.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize,
 )]
@@ -96,7 +101,7 @@ pub struct UpgradePlan {
     pub confidence: UpgradePlanConfidence,
 }
 
-/// Compute a Phase-1 upgrade plan for a single finding.
+/// Compute a finding-level upgrade plan (FR-040 planner; pure, no I/O).
 ///
 /// Algorithm:
 /// - Consider only ECOSYSTEM/SEMVER affected ranges and their `fixed` events.

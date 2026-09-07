@@ -3000,6 +3000,164 @@ if __name__ == "__main__":
     write_executable_script(&path, body);
 }
 
+/// Remediator that claims npm but always fails preview (review-fix fixture).
+#[cfg(all(feature = "javascript", unix, feature = "testing"))]
+struct PreviewFailNpmRemediator;
+
+#[cfg(all(feature = "javascript", unix, feature = "testing"))]
+impl vlz_remediate::Remediator for PreviewFailNpmRemediator {
+    fn strategy(&self) -> vlz_remediate::ApplyStrategy {
+        vlz_remediate::ApplyStrategy::Npm
+    }
+
+    fn preview(
+        &self,
+        _ctx: &vlz_remediate::RemediationContext<'_>,
+    ) -> Result<
+        vlz_remediate::RemediationPreview,
+        vlz_remediate::RemediationError,
+    > {
+        Err(vlz_remediate::RemediationError::UnsupportedLockLayout(
+            "missing sibling package.json next to lockfile".to_string(),
+        ))
+    }
+
+    fn apply(
+        &self,
+        _ctx: &vlz_remediate::RemediationContext<'_>,
+    ) -> Result<(), vlz_remediate::RemediationError> {
+        Err(vlz_remediate::RemediationError::UnsupportedLockLayout(
+            "preview-fail remediator must not apply".to_string(),
+        ))
+    }
+}
+
+#[cfg(all(feature = "javascript", unix, feature = "testing"))]
+#[test]
+fn run_fix_preview_failure_marks_unavailable_on_dry_run() {
+    use vlz::registry::Plugin;
+
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        temp_env::with_var("VLZ_EXIT_CODE_ON_CVE", Some("0"), || {
+            let dir = tempfile::tempdir().expect("tempdir");
+            write_npm_package_lock(dir.path(), "pkg", "1.0.0");
+            let root = dir.path().to_str().unwrap();
+            let out_path = dir.path().join("fix-out.json");
+
+            let provider = VersionAwareOsvProvider {
+                pkg_name: "pkg",
+                ecosystem: vlz_db::NPM_ECOSYSTEM,
+                fixed_version: "2.0.0",
+                cve_id: "CVE-TEST-PREVIEW-FAIL",
+            };
+            vlz::registry::clear_providers();
+            vlz::registry::register(Plugin::CveProvider(Box::new(provider)));
+
+            vlz::registry::clear_remediators();
+            vlz::registry::register(Plugin::Remediator(Box::new(
+                PreviewFailNpmRemediator,
+            )));
+            vlz::registry::ensure_default_remediator();
+
+            let code = run_async(&[
+                "fix",
+                root,
+                "--dry-run",
+                "--format",
+                "json",
+                "--output",
+                out_path.to_str().unwrap(),
+            ]);
+            assert_eq!(code, 0, "dry-run must exit 0 after preview failure");
+
+            let content =
+                std::fs::read_to_string(&out_path).expect("read fix output");
+            let parsed: serde_json::Value =
+                serde_json::from_str(&content).expect("parse fix JSON");
+            let findings = parsed["findings"].as_array().unwrap();
+            assert_eq!(findings.len(), 1);
+            assert_eq!(
+                findings[0]["upgrade_plan"]["apply_strategy"], "unavailable",
+                "failed preview must force apply_strategy unavailable"
+            );
+            assert!(
+                findings[0].get("preview").is_none(),
+                "failed preview must omit preview block"
+            );
+            assert_eq!(
+                read_npm_package_lock_version(dir.path(), "pkg"),
+                "1.0.0",
+                "dry-run must not mutate lockfile"
+            );
+        });
+    });
+}
+
+#[cfg(all(feature = "javascript", unix, feature = "testing"))]
+#[test]
+fn run_fix_apply_plain_output_omits_preview_files_argv() {
+    use vlz::registry::Plugin;
+
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        temp_env::with_var("VLZ_EXIT_CODE_ON_CVE", Some("0"), || {
+            let dir = tempfile::tempdir().expect("tempdir");
+            write_npm_package_lock(dir.path(), "pkg", "1.0.0");
+            let root = dir.path().to_str().unwrap();
+            let out_path = dir.path().join("fix-out.txt");
+
+            let fake_bin_dir = tempfile::tempdir().expect("fake bin tempdir");
+            write_fake_npm(fake_bin_dir.path());
+            let old_path =
+                std::env::var("PATH").unwrap_or_else(|_| String::new());
+            let new_path =
+                format!("{}:{}", fake_bin_dir.path().display(), old_path);
+
+            let provider = VersionAwareOsvProvider {
+                pkg_name: "pkg",
+                ecosystem: vlz_db::NPM_ECOSYSTEM,
+                fixed_version: "2.0.0",
+                cve_id: "CVE-TEST-APPLY-PLAIN",
+            };
+            vlz::registry::clear_providers();
+            vlz::registry::register(Plugin::CveProvider(Box::new(provider)));
+
+            temp_env::with_var("PATH", Some(new_path.as_str()), || {
+                let code = run_async(&[
+                    "fix",
+                    root,
+                    "--format",
+                    "plain",
+                    "--output",
+                    out_path.to_str().unwrap(),
+                ]);
+                assert_eq!(code, 0, "apply must succeed");
+            });
+
+            let content =
+                std::fs::read_to_string(&out_path).expect("read fix output");
+            assert!(
+                content.contains("[npm]"),
+                "apply output should keep compact plan line: {content}"
+            );
+            assert!(
+                !content.contains("files:"),
+                "apply plain output must omit dry-run files preview: {content}"
+            );
+            assert!(
+                !content.contains("argv:"),
+                "apply plain output must omit dry-run argv preview: {content}"
+            );
+            assert_eq!(
+                read_npm_package_lock_version(dir.path(), "pkg"),
+                "2.0.0",
+                "apply must still update lockfile"
+            );
+        });
+    });
+}
+
 #[cfg(all(feature = "javascript", unix, feature = "testing"))]
 #[test]
 fn run_fix_dry_run_npm_custom_exit_code_exits_0_and_emits_upgrade_plan() {
@@ -3045,6 +3203,24 @@ fn run_fix_dry_run_npm_custom_exit_code_exits_0_and_emits_upgrade_plan() {
                 "2.0.0"
             );
             assert_eq!(findings[0]["upgrade_plan"]["apply_strategy"], "npm");
+            assert!(
+                findings[0]["preview"]["argv"]
+                    .as_array()
+                    .expect("preview argv")
+                    .iter()
+                    .any(|v| v.as_str() == Some("--ignore-scripts")),
+                "dry-run preview must include SEC-023 --ignore-scripts argv"
+            );
+            assert!(
+                findings[0]["preview"]["files"]
+                    .as_array()
+                    .expect("preview files")
+                    .iter()
+                    .any(|v| v
+                        .as_str()
+                        .is_some_and(|s| s.ends_with("package-lock.json"))),
+                "dry-run preview must list package-lock.json"
+            );
 
             assert_eq!(
                 read_npm_package_lock_version(dir.path(), "pkg"),
@@ -3301,4 +3477,243 @@ fn run_fix_dry_run_unavailable_strategy_exits_0_not_4() {
             },
         );
     });
+}
+
+#[cfg(all(feature = "sbom", feature = "testing"))]
+fn write_cyclonedx_bom(root: &std::path::Path, pkg: &str, version: &str) {
+    let bom = serde_json::json!({
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.6",
+        "version": 1,
+        "components": [{
+            "type": "library",
+            "name": pkg,
+            "version": version,
+            "purl": format!("pkg:npm/{pkg}@{version}")
+        }]
+    });
+    std::fs::write(
+        root.join("bom.json"),
+        serde_json::to_string_pretty(&bom).expect("serialize bom"),
+    )
+    .expect("write bom.json");
+}
+
+#[cfg(all(feature = "sbom", unix, feature = "testing"))]
+#[test]
+fn run_fix_sbom_only_tree_never_applies_and_dry_run_marks_sbom() {
+    use vlz::registry::Plugin;
+
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        temp_env::with_var("VLZ_EXIT_CODE_ON_CVE", Some("0"), || {
+            let dir = tempfile::tempdir().expect("tempdir");
+            write_cyclonedx_bom(dir.path(), "pkg", "1.0.0");
+            let root = dir.path().to_str().unwrap();
+            let out_path = dir.path().join("fix-out.json");
+
+            let provider = VersionAwareOsvProvider {
+                pkg_name: "pkg",
+                ecosystem: vlz_db::NPM_ECOSYSTEM,
+                fixed_version: "2.0.0",
+                cve_id: "CVE-TEST-SBOM-FIX",
+            };
+            vlz::registry::clear_providers();
+            vlz::registry::register(Plugin::CveProvider(Box::new(provider)));
+
+            let code = run_async(&[
+                "fix",
+                root,
+                "--dry-run",
+                "--format",
+                "json",
+                "--output",
+                out_path.to_str().unwrap(),
+            ]);
+            assert_eq!(code, 0, "SBOM dry-run must exit 0");
+            let content =
+                std::fs::read_to_string(&out_path).expect("read fix output");
+            let parsed: serde_json::Value =
+                serde_json::from_str(&content).expect("parse fix JSON");
+            let findings = parsed["findings"].as_array().unwrap();
+            assert_eq!(findings.len(), 1);
+            assert_eq!(findings[0]["sbom_only"], true);
+            assert_eq!(
+                findings[0]["upgrade_plan"]["apply_strategy"],
+                "unavailable"
+            );
+
+            // Apply must not invent an npm remediator for SBOM-only inventory.
+            // select_provider_impl removes the provider; re-register for apply.
+            vlz::registry::clear_providers();
+            vlz::registry::register(Plugin::CveProvider(Box::new(
+                VersionAwareOsvProvider {
+                    pkg_name: "pkg",
+                    ecosystem: vlz_db::NPM_ECOSYSTEM,
+                    fixed_version: "2.0.0",
+                    cve_id: "CVE-TEST-SBOM-FIX",
+                },
+            )));
+            let apply_code = run_async(&["fix", root]);
+            assert_eq!(
+                apply_code, 0,
+                "SBOM-only apply should skip remediator and succeed"
+            );
+            assert!(dir.path().join("bom.json").is_file());
+            assert!(!dir.path().join("package-lock.json").exists());
+        });
+    });
+}
+
+#[cfg(all(
+    feature = "sbom",
+    feature = "javascript",
+    unix,
+    feature = "testing"
+))]
+#[test]
+fn run_fix_mixed_sbom_and_npm_applies_npm_only() {
+    use vlz::registry::Plugin;
+
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        temp_env::with_var("VLZ_EXIT_CODE_ON_CVE", Some("0"), || {
+            let dir = tempfile::tempdir().expect("tempdir");
+            write_npm_package_lock(dir.path(), "pkg", "1.0.0");
+            write_cyclonedx_bom(dir.path(), "other", "1.0.0");
+            let root = dir.path().to_str().unwrap();
+
+            let fake_bin_dir = tempfile::tempdir().expect("fake bin tempdir");
+            write_fake_npm(fake_bin_dir.path());
+            let old_path =
+                std::env::var("PATH").unwrap_or_else(|_| String::new());
+            let new_path =
+                format!("{}:{}", fake_bin_dir.path().display(), old_path);
+
+            let provider = MultiVersionAwareOsvProvider {
+                targets: vec![
+                    (
+                        "pkg",
+                        vlz_db::NPM_ECOSYSTEM,
+                        "2.0.0",
+                        "CVE-TEST-NPM-MIX",
+                    ),
+                    (
+                        "other",
+                        vlz_db::NPM_ECOSYSTEM,
+                        "2.0.0",
+                        "CVE-TEST-SBOM-MIX",
+                    ),
+                ],
+            };
+            vlz::registry::clear_providers();
+            vlz::registry::register(Plugin::CveProvider(Box::new(provider)));
+
+            temp_env::with_var("PATH", Some(new_path.as_str()), || {
+                let code = run_async(&["fix", root]);
+                assert_eq!(code, 0, "mixed apply must succeed");
+            });
+
+            assert_eq!(
+                read_npm_package_lock_version(dir.path(), "pkg"),
+                "2.0.0",
+                "npm finding must apply"
+            );
+            let bom = std::fs::read_to_string(dir.path().join("bom.json"))
+                .expect("read bom");
+            assert!(
+                bom.contains("1.0.0"),
+                "SBOM must not be mutated on apply"
+            );
+        });
+    });
+}
+
+#[cfg(all(
+    feature = "sbom",
+    feature = "javascript",
+    unix,
+    feature = "testing"
+))]
+struct MultiVersionAwareOsvProvider {
+    targets: Vec<(&'static str, &'static str, &'static str, &'static str)>,
+}
+
+#[cfg(all(
+    feature = "sbom",
+    feature = "javascript",
+    unix,
+    feature = "testing"
+))]
+#[async_trait::async_trait]
+impl vlz_cve_client::CveProvider for MultiVersionAwareOsvProvider {
+    fn name(&self) -> &'static str {
+        "osv"
+    }
+
+    async fn fetch(
+        &self,
+        pkg: &vlz_db::Package,
+    ) -> Result<vlz_cve_client::FetchedCves, vlz_cve_client::ProviderError>
+    {
+        for (name, ecosystem, fixed, cve_id) in &self.targets {
+            let ecosystem_matches = pkg
+                .ecosystem
+                .as_deref()
+                .map(|e| e.eq_ignore_ascii_case(ecosystem))
+                .unwrap_or(false);
+            if pkg.name != *name || !ecosystem_matches {
+                continue;
+            }
+            if !version_lt(&pkg.version, fixed) {
+                return Ok(vlz_cve_client::FetchedCves {
+                    raw_vulns: vec![],
+                    records: vec![],
+                });
+            }
+            let raw = serde_json::json!([{
+                "id": cve_id,
+                "summary": "test vuln",
+                "database_specific": { "cvss_v3_score": 7.5 },
+                "affected": [{
+                    "package": { "name": name, "ecosystem": ecosystem },
+                    "ranges": [{
+                        "type": "ECOSYSTEM",
+                        "events": [
+                            { "introduced": "0" },
+                            { "fixed": fixed }
+                        ]
+                    }]
+                }]
+            }]);
+            let record = vlz_db::CveRecord {
+                id: (*cve_id).to_string(),
+                cvss_score: Some(7.5),
+                cvss_version: Some(vlz_db::CvssVersion::V3),
+                description: "test vuln".to_string(),
+                reachable: None,
+                advisory_symbols: vec![],
+                evidence: vec![],
+                symbol_usage: None,
+                affected_ranges: vec![vlz_db::AffectedRange {
+                    range_type: vlz_db::AffectedRangeType::Ecosystem,
+                    events: vec![vlz_db::AffectedEvent {
+                        introduced: Some("0".to_string()),
+                        fixed: Some((*fixed).to_string()),
+                        ..Default::default()
+                    }],
+                    package_name: Some((*name).to_string()),
+                    ecosystem: Some((*ecosystem).to_string()),
+                }],
+            };
+            return Ok(vlz_cve_client::FetchedCves {
+                raw_vulns: raw.as_array().cloned().unwrap_or_default(),
+                records: vec![record],
+            });
+        }
+        Ok(vlz_cve_client::FetchedCves {
+            raw_vulns: vec![],
+            records: vec![],
+        })
+    }
 }

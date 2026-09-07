@@ -335,7 +335,7 @@ pub enum Commands {
         )]
         output: Option<String>,
 
-        /// Preview the upgrade plan; do not write files
+        /// Preview the upgrade plan and intended file/argv changes; do not write
         #[arg(long)]
         dry_run: bool,
 
@@ -344,7 +344,11 @@ pub enum Commands {
         offline: bool,
     },
 
-    /// Run the Language Server Protocol server over standard I/O
+    /// Run the Language Server Protocol server over standard I/O (FR-042).
+    ///
+    /// Editors connect over stdio. Non-writing Code Actions include show upgrade
+    /// plan and copy `vlz fix --dry-run`. Writing apply actions require folder
+    /// trust (FR-043).
     Lsp,
 
     /// List supported manifest languages

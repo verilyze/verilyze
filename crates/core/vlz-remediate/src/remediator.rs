@@ -2,11 +2,15 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Remediation application via package-manager argv.
+//! Remediation application via package-manager argv (FR-041 / MOD-011).
 //!
-//! Supported Phase-2 strategies (SEC-025):
+//! Supported apply strategies (SEC-025):
 //! - npm via `package-lock.json` / `npm-shrinkwrap.json`
 //! - Cargo via `Cargo.lock`
+//!
+//! SEC-023 for Phase-2 argv is scripts-only: npm defaults to
+//! `--ignore-scripts` unless `allow_dependency_code_execution` is set.
+//! Cargo `update` does not run dependency lifecycle scripts.
 //!
 //! Apply is fail-fast (first remediator error stops the batch). Earlier
 //! successful writes are not rolled back.
@@ -25,13 +29,26 @@ use crate::{
     MIN_FIXED_VERSION_UNKNOWN,
 };
 
-const NPM_LOCKFILE_PACKAGE_LOCK_JSON: &str = "package-lock.json";
-const NPM_LOCKFILE_NPM_SHRINKWRAP_JSON: &str = "npm-shrinkwrap.json";
-const CARGO_LOCK_FILE_NAME: &str = "Cargo.lock";
-const NPM_MANIFEST_FILE_NAME: &str = "package.json";
-const CARGO_MANIFEST_FILE_NAME: &str = "Cargo.toml";
-const NPM_BIN_NAME: &str = "npm";
-const CARGO_BIN_NAME: &str = "cargo";
+/// npm lockfile basename (`package-lock.json`).
+pub const NPM_LOCKFILE_PACKAGE_LOCK_JSON: &str = "package-lock.json";
+/// npm lockfile basename (`npm-shrinkwrap.json`).
+pub const NPM_LOCKFILE_NPM_SHRINKWRAP_JSON: &str = "npm-shrinkwrap.json";
+/// Cargo lockfile basename.
+pub const CARGO_LOCK_FILE_NAME: &str = "Cargo.lock";
+/// Sibling npm manifest required next to the lockfile (SEC-025).
+pub const NPM_MANIFEST_FILE_NAME: &str = "package.json";
+/// Sibling Cargo manifest required next to the lockfile (SEC-025).
+pub const CARGO_MANIFEST_FILE_NAME: &str = "Cargo.toml";
+/// Allowlisted npm binary name (SEC-025).
+pub const NPM_BIN_NAME: &str = "npm";
+/// Allowlisted cargo binary name (SEC-025).
+pub const CARGO_BIN_NAME: &str = "cargo";
+/// npm flag that skips lifecycle scripts (SEC-023 scripts-only gate).
+pub const NPM_IGNORE_SCRIPTS_FLAG: &str = "--ignore-scripts";
+/// npm flag that updates the lockfile without a full install tree.
+pub const NPM_PACKAGE_LOCK_ONLY_FLAG: &str = "--package-lock-only";
+/// npm flag that avoids writing `package.json` for transitive upgrades.
+pub const NPM_NO_SAVE_FLAG: &str = "--no-save";
 
 /// Resolve a lockfile declaration to a working directory under `scan_root`.
 ///
@@ -232,7 +249,7 @@ pub enum RemediationError {
     Io(#[from] std::io::Error),
 }
 
-/// Inputs required to apply one planned remediation.
+/// Inputs required to preview or apply one planned remediation.
 #[derive(Debug, Clone)]
 pub struct RemediationContext<'a> {
     pub scan_root: &'a Path,
@@ -240,15 +257,106 @@ pub struct RemediationContext<'a> {
     pub package_name: &'a str,
     pub target_version: &'a str,
     pub dependency_kind: DependencyKind,
+    /// When false, npm apply/preview uses [`NPM_IGNORE_SCRIPTS_FLAG`]
+    /// (SEC-023 scripts-only gate for Phase-2 argv). Cargo `update` does
+    /// not run dependency lifecycle scripts, so this flag does not change
+    /// Cargo argv.
     pub allow_dependency_code_execution: bool,
     pub offline: bool,
 }
 
-pub trait Remediator {
+/// Dry-run preview of files and argv a remediator would use (FR-041 / MOD-011).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RemediationPreview {
+    pub strategy: ApplyStrategy,
+    /// Absolute working directory for the allowlisted package-manager command.
+    pub workdir: std::path::PathBuf,
+    /// Absolute paths the remediator intends to change.
+    pub files: Vec<std::path::PathBuf>,
+    /// Full argv including the program name as `argv[0]` (NFR-024 shared
+    /// with apply).
+    pub argv: Vec<String>,
+}
+
+/// Build allowlisted npm install argv shared by preview and apply (NFR-024).
+pub fn npm_install_argv(
+    bin: &str,
+    package_name: &str,
+    target_version: &str,
+    dependency_kind: DependencyKind,
+    allow_dependency_code_execution: bool,
+) -> Vec<String> {
+    let mut argv = vec![bin.to_string(), "install".to_string()];
+    if !allow_dependency_code_execution {
+        argv.push(NPM_IGNORE_SCRIPTS_FLAG.to_string());
+    }
+    argv.push(NPM_PACKAGE_LOCK_ONLY_FLAG.to_string());
+    if matches!(dependency_kind, DependencyKind::Transitive) {
+        argv.push(NPM_NO_SAVE_FLAG.to_string());
+    }
+    argv.push("--".to_string());
+    argv.push(format!("{package_name}@{target_version}"));
+    argv
+}
+
+/// Build allowlisted cargo update argv shared by preview and apply (NFR-024).
+pub fn cargo_update_argv(
+    bin: &str,
+    package_name: &str,
+    target_version: &str,
+) -> Vec<String> {
+    vec![
+        bin.to_string(),
+        "update".to_string(),
+        "--package".to_string(),
+        package_name.to_string(),
+        "--precise".to_string(),
+        target_version.to_string(),
+    ]
+}
+
+/// Language remediator: preview intended writes, then apply under SEC-025.
+pub trait Remediator: Send + Sync {
+    /// Apply strategy this remediator handles.
+    fn strategy(&self) -> ApplyStrategy;
+
+    /// Return intended file paths and argv without writing (FR-041).
+    fn preview(
+        &self,
+        ctx: &RemediationContext<'_>,
+    ) -> Result<RemediationPreview, RemediationError>;
+
+    /// Apply the remediation (may write lock/manifest files).
     fn apply(
         &self,
         ctx: &RemediationContext<'_>,
     ) -> Result<(), RemediationError>;
+}
+
+fn run_allowlisted_argv(
+    argv: &[String],
+    workdir: &Path,
+    strategy_name: &str,
+) -> Result<(), RemediationError> {
+    let (program, args) =
+        argv.split_first()
+            .ok_or_else(|| RemediationError::CommandFailed {
+                strategy: strategy_name.to_string(),
+                message: "empty argv".to_string(),
+            })?;
+    let out = Command::new(program)
+        .args(args)
+        .current_dir(workdir)
+        .output()?;
+    if out.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        Err(RemediationError::CommandFailed {
+            strategy: strategy_name.to_string(),
+            message: stderr.trim().to_string(),
+        })
+    }
 }
 
 /// Apply npm remediation by invoking:
@@ -299,56 +407,79 @@ impl NpmRemediator {
 }
 
 impl Remediator for NpmRemediator {
-    fn apply(
+    fn strategy(&self) -> ApplyStrategy {
+        Npm
+    }
+
+    fn preview(
         &self,
         ctx: &RemediationContext<'_>,
-    ) -> Result<(), RemediationError> {
+    ) -> Result<RemediationPreview, RemediationError> {
         if ctx.target_version == MIN_FIXED_VERSION_UNKNOWN {
             return Err(RemediationError::TargetVersionUnknown);
-        }
-        if ctx.offline {
-            return Err(RemediationError::OfflineBlocked);
         }
         require_allowlisted_npm_operands(
             ctx.package_name,
             ctx.target_version,
         )?;
-        if !self.npm_available() {
-            return Err(RemediationError::MissingPackageManager(
-                NPM_BIN_NAME.to_string(),
-            ));
-        }
         let lock_dir = self.select_npm_lock_dir(ctx).ok_or_else(|| {
             RemediationError::UnsupportedLockLayout(
                 "supported npm lockfile not found under scan root (need package-lock.json or npm-shrinkwrap.json)".to_string(),
             )
         })?;
         require_sibling_manifest(&lock_dir, NPM_MANIFEST_FILE_NAME)?;
-
-        let mut cmd = Command::new(&self.bin);
-        cmd.current_dir(&lock_dir);
-        cmd.arg("install");
-        if !ctx.allow_dependency_code_execution {
-            cmd.arg("--ignore-scripts");
-        }
-        cmd.arg("--package-lock-only");
-        if matches!(ctx.dependency_kind, DependencyKind::Transitive) {
-            // For transitive remediation, avoid mutating package.json.
-            cmd.arg("--no-save");
-        }
-        cmd.arg("--");
-        cmd.arg(format!("{}@{}", ctx.package_name, ctx.target_version));
-
-        let out = cmd.output()?;
-        if out.status.success() {
-            Ok(())
-        } else {
-            let stderr = String::from_utf8_lossy(&out.stderr);
-            Err(RemediationError::CommandFailed {
-                strategy: NPM_BIN_NAME.to_string(),
-                message: stderr.trim().to_string(),
+        let lock_path = ctx
+            .declarations
+            .iter()
+            .find(|d| {
+                d.kind == DeclarationKind::Lockfile
+                    && is_supported_npm_lockfile(d.path.as_str())
             })
+            .and_then(|d| {
+                resolve_lock_workdir_under_root(ctx.scan_root, d.path.as_str())
+                    .map(|dir| {
+                        let name = Path::new(d.path.as_str())
+                            .file_name()
+                            .map(|n| n.to_owned());
+                        match name {
+                            Some(n) => dir.join(n),
+                            None => dir.join(NPM_LOCKFILE_PACKAGE_LOCK_JSON),
+                        }
+                    })
+            })
+            .unwrap_or_else(|| lock_dir.join(NPM_LOCKFILE_PACKAGE_LOCK_JSON));
+        let mut files = vec![lock_path];
+        if matches!(ctx.dependency_kind, DependencyKind::Direct) {
+            files.push(lock_dir.join(NPM_MANIFEST_FILE_NAME));
         }
+        Ok(RemediationPreview {
+            strategy: Npm,
+            workdir: lock_dir,
+            files,
+            argv: npm_install_argv(
+                &self.bin,
+                ctx.package_name,
+                ctx.target_version,
+                ctx.dependency_kind,
+                ctx.allow_dependency_code_execution,
+            ),
+        })
+    }
+
+    fn apply(
+        &self,
+        ctx: &RemediationContext<'_>,
+    ) -> Result<(), RemediationError> {
+        if ctx.offline {
+            return Err(RemediationError::OfflineBlocked);
+        }
+        if !self.npm_available() {
+            return Err(RemediationError::MissingPackageManager(
+                NPM_BIN_NAME.to_string(),
+            ));
+        }
+        let preview = self.preview(ctx)?;
+        run_allowlisted_argv(&preview.argv, &preview.workdir, NPM_BIN_NAME)
     }
 }
 
@@ -402,50 +533,53 @@ impl CargoRemediator {
 }
 
 impl Remediator for CargoRemediator {
-    fn apply(
+    fn strategy(&self) -> ApplyStrategy {
+        Cargo
+    }
+
+    fn preview(
         &self,
         ctx: &RemediationContext<'_>,
-    ) -> Result<(), RemediationError> {
+    ) -> Result<RemediationPreview, RemediationError> {
         if ctx.target_version == MIN_FIXED_VERSION_UNKNOWN {
             return Err(RemediationError::TargetVersionUnknown);
-        }
-        if ctx.offline {
-            return Err(RemediationError::OfflineBlocked);
         }
         require_allowlisted_cargo_operands(
             ctx.package_name,
             ctx.target_version,
         )?;
-        if !self.cargo_available() {
-            return Err(RemediationError::MissingPackageManager(
-                CARGO_BIN_NAME.to_string(),
-            ));
-        }
         let lock_dir = self.select_cargo_lock_dir(ctx).ok_or_else(|| {
             RemediationError::UnsupportedLockLayout(
                 "Cargo.lock not found under scan root".to_string(),
             )
         })?;
         require_sibling_manifest(&lock_dir, CARGO_MANIFEST_FILE_NAME)?;
+        Ok(RemediationPreview {
+            strategy: Cargo,
+            workdir: lock_dir.clone(),
+            files: vec![lock_dir.join(CARGO_LOCK_FILE_NAME)],
+            argv: cargo_update_argv(
+                &self.bin,
+                ctx.package_name,
+                ctx.target_version,
+            ),
+        })
+    }
 
-        let mut cmd = Command::new(&self.bin);
-        cmd.current_dir(&lock_dir);
-        cmd.arg("update");
-        cmd.arg("--package");
-        cmd.arg(ctx.package_name);
-        cmd.arg("--precise");
-        cmd.arg(ctx.target_version);
-
-        let out = cmd.output()?;
-        if out.status.success() {
-            Ok(())
-        } else {
-            let stderr = String::from_utf8_lossy(&out.stderr);
-            Err(RemediationError::CommandFailed {
-                strategy: CARGO_BIN_NAME.to_string(),
-                message: stderr.trim().to_string(),
-            })
+    fn apply(
+        &self,
+        ctx: &RemediationContext<'_>,
+    ) -> Result<(), RemediationError> {
+        if ctx.offline {
+            return Err(RemediationError::OfflineBlocked);
         }
+        if !self.cargo_available() {
+            return Err(RemediationError::MissingPackageManager(
+                CARGO_BIN_NAME.to_string(),
+            ));
+        }
+        let preview = self.preview(ctx)?;
+        run_allowlisted_argv(&preview.argv, &preview.workdir, CARGO_BIN_NAME)
     }
 }
 
@@ -960,5 +1094,124 @@ mod tests {
         assert_eq!(NpmRemediator::default().bin, NPM_BIN_NAME);
         assert_eq!(CargoRemediator::new().bin, CARGO_BIN_NAME);
         assert_eq!(CargoRemediator::default().bin, CARGO_BIN_NAME);
+    }
+
+    #[test]
+    fn npm_preview_matches_allowlisted_argv_and_ignore_scripts_gate() {
+        let root = std::env::temp_dir()
+            .join(format!("vlz-npm-preview-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        write_npm_tree(&root);
+        let decls = [lock_decl("package-lock.json")];
+        let rem = NpmRemediator::new();
+        assert_eq!(rem.strategy(), ApplyStrategy::Npm);
+
+        let preview = rem
+            .preview(&RemediationContext {
+                scan_root: &root,
+                declarations: &decls,
+                package_name: "left-pad",
+                target_version: "2.0.0",
+                dependency_kind: DependencyKind::Transitive,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .expect("preview");
+        assert_eq!(preview.strategy, ApplyStrategy::Npm);
+        assert_eq!(
+            preview.argv,
+            npm_install_argv(
+                NPM_BIN_NAME,
+                "left-pad",
+                "2.0.0",
+                DependencyKind::Transitive,
+                false,
+            )
+        );
+        assert!(
+            preview.argv.iter().any(|a| a == NPM_IGNORE_SCRIPTS_FLAG),
+            "SEC-023 scripts-only gate must add --ignore-scripts"
+        );
+        assert!(
+            preview.argv.contains(&NPM_NO_SAVE_FLAG.to_string()),
+            "transitive must use --no-save"
+        );
+        assert_eq!(
+            preview.files,
+            vec![root.join(NPM_LOCKFILE_PACKAGE_LOCK_JSON)]
+        );
+
+        let with_scripts = rem
+            .preview(&RemediationContext {
+                scan_root: &root,
+                declarations: &decls,
+                package_name: "left-pad",
+                target_version: "2.0.0",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: true,
+                offline: true,
+            })
+            .expect("offline preview still works");
+        assert!(
+            !with_scripts
+                .argv
+                .iter()
+                .any(|a| a == NPM_IGNORE_SCRIPTS_FLAG)
+        );
+        assert!(
+            with_scripts
+                .files
+                .contains(&root.join(NPM_MANIFEST_FILE_NAME))
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn cargo_preview_matches_allowlisted_argv() {
+        let root = std::env::temp_dir()
+            .join(format!("vlz-cargo-preview-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        write_cargo_tree(&root);
+        let decls = [lock_decl("Cargo.lock")];
+        let rem = CargoRemediator::new();
+        assert_eq!(rem.strategy(), ApplyStrategy::Cargo);
+        let preview = rem
+            .preview(&RemediationContext {
+                scan_root: &root,
+                declarations: &decls,
+                package_name: "serde",
+                target_version: "1.0.200",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .expect("preview");
+        assert_eq!(
+            preview.argv,
+            cargo_update_argv(CARGO_BIN_NAME, "serde", "1.0.200")
+        );
+        assert_eq!(preview.files, vec![root.join(CARGO_LOCK_FILE_NAME)]);
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn npm_install_argv_builder_is_stable() {
+        assert_eq!(
+            npm_install_argv(
+                NPM_BIN_NAME,
+                "left-pad",
+                "2.0.0",
+                DependencyKind::Direct,
+                false,
+            ),
+            vec![
+                NPM_BIN_NAME.to_string(),
+                "install".to_string(),
+                NPM_IGNORE_SCRIPTS_FLAG.to_string(),
+                NPM_PACKAGE_LOCK_ONLY_FLAG.to_string(),
+                "--".to_string(),
+                "left-pad@2.0.0".to_string(),
+            ]
+        );
     }
 }
