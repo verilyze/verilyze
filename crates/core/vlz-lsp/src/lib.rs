@@ -467,7 +467,9 @@ mod tests {
 
     #[test]
     fn initialized_publishes_diagnostic_from_scan_service() {
-        let server = LspServer::new(Box::new(FixedScanService));
+        let server = LspServer::new(Box::new(FixedScanService {
+            uri: "file:///tmp/vlz-lsp-fixture/Cargo.toml".to_string(),
+        }));
         let output = server.handle_message(
             r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#,
         );
@@ -514,7 +516,9 @@ mod tests {
 
     #[test]
     fn exit_returns_after_initialization() {
+        let root = tempfile_workspace();
         let messages = drive_connection(
+            &root,
             Box::new(EmptyScanService),
             vec![Message::Notification(Notification::new(
                 "exit".to_string(),
@@ -530,17 +534,23 @@ mod tests {
 
     #[test]
     fn did_save_republishes_diagnostics() {
+        let root = tempfile_workspace();
+        let manifest = root.join("Cargo.toml");
+        std::fs::write(&manifest, "[package]\nname=\"demo\"\n")
+            .expect("fixture manifest");
+        let uri =
+            file_uri_for_path(&manifest).expect("manifest URI should encode");
         let scans = Arc::new(Mutex::new(0_u32));
         let messages = drive_connection(
+            &root,
             Box::new(CountingScanService {
                 count: Arc::clone(&scans),
+                uri: uri.clone(),
             }),
             vec![
                 Message::Notification(Notification::new(
                     "textDocument/didSave".to_string(),
-                    json!({
-                        "textDocument": {"uri": "file:///workspace/Cargo.toml"}
-                    }),
+                    json!({ "textDocument": { "uri": uri } }),
                 )),
                 Message::Notification(Notification::new(
                     "exit".to_string(),
@@ -554,8 +564,15 @@ mod tests {
 
     #[test]
     fn shutdown_code_action_and_execute_command_are_handled() {
+        let root = tempfile_workspace();
+        let manifest = root.join("Cargo.toml");
+        std::fs::write(&manifest, "[package]\nname=\"demo\"\n")
+            .expect("fixture manifest");
+        let uri =
+            file_uri_for_path(&manifest).expect("manifest URI should encode");
         let messages = drive_connection(
-            Box::new(FixedScanService),
+            &root,
+            Box::new(FixedScanService { uri: uri.clone() }),
             vec![
                 Message::Request(Request::new(
                     RequestId::from(2),
@@ -566,7 +583,7 @@ mod tests {
                     RequestId::from(3),
                     "textDocument/codeAction".to_string(),
                     json!({
-                        "textDocument": {"uri": "file:///workspace/Cargo.toml"},
+                        "textDocument": { "uri": uri },
                         "range": {
                             "start": {"line": 0, "character": 0},
                             "end": {"line": 0, "character": 0}
@@ -698,9 +715,12 @@ mod tests {
     }
 
     fn drive_connection(
+        workspace_root: &Path,
         scan_service: Box<dyn ScanService>,
         client_messages: Vec<Message>,
     ) -> Vec<Message> {
+        let root_uri = file_uri_for_path(workspace_root)
+            .expect("workspace root URI should encode");
         let (server, client) = Connection::memory();
         client
             .sender
@@ -710,7 +730,7 @@ mod tests {
                     "initialize".to_string(),
                     json!({
                         "processId": null,
-                        "rootUri": "file:///workspace",
+                        "rootUri": root_uri,
                         "capabilities": {},
                     }),
                 )
@@ -757,8 +777,14 @@ mod tests {
     }
 
     fn tempfile_workspace() -> PathBuf {
-        let root = std::env::temp_dir()
-            .join(format!("vlz-lsp-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!(
+            "vlz-lsp-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).expect("temp workspace");
         root
@@ -773,14 +799,15 @@ mod tests {
         }
     }
 
-    #[derive(Default)]
-    struct FixedScanService;
+    struct FixedScanService {
+        uri: String,
+    }
 
     impl ScanService for FixedScanService {
         fn scan(&self, _root: Option<&Path>) -> ScanResult {
             ScanResult {
                 diagnostics: vec![ScanDiagnostic {
-                    uri: "file:///workspace/Cargo.toml".to_string(),
+                    uri: self.uri.clone(),
                     line: 0,
                     code: "CVE-2026-1234".to_string(),
                     message: "CVE-2026-1234: update to 1.2.3".to_string(),
@@ -791,12 +818,16 @@ mod tests {
 
     struct CountingScanService {
         count: Arc<Mutex<u32>>,
+        uri: String,
     }
 
     impl ScanService for CountingScanService {
         fn scan(&self, _root: Option<&Path>) -> ScanResult {
             *self.count.lock().expect("count lock") += 1;
-            FixedScanService.scan(None)
+            FixedScanService {
+                uri: self.uri.clone(),
+            }
+            .scan(None)
         }
     }
 
