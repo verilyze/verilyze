@@ -588,6 +588,7 @@ mod tests {
     use super::*;
     use std::fs;
     use std::os::unix::fs::PermissionsExt;
+    use std::path::PathBuf;
     use vlz_db::{CRATES_IO_ECOSYSTEM, NPM_ECOSYSTEM};
 
     fn lock_decl(path: &str) -> PackageDeclarationLocation {
@@ -616,29 +617,36 @@ mod tests {
         }
     }
 
-    /// Isolated tempdir under `/tmp` (not process `TMPDIR`) so parallel
-    /// suites cannot nest into a deleted parent.
+    /// Stable base for test tempdirs (ignores process `TMPDIR`).
+    ///
+    /// Intentionally mirrors the `vlz` config test helper: there is no shared
+    /// test crate, and this crate cannot depend on `vlz`.
+    fn stable_test_temp_base() -> &'static Path {
+        Path::new("/tmp")
+    }
+
     fn test_tempdir() -> tempfile::TempDir {
         tempfile::Builder::new()
             .prefix("vlz-remediate-")
-            .tempdir_in(Path::new("/tmp"))
+            .tempdir_in(stable_test_temp_base())
             .expect("create isolated remediator test tempdir")
     }
 
-    fn write_exec(path: &Path, body: &str) {
-        // Write via a sibling temp name then rename so the final path is never
-        // open for write when we exec it (avoids Linux ETXTBSY flakes).
+    /// Write an executable stub via rename-before-exec (avoids Linux ETXTBSY
+    /// when the final path is still open for write). Does not probe readiness.
+    fn write_stub_script(path: &Path, body: &str) {
         let tmp = path.with_extension("write-tmp");
         fs::write(&tmp, body).unwrap();
         fs::set_permissions(&tmp, PermissionsExt::from_mode(0o755)).unwrap();
         fs::rename(&tmp, path).unwrap();
+    }
+
+    /// Retry until the stub can be exec'd (exit status is ignored).
+    fn wait_stub_exec_ready(path: &Path) {
         let mut last_err = None;
         for _ in 0..8 {
             match Command::new(path).arg("--version").status() {
-                Ok(status) if status.success() => return,
-                Ok(status) => {
-                    panic!("stub {} --version exited {status}", path.display())
-                }
+                Ok(_) => return,
                 Err(e)
                     if e.kind() == std::io::ErrorKind::ExecutableFileBusy
                         || e.raw_os_error() == Some(26) =>
@@ -653,6 +661,12 @@ mod tests {
             "exec {} --version still busy after retries: {last_err:?}",
             path.display()
         );
+    }
+
+    /// Write a stub and wait until it can be executed.
+    fn write_exec(path: &Path, body: &str) {
+        write_stub_script(path, body);
+        wait_stub_exec_ready(path);
     }
 
     fn write_npm_tree(root: &Path) {
@@ -1004,11 +1018,16 @@ mod tests {
             .unwrap_err();
         assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
 
-        // Sibling tempdirs under /tmp: build a relative escape path.
-        let rel = format!(
-            "../{}/package-lock.json",
-            outside.file_name().unwrap().to_string_lossy()
+        // Relative escape: require siblings under the same parent, then join.
+        assert_eq!(
+            root.parent(),
+            outside.parent(),
+            "test tempdirs must share a parent for relative escape"
         );
+        let rel = PathBuf::from("..")
+            .join(outside.file_name().expect("outside tempdir name"))
+            .join("package-lock.json");
+        let rel = rel.to_string_lossy();
         let err = rem
             .apply(&RemediationContext {
                 scan_root: root,

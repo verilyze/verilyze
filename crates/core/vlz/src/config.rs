@@ -723,14 +723,25 @@ fn data_home() -> PathBuf {
         })
 }
 
+/// Resolve a secure temp base from explicit inputs (testable without mutating
+/// process env). Prefers `xdg_runtime_dir`, then `tmpdir`, then `fallback`.
+pub fn secure_temp_base_from(
+    xdg_runtime_dir: Option<PathBuf>,
+    tmpdir: Option<PathBuf>,
+    fallback: PathBuf,
+) -> PathBuf {
+    xdg_runtime_dir.or(tmpdir).unwrap_or(fallback)
+}
+
 /// Base directory for security-sensitive temporary data (e.g. ephemeral venvs).
 /// Prefers XDG_RUNTIME_DIR (per-user, not world-writable), then TMPDIR, then
 /// std::env::temp_dir(). Use with tempfile::tempdir_in() for atomic creation.
 pub fn secure_temp_base() -> PathBuf {
-    std::env::var_os("XDG_RUNTIME_DIR")
-        .or_else(|| std::env::var_os("TMPDIR"))
-        .map(PathBuf::from)
-        .unwrap_or_else(std::env::temp_dir)
+    secure_temp_base_from(
+        std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from),
+        std::env::var_os("TMPDIR").map(PathBuf::from),
+        std::env::temp_dir(),
+    )
 }
 
 fn validate_provider_http_timeouts(
@@ -1448,19 +1459,10 @@ pub fn set_config_key(key: &str, value: &str) -> Result<(), ConfigError> {
 mod tests {
     use super::*;
 
-    /// Create a tempdir that ignores a process-wide `TMPDIR` override.
+    /// Stable base for test tempdirs (ignores process `TMPDIR`).
     ///
-    /// Parallel `secure_temp_base_*` tests temporarily set `TMPDIR` to a path
-    /// under another tempdir. Plain `tempfile::tempdir()` follows `TMPDIR`, so
-    /// a sibling test can nest into a directory that is then deleted
-    /// (`Io(NotFound)`). Always create under a stable base instead.
-    fn test_tempdir() -> tempfile::TempDir {
-        tempfile::Builder::new()
-            .prefix("vlz-config-")
-            .tempdir_in(stable_test_temp_base())
-            .expect("create isolated test tempdir")
-    }
-
+    /// Intentionally mirrors the remediator test helper: there is no shared
+    /// test crate, and `vlz-remediate` cannot depend on `vlz`.
     fn stable_test_temp_base() -> PathBuf {
         #[cfg(unix)]
         {
@@ -1472,10 +1474,12 @@ mod tests {
         }
     }
 
-    /// Serialize tests that mutate `TMPDIR` / `XDG_RUNTIME_DIR` for
-    /// `secure_temp_base` so they cannot race each other.
-    static SECURE_TEMP_ENV_LOCK: std::sync::Mutex<()> =
-        std::sync::Mutex::new(());
+    fn test_tempdir() -> tempfile::TempDir {
+        tempfile::Builder::new()
+            .prefix("vlz-config-")
+            .tempdir_in(stable_test_temp_base())
+            .expect("create isolated test tempdir")
+    }
 
     /// Isolate `load` from host `/etc/verilyze.conf` and `VLZ_SCAN_EXCLUDE_DIRS`.
     ///
@@ -2901,55 +2905,39 @@ regex = "^req\\.txt$"
     }
 
     #[test]
-    fn secure_temp_base_prefers_xdg_runtime_dir() {
-        let _guard = SECURE_TEMP_ENV_LOCK
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        let dir = test_tempdir();
-        let path_str = dir.path().to_path_buf();
-        temp_env::with_var(
-            "XDG_RUNTIME_DIR",
-            Some(path_str.as_os_str()),
-            || {
-                temp_env::with_var(
-                    "TMPDIR",
-                    Some(path_str.as_os_str()),
-                    || {
-                        let p = secure_temp_base();
-                        assert_eq!(p, path_str);
-                    },
-                );
-            },
+    fn secure_temp_base_from_prefers_xdg_runtime_dir() {
+        let xdg = PathBuf::from("/run/user/1000");
+        let tmp = PathBuf::from("/var/tmp");
+        let fallback = PathBuf::from("/fallback");
+        assert_eq!(
+            secure_temp_base_from(Some(xdg.clone()), Some(tmp), fallback),
+            xdg
         );
     }
 
     #[test]
-    fn secure_temp_base_falls_back_to_tmpdir_when_no_xdg_runtime() {
-        let _guard = SECURE_TEMP_ENV_LOCK
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        let dir = test_tempdir();
-        let path_str = dir.path().to_path_buf();
-        temp_env::with_var("XDG_RUNTIME_DIR", None::<&str>, || {
-            temp_env::with_var("TMPDIR", Some(path_str.as_os_str()), || {
-                let p = secure_temp_base();
-                assert_eq!(p, path_str);
-            });
-        });
+    fn secure_temp_base_from_falls_back_to_tmpdir_when_no_xdg() {
+        let tmp = PathBuf::from("/var/tmp");
+        let fallback = PathBuf::from("/fallback");
+        assert_eq!(
+            secure_temp_base_from(None, Some(tmp.clone()), fallback),
+            tmp
+        );
     }
 
     #[test]
-    fn secure_temp_base_falls_back_to_temp_dir_when_no_xdg_or_tmpdir() {
-        let _guard = SECURE_TEMP_ENV_LOCK
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        temp_env::with_vars(
-            [("XDG_RUNTIME_DIR", None::<&str>), ("TMPDIR", None::<&str>)],
-            || {
-                let p = secure_temp_base();
-                assert!(!p.as_os_str().is_empty());
-            },
+    fn secure_temp_base_from_falls_back_when_no_xdg_or_tmpdir() {
+        let fallback = PathBuf::from("/fallback");
+        assert_eq!(
+            secure_temp_base_from(None, None, fallback.clone()),
+            fallback
         );
+    }
+
+    #[test]
+    fn secure_temp_base_returns_non_empty_path() {
+        let p = secure_temp_base();
+        assert!(!p.as_os_str().is_empty());
     }
 
     #[test]
