@@ -3,7 +3,7 @@ sequenceDiagram
     participant Registries as "per-trait OnceLock registries"
     participant Plugin as "language / provider crate"
 
-    note over Registries: One Vec per trait: FINDERS, PARSERS,<br/>RESOLVERS, REACHABILITY_ANALYZERS,<br/>PROVIDERS, DB_BACKENDS, REPORTERS,<br/>INTEGRITY_CHECKERS
+    note over Registries: One Vec per trait: FINDERS, PARSERS,<br/>RESOLVERS, REACHABILITY_ANALYZERS,<br/>PROVIDERS, DB_BACKENDS, REPORTERS,<br/>INTEGRITY_CHECKERS, REMEDIATORS
 
     %% Plug‑in registration (compile-time, one-way)
     Plugin -) Registries: vlz_register!(Trait, Impl)  // pushes Box::new(Impl) to the matching registry
@@ -18,3 +18,4 @@ sequenceDiagram
     Registries -->> Core: DatabaseBackend instances
     Registries -->> Core: IntegrityChecker instances
     Registries -->> Core: Reporter instances
+    Registries -->> Core: Remediator instances
