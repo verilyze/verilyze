@@ -140,7 +140,15 @@
         },
         "apply_strategy": {
           "type": "string",
-          "enum": ["unavailable", "npm", "cargo", "python", "yarn", "pnpm", "bun"]
+          "enum": [
+            "unavailable",
+            "npm",
+            "cargo",
+            "python",
+            "yarn",
+            "pnpm",
+            "bun"
+          ]
         },
         "confidence": {
           "type": "string",
