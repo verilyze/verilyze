@@ -13,14 +13,19 @@
 //! - Python (PyPI) via `poetry.lock` (`poetry`) or `uv.lock` (`uv`)
 //!
 //! Strategy selection for the npm ecosystem prefers npm locks, then yarn,
-//! pnpm, then bun. PyPI selection includes `pylock.toml` / `pylock.*.toml`
-//! for planning; apply currently supports poetry and uv lockfiles only.
+//! pnpm, then bun. PyPI apply strategies require `poetry.lock` or `uv.lock`;
+//! `pylock.toml` / `pylock.*.toml` stay plan-only (`unavailable`) until an
+//! apply path exists.
 //!
-//! SEC-023 for Phase-2 argv is scripts-only: npm defaults to
-//! `--ignore-scripts` unless `allow_dependency_code_execution` is set.
-//! Cargo `update` does not run dependency lifecycle scripts. Yarn / pnpm /
-//! bun / poetry / uv argv used here update locks without a scripts-only
-//! flag equivalent to npm's `--ignore-scripts`.
+//! SEC-023 for argv that can run lifecycle scripts: npm and bun default to
+//! `--ignore-scripts` unless `allow_dependency_code_execution` is set. Yarn
+//! Berry defaults to `--mode=skip-build`; Yarn Classic defaults to
+//! `--ignore-scripts`. Cargo `update`, pnpm `--lockfile-only`, poetry
+//! `--lock`, and uv `--no-sync` do not run dependency lifecycle installs.
+//!
+//! Transitive findings: npm uses `--no-save`; Cargo `update --precise` is
+//! lock-safe. Yarn / pnpm / bun / poetry / uv refuse transitive apply so
+//! they do not promote a transitive pin into a direct manifest dependency.
 //!
 //! Apply is fail-fast (first remediator error stops the batch). Earlier
 //! successful writes are not rolled back.
@@ -80,6 +85,18 @@ pub const POETRY_BIN_NAME: &str = "poetry";
 pub const UV_BIN_NAME: &str = "uv";
 /// npm flag that skips lifecycle scripts (SEC-023 scripts-only gate).
 pub const NPM_IGNORE_SCRIPTS_FLAG: &str = "--ignore-scripts";
+/// bun flag that skips lifecycle scripts (SEC-023 scripts-only gate).
+pub const BUN_IGNORE_SCRIPTS_FLAG: &str = "--ignore-scripts";
+/// Yarn Classic flag that skips lifecycle scripts (SEC-023).
+pub const YARN_CLASSIC_IGNORE_SCRIPTS_FLAG: &str = "--ignore-scripts";
+/// Yarn Berry mode that skips build / lifecycle scripts (SEC-023).
+pub const YARN_BERRY_SKIP_BUILD_FLAG: &str = "--mode=skip-build";
+/// Yarn Classic upgrade subcommand.
+pub const YARN_CLASSIC_UPGRADE_SUBCOMMAND: &str = "upgrade";
+/// Yarn Berry up subcommand.
+pub const YARN_BERRY_UP_SUBCOMMAND: &str = "up";
+/// Marker substring in Classic `yarn.lock` files (`# yarn lockfile v1`).
+pub const YARN_CLASSIC_LOCKFILE_MARKER: &str = "yarn lockfile v1";
 /// npm flag that updates the lockfile without a full install tree.
 pub const NPM_PACKAGE_LOCK_ONLY_FLAG: &str = "--package-lock-only";
 /// npm flag that avoids writing `package.json` for transitive upgrades.
@@ -90,6 +107,41 @@ pub const PNPM_LOCKFILE_ONLY_FLAG: &str = "--lockfile-only";
 pub const POETRY_LOCK_FLAG: &str = "--lock";
 /// uv flag that updates the lock/manifest without syncing the env.
 pub const UV_NO_SYNC_FLAG: &str = "--no-sync";
+
+/// Yarn lockfile dialect (Classic v1 vs Berry).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum YarnLockFlavor {
+    Classic,
+    Berry,
+}
+
+/// Detect Classic vs Berry from lockfile contents (SEC-025 / FR-041).
+pub fn detect_yarn_lock_flavor(
+    lock_path: &Path,
+) -> Result<YarnLockFlavor, RemediationError> {
+    let text = std::fs::read_to_string(lock_path).map_err(|err| {
+        RemediationError::UnsupportedLockLayout(format!(
+            "unable to read yarn.lock for dialect detection: {err}"
+        ))
+    })?;
+    if text.contains(YARN_CLASSIC_LOCKFILE_MARKER) {
+        Ok(YarnLockFlavor::Classic)
+    } else {
+        Ok(YarnLockFlavor::Berry)
+    }
+}
+
+fn refuse_transitive_manifest_mutation(
+    ctx: &RemediationContext<'_>,
+    strategy: &str,
+) -> Result<(), RemediationError> {
+    if matches!(ctx.dependency_kind, DependencyKind::Transitive) {
+        return Err(RemediationError::UnsupportedLockLayout(format!(
+            "{strategy} cannot apply transitive upgrades without promoting the package to a direct dependency"
+        )));
+    }
+    Ok(())
+}
 
 /// Resolve a lockfile declaration to a working directory under `scan_root`.
 ///
@@ -244,22 +296,6 @@ fn lock_basename_eq(path: &str, expected: &str) -> bool {
 }
 
 /// True for `pylock.toml` or `pylock.*.toml` (PEP 751).
-fn is_pylock_variant_basename(name: &str) -> bool {
-    name == PYLOCK_TOML_FILE_NAME
-        || (name.starts_with("pylock.") && name.ends_with(".toml"))
-}
-
-fn is_supported_python_strategy_lockfile(path: &str) -> bool {
-    Path::new(path)
-        .file_name()
-        .and_then(|n| n.to_str())
-        .is_some_and(|name| {
-            name == POETRY_LOCK_FILE_NAME
-                || name == UV_LOCK_FILE_NAME
-                || is_pylock_variant_basename(name)
-        })
-}
-
 fn is_applyable_python_lockfile(path: &str) -> bool {
     lock_basename_eq(path, POETRY_LOCK_FILE_NAME)
         || lock_basename_eq(path, UV_LOCK_FILE_NAME)
@@ -281,7 +317,8 @@ fn declaration_has_lock(
 /// - which lock file was used for resolution (declarations).
 ///
 /// npm-ecosystem preference: supported npm locks, else yarn.lock, else
-/// pnpm-lock.yaml, else bun.lock. PyPI: poetry.lock / uv.lock / pylock.
+/// pnpm-lock.yaml, else bun.lock. PyPI: poetry.lock / uv.lock only
+/// (pylock remains `unavailable` for apply until supported).
 pub fn remediation_apply_strategy_for_finding(
     package: &Package,
     minimal_fixed_version: &str,
@@ -321,10 +358,8 @@ pub fn remediation_apply_strategy_for_finding(
             }
         }
         Some(e) if e.eq_ignore_ascii_case(PYPI_ECOSYSTEM) => {
-            if declaration_has_lock(
-                declarations,
-                is_supported_python_strategy_lockfile,
-            ) {
+            if declaration_has_lock(declarations, is_applyable_python_lockfile)
+            {
                 Python
             } else {
                 ApplyStrategy::Unavailable
@@ -374,10 +409,10 @@ pub struct RemediationContext<'a> {
     pub package_name: &'a str,
     pub target_version: &'a str,
     pub dependency_kind: DependencyKind,
-    /// When false, npm apply/preview uses [`NPM_IGNORE_SCRIPTS_FLAG`]
-    /// (SEC-023 scripts-only gate for Phase-2 argv). Cargo `update` does
-    /// not run dependency lifecycle scripts, so this flag does not change
-    /// Cargo argv.
+    /// When false, strategies that can run lifecycle scripts add skip flags
+    /// (SEC-023): npm/bun `--ignore-scripts`, Yarn Classic `--ignore-scripts`,
+    /// Yarn Berry `--mode=skip-build`. Cargo / pnpm lockfile-only / poetry
+    /// `--lock` / uv `--no-sync` do not change argv for this flag.
     pub allow_dependency_code_execution: bool,
     pub offline: bool,
 }
@@ -462,17 +497,50 @@ pub fn uv_add_argv(
     ]
 }
 
-/// Build allowlisted yarn up argv shared by preview and apply (NFR-024).
+/// Build allowlisted Yarn argv shared by preview and apply (NFR-024 / SEC-023).
+pub fn yarn_remediate_argv(
+    bin: &str,
+    package_name: &str,
+    target_version: &str,
+    flavor: YarnLockFlavor,
+    allow_dependency_code_execution: bool,
+) -> Vec<String> {
+    let subcommand = match flavor {
+        YarnLockFlavor::Classic => YARN_CLASSIC_UPGRADE_SUBCOMMAND,
+        YarnLockFlavor::Berry => YARN_BERRY_UP_SUBCOMMAND,
+    };
+    let mut argv = vec![
+        bin.to_string(),
+        subcommand.to_string(),
+        format!("{package_name}@{target_version}"),
+    ];
+    if !allow_dependency_code_execution {
+        match flavor {
+            YarnLockFlavor::Classic => {
+                argv.push(YARN_CLASSIC_IGNORE_SCRIPTS_FLAG.to_string());
+            }
+            YarnLockFlavor::Berry => {
+                argv.push(YARN_BERRY_SKIP_BUILD_FLAG.to_string());
+            }
+        }
+    }
+    argv
+}
+
+/// Berry `yarn up` argv helper (NFR-024). Prefer [`yarn_remediate_argv`].
 pub fn yarn_up_argv(
     bin: &str,
     package_name: &str,
     target_version: &str,
+    allow_dependency_code_execution: bool,
 ) -> Vec<String> {
-    vec![
-        bin.to_string(),
-        "up".to_string(),
-        format!("{package_name}@{target_version}"),
-    ]
+    yarn_remediate_argv(
+        bin,
+        package_name,
+        target_version,
+        YarnLockFlavor::Berry,
+        allow_dependency_code_execution,
+    )
 }
 
 /// Build allowlisted pnpm update argv shared by preview and apply (NFR-024).
@@ -494,12 +562,17 @@ pub fn bun_update_argv(
     bin: &str,
     package_name: &str,
     target_version: &str,
+    allow_dependency_code_execution: bool,
 ) -> Vec<String> {
-    vec![
+    let mut argv = vec![
         bin.to_string(),
         "update".to_string(),
         format!("{package_name}@{target_version}"),
-    ]
+    ];
+    if !allow_dependency_code_execution {
+        argv.push(BUN_IGNORE_SCRIPTS_FLAG.to_string());
+    }
+    argv
 }
 
 /// Language remediator: preview intended writes, then apply under SEC-025.
@@ -886,6 +959,7 @@ impl Remediator for PythonRemediator {
             ctx.package_name,
             ctx.target_version,
         )?;
+        refuse_transitive_manifest_mutation(ctx, "python")?;
         let (tool, lock_dir, lock_name) =
             self.select_python_lock(ctx).ok_or_else(|| {
                 RemediationError::UnsupportedLockLayout(
@@ -985,6 +1059,7 @@ impl Remediator for YarnRemediator {
             ctx.package_name,
             ctx.target_version,
         )?;
+        refuse_transitive_manifest_mutation(ctx, "yarn")?;
         let lock_dir = select_lock_dir_by_basename(ctx, YARN_LOCK_FILE_NAME)
             .ok_or_else(|| {
             RemediationError::UnsupportedLockLayout(
@@ -992,6 +1067,8 @@ impl Remediator for YarnRemediator {
             )
         })?;
         require_sibling_manifest(&lock_dir, NPM_MANIFEST_FILE_NAME)?;
+        let lock_path = lock_dir.join(YARN_LOCK_FILE_NAME);
+        let flavor = detect_yarn_lock_flavor(&lock_path)?;
         Ok(RemediationPreview {
             strategy: Yarn,
             files: js_lock_preview_files(
@@ -1000,10 +1077,12 @@ impl Remediator for YarnRemediator {
                 ctx.dependency_kind,
             ),
             workdir: lock_dir,
-            argv: yarn_up_argv(
+            argv: yarn_remediate_argv(
                 &self.bin,
                 ctx.package_name,
                 ctx.target_version,
+                flavor,
+                ctx.allow_dependency_code_execution,
             ),
         })
     }
@@ -1067,6 +1146,7 @@ impl Remediator for PnpmRemediator {
             ctx.package_name,
             ctx.target_version,
         )?;
+        refuse_transitive_manifest_mutation(ctx, "pnpm")?;
         let lock_dir = select_lock_dir_by_basename(ctx, PNPM_LOCK_FILE_NAME)
             .ok_or_else(|| {
             RemediationError::UnsupportedLockLayout(
@@ -1148,6 +1228,7 @@ impl Remediator for BunRemediator {
             ctx.package_name,
             ctx.target_version,
         )?;
+        refuse_transitive_manifest_mutation(ctx, "bun")?;
         let lock_dir = select_lock_dir_by_basename(ctx, BUN_LOCK_FILE_NAME)
             .ok_or_else(|| {
                 RemediationError::UnsupportedLockLayout(
@@ -1167,6 +1248,7 @@ impl Remediator for BunRemediator {
                 &self.bin,
                 ctx.package_name,
                 ctx.target_version,
+                ctx.allow_dependency_code_execution,
             ),
         })
     }
@@ -1289,7 +1371,22 @@ mod tests {
 
     fn write_js_lock_tree(root: &Path, lock_name: &str) {
         fs::create_dir_all(root).unwrap();
-        fs::write(root.join(lock_name), "# lock\n").unwrap();
+        let contents = if lock_name == YARN_LOCK_FILE_NAME {
+            "# yarn berry fixture\n__metadata:\n  version: 6\n"
+        } else {
+            "# lock\n"
+        };
+        fs::write(root.join(lock_name), contents).unwrap();
+        fs::write(root.join("package.json"), "{\"name\":\"app\"}\n").unwrap();
+    }
+
+    fn write_yarn_classic_tree(root: &Path) {
+        fs::create_dir_all(root).unwrap();
+        fs::write(
+            root.join(YARN_LOCK_FILE_NAME),
+            "# yarn lockfile v1\n\nleft-pad@1.0.0:\n  version \"1.0.0\"\n",
+        )
+        .unwrap();
         fs::write(root.join("package.json"), "{\"name\":\"app\"}\n").unwrap();
     }
 
@@ -1389,7 +1486,7 @@ mod tests {
     }
 
     #[test]
-    fn strategy_selects_python_for_poetry_uv_and_pylock() {
+    fn strategy_selects_python_for_poetry_uv_pylock_unavailable() {
         let package = pkg(PYPI_ECOSYSTEM, "requests");
         assert_eq!(
             remediation_apply_strategy_for_finding(
@@ -1413,7 +1510,7 @@ mod tests {
                 "2.32.0",
                 &[lock_decl(PYLOCK_TOML_FILE_NAME)],
             ),
-            ApplyStrategy::Python
+            ApplyStrategy::Unavailable
         );
         assert_eq!(
             remediation_apply_strategy_for_finding(
@@ -1421,7 +1518,7 @@ mod tests {
                 "2.32.0",
                 &[lock_decl("pylock.dev.toml")],
             ),
-            ApplyStrategy::Python
+            ApplyStrategy::Unavailable
         );
     }
 
@@ -1932,7 +2029,14 @@ mod tests {
             .expect("yarn preview");
         assert_eq!(
             yarn_preview.argv,
-            yarn_up_argv(yarn.to_str().unwrap(), "left-pad", "1.3.0")
+            yarn_up_argv(yarn.to_str().unwrap(), "left-pad", "1.3.0", false)
+        );
+        assert!(
+            yarn_preview
+                .argv
+                .iter()
+                .any(|a| a == YARN_BERRY_SKIP_BUILD_FLAG),
+            "SEC-023: Yarn Berry must skip builds when gate is off"
         );
 
         let uv_dir = test_tempdir();
@@ -2015,7 +2119,7 @@ mod tests {
                 declarations: &[lock_decl(PNPM_LOCK_FILE_NAME)],
                 package_name: "left-pad",
                 target_version: "2.0.0",
-                dependency_kind: DependencyKind::Transitive,
+                dependency_kind: DependencyKind::Direct,
                 allow_dependency_code_execution: false,
                 offline: false,
             })
@@ -2024,6 +2128,18 @@ mod tests {
             pnpm_preview.argv,
             pnpm_update_argv(pnpm_bin.to_str().unwrap(), "left-pad", "2.0.0")
         );
+        let err = pnpm
+            .preview(&RemediationContext {
+                scan_root: pnpm_root,
+                declarations: &[lock_decl(PNPM_LOCK_FILE_NAME)],
+                package_name: "left-pad",
+                target_version: "2.0.0",
+                dependency_kind: DependencyKind::Transitive,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
         pnpm.apply(&RemediationContext {
             scan_root: pnpm_root,
             declarations: &[lock_decl(PNPM_LOCK_FILE_NAME)],
@@ -2054,18 +2170,42 @@ mod tests {
             .expect("bun preview");
         assert_eq!(
             bun_preview.argv,
-            bun_update_argv(bun_bin.to_str().unwrap(), "left-pad", "2.0.0")
+            bun_update_argv(
+                bun_bin.to_str().unwrap(),
+                "left-pad",
+                "2.0.0",
+                false
+            )
+        );
+        assert!(
+            bun_preview
+                .argv
+                .iter()
+                .any(|a| a == BUN_IGNORE_SCRIPTS_FLAG),
+            "SEC-023: bun must ignore scripts when gate is off"
         );
         bun.apply(&RemediationContext {
             scan_root: bun_root,
             declarations: &[lock_decl(BUN_LOCK_FILE_NAME)],
             package_name: "left-pad",
             target_version: "2.0.0",
-            dependency_kind: DependencyKind::Transitive,
+            dependency_kind: DependencyKind::Direct,
             allow_dependency_code_execution: false,
             offline: false,
         })
         .unwrap();
+        let err = bun
+            .preview(&RemediationContext {
+                scan_root: bun_root,
+                declarations: &[lock_decl(BUN_LOCK_FILE_NAME)],
+                package_name: "left-pad",
+                target_version: "2.0.0",
+                dependency_kind: DependencyKind::Transitive,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
         let err = bun
             .apply(&RemediationContext {
                 scan_root: bun_root,
@@ -2078,6 +2218,160 @@ mod tests {
             })
             .unwrap_err();
         assert!(matches!(err, RemediationError::OfflineBlocked));
+    }
+
+    #[test]
+    fn yarn_classic_uses_upgrade_and_ignore_scripts() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_yarn_classic_tree(root);
+        let yarn = root.join("yarn-classic");
+        write_exec(&yarn, "#!/bin/sh\nexit 0\n");
+        let rem = YarnRemediator::with_bin(yarn.to_string_lossy());
+        let preview = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl(YARN_LOCK_FILE_NAME)],
+                package_name: "left-pad",
+                target_version: "1.3.0",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .expect("classic yarn preview");
+        assert_eq!(
+            preview.argv,
+            yarn_remediate_argv(
+                yarn.to_str().unwrap(),
+                "left-pad",
+                "1.3.0",
+                YarnLockFlavor::Classic,
+                false,
+            )
+        );
+        assert!(preview.argv.contains(&"upgrade".to_string()));
+        assert!(
+            preview
+                .argv
+                .iter()
+                .any(|a| a == YARN_CLASSIC_IGNORE_SCRIPTS_FLAG)
+        );
+    }
+
+    #[test]
+    fn yarn_bun_scripts_gate_and_path_confinement() {
+        let root_dir = test_tempdir();
+        let outside_dir = test_tempdir();
+        let root = root_dir.path();
+        let outside = outside_dir.path();
+        write_js_lock_tree(root, YARN_LOCK_FILE_NAME);
+        write_js_lock_tree(outside, YARN_LOCK_FILE_NAME);
+        let yarn = root.join("yarn-ok");
+        write_exec(&yarn, "#!/bin/sh\nexit 0\n");
+        let rem = YarnRemediator::with_bin(yarn.to_string_lossy());
+        let with_scripts = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl(YARN_LOCK_FILE_NAME)],
+                package_name: "left-pad",
+                target_version: "1.3.0",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: true,
+                offline: false,
+            })
+            .expect("yarn preview with scripts");
+        assert!(
+            !with_scripts
+                .argv
+                .iter()
+                .any(|a| a == YARN_BERRY_SKIP_BUILD_FLAG)
+        );
+
+        let abs = outside
+            .join(YARN_LOCK_FILE_NAME)
+            .canonicalize()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        let err = rem
+            .apply(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl(&abs)],
+                package_name: "left-pad",
+                target_version: "1.3.0",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+
+        let bun_root_dir = test_tempdir();
+        let bun_outside_dir = test_tempdir();
+        let bun_root = bun_root_dir.path();
+        let bun_outside = bun_outside_dir.path();
+        write_js_lock_tree(bun_root, BUN_LOCK_FILE_NAME);
+        write_js_lock_tree(bun_outside, BUN_LOCK_FILE_NAME);
+        let bun_bin = bun_root.join("bun-ok");
+        write_exec(&bun_bin, "#!/bin/sh\nexit 0\n");
+        let bun = BunRemediator::with_bin(bun_bin.to_string_lossy());
+        let bun_scripts = bun
+            .preview(&RemediationContext {
+                scan_root: bun_root,
+                declarations: &[lock_decl(BUN_LOCK_FILE_NAME)],
+                package_name: "left-pad",
+                target_version: "2.0.0",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: true,
+                offline: false,
+            })
+            .expect("bun with scripts");
+        assert!(
+            !bun_scripts
+                .argv
+                .iter()
+                .any(|a| a == BUN_IGNORE_SCRIPTS_FLAG)
+        );
+        let abs = bun_outside
+            .join(BUN_LOCK_FILE_NAME)
+            .canonicalize()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        let err = bun
+            .apply(&RemediationContext {
+                scan_root: bun_root,
+                declarations: &[lock_decl(&abs)],
+                package_name: "left-pad",
+                target_version: "2.0.0",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+    }
+
+    #[test]
+    fn poetry_refuses_transitive_apply() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_poetry_tree(root);
+        let poetry = root.join("poetry-ok");
+        write_exec(&poetry, "#!/bin/sh\nexit 0\n");
+        let rem = PythonRemediator::with_poetry_bin(poetry.to_string_lossy());
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl(POETRY_LOCK_FILE_NAME)],
+                package_name: "requests",
+                target_version: "2.32.0",
+                dependency_kind: DependencyKind::Transitive,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
     }
 
     #[test]
