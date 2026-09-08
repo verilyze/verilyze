@@ -859,7 +859,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__lsp)
-            opts="-v -c -h --verbose --config --help"
+            opts="-v -c -h --folder-trust --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

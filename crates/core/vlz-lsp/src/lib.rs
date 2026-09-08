@@ -129,7 +129,7 @@ pub fn is_dependency_save_path(path: &Path) -> bool {
     path.file_name()
         .and_then(|n| n.to_str())
         .is_some_and(|name| {
-            DEPENDENCY_SAVE_BASENAMES.iter().any(|b| *b == name)
+            DEPENDENCY_SAVE_BASENAMES.contains(&name)
                 || name.ends_with(".cdx.json")
                 || name.ends_with(".spdx.json")
                 || name.starts_with("pylock.")

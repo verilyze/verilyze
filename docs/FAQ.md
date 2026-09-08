@@ -300,9 +300,10 @@ cached raw vulns.
 **Limits:** Ranges are advisory metadata from OSV, not an auto-upgrade plan
 and not a single "fix to this version" recommendation. Non-OSV providers may
 omit ranges. Scan JSON/SARIF findings include a structured `upgrade_plan`
-(FR-040) derived from those ranges; plain/HTML keep Ranges only. Applying upgrades uses `vlz fix` (FR-041): default writes lock updates for
-supported strategies (npm / Cargo); `vlz fix --dry-run` previews without
-writing.
+(FR-040) derived from those ranges; plain/HTML keep Ranges only. Applying
+upgrades uses `vlz fix` (FR-041): default writes lock updates for supported
+strategies (npm, Yarn, pnpm, bun, Cargo, Python poetry/uv); `vlz fix --dry-run`
+previews without writing.
 
 ### How do I use editor diagnostics?
 
@@ -313,10 +314,63 @@ declarations and offers non-writing Code Actions: **Show upgrade plan** and
 **Show vlz fix --dry-run** (displays the CLI command via the editor message
 UI; it does not write the system clipboard).
 
+With folder trust enabled (`lsp_folder_trust = true`, `VLZ_LSP_FOLDER_TRUST=1`,
+or `vlz lsp --folder-trust`), the server also offers **Apply upgrade**, which
+invokes the same Remediator path as `vlz fix` (not `--dry-run`). Without trust,
+Apply upgrade is not advertised.
+
 Editor diagnostics never execute dependency code, even when the configuration
-enables `allow_dependency_code_execution`. `vlz fix` modifies supported lock
-files; use `vlz fix --dry-run` to preview changes. Folder trust and applying
-an upgrade from an editor are planned separately.
+enables `allow_dependency_code_execution`. Trusted Apply upgrade still respects
+the SEC-023 scripts gate for npm (`--ignore-scripts` unless that flag is set).
+`vlz fix` modifies supported lock files; use `vlz fix --dry-run` to preview
+changes.
+
+#### Editor configuration snippets (DOC-014)
+
+**VS Code** (`settings.json`), using a generic LSP client extension:
+
+```json
+{
+  "vlz.lsp": {
+    "command": "vlz",
+    "args": ["lsp"],
+    "filetypes": ["toml", "json", "python", "rust", "javascript", "typescript"]
+  }
+}
+```
+
+To enable Apply upgrade from the editor, pass folder trust:
+
+```json
+{
+  "vlz.lsp": {
+    "command": "vlz",
+    "args": ["lsp", "--folder-trust"]
+  }
+}
+```
+
+**Neovim** (native LSP):
+
+```lua
+vim.lsp.start({
+  name = "vlz",
+  cmd = { "vlz", "lsp" },
+  root_dir = vim.fs.root(0, { ".git", "Cargo.toml", "package.json" }),
+})
+```
+
+**Helix** (`~/.config/helix/languages.toml`):
+
+```toml
+[language-server.vlz]
+command = "vlz"
+args = ["lsp"]
+```
+
+Thin marketplace editor clients (for example a dedicated VS Code extension
+repo) are tracked separately from this repository; PATH-first `vlz lsp` is the
+supported integration surface.
 
 ---
 

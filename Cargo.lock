@@ -2879,6 +2879,7 @@ dependencies = [
  "anyhow",
  "lsp-server",
  "lsp-types",
+ "serde",
  "serde_json",
  "url",
 ]

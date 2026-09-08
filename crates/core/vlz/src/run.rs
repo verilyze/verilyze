@@ -1678,7 +1678,7 @@ fn compact_ranges_from_json(ranges: &[serde_json::Value]) -> String {
 
 #[cfg(feature = "lsp")]
 async fn run_lsp(
-    mut effective: crate::config::EffectiveConfig,
+    effective: crate::config::EffectiveConfig,
     db_backend: Arc<Box<dyn vlz_db::DatabaseBackend + Send + Sync + 'static>>,
 ) -> Result<i32> {
     let folder_trust = effective.lsp_folder_trust;

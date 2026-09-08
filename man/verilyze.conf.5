@@ -171,6 +171,12 @@ Default: false.
 Env: VLZ_FAIL_FAST.
 CLI: --fail-fast.
 
+.It Va lsp_folder_trust
+When true, vlz lsp advertises and runs writing Apply upgrade Code Actions that invoke the same remediator path as vlz fix (FR-043). Diagnostics and non-writing Code Actions remain available when false. Does not enable package-manager lifecycle scripts; use allow_dependency_code_execution for that (SEC-023).
+Default: false.
+Env: VLZ_LSP_FOLDER_TRUST.
+CLI: vlz lsp --folder-trust.
+
 .It Sy [severity.v2] , Sy [severity.v3] , Sy [severity.v4]
 CVSS score thresholds: critical_min, high_min, medium_min, low_min.
 Defaults: 9.0, 7.0, 4.0, 0.1.

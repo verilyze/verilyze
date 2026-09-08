@@ -845,9 +845,10 @@ The `vlz` binary supports optional capabilities via Cargo features:
 - **runtime-mem** = `["mem", "python", "rust", "go", "javascript", "java", "ruby", "sbom"]`
   -- same languages with an in-memory CVE cache (no `redb`; for ephemeral /
   Docker).
-- **default** = `["runtime", "completions", "docs"]` -- full build with runtime
-  capabilities plus shell completion generation and man page via `vlz help`.
-  Release builds omit the `testing` feature for a smaller binary.
+- **default** = `["runtime", "completions", "docs", "lsp"]` -- full build with
+  runtime capabilities, shell completion generation, man page via `vlz help`,
+  and the Language Server (`vlz lsp`). Release builds omit the `testing`
+  feature for a smaller binary.
 - **completions** -- `vlz generate-completions` subcommand (bash, zsh, fish);
   pulls in `clap_complete`. Omitted from Docker image to reduce binary size.
 - **docs** -- Man page via **`vlz help`** (runs `man` on embedded `vlz.1`); optional
@@ -1567,12 +1568,19 @@ Stderr can stay as `eprintln!` or `log::error!`.
 `vlz lsp` save-to-diagnostic latency budget is **2000 ms** for a typical
 mid-size project on reference hardware (PRD NFR-026).
 
-**What is measured today:** On `textDocument/didSave`, the server re-runs the
-scan adapter for the workspace root and republishes diagnostics. Timing is
-wall-clock from save notification handling start through the
-`textDocument/publishDiagnostics` responses for that republish. Incremental
-re-resolve is a follow-up optimization; the budget still applies to the
-current full republish path.
+**What is measured today:** On `textDocument/didSave`, the server republishes
+diagnostics for the workspace root. Saves of non-dependency files (for example
+`README.md` or `*.rs` sources) skip the scan adapter and reuse the last result
+(NFR-026 incremental filter). Saves of manifests and lock files still run a
+full workspace scan republish. Timing is wall-clock from save notification
+handling start through the `textDocument/publishDiagnostics` responses for that
+republish.
+
+**Reference measurement (this repository as fixture):** With a warm CVE cache
+and `vlz lsp` attached to this workspace, saving `Cargo.toml` completed
+save-to-diagnostic republish in under **2000 ms** on a typical 8-core
+development host (local agent measurement, wall-clock). Re-measure before
+release if scan or remediator paths change substantially.
 
 **How to measure locally:**
 
@@ -1584,6 +1592,8 @@ current full republish path.
    `RUST_LOG=info` on the server process, or an LSP client trace).
 4. Confirm the observed save-to-diagnostic time is <= 2000 ms. Investigate
    regressions before release.
+5. Optionally save a non-manifest file and confirm the server does not start a
+   new scan (scan counter / logs stay quiet).
 
 ## Running tests and coverage
 

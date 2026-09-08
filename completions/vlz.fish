@@ -100,6 +100,7 @@ complete -c vlz -n "__fish_vlz_using_subcommand fix" -l offline -d 'Disable netw
 complete -c vlz -n "__fish_vlz_using_subcommand fix" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
 complete -c vlz -n "__fish_vlz_using_subcommand fix" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand lsp" -s c -l config -d 'Override configuration file location' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand lsp" -l folder-trust -d 'Trust the workspace folder for writing Apply upgrade Code Actions (FR-043)'
 complete -c vlz -n "__fish_vlz_using_subcommand lsp" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
 complete -c vlz -n "__fish_vlz_using_subcommand lsp" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c vlz -n "__fish_vlz_using_subcommand languages" -s c -l config -d 'Override configuration file location' -r -F
