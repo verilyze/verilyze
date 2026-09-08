@@ -921,6 +921,10 @@ pub async fn run(args: Cli) -> Result<i32> {
                 ));
                 write_stdout(&format!("fail_fast = {}\n", cfg.fail_fast));
                 write_stdout(&format!(
+                    "lsp_folder_trust = {}\n",
+                    cfg.lsp_folder_trust
+                ));
+                write_stdout(&format!(
                     "severity_v2_critical_min = {}\n",
                     cfg.severity.v2.critical_min
                 ));
@@ -1255,10 +1259,16 @@ pub async fn run(args: Cli) -> Result<i32> {
         }
 
         #[cfg(feature = "lsp")]
-        Commands::Lsp => run_lsp(early_cfg, db_backend).await,
+        Commands::Lsp { folder_trust } => {
+            let mut cfg = early_cfg;
+            if folder_trust {
+                cfg.lsp_folder_trust = true;
+            }
+            run_lsp(cfg, db_backend).await
+        }
 
         #[cfg(not(feature = "lsp"))]
-        Commands::Lsp => {
+        Commands::Lsp { .. } => {
             error!(
                 "vlz was built without Language Server support. Rebuild with \
                  `--features lsp`."
@@ -1369,7 +1379,7 @@ async fn run_preload(
     )))
 }
 
-/// Read-only scan adapter for `vlz lsp` (FR-042).
+/// Read-only scan adapter for `vlz lsp` (FR-042 / FR-043).
 #[cfg(feature = "lsp")]
 struct LspScanService {
     effective: crate::config::EffectiveConfig,
@@ -1379,7 +1389,11 @@ struct LspScanService {
 
 #[cfg(feature = "lsp")]
 impl vlz_lsp::ScanService for LspScanService {
-    fn scan(&self, root: Option<&std::path::Path>) -> vlz_lsp::ScanResult {
+    fn scan(
+        &self,
+        root: Option<&std::path::Path>,
+        _changed: Option<&std::path::Path>,
+    ) -> vlz_lsp::ScanResult {
         let Some(root) = root else {
             return vlz_lsp::ScanResult::default();
         };
@@ -1413,6 +1427,96 @@ impl vlz_lsp::ScanService for LspScanService {
         }
         lsp_diagnostics_from_report(report_file.path(), &report_root)
     }
+
+    fn apply_upgrade(
+        &self,
+        root: Option<&std::path::Path>,
+        request: &vlz_lsp::ApplyUpgradeRequest,
+    ) -> Result<(), String> {
+        let Some(root) = root else {
+            return Err("Apply upgrade requires a workspace root".to_string());
+        };
+        apply_upgrade_request(
+            root,
+            request,
+            self.effective.allow_dependency_code_execution,
+            self.effective.offline,
+        )
+        .map_err(|err| err.to_string())
+    }
+}
+
+/// Shared remediator apply for CLI `vlz fix` and LSP Apply upgrade (FR-043).
+#[cfg(feature = "lsp")]
+pub fn apply_upgrade_request(
+    scan_root: &std::path::Path,
+    request: &vlz_lsp::ApplyUpgradeRequest,
+    allow_dependency_code_execution: bool,
+    offline: bool,
+) -> Result<(), vlz_remediate::RemediationError> {
+    let strategy = match request.apply_strategy.as_str() {
+        "npm" => vlz_remediate::ApplyStrategy::Npm,
+        "cargo" => vlz_remediate::ApplyStrategy::Cargo,
+        "python" => vlz_remediate::ApplyStrategy::Python,
+        "yarn" => vlz_remediate::ApplyStrategy::Yarn,
+        "pnpm" => vlz_remediate::ApplyStrategy::Pnpm,
+        "bun" => vlz_remediate::ApplyStrategy::Bun,
+        _ => {
+            return Err(
+                vlz_remediate::RemediationError::UnsupportedLockLayout(
+                    format!(
+                        "apply_strategy {} is unavailable",
+                        request.apply_strategy
+                    ),
+                ),
+            );
+        }
+    };
+    let dependency_kind = match request.dependency_kind.as_str() {
+        "direct" => vlz_remediate::DependencyKind::Direct,
+        "transitive" => vlz_remediate::DependencyKind::Transitive,
+        _ => vlz_remediate::DependencyKind::Unknown,
+    };
+    let declarations: Vec<vlz_db::PackageDeclarationLocation> = request
+        .declarations
+        .iter()
+        .filter_map(|d| {
+            let kind = match d.kind.as_str() {
+                "manifest" => vlz_db::DeclarationKind::Manifest,
+                "lockfile" => vlz_db::DeclarationKind::Lockfile,
+                _ => return None,
+            };
+            vlz_db::PackageDeclarationLocation::new(
+                d.path.clone(),
+                d.start_line,
+                None,
+                kind,
+            )
+        })
+        .collect();
+    crate::registry::ensure_default_remediator();
+    let remediator_registry = crate::registry::remediators()
+        .lock()
+        .expect("REMEDIATORS lock poisoned");
+    let rem = remediator_registry
+        .iter()
+        .find(|r| r.strategy() == strategy)
+        .ok_or_else(|| {
+            vlz_remediate::RemediationError::UnsupportedLockLayout(format!(
+                "no remediator registered for {}",
+                request.apply_strategy
+            ))
+        })?;
+    let ctx = vlz_remediate::RemediationContext {
+        scan_root,
+        declarations: &declarations,
+        package_name: &request.package_name,
+        target_version: &request.target_version,
+        dependency_kind,
+        allow_dependency_code_execution,
+        offline,
+    };
+    rem.apply(&ctx)
 }
 
 /// Map the JSON report's declaration lines to LSP diagnostics.
@@ -1427,23 +1531,32 @@ fn lsp_diagnostics_from_report(
     }
     #[derive(serde::Deserialize)]
     struct Finding {
+        package: Package,
         declarations: Vec<Declaration>,
         upgrade_plan: UpgradePlan,
         cves: Vec<Cve>,
     }
     #[derive(serde::Deserialize)]
+    struct Package {
+        name: String,
+    }
+    #[derive(serde::Deserialize)]
     struct Declaration {
         path: String,
         start_line: u32,
+        kind: String,
     }
     #[derive(serde::Deserialize)]
     struct UpgradePlan {
         minimal_fixed_version: String,
         apply_strategy: String,
+        dependency_kind: String,
     }
     #[derive(serde::Deserialize)]
     struct Cve {
         id: String,
+        #[serde(default)]
+        affected_ranges: Vec<serde_json::Value>,
     }
 
     let Ok(contents) = std::fs::read_to_string(path) else {
@@ -1458,6 +1571,35 @@ fn lsp_diagnostics_from_report(
         .findings
         .into_iter()
         .flat_map(|finding| {
+            let apply = if finding.upgrade_plan.apply_strategy != "unavailable"
+            {
+                Some(vlz_lsp::ApplyUpgradeRequest {
+                    package_name: finding.package.name.clone(),
+                    target_version: finding
+                        .upgrade_plan
+                        .minimal_fixed_version
+                        .clone(),
+                    apply_strategy: finding
+                        .upgrade_plan
+                        .apply_strategy
+                        .clone(),
+                    dependency_kind: finding
+                        .upgrade_plan
+                        .dependency_kind
+                        .clone(),
+                    declarations: finding
+                        .declarations
+                        .iter()
+                        .map(|d| vlz_lsp::ApplyDeclaration {
+                            path: d.path.clone(),
+                            start_line: d.start_line,
+                            kind: d.kind.clone(),
+                        })
+                        .collect(),
+                })
+            } else {
+                None
+            };
             let title = format!(
                 "upgrade to {} ({})",
                 finding.upgrade_plan.minimal_fixed_version,
@@ -1472,14 +1614,25 @@ fn lsp_diagnostics_from_report(
                     ) else {
                         return Vec::new();
                     };
+                    let apply = apply.clone();
                     finding
                         .cves
                         .iter()
-                        .map(|cve| vlz_lsp::ScanDiagnostic {
-                            uri: uri.clone(),
-                            line: declaration.start_line.saturating_sub(1),
-                            code: cve.id.clone(),
-                            message: format!("{}: {title}", cve.id),
+                        .map(|cve| {
+                            let ranges =
+                                compact_ranges_from_json(&cve.affected_ranges);
+                            let message = if ranges.is_empty() {
+                                format!("{}: {title}", cve.id)
+                            } else {
+                                format!("{}: {title} [{ranges}]", cve.id)
+                            };
+                            vlz_lsp::ScanDiagnostic {
+                                uri: uri.clone(),
+                                line: declaration.start_line.saturating_sub(1),
+                                code: cve.id.clone(),
+                                message,
+                                apply: apply.clone(),
+                            }
                         })
                         .collect::<Vec<_>>()
                 })
@@ -1488,21 +1641,60 @@ fn lsp_diagnostics_from_report(
     vlz_lsp::ScanResult { diagnostics }
 }
 
+/// Compact FR-039 range summary for LSP diagnostic text (DOC-014 / FR-042).
+#[cfg(feature = "lsp")]
+fn compact_ranges_from_json(ranges: &[serde_json::Value]) -> String {
+    ranges
+        .iter()
+        .filter_map(|range| {
+            let range_type =
+                range.get("range_type").and_then(|v| v.as_str())?;
+            let events = range.get("events")?.as_array()?;
+            let mut parts = Vec::new();
+            for event in events {
+                if let Some(v) =
+                    event.get("introduced").and_then(|v| v.as_str())
+                {
+                    parts.push(format!("introduced:{v}"));
+                }
+                if let Some(v) = event.get("fixed").and_then(|v| v.as_str()) {
+                    parts.push(format!("fixed:{v}"));
+                }
+                if let Some(v) =
+                    event.get("last_affected").and_then(|v| v.as_str())
+                {
+                    parts.push(format!("last_affected:{v}"));
+                }
+            }
+            if parts.is_empty() {
+                None
+            } else {
+                Some(format!("{range_type} {}", parts.join(" ")))
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
 #[cfg(feature = "lsp")]
 async fn run_lsp(
     mut effective: crate::config::EffectiveConfig,
     db_backend: Arc<Box<dyn vlz_db::DatabaseBackend + Send + Sync + 'static>>,
 ) -> Result<i32> {
-    effective.allow_dependency_code_execution = false;
+    let folder_trust = effective.lsp_folder_trust;
+    // Preserve the user's SEC-023 scripts gate for trusted apply. Diagnostics
+    // still force the gate off inside LspScanService::scan.
     let service = LspScanService {
         effective,
         db_backend,
         runtime: tokio::runtime::Handle::current(),
     };
-    tokio::task::spawn_blocking(move || vlz_lsp::run_stdio(Box::new(service)))
-        .await
-        .context("LSP server task failed")?
-        .context("LSP server failed")?;
+    tokio::task::spawn_blocking(move || {
+        vlz_lsp::run_stdio(Box::new(service), folder_trust)
+    })
+    .await
+    .context("LSP server task failed")?
+    .context("LSP server failed")?;
     Ok(EXIT_SUCCESS)
 }
 

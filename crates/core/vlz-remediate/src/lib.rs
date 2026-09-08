@@ -55,6 +55,10 @@ pub enum ApplyStrategy {
     Unavailable,
     Npm,
     Cargo,
+    Python,
+    Yarn,
+    Pnpm,
+    Bun,
 }
 
 impl ApplyStrategy {
@@ -63,6 +67,10 @@ impl ApplyStrategy {
             Self::Unavailable => "unavailable",
             Self::Npm => "npm",
             Self::Cargo => "cargo",
+            Self::Python => "python",
+            Self::Yarn => "yarn",
+            Self::Pnpm => "pnpm",
+            Self::Bun => "bun",
         }
     }
 }
@@ -382,6 +390,10 @@ mod tests {
         assert_eq!(ApplyStrategy::Unavailable.as_str(), "unavailable");
         assert_eq!(ApplyStrategy::Npm.as_str(), "npm");
         assert_eq!(ApplyStrategy::Cargo.as_str(), "cargo");
+        assert_eq!(ApplyStrategy::Python.as_str(), "python");
+        assert_eq!(ApplyStrategy::Yarn.as_str(), "yarn");
+        assert_eq!(ApplyStrategy::Pnpm.as_str(), "pnpm");
+        assert_eq!(ApplyStrategy::Bun.as_str(), "bun");
         assert_eq!(DependencyKind::Direct.as_str(), "direct");
         assert_eq!(DependencyKind::Transitive.as_str(), "transitive");
         assert_eq!(DependencyKind::Unknown.as_str(), "unknown");

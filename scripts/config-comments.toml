@@ -315,3 +315,15 @@ type = "boolean"
 env = "VLZ_FAIL_FAST"
 cli = "--fail-fast"
 default = "false"
+
+[lsp_folder_trust]
+description = """
+When true, vlz lsp advertises and runs writing Apply upgrade Code Actions that
+invoke the same remediator path as vlz fix (FR-043). Diagnostics and non-writing
+Code Actions remain available when false. Does not enable package-manager
+lifecycle scripts; use allow_dependency_code_execution for that (SEC-023)
+"""
+type = "boolean"
+env = "VLZ_LSP_FOLDER_TRUST"
+cli = "vlz lsp --folder-trust"
+default = "false"

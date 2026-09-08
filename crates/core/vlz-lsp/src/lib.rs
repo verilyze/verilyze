@@ -18,6 +18,7 @@ use lsp_types::{
     TextDocumentSyncCapability, TextDocumentSyncOptions,
     WorkspaceFoldersServerCapabilities, WorkspaceServerCapabilities,
 };
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use url::Url;
 
@@ -32,7 +33,29 @@ pub const SHOW_FIX_DRY_RUN_COMMAND: &str = "vlz.showFixDryRun";
 /// Code Action title for [`SHOW_FIX_DRY_RUN_COMMAND`].
 pub const SHOW_FIX_DRY_RUN_TITLE: &str = "Show vlz fix --dry-run";
 pub const FIX_DRY_RUN_CLI: &str = "vlz fix --dry-run";
+/// Writing Code Action: apply one upgrade via the Remediator path (FR-043).
+pub const APPLY_UPGRADE_COMMAND: &str = "vlz.applyUpgrade";
+/// Code Action title for [`APPLY_UPGRADE_COMMAND`].
+pub const APPLY_UPGRADE_TITLE: &str = "Apply upgrade";
 pub const MAX_MESSAGE_BYTES: usize = 1_048_576;
+
+/// Declaration path carried in Apply upgrade arguments (FR-043).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApplyDeclaration {
+    pub path: String,
+    pub start_line: u32,
+    pub kind: String,
+}
+
+/// Structured apply payload shared by diagnostics and executeCommand (FR-043).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApplyUpgradeRequest {
+    pub package_name: String,
+    pub target_version: String,
+    pub apply_strategy: String,
+    pub dependency_kind: String,
+    pub declarations: Vec<ApplyDeclaration>,
+}
 
 /// A diagnostic-ready scan result.
 #[derive(Debug, Clone, Default)]
@@ -47,25 +70,91 @@ pub struct ScanDiagnostic {
     pub line: u32,
     pub code: String,
     pub message: String,
+    /// When set, enables Apply upgrade Code Actions under folder trust.
+    pub apply: Option<ApplyUpgradeRequest>,
 }
 
-/// Narrow scan boundary supplied by the binary crate.
+/// Narrow scan / apply boundary supplied by the binary crate.
 pub trait ScanService: Send + Sync {
     /// Scan one workspace root without executing dependency code.
-    fn scan(&self, root: Option<&Path>) -> ScanResult;
+    ///
+    /// `changed` is the saved path when handling `textDocument/didSave`
+    /// (NFR-026 incremental). Implementations may skip work when the path is
+    /// not a dependency manifest or lock file.
+    fn scan(&self, root: Option<&Path>, changed: Option<&Path>) -> ScanResult;
+
+    /// Apply one upgrade plan (FR-043). Default rejects apply.
+    fn apply_upgrade(
+        &self,
+        _root: Option<&Path>,
+        _request: &ApplyUpgradeRequest,
+    ) -> Result<(), String> {
+        Err("Apply upgrade is not available".to_string())
+    }
+}
+
+/// Basenames that trigger a rescan on save (NFR-026 incremental filter).
+pub const DEPENDENCY_SAVE_BASENAMES: &[&str] = &[
+    "Cargo.toml",
+    "Cargo.lock",
+    "package.json",
+    "package-lock.json",
+    "npm-shrinkwrap.json",
+    "yarn.lock",
+    "pnpm-lock.yaml",
+    "bun.lock",
+    "pyproject.toml",
+    "requirements.txt",
+    "Pipfile",
+    "Pipfile.lock",
+    "poetry.lock",
+    "uv.lock",
+    "pylock.toml",
+    "setup.cfg",
+    "setup.py",
+    "go.mod",
+    "go.sum",
+    "pom.xml",
+    "build.gradle",
+    "build.gradle.kts",
+    "gradle.lockfile",
+    "Gemfile",
+    "Gemfile.lock",
+    "gems.rb",
+    "gems.locked",
+];
+
+/// True when a saved path should trigger a dependency rescan.
+pub fn is_dependency_save_path(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|name| {
+            DEPENDENCY_SAVE_BASENAMES.iter().any(|b| *b == name)
+                || name.ends_with(".cdx.json")
+                || name.ends_with(".spdx.json")
+                || name.starts_with("pylock.")
+                || name.ends_with(".gemspec")
+        })
 }
 
 /// Stateless message handler used by protocol tests and the stdio server.
 pub struct LspServer {
     scan_service: Box<dyn ScanService>,
     published_uris: Mutex<BTreeSet<String>>,
+    folder_trust: bool,
+    last_result: Mutex<ScanResult>,
 }
 
 impl LspServer {
-    pub fn new(scan_service: Box<dyn ScanService>) -> Self {
+    pub fn new(
+        scan_service: Box<dyn ScanService>,
+        folder_trust: bool,
+    ) -> Self {
         Self {
             scan_service,
             published_uris: Mutex::new(BTreeSet::new()),
+            folder_trust,
+            last_result: Mutex::new(ScanResult::default()),
         }
     }
 
@@ -85,17 +174,43 @@ impl LspServer {
         {
             return String::new();
         }
-        self.diagnostic_messages(self.scan_service.scan(None), None)
+        let result = self.scan_service.scan(None, None);
+        *self.last_result.lock().expect("last result lock poisoned") =
+            result.clone();
+        self.diagnostic_messages(result, None)
             .into_iter()
             .next()
             .unwrap_or_default()
     }
+
+    fn scan_for_root(
+        &self,
+        workspace_root: Option<&Path>,
+        changed: Option<&Path>,
+    ) -> ScanResult {
+        if let Some(path) = changed
+            && !is_dependency_save_path(path)
+        {
+            return self
+                .last_result
+                .lock()
+                .expect("last result lock poisoned")
+                .clone();
+        }
+        let result = self.scan_service.scan(workspace_root, changed);
+        *self.last_result.lock().expect("last result lock poisoned") =
+            result.clone();
+        result
+    }
 }
 
 /// Run the blocking stdio protocol loop.
-pub fn run_stdio(scan_service: Box<dyn ScanService>) -> anyhow::Result<()> {
+pub fn run_stdio(
+    scan_service: Box<dyn ScanService>,
+    folder_trust: bool,
+) -> anyhow::Result<()> {
     let (connection, io_threads) = Connection::stdio();
-    run_connection(connection, scan_service)?;
+    run_connection(connection, scan_service, folder_trust)?;
     io_threads.join()?;
     Ok(())
 }
@@ -104,11 +219,12 @@ pub fn run_stdio(scan_service: Box<dyn ScanService>) -> anyhow::Result<()> {
 fn run_connection(
     connection: Connection,
     scan_service: Box<dyn ScanService>,
+    folder_trust: bool,
 ) -> anyhow::Result<()> {
     let (initialize_id, initialize_params) = connection.initialize_start()?;
     let params: InitializeParams = serde_json::from_value(initialize_params)?;
     let workspace_root = workspace_root(&params);
-    let capabilities = server_capabilities();
+    let capabilities = server_capabilities(folder_trust);
     connection.initialize_finish(
         initialize_id,
         json!({
@@ -117,11 +233,11 @@ fn run_connection(
         }),
     )?;
 
-    let server = LspServer::new(scan_service);
+    let server = LspServer::new(scan_service, folder_trust);
     send_diagnostics(
         &connection,
         server.diagnostic_messages(
-            server.scan_service.scan(workspace_root.as_deref()),
+            server.scan_for_root(workspace_root.as_deref(), None),
             workspace_root.as_deref(),
         ),
     )?;
@@ -135,10 +251,18 @@ fn run_connection(
             Message::Notification(notification)
                 if notification.method == "textDocument/didSave" =>
             {
+                let changed = notification
+                    .params
+                    .pointer("/textDocument/uri")
+                    .and_then(serde_json::Value::as_str)
+                    .and_then(local_file_path);
                 send_diagnostics(
                     &connection,
                     server.diagnostic_messages(
-                        server.scan_service.scan(workspace_root.as_deref()),
+                        server.scan_for_root(
+                            workspace_root.as_deref(),
+                            changed.as_deref(),
+                        ),
                         workspace_root.as_deref(),
                     ),
                 )?;
@@ -155,7 +279,8 @@ fn run_connection(
             Message::Request(request)
                 if request.method == "textDocument/codeAction" =>
             {
-                let actions = code_actions(&request.params);
+                let actions =
+                    code_actions(&request.params, server.folder_trust);
                 connection.sender.send(
                     Response::new_ok(request.id.clone(), actions).into(),
                 )?;
@@ -163,7 +288,12 @@ fn run_connection(
             Message::Request(request)
                 if request.method == "workspace/executeCommand" =>
             {
-                execute_command(&connection, &request)?;
+                execute_command(
+                    &connection,
+                    &request,
+                    &server,
+                    workspace_root.as_deref(),
+                )?;
             }
             Message::Request(request) => {
                 connection.sender.send(
@@ -184,7 +314,14 @@ fn run_connection(
     Ok(())
 }
 
-fn server_capabilities() -> ServerCapabilities {
+fn server_capabilities(folder_trust: bool) -> ServerCapabilities {
+    let mut commands = vec![
+        SHOW_UPGRADE_PLAN_COMMAND.to_string(),
+        SHOW_FIX_DRY_RUN_COMMAND.to_string(),
+    ];
+    if folder_trust {
+        commands.push(APPLY_UPGRADE_COMMAND.to_string());
+    }
     ServerCapabilities {
         text_document_sync: Some(TextDocumentSyncCapability::Options(
             TextDocumentSyncOptions {
@@ -205,10 +342,7 @@ fn server_capabilities() -> ServerCapabilities {
             },
         )),
         execute_command_provider: Some(ExecuteCommandOptions {
-            commands: vec![
-                SHOW_UPGRADE_PLAN_COMMAND.to_string(),
-                SHOW_FIX_DRY_RUN_COMMAND.to_string(),
-            ],
+            commands,
             work_done_progress_options: Default::default(),
         }),
         workspace: Some(WorkspaceServerCapabilities {
@@ -327,6 +461,10 @@ fn send_diagnostics(
 
 fn diagnostic_from_scan(scan: ScanDiagnostic) -> Option<Diagnostic> {
     scan.uri.parse::<lsp_types::Uri>().ok()?;
+    let data = scan
+        .apply
+        .as_ref()
+        .and_then(|apply| serde_json::to_value(apply).ok());
     Some(Diagnostic {
         range: lsp_types::Range {
             start: lsp_types::Position {
@@ -345,17 +483,20 @@ fn diagnostic_from_scan(scan: ScanDiagnostic) -> Option<Diagnostic> {
         message: scan.message,
         related_information: None,
         tags: None,
-        data: None,
+        data,
     })
 }
 
-fn code_actions(params: &serde_json::Value) -> serde_json::Value {
+fn code_actions(
+    params: &serde_json::Value,
+    folder_trust: bool,
+) -> serde_json::Value {
     let message = params
         .pointer("/context/diagnostics/0/message")
         .and_then(serde_json::Value::as_str)
         .unwrap_or("No upgrade plan is available for this diagnostic.");
-    json!([
-        {
+    let mut actions = vec![
+        json!({
             "title": "Show upgrade plan",
             "kind": "quickfix",
             "command": {
@@ -363,8 +504,8 @@ fn code_actions(params: &serde_json::Value) -> serde_json::Value {
                 "command": SHOW_UPGRADE_PLAN_COMMAND,
                 "arguments": [message],
             },
-        },
-        {
+        }),
+        json!({
             "title": SHOW_FIX_DRY_RUN_TITLE,
             "kind": "quickfix",
             "command": {
@@ -372,29 +513,146 @@ fn code_actions(params: &serde_json::Value) -> serde_json::Value {
                 "command": SHOW_FIX_DRY_RUN_COMMAND,
                 "arguments": [FIX_DRY_RUN_CLI],
             },
-        },
-    ])
+        }),
+    ];
+    if folder_trust
+        && let Some(data) = params.pointer("/context/diagnostics/0/data")
+        && data.get("package_name").is_some()
+        && data.get("apply_strategy").and_then(|v| v.as_str())
+            != Some("unavailable")
+    {
+        actions.push(json!({
+            "title": APPLY_UPGRADE_TITLE,
+            "kind": "quickfix",
+            "command": {
+                "title": APPLY_UPGRADE_TITLE,
+                "command": APPLY_UPGRADE_COMMAND,
+                "arguments": [data],
+            },
+        }));
+    }
+    json!(actions)
 }
 
 fn execute_command(
     connection: &Connection,
     request: &lsp_server::Request,
+    server: &LspServer,
+    workspace_root: Option<&Path>,
 ) -> anyhow::Result<()> {
     let command = request
         .params
         .get("command")
         .and_then(serde_json::Value::as_str);
-    let message = match command {
-        Some(SHOW_UPGRADE_PLAN_COMMAND) => request
-            .params
-            .pointer("/arguments/0")
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or("No upgrade plan is available for this diagnostic."),
-        Some(SHOW_FIX_DRY_RUN_COMMAND) => request
-            .params
-            .pointer("/arguments/0")
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or(FIX_DRY_RUN_CLI),
+    match command {
+        Some(SHOW_UPGRADE_PLAN_COMMAND) => {
+            let message = request
+                .params
+                .pointer("/arguments/0")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or(
+                    "No upgrade plan is available for this diagnostic.",
+                );
+            show_message(connection, message)?;
+            connection.sender.send(
+                Response::new_ok(request.id.clone(), serde_json::Value::Null)
+                    .into(),
+            )?;
+        }
+        Some(SHOW_FIX_DRY_RUN_COMMAND) => {
+            let message = request
+                .params
+                .pointer("/arguments/0")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or(FIX_DRY_RUN_CLI);
+            show_message(connection, message)?;
+            connection.sender.send(
+                Response::new_ok(request.id.clone(), serde_json::Value::Null)
+                    .into(),
+            )?;
+        }
+        Some(APPLY_UPGRADE_COMMAND) => {
+            if !server.folder_trust {
+                connection.sender.send(
+                    Response::new_err(
+                        request.id.clone(),
+                        lsp_server::ErrorCode::InvalidRequest as i32,
+                        "Apply upgrade requires folder trust (FR-043)"
+                            .to_string(),
+                    )
+                    .into(),
+                )?;
+                return Ok(());
+            }
+            let Some(arg) = request.params.pointer("/arguments/0") else {
+                connection.sender.send(
+                    Response::new_err(
+                        request.id.clone(),
+                        lsp_server::ErrorCode::InvalidParams as i32,
+                        "Apply upgrade requires structured arguments"
+                            .to_string(),
+                    )
+                    .into(),
+                )?;
+                return Ok(());
+            };
+            let request_payload: ApplyUpgradeRequest =
+                match serde_json::from_value(arg.clone()) {
+                    Ok(v) => v,
+                    Err(err) => {
+                        connection.sender.send(
+                            Response::new_err(
+                                request.id.clone(),
+                                lsp_server::ErrorCode::InvalidParams as i32,
+                                format!(
+                                    "invalid Apply upgrade arguments: {err}"
+                                ),
+                            )
+                            .into(),
+                        )?;
+                        return Ok(());
+                    }
+                };
+            match server
+                .scan_service
+                .apply_upgrade(workspace_root, &request_payload)
+            {
+                Ok(()) => {
+                    show_message(
+                        connection,
+                        &format!(
+                            "Applied upgrade for {} to {}",
+                            request_payload.package_name,
+                            request_payload.target_version
+                        ),
+                    )?;
+                    send_diagnostics(
+                        connection,
+                        server.diagnostic_messages(
+                            server.scan_for_root(workspace_root, None),
+                            workspace_root,
+                        ),
+                    )?;
+                    connection.sender.send(
+                        Response::new_ok(
+                            request.id.clone(),
+                            serde_json::Value::Null,
+                        )
+                        .into(),
+                    )?;
+                }
+                Err(err) => {
+                    connection.sender.send(
+                        Response::new_err(
+                            request.id.clone(),
+                            lsp_server::ErrorCode::InternalError as i32,
+                            err,
+                        )
+                        .into(),
+                    )?;
+                }
+            }
+        }
         _ => {
             connection.sender.send(
                 Response::new_err(
@@ -404,9 +662,12 @@ fn execute_command(
                 )
                 .into(),
             )?;
-            return Ok(());
         }
-    };
+    }
+    Ok(())
+}
+
+fn show_message(connection: &Connection, message: &str) -> anyhow::Result<()> {
     connection.sender.send(
         Notification::new(
             "window/showMessage".to_string(),
@@ -414,20 +675,18 @@ fn execute_command(
         )
         .into(),
     )?;
-    connection.sender.send(
-        Response::new_ok(request.id.clone(), serde_json::Value::Null).into(),
-    )?;
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        DIAGNOSTIC_SOURCE, FIX_DRY_RUN_CLI, LspServer, MAX_MESSAGE_BYTES,
-        SHOW_FIX_DRY_RUN_COMMAND, SHOW_FIX_DRY_RUN_TITLE,
+        APPLY_UPGRADE_COMMAND, APPLY_UPGRADE_TITLE, ApplyDeclaration,
+        ApplyUpgradeRequest, DIAGNOSTIC_SOURCE, FIX_DRY_RUN_CLI, LspServer,
+        MAX_MESSAGE_BYTES, SHOW_FIX_DRY_RUN_COMMAND, SHOW_FIX_DRY_RUN_TITLE,
         SHOW_UPGRADE_PLAN_COMMAND, ScanDiagnostic, ScanResult, ScanService,
-        file_uri_for_path, run_connection, server_capabilities,
-        workspace_root,
+        file_uri_for_path, is_dependency_save_path, run_connection,
+        server_capabilities, workspace_root,
     };
     use lsp_server::{Connection, Message, Notification, Request, RequestId};
     use lsp_types::{
@@ -474,7 +733,7 @@ mod tests {
 
     #[test]
     fn capabilities_advertise_save_only_sync_and_plan_command() {
-        let capabilities = server_capabilities();
+        let capabilities = server_capabilities(false);
         let TextDocumentSyncCapability::Options(sync) = capabilities
             .text_document_sync
             .expect("server should advertise text sync options")
@@ -499,10 +758,29 @@ mod tests {
     }
 
     #[test]
+    fn capabilities_include_apply_when_folder_trusted() {
+        let capabilities = server_capabilities(true);
+        assert_eq!(
+            capabilities
+                .execute_command_provider
+                .expect("commands")
+                .commands,
+            vec![
+                SHOW_UPGRADE_PLAN_COMMAND.to_string(),
+                SHOW_FIX_DRY_RUN_COMMAND.to_string(),
+                APPLY_UPGRADE_COMMAND.to_string(),
+            ]
+        );
+    }
+
+    #[test]
     fn initialized_publishes_diagnostic_from_scan_service() {
-        let server = LspServer::new(Box::new(FixedScanService {
-            uri: "file:///tmp/vlz-lsp-fixture/Cargo.toml".to_string(),
-        }));
+        let server = LspServer::new(
+            Box::new(FixedScanService {
+                uri: "file:///tmp/vlz-lsp-fixture/Cargo.toml".to_string(),
+            }),
+            false,
+        );
         let output = server.handle_message(
             r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#,
         );
@@ -523,7 +801,7 @@ mod tests {
 
     #[test]
     fn handle_message_ignores_oversized_invalid_and_other_methods() {
-        let server = LspServer::new(Box::new(EmptyScanService));
+        let server = LspServer::new(Box::new(EmptyScanService), false);
         let oversized = format!(
             r#"{{"jsonrpc":"2.0","method":"initialized","params":{{"pad":"{}"}}}}"#,
             "x".repeat(MAX_MESSAGE_BYTES)
@@ -553,6 +831,7 @@ mod tests {
         let messages = drive_connection(
             &root,
             Box::new(EmptyScanService),
+            false,
             vec![Message::Notification(Notification::new(
                 "exit".to_string(),
                 json!(null),
@@ -580,6 +859,7 @@ mod tests {
                 count: Arc::clone(&scans),
                 uri: uri.clone(),
             }),
+            false,
             vec![
                 Message::Notification(Notification::new(
                     "textDocument/didSave".to_string(),
@@ -596,6 +876,43 @@ mod tests {
     }
 
     #[test]
+    fn did_save_skips_rescan_for_non_dependency_files() {
+        let root = tempfile_workspace();
+        let readme = root.join("README.md");
+        std::fs::write(&readme, "docs\n").expect("readme");
+        let uri = file_uri_for_path(&readme).expect("uri");
+        let scans = Arc::new(Mutex::new(0_u32));
+        let _messages = drive_connection(
+            &root,
+            Box::new(CountingScanService {
+                count: Arc::clone(&scans),
+                uri: uri.clone(),
+            }),
+            false,
+            vec![
+                Message::Notification(Notification::new(
+                    "textDocument/didSave".to_string(),
+                    json!({ "textDocument": { "uri": uri } }),
+                )),
+                Message::Notification(Notification::new(
+                    "exit".to_string(),
+                    json!(null),
+                )),
+            ],
+        );
+        // initialized scan once; README save must not rescan
+        assert_eq!(*scans.lock().expect("scan count lock"), 1);
+    }
+
+    #[test]
+    fn is_dependency_save_path_recognizes_manifests() {
+        assert!(is_dependency_save_path(Path::new("/x/Cargo.toml")));
+        assert!(is_dependency_save_path(Path::new("/x/package-lock.json")));
+        assert!(!is_dependency_save_path(Path::new("/x/README.md")));
+        assert!(!is_dependency_save_path(Path::new("/x/src/main.rs")));
+    }
+
+    #[test]
     fn shutdown_code_action_and_execute_command_are_handled() {
         let root = tempfile_workspace();
         let manifest = root.join("Cargo.toml");
@@ -606,6 +923,7 @@ mod tests {
         let messages = drive_connection(
             &root,
             Box::new(FixedScanService { uri: uri.clone() }),
+            false,
             vec![
                 Message::Request(Request::new(
                     RequestId::from(2),
@@ -654,6 +972,14 @@ mod tests {
                     "textDocument/hover".to_string(),
                     json!({}),
                 )),
+                Message::Request(Request::new(
+                    RequestId::from(8),
+                    "workspace/executeCommand".to_string(),
+                    json!({
+                        "command": APPLY_UPGRADE_COMMAND,
+                        "arguments": [sample_apply_request()]
+                    }),
+                )),
                 Message::Notification(Notification::new(
                     "exit".to_string(),
                     json!(null),
@@ -679,6 +1005,7 @@ mod tests {
                         text.contains("Show upgrade plan")
                             && text.contains(SHOW_FIX_DRY_RUN_TITLE)
                             && text.contains(SHOW_FIX_DRY_RUN_COMMAND)
+                            && !text.contains(APPLY_UPGRADE_TITLE)
                     })
         )));
         assert!(messages.iter().any(|message| {
@@ -714,6 +1041,78 @@ mod tests {
                 if response.id == RequestId::from(7)
                     && response.response_result.is_err()
         )));
+        assert!(messages.iter().any(|message| matches!(
+            message,
+            Message::Response(response)
+                if response.id == RequestId::from(8)
+                    && response.response_result.is_err()
+        )));
+    }
+
+    #[test]
+    fn trusted_apply_upgrade_invokes_scan_service() {
+        let root = tempfile_workspace();
+        let manifest = root.join("Cargo.toml");
+        std::fs::write(&manifest, "[package]\nname=\"demo\"\n")
+            .expect("fixture manifest");
+        let uri =
+            file_uri_for_path(&manifest).expect("manifest URI should encode");
+        let applied = Arc::new(Mutex::new(None));
+        let messages = drive_connection(
+            &root,
+            Box::new(ApplyRecordingScanService {
+                uri: uri.clone(),
+                applied: Arc::clone(&applied),
+            }),
+            true,
+            vec![
+                Message::Request(Request::new(
+                    RequestId::from(3),
+                    "textDocument/codeAction".to_string(),
+                    json!({
+                        "textDocument": { "uri": uri },
+                        "range": {
+                            "start": {"line": 0, "character": 0},
+                            "end": {"line": 0, "character": 0}
+                        },
+                        "context": {
+                            "diagnostics": [{
+                                "message": "CVE-2026-1234: upgrade to 1.2.3 (cargo)",
+                                "data": sample_apply_request()
+                            }]
+                        }
+                    }),
+                )),
+                Message::Request(Request::new(
+                    RequestId::from(4),
+                    "workspace/executeCommand".to_string(),
+                    json!({
+                        "command": APPLY_UPGRADE_COMMAND,
+                        "arguments": [sample_apply_request()]
+                    }),
+                )),
+                Message::Notification(Notification::new(
+                    "exit".to_string(),
+                    json!(null),
+                )),
+            ],
+        );
+        assert!(messages.iter().any(|message| matches!(
+            message,
+            Message::Response(response)
+                if response.id == RequestId::from(3)
+                    && response.response_result.as_ref().is_ok_and(|value| {
+                        value.to_string().contains(APPLY_UPGRADE_TITLE)
+                    })
+        )));
+        assert!(messages.iter().any(|message| matches!(
+            message,
+            Message::Response(response)
+                if response.id == RequestId::from(4)
+                    && response.response_result.as_ref().is_ok()
+        )));
+        let recorded = applied.lock().expect("applied lock").clone();
+        assert_eq!(recorded.map(|r| r.package_name), Some("demo".to_string()));
     }
 
     #[test]
@@ -734,21 +1133,23 @@ mod tests {
                             line: 0,
                             code: "CVE-2026-1".to_string(),
                             message: "first".to_string(),
+                            apply: None,
                         },
                         ScanDiagnostic {
                             uri: outside_uri,
                             line: 0,
                             code: "CVE-2026-2".to_string(),
                             message: "outside".to_string(),
+                            apply: None,
                         },
                     ],
                 },
                 ScanResult::default(),
             ]),
         };
-        let server = LspServer::new(Box::new(service));
+        let server = LspServer::new(Box::new(service), false);
         let first = server.diagnostic_messages(
-            server.scan_service.scan(Some(root.as_path())),
+            server.scan_service.scan(Some(root.as_path()), None),
             Some(root.as_path()),
         );
         assert_eq!(first.len(), 1);
@@ -756,7 +1157,7 @@ mod tests {
         assert!(!first[0].contains("CVE-2026-2"));
 
         let second = server.diagnostic_messages(
-            server.scan_service.scan(Some(root.as_path())),
+            server.scan_service.scan(Some(root.as_path()), None),
             Some(root.as_path()),
         );
         assert_eq!(second.len(), 1);
@@ -765,17 +1166,34 @@ mod tests {
 
     #[test]
     fn show_plan_action_falls_back_when_diagnostic_missing() {
-        let actions = super::code_actions(&json!({ "context": {} }));
+        let actions = super::code_actions(&json!({ "context": {} }), false);
         let text = actions.to_string();
         assert!(text.contains("No upgrade plan is available"));
         assert!(text.contains(SHOW_FIX_DRY_RUN_TITLE));
         assert!(text.contains(FIX_DRY_RUN_CLI));
         assert!(text.contains(SHOW_FIX_DRY_RUN_COMMAND));
+        assert!(!text.contains(APPLY_UPGRADE_TITLE));
+    }
+
+    fn sample_apply_request() -> serde_json::Value {
+        serde_json::to_value(ApplyUpgradeRequest {
+            package_name: "demo".to_string(),
+            target_version: "1.2.3".to_string(),
+            apply_strategy: "cargo".to_string(),
+            dependency_kind: "direct".to_string(),
+            declarations: vec![ApplyDeclaration {
+                path: "Cargo.toml".to_string(),
+                start_line: 1,
+                kind: "manifest".to_string(),
+            }],
+        })
+        .expect("serialize apply request")
     }
 
     fn drive_connection(
         workspace_root: &Path,
         scan_service: Box<dyn ScanService>,
+        folder_trust: bool,
         client_messages: Vec<Message>,
     ) -> Vec<Message> {
         let root_uri = file_uri_for_path(workspace_root)
@@ -796,8 +1214,9 @@ mod tests {
                 .into(),
             )
             .expect("client should initialize server");
-        let server =
-            std::thread::spawn(move || run_connection(server, scan_service));
+        let server = std::thread::spawn(move || {
+            run_connection(server, scan_service, folder_trust)
+        });
         let mut messages = Vec::new();
         messages.push(
             client
@@ -853,7 +1272,11 @@ mod tests {
     struct EmptyScanService;
 
     impl ScanService for EmptyScanService {
-        fn scan(&self, _root: Option<&Path>) -> ScanResult {
+        fn scan(
+            &self,
+            _root: Option<&Path>,
+            _changed: Option<&Path>,
+        ) -> ScanResult {
             ScanResult::default()
         }
     }
@@ -863,13 +1286,18 @@ mod tests {
     }
 
     impl ScanService for FixedScanService {
-        fn scan(&self, _root: Option<&Path>) -> ScanResult {
+        fn scan(
+            &self,
+            _root: Option<&Path>,
+            _changed: Option<&Path>,
+        ) -> ScanResult {
             ScanResult {
                 diagnostics: vec![ScanDiagnostic {
                     uri: self.uri.clone(),
                     line: 0,
                     code: "CVE-2026-1234".to_string(),
                     message: "CVE-2026-1234: update to 1.2.3".to_string(),
+                    apply: None,
                 }],
             }
         }
@@ -881,12 +1309,16 @@ mod tests {
     }
 
     impl ScanService for CountingScanService {
-        fn scan(&self, _root: Option<&Path>) -> ScanResult {
+        fn scan(
+            &self,
+            _root: Option<&Path>,
+            _changed: Option<&Path>,
+        ) -> ScanResult {
             *self.count.lock().expect("count lock") += 1;
             FixedScanService {
                 uri: self.uri.clone(),
             }
-            .scan(None)
+            .scan(None, None)
         }
     }
 
@@ -895,12 +1327,44 @@ mod tests {
     }
 
     impl ScanService for SequenceScanService {
-        fn scan(&self, _root: Option<&Path>) -> ScanResult {
+        fn scan(
+            &self,
+            _root: Option<&Path>,
+            _changed: Option<&Path>,
+        ) -> ScanResult {
             let mut results = self.results.lock().expect("results lock");
             if results.is_empty() {
                 return ScanResult::default();
             }
             results.remove(0)
+        }
+    }
+
+    struct ApplyRecordingScanService {
+        uri: String,
+        applied: Arc<Mutex<Option<ApplyUpgradeRequest>>>,
+    }
+
+    impl ScanService for ApplyRecordingScanService {
+        fn scan(
+            &self,
+            _root: Option<&Path>,
+            _changed: Option<&Path>,
+        ) -> ScanResult {
+            FixedScanService {
+                uri: self.uri.clone(),
+            }
+            .scan(None, None)
+        }
+
+        fn apply_upgrade(
+            &self,
+            _root: Option<&Path>,
+            request: &ApplyUpgradeRequest,
+        ) -> Result<(), String> {
+            *self.applied.lock().expect("applied lock") =
+                Some(request.clone());
+            Ok(())
         }
     }
 }

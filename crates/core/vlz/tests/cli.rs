@@ -244,7 +244,15 @@ fn cli_db_show_help_succeeds() {
 fn cli_parses_lsp_subcommand() {
     let cli =
         Cli::try_parse_from(["vlz", "lsp"]).expect("vlz lsp should parse");
-    assert!(matches!(cli.cmd, Commands::Lsp));
+    assert!(matches!(
+        cli.cmd,
+        Commands::Lsp {
+            folder_trust: false
+        }
+    ));
+    let trusted = Cli::try_parse_from(["vlz", "lsp", "--folder-trust"])
+        .expect("vlz lsp --folder-trust should parse");
+    assert!(matches!(trusted.cmd, Commands::Lsp { folder_trust: true }));
 }
 
 #[test]

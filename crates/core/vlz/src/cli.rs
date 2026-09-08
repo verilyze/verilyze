@@ -347,9 +347,13 @@ pub enum Commands {
     /// Run the Language Server Protocol server over standard I/O (FR-042).
     ///
     /// Editors connect over stdio. Non-writing Code Actions include show upgrade
-    /// plan and copy `vlz fix --dry-run`. Writing apply actions require folder
+    /// plan and show `vlz fix --dry-run`. Writing Apply upgrade requires folder
     /// trust (FR-043).
-    Lsp,
+    Lsp {
+        /// Trust the workspace folder for writing Apply upgrade Code Actions (FR-043)
+        #[arg(long)]
+        folder_trust: bool,
+    },
 
     /// List supported manifest languages
     #[command(visible_alias = "list")]
