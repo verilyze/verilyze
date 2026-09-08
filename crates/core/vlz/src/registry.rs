@@ -12,7 +12,8 @@ use vlz_manifest_parser::{Parser, Resolver};
 use vlz_plugin_macro::vlz_register;
 use vlz_reachability_trait::ReachabilityAnalyzer;
 use vlz_remediate::{
-    ApplyStrategy, CargoRemediator, NpmRemediator, Remediator,
+    ApplyStrategy, BunRemediator, CargoRemediator, NpmRemediator,
+    PnpmRemediator, PythonRemediator, Remediator, YarnRemediator,
 };
 use vlz_report::{DefaultReporter, Reporter};
 
@@ -402,24 +403,36 @@ pub fn ensure_default_integrity_checker() {
     }
 }
 
-/// Ensures default remediators are registered (npm + Cargo; MOD-011 / NFR-016).
+/// Ensures default remediators are registered (MOD-011 / NFR-016).
 pub fn ensure_default_remediator() {
-    if !remediators()
-        .lock()
-        .unwrap()
-        .iter()
-        .any(|r| r.strategy() == ApplyStrategy::Npm)
-    {
+    let register_if_missing = |strategy: ApplyStrategy, register: fn()| {
+        if !remediators()
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|r| r.strategy() == strategy)
+        {
+            register();
+        }
+    };
+    register_if_missing(ApplyStrategy::Npm, || {
         vlz_register!(Remediator, NpmRemediator);
-    }
-    if !remediators()
-        .lock()
-        .unwrap()
-        .iter()
-        .any(|r| r.strategy() == ApplyStrategy::Cargo)
-    {
+    });
+    register_if_missing(ApplyStrategy::Cargo, || {
         vlz_register!(Remediator, CargoRemediator);
-    }
+    });
+    register_if_missing(ApplyStrategy::Python, || {
+        vlz_register!(Remediator, PythonRemediator);
+    });
+    register_if_missing(ApplyStrategy::Yarn, || {
+        vlz_register!(Remediator, YarnRemediator);
+    });
+    register_if_missing(ApplyStrategy::Pnpm, || {
+        vlz_register!(Remediator, PnpmRemediator);
+    });
+    register_if_missing(ApplyStrategy::Bun, || {
+        vlz_register!(Remediator, BunRemediator);
+    });
 }
 
 // ---------------------------------------------------------------------
@@ -730,10 +743,14 @@ mod tests {
             let rem = remediators().lock().unwrap();
             assert!(rem.iter().any(|r| r.strategy() == ApplyStrategy::Npm));
             assert!(rem.iter().any(|r| r.strategy() == ApplyStrategy::Cargo));
-            assert_eq!(rem.len(), 2);
+            assert!(rem.iter().any(|r| r.strategy() == ApplyStrategy::Python));
+            assert!(rem.iter().any(|r| r.strategy() == ApplyStrategy::Yarn));
+            assert!(rem.iter().any(|r| r.strategy() == ApplyStrategy::Pnpm));
+            assert!(rem.iter().any(|r| r.strategy() == ApplyStrategy::Bun));
+            assert_eq!(rem.len(), 6);
         }
         ensure_default_remediator();
-        assert_eq!(remediators().lock().unwrap().len(), 2);
+        assert_eq!(remediators().lock().unwrap().len(), 6);
 
         // 3) ensure_default_db_backend_with_path (redb) when empty adds one
         #[cfg(feature = "redb")]
