@@ -56,6 +56,7 @@ flowchart TD
 | allow_dependency_code_execution | boolean | false | `VLZ_ALLOW_DEPENDENCY_CODE_EXECUTION` | `--allow-dependency-code-execution` |
 | allow_direct_only_fallback | boolean | false | `VLZ_ALLOW_DIRECT_ONLY_FALLBACK` | `--allow-direct-only-fallback` |
 | fail_fast | boolean | false | `VLZ_FAIL_FAST` | `--fail-fast` |
+| lsp_folder_trust | boolean | false | `VLZ_LSP_FOLDER_TRUST` | `vlz lsp --folder-trust` |
 
 ## Severity thresholds (FR-013)
 

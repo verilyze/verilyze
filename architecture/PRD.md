@@ -417,4 +417,5 @@ When multiple supported lock files apply in one directory (orphan or adjacent to
 ### <a name="appendix-b-future-enhancements"></a>Appendix B: Future enhancements
 
 - **Manifest-path scoping for false-positives:** Manifest-path scoping is a future enhancement; `project_id` (FR-015) is the current scoping mechanism for false-positive markings.
-- **Additional Remediator ecosystems:** Yarn, pnpm, bun, Maven, Go, Gradle, and RubyGems remediators beyond the first MOD-011 plugins.
+- **Additional Remediator ecosystems:** Maven, Go, Gradle, and RubyGems remediators beyond the shipped npm / Cargo / Python / Yarn / pnpm / bun MOD-011 plugins. In-place lock editors that never exec a package manager remain optional.
+- **Thin editor clients:** Marketplace-specific clients such as `verilyze/vscode-vlz` stay out of this repository; PATH-first `vlz lsp` is the integration surface (DOC-014).

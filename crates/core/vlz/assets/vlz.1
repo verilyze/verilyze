@@ -221,9 +221,22 @@ connect to this process for vulnerability diagnostics. Non-writing Code Actions
 include show upgrade plan and show
 .Nm fix Fl -dry-run
 (via editor message UI; not clipboard).
-Writing apply actions require folder trust (FR-043). Do not run
+With folder trust
+.Pq Fl -folder-trust ,
+.Ev VLZ_LSP_FOLDER_TRUST ,
+or
+.Ic lsp_folder_trust
+in config,
+.Nm lsp
+also offers Apply upgrade using the same remediator path as
+.Nm fix
+(FR-043). Do not run
 .Nm lsp
 in an interactive terminal.
+.Bl -tag -width Ds
+.It Fl -folder-trust
+Trust the workspace folder for writing Apply upgrade Code Actions (FR-043).
+.El
 .It Nm languages
 List supported manifest languages (alias:
 .Nm list ) .

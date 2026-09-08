@@ -12,6 +12,19 @@ Human-readable release notes for each version.
 
 ### Added
 
+- FR-043 folder trust for `vlz lsp`: config key `lsp_folder_trust`, env
+  `VLZ_LSP_FOLDER_TRUST`, and `vlz lsp --folder-trust`. Trusted workspaces
+  advertise **Apply upgrade**, which uses the same Remediator path as
+  `vlz fix`.
+- Appendix B remediators: Python (`poetry.lock` / `uv.lock`), Yarn, pnpm, and
+  bun, with allowlisted argv and registry registration (MOD-011).
+- NFR-026 incremental save filter: non-dependency `didSave` events skip a full
+  rescan; DOC-014 editor snippets for VS Code / Neovim / Helix in the FAQ.
+- SEC-023 scripts gate for Yarn (Classic `--ignore-scripts` / Berry
+  `--mode=skip-build`) and bun (`--ignore-scripts`); pylock findings stay
+  `unavailable` for apply; trusted LSP Apply must match the last scan;
+  failed LSP scans retain prior diagnostics.
+
 - Read-only `vlz lsp` Language Server Protocol diagnostics and non-writing
   upgrade-plan Code Actions (FR-042). Editor scans never execute dependency
   code.

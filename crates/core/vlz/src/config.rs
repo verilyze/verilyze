@@ -149,6 +149,9 @@ pub struct EffectiveConfig {
     pub allow_direct_only_fallback: bool,
     /// Stop manifest processing on first blocking failure; skip CVE lookup (FR-037).
     pub fail_fast: bool,
+    /// When true, `vlz lsp` offers writing Apply upgrade Code Actions (FR-043).
+    /// Diagnostics and non-writing actions remain available when false.
+    pub lsp_folder_trust: bool,
     /// Backoff base delay in milliseconds (NFR-005, SEC-007, OP-010).
     pub backoff_base_ms: u64,
     /// Backoff maximum delay in milliseconds.
@@ -194,6 +197,7 @@ impl Default for EffectiveConfig {
             allow_dependency_code_execution: false,
             allow_direct_only_fallback: false,
             fail_fast: false,
+            lsp_folder_trust: false,
             backoff_base_ms: 0,
             backoff_max_ms: 0,
             max_retries: 0,
@@ -255,6 +259,8 @@ struct FileConfig {
     allow_direct_only_fallback: Option<bool>,
     #[serde(rename = "fail_fast")]
     fail_fast: Option<bool>,
+    #[serde(rename = "lsp_folder_trust")]
+    lsp_folder_trust: Option<bool>,
 }
 
 #[derive(Error, Debug)]
@@ -318,6 +324,7 @@ const KNOWN_FILE_CONFIG_KEYS: &[&str] = &[
     "allow_dependency_code_execution",
     "allow_direct_only_fallback",
     "fail_fast",
+    "lsp_folder_trust",
 ];
 
 /// Parse and validate raw TOML config content (SEC-006). Used for fuzzing (NFR-020).
@@ -427,6 +434,9 @@ fn apply_file_config_inner(
     }
     if let Some(v) = parsed.fail_fast {
         cfg.fail_fast = v;
+    }
+    if let Some(v) = parsed.lsp_folder_trust {
+        cfg.lsp_folder_trust = v;
     }
     if extract_language_regexes {
         cfg.language_regexes.clear();
@@ -1068,6 +1078,9 @@ pub fn load_with_reachability_overrides(
     if let Some(v) = env_fail_fast() {
         cfg.fail_fast = v;
     }
+    if let Some(v) = env_lsp_folder_trust() {
+        cfg.lsp_folder_trust = v;
+    }
 
     // 5) CLI
     if let Some(n) = cli_parallel {
@@ -1332,6 +1345,11 @@ pub fn env_allow_direct_only_fallback() -> Option<bool> {
 /// Read `VLZ_FAIL_FAST` (FR-037).
 pub fn env_fail_fast() -> Option<bool> {
     parse_env_bool_var("VLZ_FAIL_FAST")
+}
+
+/// FR-043 / CFG-005: folder trust for writing LSP apply Code Actions.
+pub fn env_lsp_folder_trust() -> Option<bool> {
+    parse_env_bool_var("VLZ_LSP_FOLDER_TRUST")
 }
 
 /// Read all VLZ_SEVERITY_* env vars and return a `SeverityOverrides` (FR-013, CFG-005).
@@ -3411,5 +3429,96 @@ regex = "^req\\.txt$"
     fn allow_direct_only_fallback_cli_overrides_env() {
         let cfg = load_with_direct_only_fallback(None, Some(false), true);
         assert!(cfg.allow_direct_only_fallback);
+    }
+
+    fn load_with_lsp_folder_trust(
+        config_file: Option<&str>,
+        env_trust: Option<bool>,
+    ) -> EffectiveConfig {
+        with_isolated_load_env(|| {
+            temp_env::with_var(
+                "VLZ_LSP_FOLDER_TRUST",
+                env_trust.map(|v| if v { "1" } else { "0" }),
+                || {
+                    load_with_reachability_overrides(
+                        config_file,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        false,
+                        false,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        false,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        false,
+                        false,
+                        false,
+                        false,
+                        Default::default(),
+                        Default::default(),
+                    )
+                    .expect("load config")
+                },
+            )
+        })
+    }
+
+    #[test]
+    fn lsp_folder_trust_defaults_false() {
+        let cfg = load_no_severity(None);
+        assert!(!cfg.lsp_folder_trust);
+    }
+
+    #[test]
+    fn lsp_folder_trust_from_config_file() {
+        let dir = test_tempdir();
+        let config_path = dir.path().join("verilyze.conf");
+        std::fs::write(&config_path, "lsp_folder_trust = true\n").unwrap();
+        let cfg = load_with_lsp_folder_trust(
+            Some(config_path.to_str().expect("path utf-8")),
+            None,
+        );
+        assert!(cfg.lsp_folder_trust);
+    }
+
+    #[test]
+    fn lsp_folder_trust_env_overrides_file() {
+        let dir = test_tempdir();
+        let config_path = dir.path().join("verilyze.conf");
+        std::fs::write(&config_path, "lsp_folder_trust = false\n").unwrap();
+        let cfg = load_with_lsp_folder_trust(
+            Some(config_path.to_str().expect("path utf-8")),
+            Some(true),
+        );
+        assert!(cfg.lsp_folder_trust);
     }
 }

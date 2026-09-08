@@ -67,6 +67,15 @@ Run scans with the built binary (adjust the path if you use `CARGO_TARGET_DIR`):
 # Scan a Java or Kotlin project (language name: java; Maven ecosystem)
 ./target/release/vlz scan /path/to/java-or-kotlin/project
 
+# Preview lock upgrades without writing (FR-041)
+./target/release/vlz fix --dry-run /path/to/project
+
+# Apply supported remediations (npm / Cargo / poetry / uv / yarn / pnpm / bun)
+./target/release/vlz fix /path/to/project
+
+# Language Server for editor diagnostics (FR-042); add --folder-trust for Apply
+./target/release/vlz lsp
+
 # Scan a Ruby project (language name: ruby; RubyGems ecosystem)
 ./target/release/vlz scan /path/to/ruby/project
 
