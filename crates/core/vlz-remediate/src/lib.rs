@@ -18,13 +18,19 @@ pub const MIN_FIXED_VERSION_UNKNOWN: &str = "unknown";
 
 mod remediator;
 pub use remediator::{
-    CARGO_BIN_NAME, CARGO_LOCK_FILE_NAME, CARGO_MANIFEST_FILE_NAME,
-    CargoRemediator, NPM_BIN_NAME, NPM_IGNORE_SCRIPTS_FLAG,
-    NPM_LOCKFILE_NPM_SHRINKWRAP_JSON, NPM_LOCKFILE_PACKAGE_LOCK_JSON,
-    NPM_MANIFEST_FILE_NAME, NPM_NO_SAVE_FLAG, NPM_PACKAGE_LOCK_ONLY_FLAG,
-    NpmRemediator, RemediationContext, RemediationError, RemediationPreview,
-    Remediator, cargo_update_argv, npm_install_argv,
-    remediation_apply_strategy_for_finding,
+    BUN_BIN_NAME, BUN_LOCK_FILE_NAME, BunRemediator, CARGO_BIN_NAME,
+    CARGO_LOCK_FILE_NAME, CARGO_MANIFEST_FILE_NAME, CargoRemediator,
+    NPM_BIN_NAME, NPM_IGNORE_SCRIPTS_FLAG, NPM_LOCKFILE_NPM_SHRINKWRAP_JSON,
+    NPM_LOCKFILE_PACKAGE_LOCK_JSON, NPM_MANIFEST_FILE_NAME, NPM_NO_SAVE_FLAG,
+    NPM_PACKAGE_LOCK_ONLY_FLAG, NpmRemediator, PNPM_BIN_NAME,
+    PNPM_LOCK_FILE_NAME, PNPM_LOCKFILE_ONLY_FLAG, POETRY_BIN_NAME,
+    POETRY_LOCK_FILE_NAME, POETRY_LOCK_FLAG, PYTHON_MANIFEST_FILE_NAME,
+    PnpmRemediator, PythonRemediator, RemediationContext, RemediationError,
+    RemediationPreview, Remediator, UV_BIN_NAME, UV_LOCK_FILE_NAME,
+    UV_NO_SYNC_FLAG, YARN_BIN_NAME, YARN_LOCK_FILE_NAME, YarnRemediator,
+    bun_update_argv, cargo_update_argv, npm_install_argv, pnpm_update_argv,
+    poetry_add_argv, remediation_apply_strategy_for_finding, uv_add_argv,
+    yarn_up_argv,
 };
 
 /// Upgrade plan confidence for a planned remediation.
