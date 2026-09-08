@@ -1399,12 +1399,18 @@ impl vlz_lsp::ScanService for LspScanService {
         };
         let Ok(report_file) = tempfile::NamedTempFile::new() else {
             error!("Unable to create temporary LSP report file");
-            return vlz_lsp::ScanResult::default();
+            return vlz_lsp::ScanResult {
+                diagnostics: Vec::new(),
+                scan_ok: false,
+            };
         };
         let Some(output) = report_file.path().to_str().map(str::to_owned)
         else {
             error!("Temporary LSP report path is not valid UTF-8");
-            return vlz_lsp::ScanResult::default();
+            return vlz_lsp::ScanResult {
+                diagnostics: Vec::new(),
+                scan_ok: false,
+            };
         };
         let mut effective = self.effective.clone();
         // FR-043: read-only editor diagnostics never execute project code.
@@ -1423,7 +1429,10 @@ impl vlz_lsp::ScanService for LspScanService {
         ));
         if let Err(err) = result {
             error!("LSP scan failed: {err}");
-            return vlz_lsp::ScanResult::default();
+            return vlz_lsp::ScanResult {
+                diagnostics: Vec::new(),
+                scan_ok: false,
+            };
         }
         lsp_diagnostics_from_report(report_file.path(), &report_root)
     }
@@ -1565,7 +1574,10 @@ fn lsp_diagnostics_from_report(
     };
     let Ok(report) = serde_json::from_str::<Report>(&contents) else {
         error!("Unable to parse temporary LSP report");
-        return vlz_lsp::ScanResult::default();
+        return vlz_lsp::ScanResult {
+            diagnostics: Vec::new(),
+            scan_ok: false,
+        };
     };
     let diagnostics = report
         .findings
@@ -1638,7 +1650,10 @@ fn lsp_diagnostics_from_report(
                 })
         })
         .collect();
-    vlz_lsp::ScanResult { diagnostics }
+    vlz_lsp::ScanResult {
+        diagnostics,
+        scan_ok: true,
+    }
 }
 
 /// Compact FR-039 range summary for LSP diagnostic text (DOC-014 / FR-042).
@@ -2939,5 +2954,57 @@ mod tests {
                 .contains("No CveProvider plug-in registered"),
             "got: {err}"
         );
+    }
+
+    #[cfg(feature = "lsp")]
+    #[test]
+    fn apply_upgrade_request_rejects_unknown_strategy() {
+        let dir = tempfile::tempdir().unwrap();
+        let err = apply_upgrade_request(
+            dir.path(),
+            &vlz_lsp::ApplyUpgradeRequest {
+                package_name: "left-pad".to_string(),
+                target_version: "2.0.0".to_string(),
+                apply_strategy: "unavailable".to_string(),
+                dependency_kind: "direct".to_string(),
+                declarations: vec![],
+            },
+            false,
+            false,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("unavailable"));
+    }
+
+    #[cfg(feature = "lsp")]
+    #[test]
+    fn apply_upgrade_request_offline_blocks_npm() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("package-lock.json"), "{}\n").unwrap();
+        std::fs::write(root.join("package.json"), "{\"name\":\"app\"}\n")
+            .unwrap();
+        crate::registry::ensure_default_remediator();
+        let err = apply_upgrade_request(
+            root,
+            &vlz_lsp::ApplyUpgradeRequest {
+                package_name: "left-pad".to_string(),
+                target_version: "2.0.0".to_string(),
+                apply_strategy: "npm".to_string(),
+                dependency_kind: "direct".to_string(),
+                declarations: vec![vlz_lsp::ApplyDeclaration {
+                    path: "package-lock.json".to_string(),
+                    start_line: 1,
+                    kind: "lockfile".to_string(),
+                }],
+            },
+            false,
+            true,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            err,
+            vlz_remediate::RemediationError::OfflineBlocked
+        ));
     }
 }

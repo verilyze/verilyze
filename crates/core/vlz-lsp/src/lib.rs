@@ -58,9 +58,20 @@ pub struct ApplyUpgradeRequest {
 }
 
 /// A diagnostic-ready scan result.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct ScanResult {
     pub diagnostics: Vec<ScanDiagnostic>,
+    /// False when the scan adapter failed; retain prior diagnostics.
+    pub scan_ok: bool,
+}
+
+impl Default for ScanResult {
+    fn default() -> Self {
+        Self {
+            diagnostics: Vec::new(),
+            scan_ok: true,
+        }
+    }
 }
 
 /// A vulnerability diagnostic emitted by the scan adapter.
@@ -122,6 +133,8 @@ pub const DEPENDENCY_SAVE_BASENAMES: &[&str] = &[
     "Gemfile.lock",
     "gems.rb",
     "gems.locked",
+    "bom.json",
+    "sbom.json",
 ];
 
 /// True when a saved path should trigger a dependency rescan.
@@ -175,6 +188,18 @@ impl LspServer {
             return String::new();
         }
         let result = self.scan_service.scan(None, None);
+        if !result.scan_ok {
+            let last = self
+                .last_result
+                .lock()
+                .expect("last result lock poisoned")
+                .clone();
+            return self
+                .diagnostic_messages(last, None)
+                .into_iter()
+                .next()
+                .unwrap_or_default();
+        }
         *self.last_result.lock().expect("last result lock poisoned") =
             result.clone();
         self.diagnostic_messages(result, None)
@@ -198,9 +223,25 @@ impl LspServer {
                 .clone();
         }
         let result = self.scan_service.scan(workspace_root, changed);
+        if !result.scan_ok {
+            return self
+                .last_result
+                .lock()
+                .expect("last result lock poisoned")
+                .clone();
+        }
         *self.last_result.lock().expect("last result lock poisoned") =
             result.clone();
         result
+    }
+
+    fn apply_matches_last_scan(&self, request: &ApplyUpgradeRequest) -> bool {
+        self.last_result
+            .lock()
+            .expect("last result lock poisoned")
+            .diagnostics
+            .iter()
+            .any(|d| d.apply.as_ref() == Some(request))
     }
 }
 
@@ -613,6 +654,18 @@ fn execute_command(
                         return Ok(());
                     }
                 };
+            if !server.apply_matches_last_scan(&request_payload) {
+                connection.sender.send(
+                    Response::new_err(
+                        request.id.clone(),
+                        lsp_server::ErrorCode::InvalidParams as i32,
+                        "Apply upgrade must match a current scan finding"
+                            .to_string(),
+                    )
+                    .into(),
+                )?;
+                return Ok(());
+            }
             match server
                 .scan_service
                 .apply_upgrade(workspace_root, &request_payload)
@@ -1045,8 +1098,107 @@ mod tests {
             message,
             Message::Response(response)
                 if response.id == RequestId::from(8)
-                    && response.response_result.is_err()
+                    && response.response_result.as_ref().is_err_and(|err| {
+                        err.message.contains("folder trust")
+                    })
         )));
+    }
+
+    #[test]
+    fn trusted_apply_rejects_forged_request_not_in_last_scan() {
+        let root = tempfile_workspace();
+        let manifest = root.join("Cargo.toml");
+        std::fs::write(&manifest, "[package]\nname=\"demo\"\n")
+            .expect("fixture manifest");
+        let uri =
+            file_uri_for_path(&manifest).expect("manifest URI should encode");
+        let applied = Arc::new(Mutex::new(None));
+        let forged = ApplyUpgradeRequest {
+            package_name: "evil".to_string(),
+            target_version: "9.9.9".to_string(),
+            apply_strategy: "npm".to_string(),
+            dependency_kind: "direct".to_string(),
+            declarations: vec![ApplyDeclaration {
+                path: "package-lock.json".to_string(),
+                start_line: 1,
+                kind: "lockfile".to_string(),
+            }],
+        };
+        let messages = drive_connection(
+            &root,
+            Box::new(ApplyRecordingScanService {
+                uri: uri.clone(),
+                applied: Arc::clone(&applied),
+            }),
+            true,
+            vec![
+                Message::Request(Request::new(
+                    RequestId::from(4),
+                    "workspace/executeCommand".to_string(),
+                    json!({
+                        "command": APPLY_UPGRADE_COMMAND,
+                        "arguments": [forged]
+                    }),
+                )),
+                Message::Notification(Notification::new(
+                    "exit".to_string(),
+                    json!(null),
+                )),
+            ],
+        );
+        assert!(messages.iter().any(|message| matches!(
+            message,
+            Message::Response(response)
+                if response.id == RequestId::from(4)
+                    && response.response_result.as_ref().is_err_and(|err| {
+                        err.message.contains("current scan finding")
+                    })
+        )));
+        assert!(applied.lock().expect("applied lock").is_none());
+    }
+
+    #[test]
+    fn failed_scan_keeps_previous_diagnostics() {
+        let root = tempfile_workspace();
+        let manifest = root.join("Cargo.toml");
+        std::fs::write(&manifest, "[package]\nname=\"demo\"\n")
+            .expect("fixture");
+        let uri =
+            file_uri_for_path(&manifest).expect("manifest URI should encode");
+        let service = SequenceScanService {
+            results: Mutex::new(vec![
+                ScanResult {
+                    diagnostics: vec![ScanDiagnostic {
+                        uri: uri.clone(),
+                        line: 0,
+                        code: "CVE-KEEP".to_string(),
+                        message: "keep me".to_string(),
+                        apply: None,
+                    }],
+                    scan_ok: true,
+                },
+                ScanResult {
+                    diagnostics: Vec::new(),
+                    scan_ok: false,
+                },
+            ]),
+        };
+        let server = LspServer::new(Box::new(service), false);
+        let first = server.scan_for_root(Some(root.as_path()), None);
+        assert_eq!(first.diagnostics.len(), 1);
+        assert_eq!(first.diagnostics[0].code, "CVE-KEEP");
+        let second = server.scan_for_root(
+            Some(root.as_path()),
+            Some(Path::new("/x/Cargo.toml")),
+        );
+        assert_eq!(second.diagnostics.len(), 1);
+        assert_eq!(second.diagnostics[0].code, "CVE-KEEP");
+    }
+
+    #[test]
+    fn is_dependency_save_path_includes_bom_json() {
+        assert!(is_dependency_save_path(Path::new("/x/bom.json")));
+        assert!(is_dependency_save_path(Path::new("/x/sbom.json")));
     }
 
     #[test]
@@ -1143,6 +1295,7 @@ mod tests {
                             apply: None,
                         },
                     ],
+                    scan_ok: true,
                 },
                 ScanResult::default(),
             ]),
@@ -1173,21 +1326,6 @@ mod tests {
         assert!(text.contains(FIX_DRY_RUN_CLI));
         assert!(text.contains(SHOW_FIX_DRY_RUN_COMMAND));
         assert!(!text.contains(APPLY_UPGRADE_TITLE));
-    }
-
-    fn sample_apply_request() -> serde_json::Value {
-        serde_json::to_value(ApplyUpgradeRequest {
-            package_name: "demo".to_string(),
-            target_version: "1.2.3".to_string(),
-            apply_strategy: "cargo".to_string(),
-            dependency_kind: "direct".to_string(),
-            declarations: vec![ApplyDeclaration {
-                path: "Cargo.toml".to_string(),
-                start_line: 1,
-                kind: "manifest".to_string(),
-            }],
-        })
-        .expect("serialize apply request")
     }
 
     fn drive_connection(
@@ -1299,6 +1437,7 @@ mod tests {
                     message: "CVE-2026-1234: update to 1.2.3".to_string(),
                     apply: None,
                 }],
+                scan_ok: true,
             }
         }
     }
@@ -1351,10 +1490,17 @@ mod tests {
             _root: Option<&Path>,
             _changed: Option<&Path>,
         ) -> ScanResult {
-            FixedScanService {
-                uri: self.uri.clone(),
+            ScanResult {
+                diagnostics: vec![ScanDiagnostic {
+                    uri: self.uri.clone(),
+                    line: 0,
+                    code: "CVE-2026-1234".to_string(),
+                    message: "CVE-2026-1234: upgrade to 1.2.3 (cargo)"
+                        .to_string(),
+                    apply: Some(sample_apply_request_struct()),
+                }],
+                scan_ok: true,
             }
-            .scan(None, None)
         }
 
         fn apply_upgrade(
@@ -1366,5 +1512,24 @@ mod tests {
                 Some(request.clone());
             Ok(())
         }
+    }
+
+    fn sample_apply_request_struct() -> ApplyUpgradeRequest {
+        ApplyUpgradeRequest {
+            package_name: "demo".to_string(),
+            target_version: "1.2.3".to_string(),
+            apply_strategy: "cargo".to_string(),
+            dependency_kind: "direct".to_string(),
+            declarations: vec![ApplyDeclaration {
+                path: "Cargo.toml".to_string(),
+                start_line: 1,
+                kind: "manifest".to_string(),
+            }],
+        }
+    }
+
+    fn sample_apply_request() -> serde_json::Value {
+        serde_json::to_value(sample_apply_request_struct())
+            .expect("serialize apply request")
     }
 }

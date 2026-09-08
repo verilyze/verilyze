@@ -317,13 +317,16 @@ UI; it does not write the system clipboard).
 With folder trust enabled (`lsp_folder_trust = true`, `VLZ_LSP_FOLDER_TRUST=1`,
 or `vlz lsp --folder-trust`), the server also offers **Apply upgrade**, which
 invokes the same Remediator path as `vlz fix` (not `--dry-run`). Without trust,
-Apply upgrade is not advertised.
+Apply upgrade is not advertised. Prefer `--folder-trust` in editor launch args
+when possible: config/env trust is process-global for every workspace root that
+`vlz lsp` opens in that session.
 
 Editor diagnostics never execute dependency code, even when the configuration
 enables `allow_dependency_code_execution`. Trusted Apply upgrade still respects
-the SEC-023 scripts gate for npm (`--ignore-scripts` unless that flag is set).
-`vlz fix` modifies supported lock files; use `vlz fix --dry-run` to preview
-changes.
+the SEC-023 scripts gate (npm/bun `--ignore-scripts`, Yarn Classic
+`--ignore-scripts`, Yarn Berry `--mode=skip-build`, unless that gate is
+enabled). `vlz fix` modifies supported lock files; use `vlz fix --dry-run` to
+preview changes.
 
 #### Editor configuration snippets (DOC-014)
 
