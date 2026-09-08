@@ -1890,7 +1890,7 @@ mod tests {
     }
 
     #[test]
-    fn poetry_and_yarn_preview_use_shared_argv_builders() {
+    fn appendix_b_preview_apply_and_offline_guards() {
         let dir = test_tempdir();
         let root = dir.path();
         write_poetry_tree(root);
@@ -1934,6 +1934,150 @@ mod tests {
             yarn_preview.argv,
             yarn_up_argv(yarn.to_str().unwrap(), "left-pad", "1.3.0")
         );
+
+        let uv_dir = test_tempdir();
+        let uv_root = uv_dir.path();
+        write_uv_tree(uv_root);
+        let uv = uv_root.join("uv-ok");
+        write_exec(&uv, "#!/bin/sh\nexit 0\n");
+        let uv_rem = PythonRemediator::with_uv_bin(uv.to_string_lossy());
+        let uv_preview = uv_rem
+            .preview(&RemediationContext {
+                scan_root: uv_root,
+                declarations: &[lock_decl(UV_LOCK_FILE_NAME)],
+                package_name: "requests",
+                target_version: "2.32.0",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .expect("uv preview");
+        assert_eq!(
+            uv_preview.argv,
+            uv_add_argv(uv.to_str().unwrap(), "requests", "2.32.0")
+        );
+        uv_rem
+            .apply(&RemediationContext {
+                scan_root: uv_root,
+                declarations: &[lock_decl(UV_LOCK_FILE_NAME)],
+                package_name: "requests",
+                target_version: "2.32.0",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap();
+
+        rem.apply(&RemediationContext {
+            scan_root: root,
+            declarations: &[lock_decl(POETRY_LOCK_FILE_NAME)],
+            package_name: "requests",
+            target_version: "2.32.0",
+            dependency_kind: DependencyKind::Direct,
+            allow_dependency_code_execution: false,
+            offline: false,
+        })
+        .unwrap();
+        let err = rem
+            .apply(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl(POETRY_LOCK_FILE_NAME)],
+                package_name: "requests",
+                target_version: "2.32.0",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: true,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::OfflineBlocked));
+
+        yarn_rem
+            .apply(&RemediationContext {
+                scan_root: yarn_root,
+                declarations: &[lock_decl(YARN_LOCK_FILE_NAME)],
+                package_name: "left-pad",
+                target_version: "1.3.0",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap();
+
+        let pnpm_dir = test_tempdir();
+        let pnpm_root = pnpm_dir.path();
+        write_js_lock_tree(pnpm_root, PNPM_LOCK_FILE_NAME);
+        let pnpm_bin = pnpm_root.join("pnpm-ok");
+        write_exec(&pnpm_bin, "#!/bin/sh\nexit 0\n");
+        let pnpm = PnpmRemediator::with_bin(pnpm_bin.to_string_lossy());
+        let pnpm_preview = pnpm
+            .preview(&RemediationContext {
+                scan_root: pnpm_root,
+                declarations: &[lock_decl(PNPM_LOCK_FILE_NAME)],
+                package_name: "left-pad",
+                target_version: "2.0.0",
+                dependency_kind: DependencyKind::Transitive,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .expect("pnpm preview");
+        assert_eq!(
+            pnpm_preview.argv,
+            pnpm_update_argv(pnpm_bin.to_str().unwrap(), "left-pad", "2.0.0")
+        );
+        pnpm.apply(&RemediationContext {
+            scan_root: pnpm_root,
+            declarations: &[lock_decl(PNPM_LOCK_FILE_NAME)],
+            package_name: "left-pad",
+            target_version: "2.0.0",
+            dependency_kind: DependencyKind::Direct,
+            allow_dependency_code_execution: false,
+            offline: false,
+        })
+        .unwrap();
+
+        let bun_dir = test_tempdir();
+        let bun_root = bun_dir.path();
+        write_js_lock_tree(bun_root, BUN_LOCK_FILE_NAME);
+        let bun_bin = bun_root.join("bun-ok");
+        write_exec(&bun_bin, "#!/bin/sh\nexit 0\n");
+        let bun = BunRemediator::with_bin(bun_bin.to_string_lossy());
+        let bun_preview = bun
+            .preview(&RemediationContext {
+                scan_root: bun_root,
+                declarations: &[lock_decl(BUN_LOCK_FILE_NAME)],
+                package_name: "left-pad",
+                target_version: "2.0.0",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .expect("bun preview");
+        assert_eq!(
+            bun_preview.argv,
+            bun_update_argv(bun_bin.to_str().unwrap(), "left-pad", "2.0.0")
+        );
+        bun.apply(&RemediationContext {
+            scan_root: bun_root,
+            declarations: &[lock_decl(BUN_LOCK_FILE_NAME)],
+            package_name: "left-pad",
+            target_version: "2.0.0",
+            dependency_kind: DependencyKind::Transitive,
+            allow_dependency_code_execution: false,
+            offline: false,
+        })
+        .unwrap();
+        let err = bun
+            .apply(&RemediationContext {
+                scan_root: bun_root,
+                declarations: &[lock_decl(BUN_LOCK_FILE_NAME)],
+                package_name: "left-pad",
+                target_version: "2.0.0",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: true,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::OfflineBlocked));
     }
 
     #[test]

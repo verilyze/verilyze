@@ -24,13 +24,13 @@ pub use remediator::{
     NPM_LOCKFILE_PACKAGE_LOCK_JSON, NPM_MANIFEST_FILE_NAME, NPM_NO_SAVE_FLAG,
     NPM_PACKAGE_LOCK_ONLY_FLAG, NpmRemediator, PNPM_BIN_NAME,
     PNPM_LOCK_FILE_NAME, PNPM_LOCKFILE_ONLY_FLAG, POETRY_BIN_NAME,
-    POETRY_LOCK_FILE_NAME, POETRY_LOCK_FLAG, PYTHON_MANIFEST_FILE_NAME,
-    PnpmRemediator, PythonRemediator, RemediationContext, RemediationError,
-    RemediationPreview, Remediator, UV_BIN_NAME, UV_LOCK_FILE_NAME,
-    UV_NO_SYNC_FLAG, YARN_BIN_NAME, YARN_LOCK_FILE_NAME, YarnRemediator,
-    bun_update_argv, cargo_update_argv, npm_install_argv, pnpm_update_argv,
-    poetry_add_argv, remediation_apply_strategy_for_finding, uv_add_argv,
-    yarn_up_argv,
+    POETRY_LOCK_FILE_NAME, POETRY_LOCK_FLAG, PYLOCK_TOML_FILE_NAME,
+    PYTHON_MANIFEST_FILE_NAME, PnpmRemediator, PythonRemediator,
+    RemediationContext, RemediationError, RemediationPreview, Remediator,
+    UV_BIN_NAME, UV_LOCK_FILE_NAME, UV_NO_SYNC_FLAG, YARN_BIN_NAME,
+    YARN_LOCK_FILE_NAME, YarnRemediator, bun_update_argv, cargo_update_argv,
+    npm_install_argv, pnpm_update_argv, poetry_add_argv,
+    remediation_apply_strategy_for_finding, uv_add_argv, yarn_up_argv,
 };
 
 /// Upgrade plan confidence for a planned remediation.
