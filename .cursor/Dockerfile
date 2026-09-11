@@ -14,8 +14,8 @@
 # `..`) so Rust is derived from `rust-toolchain.toml`. Do not COPY the rest
 # of the repository; Cursor checks out the requested revision.
 
-# ubuntu:24.04 @ 2026-03 (re-pin periodically via docker buildx imagetools).
-FROM ubuntu:24.04@sha256:224a1869083a311ef3f13648a154ba79832fbef6364d31493642ca03082da254
+# ubuntu:26.04 (resolute) @ 2026-09 (re-pin periodically via docker buildx imagetools).
+FROM ubuntu:26.04@sha256:513c074113a871b51a8d16ab445c88779d6452d937a164fb5cc479f32668a41d
 
 # Pipefail for RUN lines that use | (Hadolint DL4006).
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
