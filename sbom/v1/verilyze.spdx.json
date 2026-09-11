@@ -477,9 +477,9 @@
     {
       "@type": "Package",
       "name": "char_str",
-      "packageUrl": "pkg:cargo/char_str@0.0.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-char-str-0-0-2",
-      "versionInfo": "0.0.2"
+      "packageUrl": "pkg:cargo/char_str@0.0.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-char-str-0-0-4",
+      "versionInfo": "0.0.4"
     },
     {
       "@type": "Package",
@@ -848,16 +848,16 @@
     {
       "@type": "Package",
       "name": "get-size-derive2",
-      "packageUrl": "pkg:cargo/get-size-derive2@0.10.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-get-size-derive2-0-10-3",
-      "versionInfo": "0.10.3"
+      "packageUrl": "pkg:cargo/get-size-derive2@0.11.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-get-size-derive2-0-11-0",
+      "versionInfo": "0.11.0"
     },
     {
       "@type": "Package",
       "name": "get-size2",
-      "packageUrl": "pkg:cargo/get-size2@0.10.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-get-size2-0-10-3",
-      "versionInfo": "0.10.3"
+      "packageUrl": "pkg:cargo/get-size2@0.11.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-get-size2-0-11-0",
+      "versionInfo": "0.11.0"
     },
     {
       "@type": "Package",
@@ -1576,37 +1576,37 @@
     {
       "@type": "Package",
       "name": "ruff_python_ast",
-      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.11",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-11",
-      "versionInfo": "0.0.11"
+      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.13",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-13",
+      "versionInfo": "0.0.13"
     },
     {
       "@type": "Package",
       "name": "ruff_python_parser",
-      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.11",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-11",
-      "versionInfo": "0.0.11"
+      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.13",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-13",
+      "versionInfo": "0.0.13"
     },
     {
       "@type": "Package",
       "name": "ruff_python_trivia",
-      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.11",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-11",
-      "versionInfo": "0.0.11"
+      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.13",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-13",
+      "versionInfo": "0.0.13"
     },
     {
       "@type": "Package",
       "name": "ruff_source_file",
-      "packageUrl": "pkg:cargo/ruff_source_file@0.0.11",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-11",
-      "versionInfo": "0.0.11"
+      "packageUrl": "pkg:cargo/ruff_source_file@0.0.13",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-13",
+      "versionInfo": "0.0.13"
     },
     {
       "@type": "Package",
       "name": "ruff_text_size",
-      "packageUrl": "pkg:cargo/ruff_text_size@0.0.11",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-11",
-      "versionInfo": "0.0.11"
+      "packageUrl": "pkg:cargo/ruff_text_size@0.0.13",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-13",
+      "versionInfo": "0.0.13"
     },
     {
       "@type": "Package",
@@ -2038,9 +2038,9 @@
     {
       "@type": "Package",
       "name": "toml",
-      "packageUrl": "pkg:cargo/toml@1.1.5+spec-1.1.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-toml-1-1-5+spec-1-1-0",
-      "versionInfo": "1.1.5+spec-1.1.0"
+      "packageUrl": "pkg:cargo/toml@1.1.6+spec-1.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-toml-1-1-6+spec-1-1-0",
+      "versionInfo": "1.1.6+spec-1.1.0"
     },
     {
       "@type": "Package",
@@ -2674,6 +2674,27 @@
     },
     {
       "@type": "Package",
+      "name": "char_str",
+      "packageUrl": "pkg:cargo/char_str@0.0.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-char-str-0-0-2",
+      "versionInfo": "0.0.2"
+    },
+    {
+      "@type": "Package",
+      "name": "get-size-derive2",
+      "packageUrl": "pkg:cargo/get-size-derive2@0.10.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-get-size-derive2-0-10-3",
+      "versionInfo": "0.10.3"
+    },
+    {
+      "@type": "Package",
+      "name": "get-size2",
+      "packageUrl": "pkg:cargo/get-size2@0.10.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-get-size2-0-10-3",
+      "versionInfo": "0.10.3"
+    },
+    {
+      "@type": "Package",
       "name": "jobserver",
       "packageUrl": "pkg:cargo/jobserver@0.1.35",
       "spdxId": "urn:spdx.dev:pkg-cargo-jobserver-0-1-35",
@@ -2685,6 +2706,48 @@
       "packageUrl": "pkg:cargo/libfuzzer-sys@0.4.13",
       "spdxId": "urn:spdx.dev:pkg-cargo-libfuzzer-sys-0-4-13",
       "versionInfo": "0.4.13"
+    },
+    {
+      "@type": "Package",
+      "name": "ruff_python_ast",
+      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.11",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-11",
+      "versionInfo": "0.0.11"
+    },
+    {
+      "@type": "Package",
+      "name": "ruff_python_parser",
+      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.11",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-11",
+      "versionInfo": "0.0.11"
+    },
+    {
+      "@type": "Package",
+      "name": "ruff_python_trivia",
+      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.11",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-11",
+      "versionInfo": "0.0.11"
+    },
+    {
+      "@type": "Package",
+      "name": "ruff_source_file",
+      "packageUrl": "pkg:cargo/ruff_source_file@0.0.11",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-11",
+      "versionInfo": "0.0.11"
+    },
+    {
+      "@type": "Package",
+      "name": "ruff_text_size",
+      "packageUrl": "pkg:cargo/ruff_text_size@0.0.11",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-11",
+      "versionInfo": "0.0.11"
+    },
+    {
+      "@type": "Package",
+      "name": "toml",
+      "packageUrl": "pkg:cargo/toml@1.1.5+spec-1.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-toml-1-1-5+spec-1-1-0",
+      "versionInfo": "1.1.5+spec-1.1.0"
     },
     {
       "@type": "Package",
