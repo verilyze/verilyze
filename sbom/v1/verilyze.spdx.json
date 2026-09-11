@@ -421,9 +421,9 @@
     {
       "@type": "Package",
       "name": "bitflags",
-      "packageUrl": "pkg:cargo/bitflags@2.13.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-bitflags-2-13-1",
-      "versionInfo": "2.13.1"
+      "packageUrl": "pkg:cargo/bitflags@2.13.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-bitflags-2-13-2",
+      "versionInfo": "2.13.2"
     },
     {
       "@type": "Package",
@@ -463,9 +463,9 @@
     {
       "@type": "Package",
       "name": "cc",
-      "packageUrl": "pkg:cargo/cc@1.4.4",
-      "spdxId": "urn:spdx.dev:pkg-cargo-cc-1-4-4",
-      "versionInfo": "1.4.4"
+      "packageUrl": "pkg:cargo/cc@1.4.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-cc-1-4-5",
+      "versionInfo": "1.4.5"
     },
     {
       "@type": "Package",
@@ -581,6 +581,13 @@
     },
     {
       "@type": "Package",
+      "name": "core_detect",
+      "packageUrl": "pkg:cargo/core_detect@1.0.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-core-detect-1-0-0",
+      "versionInfo": "1.0.0"
+    },
+    {
+      "@type": "Package",
       "name": "cpufeatures",
       "packageUrl": "pkg:cargo/cpufeatures@0.3.1",
       "spdxId": "urn:spdx.dev:pkg-cargo-cpufeatures-0-3-1",
@@ -589,16 +596,16 @@
     {
       "@type": "Package",
       "name": "crossbeam-channel",
-      "packageUrl": "pkg:cargo/crossbeam-channel@0.5.16",
-      "spdxId": "urn:spdx.dev:pkg-cargo-crossbeam-channel-0-5-16",
-      "versionInfo": "0.5.16"
+      "packageUrl": "pkg:cargo/crossbeam-channel@0.5.17",
+      "spdxId": "urn:spdx.dev:pkg-cargo-crossbeam-channel-0-5-17",
+      "versionInfo": "0.5.17"
     },
     {
       "@type": "Package",
       "name": "crossbeam-utils",
-      "packageUrl": "pkg:cargo/crossbeam-utils@0.8.22",
-      "spdxId": "urn:spdx.dev:pkg-cargo-crossbeam-utils-0-8-22",
-      "versionInfo": "0.8.22"
+      "packageUrl": "pkg:cargo/crossbeam-utils@0.8.23",
+      "spdxId": "urn:spdx.dev:pkg-cargo-crossbeam-utils-0-8-23",
+      "versionInfo": "0.8.23"
     },
     {
       "@type": "Package",
@@ -708,9 +715,9 @@
     {
       "@type": "Package",
       "name": "encoding_rs",
-      "packageUrl": "pkg:cargo/encoding_rs@0.8.35",
-      "spdxId": "urn:spdx.dev:pkg-cargo-encoding-rs-0-8-35",
-      "versionInfo": "0.8.35"
+      "packageUrl": "pkg:cargo/encoding_rs@0.8.41",
+      "spdxId": "urn:spdx.dev:pkg-cargo-encoding-rs-0-8-41",
+      "versionInfo": "0.8.41"
     },
     {
       "@type": "Package",
@@ -750,9 +757,9 @@
     {
       "@type": "Package",
       "name": "find-msvc-tools",
-      "packageUrl": "pkg:cargo/find-msvc-tools@0.1.11",
-      "spdxId": "urn:spdx.dev:pkg-cargo-find-msvc-tools-0-1-11",
-      "versionInfo": "0.1.11"
+      "packageUrl": "pkg:cargo/find-msvc-tools@0.1.12",
+      "spdxId": "urn:spdx.dev:pkg-cargo-find-msvc-tools-0-1-12",
+      "versionInfo": "0.1.12"
     },
     {
       "@type": "Package",
@@ -897,9 +904,9 @@
     {
       "@type": "Package",
       "name": "hermit-abi",
-      "packageUrl": "pkg:cargo/hermit-abi@0.5.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-hermit-abi-0-5-2",
-      "versionInfo": "0.5.2"
+      "packageUrl": "pkg:cargo/hermit-abi@0.5.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-hermit-abi-0-5-3",
+      "versionInfo": "0.5.3"
     },
     {
       "@type": "Package",
@@ -946,9 +953,9 @@
     {
       "@type": "Package",
       "name": "hybrid-array",
-      "packageUrl": "pkg:cargo/hybrid-array@0.4.14",
-      "spdxId": "urn:spdx.dev:pkg-cargo-hybrid-array-0-4-14",
-      "versionInfo": "0.4.14"
+      "packageUrl": "pkg:cargo/hybrid-array@0.4.15",
+      "spdxId": "urn:spdx.dev:pkg-cargo-hybrid-array-0-4-15",
+      "versionInfo": "0.4.15"
     },
     {
       "@type": "Package",
@@ -1037,9 +1044,9 @@
     {
       "@type": "Package",
       "name": "indexmap",
-      "packageUrl": "pkg:cargo/indexmap@2.14.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-indexmap-2-14-1",
-      "versionInfo": "2.14.1"
+      "packageUrl": "pkg:cargo/indexmap@2.14.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-indexmap-2-14-2",
+      "versionInfo": "2.14.2"
     },
     {
       "@type": "Package",
@@ -1051,9 +1058,9 @@
     {
       "@type": "Package",
       "name": "ipnet",
-      "packageUrl": "pkg:cargo/ipnet@2.12.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ipnet-2-12-1",
-      "versionInfo": "2.12.1"
+      "packageUrl": "pkg:cargo/ipnet@2.12.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ipnet-2-12-2",
+      "versionInfo": "2.12.2"
     },
     {
       "@type": "Package",
@@ -1135,9 +1142,9 @@
     {
       "@type": "Package",
       "name": "js-sys",
-      "packageUrl": "pkg:cargo/js-sys@0.3.104",
-      "spdxId": "urn:spdx.dev:pkg-cargo-js-sys-0-3-104",
-      "versionInfo": "0.3.104"
+      "packageUrl": "pkg:cargo/js-sys@0.3.105",
+      "spdxId": "urn:spdx.dev:pkg-cargo-js-sys-0-3-105",
+      "versionInfo": "0.3.105"
     },
     {
       "@type": "Package",
@@ -1226,9 +1233,30 @@
     {
       "@type": "Package",
       "name": "mio",
-      "packageUrl": "pkg:cargo/mio@1.2.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-mio-1-2-2",
-      "versionInfo": "1.2.2"
+      "packageUrl": "pkg:cargo/mio@1.2.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-mio-1-2-3",
+      "versionInfo": "1.2.3"
+    },
+    {
+      "@type": "Package",
+      "name": "multiversion",
+      "packageUrl": "pkg:cargo/multiversion@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-multiversion-0-9-0",
+      "versionInfo": "0.9.0"
+    },
+    {
+      "@type": "Package",
+      "name": "multiversion-macros",
+      "packageUrl": "pkg:cargo/multiversion-macros@0.9.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-multiversion-macros-0-9-0",
+      "versionInfo": "0.9.0"
+    },
+    {
+      "@type": "Package",
+      "name": "multiversion_no_op",
+      "packageUrl": "pkg:cargo/multiversion_no_op@1.0.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-multiversion-no-op-1-0-0",
+      "versionInfo": "1.0.0"
     },
     {
       "@type": "Package",
@@ -1310,9 +1338,9 @@
     {
       "@type": "Package",
       "name": "ordermap",
-      "packageUrl": "pkg:cargo/ordermap@1.2.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ordermap-1-2-1",
-      "versionInfo": "1.2.1"
+      "packageUrl": "pkg:cargo/ordermap@1.2.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ordermap-1-2-2",
+      "versionInfo": "1.2.2"
     },
     {
       "@type": "Package",
@@ -1380,9 +1408,9 @@
     {
       "@type": "Package",
       "name": "portable-atomic-util",
-      "packageUrl": "pkg:cargo/portable-atomic-util@0.2.7",
-      "spdxId": "urn:spdx.dev:pkg-cargo-portable-atomic-util-0-2-7",
-      "versionInfo": "0.2.7"
+      "packageUrl": "pkg:cargo/portable-atomic-util@0.2.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-portable-atomic-util-0-2-8",
+      "versionInfo": "0.2.8"
     },
     {
       "@type": "Package",
@@ -1527,9 +1555,9 @@
     {
       "@type": "Package",
       "name": "reqwest",
-      "packageUrl": "pkg:cargo/reqwest@0.13.4",
-      "spdxId": "urn:spdx.dev:pkg-cargo-reqwest-0-13-4",
-      "versionInfo": "0.13.4"
+      "packageUrl": "pkg:cargo/reqwest@0.13.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-reqwest-0-13-5",
+      "versionInfo": "0.13.5"
     },
     {
       "@type": "Package",
@@ -1611,9 +1639,9 @@
     {
       "@type": "Package",
       "name": "rustls",
-      "packageUrl": "pkg:cargo/rustls@0.23.43",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-0-23-43",
-      "versionInfo": "0.23.43"
+      "packageUrl": "pkg:cargo/rustls@0.23.44",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-0-23-44",
+      "versionInfo": "0.23.44"
     },
     {
       "@type": "Package",
@@ -1814,9 +1842,9 @@
     {
       "@type": "Package",
       "name": "smallvec",
-      "packageUrl": "pkg:cargo/smallvec@1.15.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-smallvec-1-15-2",
-      "versionInfo": "1.15.2"
+      "packageUrl": "pkg:cargo/smallvec@1.16.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-smallvec-1-16-0",
+      "versionInfo": "1.16.0"
     },
     {
       "@type": "Package",
@@ -1870,9 +1898,9 @@
     {
       "@type": "Package",
       "name": "syn",
-      "packageUrl": "pkg:cargo/syn@3.0.4",
-      "spdxId": "urn:spdx.dev:pkg-cargo-syn-3-0-4",
-      "versionInfo": "3.0.4"
+      "packageUrl": "pkg:cargo/syn@3.0.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-syn-3-0-5",
+      "versionInfo": "3.0.5"
     },
     {
       "@type": "Package",
@@ -1968,9 +1996,9 @@
     {
       "@type": "Package",
       "name": "tinyvec",
-      "packageUrl": "pkg:cargo/tinyvec@1.12.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-tinyvec-1-12-0",
-      "versionInfo": "1.12.0"
+      "packageUrl": "pkg:cargo/tinyvec@1.13.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tinyvec-1-13-2",
+      "versionInfo": "1.13.2"
     },
     {
       "@type": "Package",
@@ -1996,9 +2024,9 @@
     {
       "@type": "Package",
       "name": "tokio-rustls",
-      "packageUrl": "pkg:cargo/tokio-rustls@0.26.4",
-      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-rustls-0-26-4",
-      "versionInfo": "0.26.4"
+      "packageUrl": "pkg:cargo/tokio-rustls@0.26.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-rustls-0-26-5",
+      "versionInfo": "0.26.5"
     },
     {
       "@type": "Package",
@@ -2360,44 +2388,44 @@
     {
       "@type": "Package",
       "name": "wasm-bindgen",
-      "packageUrl": "pkg:cargo/wasm-bindgen@0.2.127",
-      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-0-2-127",
-      "versionInfo": "0.2.127"
+      "packageUrl": "pkg:cargo/wasm-bindgen@0.2.128",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-0-2-128",
+      "versionInfo": "0.2.128"
     },
     {
       "@type": "Package",
       "name": "wasm-bindgen-futures",
-      "packageUrl": "pkg:cargo/wasm-bindgen-futures@0.4.77",
-      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-futures-0-4-77",
-      "versionInfo": "0.4.77"
+      "packageUrl": "pkg:cargo/wasm-bindgen-futures@0.4.78",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-futures-0-4-78",
+      "versionInfo": "0.4.78"
     },
     {
       "@type": "Package",
       "name": "wasm-bindgen-macro",
-      "packageUrl": "pkg:cargo/wasm-bindgen-macro@0.2.127",
-      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-macro-0-2-127",
-      "versionInfo": "0.2.127"
+      "packageUrl": "pkg:cargo/wasm-bindgen-macro@0.2.128",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-macro-0-2-128",
+      "versionInfo": "0.2.128"
     },
     {
       "@type": "Package",
       "name": "wasm-bindgen-macro-support",
-      "packageUrl": "pkg:cargo/wasm-bindgen-macro-support@0.2.127",
-      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-macro-support-0-2-127",
-      "versionInfo": "0.2.127"
+      "packageUrl": "pkg:cargo/wasm-bindgen-macro-support@0.2.128",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-macro-support-0-2-128",
+      "versionInfo": "0.2.128"
     },
     {
       "@type": "Package",
       "name": "wasm-bindgen-shared",
-      "packageUrl": "pkg:cargo/wasm-bindgen-shared@0.2.127",
-      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-shared-0-2-127",
-      "versionInfo": "0.2.127"
+      "packageUrl": "pkg:cargo/wasm-bindgen-shared@0.2.128",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-shared-0-2-128",
+      "versionInfo": "0.2.128"
     },
     {
       "@type": "Package",
       "name": "web-sys",
-      "packageUrl": "pkg:cargo/web-sys@0.3.104",
-      "spdxId": "urn:spdx.dev:pkg-cargo-web-sys-0-3-104",
-      "versionInfo": "0.3.104"
+      "packageUrl": "pkg:cargo/web-sys@0.3.105",
+      "spdxId": "urn:spdx.dev:pkg-cargo-web-sys-0-3-105",
+      "versionInfo": "0.3.105"
     },
     {
       "@type": "Package",
@@ -2577,16 +2605,16 @@
     {
       "@type": "Package",
       "name": "zerocopy",
-      "packageUrl": "pkg:cargo/zerocopy@0.8.56",
-      "spdxId": "urn:spdx.dev:pkg-cargo-zerocopy-0-8-56",
-      "versionInfo": "0.8.56"
+      "packageUrl": "pkg:cargo/zerocopy@0.8.57",
+      "spdxId": "urn:spdx.dev:pkg-cargo-zerocopy-0-8-57",
+      "versionInfo": "0.8.57"
     },
     {
       "@type": "Package",
       "name": "zerocopy-derive",
-      "packageUrl": "pkg:cargo/zerocopy-derive@0.8.56",
-      "spdxId": "urn:spdx.dev:pkg-cargo-zerocopy-derive-0-8-56",
-      "versionInfo": "0.8.56"
+      "packageUrl": "pkg:cargo/zerocopy-derive@0.8.57",
+      "spdxId": "urn:spdx.dev:pkg-cargo-zerocopy-derive-0-8-57",
+      "versionInfo": "0.8.57"
     },
     {
       "@type": "Package",
@@ -2660,17 +2688,157 @@
     },
     {
       "@type": "Package",
-      "name": "toml",
-      "packageUrl": "pkg:cargo/toml@1.1.4+spec-1.1.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-toml-1-1-4+spec-1-1-0",
-      "versionInfo": "1.1.4+spec-1.1.0"
-    },
-    {
-      "@type": "Package",
       "name": "vlz-fuzz-cflite",
       "packageUrl": "pkg:cargo/vlz-fuzz-cflite@0.0.0",
       "spdxId": "urn:spdx.dev:pkg-cargo-vlz-fuzz-cflite-0-0-0",
       "versionInfo": "0.0.0"
+    },
+    {
+      "@type": "Package",
+      "name": "bitflags",
+      "packageUrl": "pkg:cargo/bitflags@2.13.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-bitflags-2-13-1",
+      "versionInfo": "2.13.1"
+    },
+    {
+      "@type": "Package",
+      "name": "cc",
+      "packageUrl": "pkg:cargo/cc@1.4.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-cc-1-4-4",
+      "versionInfo": "1.4.4"
+    },
+    {
+      "@type": "Package",
+      "name": "crossbeam-channel",
+      "packageUrl": "pkg:cargo/crossbeam-channel@0.5.16",
+      "spdxId": "urn:spdx.dev:pkg-cargo-crossbeam-channel-0-5-16",
+      "versionInfo": "0.5.16"
+    },
+    {
+      "@type": "Package",
+      "name": "crossbeam-utils",
+      "packageUrl": "pkg:cargo/crossbeam-utils@0.8.22",
+      "spdxId": "urn:spdx.dev:pkg-cargo-crossbeam-utils-0-8-22",
+      "versionInfo": "0.8.22"
+    },
+    {
+      "@type": "Package",
+      "name": "encoding_rs",
+      "packageUrl": "pkg:cargo/encoding_rs@0.8.35",
+      "spdxId": "urn:spdx.dev:pkg-cargo-encoding-rs-0-8-35",
+      "versionInfo": "0.8.35"
+    },
+    {
+      "@type": "Package",
+      "name": "find-msvc-tools",
+      "packageUrl": "pkg:cargo/find-msvc-tools@0.1.11",
+      "spdxId": "urn:spdx.dev:pkg-cargo-find-msvc-tools-0-1-11",
+      "versionInfo": "0.1.11"
+    },
+    {
+      "@type": "Package",
+      "name": "hermit-abi",
+      "packageUrl": "pkg:cargo/hermit-abi@0.5.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-hermit-abi-0-5-2",
+      "versionInfo": "0.5.2"
+    },
+    {
+      "@type": "Package",
+      "name": "hybrid-array",
+      "packageUrl": "pkg:cargo/hybrid-array@0.4.14",
+      "spdxId": "urn:spdx.dev:pkg-cargo-hybrid-array-0-4-14",
+      "versionInfo": "0.4.14"
+    },
+    {
+      "@type": "Package",
+      "name": "indexmap",
+      "packageUrl": "pkg:cargo/indexmap@2.14.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-indexmap-2-14-1",
+      "versionInfo": "2.14.1"
+    },
+    {
+      "@type": "Package",
+      "name": "ipnet",
+      "packageUrl": "pkg:cargo/ipnet@2.12.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ipnet-2-12-1",
+      "versionInfo": "2.12.1"
+    },
+    {
+      "@type": "Package",
+      "name": "js-sys",
+      "packageUrl": "pkg:cargo/js-sys@0.3.104",
+      "spdxId": "urn:spdx.dev:pkg-cargo-js-sys-0-3-104",
+      "versionInfo": "0.3.104"
+    },
+    {
+      "@type": "Package",
+      "name": "mio",
+      "packageUrl": "pkg:cargo/mio@1.2.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-mio-1-2-2",
+      "versionInfo": "1.2.2"
+    },
+    {
+      "@type": "Package",
+      "name": "ordermap",
+      "packageUrl": "pkg:cargo/ordermap@1.2.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ordermap-1-2-1",
+      "versionInfo": "1.2.1"
+    },
+    {
+      "@type": "Package",
+      "name": "portable-atomic-util",
+      "packageUrl": "pkg:cargo/portable-atomic-util@0.2.7",
+      "spdxId": "urn:spdx.dev:pkg-cargo-portable-atomic-util-0-2-7",
+      "versionInfo": "0.2.7"
+    },
+    {
+      "@type": "Package",
+      "name": "reqwest",
+      "packageUrl": "pkg:cargo/reqwest@0.13.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-reqwest-0-13-4",
+      "versionInfo": "0.13.4"
+    },
+    {
+      "@type": "Package",
+      "name": "rustls",
+      "packageUrl": "pkg:cargo/rustls@0.23.43",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-0-23-43",
+      "versionInfo": "0.23.43"
+    },
+    {
+      "@type": "Package",
+      "name": "smallvec",
+      "packageUrl": "pkg:cargo/smallvec@1.15.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-smallvec-1-15-2",
+      "versionInfo": "1.15.2"
+    },
+    {
+      "@type": "Package",
+      "name": "syn",
+      "packageUrl": "pkg:cargo/syn@3.0.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-syn-3-0-4",
+      "versionInfo": "3.0.4"
+    },
+    {
+      "@type": "Package",
+      "name": "tinyvec",
+      "packageUrl": "pkg:cargo/tinyvec@1.12.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tinyvec-1-12-0",
+      "versionInfo": "1.12.0"
+    },
+    {
+      "@type": "Package",
+      "name": "tokio-rustls",
+      "packageUrl": "pkg:cargo/tokio-rustls@0.26.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-rustls-0-26-4",
+      "versionInfo": "0.26.4"
+    },
+    {
+      "@type": "Package",
+      "name": "toml",
+      "packageUrl": "pkg:cargo/toml@1.1.4+spec-1.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-toml-1-1-4+spec-1-1-0",
+      "versionInfo": "1.1.4+spec-1.1.0"
     },
     {
       "@type": "Package",
@@ -2832,6 +3000,62 @@
       "packageUrl": "pkg:cargo/vlz-sbom@0.9.1",
       "spdxId": "urn:spdx.dev:pkg-cargo-vlz-sbom-0-9-1",
       "versionInfo": "0.9.1"
+    },
+    {
+      "@type": "Package",
+      "name": "wasm-bindgen",
+      "packageUrl": "pkg:cargo/wasm-bindgen@0.2.127",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-0-2-127",
+      "versionInfo": "0.2.127"
+    },
+    {
+      "@type": "Package",
+      "name": "wasm-bindgen-futures",
+      "packageUrl": "pkg:cargo/wasm-bindgen-futures@0.4.77",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-futures-0-4-77",
+      "versionInfo": "0.4.77"
+    },
+    {
+      "@type": "Package",
+      "name": "wasm-bindgen-macro",
+      "packageUrl": "pkg:cargo/wasm-bindgen-macro@0.2.127",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-macro-0-2-127",
+      "versionInfo": "0.2.127"
+    },
+    {
+      "@type": "Package",
+      "name": "wasm-bindgen-macro-support",
+      "packageUrl": "pkg:cargo/wasm-bindgen-macro-support@0.2.127",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-macro-support-0-2-127",
+      "versionInfo": "0.2.127"
+    },
+    {
+      "@type": "Package",
+      "name": "wasm-bindgen-shared",
+      "packageUrl": "pkg:cargo/wasm-bindgen-shared@0.2.127",
+      "spdxId": "urn:spdx.dev:pkg-cargo-wasm-bindgen-shared-0-2-127",
+      "versionInfo": "0.2.127"
+    },
+    {
+      "@type": "Package",
+      "name": "web-sys",
+      "packageUrl": "pkg:cargo/web-sys@0.3.104",
+      "spdxId": "urn:spdx.dev:pkg-cargo-web-sys-0-3-104",
+      "versionInfo": "0.3.104"
+    },
+    {
+      "@type": "Package",
+      "name": "zerocopy",
+      "packageUrl": "pkg:cargo/zerocopy@0.8.56",
+      "spdxId": "urn:spdx.dev:pkg-cargo-zerocopy-0-8-56",
+      "versionInfo": "0.8.56"
+    },
+    {
+      "@type": "Package",
+      "name": "zerocopy-derive",
+      "packageUrl": "pkg:cargo/zerocopy-derive@0.8.56",
+      "spdxId": "urn:spdx.dev:pkg-cargo-zerocopy-derive-0-8-56",
+      "versionInfo": "0.8.56"
     }
   ],
   "relationship": [],
