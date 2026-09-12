@@ -18,9 +18,9 @@
 # Download+verify in a separate stage so the main image never curl|sh's an
 # unpinned installer (Scorecard downloadThenRun). Checksums match
 # https://static.rust-lang.org/rustup/archive/<ver>/<triple>/rustup-init.sha256
-# (same scheme as rust-lang/docker-rust). After bumping RUSTUP_VERSION, refresh
-# both SHA-256 ARGs from the archive .sha256 files (Renovate tracks the
-# version; checksums are updated in the same PR).
+# (same scheme as rust-lang/docker-rust). Renovate bumps RUSTUP_VERSION and
+# runs scripts/renovate-post-upgrade-rustup-init.sh to refresh both SHA-256
+# ARGs from the archive .sha256 files in the same PR.
 ARG RUSTUP_VERSION=1.29.1
 ARG RUSTUP_INIT_SHA256_AMD64=dda7234360b7f578ca8b0ddcb80145646fa61a67c1720a5abc7051b35c9fcb71
 ARG RUSTUP_INIT_SHA256_ARM64=15f6e4ce9f583b929c996c91562bad6d4454f3281de858b02cdfdef615fac433

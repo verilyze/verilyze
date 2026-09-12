@@ -13,6 +13,7 @@ from tests.scripts.repo_root import repo_root
 
 _ROOT = repo_root()
 _UPLOAD_SARIF_POST_UPGRADE = "bash scripts/renovate-post-upgrade-upload-sarif.sh"
+_RUSTUP_INIT_POST_UPGRADE = "bash scripts/renovate-post-upgrade-rustup-init.sh"
 
 
 def test_renovate_regex_managers_use_delimited_file_patterns() -> None:
@@ -448,3 +449,52 @@ def test_renovate_workflow_allows_post_upgrade_sbom_script() -> None:
     assert "renovate-post-upgrade-licenses" in text
     assert "renovate-post-upgrade-upload-sarif" in text
     assert "renovate-post-upgrade-deny-skips" in text
+    assert "renovate-post-upgrade-rustup-init" in text
+
+
+def test_renovate_rustup_init_post_upgrade_refreshes_sha256_args() -> None:
+    """Version bumps must refresh Dockerfile SHA-256 ARGs in the same PR."""
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    rules = data.get("packageRules", [])
+    match = next(
+        (
+            r
+            for r in rules
+            if _RUSTUP_INIT_POST_UPGRADE
+            in r.get("postUpgradeTasks", {}).get("commands", [])
+        ),
+        None,
+    )
+    assert match is not None, (
+        "packageRules must run postUpgradeTasks for rust-lang/rustup so "
+        "RUSTUP_INIT_SHA256_* ARGs stay aligned with RUSTUP_VERSION"
+    )
+    assert match.get("matchPackageNames") == ["rust-lang/rustup"]
+    assert match.get("matchFileNames") == [".cursor/Dockerfile"]
+    tasks = match["postUpgradeTasks"]
+    assert tasks["commands"] == [_RUSTUP_INIT_POST_UPGRADE]
+    assert tasks["fileFilters"] == [".cursor/Dockerfile"]
+    assert tasks["executionMode"] == "branch"
+    assert "python" in tasks.get("installTools", {}), (
+        "rustup-init postUpgradeTasks need python for rustup_init_pins.py"
+    )
+
+
+def test_renovate_custom_manager_tracks_rustup_version_arg() -> None:
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    managers = data.get("customManagers", [])
+    match = next(
+        (
+            m
+            for m in managers
+            if m.get("packageNameTemplate") == "rust-lang/rustup"
+        ),
+        None,
+    )
+    assert match is not None
+    assert match.get("datasourceTemplate") == "github-releases"
+    assert any(
+        "cursor" in p and "Dockerfile" in p
+        for p in match.get("managerFilePatterns", [])
+    )
+    assert any("RUSTUP_VERSION" in s for s in match.get("matchStrings", []))
