@@ -58,11 +58,11 @@ $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
       > /etc/apt/sources.list.d/docker.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-      docker-ce=5:28.5.2-1~ubuntu.24.04~noble \
-      docker-ce-cli=5:28.5.2-1~ubuntu.24.04~noble \
-      containerd.io=1.7.28-2~ubuntu.24.04~noble \
-      docker-buildx-plugin=0.29.1-1~ubuntu.24.04~noble \
-      docker-compose-plugin=2.40.3-1~ubuntu.24.04~noble \
+      docker-ce=5:29.8.0-1~ubuntu.26.04~resolute \
+      docker-ce-cli=5:29.8.0-1~ubuntu.26.04~resolute \
+      containerd.io=2.3.5-1~ubuntu.26.04~resolute \
+      docker-buildx-plugin=0.37.1-1~ubuntu.26.04~resolute \
+      docker-compose-plugin=5.5.1-1~ubuntu.26.04~resolute \
     && rm -rf /var/lib/apt/lists/*
 
 # Nested-container storage + legacy iptables (Cursor Docker recipe).
