@@ -11,7 +11,8 @@
 #   - the Python test (.venv-test) and lint (.venv-lint) virtualenvs
 #
 # Docker CE for `make super-linter` lives in `.cursor/Dockerfile` and is
-# started each boot by `.cursor/docker-start.sh` (see environment.json).
+# started each boot via `/usr/local/lib/vlz/docker-start.sh` (baked into the
+# image; see environment.json). Do not apt-install Docker at runtime.
 #
 # Safe to re-run: every step checks for existing state before doing work.
 
@@ -20,6 +21,12 @@ set -euo pipefail
 # Pinned tool versions (single source of truth for this script).
 GITLEAKS_VERSION="8.21.2"
 PYTHON_SERIES="3.14"
+
+# Environment-build install shells may not inherit Dockerfile ENV PATH.
+# Match Dockerfile CARGO_HOME / RUSTUP_HOME so cargo is always findable.
+export RUSTUP_HOME="${RUSTUP_HOME:-/usr/local/rustup}"
+export CARGO_HOME="${CARGO_HOME:-/usr/local/cargo}"
+export PATH="${CARGO_HOME}/bin:${PATH}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${REPO_ROOT}"
@@ -66,6 +73,11 @@ if ! command -v gitleaks >/dev/null 2>&1 ||
   tar -xzf "${tmp}/gitleaks.tar.gz" -C "${tmp}" gitleaks
   sudo install -m 0755 "${tmp}/gitleaks" /usr/local/bin/gitleaks
   rm -rf "${tmp}"
+fi
+
+if ! command -v cargo >/dev/null 2>&1; then
+  log "error: cargo not found on PATH (expected under ${CARGO_HOME}/bin from Dockerfile)"
+  exit 127
 fi
 
 log "Building the release vlz binary"

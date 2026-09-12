@@ -31,8 +31,10 @@ packaging/rpm/RPMS
 packaging/rpm/SRPMS
 packaging/rpm/SOURCES/*.tar.gz
 
-# IDE (not required for the builder)
-.cursor
+# IDE / agent config (not required for most image builds). Keep docker-start
+# visible so `.cursor/Dockerfile` can COPY it into the Cloud Agent image.
+.cursor/*
+!.cursor/docker-start.sh
 
 # AFL / fuzz output if present locally
 tests/fuzz/out

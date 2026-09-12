@@ -12,7 +12,8 @@
 #
 # Build context is the repository root (`environment.json` build.context
 # `..`) so Rust is derived from `rust-toolchain.toml`. Do not COPY the rest
-# of the repository; Cursor checks out the requested revision.
+# of the repository; Cursor checks out the requested revision. Exception:
+# `docker-start.sh` is baked in so `start` can launch dockerd before checkout.
 
 # rustup-init archive pin (OpenSSF Scorecard Pinned-Dependencies).
 # Download+verify in a separate stage so the main image never curl|sh's an
@@ -150,7 +151,20 @@ RUN RUST_VERSION="$(sed -n 's/^channel = "\(.*\)"/\1/p' /tmp/rust-toolchain.toml
        done \
     && IFS="${OLDIFS}" \
     && chmod -R a+rwX "${RUSTUP_HOME}" "${CARGO_HOME}" \
-    && rm -f /tmp/rust-toolchain.toml
+    && rm -f /tmp/rust-toolchain.toml \
+    && ln -sf "${CARGO_HOME}/bin/cargo" /usr/local/bin/cargo \
+    && ln -sf "${CARGO_HOME}/bin/rustc" /usr/local/bin/rustc \
+    && ln -sf "${CARGO_HOME}/bin/rustup" /usr/local/bin/rustup \
+    && printf '%s\n' \
+      'export RUSTUP_HOME="${RUSTUP_HOME:-/usr/local/rustup}"' \
+      'export CARGO_HOME="${CARGO_HOME:-/usr/local/cargo}"' \
+      'export PATH="${CARGO_HOME}/bin:${PATH}"' \
+      > /etc/profile.d/rustup.sh \
+    && chmod 0644 /etc/profile.d/rustup.sh
+
+# Boot-independent dockerd helper (warm-fork start runs before checkout).
+COPY .cursor/docker-start.sh /usr/local/lib/vlz/docker-start.sh
+RUN chmod 0755 /usr/local/lib/vlz/docker-start.sh
 
 # Numeric UID matches ubuntu user created above (Hadolint DL3066).
 USER 1000:1000

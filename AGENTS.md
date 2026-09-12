@@ -138,17 +138,23 @@ Cloud Agents use [`.cursor/environment.json`](.cursor/environment.json):
 
 - **Base image:** [`.cursor/Dockerfile`](.cursor/Dockerfile) installs Docker CE
   (fuse-overlayfs) and the Rust channel from `rust-toolchain.toml` so
-  `install.sh` can build `vlz`. Build context is the repo root.
+  `install.sh` can build `vlz`. Build context is the repo root. `cargo` /
+  `rustc` / `rustup` are also symlinked into `/usr/local/bin` so build
+  `install` finds them even when Dockerfile `ENV PATH` is not applied.
 - **Per boot:** `start` runs `sign-setup.sh` then
-  [`.cursor/docker-start.sh`](.cursor/docker-start.sh) (starts `dockerd`;
-  falls back to `vfs` via `--storage-driver` if fuse-overlayfs cannot start).
+  `/usr/local/lib/vlz/docker-start.sh` (baked into the image so warm-fork
+  start does not depend on checkout). That script starts `dockerd` and
+  falls back to `vfs` via `--storage-driver` if fuse-overlayfs cannot start.
   Docker start is soft-fail: a dockerd outage warns and the agent continues.
 - **Verify:** `docker info` then `make super-linter` (needed by
   verilyze-ship-pr). Trivy prefers `ghcr.io/aquasecurity/trivy-db` (see
   `trivy.yaml`); allowlist `ghcr.io` (and optionally `mirror.gcr.io` /
   `public.ecr.aws` as fallbacks).
 - New agents pick up Dockerfile changes only after an environment **Build**
-  from the revision that contains them.
+  reaches **SUCCEEDED** from the revision that contains them. If `docker` is
+  missing, check
+  [environment builds](https://cursor.com/dashboard/cloud-agents/environments/e/a1d34e27-a381-11f1-a7d1-d6b4613131ce)
+  rather than apt-installing Docker at runtime.
 
 ## Quick links
 
