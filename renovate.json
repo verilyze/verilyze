@@ -102,7 +102,9 @@
       "customType": "regex",
       "description": "Cloud Agent Dockerfile: rustup-init archive version",
       "managerFilePatterns": ["/^\\.cursor\\/Dockerfile$/"],
-      "matchStrings": ["ARG RUSTUP_VERSION=(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+      "matchStrings": [
+        "ARG RUSTUP_VERSION=(?<currentValue>\\d+\\.\\d+\\.\\d+)"
+      ],
       "datasourceTemplate": "github-releases",
       "packageNameTemplate": "rust-lang/rustup",
       "depNameTemplate": "rust-lang/rustup",
