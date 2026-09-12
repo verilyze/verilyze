@@ -6,5 +6,5 @@
     "context": ".."
   },
   "install": "bash .cursor/install.sh",
-  "start": "bash .cursor/sign-setup.sh && { bash .cursor/docker-start.sh || printf '%s\\n' '[docker-start] warning: Docker unavailable; agent continues without dockerd' >&2; }"
+  "start": "bash .cursor/sign-setup.sh && { bash /usr/local/lib/vlz/docker-start.sh || printf '%s\\n' '[docker-start] warning: Docker unavailable; agent continues without dockerd' >&2; }"
 }
