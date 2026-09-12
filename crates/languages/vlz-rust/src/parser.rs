@@ -149,8 +149,13 @@ fn extract_version_from_req(req: &str) -> String {
             };
         }
     }
-    if req.starts_with('"') && req.ends_with('"') {
-        return req[1..req.len() - 1].to_string();
+    // Require len >= 2 so a lone `"` is not treated as a quoted pair
+    // (starts_with and ends_with both match the same byte; slicing `1..0`
+    // panics and AFL records SIGABRT).
+    if let Some(inner) =
+        req.strip_prefix('"').and_then(|s| s.strip_suffix('"'))
+    {
+        return inner.to_string();
     }
     req.to_string()
 }
@@ -326,6 +331,37 @@ members = ["crates/*"]
         assert_eq!(super::extract_version_from_req(""), "any");
         assert_eq!(super::extract_version_from_req("   "), "any");
         assert_eq!(super::extract_version_from_req("^ "), "any");
+        // Single `"` is both prefix and suffix; must not slice `1..0` (AFL SIGABRT).
+        assert_eq!(super::extract_version_from_req("\""), "\"");
+    }
+
+    #[test]
+    fn parse_cargo_toml_version_single_double_quote_no_panic() {
+        // TOML string value that is one double-quote character.
+        let content = "[dependencies]\nx = \"\\\"\"\n";
+        let packages = parse_cargo_toml(content).expect("must not panic");
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "x");
+        assert_eq!(packages[0].version, "\"");
+    }
+
+    #[test]
+    fn parse_cargo_toml_afl_sigabrt_regression() {
+        // Minimized from Coverage nightly AFL crash (sig:06 / SIGABRT).
+        let content = "\
+[pac]
+[dependencies]
+sffNe = \"1.e =                               \"
+naNe = \"1.[<\"
+
+a = \"\\\"\"
+
+aame = \"t st\"
+ven = \"/.1\"
+";
+        let packages =
+            parse_cargo_toml(content).expect("AFL crash input must not panic");
+        assert!(packages.iter().any(|p| p.name == "a" && p.version == "\""));
     }
 
     #[test]
