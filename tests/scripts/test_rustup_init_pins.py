@@ -4,6 +4,7 @@
 
 """Unit tests for scripts/rustup_init_pins.py."""
 
+import runpy
 import sys
 from pathlib import Path
 
@@ -72,6 +73,24 @@ class TestReplaceSha256Args:
                 amd64="not-a-hash",
                 arm64="x" * 64,
             )
+
+    def test_replace_sha256_args_missing_amd64_pin_raises(self) -> None:
+        text = "\n".join(
+            line
+            for line in _DOCKERFILE_FIXTURE.splitlines()
+            if "RUSTUP_INIT_SHA256_AMD64=" not in line
+        )
+        with pytest.raises(SystemExit, match="RUSTUP_INIT_SHA256_AMD64"):
+            replace_sha256_args(text, amd64="c" * 64, arm64="d" * 64)
+
+    def test_replace_sha256_args_missing_arm64_pin_raises(self) -> None:
+        text = "\n".join(
+            line
+            for line in _DOCKERFILE_FIXTURE.splitlines()
+            if "RUSTUP_INIT_SHA256_ARM64=" not in line
+        )
+        with pytest.raises(SystemExit, match="RUSTUP_INIT_SHA256_ARM64"):
+            replace_sha256_args(text, amd64="c" * 64, arm64="d" * 64)
 
 
 class TestFetchArchiveSha256:
@@ -154,6 +173,10 @@ class TestSyncDockerfileSha256s:
         changed = sync_dockerfile_sha256s(tmp_path, fetch=fake_fetch)
         assert changed is False
 
+    def test_sync_missing_dockerfile_raises(self, tmp_path: Path) -> None:
+        with pytest.raises(SystemExit, match="Dockerfile not found"):
+            sync_dockerfile_sha256s(tmp_path, fetch=lambda *_a, **_k: "c" * 64)
+
 
 class TestMain:
     def test_main_check_detects_drift(
@@ -201,3 +224,18 @@ class TestCommittedDockerfile:
     def test_committed_dockerfile_sha256s_match_archive(self) -> None:
         """Live check: committed pins must match static.rust-lang.org."""
         assert sync_dockerfile_sha256s(_ROOT, check=True) is False
+
+
+class TestModuleMain:
+    def test_runpy_module_main_exits_zero_when_current(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            rustup_init_pins,
+            "sync_dockerfile_sha256s",
+            lambda *_a, **_k: False,
+        )
+        monkeypatch.setattr(sys, "argv", ["rustup_init_pins.py"])
+        with pytest.raises(SystemExit) as excinfo:
+            runpy.run_module("scripts.rustup_init_pins", run_name="__main__")
+        assert excinfo.value.code == 0
