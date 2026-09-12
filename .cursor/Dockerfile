@@ -14,8 +14,8 @@
 # `..`) so Rust is derived from `rust-toolchain.toml`. Do not COPY the rest
 # of the repository; Cursor checks out the requested revision.
 
-# ubuntu:24.04 @ 2026-03 (re-pin periodically via docker buildx imagetools).
-FROM ubuntu:24.04@sha256:224a1869083a311ef3f13648a154ba79832fbef6364d31493642ca03082da254
+# ubuntu:26.04 (resolute) @ 2026-09 (re-pin periodically via docker buildx imagetools).
+FROM ubuntu:26.04@sha256:513c074113a871b51a8d16ab445c88779d6452d937a164fb5cc479f32668a41d
 
 # Pipefail for RUN lines that use | (Hadolint DL4006).
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -58,11 +58,11 @@ $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
       > /etc/apt/sources.list.d/docker.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-      docker-ce=5:28.5.2-1~ubuntu.24.04~noble \
-      docker-ce-cli=5:28.5.2-1~ubuntu.24.04~noble \
-      containerd.io=1.7.28-2~ubuntu.24.04~noble \
-      docker-buildx-plugin=0.29.1-1~ubuntu.24.04~noble \
-      docker-compose-plugin=2.40.3-1~ubuntu.24.04~noble \
+      docker-ce=5:29.8.0-1~ubuntu.26.04~resolute \
+      docker-ce-cli=5:29.8.0-1~ubuntu.26.04~resolute \
+      containerd.io=2.3.5-1~ubuntu.26.04~resolute \
+      docker-buildx-plugin=0.37.1-1~ubuntu.26.04~resolute \
+      docker-compose-plugin=5.5.1-1~ubuntu.26.04~resolute \
     && rm -rf /var/lib/apt/lists/*
 
 # Nested-container storage + legacy iptables (Cursor Docker recipe).
