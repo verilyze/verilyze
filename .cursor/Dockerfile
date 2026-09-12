@@ -14,7 +14,49 @@
 # `..`) so Rust is derived from `rust-toolchain.toml`. Do not COPY the rest
 # of the repository; Cursor checks out the requested revision.
 
+# rustup-init archive pin (OpenSSF Scorecard Pinned-Dependencies).
+# Download+verify in a separate stage so the main image never curl|sh's an
+# unpinned installer (Scorecard downloadThenRun). Checksums match
+# https://static.rust-lang.org/rustup/archive/<ver>/<triple>/rustup-init.sha256
+# (same scheme as rust-lang/docker-rust). Renovate bumps RUSTUP_VERSION and
+# runs scripts/renovate-post-upgrade-rustup-init.sh to refresh both SHA-256
+# ARGs from the archive .sha256 files in the same PR.
+ARG RUSTUP_VERSION=1.29.1
+ARG RUSTUP_INIT_SHA256_AMD64=dda7234360b7f578ca8b0ddcb80145646fa61a67c1720a5abc7051b35c9fcb71
+ARG RUSTUP_INIT_SHA256_ARM64=15f6e4ce9f583b929c996c91562bad6d4454f3281de858b02cdfdef615fac433
+
 # ubuntu:26.04 (resolute) @ 2026-09 (re-pin periodically via docker buildx imagetools).
+# --- Stage: fetch and hash-pin rustup-init (do not execute here). ---
+FROM ubuntu:26.04@sha256:513c074113a871b51a8d16ab445c88779d6452d937a164fb5cc479f32668a41d AS rustup-fetch
+
+# Pipefail for RUN lines that use | (Hadolint DL4006).
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+ARG RUSTUP_VERSION
+ARG RUSTUP_INIT_SHA256_AMD64
+ARG RUSTUP_INIT_SHA256_ARM64
+
+# hadolint ignore=DL3008
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && arch="$(dpkg --print-architecture)" \
+    && case "${arch}" in \
+         amd64) rust_arch=x86_64-unknown-linux-gnu; \
+                rustup_sha="${RUSTUP_INIT_SHA256_AMD64}" ;; \
+         arm64) rust_arch=aarch64-unknown-linux-gnu; \
+                rustup_sha="${RUSTUP_INIT_SHA256_ARM64}" ;; \
+         *) echo "unsupported architecture: ${arch}" >&2; exit 1 ;; \
+       esac \
+    && curl --proto '=https' --tlsv1.2 --retry 3 --retry-delay 5 -sSf \
+      "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${rust_arch}/rustup-init" \
+      -o /rustup-init \
+    && echo "${rustup_sha}  /rustup-init" | sha256sum -c - \
+    && chmod +x /rustup-init
+
+# --- Stage: Cloud Agent runtime image. ---
+# ubuntu:26.04 digest must match rustup-fetch FROM (Renovate dockerfile manager).
 FROM ubuntu:26.04@sha256:513c074113a871b51a8d16ab445c88779d6452d937a164fb5cc479f32668a41d
 
 # Pipefail for RUN lines that use | (Hadolint DL4006).
@@ -88,12 +130,15 @@ RUN if ! id -u ubuntu >/dev/null 2>&1; then \
     && echo "ubuntu ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/ubuntu \
     && chmod 0440 /etc/sudoers.d/ubuntu
 
+# Hash-pinned rustup-init from rustup-fetch (no curl|sh).
+COPY --from=rustup-fetch /rustup-init /tmp/rustup-init
+
 # Rust channel + components from repo rust-toolchain.toml (DRY / NFR-024).
 COPY rust-toolchain.toml /tmp/rust-toolchain.toml
 RUN RUST_VERSION="$(sed -n 's/^channel = "\(.*\)"/\1/p' /tmp/rust-toolchain.toml)" \
     && test -n "${RUST_VERSION}" \
-    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-      | sh -s -- -y --default-toolchain "${RUST_VERSION}" --profile minimal \
+    && /tmp/rustup-init -y --default-toolchain "${RUST_VERSION}" --profile minimal \
+    && rm -f /tmp/rustup-init \
     && COMPONENTS="$(sed -n 's/^components = \[\(.*\)\]/\1/p' /tmp/rust-toolchain.toml \
         | tr -d '" ')" \
     && OLDIFS="${IFS}" \
