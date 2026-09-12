@@ -153,6 +153,13 @@ precedence = "override"
 SPDX-FileCopyrightText = "2026 Travis Post <post.travis@gmail.com>"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
+# Exact AFL crash byte fixture for Cargo.toml parser (binary; no in-file SPDX)
+[[annotations]]
+path = "crates/languages/vlz-rust/tests/fixtures/afl_cargo_toml_sigabrt.bin"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Travis Post <post.travis@gmail.com>"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
 [[annotations]]
 path = "crates/core/vlz-cve-client/tests/fixtures/tls_crl/*.key"
 precedence = "override"

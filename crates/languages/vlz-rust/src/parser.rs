@@ -47,7 +47,9 @@ pub fn parse_cargo_toml_with_declarations(
 /// [dev-dependencies], and [build-dependencies]. Public for fuzzing (NFR-020).
 ///
 /// Panics from the toml crate on pathological input are caught and converted to
-/// `ParserError` (SEC-017).
+/// `ParserError` (SEC-017). Pathological but successfully parsed version
+/// strings (for example a lone `"`) yield `Ok` packages rather than errors so
+/// fuzzers do not treat them as crashes.
 pub fn parse_cargo_toml(
     content: &str,
 ) -> Result<Vec<vlz_db::Package>, ParserError> {
@@ -125,6 +127,10 @@ fn parse_dependency_entry(
 }
 
 /// Extract a version-like string from a SemVer requirement (e.g. "1.0.0", ">=1.0", "any").
+///
+/// A single `"` is returned unchanged (not treated as a quoted pair). Callers
+/// therefore receive `Ok` with that version for pathological manifests instead
+/// of a panic converted to `ParserError`.
 fn extract_version_from_req(req: &str) -> String {
     let req = req.trim();
     if req.is_empty() {
@@ -149,8 +155,13 @@ fn extract_version_from_req(req: &str) -> String {
             };
         }
     }
-    if req.starts_with('"') && req.ends_with('"') {
-        return req[1..req.len() - 1].to_string();
+    // Require len >= 2 so a lone `"` is not treated as a quoted pair
+    // (starts_with and ends_with both match the same byte; slicing `1..0`
+    // panics and AFL records SIGABRT).
+    if let Some(inner) =
+        req.strip_prefix('"').and_then(|s| s.strip_suffix('"'))
+    {
+        return inner.to_string();
     }
     req.to_string()
 }
@@ -326,6 +337,41 @@ members = ["crates/*"]
         assert_eq!(super::extract_version_from_req(""), "any");
         assert_eq!(super::extract_version_from_req("   "), "any");
         assert_eq!(super::extract_version_from_req("^ "), "any");
+        // Single `"` is both prefix and suffix; must not slice `1..0` (AFL SIGABRT).
+        // Contract: return the character unchanged (Ok path), not Err via catch_unwind.
+        assert_eq!(super::extract_version_from_req("\""), "\"");
+    }
+
+    #[test]
+    fn parse_cargo_toml_lone_double_quote_versions_ok() {
+        // String and table forms both flow through extract_version_from_req.
+        // Pathological `"` versions are Ok packages, not parse errors.
+        let string_form = "[dependencies]\nx = \"\\\"\"\n";
+        let packages = parse_cargo_toml(string_form).expect("must not panic");
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "x");
+        assert_eq!(packages[0].version, "\"");
+
+        let table_form = "[dependencies]\ny = { version = \"\\\"\" }\n";
+        let packages = parse_cargo_toml(table_form).expect("must not panic");
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "y");
+        assert_eq!(packages[0].version, "\"");
+    }
+
+    #[test]
+    fn parse_cargo_toml_afl_sigabrt_exact_crash_fixture() {
+        // Exact Coverage nightly AFL crash bytes (sig:06 / SIGABRT), stored under
+        // tests/fixtures (codespell-skipped) so CI pins the real artifact.
+        let bytes =
+            include_bytes!("../tests/fixtures/afl_cargo_toml_sigabrt.bin");
+        let content = std::str::from_utf8(bytes).expect("fixture is UTF-8");
+        let packages = parse_cargo_toml(content)
+            .expect("exact AFL crash input must not panic");
+        assert!(
+            packages.iter().any(|p| p.name == "a" && p.version == "\""),
+            "expected dep a with version \"{packages:?}\""
+        );
     }
 
     #[test]
