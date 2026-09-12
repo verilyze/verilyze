@@ -97,6 +97,16 @@
       "packageNameTemplate": "rust-lang/rust",
       "depNameTemplate": "rust-lang/rust",
       "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
+      "description": "Cloud Agent Dockerfile: rustup-init archive version",
+      "managerFilePatterns": ["/^\\.cursor\\/Dockerfile$/"],
+      "matchStrings": ["ARG RUSTUP_VERSION=(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+      "datasourceTemplate": "github-releases",
+      "packageNameTemplate": "rust-lang/rustup",
+      "depNameTemplate": "rust-lang/rustup",
+      "versioningTemplate": "semver"
     }
   ],
   "packageRules": [
@@ -153,6 +163,15 @@
       "matchPackageNames": ["rust-lang/rust"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "rust-toolchain-channel-minor-patch"
+    },
+    {
+      "description": "Cloud Agent rustup-init: minor/patch (refresh SHA-256 ARGs in same PR)",
+      "matchManagers": ["custom.regex"],
+      "matchDatasources": ["github-releases"],
+      "matchFileNames": [".cursor/Dockerfile"],
+      "matchPackageNames": ["rust-lang/rustup"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "cursor-dockerfile-rustup-init"
     },
     {
       "description": "Packaging Docker: Rust builder base image",
