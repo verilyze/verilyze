@@ -18,8 +18,8 @@ description = "Python language plugin for verilyze (manifest finder, parser, res
 
 [dependencies]
 async-trait.workspace = true
-ruff_python_ast = "=0.0.11"
-ruff_python_parser = "=0.0.11"
+ruff_python_ast = "=0.0.13"
+ruff_python_parser = "=0.0.13"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 thiserror.workspace = true
