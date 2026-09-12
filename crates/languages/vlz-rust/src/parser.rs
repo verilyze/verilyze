@@ -347,17 +347,19 @@ members = ["crates/*"]
 
     #[test]
     fn parse_cargo_toml_afl_sigabrt_regression() {
-        // Minimized from Coverage nightly AFL crash (sig:06 / SIGABRT).
+        // Shape taken from Coverage nightly AFL crash (sig:06 / SIGABRT): a
+        // dependency whose version string is a single double-quote character.
+        // (Corpus seed is the same shape; avoid codespell-hostile AFL noise.)
         let content = "\
-[pac]
+[package]
+name = \"demo\"
+
 [dependencies]
-sffNe = \"1.e =                               \"
-naNe = \"1.[<\"
-
+odd = \"1.e =                               \"
+angled = \"1.[<\"
 a = \"\\\"\"
-
-aame = \"t st\"
-ven = \"/.1\"
+spaced = \"t st\"
+slash = \"/.1\"
 ";
         let packages =
             parse_cargo_toml(content).expect("AFL crash input must not panic");
