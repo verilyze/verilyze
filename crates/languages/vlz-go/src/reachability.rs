@@ -8,10 +8,10 @@ use std::sync::{Mutex, OnceLock};
 
 use vlz_reachability_trait::{
     LineCommentStyle, ReachabilityAnalyzer, ReachabilityEvidence,
-    TierBContext, TierBDecision, TierCDecision, TierCResult,
-    line_code_for_symbol_match, list_files_with_ext,
-    note_tier_b_file_read_attempt, push_reachability_evidence,
-    qualified_symbol_in_code, reachability_evidence_at_cap,
+    TierBContext, TierBDecision, TierCResult, line_code_for_symbol_match,
+    list_files_with_ext, note_tier_b_file_read_attempt,
+    push_reachability_evidence, qualified_symbol_in_code,
+    reachability_evidence_at_cap, tier_c_decision,
 };
 
 #[derive(Debug, Default)]
@@ -234,17 +234,11 @@ fn tier_c_result_for_symbols(
     advisory_symbols: &[String],
 ) -> TierCResult {
     let imports = cached_go_import_paths(context);
-    if imports.is_empty() {
-        return TierCResult::unknown();
-    }
+    let sources_present = !imports.is_empty();
     let files = list_go_files(context);
     let mut evidence = Vec::new();
-    let mut saw_reachable = false;
     for sym in advisory_symbols {
         if sym.contains('/') {
-            if imports.iter().any(|imp| go_import_path_matches(sym, imp)) {
-                saw_reachable = true;
-            }
             for item in collect_go_import_path_evidence(&files, sym) {
                 push_reachability_evidence(
                     &mut evidence,
@@ -254,28 +248,22 @@ fn tier_c_result_for_symbols(
                 );
             }
         } else {
-            let sym_evidence =
-                collect_go_symbol_evidence(&files, sym, &imports);
-            if !sym_evidence.is_empty() {
-                saw_reachable = true;
-                for item in sym_evidence {
-                    push_reachability_evidence(
-                        &mut evidence,
-                        item.path,
-                        item.start_line,
-                        item.symbol,
-                    );
-                }
+            for item in collect_go_symbol_evidence(&files, sym, &imports) {
+                push_reachability_evidence(
+                    &mut evidence,
+                    item.path,
+                    item.start_line,
+                    item.symbol,
+                );
             }
         }
     }
-    let decision = if saw_reachable {
-        TierCDecision::Reachable
-    } else if go_module_path_ambiguous(&context.package.name) {
-        TierCDecision::Unknown
-    } else {
-        TierCDecision::NotReachable
-    };
+    let decision = tier_c_decision(
+        !evidence.is_empty(),
+        sources_present,
+        false,
+        go_module_path_ambiguous(&context.package.name),
+    );
     TierCResult { decision, evidence }
 }
 
@@ -393,6 +381,7 @@ fn scoped_roots(context: &TierBContext<'_>) -> Vec<PathBuf> {
 mod tests {
     use super::*;
     use std::path::PathBuf;
+    use vlz_reachability_trait::TierCDecision;
     #[cfg(feature = "perf-instrumentation")]
     use vlz_reachability_trait::measure_tier_b_counters;
 

@@ -24,7 +24,10 @@ git diff
 git diff --cached
 git log -5 --oneline
 gh auth status
+# Re-pin owner key if Cursor overwrote global signing after boot.
+[[ -n "${ssh_key:-}" ]] && bash "$(git rev-parse --show-toplevel)/.cursor/sign-setup.sh"
 git config --get commit.gpgsign
+git config --get user.signingkey
 gh pr view --json number,url,state 2>/dev/null || true
 ```
 

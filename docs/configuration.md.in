@@ -70,13 +70,17 @@ ecosystem `npm`).
 
 ## Reachability (FR-032)
 
-`reachability_mode` accepts `off`, `tier-b`, or `best-available`. The
-`best-available` value enables Tier C (advisory symbol/path metadata) where the
-language analyzer supports it.
+`reachability_mode` accepts `off`, `tier-b`, or `best-available`. The default
+is `tier-b` (package-level). The `best-available` value enables Tier C
+(advisory symbol/path metadata) where the language analyzer supports it;
+recommend it for CI when you want per-CVE symbol signals. `reachable: false`
+is heuristic -- findings remain listed.
 
 Environment-only: set `VLZ_REACHABILITY_PERSIST_CACHE=1` (or `true`/`yes`) to
 persist Tier B and per-CVE Tier C decisions under `.vlz/reachability-cache.json`
-in the scan root. See `man vlz` ENVIRONMENT and CONTRIBUTING.md.
+in the scan root. Tier C entries are write-only (decisions are always
+recomputed; evidence is never cached). See `man vlz` ENVIRONMENT and
+CONTRIBUTING.md.
 
 ## Resolution policy (FR-022, SEC-023)
 

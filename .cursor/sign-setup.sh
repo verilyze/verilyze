@@ -77,11 +77,27 @@ printf '%s namespaces="git" %s\n' \
 
 # Configure git for SSH signing with the owner's key, using the system
 # ssh-keygen signer (not the Cursor-managed program).
-git config --global gpg.format ssh
-git config --global user.signingkey "${KEY_PATH}"
-git config --global gpg.ssh.program "$(command -v ssh-keygen)"
-git config --global gpg.ssh.allowedSignersFile "${SIGNERS_FILE}"
-git config --global commit.gpgsign true
+#
+# Cursor may overwrite *global* signing settings after `start` with a
+# Cursor-managed public key and `cursor-git-ssh-keygen`. Those commits are
+# signed but GitHub reports `unknown_key`. Pin the same values in the repo
+# *local* config so they win over a later global overwrite for this worktree.
+configure_git_signing() {
+  local scope="$1"
+  git config "${scope}" gpg.format ssh
+  git config "${scope}" user.signingkey "${KEY_PATH}"
+  git config "${scope}" gpg.ssh.program "$(command -v ssh-keygen)"
+  git config "${scope}" gpg.ssh.allowedSignersFile "${SIGNERS_FILE}"
+  git config "${scope}" commit.gpgsign true
+}
+
+configure_git_signing --global
+if git -C "${REPO_ROOT}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  (
+    cd "${REPO_ROOT}"
+    configure_git_signing --local
+  )
+fi
 
 # Belt and suspenders: keep Cursor's managed hook from stamping a
 # Co-authored-by trailer on the owner's commits. The managed hooks directory

@@ -18,9 +18,12 @@ usage() {
   cat >&2 <<'USAGE'
 usage:
   ship-pr.sh push
-  ship-pr.sh force-push [origin/<branch>:<sha>]
+  ship-pr.sh force-push [<branch>:<sha>]
   ship-pr.sh merge
   ship-pr.sh create-pr --title <title> --body-file <path>
+
+  force-push lease may also be written as origin/<branch>:<sha>;
+  the origin/ prefix is stripped so git protects the remote branch.
 USAGE
   exit 2
 }
@@ -51,9 +54,25 @@ require_not_main_branch() {
   fi
 }
 
+# Re-assert owner SSH signing when Cursor secrets are present. Boot
+# `sign-setup.sh` can be overwritten later by Cursor global git config
+# (Cursor-managed key -> GitHub `unknown_key`). Local + global re-pin here.
+ensure_commit_signing() {
+  local root=""
+  root="$(git rev-parse --show-toplevel)"
+  if [[ -z "${ssh_key:-}" ]]; then
+    return 0
+  fi
+  if [[ ! -x "${root}/.cursor/sign-setup.sh" ]]; then
+    die "ssh_key secret present but ${root}/.cursor/sign-setup.sh missing"
+  fi
+  bash "${root}/.cursor/sign-setup.sh"
+}
+
 prepare_git_context() {
   enter_git_toplevel
   require_not_main_branch
+  ensure_commit_signing
 }
 
 require_open_pr() {
@@ -74,7 +93,13 @@ cmd_push() {
 cmd_force_push() {
   prepare_git_context
   local lease="${1:-}"
+  # git --force-with-lease=<ref>:<expect> protects the remote branch name.
+  # Docs historically wrote origin/<branch>:<sha>; that names a remote-tracking
+  # ref, so the lease does not cover the push and git rejects as non-FF.
   if [[ -n "${lease}" ]]; then
+    if [[ "${lease}" == origin/*:* ]]; then
+      lease="${lease#origin/}"
+    fi
     git push --force-with-lease="${lease}" origin HEAD
   else
     git push --force-with-lease

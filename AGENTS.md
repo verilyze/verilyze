@@ -142,10 +142,14 @@ Cloud Agents use [`.cursor/environment.json`](.cursor/environment.json):
   `rustc` / `rustup` are also symlinked into `/usr/local/bin` so build
   `install` finds them even when Dockerfile `ENV PATH` is not applied.
 - **Per boot:** `start` runs `sign-setup.sh` then
-  `/usr/local/lib/vlz/docker-start.sh` (baked into the image so warm-fork
-  start does not depend on checkout). That script starts `dockerd` and
-  falls back to `vfs` via `--storage-driver` if fuse-overlayfs cannot start.
-  Docker start is soft-fail: a dockerd outage warns and the agent continues.
+ `/usr/local/lib/vlz/docker-start.sh` (baked into the image so warm-fork
+ start does not depend on checkout). That script starts `dockerd` and
+ falls back to `vfs` via `--storage-driver` if fuse-overlayfs cannot start.
+ Docker start is soft-fail: a dockerd outage warns and the agent continues.
+ `sign-setup.sh` materializes the `ssh_key` secret, configures global *and*
+ repo-local SSH signing (local wins if Cursor later overwrites global with a
+ managed key), and `ship-pr.sh` re-runs it before remote writes. If commits
+ show GitHub `unknown_key`, re-run `bash .cursor/sign-setup.sh` then re-sign.
 - **Verify:** `docker info` then `make super-linter` (needed by
   verilyze-ship-pr). Trivy prefers `ghcr.io/aquasecurity/trivy-db` (see
   `trivy.yaml`); allowlist `ghcr.io` (and optionally `mirror.gcr.io` /

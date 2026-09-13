@@ -9,10 +9,10 @@ use std::sync::{Mutex, OnceLock};
 use vlz_db::MAVEN_ECOSYSTEM;
 use vlz_reachability_trait::{
     LineCommentStyle, ReachabilityAnalyzer, TierBContext, TierBDecision,
-    TierCDecision, TierCResult, line_code_for_symbol_match,
-    list_files_with_ext, note_tier_b_file_read_attempt,
-    push_reachability_evidence, qualified_symbol_in_code,
-    reachability_evidence_at_cap, scrub_c_style_comments,
+    TierCResult, line_code_for_symbol_match, list_files_with_ext,
+    note_tier_b_file_read_attempt, push_reachability_evidence,
+    qualified_symbol_in_code, reachability_evidence_at_cap,
+    scrub_c_style_comments, tier_c_decision,
 };
 
 use crate::coordinate::is_generic_artifact_id;
@@ -359,11 +359,8 @@ fn tier_c_result_for(
     name: &str,
     advisory_symbols: &[String],
 ) -> TierCResult {
-    if index.scrubbed_files.is_empty() {
-        return TierCResult::unknown();
-    }
+    let sources_present = !index.scrubbed_files.is_empty();
     let mut evidence = Vec::new();
-    let mut saw = false;
     for (path, lines) in &index.scrubbed_files {
         for (idx, code) in lines.iter().enumerate() {
             for sym in advisory_symbols {
@@ -372,7 +369,6 @@ fn tier_c_result_for(
                 let symbol_import = extract_import_path(code)
                     .is_some_and(|imp| import_matches_symbol(&imp, sym));
                 if symbol_in_code || symbol_import {
-                    saw = true;
                     push_reachability_evidence(
                         &mut evidence,
                         path.clone(),
@@ -386,13 +382,12 @@ fn tier_c_result_for(
             }
         }
     }
-    let decision = if saw {
-        TierCDecision::Reachable
-    } else if package_decision_ambiguous(name) {
-        TierCDecision::Unknown
-    } else {
-        TierCDecision::NotReachable
-    };
+    let decision = tier_c_decision(
+        !evidence.is_empty(),
+        sources_present,
+        false,
+        package_decision_ambiguous(name),
+    );
     TierCResult { decision, evidence }
 }
 
@@ -429,6 +424,7 @@ mod tests {
     use super::*;
     use std::path::Path;
     use vlz_db::Package;
+    use vlz_reachability_trait::TierCDecision;
 
     fn ctx<'a>(
         scan_root: &'a Path,

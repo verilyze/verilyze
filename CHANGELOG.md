@@ -12,6 +12,13 @@ Human-readable release notes for each version.
 
 ### Added
 
+- Tier C quality/coverage: union OSV `affected[]` symbols in provider order,
+  allowlisted `database_specific` fallback, ignore PyPI advisory `path` for
+  consumer matching, and reject URL/absolute-path symbol hints.
+- Shared Tier C decision helper: `Reachable` requires evidence; parent/module
+  import without symbol evidence stays `Unknown`; empty source trees are
+  `Unknown` (JS/Ruby); Rust use-line evidence covers the symbol module, not
+  only the crate root.
 - Java/Kotlin Tier C reachability (`best-available`): FQCN and import
   heuristics, conservative `NotReachable`, and advisory-symbol evidence
   for Maven coordinates (FR-032).
@@ -23,6 +30,12 @@ Human-readable release notes for each version.
   bun, with allowlisted argv and registry registration (MOD-011).
 - NFR-026 incremental save filter: non-dependency `didSave` events skip a full
   rescan; DOC-014 editor snippets for VS Code / Neovim / Helix in the FAQ.
+
+### Changed
+
+- Reachability persist cache version bumped to `3` after Tier C policy
+  changes. Default `reachability_mode` remains `tier-b`; docs recommend
+  opt-in `--reachability-mode best-available` for CI.
 
 ### Fixed
 

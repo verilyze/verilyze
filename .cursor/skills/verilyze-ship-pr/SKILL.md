@@ -104,7 +104,9 @@ SHIP_PR_SH="$(git rev-parse --show-toplevel)/.cursor/skills/verilyze-ship-pr/scr
   writes on `main`.
 
 - **Signing:** `commit.gpgsign` must be `true`. Every pushed commit needs DCO
-  (`-s`) and cryptographic signature.
+  (`-s`) and cryptographic signature. When `ssh_key` is present, re-run
+  `.cursor/sign-setup.sh` before committing (also done by `ship-pr.sh`) so
+  Cursor's managed global signing key does not win.
 - **Validation:** Read the verilyze **pre-merge-check** skill. Run path-scoped
   targets, scoped coverage, `make check-fast`, then `make super-linter` before
   every push. Details in [single-pr.md](single-pr.md) section 2 and

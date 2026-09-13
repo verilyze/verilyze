@@ -672,17 +672,22 @@ unknown over false.
 Runtime selection currently supports `off`, `tier-b`, and
 `best-available` via config `reachability_mode`, env
 `VLZ_REACHABILITY_MODE`, or CLI `--reachability-mode`.
-`best-available` applies Tier C (advisory symbol/path metadata) where the
-language analyzer supports it, and Tier B otherwise. Python Tier D (AST name-node
-refinement) is available only when the `python-tier-d` feature is enabled at
-build time; it refines unknown Tier C results and never downgrades Tier C
-reachable decisions.
+Default remains `tier-b`. `best-available` applies Tier C (advisory
+symbol/path metadata) where the language analyzer supports it, and Tier B
+otherwise. Prefer `best-available` in CI for per-CVE symbol signals;
+`reachable: false` is heuristic and does not suppress findings. GitHub, NVD,
+and Sonatype stay package-level when they lack OSV-shaped symbol metadata.
+Python Tier D (AST name-node refinement) is available only when the
+`python-tier-d` feature is enabled at build time; it refines unknown Tier C
+results and never downgrades Tier C reachable decisions.
 
 Set `VLZ_REACHABILITY_PERSIST_CACHE=1` (or `true`/`yes`) to persist Tier B and
 per-CVE Tier C **decisions** under `.vlz/reachability-cache.json` in the scan root.
-Evidence locations (first-party file and line for advisory symbol matches) are
-recomputed on every scan so line numbers stay current; the persist cache stores
-reachability decisions only, not evidence paths.
+Tier C persist is write-only: decisions are recomputed every scan; only the
+written keys are updated for observability/debugging. Evidence locations
+(first-party file and line for advisory symbol matches) are recomputed on every
+scan so line numbers stay current; the persist cache stores reachability
+decisions only, not evidence paths.
 
 #### Symbol avoidance evidence (`best-available`)
 
@@ -1189,8 +1194,10 @@ proactively. See
 
 - **`GH_TOKEN` secret:** fine-grained or classic PAT with repo access and
   permission to bypass branch rulesets (for `gh pr merge --admin`).
-- **Commit signing secrets:** `ssh_key` (and optional `git_signing_key` /
-  `git_signing_key_passphrase`) so `commit.gpgsign` works on the VM.
+- **Commit signing secrets:** `ssh_key` and `ssh_key_pass` (plus
+  `git_signing_name` / `git_signing_email`) so `sign-setup.sh` can SSH-sign
+  commits. Re-run `.cursor/sign-setup.sh` if Cursor overwrote global
+  `user.signingkey` after boot.
 - **Auto-run allowlist:** approve `ship-pr.sh` and `make release-tag-*`
   patterns in Cursor Settings so Auto-review does not block each remote write.
 

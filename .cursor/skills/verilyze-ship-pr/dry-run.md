@@ -84,7 +84,7 @@ shows one merge per PR.
 
 1. Failure evidence posted before amend
 2. Fix applied; `git commit --amend -s` (signed)
-3. `${SHIP_PR_SH} force-push origin/<branch>:<sha>` with explicit lease
+3. `${SHIP_PR_SH} force-push <branch>:<sha>` with explicit lease
 4. CI green on amended SHA; merge
 
 **Verify:** Branch has one commit at merge time; no multi-commit-then-squash.

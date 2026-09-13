@@ -52,7 +52,7 @@ the first push, or before the first push of a queue slice.
 - Push with `${SHIP_PR_SH} force-push` tied to the known remote SHA:
 
 ```bash
-${SHIP_PR_SH} force-push origin/<branch>:<known-remote-sha>
+${SHIP_PR_SH} force-push <branch>:<known-remote-sha>
 ```
 
 - Do **not** obtain a green multi-commit tip and then rewrite it.

@@ -7,10 +7,9 @@ use std::path::PathBuf;
 use vlz_db::RUBYGEMS_ECOSYSTEM;
 use vlz_reachability_trait::{
     LineCommentStyle, ReachabilityAnalyzer, TierBContext, TierBDecision,
-    TierCDecision, TierCResult, line_code_for_symbol_match,
-    list_files_with_ext, note_tier_b_file_read_attempt,
-    push_reachability_evidence, qualified_symbol_in_code,
-    reachability_evidence_at_cap,
+    TierCResult, line_code_for_symbol_match, list_files_with_ext,
+    note_tier_b_file_read_attempt, push_reachability_evidence,
+    qualified_symbol_in_code, reachability_evidence_at_cap, tier_c_decision,
 };
 
 #[derive(Debug, Default)]
@@ -134,10 +133,10 @@ impl ReachabilityAnalyzer for RubyTierBAnalyzer {
         context: &TierBContext<'_>,
         advisory_symbols: &[String],
     ) -> TierCResult {
+        let files = ruby_files(context);
         let mut evidence = Vec::new();
-        let mut saw = false;
-        for path in ruby_files(context) {
-            let Ok(content) = std::fs::read_to_string(&path) else {
+        for path in &files {
+            let Ok(content) = std::fs::read_to_string(path) else {
                 continue;
             };
             for (index, line) in content.lines().enumerate() {
@@ -153,7 +152,6 @@ impl ReachabilityAnalyzer for RubyTierBAnalyzer {
                     if qualified_symbol_in_code(&code, symbol)
                         || package_is_required(symbol, &features)
                     {
-                        saw = true;
                         push_reachability_evidence(
                             &mut evidence,
                             path.clone(),
@@ -167,13 +165,12 @@ impl ReachabilityAnalyzer for RubyTierBAnalyzer {
                 }
             }
         }
-        let decision = if saw {
-            TierCDecision::Reachable
-        } else if context.package.name.len() < 2 {
-            TierCDecision::Unknown
-        } else {
-            TierCDecision::NotReachable
-        };
+        let decision = tier_c_decision(
+            !evidence.is_empty(),
+            !files.is_empty(),
+            false,
+            context.package.name.len() < 2,
+        );
         TierCResult { decision, evidence }
     }
 }
@@ -183,6 +180,7 @@ mod tests {
     use super::*;
     use std::collections::HashSet;
     use vlz_db::Package;
+    use vlz_reachability_trait::TierCDecision;
 
     #[test]
     fn extracts_require_relative_and_autoload() {
@@ -313,6 +311,28 @@ mod tests {
         let result = analyzer.analyze_tier_c(&context, &["rack".into()]);
         assert_eq!(result.decision, TierCDecision::Reachable);
         assert!(!result.evidence.is_empty());
+    }
+
+    #[test]
+    fn tier_c_empty_tree_is_unknown() {
+        let dir = tempfile::tempdir().unwrap();
+        let package = Package {
+            name: "rack".into(),
+            version: "2.2.8".into(),
+            ecosystem: Some(RUBYGEMS_ECOSYSTEM.into()),
+        };
+        let excludes = HashSet::new();
+        let context = TierBContext {
+            scan_root: dir.path(),
+            exclude_dir_names: &excludes,
+            package: &package,
+            language: "ruby",
+            manifest_paths: &[],
+        };
+        let result = RubyTierBAnalyzer::new()
+            .analyze_tier_c(&context, &["rack".into()]);
+        assert_eq!(result.decision, TierCDecision::Unknown);
+        assert!(result.evidence.is_empty());
     }
 
     #[test]
