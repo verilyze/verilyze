@@ -7,12 +7,14 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
 use vlz_db::PYPI_ECOSYSTEM;
+#[cfg(feature = "tier-d")]
+use vlz_reachability_trait::TierCDecision;
 use vlz_reachability_trait::{
     LineCommentStyle, ReachabilityAnalyzer, ReachabilityEvidence,
-    TierBContext, TierBDecision, TierCDecision, TierCResult,
-    line_code_for_symbol_match, list_files_with_ext,
-    note_tier_b_file_read_attempt, push_reachability_evidence,
-    qualified_symbol_in_code, reachability_evidence_at_cap, tier_c_decision,
+    TierBContext, TierBDecision, TierCResult, line_code_for_symbol_match,
+    list_files_with_ext, note_tier_b_file_read_attempt,
+    push_reachability_evidence, qualified_symbol_in_code,
+    reachability_evidence_at_cap, tier_c_decision,
 };
 
 #[derive(Debug, Default)]
@@ -437,6 +439,7 @@ fn scoped_roots(context: &TierBContext<'_>) -> Vec<PathBuf> {
 mod tests {
     use super::*;
     use std::path::PathBuf;
+    use vlz_reachability_trait::TierCDecision;
     #[cfg(feature = "perf-instrumentation")]
     use vlz_reachability_trait::measure_tier_b_counters;
 
