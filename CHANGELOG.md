@@ -12,6 +12,9 @@ Human-readable release notes for each version.
 
 ### Added
 
+- Java/Kotlin Tier C reachability (`best-available`): FQCN and import
+  heuristics, conservative `NotReachable`, and advisory-symbol evidence
+  for Maven coordinates (FR-032).
 - FR-043 folder trust for `vlz lsp`: config key `lsp_folder_trust`, env
   `VLZ_LSP_FOLDER_TRUST`, and `vlz lsp --folder-trust`. Trusted workspaces
   advertise **Apply upgrade**, which uses the same Remediator path as

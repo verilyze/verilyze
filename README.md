@@ -114,11 +114,13 @@ see which manifest(s) introduce each CVE when scanning directories with many
 nested manifests (e.g. monorepos).
 
 **Reachability:** Structured reports include per-CVE `reachable` as `true`,
-`false`, or unknown (`null`/omitted). Current releases use **Tier B** checks:
-direct import/reference evidence in your project source. This is a practical
-signal, not exploitability proof. If the tool cannot decide safely, it reports
-unknown. For maintainer-level tier definitions (Tier A-D) and decision rules,
-see [CONTRIBUTING.md](CONTRIBUTING.md).
+`false`, or unknown (`null`/omitted). Default mode uses **Tier B**
+import/reference checks in your project source. With
+`--reachability-mode best-available`, languages that support **Tier C**
+(including Java/Kotlin) may also match advisory symbols and emit first-party
+`evidence`. This is a practical signal, not exploitability proof. If the tool
+cannot decide safely, it reports unknown. For maintainer-level tier
+definitions (Tier A-D) and decision rules, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Installation
 
