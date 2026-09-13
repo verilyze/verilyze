@@ -12,7 +12,7 @@ use vlz_reachability_trait::{
     TierCDecision, TierCResult, line_code_for_symbol_match,
     list_files_with_ext, note_tier_b_file_read_attempt,
     push_reachability_evidence, qualified_symbol_in_code,
-    reachability_evidence_at_cap,
+    reachability_evidence_at_cap, scrub_c_style_comments,
 };
 
 use crate::coordinate::is_generic_artifact_id;
@@ -31,10 +31,14 @@ impl JavaTierBAnalyzer {
     }
 }
 
+/// Cached first-party Java/Kotlin sources for a scan scope.
+///
+/// `scrubbed_files` stores comment-scrubbed lines so Tier B FQCN scans and
+/// Tier C symbol scans do not re-read or re-scrub the same files per package.
 #[derive(Clone, Default)]
 struct JavaSourceIndex {
-    files: Vec<PathBuf>,
     imports: HashSet<String>,
+    scrubbed_files: Vec<(PathBuf, Vec<String>)>,
 }
 
 fn scoped_roots(context: &TierBContext<'_>) -> Vec<PathBuf> {
@@ -104,6 +108,14 @@ fn cache_key(context: &TierBContext<'_>) -> String {
     )
 }
 
+/// GroupId and its parent when multi-segment (e.g. Guava `com.google.guava`
+/// also matches Java packages under `com.google.common`).
+///
+/// Parent-prefix matching is intentional for Maven coordinates whose groupId
+/// does not equal the Java package root. Sibling libraries under the same
+/// parent (e.g. Gson vs Guava) can share that prefix; prefer Unknown over a
+/// false NotReachable when that ambiguity matters, but keep Reachable on
+/// parent matches so Guava-style packages remain detectable.
 fn group_import_prefixes(group: &str) -> Vec<String> {
     let mut out = vec![group.to_string()];
     if let Some(idx) = group.rfind('.') {
@@ -135,6 +147,39 @@ fn java_name_in_code(code: &str, name: &str) -> bool {
             return true;
         }
         start = idx + name.len().max(1);
+    }
+    false
+}
+
+/// True when `segment` appears as a dotted-name component (not a bare ident).
+///
+/// Matches plan language: artifact segments inside FQCNs such as
+/// `org.junit.Test`, not local variables named like the artifactId.
+fn qualified_segment_in_code(code: &str, segment: &str) -> bool {
+    if segment.is_empty() {
+        return false;
+    }
+    let mut start = 0usize;
+    while let Some(pos) = code[start..].find(segment) {
+        let idx = start + pos;
+        let before = if idx == 0 {
+            None
+        } else {
+            Some(code.as_bytes()[idx - 1])
+        };
+        let after_idx = idx + segment.len();
+        let after = if after_idx >= code.len() {
+            None
+        } else {
+            Some(code.as_bytes()[after_idx])
+        };
+        let before_ok = before.is_none_or(|b| !is_java_id_part(b));
+        let after_ok = after.is_none_or(|b| !is_java_id_part(b));
+        let dotted = before == Some(b'.') || after == Some(b'.');
+        if before_ok && after_ok && dotted {
+            return true;
+        }
+        start = idx + segment.len().max(1);
     }
     false
 }
@@ -173,6 +218,7 @@ fn import_matches_package(import_path: &str, name: &str) -> bool {
             return true;
         }
     }
+    // Import paths are already qualified; artifact-as-segment is safe here.
     if !is_generic_artifact_id(artifact) {
         let segs: Vec<&str> = import_path.split('.').collect();
         if segs.contains(&artifact) {
@@ -191,7 +237,9 @@ fn code_references_package(code: &str, name: &str) -> bool {
             return true;
         }
     }
-    if !is_generic_artifact_id(artifact) && java_name_in_code(code, artifact) {
+    if !is_generic_artifact_id(artifact)
+        && qualified_segment_in_code(code, artifact)
+    {
         return true;
     }
     false
@@ -204,42 +252,22 @@ fn package_decision_ambiguous(name: &str) -> bool {
     !group.contains('.') || is_generic_artifact_id(artifact)
 }
 
-fn strip_block_comments(content: &str) -> String {
-    let mut out = String::with_capacity(content.len());
-    let mut chars = content.chars().peekable();
-    let mut in_block = false;
-    while let Some(c) = chars.next() {
-        if in_block {
-            if c == '*' && chars.peek() == Some(&'/') {
-                chars.next();
-                out.push(' ');
-                out.push(' ');
-                in_block = false;
-            } else if c == '\n' {
-                out.push('\n');
-            } else {
-                out.push(' ');
-            }
-            continue;
-        }
-        if c == '/' && chars.peek() == Some(&'*') {
-            chars.next();
-            out.push(' ');
-            out.push(' ');
-            in_block = true;
-            continue;
-        }
-        out.push(c);
-    }
-    out
+fn scrubbed_code_lines(content: &str) -> Vec<String> {
+    scrub_c_style_comments(content)
+        .lines()
+        .map(|line| {
+            line_code_for_symbol_match(line, LineCommentStyle::SlashSlash)
+        })
+        .collect()
 }
 
 fn collect_source_index(context: &TierBContext<'_>) -> JavaSourceIndex {
     let excludes = merged_excludes(context);
     let files = list_java_kt_files(context, &excludes);
     let mut imports = HashSet::new();
-    for path in &files {
-        let content = match std::fs::read_to_string(path) {
+    let mut scrubbed_files = Vec::new();
+    for path in files {
+        let content = match std::fs::read_to_string(&path) {
             Ok(c) => {
                 note_tier_b_file_read_attempt(true);
                 c
@@ -249,16 +277,18 @@ fn collect_source_index(context: &TierBContext<'_>) -> JavaSourceIndex {
                 continue;
             }
         };
-        let stripped = strip_block_comments(&content);
-        for line in stripped.lines() {
-            let code =
-                line_code_for_symbol_match(line, LineCommentStyle::SlashSlash);
-            if let Some(import_path) = extract_import_path(&code) {
+        let lines = scrubbed_code_lines(&content);
+        for code in &lines {
+            if let Some(import_path) = extract_import_path(code) {
                 imports.insert(import_path);
             }
         }
+        scrubbed_files.push((path, lines));
     }
-    JavaSourceIndex { files, imports }
+    JavaSourceIndex {
+        imports,
+        scrubbed_files,
+    }
 }
 
 fn cached_source_index(context: &TierBContext<'_>) -> JavaSourceIndex {
@@ -283,16 +313,13 @@ fn package_imported(imports: &HashSet<String>, name: &str) -> bool {
     imports.iter().any(|imp| import_matches_package(imp, name))
 }
 
-fn package_used_in_files(files: &[PathBuf], name: &str) -> bool {
-    for path in files {
-        let Ok(content) = std::fs::read_to_string(path) else {
-            continue;
-        };
-        let stripped = strip_block_comments(&content);
-        for line in stripped.lines() {
-            let code =
-                line_code_for_symbol_match(line, LineCommentStyle::SlashSlash);
-            if code_references_package(&code, name) {
+fn package_used_in_scrubbed(
+    scrubbed_files: &[(PathBuf, Vec<String>)],
+    name: &str,
+) -> bool {
+    for (_path, lines) in scrubbed_files {
+        for code in lines {
+            if code_references_package(code, name) {
                 return true;
             }
         }
@@ -304,11 +331,11 @@ fn tier_b_decision_for(index: &JavaSourceIndex, name: &str) -> TierBDecision {
     if name.is_empty() {
         return TierBDecision::Unknown;
     }
-    if index.files.is_empty() {
+    if index.scrubbed_files.is_empty() {
         return TierBDecision::Unknown;
     }
     if package_imported(&index.imports, name)
-        || package_used_in_files(&index.files, name)
+        || package_used_in_scrubbed(&index.scrubbed_files, name)
     {
         return TierBDecision::Reachable;
     }
@@ -319,35 +346,32 @@ fn tier_b_decision_for(index: &JavaSourceIndex, name: &str) -> TierBDecision {
     }
 }
 
+/// True when an import path is evidence for this advisory symbol (not merely
+/// the Maven package). Avoids attributing every symbol to a package import.
+fn import_matches_symbol(import_path: &str, symbol: &str) -> bool {
+    import_path == symbol
+        || symbol.starts_with(&format!("{import_path}."))
+        || java_name_in_code(import_path, symbol)
+}
+
 fn tier_c_result_for(
     index: &JavaSourceIndex,
     name: &str,
     advisory_symbols: &[String],
 ) -> TierCResult {
-    if index.files.is_empty() {
+    if index.scrubbed_files.is_empty() {
         return TierCResult::unknown();
     }
     let mut evidence = Vec::new();
     let mut saw = false;
-    for path in &index.files {
-        let Ok(content) = std::fs::read_to_string(path) else {
-            continue;
-        };
-        let stripped = strip_block_comments(&content);
-        for (idx, line) in stripped.lines().enumerate() {
-            let code =
-                line_code_for_symbol_match(line, LineCommentStyle::SlashSlash);
+    for (path, lines) in &index.scrubbed_files {
+        for (idx, code) in lines.iter().enumerate() {
             for sym in advisory_symbols {
-                let import_hit =
-                    extract_import_path(&code).is_some_and(|imp| {
-                        import_matches_package(&imp, name)
-                            || java_name_in_code(&imp, sym)
-                            || imp == *sym
-                    });
-                if qualified_symbol_in_code(&code, sym)
-                    || java_name_in_code(&code, sym)
-                    || import_hit
-                {
+                let symbol_in_code = qualified_symbol_in_code(code, sym)
+                    || java_name_in_code(code, sym);
+                let symbol_import = extract_import_path(code)
+                    .is_some_and(|imp| import_matches_symbol(&imp, sym));
+                if symbol_in_code || symbol_import {
                     saw = true;
                     push_reachability_evidence(
                         &mut evidence,
@@ -729,5 +753,107 @@ mod tests {
         let manifests = Box::leak(Box::new(Vec::<PathBuf>::new()));
         let c = ctx(dir.path(), &pkg, manifests, empty);
         assert!(cache_key(&c).contains(".gradle"));
+    }
+
+    #[test]
+    fn bare_artifact_identifier_is_not_enough_for_reachable() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("App.java"),
+            "class App {\n  String widget = \"local\";\n}\n",
+        )
+        .unwrap();
+        let manifest = dir.path().join("pom.xml");
+        std::fs::write(&manifest, "<project/>").unwrap();
+        let pkg = Package {
+            name: "com.example.widget:widget".into(),
+            version: "1.0".into(),
+            ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+        };
+        let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
+        let manifests = Box::leak(Box::new(vec![manifest.clone()]));
+        let analyzer = JavaTierBAnalyzer::new();
+        let c = ctx(dir.path(), &pkg, manifests, exclude);
+        assert_eq!(analyzer.analyze_tier_b(&c), TierBDecision::NotReachable);
+    }
+
+    #[test]
+    fn artifact_segment_in_fqcn_is_reachable() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("App.java"),
+            "class App {\n  void m() {\n    org.junit.Test t = null;\n  }\n}\n",
+        )
+        .unwrap();
+        let manifest = dir.path().join("pom.xml");
+        std::fs::write(&manifest, "<project/>").unwrap();
+        let pkg = Package {
+            name: "org.junit:junit".into(),
+            version: "4.13.2".into(),
+            ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+        };
+        let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
+        let manifests = Box::leak(Box::new(vec![manifest.clone()]));
+        let analyzer = JavaTierBAnalyzer::new();
+        let c = ctx(dir.path(), &pkg, manifests, exclude);
+        assert_eq!(analyzer.analyze_tier_b(&c), TierBDecision::Reachable);
+    }
+
+    #[test]
+    fn string_literal_block_marker_does_not_hide_import() {
+        let dir = tempfile::tempdir().unwrap();
+        // Import after a line-comment decoy that contains /* so naive
+        // block strippers would swallow the real import; string "/*" must
+        // also not open a block comment.
+        std::fs::write(
+            dir.path().join("App.java"),
+            "class App {\n  String a = \"/*\";\n}\n// decoy /*\nimport com.example.widget.Widget;\n",
+        )
+        .unwrap();
+        let manifest = dir.path().join("pom.xml");
+        std::fs::write(&manifest, "<project/>").unwrap();
+        let pkg = Package {
+            name: "com.example.widget:widget".into(),
+            version: "1.0".into(),
+            ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+        };
+        let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
+        let manifests = Box::leak(Box::new(vec![manifest.clone()]));
+        let analyzer = JavaTierBAnalyzer::new();
+        let c = ctx(dir.path(), &pkg, manifests, exclude);
+        assert_eq!(analyzer.analyze_tier_b(&c), TierBDecision::Reachable);
+    }
+
+    #[test]
+    fn tier_c_package_import_alone_does_not_attribute_unrelated_symbol() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("App.java"),
+            "import com.example.widget.Widget;\nclass App {}\n",
+        )
+        .unwrap();
+        let manifest = dir.path().join("pom.xml");
+        std::fs::write(&manifest, "<project/>").unwrap();
+        let pkg = Package {
+            name: "com.example.widget:widget".into(),
+            version: "1.0".into(),
+            ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+        };
+        let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
+        let manifests = Box::leak(Box::new(vec![manifest.clone()]));
+        let analyzer = JavaTierBAnalyzer::new();
+        let c = ctx(dir.path(), &pkg, manifests, exclude);
+        // Class import is evidence for that type symbol...
+        let hit = analyzer
+            .analyze_tier_c(&c, &["com.example.widget.Widget".to_string()]);
+        assert_eq!(hit.decision, TierCDecision::Reachable);
+        assert_eq!(hit.evidence.len(), 1);
+        // ...but not for an unrelated method symbol on the same package.
+        let miss = analyzer.analyze_tier_c(
+            &c,
+            &["com.example.widget.Other.vulnerable".to_string()],
+        );
+        assert_eq!(miss.decision, TierCDecision::NotReachable);
+        assert!(miss.evidence.is_empty());
     }
 }
