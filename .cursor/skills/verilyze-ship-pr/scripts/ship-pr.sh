@@ -51,9 +51,25 @@ require_not_main_branch() {
   fi
 }
 
+# Re-assert owner SSH signing when Cursor secrets are present. Boot
+# `sign-setup.sh` can be overwritten later by Cursor global git config
+# (Cursor-managed key -> GitHub `unknown_key`). Local + global re-pin here.
+ensure_commit_signing() {
+  local root=""
+  root="$(git rev-parse --show-toplevel)"
+  if [[ -z "${ssh_key:-}" ]]; then
+    return 0
+  fi
+  if [[ ! -x "${root}/.cursor/sign-setup.sh" ]]; then
+    die "ssh_key secret present but ${root}/.cursor/sign-setup.sh missing"
+  fi
+  bash "${root}/.cursor/sign-setup.sh"
+}
+
 prepare_git_context() {
   enter_git_toplevel
   require_not_main_branch
+  ensure_commit_signing
 }
 
 require_open_pr() {

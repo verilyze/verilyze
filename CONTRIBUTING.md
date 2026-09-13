@@ -1194,8 +1194,10 @@ proactively. See
 
 - **`GH_TOKEN` secret:** fine-grained or classic PAT with repo access and
   permission to bypass branch rulesets (for `gh pr merge --admin`).
-- **Commit signing secrets:** `ssh_key` (and optional `git_signing_key` /
-  `git_signing_key_passphrase`) so `commit.gpgsign` works on the VM.
+- **Commit signing secrets:** `ssh_key` and `ssh_key_pass` (plus
+  `git_signing_name` / `git_signing_email`) so `sign-setup.sh` can SSH-sign
+  commits. Re-run `.cursor/sign-setup.sh` if Cursor overwrote global
+  `user.signingkey` after boot.
 - **Auto-run allowlist:** approve `ship-pr.sh` and `make release-tag-*`
   patterns in Cursor Settings so Auto-review does not block each remote write.
 
