@@ -214,7 +214,8 @@ ${SHIP_PR_SH} force-push
 With explicit lease after amend:
 
 ```bash
-${SHIP_PR_SH} force-push origin/<branch>:<known-remote-sha>
+${SHIP_PR_SH} force-push <branch>:<known-remote-sha>
+# origin/<branch>:<sha> is also accepted (origin/ is stripped)
 ```
 
 Do **not** inline `git push` or `git push --force-with-lease`.

@@ -18,9 +18,12 @@ usage() {
   cat >&2 <<'USAGE'
 usage:
   ship-pr.sh push
-  ship-pr.sh force-push [origin/<branch>:<sha>]
+  ship-pr.sh force-push [<branch>:<sha>]
   ship-pr.sh merge
   ship-pr.sh create-pr --title <title> --body-file <path>
+
+  force-push lease may also be written as origin/<branch>:<sha>;
+  the origin/ prefix is stripped so git protects the remote branch.
 USAGE
   exit 2
 }
@@ -90,7 +93,13 @@ cmd_push() {
 cmd_force_push() {
   prepare_git_context
   local lease="${1:-}"
+  # git --force-with-lease=<ref>:<expect> protects the remote branch name.
+  # Docs historically wrote origin/<branch>:<sha>; that names a remote-tracking
+  # ref, so the lease does not cover the push and git rejects as non-FF.
   if [[ -n "${lease}" ]]; then
+    if [[ "${lease}" == origin/*:* ]]; then
+      lease="${lease#origin/}"
+    fi
     git push --force-with-lease="${lease}" origin HEAD
   else
     git push --force-with-lease
