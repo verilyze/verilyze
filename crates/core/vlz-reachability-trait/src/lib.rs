@@ -8,9 +8,11 @@ mod evidence_match;
 
 pub use evidence_match::{
     LineCommentStyle, MAX_ADVISORY_SYMBOL_LEN, MAX_ADVISORY_SYMBOLS,
-    cap_reachability_evidence, line_code_for_symbol_match,
-    qualified_symbol_in_code, reachability_evidence_at_cap,
-    sanitize_advisory_symbols, scrub_c_style_comments,
+    advisory_has_function_level_symbols, cap_reachability_evidence,
+    is_function_level_advisory_symbol, is_usable_advisory_symbol,
+    line_code_for_symbol_match, qualified_symbol_in_code,
+    reachability_evidence_at_cap, sanitize_advisory_symbols,
+    scrub_c_style_comments, tier_c_decision,
 };
 
 #[cfg(feature = "perf-instrumentation")]

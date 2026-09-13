@@ -255,9 +255,11 @@ world-writable bits. Do not use `0666` for DB files. Prefer XDG paths
 (or config/env equivalent). The default `tier-b` mode reports package-level
 reachability only.
 
-**Remediation:** Run `vlz scan --reachability-mode best-available`. Evidence
+**Remediation:** Run `vlz scan --reachability-mode best-available` (recommended
+for CI when you want symbol-level signals; default remains `tier-b`). Evidence
 appears only when the CVE provider lists advisory symbols (mostly OSV-shaped
-data) and your first-party source references them.
+data) and your first-party source references them. Findings stay listed even
+when `reachable` is `false`.
 
 ### What does `symbol_usage: not_found` mean?
 

@@ -9,10 +9,10 @@ use vlz_db::CRATES_IO_ECOSYSTEM;
 
 use vlz_reachability_trait::{
     LineCommentStyle, ReachabilityAnalyzer, ReachabilityEvidence,
-    TierBContext, TierBDecision, TierCDecision, TierCResult,
-    line_code_for_symbol_match, list_files_with_ext,
-    note_tier_b_file_read_attempt, push_reachability_evidence,
-    qualified_symbol_in_code, reachability_evidence_at_cap,
+    TierBContext, TierBDecision, TierCResult, line_code_for_symbol_match,
+    list_files_with_ext, note_tier_b_file_read_attempt,
+    push_reachability_evidence, qualified_symbol_in_code,
+    reachability_evidence_at_cap, tier_c_decision,
 };
 
 #[derive(Debug, Default)]
@@ -167,7 +167,12 @@ fn rust_use_path_from_part(part: &str) -> Option<String> {
     if part.is_empty() {
         return None;
     }
-    let path = part.split(" as ").next()?.trim();
+    let path = part
+        .split(" as ")
+        .next()?
+        .trim()
+        .trim_end_matches(';')
+        .trim();
     if path.is_empty()
         || skip_first_segment(path.split("::").next().unwrap_or(""))
     {
@@ -192,6 +197,31 @@ fn rust_symbol_matches_use_prefixes(
         if let Some((sym_mod, _)) = norm_sym.rsplit_once("::")
             && (norm_prefix == sym_mod
                 || norm_prefix.starts_with(&format!("{sym_mod}::")))
+        {
+            return true;
+        }
+    }
+    false
+}
+
+/// Use-line evidence requires the imported path to cover the symbol module,
+/// not merely the crate root (function-vs-module rule).
+fn rust_use_line_covers_symbol(
+    sym: &str,
+    line_prefixes: &HashSet<String>,
+) -> bool {
+    let norm_sym = normalize_crate_name(sym);
+    let sym_mod = norm_sym.rsplit_once("::").map(|(m, _)| m);
+    for prefix in line_prefixes {
+        let norm_prefix = normalize_crate_name(prefix);
+        if norm_sym == norm_prefix
+            || norm_prefix.starts_with(&format!("{norm_sym}::"))
+        {
+            return true;
+        }
+        if let Some(module) = sym_mod
+            && (norm_prefix == module
+                || norm_prefix.starts_with(&format!("{module}::")))
         {
             return true;
         }
@@ -279,7 +309,7 @@ fn rust_line_has_symbol_evidence(
         return false;
     }
     if trimmed.starts_with("use ") || trimmed.starts_with("extern crate ") {
-        return rust_symbol_matches_use_prefixes(sym, line_prefixes);
+        return rust_use_line_covers_symbol(sym, line_prefixes);
     }
     let code =
         line_code_for_symbol_match(trimmed, LineCommentStyle::SlashSlash);
@@ -321,21 +351,18 @@ fn tier_c_result_for_symbols(
     advisory_symbols: &[String],
 ) -> TierCResult {
     let prefixes = cached_rust_use_prefixes(context);
-    if prefixes.is_empty() {
-        return TierCResult::unknown();
-    }
+    let sources_present = !prefixes.is_empty();
     let evidence = collect_rust_symbol_evidence(context, advisory_symbols);
-    let decision = if !evidence.is_empty()
-        || advisory_symbols
+    let soft_hit = sources_present
+        && advisory_symbols
             .iter()
-            .any(|sym| rust_symbol_matches_use_prefixes(sym, &prefixes))
-    {
-        TierCDecision::Reachable
-    } else if rust_name_allows_confident_absence(&context.package.name) {
-        TierCDecision::NotReachable
-    } else {
-        TierCDecision::Unknown
-    };
+            .any(|sym| rust_symbol_matches_use_prefixes(sym, &prefixes));
+    let decision = tier_c_decision(
+        !evidence.is_empty(),
+        sources_present,
+        soft_hit,
+        !rust_name_allows_confident_absence(&context.package.name),
+    );
     TierCResult { decision, evidence }
 }
 
@@ -439,6 +466,7 @@ fn scoped_roots(context: &TierBContext<'_>) -> Vec<PathBuf> {
 mod tests {
     use super::*;
     use std::path::PathBuf;
+    use vlz_reachability_trait::TierCDecision;
     #[cfg(feature = "perf-instrumentation")]
     use vlz_reachability_trait::measure_tier_b_counters;
 
@@ -649,12 +677,24 @@ mod tests {
             .expect("write");
         let analyzer = RustTierBAnalyzer::new();
         let ctx = context_for(dir.path(), "http");
-        assert_eq!(
-            analyzer
-                .analyze_tier_c(&ctx, &["http::a::vuln".to_string()])
-                .decision,
-            TierCDecision::Reachable
-        );
+        let result =
+            analyzer.analyze_tier_c(&ctx, &["http::a::vuln".to_string()]);
+        assert_eq!(result.decision, TierCDecision::Reachable);
+        assert!(!result.evidence.is_empty());
+    }
+
+    #[test]
+    fn analyze_tier_c_unknown_for_crate_root_import_without_symbol_evidence() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir_all(dir.path().join("src")).expect("mkdir");
+        std::fs::write(dir.path().join("src/main.rs"), "use http;\n")
+            .expect("write");
+        let analyzer = RustTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "http");
+        let result =
+            analyzer.analyze_tier_c(&ctx, &["http::a::vuln".to_string()]);
+        assert_eq!(result.decision, TierCDecision::Unknown);
+        assert!(result.evidence.is_empty());
     }
 
     #[test]

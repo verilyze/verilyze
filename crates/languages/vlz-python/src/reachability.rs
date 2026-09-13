@@ -12,7 +12,7 @@ use vlz_reachability_trait::{
     TierBContext, TierBDecision, TierCDecision, TierCResult,
     line_code_for_symbol_match, list_files_with_ext,
     note_tier_b_file_read_attempt, push_reachability_evidence,
-    qualified_symbol_in_code, reachability_evidence_at_cap,
+    qualified_symbol_in_code, reachability_evidence_at_cap, tier_c_decision,
 };
 
 #[derive(Debug, Default)]
@@ -251,21 +251,18 @@ fn tier_c_result_for_symbols(
     advisory_symbols: &[String],
 ) -> TierCResult {
     let roots = cached_python_import_roots(context);
-    if roots.is_empty() {
-        return TierCResult::unknown();
-    }
+    let sources_present = !roots.is_empty();
     let evidence = collect_python_symbol_evidence(context, advisory_symbols);
-    let decision = if !evidence.is_empty()
-        || advisory_symbols
+    let soft_hit = sources_present
+        && advisory_symbols
             .iter()
-            .any(|sym| python_symbol_matches_import_roots(sym, &roots))
-    {
-        TierCDecision::Reachable
-    } else if pypi_name_is_ambiguous(&context.package.name) {
-        TierCDecision::Unknown
-    } else {
-        TierCDecision::NotReachable
-    };
+            .any(|sym| python_symbol_matches_import_roots(sym, &roots));
+    let decision = tier_c_decision(
+        !evidence.is_empty(),
+        sources_present,
+        soft_hit,
+        pypi_name_is_ambiguous(&context.package.name),
+    );
     TierCResult { decision, evidence }
 }
 
@@ -604,7 +601,7 @@ mod tests {
     }
 
     #[test]
-    fn analyze_tier_c_reachable_for_matching_module_prefix() {
+    fn analyze_tier_c_unknown_for_matching_module_prefix_without_evidence() {
         let dir = tempfile::tempdir().expect("tempdir");
         std::fs::write(dir.path().join("app.py"), "import pkg.submod\n")
             .expect("write");
@@ -614,7 +611,7 @@ mod tests {
             analyzer
                 .analyze_tier_c(&ctx, &["pkg.submod.vuln_fn".to_string()])
                 .decision,
-            TierCDecision::Reachable
+            TierCDecision::Unknown
         );
     }
 
@@ -634,7 +631,7 @@ mod tests {
     }
 
     #[test]
-    fn analyze_tier_c_reachable_without_evidence_for_parent_import_only() {
+    fn analyze_tier_c_unknown_without_evidence_for_parent_import_only() {
         let dir = tempfile::tempdir().expect("tempdir");
         std::fs::write(dir.path().join("app.py"), "import pkg.submod\n")
             .expect("write");
@@ -642,7 +639,7 @@ mod tests {
         let ctx = context_for(dir.path(), "pkg");
         let result =
             analyzer.analyze_tier_c(&ctx, &["pkg.submod.vuln_fn".to_string()]);
-        assert_eq!(result.decision, TierCDecision::Reachable);
+        assert_eq!(result.decision, TierCDecision::Unknown);
         assert!(result.evidence.is_empty());
     }
 

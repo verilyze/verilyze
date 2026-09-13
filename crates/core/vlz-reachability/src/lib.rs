@@ -123,8 +123,8 @@ fn decision_cache_path(scan_root: &std::path::Path) -> PathBuf {
     scan_root.join(".vlz").join("reachability-cache.json")
 }
 
-/// Bump when persisted reachability cache key shape changes (Tier C per-CVE keys).
-pub const PERSISTED_REACHABILITY_CACHE_VERSION: &str = "2";
+/// Bump when persisted reachability cache key shape or Tier C policy changes.
+pub const PERSISTED_REACHABILITY_CACHE_VERSION: &str = "3";
 
 /// Persisted Tier B decision key (package-level).
 pub fn tier_b_persisted_cache_key(

@@ -118,7 +118,10 @@ nested manifests (e.g. monorepos).
 import/reference checks in your project source. With
 `--reachability-mode best-available`, languages that support **Tier C**
 (including Java/Kotlin) may also match advisory symbols and emit first-party
-`evidence`. This is a practical signal, not exploitability proof. If the tool
+`evidence`. Prefer `best-available` in CI when you want per-CVE symbol
+signals; keep the default `tier-b` for cheaper package-level scans. Findings
+stay listed regardless of `reachable` -- `false` is a heuristic, not a
+suppress. This is a practical signal, not exploitability proof. If the tool
 cannot decide safely, it reports unknown. For maintainer-level tier
 definitions (Tier A-D) and decision rules, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -222,8 +225,8 @@ uses the installed man page. Source: [man/vlz.1](man/vlz.1).
 `--cache-ttl-secs SECS`, `--offline`, `--benchmark`, `--min-score`, `--min-count`,
 `--exit-code` (alias `--exit-code-on-cve`), `--fp-exit-code`, `--cache-db`, `--ignore-db`,
 `--reachability-mode off|tier-b|best-available` (`best-available` enables Tier C
-where supported). `VLZ_REACHABILITY_PERSIST_CACHE=1` persists reachability
-decisions under `.vlz/` in the scan root.
+where supported; default remains `tier-b`). `VLZ_REACHABILITY_PERSIST_CACHE=1`
+persists reachability decisions under `.vlz/` in the scan root.
 
 ### Project-scoped false-positives
 

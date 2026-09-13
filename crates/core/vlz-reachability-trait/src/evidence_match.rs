@@ -4,7 +4,9 @@
 
 //! Shared advisory-symbol sanitization and line matching for Tier C evidence.
 
-use crate::{MAX_REACHABILITY_EVIDENCE_PER_CVE, ReachabilityEvidence};
+use crate::{
+    MAX_REACHABILITY_EVIDENCE_PER_CVE, ReachabilityEvidence, TierCDecision,
+};
 
 /// Maximum advisory symbols accepted per CVE from provider metadata.
 pub const MAX_ADVISORY_SYMBOLS: usize = 64;
@@ -19,14 +21,45 @@ pub enum LineCommentStyle {
     SlashSlash,
 }
 
-/// Drop empty, whitespace-only, or oversized symbols; cap count (provider input).
+/// True when `sym` is usable as a first-party consumer match hint.
+///
+/// Rejects empty/oversized strings, URLs, and absolute filesystem paths.
+/// Relative import paths (including Go `net/http`) remain accepted.
+pub fn is_usable_advisory_symbol(sym: &str) -> bool {
+    let trimmed = sym.trim();
+    if trimmed.is_empty() || trimmed.len() > MAX_ADVISORY_SYMBOL_LEN {
+        return false;
+    }
+    let lower = trimmed.to_ascii_lowercase();
+    if lower.starts_with("http://")
+        || lower.starts_with("https://")
+        || lower.starts_with("ftp://")
+    {
+        return false;
+    }
+    if trimmed.starts_with('/') {
+        return false;
+    }
+    let bytes = trimmed.as_bytes();
+    if bytes.len() >= 3
+        && bytes[0].is_ascii_alphabetic()
+        && bytes[1] == b':'
+        && (bytes[2] == b'\\' || bytes[2] == b'/')
+    {
+        return false;
+    }
+    true
+}
+
+/// Drop empty, whitespace-only, oversized, URL, or absolute-path symbols;
+/// dedupe while preserving provider order; cap count.
 pub fn sanitize_advisory_symbols(symbols: &[String]) -> Vec<String> {
     let mut out = Vec::new();
     for sym in symbols {
-        let trimmed = sym.trim();
-        if trimmed.is_empty() || trimmed.len() > MAX_ADVISORY_SYMBOL_LEN {
+        if !is_usable_advisory_symbol(sym) {
             continue;
         }
+        let trimmed = sym.trim();
         if out.iter().any(|s| s == trimmed) {
             continue;
         }
@@ -36,6 +69,52 @@ pub fn sanitize_advisory_symbols(symbols: &[String]) -> Vec<String> {
         }
     }
     out
+}
+
+/// True when `sym` looks like a function/method path rather than a bare
+/// package, module, or Go import path.
+pub fn is_function_level_advisory_symbol(sym: &str) -> bool {
+    let s = sym.trim();
+    if s.is_empty() {
+        return false;
+    }
+    // Go-style import paths (`net/http`) are module-level.
+    if s.contains('/') && !s.contains("::") && !s.contains('.') {
+        return false;
+    }
+    if s.contains("::") {
+        return s.split("::").count() >= 2;
+    }
+    if s.contains('.') {
+        return s.split('.').count() >= 2;
+    }
+    false
+}
+
+/// True when any advisory symbol is function/method-level.
+pub fn advisory_has_function_level_symbols(symbols: &[String]) -> bool {
+    symbols.iter().any(|s| is_function_level_advisory_symbol(s))
+}
+
+/// Shared Tier C decision policy (FR-032).
+///
+/// - `Reachable` only when first-party evidence exists
+/// - Empty/missing sources → `Unknown`
+/// - Soft hit (e.g. parent import without symbol evidence) → `Unknown`
+/// - Otherwise `NotReachable` only when the package name is unambiguous
+pub fn tier_c_decision(
+    evidence_non_empty: bool,
+    sources_present: bool,
+    soft_hit: bool,
+    package_ambiguous: bool,
+) -> TierCDecision {
+    if evidence_non_empty {
+        return TierCDecision::Reachable;
+    }
+    if !sources_present || soft_hit || package_ambiguous {
+        return TierCDecision::Unknown;
+    }
+    TierCDecision::NotReachable
 }
 
 /// True when no more evidence sites should be collected for one CVE.
@@ -274,6 +353,54 @@ mod tests {
         let input: Vec<String> = (0..100).map(|i| format!("sym{i}")).collect();
         let out = sanitize_advisory_symbols(&input);
         assert_eq!(out.len(), MAX_ADVISORY_SYMBOLS);
+    }
+
+    #[test]
+    fn sanitize_rejects_urls_and_absolute_paths_keeps_go_import() {
+        let out = sanitize_advisory_symbols(&[
+            "https://example.com/advisory".to_string(),
+            "/usr/local/lib/pkg.py".to_string(),
+            r"C:\Windows\system32".to_string(),
+            "net/http".to_string(),
+            "pkg.module.fn".to_string(),
+        ]);
+        assert_eq!(
+            out,
+            vec!["net/http".to_string(), "pkg.module.fn".to_string()]
+        );
+    }
+
+    #[test]
+    fn function_level_symbol_detection() {
+        assert!(is_function_level_advisory_symbol("pkg.submod.vuln_fn"));
+        assert!(is_function_level_advisory_symbol("http::a::vuln"));
+        assert!(!is_function_level_advisory_symbol("net/http"));
+        assert!(!is_function_level_advisory_symbol("lodash"));
+        assert!(advisory_has_function_level_symbols(&["pkg.fn".to_string()]));
+    }
+
+    #[test]
+    fn tier_c_decision_requires_evidence_for_reachable() {
+        assert_eq!(
+            tier_c_decision(true, true, false, false),
+            TierCDecision::Reachable
+        );
+        assert_eq!(
+            tier_c_decision(false, true, true, false),
+            TierCDecision::Unknown
+        );
+        assert_eq!(
+            tier_c_decision(false, false, false, false),
+            TierCDecision::Unknown
+        );
+        assert_eq!(
+            tier_c_decision(false, true, false, false),
+            TierCDecision::NotReachable
+        );
+        assert_eq!(
+            tier_c_decision(false, true, false, true),
+            TierCDecision::Unknown
+        );
     }
 
     #[test]

@@ -9,10 +9,9 @@ use std::sync::{Mutex, OnceLock};
 use vlz_db::NPM_ECOSYSTEM;
 use vlz_reachability_trait::{
     LineCommentStyle, ReachabilityAnalyzer, TierBContext, TierBDecision,
-    TierCDecision, TierCResult, line_code_for_symbol_match,
-    list_files_with_ext, note_tier_b_file_read_attempt,
-    push_reachability_evidence, qualified_symbol_in_code,
-    reachability_evidence_at_cap,
+    TierCResult, line_code_for_symbol_match, list_files_with_ext,
+    note_tier_b_file_read_attempt, push_reachability_evidence,
+    qualified_symbol_in_code, reachability_evidence_at_cap, tier_c_decision,
 };
 
 /// Source extensions for JavaScript and TypeScript.
@@ -220,16 +219,9 @@ impl ReachabilityAnalyzer for JsTierBAnalyzer {
         context: &TierBContext<'_>,
         advisory_symbols: &[String],
     ) -> TierCResult {
-        let imports = cached_imports(context);
         let files = list_js_ts_files(context);
         let mut evidence = Vec::new();
-        let mut saw = false;
         for sym in advisory_symbols {
-            if let Some(pkg) = package_name_from_specifier(sym)
-                && imports.contains(&pkg)
-            {
-                saw = true;
-            }
             for path in &files {
                 let Ok(content) = std::fs::read_to_string(path) else {
                     continue;
@@ -246,7 +238,6 @@ impl ReachabilityAnalyzer for JsTierBAnalyzer {
                                     == Some(sym.as_str())
                         })
                     {
-                        saw = true;
                         push_reachability_evidence(
                             &mut evidence,
                             path.clone(),
@@ -260,13 +251,12 @@ impl ReachabilityAnalyzer for JsTierBAnalyzer {
                 }
             }
         }
-        let decision = if saw {
-            TierCDecision::Reachable
-        } else if package_ambiguous(&context.package.name) {
-            TierCDecision::Unknown
-        } else {
-            TierCDecision::NotReachable
-        };
+        let decision = tier_c_decision(
+            !evidence.is_empty(),
+            !files.is_empty(),
+            false,
+            package_ambiguous(&context.package.name),
+        );
         TierCResult { decision, evidence }
     }
 }
@@ -275,6 +265,7 @@ impl ReachabilityAnalyzer for JsTierBAnalyzer {
 mod tests {
     use super::*;
     use vlz_db::Package;
+    use vlz_reachability_trait::TierCDecision;
 
     #[test]
     fn package_name_from_specifier_scoped_and_subpath() {
@@ -545,6 +536,30 @@ mod tests {
         };
         let amb = analyzer.analyze_tier_c(&ctx_short, &["zzz".into()]);
         assert_eq!(amb.decision, TierCDecision::Unknown);
+    }
+
+    #[test]
+    fn tier_c_empty_tree_is_unknown() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        let pkg = Package {
+            name: "lodash".into(),
+            version: "4.17.21".into(),
+            ecosystem: Some(NPM_ECOSYSTEM.into()),
+        };
+        let exclude = Box::leak(Box::new(HashSet::new()));
+        let manifests = Box::leak(Box::new(Vec::<PathBuf>::new()));
+        let ctx = TierBContext {
+            package: &pkg,
+            scan_root: tmp,
+            exclude_dir_names: exclude,
+            language: "javascript",
+            manifest_paths: manifests,
+        };
+        let analyzer = JsTierBAnalyzer::new();
+        let result = analyzer.analyze_tier_c(&ctx, &["lodash".into()]);
+        assert_eq!(result.decision, TierCDecision::Unknown);
+        assert!(result.evidence.is_empty());
     }
 
     #[test]
