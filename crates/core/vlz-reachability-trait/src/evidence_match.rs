@@ -71,6 +71,83 @@ pub fn line_code_for_symbol_match(
     remove_quoted_regions(without_comment.trim())
 }
 
+/// Strip `//` and `/* */` comments from C-like source while preserving newlines.
+///
+/// String and character literals are left intact so comment markers inside
+/// quotes do not open or close comments. Comment bodies are replaced with
+/// spaces (newlines kept) so line numbers stay stable for evidence.
+///
+/// Shared by Java/Kotlin reachability and available for other C-like languages.
+pub fn scrub_c_style_comments(source: &str) -> String {
+    let mut out = String::with_capacity(source.len());
+    let mut chars = source.chars().peekable();
+    let mut in_block = false;
+    let mut in_line = false;
+    let mut in_string: Option<char> = None;
+    let mut escaped = false;
+
+    while let Some(c) = chars.next() {
+        if in_line {
+            if c == '\n' {
+                in_line = false;
+                out.push('\n');
+            } else {
+                out.push(' ');
+            }
+            continue;
+        }
+        if in_block {
+            if c == '*' && chars.peek() == Some(&'/') {
+                chars.next();
+                out.push(' ');
+                out.push(' ');
+                in_block = false;
+            } else if c == '\n' {
+                out.push('\n');
+            } else {
+                out.push(' ');
+            }
+            continue;
+        }
+        if let Some(quote) = in_string {
+            out.push(c);
+            if escaped {
+                escaped = false;
+                continue;
+            }
+            if c == '\\' {
+                escaped = true;
+                continue;
+            }
+            if c == quote {
+                in_string = None;
+            }
+            continue;
+        }
+        if c == '"' || c == '\'' {
+            in_string = Some(c);
+            out.push(c);
+            continue;
+        }
+        if c == '/' && chars.peek() == Some(&'/') {
+            chars.next();
+            out.push(' ');
+            out.push(' ');
+            in_line = true;
+            continue;
+        }
+        if c == '/' && chars.peek() == Some(&'*') {
+            chars.next();
+            out.push(' ');
+            out.push(' ');
+            in_block = true;
+            continue;
+        }
+        out.push(c);
+    }
+    out
+}
+
 /// Whether `sym` appears in `code` with identifier/path boundaries.
 pub fn qualified_symbol_in_code(code: &str, sym: &str) -> bool {
     if sym.is_empty() {
@@ -212,6 +289,35 @@ mod tests {
             LineCommentStyle::Hash,
         );
         assert!(!qualified_symbol_in_code(&code, "pkg.submod.vuln_fn"));
+    }
+
+    #[test]
+    fn scrub_c_style_strips_line_and_block_comments() {
+        let scrubbed = scrub_c_style_comments(
+            "import a.B;\n// import hide.Me;\n/* import also.Hide; */\nimport c.D;\n",
+        );
+        assert!(scrubbed.contains("import a.B;"));
+        assert!(scrubbed.contains("import c.D;"));
+        assert!(!scrubbed.contains("hide.Me"));
+        assert!(!scrubbed.contains("also.Hide"));
+        assert_eq!(scrubbed.lines().count(), 4);
+    }
+
+    #[test]
+    fn scrub_c_style_keeps_comment_markers_inside_strings() {
+        let scrubbed = scrub_c_style_comments(
+            "String a = \"/*\";\nimport com.example.Keep;\nString b = \"*/\";\n",
+        );
+        assert!(scrubbed.contains("import com.example.Keep;"));
+        assert!(scrubbed.contains("\"/*\""));
+    }
+
+    #[test]
+    fn scrub_c_style_line_comment_does_not_open_block() {
+        let scrubbed =
+            scrub_c_style_comments("// decoy /*\nimport com.example.Real;\n");
+        assert!(scrubbed.contains("import com.example.Real;"));
+        assert!(!scrubbed.contains("decoy"));
     }
 
     #[test]

@@ -569,6 +569,9 @@ default (SEC-023 does not run mvn/gradle/gradlew). `--offline` / `--benchmark`
 still parse `gradle.lockfile` when present. Use
 `--allow-dependency-code-execution` for gated PM resolution in trusted
 environments, or `--allow-direct-only-fallback` for direct-only coverage.
+Tier B/C reachability scans `.java` / `.kt` imports and FQCN usage; under
+`--reachability-mode best-available`, advisory symbols can emit first-party
+`evidence` like other Tier C languages.
 
 **Ruby (Bundler / RubyGems):** The `ruby` language covers Gemfile, gems.rb, and
 `*.gemspec`. Prefer a pair-matched lock (`Gemfile.lock` or `gems.locked`; parent

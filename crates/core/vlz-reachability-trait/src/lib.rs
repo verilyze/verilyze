@@ -10,7 +10,7 @@ pub use evidence_match::{
     LineCommentStyle, MAX_ADVISORY_SYMBOL_LEN, MAX_ADVISORY_SYMBOLS,
     cap_reachability_evidence, line_code_for_symbol_match,
     qualified_symbol_in_code, reachability_evidence_at_cap,
-    sanitize_advisory_symbols,
+    sanitize_advisory_symbols, scrub_c_style_comments,
 };
 
 #[cfg(feature = "perf-instrumentation")]

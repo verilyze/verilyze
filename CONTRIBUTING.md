@@ -36,7 +36,9 @@ Crates are organized by plugin type under `crates/`:
   - **vlz-rust** -- Rust: Cargo.toml, Cargo.lock (workspace members supported).
   - **vlz-go** -- Go: go.mod (resolution via `go list -m all`).
   - **vlz-javascript** -- JavaScript and TypeScript: package.json with npm/Yarn/pnpm/Bun locks (language name `javascript`; OSV ecosystem `npm`).
-  - **vlz-java** -- Java and Kotlin: Maven (`pom.xml`) and Gradle (`build.gradle`, `gradle.lockfile`, version catalog; language name `java`; OSV ecosystem `Maven`).
+  - **vlz-java** -- Java and Kotlin: Maven (`pom.xml`) and Gradle (`build.gradle`,
+    `gradle.lockfile`, version catalog; language name `java`; OSV ecosystem
+    `Maven`; Tier B/C reachability on `.java` / `.kt`).
   - **vlz-ruby** -- Ruby: Gemfile, gems.rb, `*.gemspec` with Gemfile.lock / gems.locked (language name `ruby`; OSV ecosystem `RubyGems`).
   - **vlz-sbom** -- SBOM inventory: CycloneDX 1.x / SPDX 2.x and 3.0 JSON via discovery and `--from-sbom` (language name `sbom`; FR-038).
 - **crates/providers/** -- CVE providers (optional, feature-gated):
@@ -872,7 +874,8 @@ The `vlz` binary supports optional capabilities via Cargo features:
   `serde_norway` (maintained MIT/Apache-2.0 Serde YAML fork; chosen over
   unmaintained/unsound `serde_yml` per NFR-025 / MOD-004 and `cargo deny`).
 - **java** -- Java/Kotlin language plugin (`vlz-java` crate); Maven and Gradle
-  manifests with Gradle lock-first transitive resolution; OSV ecosystem `Maven`.
+  manifests with Gradle lock-first transitive resolution; OSV ecosystem `Maven`;
+  Tier B/C reachability on `.java` / `.kt` sources.
 - **ruby** -- Ruby language plugin (`vlz-ruby` crate); Bundler Gemfile/gems.rb
   and gemspec manifests with Gemfile.lock / gems.locked (OSV `RubyGems`).
 - **sbom** -- SBOM inventory plugin (`vlz-sbom` crate); CycloneDX 1.x and
