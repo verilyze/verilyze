@@ -145,6 +145,11 @@ fn refuse_transitive_manifest_mutation(
 
 /// Resolve a lockfile declaration to a working directory under `scan_root`.
 ///
+/// Path-form invariant: `declaration_path` must be absolute or relative to
+/// `scan_root` (not relative to process CWD). Scan entry points normalize the
+/// root to absolute/canonical form so discovery emits absolute declaration
+/// paths; this helper must not re-resolve relative decls against CWD.
+///
 /// Absolute declaration paths replace `scan_root` under [`Path::join`]; this
 /// helper canonicalizes and rejects any lock path (or parent) outside the
 /// scan root (SEC-025).
@@ -2487,5 +2492,106 @@ mod tests {
                 "left-pad@2.0.0".to_string(),
             ]
         );
+    }
+
+    /// Relative scan_root + declaration that already includes that prefix
+    /// (the form discovery emits when the CLI root is relative) must not
+    /// resolve via a double join. Callers must pass scan-root-relative or
+    /// absolute declaration paths (SEC-025).
+    #[test]
+    fn cargo_preview_rejects_double_joined_relative_declaration() {
+        let parent = test_tempdir();
+        let proj_name = "proj";
+        let proj = parent.path().join(proj_name);
+        write_cargo_tree(&proj);
+
+        let orig = std::env::current_dir().expect("cwd");
+        std::env::set_current_dir(parent.path()).expect("chdir parent");
+        let result = std::panic::catch_unwind(|| {
+            let rem = CargoRemediator::new();
+            rem.preview(&RemediationContext {
+                scan_root: Path::new(proj_name),
+                declarations: &[lock_decl(&format!(
+                    "{proj_name}/{CARGO_LOCK_FILE_NAME}"
+                ))],
+                package_name: "serde",
+                target_version: "1.0.200",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+        });
+        let _ = std::env::set_current_dir(&orig);
+        let err = result
+            .expect("preview must not panic")
+            .expect_err("double-joined relative decl must fail");
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+    }
+
+    /// Scan-root-relative lock basename (canonical remediator contract) works
+    /// even when scan_root itself is a relative path under CWD.
+    #[test]
+    fn cargo_preview_accepts_scan_root_relative_decl_with_relative_root() {
+        let parent = test_tempdir();
+        let proj_name = "proj";
+        let proj = parent.path().join(proj_name);
+        write_cargo_tree(&proj);
+
+        let orig = std::env::current_dir().expect("cwd");
+        std::env::set_current_dir(parent.path()).expect("chdir parent");
+        let result = std::panic::catch_unwind(|| {
+            let rem = CargoRemediator::new();
+            rem.preview(&RemediationContext {
+                scan_root: Path::new(proj_name),
+                declarations: &[lock_decl(CARGO_LOCK_FILE_NAME)],
+                package_name: "serde",
+                target_version: "1.0.200",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+        });
+        let _ = std::env::set_current_dir(&orig);
+        let preview = result
+            .expect("preview must not panic")
+            .expect("scan-root-relative decl must succeed");
+        assert_eq!(preview.strategy, ApplyStrategy::Cargo);
+        assert!(preview.workdir.ends_with(proj_name));
+    }
+
+    #[test]
+    fn cargo_apply_rejects_symlink_lock_outside_scan_root() {
+        let root_dir = test_tempdir();
+        let outside_dir = test_tempdir();
+        let root = root_dir.path();
+        let outside = outside_dir.path();
+        write_cargo_tree(outside);
+        fs::create_dir_all(root).unwrap();
+        std::os::unix::fs::symlink(
+            outside.join(CARGO_LOCK_FILE_NAME),
+            root.join(CARGO_LOCK_FILE_NAME),
+        )
+        .expect("symlink Cargo.lock out of root");
+        // Sibling manifest inside root so failure is confinement, not missing
+        // manifest.
+        fs::write(
+            root.join(CARGO_MANIFEST_FILE_NAME),
+            "[package]\nname=\"app\"\n",
+        )
+        .unwrap();
+        let ok_bin = root.join("cargo-ok");
+        write_exec(&ok_bin, "#!/bin/sh\nexit 0\n");
+        let err = CargoRemediator::with_bin(ok_bin.to_string_lossy())
+            .apply(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl(CARGO_LOCK_FILE_NAME)],
+                package_name: "serde",
+                target_version: "1.0.200",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
     }
 }
