@@ -322,18 +322,24 @@ cargo-test-mem:
 	    --features "testing,mem,python" \
 	    --test mem_cache_ignore --test minimal_features'
 
-# Bootstrap .venv-test with pytest and pytest-cov (NFR-021)
+# Bootstrap .venv-test with pytest and pytest-cov (NFR-021).
+# flock: parallel check leaves (venv-test-ready) must not rm -rf the venv
+# while another leaf is importing pytest (check-report-schema race).
 $(VENV_TEST)/bin/pytest:
-	@if [ -x "$(VENV_TEST)/bin/pytest" ] && \
-	      "$(VENV_TEST)/bin/python" -m pytest --version >/dev/null 2>&1 && \
-	      "$(VENV_TEST)/bin/codespell" --version >/dev/null 2>&1 && \
-	      "$(VENV_TEST)/bin/python" -c "import jsonschema" 2>/dev/null && \
-	      "$(VENV_TEST)/bin/python" -c "import pathlib, coverage; p=pathlib.Path(coverage.__file__).resolve().parent/'htmlfiles'/'index.html'; assert p.is_file(), p" 2>/dev/null; then \
-		exit 0; \
-	fi
-	@rm -rf $(VENV_TEST)
-	@mkdir -p $(PIP_TMPDIR)
-	@$(MAKE_RUN_LEAF) venv-test -- bash -c 'TMPDIR="$(PIP_TMPDIR)" python3 -m venv "$(VENV_TEST)" && cd "$(MKFILE_DIR)" && TMPDIR="$(PIP_TMPDIR)" "$(VENV_TEST)/bin/pip" install ".[dev]"'
+	@mkdir -p "$(MKFILE_DIR)/target"
+	@$(MAKE_RUN_LEAF) venv-test -- flock "$(MKFILE_DIR)/target/venv-test.lock" bash -c ' \
+	  if [ -x "$(VENV_TEST)/bin/pytest" ] && \
+	        "$(VENV_TEST)/bin/python" -m pytest --version >/dev/null 2>&1 && \
+	        "$(VENV_TEST)/bin/codespell" --version >/dev/null 2>&1 && \
+	        "$(VENV_TEST)/bin/python" -c "import jsonschema" 2>/dev/null && \
+	        "$(VENV_TEST)/bin/python" -c "import pathlib, coverage; p=pathlib.Path(coverage.__file__).resolve().parent/\"htmlfiles\"/\"index.html\"; assert p.is_file(), p" 2>/dev/null; then \
+	  	exit 0; \
+	  fi; \
+	  rm -rf "$(VENV_TEST)"; \
+	  mkdir -p "$(PIP_TMPDIR)"; \
+	  TMPDIR="$(PIP_TMPDIR)" python3 -m venv "$(VENV_TEST)"; \
+	  cd "$(MKFILE_DIR)" && TMPDIR="$(PIP_TMPDIR)" "$(VENV_TEST)/bin/pip" install ".[dev]" \
+	'
 
 # Re-run .venv-test health check even when $(VENV_TEST)/bin/pytest exists (stale cache).
 .PHONY: venv-test-ready
@@ -579,7 +585,7 @@ check-pylock-dev:
 	@$(MAKE_RUN_LEAF) check-pylock-dev -- $(SCRIPTS_DIR)/check-pylock-dev.sh
 
 # check-report-schema: Validate JSON report schema (DOC-005, NFR-014).
-check-report-schema: debug
+check-report-schema: debug venv-test-ready
 	@$(MAKE_RUN_LEAF) check-report-schema -- "$(SCRIPTS_DIR)/check-report-schema.sh"
 
 # benchmark-gate: NFR-001 performance gate via --benchmark on multi-manifest fixture.
