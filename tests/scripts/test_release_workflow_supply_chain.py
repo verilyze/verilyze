@@ -385,13 +385,14 @@ def test_publish_crates_supports_trusted_publishing_or_token() -> None:
     assert auth_idx < publish_idx
 
 
-def test_publish_crates_tolerates_registry_publish_failure() -> None:
+def test_publish_crates_fails_job_on_registry_publish_failure() -> None:
     workflow = _release_workflow_text()
     block = _job_block(workflow, "publish-crates")
     publish_step = block.split("- name: Publish workspace crates to crates.io")[1]
     smoke_step = block.split("- name: Smoke test cargo install vlz")[1]
-    assert "continue-on-error: true" in publish_step.split("Smoke test")[0]
-    assert "steps.publish.outcome == 'success'" in smoke_step
+    assert "continue-on-error" not in publish_step.split("Smoke test")[0]
+    assert "steps.publish.outcome" not in smoke_step
+    assert "cargo install vlz" in smoke_step
 
 
 def test_crates_publish_workflow_is_dispatchable() -> None:
