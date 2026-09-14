@@ -212,7 +212,7 @@ def test_issue_create_rejects_malformed_create_output(tmp_path: Path) -> None:
         "#!/bin/sh\n"
         'case "$1 $2" in\n'
         '  "issue create")\n'
-        '    if echo "$*" | grep -q -- "--jq"; then echo ""; fi\n'
+        '    echo "not-a-url"\n'
         "    exit 0\n"
         "    ;;\n"
         "esac\n"

@@ -192,11 +192,11 @@ case "${CMD}" in
     run_preflight
     gh_status=0
     create_err="$(mktemp)"
-    issue_fields=$(
+    # gh issue create does not support --json; it prints the issue URL on stdout.
+    issue_url=$(
       gh issue create --title "${TITLE}" --label "${AI_LEARNINGS_LABEL}" \
         --type "${AI_LEARNINGS_ISSUE_TYPE}" \
-        --body-file "${BODY_FILE}" \
-        --json number,url --jq '"\(.number) \(.url)"' 2>"${create_err}"
+        --body-file "${BODY_FILE}" 2>"${create_err}"
     ) || gh_status=$?
     if [[ "${gh_status}" -ne 0 ]]; then
       if [[ -s "${create_err}" ]]; then
@@ -207,9 +207,10 @@ case "${CMD}" in
       exit "${gh_status}"
     fi
     rm -f "${create_err}"
-    read -r issue_num issue_url <<<"${issue_fields}"
-    if [[ -z "${issue_num}" || -z "${issue_url}" ]]; then
-      die "issue create returned unexpected output: ${issue_fields}"
+    issue_url="${issue_url%%[[:space:]]*}"
+    issue_num="${issue_url##*/}"
+    if [[ -z "${issue_url}" || ! "${issue_num}" =~ ^[0-9]+$ ]]; then
+      die "issue create returned unexpected output: ${issue_url}"
     fi
     verify_issue_metadata_or_die "${issue_num}" "${issue_url}"
     printf '%s\n' "${issue_url}"
