@@ -10,26 +10,37 @@ Human-readable release notes for each version.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-14
+
 ### Added
 
-- Tier C quality/coverage: union OSV `affected[]` symbols in provider order,
-  allowlisted `database_specific` fallback, ignore PyPI advisory `path` for
-  consumer matching, and reject URL/absolute-path symbol hints.
-- Shared Tier C decision helper: `Reachable` requires evidence; parent/module
-  import without symbol evidence stays `Unknown`; empty source trees are
-  `Unknown` (JS/Ruby); Rust use-line evidence covers the symbol module, not
-  only the crate root.
-- Java/Kotlin Tier C reachability (`best-available`): FQCN and import
-  heuristics, conservative `NotReachable`, and advisory-symbol evidence
-  for Maven coordinates (FR-032).
+- Read-only `vlz lsp` Language Server Protocol diagnostics and non-writing
+  upgrade-plan Code Actions (FR-042). Editor scans never execute dependency
+  code.
 - FR-043 folder trust for `vlz lsp`: config key `lsp_folder_trust`, env
   `VLZ_LSP_FOLDER_TRUST`, and `vlz lsp --folder-trust`. Trusted workspaces
   advertise **Apply upgrade**, which uses the same Remediator path as
   `vlz fix`.
+- `vlz fix` remediation CLI (FR-041 / MOD-011): apply by default with
+  `--dry-run` preview; first npm and Cargo remediators.
 - Appendix B remediators: Python (`poetry.lock` / `uv.lock`), Yarn, pnpm, and
   bun, with allowlisted argv and registry registration (MOD-011).
+- Finding-level `upgrade_plan` in JSON/SARIF scan reports (FR-040), derived
+  from OSV advisory ranges; plain/HTML keep Ranges only (no Fix column).
+- Java/Kotlin Tier C reachability (`best-available`): FQCN and import
+  heuristics, conservative `NotReachable`, and advisory-symbol evidence
+  for Maven coordinates (FR-032).
+- Shared Tier C decision helper: `Reachable` requires evidence; parent/module
+  import without symbol evidence stays `Unknown`; empty source trees are
+  `Unknown` (JS/Ruby); Rust use-line evidence covers the symbol module, not
+  only the crate root.
+- Tier C quality/coverage: union OSV `affected[]` symbols in provider order,
+  allowlisted `database_specific` fallback, ignore PyPI advisory `path` for
+  consumer matching, and reject URL/absolute-path symbol hints.
 - NFR-026 incremental save filter: non-dependency `didSave` events skip a full
   rescan; DOC-014 editor snippets for VS Code / Neovim / Helix in the FAQ.
+- PRD rows for FR-040--043, MOD-011, SEC-025, NFR-026, and DOC-014
+  (`vlz fix`, `vlz lsp`, folder trust, remediator trait).
 
 ### Changed
 
@@ -39,6 +50,10 @@ Human-readable release notes for each version.
 
 ### Fixed
 
+- `vlz fix <relative-path>` from a parent directory no longer double-joins
+  lock declarations; scan roots are absolutized before discovery.
+- Lone-quote `Cargo.toml` version strings no longer abort the process during
+  Rust manifest parsing.
 - Java reachability: require dotted FQCN segments for artifact matches, scrub
   `//`/`/* */` with string awareness (shared `scrub_c_style_comments`), and
   attribute Tier C evidence only to symbol-specific hits.
@@ -46,19 +61,6 @@ Human-readable release notes for each version.
   `--mode=skip-build`) and bun (`--ignore-scripts`); pylock findings stay
   `unavailable` for apply; trusted LSP Apply must match the last scan;
   failed LSP scans retain prior diagnostics.
-
-- Read-only `vlz lsp` Language Server Protocol diagnostics and non-writing
-  upgrade-plan Code Actions (FR-042). Editor scans never execute dependency
-  code.
-- Finding-level `upgrade_plan` in JSON/SARIF scan reports (FR-040), derived
-  from OSV advisory ranges; plain/HTML keep Ranges only (no Fix column).
-- PRD rows for FR-040--043, MOD-011, SEC-025, NFR-026, and DOC-014
-  (`vlz fix`, `vlz lsp`, folder trust, remediator trait).
-- `vlz fix` remediation CLI (FR-041 / MOD-011): apply by default with
-  `--dry-run` preview; first npm and Cargo remediators.
-
-### Fixed
-
 - crates.io publish retries on HTTP 429 using the server `try again after`
   timestamp in the cargo error body (with per-crate retry budget and wait cap).
 
