@@ -3312,6 +3312,107 @@ fn run_fix_apply_cargo_updates_lockfile() {
     });
 }
 
+/// `vlz fix <relative-subdir>` from a parent CWD must update the target tree
+/// (not mark remediations unavailable due to relative path double-join).
+#[cfg(all(feature = "rust", unix, feature = "testing"))]
+#[test]
+fn run_fix_apply_cargo_from_parent_relative_path() {
+    use vlz::registry::Plugin;
+
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let parent = tempfile::tempdir().expect("parent tempdir");
+        let proj_name = "bpf-example";
+        let proj = parent.path().join(proj_name);
+        std::fs::create_dir_all(&proj).expect("mkdir project");
+        write_cargo_lock(&proj, "pkg", "1.0.0");
+
+        let fake_bin_dir = tempfile::tempdir().expect("fake bin tempdir");
+        write_fake_cargo(fake_bin_dir.path());
+        let old_path = std::env::var("PATH").unwrap_or_else(|_| String::new());
+        let new_path =
+            format!("{}:{}", fake_bin_dir.path().display(), old_path);
+
+        let provider = VersionAwareOsvProvider {
+            pkg_name: "pkg",
+            ecosystem: vlz_db::CRATES_IO_ECOSYSTEM,
+            fixed_version: "2.0.0",
+            cve_id: "CVE-TEST-CARGO-FIX-REL",
+        };
+        vlz::registry::clear_providers();
+        vlz::registry::register(Plugin::CveProvider(Box::new(provider)));
+
+        let orig = std::env::current_dir().expect("cwd");
+        std::env::set_current_dir(parent.path()).expect("chdir parent");
+        let code = temp_env::with_var("PATH", Some(new_path.as_str()), || {
+            run_async(&["fix", proj_name])
+        });
+        let _ = std::env::set_current_dir(&orig);
+
+        assert_eq!(
+            code, 0,
+            "cargo apply from parent CWD with relative path must succeed"
+        );
+        assert_eq!(
+            read_cargo_lock_version(&proj, "pkg"),
+            "2.0.0",
+            "apply must update Cargo.lock under the relative project path"
+        );
+    });
+}
+
+/// Absolute project path must work even when process CWD is elsewhere.
+#[cfg(all(feature = "rust", unix, feature = "testing"))]
+#[test]
+fn run_fix_apply_cargo_absolute_path_from_foreign_cwd() {
+    use vlz::registry::Plugin;
+
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let foreign = tempfile::tempdir().expect("foreign cwd");
+        let proj_dir = tempfile::tempdir().expect("project tempdir");
+        write_cargo_lock(proj_dir.path(), "pkg", "1.0.0");
+        let abs_root = proj_dir
+            .path()
+            .canonicalize()
+            .expect("canonicalize project")
+            .to_string_lossy()
+            .into_owned();
+
+        let fake_bin_dir = tempfile::tempdir().expect("fake bin tempdir");
+        write_fake_cargo(fake_bin_dir.path());
+        let old_path = std::env::var("PATH").unwrap_or_else(|_| String::new());
+        let new_path =
+            format!("{}:{}", fake_bin_dir.path().display(), old_path);
+
+        let provider = VersionAwareOsvProvider {
+            pkg_name: "pkg",
+            ecosystem: vlz_db::CRATES_IO_ECOSYSTEM,
+            fixed_version: "2.0.0",
+            cve_id: "CVE-TEST-CARGO-FIX-ABS",
+        };
+        vlz::registry::clear_providers();
+        vlz::registry::register(Plugin::CveProvider(Box::new(provider)));
+
+        let orig = std::env::current_dir().expect("cwd");
+        std::env::set_current_dir(foreign.path()).expect("chdir foreign");
+        let code = temp_env::with_var("PATH", Some(new_path.as_str()), || {
+            run_async(&["fix", &abs_root])
+        });
+        let _ = std::env::set_current_dir(&orig);
+
+        assert_eq!(
+            code, 0,
+            "cargo apply with absolute path from foreign CWD must succeed"
+        );
+        assert_eq!(
+            read_cargo_lock_version(proj_dir.path(), "pkg"),
+            "2.0.0",
+            "apply must update Cargo.lock via absolute path"
+        );
+    });
+}
+
 #[cfg(all(feature = "javascript", unix, feature = "testing"))]
 #[test]
 fn run_fix_offline_apply_blocks_remediation_with_exit_6() {

@@ -687,6 +687,33 @@ fn apply_language_outcomes(
     fail_fast_tripped
 }
 
+/// Normalize a scan root to an absolute, preferably canonical, path.
+///
+/// Relative CLI roots (e.g. `vlz fix bpf-example` from a parent directory)
+/// must not flow into discovery as-is: `read_dir` would emit paths like
+/// `bpf-example/Cargo.lock`, and remediator `scan_root.join(decl)` would
+/// double-join. Absolute/canonical roots keep declaration paths absolute so
+/// remediator confinement (`resolve_lock_workdir_under_root`) works from any
+/// process CWD. Does not resolve declaration paths against process CWD.
+fn normalize_scan_root(root_path: PathBuf) -> Result<PathBuf> {
+    if let Ok(canonical) = std::fs::canonicalize(&root_path) {
+        return Ok(canonical);
+    }
+    let absolute = if root_path.is_absolute() {
+        root_path
+    } else {
+        std::env::current_dir()
+            .context("Unable to obtain current directory")?
+            .join(root_path)
+    };
+    std::fs::canonicalize(&absolute).with_context(|| {
+        format!(
+            "Scan root does not exist or is inaccessible: {}",
+            absolute.display()
+        )
+    })
+}
+
 /// Discover manifests under `root`, parse, and resolve dependencies.
 pub async fn resolve_packages_for_path(
     root: Option<String>,
@@ -697,6 +724,7 @@ pub async fn resolve_packages_for_path(
         None => std::env::current_dir()
             .context("Unable to obtain current directory")?,
     };
+    let root_path = normalize_scan_root(root_path)?;
     info!("Scanning root: {}", root_path.display());
 
     let mut finders = Vec::new();
@@ -1208,6 +1236,48 @@ mod tests {
     use vlz_manifest_parser::{
         DependencyGraph, ParserError, ResolveResult, ResolverError,
     };
+
+    #[test]
+    fn normalize_scan_root_absolutizes_relative_path() {
+        let parent = tempfile::tempdir().unwrap();
+        let name = "proj";
+        let proj = parent.path().join(name);
+        std::fs::create_dir_all(&proj).unwrap();
+        let expected = proj.canonicalize().unwrap();
+
+        let orig = std::env::current_dir().unwrap();
+        std::env::set_current_dir(parent.path()).unwrap();
+        let got = normalize_scan_root(PathBuf::from(name)).unwrap();
+        let _ = std::env::set_current_dir(&orig);
+
+        assert_eq!(got, expected);
+        assert!(got.is_absolute());
+    }
+
+    #[test]
+    fn normalize_scan_root_canonicalizes_absolute_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let abs = dir.path().to_path_buf();
+        let expected = abs.canonicalize().unwrap();
+        let got = normalize_scan_root(abs).unwrap();
+        assert_eq!(got, expected);
+    }
+
+    #[test]
+    fn normalize_scan_root_errors_when_missing() {
+        let err = normalize_scan_root(PathBuf::from(
+            "/tmp/vlz-scan-root-does-not-exist-xyz",
+        ))
+        .unwrap_err();
+        assert!(
+            err.to_string().contains("does not exist")
+                || err.to_string().contains("inaccessible")
+                || err
+                    .downcast_ref::<std::io::Error>()
+                    .is_some_and(|e| e.kind() == std::io::ErrorKind::NotFound),
+            "unexpected error: {err}"
+        );
+    }
 
     #[test]
     fn filter_manifests_in_excluded_dirs_drops_paths_under_node_modules() {
