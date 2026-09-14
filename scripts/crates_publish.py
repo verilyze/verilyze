@@ -28,6 +28,7 @@ PUBLISHED_CRATE_NAMES: tuple[str, ...] = (
     "vlz-manifest-parser",
     "vlz-cve-client",
     "vlz-report",
+    "vlz-remediate",
     "vlz-integrity",
     "vlz-reachability",
     "vlz-python",
@@ -42,14 +43,15 @@ PUBLISHED_CRATE_NAMES: tuple[str, ...] = (
     "vlz-cve-provider-sonatype",
     "vlz-db-redb",
     "vlz-db-mem",
+    "vlz-lsp",
     "vlz",
 )
 
 WORKSPACE_INTERNAL_DEP_RE = re.compile(
     r"^vlz-(?:db|manifest-finder|manifest-parser|reachability-trait|"
-    r"reachability|cve-client|report|integrity|plugin-macro|python|rust|go|"
-    r"javascript|java|ruby|sbom|cve-provider-nvd|cve-provider-github|"
-    r"cve-provider-sonatype|db-redb|db-mem)$"
+    r"reachability|cve-client|report|remediate|integrity|plugin-macro|"
+    r"python|rust|go|javascript|java|ruby|sbom|cve-provider-nvd|"
+    r"cve-provider-github|cve-provider-sonatype|db-redb|db-mem|lsp)$"
 )
 
 VLZ_INSTALL_BINARIES = frozenset({"vlz"})
@@ -290,6 +292,47 @@ def validate_manifest_publish_flags(manifests: dict[str, Path]) -> list[str]:
         package = data.get("package", {})
         if package.get("publish") is False:
             errors.append(f"{name}: publish = false blocks crates.io")
+    return errors
+
+
+def discover_workspace_crate_names(repo_root: Path) -> dict[str, Path]:
+    """Map every package name under crates/ to its Cargo.toml path."""
+    manifests: dict[str, Path] = {}
+    crates_root = repo_root / "crates"
+    if not crates_root.is_dir():
+        return manifests
+    for manifest in sorted(crates_root.rglob("Cargo.toml")):
+        data = tomllib.loads(manifest.read_text(encoding="utf-8"))
+        name = data.get("package", {}).get("name")
+        if isinstance(name, str):
+            manifests[name] = manifest
+    return manifests
+
+
+def validate_all_workspace_crates_published(
+    repo_root: Path, manifests: dict[str, Path]
+) -> list[str]:
+    """Fail when a crates/ package is omitted from PUBLISHED_CRATE_NAMES.
+
+    Crates that set ``publish = false`` are excluded (e.g. fuzz helpers).
+    """
+    errors: list[str] = []
+    published = set(PUBLISHED_CRATE_NAMES)
+    discovered = discover_workspace_crate_names(repo_root)
+    for name, path in sorted(discovered.items()):
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+        package = data.get("package", {})
+        if isinstance(package, dict) and package.get("publish") is False:
+            continue
+        if name not in published:
+            errors.append(
+                f"{name}: present under crates/ but missing from "
+                "PUBLISHED_CRATE_NAMES"
+            )
+        elif name not in manifests:
+            errors.append(
+                f"{name}: in PUBLISHED_CRATE_NAMES but not discovered"
+            )
     return errors
 
 
@@ -601,6 +644,9 @@ def check_crates_publish(
     errors: list[str] = []
     errors.extend(validate_workspace_dep_versions(repo_root))
     manifests = discover_crate_manifests(repo_root)
+    errors.extend(
+        validate_all_workspace_crates_published(repo_root, manifests)
+    )
     errors.extend(validate_manifest_publish_flags(manifests))
     errors.extend(validate_registry_metadata(repo_root, manifests))
     errors.extend(validate_crate_descriptions(manifests))

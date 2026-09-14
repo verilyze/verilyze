@@ -34,6 +34,7 @@ from scripts.crates_publish import (
     publish_release_crates,
     run_cargo_package,
     rust_version_from_toolchain_channel,
+    validate_all_workspace_crates_published,
     validate_crate_descriptions,
     validate_manifest_publish_flags,
     validate_registry_metadata,
@@ -51,6 +52,64 @@ def repo_root() -> Path:
 def test_published_crate_manifests_exist(repo_root: Path) -> None:
     manifests = discover_crate_manifests(repo_root)
     assert set(manifests) == set(PUBLISHED_CRATE_NAMES)
+
+
+def test_published_crate_names_include_remediate_and_lsp() -> None:
+    assert "vlz-remediate" in PUBLISHED_CRATE_NAMES
+    assert "vlz-lsp" in PUBLISHED_CRATE_NAMES
+    assert len(PUBLISHED_CRATE_NAMES) == 24
+
+
+def test_all_workspace_crates_under_crates_are_published(
+    repo_root: Path,
+) -> None:
+    manifests = discover_crate_manifests(repo_root)
+    assert validate_all_workspace_crates_published(repo_root, manifests) == []
+
+
+def test_validate_all_workspace_crates_published_reports_omission(
+    tmp_path: Path,
+) -> None:
+    crate = tmp_path / "crates" / "core" / "vlz-orphan"
+    crate.mkdir(parents=True)
+    (crate / "Cargo.toml").write_text(
+        '[package]\nname = "vlz-orphan"\n'
+        'description = "orphan crate for verilyze"\n',
+        encoding="utf-8",
+    )
+    errors = validate_all_workspace_crates_published(tmp_path, {})
+    assert errors
+    assert any("vlz-orphan" in err for err in errors)
+    assert any("PUBLISHED_CRATE_NAMES" in err for err in errors)
+
+
+def test_validate_all_workspace_crates_published_skips_publish_false(
+    tmp_path: Path,
+) -> None:
+    crate = tmp_path / "crates" / "core" / "vlz-private"
+    crate.mkdir(parents=True)
+    (crate / "Cargo.toml").write_text(
+        '[package]\nname = "vlz-private"\npublish = false\n',
+        encoding="utf-8",
+    )
+    assert validate_all_workspace_crates_published(tmp_path, {}) == []
+
+
+def test_publish_order_places_remediate_and_lsp_before_dependents(
+    repo_root: Path,
+) -> None:
+    manifests = discover_crate_manifests(repo_root)
+    ordered = publish_order(manifests)
+    index = {name: pos for pos, name in enumerate(ordered)}
+    assert index["vlz-remediate"] < index["vlz-report"]
+    assert index["vlz-remediate"] < index["vlz"]
+    assert index["vlz-lsp"] < index["vlz"]
+
+
+def test_vlz_remediate_description_names_verilyze(repo_root: Path) -> None:
+    manifest = repo_root / "crates" / "core" / "vlz-remediate" / "Cargo.toml"
+    errors = validate_crate_descriptions({"vlz-remediate": manifest})
+    assert errors == []
 
 
 def test_publish_order_is_bottom_up(repo_root: Path) -> None:
@@ -308,7 +367,9 @@ def test_is_publish_rate_limit_error(output: str, expected: bool) -> None:
 def test_parse_publish_retry_after_secs_future_date() -> None:
     now = datetime(2026, 3, 30, 21, 30, 0, tzinfo=UTC)
     retry_at = datetime(2026, 3, 30, 21, 36, 35, tzinfo=UTC)
-    expected = int((retry_at - now).total_seconds()) + PUBLISH_RATE_LIMIT_SKEW_SECS
+    expected = (
+        int((retry_at - now).total_seconds()) + PUBLISH_RATE_LIMIT_SKEW_SECS
+    )
     assert (
         parse_publish_retry_after_secs(
             "Please try again after Mon, 30 Mar 2026 21:36:35 GMT",
@@ -400,7 +461,9 @@ def test_parse_publish_retry_after_secs_past_date() -> None:
 
 def test_parse_publish_retry_after_secs_unparseable() -> None:
     now = datetime(2026, 3, 30, 21, 30, 0, tzinfo=UTC)
-    assert parse_publish_retry_after_secs("no retry hint here", now=now) is None
+    assert (
+        parse_publish_retry_after_secs("no retry hint here", now=now) is None
+    )
 
 
 def test_publish_continues_after_duplicate_publish_error(
@@ -1081,7 +1144,9 @@ def test_publish_release_crates_skips_duplicate_after_rate_limit_retry(
         fake_publish,
     )
     monkeypatch.setattr("scripts.crates_publish._utc_now", lambda: now)
-    monkeypatch.setattr("scripts.crates_publish.time.sleep", lambda _secs: None)
+    monkeypatch.setattr(
+        "scripts.crates_publish.time.sleep", lambda _secs: None
+    )
 
     errors = publish_release_crates(repo_root, version="0.9.1")
     assert errors == []

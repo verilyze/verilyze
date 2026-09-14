@@ -14,7 +14,7 @@ keywords.workspace = true
 categories.workspace = true
 readme.workspace = true
 rust-version.workspace = true
-description = "Upgrade-plan planning for vulnerability remediation (FR-040)"
+description = "Upgrade-plan planning for verilyze vulnerability remediation (FR-040)"
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
