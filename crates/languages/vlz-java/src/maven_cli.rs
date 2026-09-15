@@ -199,7 +199,10 @@ mod tests {
     fn command_ok_times_out_on_slow_binary() {
         let dir = tempfile::tempdir().unwrap();
         let slow = dir.path().join("slow-pm");
-        write_executable(&slow, "#!/bin/sh\nexec sleep 30\n");
+        crate::unix_test_stub::write_executable(
+            &slow,
+            "#!/bin/sh\nexec sleep 30\n",
+        );
         let start = std::time::Instant::now();
         assert!(!vlz_manifest_parser::package_manager_command_ok_timed(
             slow.to_str().unwrap(),
@@ -219,18 +222,6 @@ mod tests {
         assert!(err.to_string().contains("exceeded"));
     }
 
-    /// Write an executable stub via rename-before-exec (avoids Linux ETXTBSY
-    /// when the final path is still open for write).
-    #[cfg(unix)]
-    fn write_executable(path: &Path, body: &str) {
-        use std::os::unix::fs::PermissionsExt;
-        let tmp = path.with_extension("write-tmp");
-        std::fs::write(&tmp, body).unwrap();
-        std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o755))
-            .unwrap();
-        std::fs::rename(&tmp, path).unwrap();
-    }
-
     #[cfg(unix)]
     #[tokio::test]
     async fn run_mvn_dependency_list_with_fake_mvn() {
@@ -240,7 +231,7 @@ mod tests {
         let bin = dir.path().join("bin");
         std::fs::create_dir_all(&bin).unwrap();
         let mvn = bin.join("mvn");
-        write_executable(
+        crate::unix_test_stub::write_executable(
             &mvn,
             "#!/bin/sh\n\
              echo 'com.test:lib:jar:1.0:compile'\n\

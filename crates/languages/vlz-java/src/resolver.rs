@@ -449,8 +449,6 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn gated_pm_resolve_maven_with_fake_mvnw() {
-        use std::os::unix::fs::PermissionsExt;
-
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path();
         std::fs::write(
@@ -458,17 +456,11 @@ mod tests {
             r#"<project><dependencies><dependency><groupId>g</groupId><artifactId>a</artifactId><version>1.0</version></dependency></dependencies></project>"#,
         )
         .unwrap();
-        std::fs::write(
-            root.join("mvnw"),
+        crate::unix_test_stub::write_executable(
+            &root.join("mvnw"),
             "#!/bin/sh\n\
              echo 'com.pm:resolved:jar:9.9:compile'\n",
-        )
-        .unwrap();
-        std::fs::set_permissions(
-            root.join("mvnw"),
-            std::fs::Permissions::from_mode(0o755),
-        )
-        .unwrap();
+        );
         let graph = DependencyGraph {
             packages: vec![Package {
                 name: "g:a".into(),
@@ -498,24 +490,16 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn gated_pm_resolve_gradle_with_fake_gradlew() {
-        use std::os::unix::fs::PermissionsExt;
-
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path();
         std::fs::write(root.join("settings.gradle"), "rootProject.name='p'\n")
             .unwrap();
         std::fs::write(root.join("build.gradle"), "plugins {}").unwrap();
-        std::fs::write(
-            root.join("gradlew"),
+        crate::unix_test_stub::write_executable(
+            &root.join("gradlew"),
             "#!/bin/sh\n\
              echo '+--- com.pm:gradle:9.9'\n",
-        )
-        .unwrap();
-        std::fs::set_permissions(
-            root.join("gradlew"),
-            std::fs::Permissions::from_mode(0o755),
-        )
-        .unwrap();
+        );
         let graph = DependencyGraph {
             packages: vec![Package {
                 name: "com.local:app".into(),

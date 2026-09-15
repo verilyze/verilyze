@@ -14,6 +14,9 @@ mod parser;
 mod reachability;
 mod resolver;
 
+#[cfg(all(test, unix))]
+mod unix_test_stub;
+
 pub use finder::{
     JAVA_MANIFEST_NAMES, JavaManifestFinder, filter_orphan_locks,
 };
