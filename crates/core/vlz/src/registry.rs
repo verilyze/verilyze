@@ -380,9 +380,12 @@ pub fn ensure_default_cve_provider(cfg: &crate::config::EffectiveConfig) {
     }
     #[cfg(feature = "testing")]
     {
-        use crate::mocks::PanickingCveProvider;
+        use crate::mocks::{CveReturningProvider, PanickingCveProvider};
         if !providers.iter().any(|p| p.name() == "panicking") {
             providers.push(Box::new(PanickingCveProvider::new()));
+        }
+        if !providers.iter().any(|p| p.name() == "cve_returning") {
+            providers.push(Box::new(CveReturningProvider::new()));
         }
     }
 }

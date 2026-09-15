@@ -110,6 +110,39 @@ pub fn cve_threshold_met(meeting_threshold: usize, min_count: usize) -> bool {
     }
 }
 
+/// Human-readable explanation when CVE threshold drives the process exit (FR-014).
+pub fn format_cve_threshold_exit_message(
+    exit_code: i32,
+    meeting_threshold: usize,
+    min_score: f32,
+    min_count: usize,
+) -> String {
+    format!(
+        "CVEs meeting threshold triggered exit {exit_code} ({meeting_threshold} finding(s); min_score={min_score}, min_count={min_count})."
+    )
+}
+
+/// Emit stderr when the chosen exit code is the CVE-threshold policy exit.
+pub fn emit_cve_threshold_exit_if_selected(
+    signals: &ExitSignals,
+    exit_code: i32,
+    meeting_threshold: usize,
+    min_score: f32,
+    min_count: usize,
+) {
+    if signals.cve_threshold_met && exit_code == signals.cve_exit_code {
+        eprintln!(
+            "{}",
+            format_cve_threshold_exit_message(
+                exit_code,
+                meeting_threshold,
+                min_score,
+                min_count,
+            )
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -213,5 +246,25 @@ mod tests {
             Some(42),
         );
         assert_eq!(pick_exit_code(&s), EXIT_OFFLINE_CACHE_MISS);
+    }
+
+    #[test]
+    fn format_cve_threshold_exit_message_includes_exit_and_counts() {
+        let msg = format_cve_threshold_exit_message(86, 2, 0.0, 0);
+        assert!(msg.contains("exit 86"), "{msg}");
+        assert!(msg.contains("2 finding(s)"), "{msg}");
+        assert!(msg.contains("min_score=0"), "{msg}");
+        assert!(msg.contains("min_count=0"), "{msg}");
+    }
+
+    #[test]
+    fn emit_cve_threshold_exit_if_selected_only_when_cve_exit_wins() {
+        let s = signals(0, false, false, true, 86, false, 0);
+        assert_eq!(pick_exit_code(&s), 86);
+        // Higher-priority offline miss must not be treated as CVE exit messaging.
+        let offline = signals(0, false, true, true, 86, false, 0);
+        assert_eq!(pick_exit_code(&offline), EXIT_OFFLINE_CACHE_MISS);
+        assert!(offline.cve_threshold_met);
+        assert_ne!(pick_exit_code(&offline), offline.cve_exit_code);
     }
 }

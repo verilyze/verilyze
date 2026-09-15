@@ -93,4 +93,5 @@ jobs:
           steps.verilyze-scan.outputs.scan_exit != '0'
         env:
           SCAN_EXIT: ${{ steps.verilyze-scan.outputs.scan_exit }}
+          REPORT_JSON: ${{ runner.temp }}/verilyze-report.json
         run: ./scripts/ci-enforce-scan-exit.sh

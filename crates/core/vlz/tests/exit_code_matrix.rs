@@ -220,3 +220,40 @@ fn exit_86_cve_found() {
         );
     });
 }
+
+#[cfg(feature = "python")]
+#[test]
+fn exit_86_cve_found_explains_threshold_on_stderr() {
+    use std::process::Command;
+
+    let _ = env_logger::try_init();
+    let dir = tempfile::tempdir().expect("tempdir");
+    let xdg = dir.path().join("xdg");
+    std::fs::create_dir_all(&xdg).expect("mkdir xdg");
+    let proj = dir.path().join("proj");
+    std::fs::create_dir_all(&proj).expect("mkdir proj");
+    write_requirements_with_pylock(proj.as_path(), "pkg", "1.0");
+    let root_str = proj.to_str().unwrap();
+
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_vlz"));
+    cmd.args([
+        "scan",
+        root_str,
+        "--provider",
+        "cve_returning",
+        "--format",
+        "plain",
+    ]);
+    apply_isolated_db_env(&mut cmd, &xdg);
+    let out = cmd.env("RUST_LOG", "off").output().expect("run vlz");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(
+        out.status.code(),
+        Some(86),
+        "CVE threshold exit; stderr={stderr}"
+    );
+    assert!(
+        stderr.contains("CVEs meeting threshold triggered exit 86"),
+        "stderr should explain exit 86; got: {stderr}"
+    );
+}
