@@ -59,24 +59,46 @@ def build_gitleaks_directory_cmd(
     ]
 
 
+# Retries when cargo (parallel check-fast) removes target/ files mid-walk.
+GITLEAKS_PARTIAL_SCAN_RETRIES = 3
+
+
+def is_transient_partial_scan(exit_code: int, output: str) -> bool:
+    """True for non-zero exit from a no-leak gitleaks partial scan."""
+    if exit_code == 0:
+        return False
+    lowered = output.lower()
+    return "partial scan" in lowered and "no leaks found" in lowered
+
+
 def run_gitleaks_directory(
     scan_root: Path, config_path: Path
 ) -> tuple[int, str]:
-    """Run gitleaks directory; return (exit_code, combined output)."""
+    """Run gitleaks directory; return (exit_code, combined output).
+
+    Retries transient partial scans caused by files vanishing under
+    ``target/`` while ``check-fast`` builds crates in parallel.
+    """
     if shutil.which(GITLEAKS_BIN) is None:
         return 1, missing_gitleaks_message()
 
     cmd = build_gitleaks_directory_cmd(scan_root, config_path)
-    completed = subprocess.run(  # nosec B603
-        cmd,
-        check=False,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-    output = (completed.stdout or "") + (completed.stderr or "")
-    return completed.returncode, output
+    code = 1
+    output = ""
+    for _attempt in range(GITLEAKS_PARTIAL_SCAN_RETRIES):
+        completed = subprocess.run(  # nosec B603
+            cmd,
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        output = (completed.stdout or "") + (completed.stderr or "")
+        code = completed.returncode
+        if code == 0 or not is_transient_partial_scan(code, output):
+            return code, output
+    return code, output
 
 
 def main(argv: list[str] | None = None) -> int:

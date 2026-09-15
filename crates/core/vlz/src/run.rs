@@ -19,6 +19,7 @@ use crate::exit_code::{
     self, DEFAULT_CVE_EXIT_CODE, EXIT_INTERNAL_ERROR, EXIT_MISCONFIGURATION,
     EXIT_MISSING_PACKAGE_MANAGER, EXIT_OFFLINE_CACHE_MISS,
     EXIT_RESOLUTION_FAILED, EXIT_SUCCESS, ExitSignals,
+    emit_cve_threshold_exit_if_selected,
 };
 use crate::package_resolve::resolve_packages_for_path;
 
@@ -632,6 +633,7 @@ pub async fn run(args: Cli) -> Result<i32> {
             format,
             output,
             dry_run,
+            provider,
             offline,
         } => {
             let effective = crate::config::load_with_reachability_overrides(
@@ -690,6 +692,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                 format,
                 output,
                 dry_run,
+                provider,
                 effective,
                 args.verbose,
                 db_backend,
@@ -2028,7 +2031,7 @@ async fn run_scan(
     let manifest_blocking = crate::scan::count_blocking_manifest_failures(
         &report_data.manifest_coverage,
     );
-    let exit_code = exit_code::pick_exit_code(&ExitSignals::for_scan_end(
+    let exit_signals = ExitSignals::for_scan_end(
         manifest_blocking,
         provider_fetch_failed,
         offline_cache_miss,
@@ -2038,7 +2041,15 @@ async fn run_scan(
         had_any_cves_before_fp_filter,
         real_cve_count,
         effective.fp_exit_code,
-    ));
+    );
+    let exit_code = exit_code::pick_exit_code(&exit_signals);
+    emit_cve_threshold_exit_if_selected(
+        &exit_signals,
+        exit_code,
+        meeting_threshold,
+        effective.min_score,
+        effective.min_count,
+    );
 
     // -----------------------------------------------------------------
     // j) Emit optional secondary files (FR-008 --report / --summary-file)
@@ -2327,7 +2338,7 @@ async fn scan_findings_for_fix(
 
     let manifest_blocking =
         crate::scan::count_blocking_manifest_failures(&manifest_coverage);
-    let exit_code = exit_code::pick_exit_code(&ExitSignals::for_scan_end(
+    let exit_signals = ExitSignals::for_scan_end(
         manifest_blocking,
         provider_fetch_failed,
         offline_cache_miss,
@@ -2337,7 +2348,11 @@ async fn scan_findings_for_fix(
         had_any_cves_before_fp_filter,
         real_cve_count,
         effective.fp_exit_code,
-    ));
+    );
+    let exit_code = exit_code::pick_exit_code(&exit_signals);
+    // Do not emit CVE-threshold exit messaging here: `run_fix` may remap the
+    // scan exit (FR-041 dry-run / apply). Only the final process exit path
+    // (main scan) should explain a CVE threshold exit.
 
     Ok(ScanFixOutcome {
         root_path,
@@ -2355,12 +2370,13 @@ async fn run_fix(
     format: String,
     output: Option<String>,
     dry_run: bool,
+    provider: Option<String>,
     effective: crate::config::EffectiveConfig,
     _verbosity: u8,
     db_backend: Arc<Box<dyn vlz_db::DatabaseBackend + Send + Sync + 'static>>,
     offline: bool,
 ) -> Result<i32> {
-    let provider_impl = select_provider_impl(None, &effective).await?;
+    let provider_impl = select_provider_impl(provider, &effective).await?;
 
     let first_scan = scan_findings_for_fix(
         root.clone(),

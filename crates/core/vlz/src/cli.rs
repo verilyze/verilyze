@@ -339,6 +339,15 @@ pub enum Commands {
         #[arg(long)]
         dry_run: bool,
 
+        /// Force a particular vulnerability provider
+        #[arg(
+            long,
+            value_parser = provider_parser(),
+            ignore_case = true,
+            help_heading = HELP_PROVIDER_CACHE,
+        )]
+        provider: Option<String>,
+
         /// Disable network access (offline apply exits 6 when network is needed)
         #[arg(long, help_heading = HELP_PROVIDER_CACHE)]
         offline: bool,
@@ -1171,6 +1180,7 @@ mod tests {
             format,
             output,
             dry_run,
+            provider,
             offline,
         } = &cli.cmd
         else {
@@ -1180,6 +1190,7 @@ mod tests {
         assert_eq!(format, "plain");
         assert!(output.is_none());
         assert!(!dry_run);
+        assert!(provider.is_none());
         assert!(!offline);
     }
 
@@ -1190,6 +1201,7 @@ mod tests {
             root,
             format,
             dry_run,
+            provider,
             offline,
             ..
         } = &cli.cmd
@@ -1199,7 +1211,21 @@ mod tests {
         assert!(root.is_none());
         assert_eq!(format, "json");
         assert!(*dry_run);
+        assert!(provider.is_none());
         assert!(!offline);
+    }
+
+    #[test]
+    fn parse_fix_provider() {
+        let cli = parse(&["fix", "--provider", "osv", "--dry-run"]);
+        let Commands::Fix {
+            provider, dry_run, ..
+        } = &cli.cmd
+        else {
+            panic!("expected fix")
+        };
+        assert_eq!(provider.as_deref(), Some("osv"));
+        assert!(*dry_run);
     }
 
     #[test]

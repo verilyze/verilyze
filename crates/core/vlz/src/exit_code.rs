@@ -110,6 +110,60 @@ pub fn cve_threshold_met(meeting_threshold: usize, min_count: usize) -> bool {
     }
 }
 
+/// Human-readable explanation when CVE threshold drives the process exit (FR-014).
+pub fn format_cve_threshold_exit_message(
+    exit_code: i32,
+    meeting_threshold: usize,
+    min_score: f32,
+    min_count: usize,
+) -> String {
+    format!(
+        "CVEs meeting threshold triggered exit {exit_code} ({meeting_threshold} CVE(s); min_score={min_score}, min_count={min_count})."
+    )
+}
+
+/// Message when `exit_code` is the CVE-threshold policy exit; `None` otherwise.
+///
+/// Callers that remap CVE exits (for example `vlz fix --dry-run`) must pass the
+/// *final* process exit so remapped exits do not claim a CVE threshold exit.
+pub fn cve_threshold_exit_message_if_selected(
+    signals: &ExitSignals,
+    exit_code: i32,
+    meeting_threshold: usize,
+    min_score: f32,
+    min_count: usize,
+) -> Option<String> {
+    if signals.cve_threshold_met && exit_code == signals.cve_exit_code {
+        Some(format_cve_threshold_exit_message(
+            exit_code,
+            meeting_threshold,
+            min_score,
+            min_count,
+        ))
+    } else {
+        None
+    }
+}
+
+/// Emit stderr when the chosen exit code is the CVE-threshold policy exit.
+pub fn emit_cve_threshold_exit_if_selected(
+    signals: &ExitSignals,
+    exit_code: i32,
+    meeting_threshold: usize,
+    min_score: f32,
+    min_count: usize,
+) {
+    if let Some(msg) = cve_threshold_exit_message_if_selected(
+        signals,
+        exit_code,
+        meeting_threshold,
+        min_score,
+        min_count,
+    ) {
+        eprintln!("{msg}");
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -213,5 +267,48 @@ mod tests {
             Some(42),
         );
         assert_eq!(pick_exit_code(&s), EXIT_OFFLINE_CACHE_MISS);
+    }
+
+    #[test]
+    fn format_cve_threshold_exit_message_includes_exit_and_counts() {
+        let msg = format_cve_threshold_exit_message(86, 2, 0.0, 0);
+        assert!(msg.contains("exit 86"), "{msg}");
+        assert!(msg.contains("2 CVE(s)"), "{msg}");
+        assert!(!msg.contains("finding(s)"), "{msg}");
+        assert!(msg.contains("min_score=0"), "{msg}");
+        assert!(msg.contains("min_count=0"), "{msg}");
+    }
+
+    #[test]
+    fn cve_threshold_exit_message_if_selected_some_when_cve_exit_wins() {
+        let s = signals(0, false, false, true, 86, false, 0);
+        let msg = cve_threshold_exit_message_if_selected(&s, 86, 2, 0.0, 0);
+        assert!(
+            msg.is_some(),
+            "expected message when process exit is CVE exit"
+        );
+        assert!(msg.unwrap().contains("exit 86"));
+    }
+
+    #[test]
+    fn cve_threshold_exit_message_if_selected_none_when_higher_priority_wins()
+    {
+        let offline = signals(0, false, true, true, 86, false, 0);
+        let exit = pick_exit_code(&offline);
+        assert_eq!(exit, EXIT_OFFLINE_CACHE_MISS);
+        assert!(
+            cve_threshold_exit_message_if_selected(&offline, exit, 2, 0.0, 0)
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn cve_threshold_exit_message_if_selected_none_when_exit_remapped() {
+        // fix --dry-run / apply paths may remap CVE exit to 0 while threshold is met.
+        let s = signals(0, false, false, true, 86, false, 0);
+        assert!(
+            cve_threshold_exit_message_if_selected(&s, 0, 2, 0.0, 0).is_none(),
+            "must not claim CVE exit when the process exit was remapped"
+        );
     }
 }

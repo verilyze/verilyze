@@ -110,3 +110,47 @@ def test_report_missing_gitleaks(
     assert gitleaks_native.report_missing_gitleaks() == 1
     err = capsys.readouterr().err
     assert "gitleaks is required" in err
+
+def test_is_transient_partial_scan_no_leaks() -> None:
+    assert gitleaks_native.is_transient_partial_scan(
+        1,
+        "ERR failed scan directory\nWRN partial scan completed\n"
+        "WRN no leaks found in partial scan\n",
+    )
+    assert not gitleaks_native.is_transient_partial_scan(
+        1, "leaks found: 1\n"
+    )
+    assert not gitleaks_native.is_transient_partial_scan(0, "ok\n")
+
+
+def test_run_gitleaks_directory_retries_transient_partial_scan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = tmp_path / gitleaks_native.GITLEAKS_CONFIG_NAME
+    config.write_text('title = "t"\n', encoding="utf-8")
+    calls = {"n": 0}
+
+    def _fake_run(cmd: list[str], **_kwargs):  # type: ignore[no-untyped-def]
+        del cmd
+        calls["n"] += 1
+
+        class _Completed:
+            returncode = 1 if calls["n"] == 1 else 0
+            stdout = ""
+            stderr = (
+                "partial scan completed\nno leaks found in partial scan\n"
+                if calls["n"] == 1
+                else "INF no leaks found\n"
+            )
+
+        return _Completed()
+
+    monkeypatch.setattr(
+        gitleaks_native.shutil, "which", lambda _n: "/usr/bin/gitleaks"
+    )
+    monkeypatch.setattr(gitleaks_native.subprocess, "run", _fake_run)
+    code, output = gitleaks_native.run_gitleaks_directory(tmp_path, config)
+    assert code == 0
+    assert calls["n"] == 2
+    assert "no leaks found" in output.lower()
+
