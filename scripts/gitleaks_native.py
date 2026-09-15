@@ -72,7 +72,7 @@ def _should_skip_dir(name: str) -> bool:
 
 
 def iter_gitleaks_scan_paths(scan_root: Path) -> list[Path]:
-    """Return child paths under `scan_root` to scan (skips build/cache dirs)."""
+    """Return child paths under `scan_root` (skips build/cache dirs)."""
     if not scan_root.is_dir():
         return [scan_root]
     paths: list[Path] = []
