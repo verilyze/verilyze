@@ -635,7 +635,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__fp__subcmd__mark)
-            opts="-v -c -h --comment --project-id --verbose --config --help"
+            opts="-v -c -h --comment --project-id --justification --status --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -647,6 +647,14 @@ _vlz() {
                     ;;
                 --project-id)
                     COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --justification)
+                    COMPREPLY=($(compgen -W "component_not_present vulnerable_code_not_present vulnerable_code_not_in_execute_path vulnerable_code_cannot_be_controlled_by_adversary inline_mitigations_already_exist" -- "${cur}"))
+                    return 0
+                    ;;
+                --status)
+                    COMPREPLY=($(compgen -W "not_affected" -- "${cur}"))
                     return 0
                     ;;
                 --config)
@@ -1058,18 +1066,18 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__scan)
-            opts="-f -o -s -j -v -c -h --format --output --report --provider --parallel --parallel-resolutions --cache-db --ignore-db --scan-exclude-dir --lock-file --from-sbom --cache-ttl-secs --offline --benchmark --min-score --min-count --exit-code --fp-exit-code --project-id --package-manager-required --keep-ephemeral-venv --allow-dependency-code-execution --allow-direct-only-fallback --fail-fast --backoff-base --backoff-max --max-retries --provider-http-connect-timeout-secs --provider-http-request-timeout-secs --tls-crl-bundle --reachability-mode --severity-v2-critical-min --severity-v2-high-min --severity-v2-medium-min --severity-v2-low-min --severity-v3-critical-min --severity-v3-high-min --severity-v3-medium-min --severity-v3-low-min --severity-v4-critical-min --severity-v4-high-min --severity-v4-medium-min --severity-v4-low-min --verbose --config --help"
+            opts="-f -o -s -j -v -c -h --format --output --report --provider --parallel --parallel-resolutions --cache-db --ignore-db --scan-exclude-dir --lock-file --from-sbom --cache-ttl-secs --offline --benchmark --min-score --min-count --exit-code --fp-exit-code --project-id --package-manager-required --keep-ephemeral-venv --allow-dependency-code-execution --allow-direct-only-fallback --fail-fast --backoff-base --backoff-max --max-retries --provider-http-connect-timeout-secs --provider-http-request-timeout-secs --tls-crl-bundle --reachability-mode --severity-v2-critical-min --severity-v2-high-min --severity-v2-medium-min --severity-v2-low-min --severity-v3-critical-min --severity-v3-high-min --severity-v3-medium-min --severity-v3-low-min --severity-v4-critical-min --severity-v4-high-min --severity-v4-medium-min --severity-v4-low-min --no-vex --vex-product-id --vex-author-name --vex-author-namespace --vex-reachability-not-affected --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --format)
-                    COMPREPLY=($(compgen -W "plain json sarif cyclonedx spdx" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "plain json sarif cyclonedx spdx openvex" -- "${cur}"))
                     return 0
                     ;;
                 -f)
-                    COMPREPLY=($(compgen -W "plain json sarif cyclonedx spdx" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "plain json sarif cyclonedx spdx openvex" -- "${cur}"))
                     return 0
                     ;;
                 --output)
@@ -1301,6 +1309,18 @@ _vlz() {
                     return 0
                     ;;
                 --severity-v4-low-min)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --vex-product-id)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --vex-author-name)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --vex-author-namespace)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

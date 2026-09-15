@@ -39,11 +39,12 @@ complete -c vlz -n "__fish_vlz_needs_command" -f -a "fp" -d 'Manage false-positi
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "preload" -d 'Resolve dependencies and warm the vulnerability cache (FR-021)'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "help" -d 'Open the full manual page'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "generate-completions" -d 'Generate shell completion scripts'
-complete -c vlz -n "__fish_vlz_using_subcommand scan" -s f -l format -d 'Output format (plain, json, sarif, cyclonedx, spdx)' -r -f -a "plain\t''
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -s f -l format -d 'Output format (plain, json, sarif, cyclonedx, spdx, openvex)' -r -f -a "plain\t''
 json\t''
 sarif\t''
 cyclonedx\t''
-spdx\t''"
+spdx\t''
+openvex\t''"
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -s o -l output -d 'Write primary report to file instead of stdout' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -s s -l report -d 'Write additional report files: e.g. html:/tmp/out.html,cyclonedx:/tmp/sbom.json' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l provider -d 'Force a particular vulnerability provider' -r -f -a "osv\t''"
@@ -81,6 +82,9 @@ complete -c vlz -n "__fish_vlz_using_subcommand scan" -l severity-v4-critical-mi
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l severity-v4-high-min -d 'CVSS v4 high severity minimum score (default 7.0)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l severity-v4-medium-min -d 'CVSS v4 medium severity minimum score (default 4.0)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l severity-v4-low-min -d 'CVSS v4 low severity minimum score (default 0.1)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l vex-product-id -d 'Product identifier for OpenVEX statements (defaults to --project-id)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l vex-author-name -d 'Author name for OpenVEX documents (default: verilyze)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l vex-author-namespace -d 'Author namespace / role for OpenVEX documents' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -s c -l config -d 'Override configuration file location' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l offline -d 'Disable network access'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l benchmark -d 'Benchmark mode (no cache, no network, parallel=1)'
@@ -89,6 +93,8 @@ complete -c vlz -n "__fish_vlz_using_subcommand scan" -l keep-ephemeral-venv -d 
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l allow-dependency-code-execution -d 'Allow package managers to execute dependency build/lifecycle code (SEC-023)'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l allow-direct-only-fallback -d 'Fall back to direct-only scan with warning when transitive resolution fails (FR-022a). Applies to all Python project manifests (requirements.txt, pyproject.toml, Pipfile, setup.cfg, setup.py), Rust Cargo.toml without Cargo.lock, Go go.mod when go list or cargo metadata cannot run, JavaScript/TypeScript package.json without a usable adjacent or parent lock when package-manager execution is disabled, and Ruby Gemfile/gems.rb/*.gemspec without a usable Gemfile.lock/gems.locked when Bundler execution is disabled'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l fail-fast -d 'Stop on first manifest parse/resolution failure; skip CVE lookup (FR-037)'
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l no-vex -d 'Omit VEX analysis from CycloneDX / OpenVEX output'
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l vex-reachability-not-affected -d 'Map reachability false to VEX not_affected (default: in_triage)'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand fix" -s f -l format -d 'Output format for dry-run (plain or json)' -r -f -a "plain\t''
@@ -154,6 +160,12 @@ complete -c vlz -n "__fish_vlz_using_subcommand fp; and not __fish_seen_subcomma
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and not __fish_seen_subcommand_from mark unmark" -f -a "unmark" -d 'Remove false-positive marking for a CVE'
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from mark" -l comment -d 'Optional comment' -r
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from mark" -l project-id -d 'Optional project scope' -r
+complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from mark" -l justification -d 'CISA VEX justification for not_affected' -r -f -a "component_not_present\t''
+vulnerable_code_not_present\t''
+vulnerable_code_not_in_execute_path\t''
+vulnerable_code_cannot_be_controlled_by_adversary\t''
+inline_mitigations_already_exist\t''"
+complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from mark" -l status -d 'VEX status (default not_affected when justification is set)' -r -f -a "not_affected\t''"
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from mark" -s c -l config -d 'Override configuration file location' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from mark" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from mark" -s h -l help -d 'Print help'

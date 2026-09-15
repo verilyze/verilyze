@@ -60,6 +60,36 @@ env = "VLZ_REACHABILITY_MODE"
 cli = "--reachability-mode"
 default = "tier-b"
 
+[vex_product_id]
+description = "Product identifier for OpenVEX statements (defaults to project_id)"
+type = "string"
+env = "VLZ_VEX_PRODUCT_ID"
+cli = "--vex-product-id"
+default = ""
+
+[vex_author_name]
+description = "Author name for OpenVEX documents"
+type = "string"
+env = "VLZ_VEX_AUTHOR_NAME"
+cli = "--vex-author-name"
+default = "verilyze"
+
+[vex_author_namespace]
+description = "Author namespace or role for OpenVEX documents"
+type = "string"
+env = "VLZ_VEX_AUTHOR_NAMESPACE"
+cli = "--vex-author-namespace"
+default = ""
+
+[vex_reachability_not_affected]
+description = """
+When true, map reachability false to VEX not_affected (default: in_triage)
+"""
+type = "boolean"
+env = "VLZ_VEX_REACHABILITY_NOT_AFFECTED"
+cli = "--vex-reachability-not-affected"
+default = "false"
+
 [cache_ttl_secs]
 description = "Default cache TTL in seconds (5 days); only affects new entries"
 type = "integer"

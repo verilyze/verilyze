@@ -57,6 +57,10 @@ flowchart TD
 | allow_direct_only_fallback | boolean | false | `VLZ_ALLOW_DIRECT_ONLY_FALLBACK` | `--allow-direct-only-fallback` |
 | fail_fast | boolean | false | `VLZ_FAIL_FAST` | `--fail-fast` |
 | lsp_folder_trust | boolean | false | `VLZ_LSP_FOLDER_TRUST` | `vlz lsp --folder-trust` |
+| vex_product_id | string |  | `VLZ_VEX_PRODUCT_ID` | `--vex-product-id` |
+| vex_author_name | string | verilyze | `VLZ_VEX_AUTHOR_NAME` | `--vex-author-name` |
+| vex_author_namespace | string |  | `VLZ_VEX_AUTHOR_NAMESPACE` | `--vex-author-namespace` |
+| vex_reachability_not_affected | boolean | false | `VLZ_VEX_REACHABILITY_NOT_AFFECTED` | `--vex-reachability-not-affected` |
 
 ## Severity thresholds (FR-013)
 
@@ -107,6 +111,25 @@ persist Tier B and per-CVE Tier C decisions under `.vlz/reachability-cache.json`
 in the scan root. Tier C entries are write-only (decisions are always
 recomputed; evidence is never cached). See `man vlz` ENVIRONMENT and
 CONTRIBUTING.md.
+
+## VEX (FR-044, FR-046)
+
+VEX statement generation for CycloneDX `vulnerabilities[].analysis` and
+standalone OpenVEX (`--format openvex`). File config uses a `[vex]` table
+(keys map to `vex_*` rows in the scalar table above):
+
+```toml
+[vex]
+product_id = "pkg:generic/my-app@1.0.0"
+author_name = "verilyze"
+# author_namespace = "https://example.com"
+reachability_not_affected = false
+```
+
+`product_id` defaults to `--project-id` when unset. OpenVEX requires a product
+identifier. `--no-vex` omits analysis / VEX statements. When
+`reachability_not_affected` is false (default), `reachable: false` maps to
+`in_triage` rather than asserting `not_affected`.
 
 ## Resolution policy (FR-022, SEC-023)
 

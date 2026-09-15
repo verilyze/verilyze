@@ -100,6 +100,18 @@
 # that (SEC-023)
 # lsp_folder_trust = false
 
+# Product identifier for OpenVEX statements (defaults to project_id)
+# vex_product_id = 
+
+# Author name for OpenVEX documents
+# vex_author_name = verilyze
+
+# Author namespace or role for OpenVEX documents
+# vex_author_namespace = 
+
+# When true, map reachability false to VEX not_affected (default: in_triage)
+# vex_reachability_not_affected = false
+
 #
 # [severity.v2], [severity.v3], [severity.v4] (CVSS thresholds)
 # [severity.v2]
