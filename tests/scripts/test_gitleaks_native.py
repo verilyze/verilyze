@@ -38,6 +38,43 @@ def test_build_gitleaks_directory_cmd_matches_super_linter_shape() -> None:
     ]
 
 
+def test_iter_gitleaks_scan_paths_skips_build_trees(tmp_path: Path) -> None:
+    (tmp_path / "crates").mkdir()
+    (tmp_path / "target").mkdir()
+    (tmp_path / ".venv-test").mkdir()
+    (tmp_path / "README.md").write_text("hi\n", encoding="utf-8")
+    (tmp_path / ".vlz").mkdir()
+    paths = gitleaks_native.iter_gitleaks_scan_paths(tmp_path)
+    names = {p.name for p in paths}
+    assert "crates" in names
+    assert "README.md" in names
+    assert "target" not in names
+    assert ".venv-test" not in names
+    assert ".vlz" not in names
+
+
+def test_iter_gitleaks_scan_paths_file_root(tmp_path: Path) -> None:
+    file_root = tmp_path / "only.txt"
+    file_root.write_text("x\n", encoding="utf-8")
+    assert gitleaks_native.iter_gitleaks_scan_paths(file_root) == [file_root]
+
+
+def test_run_gitleaks_directory_empty_paths_succeeds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        gitleaks_native, "iter_gitleaks_scan_paths", lambda _root: []
+    )
+    monkeypatch.setattr(
+        gitleaks_native.shutil, "which", lambda _name: "/bin/gitleaks"
+    )
+    config = tmp_path / gitleaks_native.GITLEAKS_CONFIG_NAME
+    config.write_text("title = 't'\n", encoding="utf-8")
+    code, output = gitleaks_native.run_gitleaks_directory(tmp_path, config)
+    assert code == 0
+    assert output == ""
+
+
 def test_run_gitleaks_directory_fails_on_workdir_secret(
     tmp_path: Path,
 ) -> None:
@@ -110,6 +147,7 @@ def test_report_missing_gitleaks(
     assert gitleaks_native.report_missing_gitleaks() == 1
     err = capsys.readouterr().err
     assert "gitleaks is required" in err
+
 
 def test_is_transient_partial_scan_no_leaks() -> None:
     assert gitleaks_native.is_transient_partial_scan(

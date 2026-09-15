@@ -7,6 +7,11 @@
 
 Matches super-linter's gitleaks invocation shape (directory + redact + config)
 so check-fast scans the working tree, including uncommitted files.
+
+Build and cache trees listed in `.gitleaks.toml` allowlists are skipped as
+scan roots so parallel `cargo` builds under `target/` cannot race gitleaks
+`lstat` (partial-scan exit 1 with no leaks). Remaining transient partial
+scans are retried a few times.
 """
 
 import shutil
@@ -16,6 +21,18 @@ from pathlib import Path
 
 GITLEAKS_CONFIG_NAME = ".gitleaks.toml"
 GITLEAKS_BIN = "gitleaks"
+
+# Directory names skipped as scan roots (align with .gitleaks.toml allowlist
+# and super-linter FILTER_REGEX_EXCLUDE intent).
+GITLEAKS_SKIP_DIR_NAMES = frozenset(
+    {
+        "target",
+        "__pycache__",
+        ".mypy_cache",
+        ".vlz",
+        "super-linter-output",
+    }
+)
 
 # Install hints for setup-system-deps parity (host package, not pip).
 GITLEAKS_INSTALL_HINTS = (
@@ -30,6 +47,9 @@ _MISSING_ERROR = (
     "check-super-linter-native."
 )
 
+# Retries when cargo (parallel check-fast) removes files mid-walk.
+GITLEAKS_PARTIAL_SCAN_RETRIES = 3
+
 
 def missing_gitleaks_message() -> str:
     """Error text when the gitleaks binary is not on PATH."""
@@ -43,10 +63,30 @@ def report_missing_gitleaks() -> int:
     return 1
 
 
+def _should_skip_dir(name: str) -> bool:
+    if name in GITLEAKS_SKIP_DIR_NAMES:
+        return True
+    if name.startswith(".venv"):
+        return True
+    return False
+
+
+def iter_gitleaks_scan_paths(scan_root: Path) -> list[Path]:
+    """Return child paths under `scan_root` to scan (skips build/cache dirs)."""
+    if not scan_root.is_dir():
+        return [scan_root]
+    paths: list[Path] = []
+    for child in sorted(scan_root.iterdir(), key=lambda p: p.name):
+        if child.is_dir() and _should_skip_dir(child.name):
+            continue
+        paths.append(child)
+    return paths
+
+
 def build_gitleaks_directory_cmd(
     scan_root: Path, config_path: Path
 ) -> list[str]:
-    """Return argv for a worktree scan (super-linter Gitleaks parity)."""
+    """Return argv for a single-path worktree scan (super-linter shape)."""
     return [
         GITLEAKS_BIN,
         "directory",
@@ -57,10 +97,6 @@ def build_gitleaks_directory_cmd(
         str(config_path),
         str(scan_root),
     ]
-
-
-# Retries when cargo (parallel check-fast) removes target/ files mid-walk.
-GITLEAKS_PARTIAL_SCAN_RETRIES = 3
 
 
 def is_transient_partial_scan(exit_code: int, output: str) -> bool:
@@ -74,31 +110,41 @@ def is_transient_partial_scan(exit_code: int, output: str) -> bool:
 def run_gitleaks_directory(
     scan_root: Path, config_path: Path
 ) -> tuple[int, str]:
-    """Run gitleaks directory; return (exit_code, combined output).
+    """Run gitleaks over non-build paths; retry transient partial scans.
 
-    Retries transient partial scans caused by files vanishing under
-    ``target/`` while ``check-fast`` builds crates in parallel.
+    Returns ``(exit_code, combined output)``.
     """
     if shutil.which(GITLEAKS_BIN) is None:
         return 1, missing_gitleaks_message()
 
-    cmd = build_gitleaks_directory_cmd(scan_root, config_path)
-    code = 1
-    output = ""
-    for _attempt in range(GITLEAKS_PARTIAL_SCAN_RETRIES):
-        completed = subprocess.run(  # nosec B603
-            cmd,
-            check=False,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-        )
-        output = (completed.stdout or "") + (completed.stderr or "")
-        code = completed.returncode
-        if code == 0 or not is_transient_partial_scan(code, output):
-            return code, output
-    return code, output
+    paths = iter_gitleaks_scan_paths(scan_root)
+    if not paths:
+        return 0, ""
+
+    combined: list[str] = []
+    worst_code = 0
+    for path in paths:
+        cmd = build_gitleaks_directory_cmd(path, config_path)
+        code = 1
+        output = ""
+        for _attempt in range(GITLEAKS_PARTIAL_SCAN_RETRIES):
+            completed = subprocess.run(  # nosec B603
+                cmd,
+                check=False,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+            output = (completed.stdout or "") + (completed.stderr or "")
+            code = completed.returncode
+            if code == 0 or not is_transient_partial_scan(code, output):
+                break
+        if output:
+            combined.append(output)
+        if code != 0:
+            worst_code = code
+    return worst_code, "".join(combined)
 
 
 def main(argv: list[str] | None = None) -> int:
