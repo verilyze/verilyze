@@ -1264,13 +1264,12 @@ impl Reporter for CycloneDxReporter {
                     if data.emit_vex
                         && let Some(stmt) =
                             analysis_by_key.get(&(cve.id.clone(), bom_ref))
+                        && let Some(obj) = vuln.as_object_mut()
                     {
-                        if let Some(obj) = vuln.as_object_mut() {
-                            obj.insert(
-                                "analysis".to_string(),
-                                cyclonedx_analysis_for(stmt),
-                            );
-                        }
+                        obj.insert(
+                            "analysis".to_string(),
+                            cyclonedx_analysis_for(stmt),
+                        );
                     }
                     vuln
                 })
@@ -1389,13 +1388,13 @@ impl Reporter for OpenVexReporter {
             "version": 1,
             "statements": stmt_values
         });
-        if let Some(ns) = &data.vex_config.author_namespace {
-            if let Some(obj) = doc.as_object_mut() {
-                obj.insert(
-                    "role".to_string(),
-                    serde_json::Value::String(ns.clone()),
-                );
-            }
+        if let Some(ns) = &data.vex_config.author_namespace
+            && let Some(obj) = doc.as_object_mut()
+        {
+            obj.insert(
+                "role".to_string(),
+                serde_json::Value::String(ns.clone()),
+            );
         }
         let s = serde_json::to_string_pretty(&doc)?;
         writeln!(w, "{}", s).map_err(ReportError::Io)?;
