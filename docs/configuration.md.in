@@ -82,6 +82,25 @@ in the scan root. Tier C entries are write-only (decisions are always
 recomputed; evidence is never cached). See `man vlz` ENVIRONMENT and
 CONTRIBUTING.md.
 
+## VEX (FR-044, FR-046)
+
+VEX statement generation for CycloneDX `vulnerabilities[].analysis` and
+standalone OpenVEX (`--format openvex`). File config uses a `[vex]` table
+(keys map to `vex_*` rows in the scalar table above):
+
+```toml
+[vex]
+product_id = "pkg:generic/my-app@1.0.0"
+author_name = "verilyze"
+# author_namespace = "https://example.com"
+reachability_not_affected = false
+```
+
+`product_id` defaults to `--project-id` when unset. OpenVEX requires a product
+identifier. `--no-vex` omits analysis / VEX statements. When
+`reachability_not_affected` is false (default), `reachable: false` maps to
+`in_triage` rather than asserting `not_affected`.
+
 ## Resolution policy (FR-022, SEC-023)
 
 `allow_dependency_code_execution` (default false) and

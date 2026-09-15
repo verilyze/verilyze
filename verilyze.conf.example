@@ -120,6 +120,18 @@
 # medium_min = 4
 # low_min = 0.1
 #
+#
+# [vex] VEX generation (FR-044, FR-046)
+# [vex]
+# Product identifier for OpenVEX statements (defaults to project_id)
+# product_id = ""
+# Author name for OpenVEX documents
+# author_name = "verilyze"
+# Author namespace or role for OpenVEX documents
+# author_namespace = ""
+# When true, map reachability false to VEX not_affected (default: in_triage)
+# reachability_not_affected = false
+
 # Per-language manifest regex (FR-006)
 # [go]
 # regex = "^go\.mod$"

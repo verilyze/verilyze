@@ -23,6 +23,10 @@ def _run(
     cwd: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
     merged = os.environ.copy()
+    # Cloud Agents inject ssh_key; ship-pr then requires .cursor/sign-setup.sh
+    # in the temp fixture repo. Drop signing secrets so tests stay hermetic.
+    for key in ("ssh_key", "ssh_key_pass"):
+        merged.pop(key, None)
     if env:
         merged.update(env)
     return subprocess.run(

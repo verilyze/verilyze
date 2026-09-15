@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use clap::builder::PossibleValuesParser;
 #[cfg(feature = "completions")]
 use clap::value_parser;
 use clap::{Parser as ClapParser, Subcommand, ValueHint};
@@ -32,6 +33,7 @@ const HELP_PROVIDER_CACHE: &str = "Provider and cache";
 const HELP_RESOLUTION: &str = "Resolution";
 const HELP_ANALYSIS: &str = "Analysis";
 const HELP_SEVERITY_MAPPING: &str = "Severity mapping";
+const HELP_VEX: &str = "VEX";
 const HELP_ADVANCED: &str = "Advanced";
 
 #[derive(ClapParser, Debug)]
@@ -73,7 +75,7 @@ pub enum Commands {
         #[arg(value_name = "PATH", value_hint = ValueHint::DirPath)]
         root: Option<String>,
 
-        /// Output format (plain, json, sarif, cyclonedx, spdx)
+        /// Output format (plain, json, sarif, cyclonedx, spdx, openvex)
         #[arg(
             short,
             long,
@@ -306,6 +308,35 @@ pub enum Commands {
         /// CVSS v4 low severity minimum score (default 0.1)
         #[arg(long, value_name = "SCORE", help_heading = HELP_SEVERITY_MAPPING)]
         severity_v4_low_min: Option<f32>,
+
+        /// Omit VEX analysis from CycloneDX / OpenVEX output
+        #[arg(long, help_heading = HELP_VEX)]
+        no_vex: bool,
+
+        /// Product identifier for OpenVEX statements (defaults to --project-id)
+        #[arg(long, value_name = "ID", help_heading = HELP_VEX)]
+        vex_product_id: Option<String>,
+
+        /// Author name for OpenVEX documents (default: verilyze)
+        #[arg(long, value_name = "NAME", help_heading = HELP_VEX)]
+        vex_author_name: Option<String>,
+
+        /// Author namespace / role for OpenVEX documents
+        #[arg(long, value_name = "NS", help_heading = HELP_VEX)]
+        vex_author_namespace: Option<String>,
+
+        /// Map reachability false to VEX not_affected (default: in_triage).
+        /// Omit to leave config/env unchanged; pass `true`/`false` to override.
+        /// A bare flag (no value) means true.
+        #[arg(
+            long,
+            value_name = "BOOL",
+            num_args = 0..=1,
+            default_missing_value = "true",
+            value_parser = clap::builder::BoolishValueParser::new(),
+            help_heading = HELP_VEX
+        )]
+        vex_reachability_not_affected: Option<bool>,
     },
 
     /// Apply remediations (updates lock/manifest files by default)
@@ -558,6 +589,24 @@ pub enum FpCommands {
         /// Optional project scope
         #[arg(long, value_name = "ID")]
         project_id: Option<String>,
+
+        /// CISA VEX justification for not_affected
+        #[arg(
+            long,
+            value_name = "JUSTIFICATION",
+            value_parser = PossibleValuesParser::new(vlz_report::CISA_JUSTIFICATIONS),
+            help_heading = HELP_VEX,
+        )]
+        justification: Option<String>,
+
+        /// VEX status (default not_affected when justification is set)
+        #[arg(
+            long,
+            value_name = "STATUS",
+            value_parser = PossibleValuesParser::new(vlz_report::VEX_FP_STATUSES),
+            help_heading = HELP_VEX,
+        )]
+        status: Option<String>,
     },
     /// Remove false-positive marking for a CVE
     Unmark {
@@ -618,6 +667,12 @@ mod tests {
         let mut v = vec!["vlz"];
         v.extend(args.iter().copied());
         Cli::parse_from(v)
+    }
+
+    fn try_parse(args: &[&str]) -> Result<Cli, clap::error::Error> {
+        let mut v = vec!["vlz"];
+        v.extend(args.iter().copied());
+        Cli::try_parse_from(v)
     }
 
     #[test]
@@ -1025,6 +1080,105 @@ mod tests {
         };
         assert_eq!(cve_id, "CVE-2023-1234");
         assert_eq!(comment, "fp");
+    }
+
+    #[test]
+    fn parse_fp_mark_with_justification_and_status() {
+        let cli = parse(&[
+            "fp",
+            "mark",
+            "CVE-2023-9999",
+            "--justification",
+            "vulnerable_code_not_present",
+            "--status",
+            "not_affected",
+        ]);
+        let Commands::Fp { sub } = &cli.cmd else {
+            panic!("expected fp")
+        };
+        let FpCommands::Mark {
+            cve_id,
+            justification,
+            status,
+            ..
+        } = sub
+        else {
+            panic!("expected mark")
+        };
+        assert_eq!(cve_id, "CVE-2023-9999");
+        assert_eq!(
+            justification.as_deref(),
+            Some("vulnerable_code_not_present")
+        );
+        assert_eq!(status.as_deref(), Some("not_affected"));
+    }
+
+    #[test]
+    fn parse_scan_vex_flags() {
+        let cli = parse(&[
+            "scan",
+            "--no-vex",
+            "--vex-product-id",
+            "pkg:generic/app@1",
+            "--vex-author-name",
+            "Acme",
+            "--vex-reachability-not-affected",
+        ]);
+        let Commands::Scan {
+            no_vex,
+            vex_product_id,
+            vex_author_name,
+            vex_reachability_not_affected,
+            ..
+        } = &cli.cmd
+        else {
+            panic!("expected scan")
+        };
+        assert!(*no_vex);
+        assert_eq!(vex_product_id.as_deref(), Some("pkg:generic/app@1"));
+        assert_eq!(vex_author_name.as_deref(), Some("Acme"));
+        assert_eq!(*vex_reachability_not_affected, Some(true));
+    }
+
+    #[test]
+    fn parse_scan_vex_reachability_false_overrides() {
+        let cli = parse(&["scan", "--vex-reachability-not-affected=false"]);
+        let Commands::Scan {
+            vex_reachability_not_affected,
+            ..
+        } = &cli.cmd
+        else {
+            panic!("expected scan")
+        };
+        assert_eq!(*vex_reachability_not_affected, Some(false));
+    }
+
+    #[test]
+    fn parse_fp_mark_rejects_invalid_justification() {
+        let err = try_parse(&[
+            "fp",
+            "mark",
+            "CVE-1",
+            "--justification",
+            "not_a_cisa_reason",
+        ])
+        .unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("justification") || msg.contains("possible values"),
+            "unexpected error: {msg}"
+        );
+    }
+
+    #[test]
+    fn parse_fp_mark_rejects_invalid_status() {
+        let err = try_parse(&["fp", "mark", "CVE-1", "--status", "affected"])
+            .unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("status") || msg.contains("possible values"),
+            "unexpected error: {msg}"
+        );
     }
 
     #[test]

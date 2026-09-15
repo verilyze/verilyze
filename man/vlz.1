@@ -54,10 +54,20 @@ per-manifest direct-only warnings and manifest failure detail (FR-022a).
 Scan project dependencies for known vulnerabilities. Default root is current directory.
 .Bl -tag -width Ds
 .It Fl f Ar fmt , Fl -format Ar fmt
-Output format: plain, json, sarif, cyclonedx, spdx (default: plain).
+Output format: plain, json, sarif, cyclonedx, spdx, openvex (default: plain).
 JSON and SARIF may include optional declaration lines (path and start_line)
 where dependencies are declared in manifests or lockfiles; this is separate
 from reachability evidence (FR-032).
+CycloneDX includes VEX
+.Cm analysis
+fields unless
+.Fl -no-vex
+is set (FR-044).
+OpenVEX requires
+.Fl -vex-product-id ,
+.Fl -project-id ,
+or
+.Cm [vex].product_id .
 .It Fl o Ar path , Fl -output Ar path
 Write primary report to file instead of stdout.
 .It Fl s Ar type:path , Fl -report Ar type:path
@@ -195,6 +205,20 @@ or
 .Cm best-available
 (Tier C where supported; default:
 .Cm tier-b ) .
+.It Fl -no-vex
+Omit VEX analysis from CycloneDX and OpenVEX output (FR-044).
+.It Fl -vex-product-id Ar id
+Product identifier for OpenVEX (defaults to
+.Fl -project-id ).
+.It Fl -vex-author-name Ar name
+Author name for OpenVEX documents (default: verilyze).
+.It Fl -vex-author-namespace Ar ns
+Author namespace or role for OpenVEX documents.
+.It Fl -vex-reachability-not-affected
+Map reachability false to VEX
+.Cm not_affected
+(default maps to
+.Cm in_triage ).
 .El
 .It Nm fix
 .Op Ar path
@@ -282,7 +306,15 @@ False-positive markings.
 .It Nm mark Ar CVE-ID
 .Op Fl -comment Ar text
 .Op Fl -project-id Ar id
-Mark CVE as false positive.
+.Op Fl -justification Ar value
+.Op Fl -status Ar status
+Mark CVE as false positive. Optional CISA
+.Fl -justification
+and
+.Fl -status
+(default
+.Cm not_affected
+when justification is set) are stored for VEX generation (FR-047).
 .It Nm unmark Ar CVE-ID
 Remove false-positive marking.
 .El
@@ -388,6 +420,25 @@ Reachability mode:
 .Cm tier-b ,
 or
 .Cm best-available .
+.It Ev VLZ_VEX_PRODUCT_ID
+Product identifier for OpenVEX statements (overrides
+.Va [vex].product_id ).
+.It Ev VLZ_VEX_AUTHOR_NAME
+Author name for OpenVEX documents (default:
+.Cm verilyze ).
+.It Ev VLZ_VEX_AUTHOR_NAMESPACE
+Author namespace or role for OpenVEX documents.
+.It Ev VLZ_VEX_REACHABILITY_NOT_AFFECTED
+When
+.Cm 1 ,
+.Cm true ,
+.Cm yes ,
+or
+.Cm on ,
+map reachability false to VEX
+.Cm not_affected
+(default maps to
+.Cm in_triage ).
 .It Ev VLZ_REACHABILITY_PERSIST_CACHE
 When set to
 .Cm 1 ,

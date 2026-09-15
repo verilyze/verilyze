@@ -217,7 +217,7 @@ uses the installed man page. Source: [man/vlz.1](man/vlz.1).
 | `vlz help [SUBCOMMAND]`      | Show full manual (`vlz.1`) via `man`; subcommand optional   |
 | `vlz --version`              | Print version                                                 |
 
-**Scan options (examples):** `-f`/`--format plain|json|sarif|cyclonedx|spdx`,
+**Scan options (examples):** `-f`/`--format plain|json|sarif|cyclonedx|spdx|openvex`,
 `-o`/`--output PATH` (write primary report to file; no stdout),
 `-s`/`--report TYPE:PATH` (alias `--summary-file`; additional typed files),
 `--from-sbom PATH` (repeatable; CycloneDX 1.x / SPDX 2.x or 3.0 JSON inventory),
@@ -227,13 +227,16 @@ uses the installed man page. Source: [man/vlz.1](man/vlz.1).
 `--reachability-mode off|tier-b|best-available` (`best-available` enables Tier C
 where supported; default remains `tier-b`). `VLZ_REACHABILITY_PERSIST_CACHE=1`
 persists reachability decisions under `.vlz/` in the scan root.
+VEX: `--no-vex`, `--vex-product-id`, `--vex-author-name`,
+`--vex-author-namespace`, `--vex-reachability-not-affected` (FR-044--FR-046).
 
 ### Project-scoped false-positives
 
 For project-scoped false-positives: (1) run `vlz fp mark CVE-ID --project-id X` to
-add a scoped FP; (2) run `vlz scan --project-id X` when scanning that project. Both
-commands must use the same project_id for the FP to apply. When scanning without
-`--project-id`, only global FPs (marked without `--project-id`) apply.
+add a scoped FP (optional `--justification` / `--status` for VEX triage); (2) run
+`vlz scan --project-id X` when scanning that project. Both commands must use the
+same project_id for the FP to apply. When scanning without `--project-id`, only
+global FPs (marked without `--project-id`) apply.
 
 ## Exit codes
 

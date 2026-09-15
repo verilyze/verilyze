@@ -35,8 +35,8 @@ _vlz() {
         case $line[1] in
             (scan)
 _arguments "${_arguments_options[@]}" : \
-'-f+[Output format (plain, json, sarif, cyclonedx, spdx)]:FORMAT:(plain json sarif cyclonedx spdx)' \
-'--format=[Output format (plain, json, sarif, cyclonedx, spdx)]:FORMAT:(plain json sarif cyclonedx spdx)' \
+'-f+[Output format (plain, json, sarif, cyclonedx, spdx, openvex)]:FORMAT:(plain json sarif cyclonedx spdx openvex)' \
+'--format=[Output format (plain, json, sarif, cyclonedx, spdx, openvex)]:FORMAT:(plain json sarif cyclonedx spdx openvex)' \
 '-o+[Write primary report to file instead of stdout]:PATH:_files' \
 '--output=[Write primary report to file instead of stdout]:PATH:_files' \
 '*-s+[Write additional report files\: e.g. html\:/tmp/out.html,cyclonedx\:/tmp/sbom.json]:TYPE:PATH:_default' \
@@ -75,6 +75,10 @@ _arguments "${_arguments_options[@]}" : \
 '--severity-v4-high-min=[CVSS v4 high severity minimum score (default 7.0)]:SCORE:_default' \
 '--severity-v4-medium-min=[CVSS v4 medium severity minimum score (default 4.0)]:SCORE:_default' \
 '--severity-v4-low-min=[CVSS v4 low severity minimum score (default 0.1)]:SCORE:_default' \
+'--vex-product-id=[Product identifier for OpenVEX statements (defaults to --project-id)]:ID:_default' \
+'--vex-author-name=[Author name for OpenVEX documents (default\: verilyze)]:NAME:_default' \
+'--vex-author-namespace=[Author namespace / role for OpenVEX documents]:NS:_default' \
+'--vex-reachability-not-affected=[Map reachability false to VEX not_affected (default\: in_triage). Omit to leave config/env unchanged; pass \`true\`/\`false\` to override. A bare flag (no value) means true]::BOOL:(true false)' \
 '-c+[Override configuration file location]:PATH:_files' \
 '--config=[Override configuration file location]:PATH:_files' \
 '--offline[Disable network access]' \
@@ -84,6 +88,7 @@ _arguments "${_arguments_options[@]}" : \
 '--allow-dependency-code-execution[Allow package managers to execute dependency build/lifecycle code (SEC-023)]' \
 '--allow-direct-only-fallback[Fall back to direct-only scan with warning when transitive resolution fails (FR-022a). Applies to all Python project manifests (requirements.txt, pyproject.toml, Pipfile, setup.cfg, setup.py), Rust Cargo.toml without Cargo.lock, Go go.mod when go list or cargo metadata cannot run, JavaScript/TypeScript package.json without a usable adjacent or parent lock when package-manager execution is disabled, and Ruby Gemfile/gems.rb/*.gemspec without a usable Gemfile.lock/gems.locked when Bundler execution is disabled]' \
 '--fail-fast[Stop on first manifest parse/resolution failure; skip CVE lookup (FR-037)]' \
+'--no-vex[Omit VEX analysis from CycloneDX / OpenVEX output]' \
 '*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '-h[Print help]' \
@@ -256,6 +261,8 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '--comment=[Optional comment]:COMMENT:_default' \
 '--project-id=[Optional project scope]:ID:_default' \
+'--justification=[CISA VEX justification for not_affected]:JUSTIFICATION:(component_not_present vulnerable_code_not_present vulnerable_code_not_in_execute_path vulnerable_code_cannot_be_controlled_by_adversary inline_mitigations_already_exist)' \
+'--status=[VEX status (default not_affected when justification is set)]:STATUS:(not_affected)' \
 '-c+[Override configuration file location]:PATH:_files' \
 '--config=[Override configuration file location]:PATH:_files' \
 '*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \

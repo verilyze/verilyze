@@ -13,7 +13,7 @@ pub use cache_entry::{
     normalize_stored_entry, pkg_cache_key, unix_now_secs,
 };
 pub use file_ignore::{
-    DEFAULT_IGNORE_FILE_NAME, FileIgnoreDb, FpEntry,
+    DEFAULT_IGNORE_FILE_NAME, FileIgnoreDb, FpEntry, FpMarkFields, FpMarkMeta,
     IGNORE_FILE_SCHEMA_VERSION, LEGACY_IGNORE_REDB_FILE_NAME,
     legacy_redb_path_for_json,
 };
@@ -360,12 +360,29 @@ impl DatabaseError {
 /// Any backend (RedB, SQLite, etc.) must implement this contract so that
 /// project_id-scoped filtering works consistently across implementations.
 pub trait IgnoreDb: Send + Sync {
-    /// Mark a CVE as false positive.
+    /// Mark a CVE as false positive (no VEX triage metadata).
     fn mark(
         &self,
         cve_id: &str,
         comment: &str,
         project_id: Option<&str>,
+    ) -> Result<(), DatabaseError> {
+        self.mark_with_details(cve_id, comment, project_id, None, None, None)
+    }
+
+    /// Mark a CVE as false positive with optional VEX triage metadata (FR-044).
+    ///
+    /// Implementers must persist `justification` / `status` / `detail` when
+    /// provided and must not silently drop them. Re-mark with `None` for those
+    /// fields should preserve prior triage values (see `FpEntry::from_mark`).
+    fn mark_with_details(
+        &self,
+        cve_id: &str,
+        comment: &str,
+        project_id: Option<&str>,
+        justification: Option<&str>,
+        status: Option<&str>,
+        detail: Option<&str>,
     ) -> Result<(), DatabaseError>;
 
     /// Remove a false-positive marking.
@@ -380,7 +397,15 @@ pub trait IgnoreDb: Send + Sync {
     fn marked_ids(
         &self,
         project_id: Option<&str>,
-    ) -> Result<std::collections::HashSet<String>, DatabaseError>;
+    ) -> Result<std::collections::HashSet<String>, DatabaseError> {
+        Ok(self.marked_entries(project_id)?.into_keys().collect())
+    }
+
+    /// Return marked FP entries (including VEX triage fields) for the project.
+    fn marked_entries(
+        &self,
+        project_id: Option<&str>,
+    ) -> Result<std::collections::HashMap<String, crate::FpEntry>, DatabaseError>;
 }
 
 /// SEC-014: Returns Err if the file at path exists and is world-writable.
@@ -659,7 +684,7 @@ mod tests {
     #[derive(Default)]
     struct MockIgnoreDb {
         entries: std::sync::RwLock<
-            std::collections::HashMap<String, (String, Option<String>)>,
+            std::collections::HashMap<String, crate::FpEntry>,
         >,
     }
 
@@ -670,9 +695,39 @@ mod tests {
             comment: &str,
             project_id: Option<&str>,
         ) -> Result<(), DatabaseError> {
-            self.entries.write().unwrap().insert(
+            self.mark_with_details(
+                cve_id, comment, project_id, None, None, None,
+            )
+        }
+
+        fn mark_with_details(
+            &self,
+            cve_id: &str,
+            comment: &str,
+            project_id: Option<&str>,
+            justification: Option<&str>,
+            status: Option<&str>,
+            detail: Option<&str>,
+        ) -> Result<(), DatabaseError> {
+            let mut guard = self.entries.write().unwrap();
+            let existing = guard.get(cve_id).cloned();
+            guard.insert(
                 cve_id.to_string(),
-                (comment.to_string(), project_id.map(String::from)),
+                crate::FpEntry::from_mark(
+                    existing.as_ref(),
+                    crate::FpMarkFields {
+                        comment,
+                        project_id,
+                        justification,
+                        status,
+                        detail,
+                    },
+                    crate::FpMarkMeta {
+                        timestamp_secs: 0,
+                        user: None,
+                        host: None,
+                    },
+                ),
             );
             Ok(())
         }
@@ -690,17 +745,27 @@ mod tests {
             &self,
             project_id: Option<&str>,
         ) -> Result<std::collections::HashSet<String>, DatabaseError> {
+            Ok(self.marked_entries(project_id)?.into_keys().collect())
+        }
+
+        fn marked_entries(
+            &self,
+            project_id: Option<&str>,
+        ) -> Result<
+            std::collections::HashMap<String, crate::FpEntry>,
+            DatabaseError,
+        > {
             let guard = self.entries.read().unwrap();
-            let set: std::collections::HashSet<String> = guard
+            let map: std::collections::HashMap<String, crate::FpEntry> = guard
                 .iter()
-                .filter(|(_, (_, pid))| match (pid, project_id) {
+                .filter(|(_, entry)| match (&entry.project_id, project_id) {
                     (None, _) => true,
                     (Some(p), Some(sp)) => p == sp,
                     (Some(_), None) => false,
                 })
-                .map(|(k, _)| k.clone())
+                .map(|(k, v)| (k.clone(), v.clone()))
                 .collect();
-            Ok(set)
+            Ok(map)
         }
     }
 

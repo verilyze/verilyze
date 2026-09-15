@@ -35,6 +35,8 @@ const IGNORE_FILE_MODE: u32 = 0o640;
 const IGNORE_DIR_MODE: u32 = 0o755;
 
 /// Stored row for a CVE marked as false positive (FR-015).
+/// Optional VEX triage fields (`justification`, `status`, `detail`) are
+/// schema-compatible with v1: absent on disk deserializes as `None`.
 #[derive(
     Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize,
 )]
@@ -44,6 +46,68 @@ pub struct FpEntry {
     pub user: Option<String>,
     pub host: Option<String>,
     pub project_id: Option<String>,
+    /// CISA VEX justification when status is not_affected (FR-044).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub justification: Option<String>,
+    /// VEX status override (typically `not_affected`) when marked FP.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    /// Free-form impact / triage detail for VEX statements.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+}
+
+impl FpEntry {
+    /// Build an FP entry for mark/re-mark.
+    ///
+    /// When `justification`, `status`, or `detail` is `None`, prior values from
+    /// `existing` are preserved so a later `fp mark` without VEX flags does not
+    /// erase triage metadata (FR-044). `project_id` and `comment` always take
+    /// the new values (including clearing project scope when `project_id` is
+    /// `None`).
+    pub fn from_mark(
+        existing: Option<&Self>,
+        fields: FpMarkFields<'_>,
+        meta: FpMarkMeta,
+    ) -> Self {
+        Self {
+            comment: fields.comment.to_string(),
+            timestamp_secs: meta.timestamp_secs,
+            user: meta.user,
+            host: meta.host,
+            project_id: fields.project_id.map(String::from),
+            justification: fields
+                .justification
+                .map(String::from)
+                .or_else(|| existing.and_then(|e| e.justification.clone())),
+            status: fields
+                .status
+                .map(String::from)
+                .or_else(|| existing.and_then(|e| e.status.clone())),
+            detail: fields
+                .detail
+                .map(String::from)
+                .or_else(|| existing.and_then(|e| e.detail.clone())),
+        }
+    }
+}
+
+/// Caller-supplied FP mark fields (comment / project / VEX triage).
+#[derive(Debug, Clone, Copy)]
+pub struct FpMarkFields<'a> {
+    pub comment: &'a str,
+    pub project_id: Option<&'a str>,
+    pub justification: Option<&'a str>,
+    pub status: Option<&'a str>,
+    pub detail: Option<&'a str>,
+}
+
+/// Audit metadata written on each FP mark.
+#[derive(Debug, Clone)]
+pub struct FpMarkMeta {
+    pub timestamp_secs: u64,
+    pub user: Option<String>,
+    pub host: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -151,18 +215,39 @@ impl IgnoreDb for FileIgnoreDb {
         comment: &str,
         project_id: Option<&str>,
     ) -> Result<(), DatabaseError> {
+        self.mark_with_details(cve_id, comment, project_id, None, None, None)
+    }
+
+    fn mark_with_details(
+        &self,
+        cve_id: &str,
+        comment: &str,
+        project_id: Option<&str>,
+        justification: Option<&str>,
+        status: Option<&str>,
+        detail: Option<&str>,
+    ) -> Result<(), DatabaseError> {
         let now_secs = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or(Duration::ZERO)
             .as_secs();
-        let entry = FpEntry {
-            comment: comment.to_string(),
-            timestamp_secs: now_secs,
-            user: std::env::var("USER").ok(),
-            host: std::env::var("HOSTNAME").ok(),
-            project_id: project_id.map(String::from),
-        };
         self.with_locked_mutation(|map| {
+            let existing = map.get(cve_id).cloned();
+            let entry = FpEntry::from_mark(
+                existing.as_ref(),
+                FpMarkFields {
+                    comment,
+                    project_id,
+                    justification,
+                    status,
+                    detail,
+                },
+                FpMarkMeta {
+                    timestamp_secs: now_secs,
+                    user: std::env::var("USER").ok(),
+                    host: std::env::var("HOSTNAME").ok(),
+                },
+            );
             map.insert(cve_id.to_string(), entry);
             Ok(())
         })
@@ -186,19 +271,26 @@ impl IgnoreDb for FileIgnoreDb {
         &self,
         project_id: Option<&str>,
     ) -> Result<HashSet<String>, DatabaseError> {
+        Ok(self.marked_entries(project_id)?.into_keys().collect())
+    }
+
+    fn marked_entries(
+        &self,
+        project_id: Option<&str>,
+    ) -> Result<HashMap<String, FpEntry>, DatabaseError> {
         let guard = self.state.read().map_err(|_| {
             DatabaseError::Other("ignore lock poisoned".into())
         })?;
-        let set: HashSet<String> = guard
+        let map: HashMap<String, FpEntry> = guard
             .iter()
             .filter(|(_, entry)| match (&entry.project_id, project_id) {
                 (None, _) => true,
                 (Some(pid), Some(scan_pid)) => pid == scan_pid,
                 (Some(_), None) => false,
             })
-            .map(|(k, _)| k.clone())
+            .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
-        Ok(set)
+        Ok(map)
     }
 }
 
@@ -469,10 +561,120 @@ mod tests {
             user: Some("u".into()),
             host: None,
             project_id: Some("p".into()),
+            justification: None,
+            status: None,
+            detail: None,
         };
         let json = serde_json::to_string(&e).unwrap();
         let back: FpEntry = serde_json::from_str(&json).unwrap();
         assert_eq!(e, back);
+    }
+
+    #[test]
+    fn fp_entry_legacy_json_deserializes_without_vex_fields() {
+        let json = r#"{
+            "comment": "legacy",
+            "timestamp_secs": 42,
+            "user": null,
+            "host": null,
+            "project_id": null
+        }"#;
+        let e: FpEntry = serde_json::from_str(json).unwrap();
+        assert_eq!(e.comment, "legacy");
+        assert_eq!(e.timestamp_secs, 42);
+        assert!(e.justification.is_none());
+        assert!(e.status.is_none());
+        assert!(e.detail.is_none());
+    }
+
+    #[test]
+    fn fp_entry_vex_fields_roundtrip_and_omit_when_none() {
+        let e = FpEntry {
+            comment: "triaged".into(),
+            timestamp_secs: 7,
+            user: None,
+            host: None,
+            project_id: None,
+            justification: Some("vulnerable_code_not_in_execute_path".into()),
+            status: Some("not_affected".into()),
+            detail: Some("not imported".into()),
+        };
+        let json = serde_json::to_string(&e).unwrap();
+        assert!(json.contains("vulnerable_code_not_in_execute_path"));
+        assert!(json.contains("not_affected"));
+        assert!(json.contains("not imported"));
+        let back: FpEntry = serde_json::from_str(&json).unwrap();
+        assert_eq!(e, back);
+
+        let minimal = FpEntry {
+            comment: "c".into(),
+            timestamp_secs: 1,
+            user: None,
+            host: None,
+            project_id: None,
+            justification: None,
+            status: None,
+            detail: None,
+        };
+        let minimal_json = serde_json::to_string(&minimal).unwrap();
+        assert!(!minimal_json.contains("justification"));
+        assert!(!minimal_json.contains("\"status\""));
+        assert!(!minimal_json.contains("detail"));
+    }
+
+    #[test]
+    fn mark_with_details_persists_justification_and_status() {
+        let (_dir, path) = temp_ignore_path("vex_details");
+        {
+            let db = FileIgnoreDb::with_path(path.clone()).unwrap();
+            db.mark_with_details(
+                "CVE-VEX-1",
+                "triaged",
+                Some("proj"),
+                Some("vulnerable_code_not_present"),
+                Some("not_affected"),
+                Some("library unused"),
+            )
+            .unwrap();
+        }
+        let db2 = FileIgnoreDb::with_path(path).unwrap();
+        let entries = db2.marked_entries(Some("proj")).unwrap();
+        let entry = entries.get("CVE-VEX-1").expect("entry present");
+        assert_eq!(
+            entry.justification.as_deref(),
+            Some("vulnerable_code_not_present")
+        );
+        assert_eq!(entry.status.as_deref(), Some("not_affected"));
+        assert_eq!(entry.detail.as_deref(), Some("library unused"));
+        assert_eq!(entry.project_id.as_deref(), Some("proj"));
+    }
+
+    #[test]
+    fn re_mark_without_vex_flags_preserves_justification() {
+        let (_dir, path) = temp_ignore_path("vex_preserve");
+        let db = FileIgnoreDb::with_path(path.clone()).unwrap();
+        db.mark_with_details(
+            "CVE-KEEP",
+            "first",
+            None,
+            Some("vulnerable_code_not_present"),
+            Some("not_affected"),
+            Some("detail"),
+        )
+        .unwrap();
+        db.mark("CVE-KEEP", "updated comment", None).unwrap();
+        let entry = db
+            .marked_entries(None)
+            .unwrap()
+            .remove("CVE-KEEP")
+            .expect("entry");
+        assert_eq!(entry.comment, "updated comment");
+        assert_eq!(
+            entry.justification.as_deref(),
+            Some("vulnerable_code_not_present")
+        );
+        assert_eq!(entry.status.as_deref(), Some("not_affected"));
+        assert_eq!(entry.detail.as_deref(), Some("detail"));
     }
 
     #[test]
@@ -488,6 +690,9 @@ mod tests {
                 user: None,
                 host: None,
                 project_id: None,
+                justification: None,
+                status: None,
+                detail: None,
             },
         );
         db.replace_entries(map).unwrap();

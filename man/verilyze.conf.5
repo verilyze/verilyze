@@ -181,6 +181,9 @@ CLI: vlz lsp --folder-trust.
 CVSS score thresholds: critical_min, high_min, medium_min, low_min.
 Defaults: 9.0, 7.0, 4.0, 0.1.
 
+.It Sy [vex]
+VEX generation: product_id, author_name, author_namespace, reachability_not_affected. File keys live under this table (not as flat vex_* top-level keys). Env/CLI use VLZ_VEX_* / --vex-*.
+
 .It Sy [lang].regex
 Per-language regex for manifest file names (e.g. [python], [rust], [go], [javascript], [ruby]).
 .El

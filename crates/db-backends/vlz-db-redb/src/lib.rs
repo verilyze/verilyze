@@ -17,8 +17,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use vlz_cve_client::{attach_affected_ranges, decode_raw_vulns};
 use vlz_db::{
     CacheEntryInfo, CveRecord, DatabaseBackend, DatabaseError, DatabaseStats,
-    Package, PurgeEntry, StoredEntry, TtlSelector, entry_is_expired,
-    new_stored_entry, normalize_stored_entry, pkg_cache_key, unix_now_secs,
+    FpMarkFields, FpMarkMeta, Package, PurgeEntry, StoredEntry, TtlSelector,
+    entry_is_expired, new_stored_entry, normalize_stored_entry, pkg_cache_key,
+    unix_now_secs,
 };
 
 /// RedB table: key = `"name::version::provider"`, value = JSON of `StoredEntry`.
@@ -487,7 +488,26 @@ impl vlz_db::IgnoreDb for RedbIgnoreDb {
         comment: &str,
         project_id: Option<&str>,
     ) -> Result<(), DatabaseError> {
-        self.mark(cve_id, comment, project_id)
+        self.mark_with_details(cve_id, comment, project_id, None, None, None)
+    }
+
+    fn mark_with_details(
+        &self,
+        cve_id: &str,
+        comment: &str,
+        project_id: Option<&str>,
+        justification: Option<&str>,
+        status: Option<&str>,
+        detail: Option<&str>,
+    ) -> Result<(), DatabaseError> {
+        self.mark_with_details(
+            cve_id,
+            comment,
+            project_id,
+            justification,
+            status,
+            detail,
+        )
     }
 
     fn unmark(&self, cve_id: &str) -> Result<(), DatabaseError> {
@@ -503,6 +523,14 @@ impl vlz_db::IgnoreDb for RedbIgnoreDb {
         project_id: Option<&str>,
     ) -> Result<std::collections::HashSet<String>, DatabaseError> {
         self.marked_ids(project_id)
+    }
+
+    fn marked_entries(
+        &self,
+        project_id: Option<&str>,
+    ) -> Result<std::collections::HashMap<String, FpEntry>, DatabaseError>
+    {
+        self.marked_entries(project_id)
     }
 }
 
@@ -532,19 +560,64 @@ impl RedbIgnoreDb {
         comment: &str,
         project_id: Option<&str>,
     ) -> Result<(), DatabaseError> {
+        self.mark_with_details(cve_id, comment, project_id, None, None, None)
+    }
+
+    /// Mark a CVE as false positive with optional VEX triage metadata (FR-044).
+    pub fn mark_with_details(
+        &self,
+        cve_id: &str,
+        comment: &str,
+        project_id: Option<&str>,
+        justification: Option<&str>,
+        status: Option<&str>,
+        detail: Option<&str>,
+    ) -> Result<(), DatabaseError> {
         let now_secs = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or(Duration::ZERO)
             .as_secs();
         let user = std::env::var("USER").ok();
         let host = std::env::var("HOSTNAME").ok();
-        let entry = FpEntry {
-            comment: comment.to_string(),
-            timestamp_secs: now_secs,
-            user,
-            host,
-            project_id: project_id.map(String::from),
+        let existing = {
+            let read_txn =
+                self.db.begin_read().map_err(DatabaseError::wrap)?;
+            match read_txn.open_table(FALSE_POSITIVE_TABLE) {
+                Ok(table) => {
+                    match table.get(cve_id).map_err(DatabaseError::wrap)? {
+                        Some(v) => Some(
+                            serde_json::from_str::<FpEntry>(v.value())
+                                .map_err(DatabaseError::Serde)?,
+                        ),
+                        None => None,
+                    }
+                }
+                Err(e) => {
+                    // Fresh DB: table is created on first write.
+                    let msg = e.to_string();
+                    if msg.contains("does not exist") {
+                        None
+                    } else {
+                        return Err(DatabaseError::wrap(e));
+                    }
+                }
+            }
         };
+        let entry = FpEntry::from_mark(
+            existing.as_ref(),
+            FpMarkFields {
+                comment,
+                project_id,
+                justification,
+                status,
+                detail,
+            },
+            FpMarkMeta {
+                timestamp_secs: now_secs,
+                user,
+                host,
+            },
+        );
         let value =
             serde_json::to_string(&entry).map_err(DatabaseError::Serde)?;
         let write_txn = self.db.begin_write().map_err(DatabaseError::wrap)?;
@@ -587,11 +660,20 @@ impl RedbIgnoreDb {
         &self,
         project_id: Option<&str>,
     ) -> Result<std::collections::HashSet<String>, DatabaseError> {
+        Ok(self.marked_entries(project_id)?.into_keys().collect())
+    }
+
+    /// Return marked FP entries (including VEX triage fields) for the project.
+    pub fn marked_entries(
+        &self,
+        project_id: Option<&str>,
+    ) -> Result<std::collections::HashMap<String, FpEntry>, DatabaseError>
+    {
         let read_txn = self.db.begin_read().map_err(DatabaseError::wrap)?;
         let table = read_txn
             .open_table(FALSE_POSITIVE_TABLE)
             .map_err(DatabaseError::wrap)?;
-        let set: std::collections::HashSet<String> = table
+        let map: std::collections::HashMap<String, FpEntry> = table
             .iter()
             .map_err(DatabaseError::wrap)?
             .filter_map(|e| {
@@ -603,10 +685,10 @@ impl RedbIgnoreDb {
                     (Some(pid), Some(scan_pid)) => pid == scan_pid,
                     (Some(_), None) => false, // Scoped FP does not apply when no project
                 };
-                if matches { Some(cve_id) } else { None }
+                if matches { Some((cve_id, entry)) } else { None }
             })
             .collect();
-        Ok(set)
+        Ok(map)
     }
 
     /// Read all FP entries (for export / migration to FileIgnoreDb).
@@ -1082,6 +1164,9 @@ mod tests {
             user: Some("u".to_string()),
             host: Some("h".to_string()),
             project_id: Some("p".to_string()),
+            justification: None,
+            status: None,
+            detail: None,
         };
         let json = serde_json::to_string(&e).unwrap();
         let f: FpEntry = serde_json::from_str(&json).unwrap();
@@ -1101,6 +1186,9 @@ mod tests {
             user: None,
             host: None,
             project_id: None,
+            justification: None,
+            status: None,
+            detail: None,
         };
         let json = serde_json::to_string(&e).unwrap();
         let f: FpEntry = serde_json::from_str(&json).unwrap();

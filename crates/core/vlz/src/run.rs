@@ -520,6 +520,11 @@ pub async fn run(args: Cli) -> Result<i32> {
             severity_v4_high_min,
             severity_v4_medium_min,
             severity_v4_low_min,
+            no_vex,
+            vex_product_id,
+            vex_author_name,
+            vex_author_namespace,
+            vex_reachability_not_affected,
         } => {
             let cli_severity = crate::config::SeverityOverrides {
                 v2_critical: severity_v2_critical_min,
@@ -613,6 +618,44 @@ pub async fn run(args: Cli) -> Result<i32> {
                     "--from-sbom requires a build with the sbom feature enabled"
                 );
                 return Ok(2);
+            }
+            if let Some(id) = vex_product_id {
+                effective.vex.product_id =
+                    vlz_report::nonempty_optional_id(Some(id));
+            }
+            if let Some(name) = vex_author_name {
+                let trimmed = name.trim();
+                effective.vex.author_name = if trimmed.is_empty() {
+                    vlz_report::DEFAULT_VEX_AUTHOR_NAME.to_string()
+                } else {
+                    trimmed.to_string()
+                };
+            }
+            if let Some(ns) = vex_author_namespace {
+                effective.vex.author_namespace =
+                    vlz_report::nonempty_optional_id(Some(ns));
+            }
+            if let Some(v) = vex_reachability_not_affected {
+                effective.vex.reachability_not_affected = v;
+            }
+            effective.no_vex = no_vex;
+            effective.vex.normalize_optional_ids();
+            let openvex_requested = format.eq_ignore_ascii_case("openvex")
+                || report.iter().any(|spec| {
+                    spec.split_once(':').is_some_and(|(fmt, _)| {
+                        fmt.trim().eq_ignore_ascii_case("openvex")
+                    })
+                });
+            if openvex_requested
+                && effective
+                    .vex
+                    .effective_product_id(effective.project_id.as_deref())
+                    .is_none()
+            {
+                error!(
+                    "OpenVEX requires --vex-product-id, --project-id, or [vex].product_id"
+                );
+                return Ok(EXIT_MISCONFIGURATION);
             }
             let code = run_scan(
                 root,
@@ -928,6 +971,22 @@ pub async fn run(args: Cli) -> Result<i32> {
                     cfg.lsp_folder_trust
                 ));
                 write_stdout(&format!(
+                    "vex_product_id = {}\n",
+                    cfg.vex.product_id.as_deref().unwrap_or("")
+                ));
+                write_stdout(&format!(
+                    "vex_author_name = {}\n",
+                    cfg.vex.author_name
+                ));
+                write_stdout(&format!(
+                    "vex_author_namespace = {}\n",
+                    cfg.vex.author_namespace.as_deref().unwrap_or("")
+                ));
+                write_stdout(&format!(
+                    "vex_reachability_not_affected = {}\n",
+                    cfg.vex.reachability_not_affected
+                ));
+                write_stdout(&format!(
                     "severity_v2_critical_min = {}\n",
                     cfg.severity.v2.critical_min
                 ));
@@ -1130,9 +1189,23 @@ pub async fn run(args: Cli) -> Result<i32> {
                     cve_id,
                     comment,
                     project_id,
+                    justification,
+                    status,
                 } => {
+                    let status = status.or_else(|| {
+                        justification.as_ref().map(|_| {
+                            vlz_report::DEFAULT_FP_VEX_STATUS.to_string()
+                        })
+                    });
                     fp_db
-                        .mark(&cve_id, &comment, project_id.as_deref())
+                        .mark_with_details(
+                            &cve_id,
+                            &comment,
+                            project_id.as_deref(),
+                            justification.as_deref(),
+                            status.as_deref(),
+                            None,
+                        )
                         .map_err(|e| {
                             error!("Failed to mark false positive: {}", e);
                             anyhow!(e)
@@ -1753,6 +1826,8 @@ async fn run_scan(
             Box::new(vlz_report::CycloneDxReporter::new())
         } else if format.eq_ignore_ascii_case("spdx") {
             Box::new(vlz_report::SpdxReporter::new())
+        } else if format.eq_ignore_ascii_case("openvex") {
+            Box::new(vlz_report::OpenVexReporter::new())
         } else {
             let mut r = crate::registry::reporters()
                 .lock()
@@ -1819,10 +1894,11 @@ async fn run_scan(
         .ignore_db
         .clone()
         .unwrap_or_else(crate::config::default_ignore_path);
-    let marked_fp: std::collections::HashSet<String> =
+    let fp_entries: std::collections::HashMap<String, vlz_db::FpEntry> =
         match crate::registry::open_ignore_db(ignore_path) {
-            Ok(db) => match db.marked_ids(effective.project_id.as_deref()) {
-                Ok(ids) => ids,
+            Ok(db) => match db.marked_entries(effective.project_id.as_deref())
+            {
+                Ok(entries) => entries,
                 Err(e) => {
                     error!("Failed to read ignore database: {}", e);
                     return Ok(EXIT_MISCONFIGURATION);
@@ -1833,19 +1909,34 @@ async fn run_scan(
                 return Ok(EXIT_MISCONFIGURATION);
             }
         };
+    let marked_fp: std::collections::HashSet<String> =
+        fp_entries.keys().cloned().collect();
     let had_any_cves_before_fp_filter =
         findings.iter().map(|(_, r)| r.len()).sum::<usize>() > 0;
+    let mut suppressed_raw: Vec<(vlz_db::Package, Vec<vlz_db::CveRecord>)> =
+        Vec::new();
     let mut findings: Vec<(vlz_db::Package, Vec<vlz_db::CveRecord>)> =
         findings
             .into_iter()
-            .map(|(pkg, recs)| {
-                let kept: Vec<_> = recs
-                    .into_iter()
-                    .filter(|cve| !marked_fp.contains(&cve.id))
-                    .collect();
-                (pkg, kept)
+            .filter_map(|(pkg, recs)| {
+                let mut kept = Vec::new();
+                let mut suppressed = Vec::new();
+                for cve in recs {
+                    if marked_fp.contains(&cve.id) {
+                        suppressed.push(cve);
+                    } else {
+                        kept.push(cve);
+                    }
+                }
+                if !suppressed.is_empty() {
+                    suppressed_raw.push((pkg.clone(), suppressed));
+                }
+                if kept.is_empty() {
+                    None
+                } else {
+                    Some((pkg, kept))
+                }
             })
-            .filter(|(_, recs)| !recs.is_empty())
             .collect();
 
     if should_apply_tier_b(effective.reachability_mode) {
@@ -1986,8 +2077,69 @@ async fn run_scan(
             }
         })
         .collect();
+    let mut vex_config = effective.vex.clone();
+    if vex_config.product_id.is_none() {
+        vex_config.product_id =
+            vlz_report::nonempty_optional_id(effective.project_id.clone());
+    }
+    vex_config.normalize_optional_ids();
+    let suppressed_findings: Vec<vlz_report::Finding> = suppressed_raw
+        .into_iter()
+        .map(|(pkg, recs)| {
+            let mut manifest_paths: Vec<std::path::PathBuf> = pkg_to_manifests
+                .get(&pkg)
+                .map(|s| {
+                    s.iter()
+                        .map(|p| {
+                            p.strip_prefix(&root_path)
+                                .map(|r| r.to_path_buf())
+                                .unwrap_or_else(|_| p.clone())
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            manifest_paths.sort();
+            let mut declarations =
+                pkg_declarations.get(&pkg).cloned().unwrap_or_default();
+            for decl in &mut declarations {
+                let path = std::path::Path::new(&decl.path);
+                decl.path = path
+                    .strip_prefix(&root_path)
+                    .map(|r| r.display().to_string())
+                    .unwrap_or_else(|_| decl.path.clone());
+            }
+            vlz_db::dedupe_sort_declarations(&mut declarations);
+            let upgrade_plan = vlz_remediate::plan_upgrade_for_finding(
+                &pkg,
+                &declarations,
+                &recs,
+            );
+            let with_severity: Vec<_> = recs
+                .into_iter()
+                .map(|cve| {
+                    let severity = vlz_report::resolve_severity(
+                        cve.cvss_score,
+                        cve.cvss_version,
+                        &severity_config,
+                    );
+                    (cve, severity)
+                })
+                .collect();
+            vlz_report::Finding {
+                package: pkg,
+                manifest_paths,
+                declarations,
+                upgrade_plan,
+                cves: with_severity,
+            }
+        })
+        .collect();
     let report_data = vlz_report::ReportData {
         findings: report_findings,
+        suppressed_findings,
+        fp_entries,
+        vex_config,
+        emit_vex: !effective.no_vex,
         all_packages: Some(packages_to_check),
         project_id: effective.project_id.clone(),
         root_path: Some(root_path.clone()),
@@ -2071,10 +2223,11 @@ async fn run_scan(
             "sarif" => Box::new(vlz_report::SarifReporter::new()),
             "cyclonedx" => Box::new(vlz_report::CycloneDxReporter::new()),
             "spdx" => Box::new(vlz_report::SpdxReporter::new()),
+            "openvex" => Box::new(vlz_report::OpenVexReporter::new()),
             "plain" | "text" => Box::new(vlz_report::DefaultReporter::new()),
             _ => {
                 error!(
-                    "Unknown summary format '{}'; use html, json, sarif, cyclonedx, spdx, or plain",
+                    "Unknown summary format '{}'; use html, json, sarif, cyclonedx, spdx, openvex, or plain",
                     fmt
                 );
                 continue;
@@ -2956,9 +3109,7 @@ mod tests {
     #[tokio::test]
     #[allow(clippy::await_holding_lock)]
     async fn select_provider_impl_empty_registry_errors() {
-        let _guard = crate::registry::registry_test_mutex()
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let _guard = crate::registry::lock_registry_for_test();
         crate::registry::clear_providers();
         let effective = crate::config::EffectiveConfig::default();
         let err = match select_provider_impl(None, &effective).await {

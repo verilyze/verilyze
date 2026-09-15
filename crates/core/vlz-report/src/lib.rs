@@ -4,6 +4,16 @@
 
 #![deny(unsafe_code)]
 
+mod vex;
+
+pub use vex::{
+    CISA_JUSTIFICATIONS, DEFAULT_FP_JUSTIFICATION, DEFAULT_FP_VEX_STATUS,
+    DEFAULT_VEX_AUTHOR_NAME, OPENVEX_CONTEXT, VEX_FP_STATUSES, VexConfig,
+    VexJustification, VexStatement, VexStatus,
+    cisa_to_cyclonedx_justification, cyclonedx_analysis_for,
+    derive_vex_statements, nonempty_optional_id,
+};
+
 use async_trait::async_trait;
 
 /// Project repository URL; used in SARIF informationUri and elsewhere (DRY).
@@ -517,6 +527,14 @@ pub struct ManifestCoverageEntry {
 /// FR-015a: project_id is included when the scan was run with --project-id (or config/env).
 pub struct ReportData {
     pub findings: Vec<Finding>,
+    /// Findings removed by the FP filter; retained for VEX `not_affected` (FR-044).
+    pub suppressed_findings: Vec<Finding>,
+    /// Marked FP entries keyed by CVE id (justification / status / detail).
+    pub fp_entries: std::collections::HashMap<String, vlz_db::FpEntry>,
+    /// VEX generation settings (FR-046).
+    pub vex_config: VexConfig,
+    /// When false (`--no-vex`), reporters omit analysis / VEX statements.
+    pub emit_vex: bool,
     /// All resolved packages (for SBOM formats). When Some, SBOM reporters list all components.
     pub all_packages: Option<Vec<Package>>,
     /// Project ID for audit trail (FR-015a). Present when scan used --project-id or equivalent.
@@ -1177,8 +1195,34 @@ impl Reporter for CycloneDxReporter {
                 })
             })
             .collect();
-        let vulnerabilities: Vec<serde_json::Value> = data
-            .findings
+        let statements = if data.emit_vex {
+            derive_vex_statements(
+                &data.findings,
+                &data.suppressed_findings,
+                &data.fp_entries,
+                &data.vex_config,
+            )
+        } else {
+            Vec::new()
+        };
+        let analysis_by_key: std::collections::HashMap<(String, String), _> =
+            statements
+                .iter()
+                .map(|s| ((s.cve_id.clone(), s.purl.clone()), s))
+                .collect();
+
+        // Include FP-suppressed CVEs only when emitting VEX analysis. With
+        // `--no-vex`, suppressed rows must not reappear as open vulns without
+        // analysis (downstream tools treat bare vulnerabilities as affected).
+        let report_findings: Vec<&Finding> = if data.emit_vex {
+            data.findings
+                .iter()
+                .chain(data.suppressed_findings.iter())
+                .collect()
+        } else {
+            data.findings.iter().collect()
+        };
+        let vulnerabilities: Vec<serde_json::Value> = report_findings
             .iter()
             .flat_map(|finding| {
                 finding.cves.iter().map(|(cve, severity)| {
@@ -1223,6 +1267,16 @@ impl Reporter for CycloneDxReporter {
                             );
                         }
                     }
+                    if data.emit_vex
+                        && let Some(stmt) =
+                            analysis_by_key.get(&(cve.id.clone(), bom_ref))
+                        && let Some(obj) = vuln.as_object_mut()
+                    {
+                        obj.insert(
+                            "analysis".to_string(),
+                            cyclonedx_analysis_for(stmt),
+                        );
+                    }
                     vuln
                 })
             })
@@ -1246,6 +1300,107 @@ impl Reporter for CycloneDxReporter {
             "vulnerabilities": vulnerabilities
         });
         let s = serde_json::to_string_pretty(&bom)?;
+        writeln!(w, "{}", s).map_err(ReportError::Io)?;
+        w.flush()?;
+        Ok(())
+    }
+}
+
+/// Reporter that outputs standalone OpenVEX JSON (FR-044).
+#[derive(Debug, Default)]
+pub struct OpenVexReporter;
+
+impl OpenVexReporter {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[async_trait]
+impl Reporter for OpenVexReporter {
+    async fn render_to_writer(
+        &self,
+        data: &ReportData,
+        w: &mut (dyn std::io::Write + Send),
+    ) -> Result<(), ReportError> {
+        let product_id = data
+            .vex_config
+            .effective_product_id(data.project_id.as_deref())
+            .ok_or_else(|| {
+                ReportError::Other(
+                    "OpenVEX requires product_id (set --vex-product-id, \
+                     --project-id, or [vex].product_id)"
+                        .into(),
+                )
+            })?;
+        let statements = if data.emit_vex {
+            derive_vex_statements(
+                &data.findings,
+                &data.suppressed_findings,
+                &data.fp_entries,
+                &data.vex_config,
+            )
+        } else {
+            Vec::new()
+        };
+        let author = data.vex_config.author_name.clone();
+        let timestamp = format_timestamp_rfc3339();
+        let doc_id = format!(
+            "https://openvex.dev/docs/{}/{}",
+            product_id,
+            timestamp.replace([':', '.'], "-")
+        );
+        let stmt_values: Vec<serde_json::Value> = statements
+            .iter()
+            .map(|s| {
+                let mut obj = serde_json::Map::new();
+                obj.insert(
+                    "vulnerability".to_string(),
+                    serde_json::json!({ "name": s.cve_id }),
+                );
+                obj.insert(
+                    "products".to_string(),
+                    serde_json::json!([{
+                        "@id": product_id,
+                        "subcomponents": [{ "@id": s.purl }]
+                    }]),
+                );
+                obj.insert(
+                    "status".to_string(),
+                    serde_json::Value::String(s.status.as_str().to_string()),
+                );
+                if let Some(j) = s.justification {
+                    obj.insert(
+                        "justification".to_string(),
+                        serde_json::Value::String(j.as_str().to_string()),
+                    );
+                }
+                if let Some(detail) = &s.detail {
+                    obj.insert(
+                        "impact_statement".to_string(),
+                        serde_json::Value::String(detail.clone()),
+                    );
+                }
+                serde_json::Value::Object(obj)
+            })
+            .collect();
+        let mut doc = serde_json::json!({
+            "@context": OPENVEX_CONTEXT,
+            "@id": doc_id,
+            "author": author,
+            "timestamp": timestamp,
+            "version": 1,
+            "statements": stmt_values
+        });
+        if let Some(ns) = &data.vex_config.author_namespace
+            && let Some(obj) = doc.as_object_mut()
+        {
+            obj.insert(
+                "role".to_string(),
+                serde_json::Value::String(ns.clone()),
+            );
+        }
+        let s = serde_json::to_string_pretty(&doc)?;
         writeln!(w, "{}", s).map_err(ReportError::Io)?;
         w.flush()?;
         Ok(())
@@ -1725,6 +1880,10 @@ mod tests {
     fn sample_report_data_empty() -> ReportData {
         ReportData {
             findings: vec![],
+            suppressed_findings: vec![],
+            fp_entries: std::collections::HashMap::new(),
+            vex_config: VexConfig::default(),
+            emit_vex: true,
             all_packages: None,
             project_id: None,
             root_path: None,
@@ -1765,6 +1924,10 @@ mod tests {
                 },
                 cves: vec![(cve, Severity::High)],
             }],
+            suppressed_findings: vec![],
+            fp_entries: std::collections::HashMap::new(),
+            vex_config: VexConfig::default(),
+            emit_vex: true,
             all_packages: None,
             project_id: None,
             root_path: None,
@@ -1777,6 +1940,10 @@ mod tests {
     fn sample_report_data_with_manifest_coverage() -> ReportData {
         ReportData {
             findings: vec![],
+            suppressed_findings: vec![],
+            fp_entries: std::collections::HashMap::new(),
+            vex_config: VexConfig::default(),
+            emit_vex: true,
             all_packages: None,
             project_id: None,
             root_path: Some(PathBuf::from("/root")),
@@ -1839,6 +2006,10 @@ mod tests {
                 },
                 cves: vec![(cve, Severity::High)],
             }],
+            suppressed_findings: vec![],
+            fp_entries: std::collections::HashMap::new(),
+            vex_config: VexConfig::default(),
+            emit_vex: true,
             all_packages: Some(vec![pkg_foo, pkg_bar]),
             project_id: None,
             root_path: None,
@@ -1878,6 +2049,10 @@ mod tests {
     fn empty_findings_message_degraded_coverage() {
         let data = ReportData {
             findings: vec![],
+            suppressed_findings: vec![],
+            fp_entries: std::collections::HashMap::new(),
+            vex_config: VexConfig::default(),
+            emit_vex: true,
             all_packages: None,
             project_id: None,
             root_path: None,
@@ -1904,6 +2079,10 @@ mod tests {
     fn empty_findings_message_incomplete_overrides_degraded() {
         let data = ReportData {
             findings: vec![],
+            suppressed_findings: vec![],
+            fp_entries: std::collections::HashMap::new(),
+            vex_config: VexConfig::default(),
+            emit_vex: true,
             all_packages: None,
             project_id: None,
             root_path: None,
@@ -1937,6 +2116,10 @@ mod tests {
     async fn default_reporter_degraded_coverage_empty_findings() {
         let data = ReportData {
             findings: vec![],
+            suppressed_findings: vec![],
+            fp_entries: std::collections::HashMap::new(),
+            vex_config: VexConfig::default(),
+            emit_vex: true,
             all_packages: None,
             project_id: None,
             root_path: None,
@@ -2221,6 +2404,10 @@ mod tests {
                 },
                 cves: vec![(cve, Severity::Medium)],
             }],
+            suppressed_findings: vec![],
+            fp_entries: std::collections::HashMap::new(),
+            vex_config: VexConfig::default(),
+            emit_vex: true,
             all_packages: None,
             project_id: None,
             root_path: None,
@@ -2289,6 +2476,10 @@ mod tests {
                 },
                 cves: vec![(cve, Severity::Medium)],
             }],
+            suppressed_findings: vec![],
+            fp_entries: std::collections::HashMap::new(),
+            vex_config: VexConfig::default(),
+            emit_vex: true,
             all_packages: None,
             project_id: None,
             root_path: None,
@@ -2364,6 +2555,10 @@ mod tests {
                 },
                 cves: vec![(cve, Severity::High)],
             }],
+            suppressed_findings: vec![],
+            fp_entries: std::collections::HashMap::new(),
+            vex_config: VexConfig::default(),
+            emit_vex: true,
             all_packages: None,
             project_id: None,
             root_path: None,
@@ -2436,6 +2631,10 @@ mod tests {
                 },
                 cves: vec![(cve, Severity::High)],
             }],
+            suppressed_findings: vec![],
+            fp_entries: std::collections::HashMap::new(),
+            vex_config: VexConfig::default(),
+            emit_vex: true,
             all_packages: None,
             project_id: None,
             root_path: None,
@@ -2544,6 +2743,10 @@ mod tests {
     async fn cyclonedx_reporter_empty_findings_produces_valid_bom() {
         let data = ReportData {
             findings: vec![],
+            suppressed_findings: vec![],
+            fp_entries: std::collections::HashMap::new(),
+            vex_config: VexConfig::default(),
+            emit_vex: true,
             all_packages: Some(vec![]),
             project_id: None,
             root_path: None,
@@ -2630,6 +2833,10 @@ mod tests {
             .collect();
         let data = ReportData {
             findings: vec![],
+            suppressed_findings: vec![],
+            fp_entries: std::collections::HashMap::new(),
+            vex_config: VexConfig::default(),
+            emit_vex: true,
             all_packages: Some(packages),
             project_id: None,
             root_path: None,
@@ -2667,6 +2874,10 @@ mod tests {
         };
         let data = ReportData {
             findings: vec![],
+            suppressed_findings: vec![],
+            fp_entries: std::collections::HashMap::new(),
+            vex_config: VexConfig::default(),
+            emit_vex: true,
             all_packages: Some(vec![pkg]),
             project_id: None,
             root_path: None,
@@ -2706,6 +2917,10 @@ mod tests {
             };
             let data = ReportData {
                 findings: vec![],
+                suppressed_findings: vec![],
+                fp_entries: std::collections::HashMap::new(),
+                vex_config: VexConfig::default(),
+                emit_vex: true,
                 all_packages: Some(vec![pkg]),
                 project_id: None,
                 root_path: None,
@@ -2761,6 +2976,10 @@ mod tests {
             };
             let data = ReportData {
                 findings: vec![],
+                suppressed_findings: vec![],
+                fp_entries: std::collections::HashMap::new(),
+                vex_config: VexConfig::default(),
+                emit_vex: true,
                 all_packages: Some(vec![pkg]),
                 project_id: None,
                 root_path: None,
@@ -2819,6 +3038,10 @@ mod tests {
     async fn spdx_reporter_empty_produces_valid_document() {
         let data = ReportData {
             findings: vec![],
+            suppressed_findings: vec![],
+            fp_entries: std::collections::HashMap::new(),
+            vex_config: VexConfig::default(),
+            emit_vex: true,
             all_packages: Some(vec![]),
             project_id: None,
             root_path: None,
@@ -2928,5 +3151,114 @@ mod tests {
                 .unwrap(),
             "CVE-2023-1234"
         );
+    }
+
+    #[tokio::test]
+    async fn cyclonedx_includes_analysis_for_active_and_suppressed() {
+        let mut data = sample_report_data_one_finding();
+        data.findings[0].cves[0].0.reachable = Some(true);
+        let mut suppressed = sample_report_data_one_finding().findings;
+        suppressed[0].cves[0].0.id = "CVE-SUPPRESSED".into();
+        data.suppressed_findings = suppressed;
+        data.fp_entries.insert(
+            "CVE-SUPPRESSED".into(),
+            vlz_db::FpEntry {
+                comment: "fp".into(),
+                timestamp_secs: 1,
+                user: None,
+                host: None,
+                project_id: None,
+                justification: Some(
+                    "vulnerable_code_not_in_execute_path".into(),
+                ),
+                status: Some("not_affected".into()),
+                detail: None,
+            },
+        );
+        let mut buf = Vec::new();
+        CycloneDxReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim())
+                .unwrap();
+        let vulns = parsed["vulnerabilities"].as_array().unwrap();
+        assert_eq!(vulns.len(), 2);
+        let active =
+            vulns.iter().find(|v| v["id"] == "CVE-2023-1234").unwrap();
+        assert_eq!(active["analysis"]["state"], "exploitable");
+        let suppressed =
+            vulns.iter().find(|v| v["id"] == "CVE-SUPPRESSED").unwrap();
+        assert_eq!(suppressed["analysis"]["state"], "not_affected");
+        assert_eq!(
+            suppressed["analysis"]["justification"],
+            "code_not_reachable"
+        );
+    }
+
+    #[tokio::test]
+    async fn cyclonedx_no_vex_omits_analysis() {
+        let mut data = sample_report_data_one_finding();
+        data.emit_vex = false;
+        data.findings[0].cves[0].0.reachable = Some(true);
+        let mut suppressed = sample_report_data_one_finding().findings;
+        suppressed[0].cves[0].0.id = "CVE-SUPPRESSED".into();
+        data.suppressed_findings = suppressed;
+        let mut buf = Vec::new();
+        CycloneDxReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim())
+                .unwrap();
+        let vulns = parsed["vulnerabilities"].as_array().unwrap();
+        assert_eq!(vulns.len(), 1);
+        assert_eq!(vulns[0]["id"], "CVE-2023-1234");
+        assert!(vulns[0].get("analysis").is_none());
+        assert!(
+            vulns.iter().all(|v| v["id"] != "CVE-SUPPRESSED"),
+            "suppressed FP CVEs must not appear without VEX analysis"
+        );
+    }
+
+    #[tokio::test]
+    async fn openvex_reporter_emits_statements_and_requires_product() {
+        let mut data = sample_report_data_one_finding();
+        data.vex_config.product_id = Some("pkg:generic/app@1".into());
+        data.findings[0].cves[0].0.reachable = None;
+        let mut buf = Vec::new();
+        OpenVexReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(String::from_utf8(buf).unwrap().trim())
+                .unwrap();
+        assert_eq!(parsed["@context"], OPENVEX_CONTEXT);
+        assert_eq!(parsed["author"], DEFAULT_VEX_AUTHOR_NAME);
+        let stmts = parsed["statements"].as_array().unwrap();
+        assert_eq!(stmts.len(), 1);
+        assert_eq!(stmts[0]["status"], "under_investigation");
+        assert_eq!(stmts[0]["vulnerability"]["name"], "CVE-2023-1234");
+
+        let mut missing = sample_report_data_one_finding();
+        missing.project_id = None;
+        missing.vex_config.product_id = None;
+        let err = OpenVexReporter::new()
+            .render_to_writer(&missing, &mut Vec::new())
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("product_id"));
+
+        let mut blank = sample_report_data_one_finding();
+        blank.project_id = Some("   ".into());
+        blank.vex_config.product_id = Some("".into());
+        let err = OpenVexReporter::new()
+            .render_to_writer(&blank, &mut Vec::new())
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("product_id"));
     }
 }

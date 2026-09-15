@@ -766,9 +766,32 @@ mod tests {
         #[cfg(unix)]
         let _guard =
             FAKE_PM_PATH_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        assert_eq!(choose_pm_binary(Some("npm@10")), Some("npm"));
-        assert!(choose_pm_binary(Some("unknown-tool")).is_some());
-        assert!(choose_pm_binary(None).is_some());
+        #[cfg(unix)]
+        {
+            let bin_dir = tempfile::tempdir().unwrap();
+            write_fake_pm_bin(
+                bin_dir.path(),
+                "npm",
+                "#!/bin/sh\necho 1.0.0\n",
+            );
+            write_fake_pm_bin(
+                bin_dir.path(),
+                "yarn",
+                "#!/bin/sh\necho 1.0.0\n",
+            );
+            let path = fake_pm_path(bin_dir.path());
+            temp_env::with_vars([("PATH", Some(path.as_str()))], || {
+                assert_eq!(choose_pm_binary(Some("npm@10")), Some("npm"));
+                assert!(choose_pm_binary(Some("unknown-tool")).is_some());
+                assert!(choose_pm_binary(None).is_some());
+            });
+        }
+        #[cfg(not(unix))]
+        {
+            assert_eq!(choose_pm_binary(Some("npm@10")), Some("npm"));
+            assert!(choose_pm_binary(Some("unknown-tool")).is_some());
+            assert!(choose_pm_binary(None).is_some());
+        }
     }
 
     #[tokio::test]
