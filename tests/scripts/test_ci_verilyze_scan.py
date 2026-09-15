@@ -277,6 +277,26 @@ class TestWorkspaceScanExcludes:
         assert proc.returncode == 0
         dirs = proc.stdout.splitlines()
         assert "sbom" in dirs
+        assert "fuzz" in dirs
+
+    def test_excludes_fuzz_directory(self) -> None:
+        excludes = _ROOT / "scripts" / "lib" / "workspace-scan-excludes.sh"
+        text = excludes.read_text(encoding="utf-8")
+        assert "fuzz" in text
+        proc = subprocess.run(
+            [
+                "bash",
+                "-c",
+                f'source "{excludes}"; '
+                'printf "%s\n" "${WORKSPACE_SCAN_EXCLUDE_DIRS[@]}"',
+            ],
+            cwd=_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert proc.returncode == 0
+        assert "fuzz" in proc.stdout.splitlines()
 
     def test_scan_passes_sbom_exclude_dir(self, tmp_path: Path) -> None:
         fake_vlz = tmp_path / "vlz-allargs"
@@ -315,6 +335,7 @@ exit 0
         args = arg_log.read_text(encoding="utf-8")
         assert "--scan-exclude-dir" in args
         assert "sbom" in args
+        assert "fuzz" in args
 
 class TestExit86Messaging:
     def test_metrics_emits_error_with_cve_ids_on_exit_86(
@@ -393,4 +414,83 @@ class TestExit86Messaging:
         assert proc.returncode == 86
         assert "::error::" in proc.stderr
         assert "exit 86" in proc.stderr
+        assert "RUSTSEC-2026-0285" in proc.stderr
+
+    def test_metrics_respects_custom_cve_exit_code(
+        self, tmp_path: Path,
+    ) -> None:
+        report_json = tmp_path / "report.json"
+        report_sarif = tmp_path / "report.sarif"
+        report_json.write_text(
+            json.dumps(
+                {
+                    "findings": [
+                        {
+                            "package": {"name": "rustls", "version": "0.23.44"},
+                            "cves": [{"id": "RUSTSEC-2026-0285"}],
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        report_sarif.write_text(
+            json.dumps({"version": "2.1.0", "runs": [{"results": []}]}),
+            encoding="utf-8",
+        )
+        gh_output = tmp_path / "out"
+        proc = subprocess.run(
+            [
+                "bash",
+                "-c",
+                f'source "{_METRICS_LIB}"; '
+                f'ci_verilyze_emit_scan_metrics "{report_json}" "{report_sarif}" 7 99',
+            ],
+            cwd=_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+            env={
+                **os.environ,
+                "GITHUB_OUTPUT": str(gh_output),
+                "VLZ_CVE_EXIT_CODE": "99",
+            },
+        )
+        assert proc.returncode == 0
+        assert "::error::" in proc.stdout
+        assert "exit 99" in proc.stdout
+        assert "RUSTSEC-2026-0285" in proc.stdout
+        assert "exit 86" not in proc.stdout
+
+    def test_enforce_respects_custom_cve_exit_code(self, tmp_path: Path) -> None:
+        report_json = tmp_path / "report.json"
+        report_json.write_text(
+            json.dumps(
+                {
+                    "findings": [
+                        {
+                            "package": {"name": "rustls", "version": "0.23.44"},
+                            "cves": [{"id": "RUSTSEC-2026-0285"}],
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        proc = subprocess.run(
+            [str(_ROOT / "scripts" / "ci-enforce-scan-exit.sh")],
+            cwd=_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+            env={
+                **os.environ,
+                "SCAN_EXIT": "99",
+                "REPORT_JSON": str(report_json),
+                "VLZ_CVE_EXIT_CODE": "99",
+            },
+        )
+        assert proc.returncode == 99
+        assert "::error::" in proc.stderr
+        assert "exit 99" in proc.stderr
         assert "RUSTSEC-2026-0285" in proc.stderr

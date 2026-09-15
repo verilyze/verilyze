@@ -10,6 +10,10 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/ci-verilyze-scan-metrics.sh
+source "${SCRIPT_DIR}/lib/ci-verilyze-scan-metrics.sh"
+
 : "${SCAN_EXIT:?SCAN_EXIT is required}"
 
 case "${SCAN_EXIT}" in
@@ -24,43 +28,7 @@ if (( SCAN_EXIT > 255 )); then
   exit 1
 fi
 
-if [[ "${SCAN_EXIT}" == "86" ]]; then
-  detail="CVEs met the configured threshold (FR-010/FR-014)"
-  if [[ -n "${REPORT_JSON:-}" && -f "${REPORT_JSON}" ]]; then
-    cve_ids="$(
-      python3 - "${REPORT_JSON}" <<'PY'
-import json
-import sys
-
-path = sys.argv[1]
-ids: list[str] = []
-try:
-    with open(path, encoding="utf-8") as handle:
-        data = json.load(handle)
-except (OSError, json.JSONDecodeError):
-    print("")
-    raise SystemExit(0)
-findings = data.get("findings")
-if isinstance(findings, list):
-    for finding in findings:
-        if not isinstance(finding, dict):
-            continue
-        cves = finding.get("cves")
-        if not isinstance(cves, list):
-            continue
-        for cve in cves:
-            if isinstance(cve, dict):
-                cve_id = cve.get("id")
-                if isinstance(cve_id, str) and cve_id and cve_id not in ids:
-                    ids.append(cve_id)
-print(",".join(ids))
-PY
-    )"
-    if [[ -n "${cve_ids}" ]]; then
-      detail="${detail}: ${cve_ids}"
-    fi
-  fi
-  echo "::error::verilyze scan exit 86 -- ${detail}" >&2
-fi
+ci_verilyze_emit_cve_threshold_error \
+  "${SCAN_EXIT}" "${REPORT_JSON:-}" 0 stderr
 
 exit "${SCAN_EXIT}"

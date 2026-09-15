@@ -8,6 +8,15 @@
 #
 # shellcheck shell=bash
 
+# Must match crates/core/vlz/src/exit_code.rs::DEFAULT_CVE_EXIT_CODE.
+: "${VLZ_DEFAULT_CVE_EXIT_CODE:=86}"
+
+ci_verilyze_cve_threshold_exit_code() {
+  # Override with VLZ_CVE_EXIT_CODE when CI configures a non-default
+  # exit_code_on_cve so annotations track the process exit that actually fires.
+  printf '%s\n' "${VLZ_CVE_EXIT_CODE:-${VLZ_DEFAULT_CVE_EXIT_CODE}}"
+}
+
 ci_verilyze_count_json_findings() {
   local report_json="$1"
   python3 - "${report_json}" <<'PY'
@@ -79,6 +88,37 @@ print(",".join(ids))
 PY
 }
 
+ci_verilyze_emit_cve_threshold_error() {
+  local scan_exit="$1"
+  local report_json="${2:-}"
+  local finding_count="${3:-0}"
+  local stream="${4:-stdout}"
+  local expected
+  expected="$(ci_verilyze_cve_threshold_exit_code)"
+  if [[ "${scan_exit}" != "${expected}" ]]; then
+    return 0
+  fi
+
+  local cve_ids=""
+  if [[ -n "${report_json}" && -f "${report_json}" ]]; then
+    cve_ids="$(ci_verilyze_list_cve_ids "${report_json}")"
+  fi
+
+  local detail="CVEs met the configured threshold (FR-010/FR-014)"
+  if [[ -n "${cve_ids}" ]]; then
+    detail="${detail}: ${cve_ids}"
+  elif (( finding_count > 0 )); then
+    detail="${detail}: ${finding_count} package finding(s)"
+  fi
+
+  local line="::error::verilyze scan exit ${scan_exit} -- ${detail}"
+  if [[ "${stream}" == "stderr" ]]; then
+    echo "${line}" >&2
+  else
+    echo "${line}"
+  fi
+}
+
 ci_verilyze_emit_scan_metrics() {
   local report_json="$1"
   local report_sarif="$2"
@@ -87,11 +127,9 @@ ci_verilyze_emit_scan_metrics() {
 
   local finding_count=0
   local sarif_result_count=0
-  local cve_ids=""
 
   if [[ -f "${report_json}" ]]; then
     finding_count="$(ci_verilyze_count_json_findings "${report_json}")"
-    cve_ids="$(ci_verilyze_list_cve_ids "${report_json}")"
   fi
   if [[ -f "${report_sarif}" ]]; then
     sarif_result_count="$(ci_verilyze_count_sarif_results "${report_sarif}")"
@@ -99,15 +137,8 @@ ci_verilyze_emit_scan_metrics() {
 
   echo "::notice::verilyze scan duration=${duration_seconds}s findings=${finding_count} sarif_results=${sarif_result_count} exit=${scan_exit}"
 
-  if [[ "${scan_exit}" == "86" ]]; then
-    local detail="CVEs met the configured threshold (FR-010/FR-014)"
-    if [[ -n "${cve_ids}" ]]; then
-      detail="${detail}: ${cve_ids}"
-    elif (( finding_count > 0 )); then
-      detail="${detail}: ${finding_count} finding(s)"
-    fi
-    echo "::error::verilyze scan exit 86 -- ${detail}"
-  fi
+  ci_verilyze_emit_cve_threshold_error \
+    "${scan_exit}" "${report_json}" "${finding_count}" stdout
 
   if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
     {

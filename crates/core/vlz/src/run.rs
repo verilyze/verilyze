@@ -633,6 +633,7 @@ pub async fn run(args: Cli) -> Result<i32> {
             format,
             output,
             dry_run,
+            provider,
             offline,
         } => {
             let effective = crate::config::load_with_reachability_overrides(
@@ -691,6 +692,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                 format,
                 output,
                 dry_run,
+                provider,
                 effective,
                 args.verbose,
                 db_backend,
@@ -2348,13 +2350,9 @@ async fn scan_findings_for_fix(
         effective.fp_exit_code,
     );
     let exit_code = exit_code::pick_exit_code(&exit_signals);
-    emit_cve_threshold_exit_if_selected(
-        &exit_signals,
-        exit_code,
-        meeting_threshold,
-        effective.min_score,
-        effective.min_count,
-    );
+    // Do not emit CVE-threshold exit messaging here: `run_fix` may remap the
+    // scan exit (FR-041 dry-run / apply). Only the final process exit path
+    // (main scan) should explain a CVE threshold exit.
 
     Ok(ScanFixOutcome {
         root_path,
@@ -2372,12 +2370,13 @@ async fn run_fix(
     format: String,
     output: Option<String>,
     dry_run: bool,
+    provider: Option<String>,
     effective: crate::config::EffectiveConfig,
     _verbosity: u8,
     db_backend: Arc<Box<dyn vlz_db::DatabaseBackend + Send + Sync + 'static>>,
     offline: bool,
 ) -> Result<i32> {
-    let provider_impl = select_provider_impl(None, &effective).await?;
+    let provider_impl = select_provider_impl(provider, &effective).await?;
 
     let first_scan = scan_findings_for_fix(
         root.clone(),

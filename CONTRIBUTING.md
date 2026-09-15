@@ -1812,7 +1812,10 @@ AFL++ with ClusterFuzzLite.
 - **Dependency policy:** `fuzz/` is outside the root workspace (same idea as
   excluding AFL `vlz-fuzz` from `deny.toml`). Root `make deny-check`,
   third-party license, and SBOM gates do not cover `fuzz/Cargo.lock`; Trivy in
-  Super-Linter still scans that lockfile.
+  Super-Linter still scans that lockfile. Workspace dogfood and
+  `generate-sbom` exclude basename `fuzz` (and `sbom`) via
+  `scripts/lib/workspace-scan-excludes.sh` so fuzz/dev harness locks cannot
+  re-enter the committed product SBOM or sticky-exit the SEC-015 self-scan.
 - **Action pins:** ClusterFuzzLite upstream publishes a moving `v1` tag only.
   Workflows pin the action by commit SHA with a `# v1` label and
   `# zizmor: ignore[ref-version-mismatch]` (digest is the source of truth).
