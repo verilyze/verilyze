@@ -372,7 +372,7 @@ pub trait IgnoreDb: Send + Sync {
 
     /// Mark a CVE as false positive with optional VEX triage metadata (FR-044).
     ///
-    /// Implementors must persist `justification` / `status` / `detail` when
+    /// Implementers must persist `justification` / `status` / `detail` when
     /// provided and must not silently drop them. Re-mark with `None` for those
     /// fields should preserve prior triage values (see `FpEntry::from_mark`).
     fn mark_with_details(
