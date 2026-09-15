@@ -10,6 +10,43 @@ Human-readable release notes for each version.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-09-15
+
+### Added
+
+- VEX generation from scan results (FR-044): CycloneDX 1.6 reports embed
+  `vulnerabilities[].analysis` (state, justification, detail). Standalone
+  OpenVEX JSON via `--format openvex` or `--report openvex:PATH`. `--no-vex`
+  omits VEX analysis from CycloneDX and OpenVEX output.
+- VEX status derivation (FR-045): one statement per (package, CVE) from false-
+  positive marks, reachability, and active findings. Precedence is FP mark,
+  then reachability, then active finding. Default maps reachability `false` to
+  `in_triage`; opt in with `[vex].reachability_not_affected` or
+  `--vex-reachability-not-affected` for `not_affected` /
+  `vulnerable_code_not_in_execute_path`.
+- `[vex]` configuration and CLI overrides (FR-046): `product_id`, `author_name`,
+  `author_namespace`, `reachability_not_affected`; env `VLZ_VEX_*`; flags
+  `--vex-product-id`, `--vex-author-name`, `--vex-author-namespace`. OpenVEX
+  requires a product identifier (config, `--vex-product-id`, or `--project-id`).
+- `vlz fp mark --justification` and `--status` (FR-047): CISA allowlist
+  justifications and optional status persist in `vlz-ignore.json` for VEX
+  `not_affected` output.
+- PRD rows for FR-044--FR-047 (VEX generation, status derivation, config, FP
+  triage metadata).
+
+### Changed
+
+- Exit code 86 (CVE threshold exceeded) logs now explain the threshold and
+  name the failing check before exit.
+
+### Fixed
+
+- SBOM inventory no longer self-ingests the bundled `rustls` advisory when
+  scanning with `--from-sbom`, which could inflate CVE counts and trigger exit
+  86 on otherwise clean trees.
+- Exit 86 messaging and exclude handling hardened when threshold checks fail
+  after filtered findings.
+
 ## [0.11.0] - 2026-09-14
 
 ### Added
