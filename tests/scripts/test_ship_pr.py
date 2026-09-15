@@ -60,6 +60,12 @@ def _init_repo(tmp_path: Path, *, branch: str) -> Path:
         text=True,
     )
     (repo / "README.md").write_text("test\n", encoding="utf-8")
+    # ship-pr.sh calls sign-setup.sh when ssh_key is set (cloud agents).
+    cursor_dir = repo / ".cursor"
+    cursor_dir.mkdir(exist_ok=True)
+    sign_setup = cursor_dir / "sign-setup.sh"
+    sign_setup.write_text("#!/bin/sh\n# test stub\nexit 0\n", encoding="utf-8")
+    sign_setup.chmod(0o755)
     subprocess.run(
         ["git", "add", "README.md"],
         cwd=repo,
