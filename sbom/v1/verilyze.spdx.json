@@ -463,9 +463,9 @@
     {
       "@type": "Package",
       "name": "cc",
-      "packageUrl": "pkg:cargo/cc@1.4.5",
-      "spdxId": "urn:spdx.dev:pkg-cargo-cc-1-4-5",
-      "versionInfo": "1.4.5"
+      "packageUrl": "pkg:cargo/cc@1.4.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-cc-1-4-6",
+      "versionInfo": "1.4.6"
     },
     {
       "@type": "Package",
@@ -512,9 +512,9 @@
     {
       "@type": "Package",
       "name": "clap_lex",
-      "packageUrl": "pkg:cargo/clap_lex@1.1.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-lex-1-1-0",
-      "versionInfo": "1.1.0"
+      "packageUrl": "pkg:cargo/clap_lex@1.1.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-lex-1-1-1",
+      "versionInfo": "1.1.1"
     },
     {
       "@type": "Package",
@@ -1093,23 +1093,23 @@
     {
       "@type": "Package",
       "name": "jiff",
-      "packageUrl": "pkg:cargo/jiff@0.2.35",
-      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-0-2-35",
-      "versionInfo": "0.2.35"
+      "packageUrl": "pkg:cargo/jiff@0.2.37",
+      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-0-2-37",
+      "versionInfo": "0.2.37"
     },
     {
       "@type": "Package",
       "name": "jiff-core",
-      "packageUrl": "pkg:cargo/jiff-core@0.1.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-core-0-1-0",
-      "versionInfo": "0.1.0"
+      "packageUrl": "pkg:cargo/jiff-core@0.1.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-core-0-1-1",
+      "versionInfo": "0.1.1"
     },
     {
       "@type": "Package",
       "name": "jiff-static",
-      "packageUrl": "pkg:cargo/jiff-static@0.2.35",
-      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-static-0-2-35",
-      "versionInfo": "0.2.35"
+      "packageUrl": "pkg:cargo/jiff-static@0.2.37",
+      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-static-0-2-37",
+      "versionInfo": "0.2.37"
     },
     {
       "@type": "Package",
@@ -1520,9 +1520,9 @@
     {
       "@type": "Package",
       "name": "redb",
-      "packageUrl": "pkg:cargo/redb@4.2.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-redb-4-2-0",
-      "versionInfo": "4.2.0"
+      "packageUrl": "pkg:cargo/redb@4.3.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-redb-4-3-0",
+      "versionInfo": "4.3.0"
     },
     {
       "@type": "Package",
@@ -1842,9 +1842,9 @@
     {
       "@type": "Package",
       "name": "smallvec",
-      "packageUrl": "pkg:cargo/smallvec@1.16.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-smallvec-1-16-0",
-      "versionInfo": "1.16.0"
+      "packageUrl": "pkg:cargo/smallvec@1.16.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-smallvec-1-16-1",
+      "versionInfo": "1.16.1"
     },
     {
       "@type": "Package",
@@ -1996,16 +1996,9 @@
     {
       "@type": "Package",
       "name": "tinyvec",
-      "packageUrl": "pkg:cargo/tinyvec@1.13.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-tinyvec-1-13-2",
-      "versionInfo": "1.13.2"
-    },
-    {
-      "@type": "Package",
-      "name": "tinyvec_macros",
-      "packageUrl": "pkg:cargo/tinyvec_macros@0.1.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-tinyvec-macros-0-1-1",
-      "versionInfo": "0.1.1"
+      "packageUrl": "pkg:cargo/tinyvec@1.13.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tinyvec-1-13-3",
+      "versionInfo": "1.13.3"
     },
     {
       "@type": "Package",
