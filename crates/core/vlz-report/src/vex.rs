@@ -129,8 +129,11 @@ pub fn cisa_to_cyclonedx_justification(j: VexJustification) -> &'static str {
         VexJustification::VulnerableCodeNotInExecutePath => {
             "code_not_reachable"
         }
+        // Distinct from inline mitigations: adversary cannot drive the
+        // vulnerable code (perimeter / environmental control), not a local
+        // inline mitigation already present in the component.
         VexJustification::VulnerableCodeCannotBeControlledByAdversary => {
-            "protected_by_mitigating_control"
+            "protected_at_perimeter"
         }
         VexJustification::InlineMitigationsAlreadyExist => {
             "protected_by_mitigating_control"
@@ -157,6 +160,46 @@ impl Default for VexConfig {
             author_namespace: None,
             reachability_not_affected: false,
         }
+    }
+}
+
+/// Treat blank / whitespace-only strings as unset (FR-046).
+pub fn nonempty_optional_id(value: Option<String>) -> Option<String> {
+    value.and_then(|s| {
+        let trimmed = s.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    })
+}
+
+impl VexConfig {
+    /// Drop blank `product_id` / `author_namespace` so empty config/env
+    /// values cannot satisfy OpenVEX presence checks.
+    pub fn normalize_optional_ids(&mut self) {
+        self.product_id = nonempty_optional_id(self.product_id.take());
+        self.author_namespace =
+            nonempty_optional_id(self.author_namespace.take());
+        let author = self.author_name.trim();
+        if author.is_empty() {
+            self.author_name = DEFAULT_VEX_AUTHOR_NAME.to_string();
+        } else if author != self.author_name {
+            self.author_name = author.to_string();
+        }
+    }
+
+    /// Effective product id: configured product, else project id; blanks ignored.
+    pub fn effective_product_id<'a>(
+        &'a self,
+        project_id: Option<&'a str>,
+    ) -> Option<&'a str> {
+        self.product_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .or_else(|| project_id.map(str::trim).filter(|s| !s.is_empty()))
     }
 }
 
@@ -394,6 +437,12 @@ mod tests {
         );
         assert_eq!(
             cisa_to_cyclonedx_justification(
+                VexJustification::VulnerableCodeCannotBeControlledByAdversary
+            ),
+            "protected_at_perimeter"
+        );
+        assert_eq!(
+            cisa_to_cyclonedx_justification(
                 VexJustification::InlineMitigationsAlreadyExist
             ),
             "protected_by_mitigating_control"
@@ -522,6 +571,74 @@ mod tests {
             &VexConfig::default(),
         );
         assert_eq!(stmts[0].status, VexStatus::UnderInvestigation);
+    }
+
+    #[test]
+    fn fp_mark_takes_precedence_over_reachable_true() {
+        let suppressed = vec![finding(cve("CVE-FP", Some(true)))];
+        let mut fp = HashMap::new();
+        fp.insert(
+            "CVE-FP".into(),
+            FpEntry {
+                comment: "accepted".into(),
+                timestamp_secs: 1,
+                user: None,
+                host: None,
+                project_id: None,
+                justification: Some(
+                    "vulnerable_code_not_in_execute_path".into(),
+                ),
+                status: Some("not_affected".into()),
+                detail: None,
+            },
+        );
+        // Suppressed path (FP) must win; active findings list is empty after filter.
+        let stmts = derive_vex_statements(
+            &[],
+            &suppressed,
+            &fp,
+            &VexConfig::default(),
+        );
+        assert_eq!(stmts.len(), 1);
+        assert_eq!(stmts[0].status, VexStatus::NotAffected);
+        assert_eq!(
+            stmts[0].justification,
+            Some(VexJustification::VulnerableCodeNotInExecutePath)
+        );
+    }
+
+    #[test]
+    fn upgrade_plan_fixed_version_does_not_infer_fixed_status() {
+        let mut f = finding(cve("CVE-FIXED-PLAN", Some(true)));
+        f.upgrade_plan.minimal_fixed_version = "2.0.0".into();
+        let stmts = derive_vex_statements(
+            &[f],
+            &[],
+            &HashMap::new(),
+            &VexConfig::default(),
+        );
+        assert_eq!(stmts.len(), 1);
+        assert_eq!(stmts[0].status, VexStatus::Affected);
+        assert_ne!(stmts[0].status.as_str(), "fixed");
+    }
+
+    #[test]
+    fn blank_product_id_normalizes_to_none() {
+        let mut cfg = VexConfig {
+            product_id: Some("  ".into()),
+            author_namespace: Some("".into()),
+            author_name: "  ".into(),
+            ..VexConfig::default()
+        };
+        cfg.normalize_optional_ids();
+        assert!(cfg.product_id.is_none());
+        assert!(cfg.author_namespace.is_none());
+        assert_eq!(cfg.author_name, DEFAULT_VEX_AUTHOR_NAME);
+        assert!(cfg.effective_product_id(Some("")).is_none());
+        assert_eq!(
+            cfg.effective_product_id(Some(" pkg:app@1 ")),
+            Some("pkg:app@1")
+        );
     }
 
     #[test]

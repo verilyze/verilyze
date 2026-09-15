@@ -177,31 +177,12 @@ Default: false.
 Env: VLZ_LSP_FOLDER_TRUST.
 CLI: vlz lsp --folder-trust.
 
-.It Va vex_product_id
-Product identifier for OpenVEX statements (defaults to project_id).
-Env: VLZ_VEX_PRODUCT_ID.
-CLI: --vex-product-id.
-
-.It Va vex_author_name
-Author name for OpenVEX documents.
-Default: verilyze.
-Env: VLZ_VEX_AUTHOR_NAME.
-CLI: --vex-author-name.
-
-.It Va vex_author_namespace
-Author namespace or role for OpenVEX documents.
-Env: VLZ_VEX_AUTHOR_NAMESPACE.
-CLI: --vex-author-namespace.
-
-.It Va vex_reachability_not_affected
-When true, map reachability false to VEX not_affected (default: in_triage).
-Default: false.
-Env: VLZ_VEX_REACHABILITY_NOT_AFFECTED.
-CLI: --vex-reachability-not-affected.
-
 .It Sy [severity.v2] , Sy [severity.v3] , Sy [severity.v4]
 CVSS score thresholds: critical_min, high_min, medium_min, low_min.
 Defaults: 9.0, 7.0, 4.0, 0.1.
+
+.It Sy [vex]
+VEX generation: product_id, author_name, author_namespace, reachability_not_affected. File keys live under this table (not as flat vex_* top-level keys). Env/CLI use VLZ_VEX_* / --vex-*.
 
 .It Sy [lang].regex
 Per-language regex for manifest file names (e.g. [python], [rust], [go], [javascript], [ruby]).

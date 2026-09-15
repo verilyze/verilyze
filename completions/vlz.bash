@@ -1324,6 +1324,10 @@ _vlz() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --vex-reachability-not-affected)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
                 --config)
                     local oldifs
                     if [ -n "${IFS+x}" ]; then

@@ -420,6 +420,25 @@ Reachability mode:
 .Cm tier-b ,
 or
 .Cm best-available .
+.It Ev VLZ_VEX_PRODUCT_ID
+Product identifier for OpenVEX statements (overrides
+.Va [vex].product_id ).
+.It Ev VLZ_VEX_AUTHOR_NAME
+Author name for OpenVEX documents (default:
+.Cm verilyze ).
+.It Ev VLZ_VEX_AUTHOR_NAMESPACE
+Author namespace or role for OpenVEX documents.
+.It Ev VLZ_VEX_REACHABILITY_NOT_AFFECTED
+When
+.Cm 1 ,
+.Cm true ,
+.Cm yes ,
+or
+.Cm on ,
+map reachability false to VEX
+.Cm not_affected
+(default maps to
+.Cm in_triage ).
 .It Ev VLZ_REACHABILITY_PERSIST_CACHE
 When set to
 .Cm 1 ,

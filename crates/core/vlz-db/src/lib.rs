@@ -13,7 +13,7 @@ pub use cache_entry::{
     normalize_stored_entry, pkg_cache_key, unix_now_secs,
 };
 pub use file_ignore::{
-    DEFAULT_IGNORE_FILE_NAME, FileIgnoreDb, FpEntry,
+    DEFAULT_IGNORE_FILE_NAME, FileIgnoreDb, FpEntry, FpMarkFields, FpMarkMeta,
     IGNORE_FILE_SCHEMA_VERSION, LEGACY_IGNORE_REDB_FILE_NAME,
     legacy_redb_path_for_json,
 };
@@ -360,15 +360,21 @@ impl DatabaseError {
 /// Any backend (RedB, SQLite, etc.) must implement this contract so that
 /// project_id-scoped filtering works consistently across implementations.
 pub trait IgnoreDb: Send + Sync {
-    /// Mark a CVE as false positive.
+    /// Mark a CVE as false positive (no VEX triage metadata).
     fn mark(
         &self,
         cve_id: &str,
         comment: &str,
         project_id: Option<&str>,
-    ) -> Result<(), DatabaseError>;
+    ) -> Result<(), DatabaseError> {
+        self.mark_with_details(cve_id, comment, project_id, None, None, None)
+    }
 
     /// Mark a CVE as false positive with optional VEX triage metadata (FR-044).
+    ///
+    /// Implementors must persist `justification` / `status` / `detail` when
+    /// provided and must not silently drop them. Re-mark with `None` for those
+    /// fields should preserve prior triage values (see `FpEntry::from_mark`).
     fn mark_with_details(
         &self,
         cve_id: &str,
@@ -377,10 +383,7 @@ pub trait IgnoreDb: Send + Sync {
         justification: Option<&str>,
         status: Option<&str>,
         detail: Option<&str>,
-    ) -> Result<(), DatabaseError> {
-        let _ = (justification, status, detail);
-        self.mark(cve_id, comment, project_id)
-    }
+    ) -> Result<(), DatabaseError>;
 
     /// Remove a false-positive marking.
     fn unmark(&self, cve_id: &str) -> Result<(), DatabaseError>;
@@ -394,36 +397,15 @@ pub trait IgnoreDb: Send + Sync {
     fn marked_ids(
         &self,
         project_id: Option<&str>,
-    ) -> Result<std::collections::HashSet<String>, DatabaseError>;
+    ) -> Result<std::collections::HashSet<String>, DatabaseError> {
+        Ok(self.marked_entries(project_id)?.into_keys().collect())
+    }
 
     /// Return marked FP entries (including VEX triage fields) for the project.
-    /// Default builds from `marked_ids` without metadata; backends that store
-    /// `FpEntry` should override.
     fn marked_entries(
         &self,
         project_id: Option<&str>,
-    ) -> Result<std::collections::HashMap<String, crate::FpEntry>, DatabaseError>
-    {
-        let ids = self.marked_ids(project_id)?;
-        Ok(ids
-            .into_iter()
-            .map(|id| {
-                (
-                    id,
-                    crate::FpEntry {
-                        comment: String::new(),
-                        timestamp_secs: 0,
-                        user: None,
-                        host: None,
-                        project_id: None,
-                        justification: None,
-                        status: None,
-                        detail: None,
-                    },
-                )
-            })
-            .collect())
-    }
+    ) -> Result<std::collections::HashMap<String, crate::FpEntry>, DatabaseError>;
 }
 
 /// SEC-014: Returns Err if the file at path exists and is world-writable.
@@ -727,18 +709,25 @@ mod tests {
             status: Option<&str>,
             detail: Option<&str>,
         ) -> Result<(), DatabaseError> {
-            self.entries.write().unwrap().insert(
+            let mut guard = self.entries.write().unwrap();
+            let existing = guard.get(cve_id).cloned();
+            guard.insert(
                 cve_id.to_string(),
-                crate::FpEntry {
-                    comment: comment.to_string(),
-                    timestamp_secs: 0,
-                    user: None,
-                    host: None,
-                    project_id: project_id.map(String::from),
-                    justification: justification.map(String::from),
-                    status: status.map(String::from),
-                    detail: detail.map(String::from),
-                },
+                crate::FpEntry::from_mark(
+                    existing.as_ref(),
+                    crate::FpMarkFields {
+                        comment,
+                        project_id,
+                        justification,
+                        status,
+                        detail,
+                    },
+                    crate::FpMarkMeta {
+                        timestamp_secs: 0,
+                        user: None,
+                        host: None,
+                    },
+                ),
             );
             Ok(())
         }

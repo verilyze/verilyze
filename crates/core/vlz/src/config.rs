@@ -501,13 +501,19 @@ fn apply_toml_vex_table(
         }
     }
     if let Some(v) = table.get("product_id").and_then(|v| v.as_str()) {
-        vex.product_id = Some(v.to_string());
+        vex.product_id = vlz_report::nonempty_optional_id(Some(v.to_string()));
     }
     if let Some(v) = table.get("author_name").and_then(|v| v.as_str()) {
-        vex.author_name = v.to_string();
+        let trimmed = v.trim();
+        vex.author_name = if trimmed.is_empty() {
+            vlz_report::DEFAULT_VEX_AUTHOR_NAME.to_string()
+        } else {
+            trimmed.to_string()
+        };
     }
     if let Some(v) = table.get("author_namespace").and_then(|v| v.as_str()) {
-        vex.author_namespace = Some(v.to_string());
+        vex.author_namespace =
+            vlz_report::nonempty_optional_id(Some(v.to_string()));
     }
     if let Some(v) = table
         .get("reachability_not_affected")
@@ -1301,13 +1307,18 @@ pub fn env_project_id() -> Option<String> {
 /// Apply `VLZ_VEX_*` environment overrides (FR-046, CFG-005).
 pub fn apply_env_vex_overrides(vex: &mut vlz_report::VexConfig) {
     if let Ok(v) = std::env::var("VLZ_VEX_PRODUCT_ID") {
-        vex.product_id = Some(v);
+        vex.product_id = vlz_report::nonempty_optional_id(Some(v));
     }
     if let Ok(v) = std::env::var("VLZ_VEX_AUTHOR_NAME") {
-        vex.author_name = v;
+        let trimmed = v.trim();
+        vex.author_name = if trimmed.is_empty() {
+            vlz_report::DEFAULT_VEX_AUTHOR_NAME.to_string()
+        } else {
+            trimmed.to_string()
+        };
     }
     if let Ok(v) = std::env::var("VLZ_VEX_AUTHOR_NAMESPACE") {
-        vex.author_namespace = Some(v);
+        vex.author_namespace = vlz_report::nonempty_optional_id(Some(v));
     }
     if let Ok(v) = std::env::var("VLZ_VEX_REACHABILITY_NOT_AFFECTED") {
         let lower = v.to_ascii_lowercase();
@@ -2296,6 +2307,26 @@ reachability_not_affected = true
             }
             other => panic!("expected UnknownKey, got {other}"),
         }
+    }
+
+    #[test]
+    fn vex_blank_product_id_and_flat_keys_rejected() {
+        with_isolated_load_env(|| {
+            let dir = test_tempdir();
+            let config_path = dir.path().join("vex_blank.conf");
+            std::fs::write(
+                &config_path,
+                "[vex]\nproduct_id = \"  \"\nauthor_namespace = \"\"\n",
+            )
+            .unwrap();
+            let path_str = config_path.to_string_lossy().into_owned();
+            let cfg = load_no_severity(Some(&path_str));
+            assert!(cfg.vex.product_id.is_none());
+            assert!(cfg.vex.author_namespace.is_none());
+        });
+        let flat = parse_and_validate_toml("vex_product_id = \"x\"\n");
+        assert!(flat.is_err());
+        assert!(matches!(flat.unwrap_err(), ConfigError::UnknownKey { .. }));
     }
 
     #[test]

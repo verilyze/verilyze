@@ -620,21 +620,37 @@ pub async fn run(args: Cli) -> Result<i32> {
                 return Ok(2);
             }
             if let Some(id) = vex_product_id {
-                effective.vex.product_id = Some(id);
+                effective.vex.product_id =
+                    vlz_report::nonempty_optional_id(Some(id));
             }
             if let Some(name) = vex_author_name {
-                effective.vex.author_name = name;
+                let trimmed = name.trim();
+                effective.vex.author_name = if trimmed.is_empty() {
+                    vlz_report::DEFAULT_VEX_AUTHOR_NAME.to_string()
+                } else {
+                    trimmed.to_string()
+                };
             }
             if let Some(ns) = vex_author_namespace {
-                effective.vex.author_namespace = Some(ns);
+                effective.vex.author_namespace =
+                    vlz_report::nonempty_optional_id(Some(ns));
             }
-            if vex_reachability_not_affected {
-                effective.vex.reachability_not_affected = true;
+            if let Some(v) = vex_reachability_not_affected {
+                effective.vex.reachability_not_affected = v;
             }
             effective.no_vex = no_vex;
-            if format.eq_ignore_ascii_case("openvex")
-                && effective.vex.product_id.is_none()
-                && effective.project_id.is_none()
+            effective.vex.normalize_optional_ids();
+            let openvex_requested = format.eq_ignore_ascii_case("openvex")
+                || report.iter().any(|spec| {
+                    spec.split_once(':').is_some_and(|(fmt, _)| {
+                        fmt.trim().eq_ignore_ascii_case("openvex")
+                    })
+                });
+            if openvex_requested
+                && effective
+                    .vex
+                    .effective_product_id(effective.project_id.as_deref())
+                    .is_none()
             {
                 error!(
                     "OpenVEX requires --vex-product-id, --project-id, or [vex].product_id"
@@ -2063,8 +2079,10 @@ async fn run_scan(
         .collect();
     let mut vex_config = effective.vex.clone();
     if vex_config.product_id.is_none() {
-        vex_config.product_id = effective.project_id.clone();
+        vex_config.product_id =
+            vlz_report::nonempty_optional_id(effective.project_id.clone());
     }
+    vex_config.normalize_optional_ids();
     let suppressed_findings: Vec<vlz_report::Finding> = suppressed_raw
         .into_iter()
         .map(|(pkg, recs)| {

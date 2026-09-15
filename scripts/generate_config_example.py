@@ -261,11 +261,17 @@ def _scalar_keys_from_config_list(
     config_list: dict[str, str],
     comments: dict[str, dict[str, str]] | None = None,
 ) -> list[str]:
-    """Derive scalar keys from config --list (exclude severity, lang.regex)."""
+    """Derive scalar keys from config --list.
+
+    Excludes severity_*, lang.regex, and flat vex_* keys (file format uses
+    a [vex] table).
+    """
     keys = [
         k
         for k in config_list.keys()
-        if not k.startswith("severity_") and ".regex" not in k
+        if not k.startswith("severity_")
+        and not k.startswith("vex_")
+        and ".regex" not in k
     ]
     if keys:
         return keys
@@ -276,10 +282,42 @@ def _scalar_keys_from_config_list(
             for k in comments
             if k not in _FALLBACK_SCALAR_KEYS
             and not k.startswith("severity_")
+            and not k.startswith("vex_")
             and ".regex" not in k
         ]
         return known + extra
     return _FALLBACK_SCALAR_KEYS
+
+
+def _vex_example_block(
+    config_list: dict[str, str],
+    comments: dict[str, dict[str, str]],
+) -> list[str]:
+    """Emit a commented `[vex]` table (file format; not flat vex_* keys)."""
+    lines = [
+        "#",
+        "# [vex] VEX generation (FR-044, FR-046)",
+        "# [vex]",
+    ]
+    fields = (
+        ("product_id", "vex_product_id", True),
+        ("author_name", "vex_author_name", True),
+        ("author_namespace", "vex_author_namespace", True),
+        ("reachability_not_affected", "vex_reachability_not_affected", False),
+    )
+    for toml_key, list_key, quote in fields:
+        default = config_list.get(list_key) or comments.get(list_key, {}).get(
+            "default", ""
+        )
+        desc = comments.get(list_key, {}).get("description", "")
+        for comment_line in wrap_comment(desc):
+            lines.append(comment_line)
+        if quote:
+            lines.append(f'# {toml_key} = "{default}"')
+        else:
+            lines.append(f"# {toml_key} = {default}")
+    lines.append("")
+    return lines
 
 
 def build_config_data(
@@ -288,13 +326,16 @@ def build_config_data(
 ) -> list[tuple[str, str, str, str, str]]:
     """
     Merge config --list with comments. Returns list of
-    (key, default, type, env, cli) for scalar options.
-    Keys derived from config_list (single source of truth).
+    (key, default, type, env, cli) for scalar options plus flat vex_*
+    display keys (env/CLI / config --list names).
     """
     scalar_keys = _scalar_keys_from_config_list(config_list, comments)
+    vex_keys = [k for k in config_list.keys() if k.startswith("vex_")]
+    if not vex_keys and comments:
+        vex_keys = [k for k in comments if k.startswith("vex_")]
 
     rows: list[tuple[str, str, str, str, str]] = []
-    for key in scalar_keys:
+    for key in scalar_keys + vex_keys:
         meta = comments.get(key, {})
         default = config_list.get(key, meta.get("default", ""))
         type_ = meta.get("type", "string")
@@ -378,6 +419,8 @@ def generate_example_conf(
             lines.append(f"# {t} = {default}")
         lines.append("#")
 
+    lines.extend(_vex_example_block(config_list, comments))
+
     # Language regex
     lines.append("# Per-language manifest regex (FR-006)")
     for lang, default in _language_keys_from_config(config_list, comments):
@@ -433,6 +476,13 @@ def generate_man_options(
         "CVSS score thresholds: critical_min, high_min, medium_min, low_min."
     )
     lines.append("Defaults: 9.0, 7.0, 4.0, 0.1.")
+    lines.append("")
+    lines.append(".It Sy [vex]")
+    lines.append(
+        "VEX generation: product_id, author_name, author_namespace, "
+        "reachability_not_affected. File keys live under this table "
+        "(not as flat vex_* top-level keys). Env/CLI use VLZ_VEX_* / --vex-*."
+    )
     lines.append("")
     lines.append(".It Sy [lang].regex")
     lines.append(

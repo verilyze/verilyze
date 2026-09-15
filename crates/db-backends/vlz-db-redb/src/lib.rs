@@ -17,8 +17,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use vlz_cve_client::{attach_affected_ranges, decode_raw_vulns};
 use vlz_db::{
     CacheEntryInfo, CveRecord, DatabaseBackend, DatabaseError, DatabaseStats,
-    Package, PurgeEntry, StoredEntry, TtlSelector, entry_is_expired,
-    new_stored_entry, normalize_stored_entry, pkg_cache_key, unix_now_secs,
+    FpMarkFields, FpMarkMeta, Package, PurgeEntry, StoredEntry, TtlSelector,
+    entry_is_expired, new_stored_entry, normalize_stored_entry, pkg_cache_key,
+    unix_now_secs,
 };
 
 /// RedB table: key = `"name::version::provider"`, value = JSON of `StoredEntry`.
@@ -578,16 +579,45 @@ impl RedbIgnoreDb {
             .as_secs();
         let user = std::env::var("USER").ok();
         let host = std::env::var("HOSTNAME").ok();
-        let entry = FpEntry {
-            comment: comment.to_string(),
-            timestamp_secs: now_secs,
-            user,
-            host,
-            project_id: project_id.map(String::from),
-            justification: justification.map(String::from),
-            status: status.map(String::from),
-            detail: detail.map(String::from),
+        let existing = {
+            let read_txn =
+                self.db.begin_read().map_err(DatabaseError::wrap)?;
+            match read_txn.open_table(FALSE_POSITIVE_TABLE) {
+                Ok(table) => {
+                    match table.get(cve_id).map_err(DatabaseError::wrap)? {
+                        Some(v) => Some(
+                            serde_json::from_str::<FpEntry>(v.value())
+                                .map_err(DatabaseError::Serde)?,
+                        ),
+                        None => None,
+                    }
+                }
+                Err(e) => {
+                    // Fresh DB: table is created on first write.
+                    let msg = e.to_string();
+                    if msg.contains("does not exist") {
+                        None
+                    } else {
+                        return Err(DatabaseError::wrap(e));
+                    }
+                }
+            }
         };
+        let entry = FpEntry::from_mark(
+            existing.as_ref(),
+            FpMarkFields {
+                comment,
+                project_id,
+                justification,
+                status,
+                detail,
+            },
+            FpMarkMeta {
+                timestamp_secs: now_secs,
+                user,
+                host,
+            },
+        );
         let value =
             serde_json::to_string(&entry).map_err(DatabaseError::Serde)?;
         let write_txn = self.db.begin_write().map_err(DatabaseError::wrap)?;

@@ -85,6 +85,8 @@ complete -c vlz -n "__fish_vlz_using_subcommand scan" -l severity-v4-low-min -d 
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l vex-product-id -d 'Product identifier for OpenVEX statements (defaults to --project-id)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l vex-author-name -d 'Author name for OpenVEX documents (default: verilyze)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l vex-author-namespace -d 'Author namespace / role for OpenVEX documents' -r
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l vex-reachability-not-affected -d 'Map reachability false to VEX not_affected (default: in_triage). Omit to leave config/env unchanged; pass `true`/`false` to override. A bare flag (no value) means true' -r -f -a "true\t''
+false\t''"
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -s c -l config -d 'Override configuration file location' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l offline -d 'Disable network access'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l benchmark -d 'Benchmark mode (no cache, no network, parallel=1)'
@@ -94,7 +96,6 @@ complete -c vlz -n "__fish_vlz_using_subcommand scan" -l allow-dependency-code-e
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l allow-direct-only-fallback -d 'Fall back to direct-only scan with warning when transitive resolution fails (FR-022a). Applies to all Python project manifests (requirements.txt, pyproject.toml, Pipfile, setup.cfg, setup.py), Rust Cargo.toml without Cargo.lock, Go go.mod when go list or cargo metadata cannot run, JavaScript/TypeScript package.json without a usable adjacent or parent lock when package-manager execution is disabled, and Ruby Gemfile/gems.rb/*.gemspec without a usable Gemfile.lock/gems.locked when Bundler execution is disabled'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l fail-fast -d 'Stop on first manifest parse/resolution failure; skip CVE lookup (FR-037)'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l no-vex -d 'Omit VEX analysis from CycloneDX / OpenVEX output'
-complete -c vlz -n "__fish_vlz_using_subcommand scan" -l vex-reachability-not-affected -d 'Map reachability false to VEX not_affected (default: in_triage)'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand fix" -s f -l format -d 'Output format for dry-run (plain or json)' -r -f -a "plain\t''

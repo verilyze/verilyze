@@ -11,7 +11,7 @@ pub use vex::{
     DEFAULT_VEX_AUTHOR_NAME, OPENVEX_CONTEXT, VEX_FP_STATUSES, VexConfig,
     VexJustification, VexStatement, VexStatus,
     cisa_to_cyclonedx_justification, cyclonedx_analysis_for,
-    derive_vex_statements,
+    derive_vex_statements, nonempty_optional_id,
 };
 
 use async_trait::async_trait;
@@ -1211,11 +1211,17 @@ impl Reporter for CycloneDxReporter {
                 .map(|s| ((s.cve_id.clone(), s.purl.clone()), s))
                 .collect();
 
-        let report_findings: Vec<&Finding> = data
-            .findings
-            .iter()
-            .chain(data.suppressed_findings.iter())
-            .collect();
+        // Include FP-suppressed CVEs only when emitting VEX analysis. With
+        // `--no-vex`, suppressed rows must not reappear as open vulns without
+        // analysis (downstream tools treat bare vulnerabilities as affected).
+        let report_findings: Vec<&Finding> = if data.emit_vex {
+            data.findings
+                .iter()
+                .chain(data.suppressed_findings.iter())
+                .collect()
+        } else {
+            data.findings.iter().collect()
+        };
         let vulnerabilities: Vec<serde_json::Value> = report_findings
             .iter()
             .flat_map(|finding| {
@@ -1319,9 +1325,7 @@ impl Reporter for OpenVexReporter {
     ) -> Result<(), ReportError> {
         let product_id = data
             .vex_config
-            .product_id
-            .as_deref()
-            .or(data.project_id.as_deref())
+            .effective_product_id(data.project_id.as_deref())
             .ok_or_else(|| {
                 ReportError::Other(
                     "OpenVEX requires product_id (set --vex-product-id, \
@@ -3198,6 +3202,9 @@ mod tests {
         let mut data = sample_report_data_one_finding();
         data.emit_vex = false;
         data.findings[0].cves[0].0.reachable = Some(true);
+        let mut suppressed = sample_report_data_one_finding().findings;
+        suppressed[0].cves[0].0.id = "CVE-SUPPRESSED".into();
+        data.suppressed_findings = suppressed;
         let mut buf = Vec::new();
         CycloneDxReporter::new()
             .render_to_writer(&data, &mut buf)
@@ -3206,7 +3213,14 @@ mod tests {
         let parsed: serde_json::Value =
             serde_json::from_str(String::from_utf8(buf).unwrap().trim())
                 .unwrap();
-        assert!(parsed["vulnerabilities"][0].get("analysis").is_none());
+        let vulns = parsed["vulnerabilities"].as_array().unwrap();
+        assert_eq!(vulns.len(), 1);
+        assert_eq!(vulns[0]["id"], "CVE-2023-1234");
+        assert!(vulns[0].get("analysis").is_none());
+        assert!(
+            vulns.iter().all(|v| v["id"] != "CVE-SUPPRESSED"),
+            "suppressed FP CVEs must not appear without VEX analysis"
+        );
     }
 
     #[tokio::test]
@@ -3234,6 +3248,15 @@ mod tests {
         missing.vex_config.product_id = None;
         let err = OpenVexReporter::new()
             .render_to_writer(&missing, &mut Vec::new())
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("product_id"));
+
+        let mut blank = sample_report_data_one_finding();
+        blank.project_id = Some("   ".into());
+        blank.vex_config.product_id = Some("".into());
+        let err = OpenVexReporter::new()
+            .render_to_writer(&blank, &mut Vec::new())
             .await
             .unwrap_err();
         assert!(err.to_string().contains("product_id"));

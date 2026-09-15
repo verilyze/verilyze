@@ -57,6 +57,59 @@ pub struct FpEntry {
     pub detail: Option<String>,
 }
 
+impl FpEntry {
+    /// Build an FP entry for mark/re-mark.
+    ///
+    /// When `justification`, `status`, or `detail` is `None`, prior values from
+    /// `existing` are preserved so a later `fp mark` without VEX flags does not
+    /// erase triage metadata (FR-044). `project_id` and `comment` always take
+    /// the new values (including clearing project scope when `project_id` is
+    /// `None`).
+    pub fn from_mark(
+        existing: Option<&Self>,
+        fields: FpMarkFields<'_>,
+        meta: FpMarkMeta,
+    ) -> Self {
+        Self {
+            comment: fields.comment.to_string(),
+            timestamp_secs: meta.timestamp_secs,
+            user: meta.user,
+            host: meta.host,
+            project_id: fields.project_id.map(String::from),
+            justification: fields
+                .justification
+                .map(String::from)
+                .or_else(|| existing.and_then(|e| e.justification.clone())),
+            status: fields
+                .status
+                .map(String::from)
+                .or_else(|| existing.and_then(|e| e.status.clone())),
+            detail: fields
+                .detail
+                .map(String::from)
+                .or_else(|| existing.and_then(|e| e.detail.clone())),
+        }
+    }
+}
+
+/// Caller-supplied FP mark fields (comment / project / VEX triage).
+#[derive(Debug, Clone, Copy)]
+pub struct FpMarkFields<'a> {
+    pub comment: &'a str,
+    pub project_id: Option<&'a str>,
+    pub justification: Option<&'a str>,
+    pub status: Option<&'a str>,
+    pub detail: Option<&'a str>,
+}
+
+/// Audit metadata written on each FP mark.
+#[derive(Debug, Clone)]
+pub struct FpMarkMeta {
+    pub timestamp_secs: u64,
+    pub user: Option<String>,
+    pub host: Option<String>,
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct IgnoreFileDocument {
     version: u32,
@@ -178,17 +231,23 @@ impl IgnoreDb for FileIgnoreDb {
             .duration_since(UNIX_EPOCH)
             .unwrap_or(Duration::ZERO)
             .as_secs();
-        let entry = FpEntry {
-            comment: comment.to_string(),
-            timestamp_secs: now_secs,
-            user: std::env::var("USER").ok(),
-            host: std::env::var("HOSTNAME").ok(),
-            project_id: project_id.map(String::from),
-            justification: justification.map(String::from),
-            status: status.map(String::from),
-            detail: detail.map(String::from),
-        };
         self.with_locked_mutation(|map| {
+            let existing = map.get(cve_id).cloned();
+            let entry = FpEntry::from_mark(
+                existing.as_ref(),
+                FpMarkFields {
+                    comment,
+                    project_id,
+                    justification,
+                    status,
+                    detail,
+                },
+                FpMarkMeta {
+                    timestamp_secs: now_secs,
+                    user: std::env::var("USER").ok(),
+                    host: std::env::var("HOSTNAME").ok(),
+                },
+            );
             map.insert(cve_id.to_string(), entry);
             Ok(())
         })
@@ -588,6 +647,34 @@ mod tests {
         assert_eq!(entry.status.as_deref(), Some("not_affected"));
         assert_eq!(entry.detail.as_deref(), Some("library unused"));
         assert_eq!(entry.project_id.as_deref(), Some("proj"));
+    }
+
+    #[test]
+    fn re_mark_without_vex_flags_preserves_justification() {
+        let (_dir, path) = temp_ignore_path("vex_preserve");
+        let db = FileIgnoreDb::with_path(path.clone()).unwrap();
+        db.mark_with_details(
+            "CVE-KEEP",
+            "first",
+            None,
+            Some("vulnerable_code_not_present"),
+            Some("not_affected"),
+            Some("detail"),
+        )
+        .unwrap();
+        db.mark("CVE-KEEP", "updated comment", None).unwrap();
+        let entry = db
+            .marked_entries(None)
+            .unwrap()
+            .remove("CVE-KEEP")
+            .expect("entry");
+        assert_eq!(entry.comment, "updated comment");
+        assert_eq!(
+            entry.justification.as_deref(),
+            Some("vulnerable_code_not_present")
+        );
+        assert_eq!(entry.status.as_deref(), Some("not_affected"));
+        assert_eq!(entry.detail.as_deref(), Some("detail"));
     }
 
     #[test]

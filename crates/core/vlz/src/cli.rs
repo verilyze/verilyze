@@ -325,9 +325,18 @@ pub enum Commands {
         #[arg(long, value_name = "NS", help_heading = HELP_VEX)]
         vex_author_namespace: Option<String>,
 
-        /// Map reachability false to VEX not_affected (default: in_triage)
-        #[arg(long, help_heading = HELP_VEX)]
-        vex_reachability_not_affected: bool,
+        /// Map reachability false to VEX not_affected (default: in_triage).
+        /// Omit to leave config/env unchanged; pass `true`/`false` to override.
+        /// A bare flag (no value) means true.
+        #[arg(
+            long,
+            value_name = "BOOL",
+            num_args = 0..=1,
+            default_missing_value = "true",
+            value_parser = clap::builder::BoolishValueParser::new(),
+            help_heading = HELP_VEX
+        )]
+        vex_reachability_not_affected: Option<bool>,
     },
 
     /// Apply remediations (updates lock/manifest files by default)
@@ -658,6 +667,12 @@ mod tests {
         let mut v = vec!["vlz"];
         v.extend(args.iter().copied());
         Cli::parse_from(v)
+    }
+
+    fn try_parse(args: &[&str]) -> Result<Cli, clap::error::Error> {
+        let mut v = vec!["vlz"];
+        v.extend(args.iter().copied());
+        Cli::try_parse_from(v)
     }
 
     #[test]
@@ -1122,7 +1137,48 @@ mod tests {
         assert!(*no_vex);
         assert_eq!(vex_product_id.as_deref(), Some("pkg:generic/app@1"));
         assert_eq!(vex_author_name.as_deref(), Some("Acme"));
-        assert!(*vex_reachability_not_affected);
+        assert_eq!(*vex_reachability_not_affected, Some(true));
+    }
+
+    #[test]
+    fn parse_scan_vex_reachability_false_overrides() {
+        let cli = parse(&["scan", "--vex-reachability-not-affected=false"]);
+        let Commands::Scan {
+            vex_reachability_not_affected,
+            ..
+        } = &cli.cmd
+        else {
+            panic!("expected scan")
+        };
+        assert_eq!(*vex_reachability_not_affected, Some(false));
+    }
+
+    #[test]
+    fn parse_fp_mark_rejects_invalid_justification() {
+        let err = try_parse(&[
+            "fp",
+            "mark",
+            "CVE-1",
+            "--justification",
+            "not_a_cisa_reason",
+        ])
+        .unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("justification") || msg.contains("possible values"),
+            "unexpected error: {msg}"
+        );
+    }
+
+    #[test]
+    fn parse_fp_mark_rejects_invalid_status() {
+        let err = try_parse(&["fp", "mark", "CVE-1", "--status", "affected"])
+            .unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("status") || msg.contains("possible values"),
+            "unexpected error: {msg}"
+        );
     }
 
     #[test]
