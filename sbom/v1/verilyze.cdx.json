@@ -471,32 +471,32 @@
       "version": "0.0.4"
     },
     {
-      "bom-ref": "pkg:cargo/clap@4.6.6",
+      "bom-ref": "pkg:cargo/clap@4.6.7",
       "name": "clap",
-      "purl": "pkg:cargo/clap@4.6.6",
+      "purl": "pkg:cargo/clap@4.6.7",
       "type": "library",
-      "version": "4.6.6"
+      "version": "4.6.7"
     },
     {
-      "bom-ref": "pkg:cargo/clap_builder@4.6.6",
+      "bom-ref": "pkg:cargo/clap_builder@4.6.7",
       "name": "clap_builder",
-      "purl": "pkg:cargo/clap_builder@4.6.6",
+      "purl": "pkg:cargo/clap_builder@4.6.7",
       "type": "library",
-      "version": "4.6.6"
+      "version": "4.6.7"
     },
     {
-      "bom-ref": "pkg:cargo/clap_complete@4.6.9",
+      "bom-ref": "pkg:cargo/clap_complete@4.6.10",
       "name": "clap_complete",
-      "purl": "pkg:cargo/clap_complete@4.6.9",
+      "purl": "pkg:cargo/clap_complete@4.6.10",
       "type": "library",
-      "version": "4.6.9"
+      "version": "4.6.10"
     },
     {
-      "bom-ref": "pkg:cargo/clap_derive@4.6.4",
+      "bom-ref": "pkg:cargo/clap_derive@4.6.7",
       "name": "clap_derive",
-      "purl": "pkg:cargo/clap_derive@4.6.4",
+      "purl": "pkg:cargo/clap_derive@4.6.7",
       "type": "library",
-      "version": "4.6.4"
+      "version": "4.6.7"
     },
     {
       "bom-ref": "pkg:cargo/clap_lex@1.1.0",
@@ -2667,6 +2667,34 @@
       "purl": "pkg:cargo/cc@1.4.6",
       "type": "library",
       "version": "1.4.6"
+    },
+    {
+      "bom-ref": "pkg:cargo/clap@4.6.6",
+      "name": "clap",
+      "purl": "pkg:cargo/clap@4.6.6",
+      "type": "library",
+      "version": "4.6.6"
+    },
+    {
+      "bom-ref": "pkg:cargo/clap_builder@4.6.6",
+      "name": "clap_builder",
+      "purl": "pkg:cargo/clap_builder@4.6.6",
+      "type": "library",
+      "version": "4.6.6"
+    },
+    {
+      "bom-ref": "pkg:cargo/clap_complete@4.6.9",
+      "name": "clap_complete",
+      "purl": "pkg:cargo/clap_complete@4.6.9",
+      "type": "library",
+      "version": "4.6.9"
+    },
+    {
+      "bom-ref": "pkg:cargo/clap_derive@4.6.4",
+      "name": "clap_derive",
+      "purl": "pkg:cargo/clap_derive@4.6.4",
+      "type": "library",
+      "version": "4.6.4"
     },
     {
       "bom-ref": "pkg:cargo/jiff@0.2.37",
