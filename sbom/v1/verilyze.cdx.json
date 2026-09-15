@@ -2732,13 +2732,6 @@
       "version": "0.4.13"
     },
     {
-      "bom-ref": "pkg:cargo/rustls@0.23.44",
-      "name": "rustls",
-      "purl": "pkg:cargo/rustls@0.23.44",
-      "type": "library",
-      "version": "0.23.44"
-    },
-    {
       "bom-ref": "pkg:cargo/smallvec@1.16.1",
       "name": "smallvec",
       "purl": "pkg:cargo/smallvec@1.16.1",

@@ -2744,13 +2744,6 @@
     },
     {
       "@type": "Package",
-      "name": "rustls",
-      "packageUrl": "pkg:cargo/rustls@0.23.44",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-0-23-44",
-      "versionInfo": "0.23.44"
-    },
-    {
-      "@type": "Package",
       "name": "smallvec",
       "packageUrl": "pkg:cargo/smallvec@1.16.1",
       "spdxId": "urn:spdx.dev:pkg-cargo-smallvec-1-16-1",

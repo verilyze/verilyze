@@ -16,4 +16,5 @@ WORKSPACE_SCAN_EXCLUDE_DIRS=(
   .venv-test
   .venv-reuse
   fixtures
+  sbom
 )
