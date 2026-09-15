@@ -168,6 +168,10 @@ pub struct EffectiveConfig {
     /// Configurable CVSS severity thresholds per version (FR-013).
     pub severity: vlz_report::SeverityConfig,
     pub reachability_mode: ReachabilityMode,
+    /// VEX generation settings (FR-044, FR-046).
+    pub vex: vlz_report::VexConfig,
+    /// When true, omit VEX analysis from reports (`--no-vex`).
+    pub no_vex: bool,
 }
 
 impl Default for EffectiveConfig {
@@ -207,6 +211,8 @@ impl Default for EffectiveConfig {
             config_file: None,
             severity: vlz_report::SeverityConfig::default(),
             reachability_mode: DEFAULT_REACHABILITY_MODE,
+            vex: vlz_report::VexConfig::default(),
+            no_vex: false,
         }
     }
 }
@@ -462,8 +468,53 @@ fn apply_file_config_inner(
         apply_toml_severity_table(sev, "v3", &mut cfg.severity.v3);
         apply_toml_severity_table(sev, "v4", &mut cfg.severity.v4);
     }
-    let _ = source;
+    // FR-046: parse [vex] section.
+    if let Ok(value) = toml::from_str::<toml::Value>(raw)
+        && let Some(t) = value.as_table()
+        && let Some(vex_val) = t.get("vex")
+        && let Some(vex) = vex_val.as_table()
+    {
+        apply_toml_vex_table(vex, &mut cfg.vex, source)?;
+    }
     extract_python_lock_files(cfg, raw)?;
+    Ok(())
+}
+
+const KNOWN_VEX_KEYS: &[&str] = &[
+    "product_id",
+    "author_name",
+    "author_namespace",
+    "reachability_not_affected",
+];
+
+fn apply_toml_vex_table(
+    table: &toml::map::Map<String, toml::Value>,
+    vex: &mut vlz_report::VexConfig,
+    source: &str,
+) -> Result<(), ConfigError> {
+    for key in table.keys() {
+        if !KNOWN_VEX_KEYS.contains(&key.as_str()) {
+            return Err(ConfigError::UnknownKey {
+                key: format!("vex.{key}"),
+                origin: source.to_string(),
+            });
+        }
+    }
+    if let Some(v) = table.get("product_id").and_then(|v| v.as_str()) {
+        vex.product_id = Some(v.to_string());
+    }
+    if let Some(v) = table.get("author_name").and_then(|v| v.as_str()) {
+        vex.author_name = v.to_string();
+    }
+    if let Some(v) = table.get("author_namespace").and_then(|v| v.as_str()) {
+        vex.author_namespace = Some(v.to_string());
+    }
+    if let Some(v) = table
+        .get("reachability_not_affected")
+        .and_then(|v| v.as_bool())
+    {
+        vex.reachability_not_affected = v;
+    }
     Ok(())
 }
 
@@ -1081,6 +1132,7 @@ pub fn load_with_reachability_overrides(
     if let Some(v) = env_lsp_folder_trust() {
         cfg.lsp_folder_trust = v;
     }
+    apply_env_vex_overrides(&mut cfg.vex);
 
     // 5) CLI
     if let Some(n) = cli_parallel {
@@ -1244,6 +1296,27 @@ pub fn env_fp_exit_code() -> Option<u8> {
 /// Read VLZ_PROJECT_ID (FR-015, CFG-005); scopes false-positive filtering.
 pub fn env_project_id() -> Option<String> {
     std::env::var("VLZ_PROJECT_ID").ok()
+}
+
+/// Apply `VLZ_VEX_*` environment overrides (FR-046, CFG-005).
+pub fn apply_env_vex_overrides(vex: &mut vlz_report::VexConfig) {
+    if let Ok(v) = std::env::var("VLZ_VEX_PRODUCT_ID") {
+        vex.product_id = Some(v);
+    }
+    if let Ok(v) = std::env::var("VLZ_VEX_AUTHOR_NAME") {
+        vex.author_name = v;
+    }
+    if let Ok(v) = std::env::var("VLZ_VEX_AUTHOR_NAMESPACE") {
+        vex.author_namespace = Some(v);
+    }
+    if let Ok(v) = std::env::var("VLZ_VEX_REACHABILITY_NOT_AFFECTED") {
+        let lower = v.to_ascii_lowercase();
+        if matches!(lower.as_str(), "1" | "true" | "yes" | "on") {
+            vex.reachability_not_affected = true;
+        } else if matches!(lower.as_str(), "0" | "false" | "no" | "off") {
+            vex.reachability_not_affected = false;
+        }
+    }
 }
 
 /// Read VLZ_BACKOFF_BASE_MS (OP-010, CFG-005).
@@ -2184,6 +2257,45 @@ regex = "^req\\.txt$"
         let r = parse_and_validate_toml("unknown_key = 1");
         assert!(r.is_err());
         assert!(matches!(r.unwrap_err(), ConfigError::UnknownKey { .. }));
+    }
+
+    #[test]
+    fn vex_table_parses_and_rejects_unknown_keys() {
+        with_isolated_load_env(|| {
+            let dir = test_tempdir();
+            let config_path = dir.path().join("vex.conf");
+            std::fs::write(
+                &config_path,
+                r#"
+[vex]
+product_id = "pkg:generic/app@1"
+author_name = "Acme"
+author_namespace = "https://acme.example"
+reachability_not_affected = true
+"#,
+            )
+            .unwrap();
+            let path_str = config_path.to_string_lossy().into_owned();
+            let cfg = load_no_severity(Some(&path_str));
+            assert_eq!(
+                cfg.vex.product_id.as_deref(),
+                Some("pkg:generic/app@1")
+            );
+            assert_eq!(cfg.vex.author_name, "Acme");
+            assert_eq!(
+                cfg.vex.author_namespace.as_deref(),
+                Some("https://acme.example")
+            );
+            assert!(cfg.vex.reachability_not_affected);
+        });
+        let r = parse_and_validate_toml("[vex]\nunknown_vex_key = 1\n");
+        assert!(r.is_err());
+        match r.unwrap_err() {
+            ConfigError::UnknownKey { key, .. } => {
+                assert_eq!(key, "vex.unknown_vex_key");
+            }
+            other => panic!("expected UnknownKey, got {other}"),
+        }
     }
 
     #[test]

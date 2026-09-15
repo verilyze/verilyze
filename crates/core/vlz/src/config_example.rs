@@ -204,6 +204,23 @@ pub fn generate_example(cfg: &crate::config::EffectiveConfig) -> String {
                 .map(|p| p.display().to_string())
                 .unwrap_or_default(),
         ),
+        (
+            "vex_product_id",
+            cfg.vex.product_id.as_deref().unwrap_or("").to_string(),
+        ),
+        ("vex_author_name", cfg.vex.author_name.clone()),
+        (
+            "vex_author_namespace",
+            cfg.vex
+                .author_namespace
+                .as_deref()
+                .unwrap_or("")
+                .to_string(),
+        ),
+        (
+            "vex_reachability_not_affected",
+            cfg.vex.reachability_not_affected.to_string(),
+        ),
     ];
 
     for (key, value) in scalar_entries {
@@ -244,6 +261,23 @@ pub fn generate_example(cfg: &crate::config::EffectiveConfig) -> String {
         }
         lines.push("#".to_string());
     }
+
+    lines.push("# [vex] VEX generation (FR-044, FR-046)".to_string());
+    lines.push("# [vex]".to_string());
+    lines.push(format!(
+        "# product_id = \"{}\"",
+        cfg.vex.product_id.as_deref().unwrap_or("")
+    ));
+    lines.push(format!("# author_name = \"{}\"", cfg.vex.author_name));
+    lines.push(format!(
+        "# author_namespace = \"{}\"",
+        cfg.vex.author_namespace.as_deref().unwrap_or("")
+    ));
+    lines.push(format!(
+        "# reachability_not_affected = {}",
+        cfg.vex.reachability_not_affected
+    ));
+    lines.push("".to_string());
 
     lines.push("# Per-language manifest regex (FR-006)".to_string());
     for (lang, re) in &cfg.language_regexes {

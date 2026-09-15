@@ -8,7 +8,7 @@ use clap::builder::PossibleValuesParser;
 
 /// Output formats for `vlz scan --format` (stdout reporter).
 pub const SCAN_OUTPUT_FORMATS: &[&str] =
-    &["plain", "json", "sarif", "cyclonedx", "spdx"];
+    &["plain", "json", "sarif", "cyclonedx", "spdx", "openvex"];
 
 /// Output formats for `vlz fix --dry-run --format`.
 pub const FIX_OUTPUT_FORMATS: &[&str] = &["plain", "json"];
@@ -185,12 +185,13 @@ mod tests {
 
     #[test]
     fn scan_output_formats_match_runtime() {
-        assert_eq!(SCAN_OUTPUT_FORMATS.len(), 5);
+        assert_eq!(SCAN_OUTPUT_FORMATS.len(), 6);
         assert!(SCAN_OUTPUT_FORMATS.contains(&"plain"));
         assert!(SCAN_OUTPUT_FORMATS.contains(&"json"));
         assert!(SCAN_OUTPUT_FORMATS.contains(&"sarif"));
         assert!(SCAN_OUTPUT_FORMATS.contains(&"cyclonedx"));
         assert!(SCAN_OUTPUT_FORMATS.contains(&"spdx"));
+        assert!(SCAN_OUTPUT_FORMATS.contains(&"openvex"));
     }
 
     #[test]
