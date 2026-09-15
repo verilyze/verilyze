@@ -94,6 +94,7 @@ complete -c vlz -n "__fish_vlz_using_subcommand scan" -s h -l help -d 'Print hel
 complete -c vlz -n "__fish_vlz_using_subcommand fix" -s f -l format -d 'Output format for dry-run (plain or json)' -r -f -a "plain\t''
 json\t''"
 complete -c vlz -n "__fish_vlz_using_subcommand fix" -s o -l output -d 'Write dry-run output to file instead of stdout' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand fix" -l provider -d 'Force a particular vulnerability provider' -r -f -a "osv\t''"
 complete -c vlz -n "__fish_vlz_using_subcommand fix" -s c -l config -d 'Override configuration file location' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand fix" -l dry-run -d 'Preview the upgrade plan and intended file/argv changes; do not write'
 complete -c vlz -n "__fish_vlz_using_subcommand fix" -l offline -d 'Disable network access (offline apply exits 6 when network is needed)'

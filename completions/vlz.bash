@@ -505,7 +505,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__fix)
-            opts="-f -o -v -c -h --format --output --dry-run --offline --verbose --config --help"
+            opts="-f -o -v -c -h --format --output --dry-run --provider --offline --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -547,6 +547,10 @@ _vlz() {
                     if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
                         compopt -o filenames
                     fi
+                    return 0
+                    ;;
+                --provider)
+                    COMPREPLY=($(compgen -W "osv" -- "${cur}"))
                     return 0
                     ;;
                 --config)

@@ -97,6 +97,7 @@ _arguments "${_arguments_options[@]}" : \
 '--format=[Output format for dry-run (plain or json)]:FORMAT:(plain json)' \
 '-o+[Write dry-run output to file instead of stdout]:PATH:_files' \
 '--output=[Write dry-run output to file instead of stdout]:PATH:_files' \
+'--provider=[Force a particular vulnerability provider]:PROVIDER:(osv)' \
 '-c+[Override configuration file location]:PATH:_files' \
 '--config=[Override configuration file location]:PATH:_files' \
 '--dry-run[Preview the upgrade plan and intended file/argv changes; do not write]' \
