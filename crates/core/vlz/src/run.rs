@@ -3109,9 +3109,7 @@ mod tests {
     #[tokio::test]
     #[allow(clippy::await_holding_lock)]
     async fn select_provider_impl_empty_registry_errors() {
-        let _guard = crate::registry::registry_test_mutex()
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let _guard = crate::registry::lock_registry_for_test();
         crate::registry::clear_providers();
         let effective = crate::config::EffectiveConfig::default();
         let err = match select_provider_impl(None, &effective).await {

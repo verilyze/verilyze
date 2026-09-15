@@ -2,6 +2,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use std::cell::Cell;
+#[cfg(any(test, feature = "testing"))]
+use std::sync::MutexGuard;
 use std::sync::{Mutex, OnceLock};
 
 use vlz_cve_client::{CveProvider, OSV_QUERY_URL, OsvProvider};
@@ -41,6 +44,9 @@ pub enum Plugin {
 /// The macro itself lives in the optional `vlz-plugin-macro` crate; the
 /// binary only needs the `register` function.
 pub fn register(plugin: Plugin) {
+    // Serialize against parallel tests that clear/ensure global registries.
+    #[cfg(any(test, feature = "testing"))]
+    let _registry_test_guard = lock_registry_for_test();
     match plugin {
         Plugin::ManifestFinder(f) => {
             finders().lock().unwrap().push(f);
@@ -306,6 +312,8 @@ pub fn ensure_default_reachability_analyzer() {
 /// Call this at startup so the default provider is used when no plugin has registered one.
 /// When the `nvd` feature is enabled, also registers the NVD provider.
 pub fn ensure_default_cve_provider(cfg: &crate::config::EffectiveConfig) {
+    #[cfg(any(test, feature = "testing"))]
+    let _registry_test_guard = lock_registry_for_test();
     vlz_cve_client::ensure_default_decoders();
     let mut providers = providers().lock().unwrap();
     // In test builds, avoid network access in tests that run commands without
@@ -389,6 +397,12 @@ pub fn ensure_default_cve_provider(cfg: &crate::config::EffectiveConfig) {
         }
     }
 }
+
+/// Extra CVE providers registered only when `feature = "testing"`
+/// (`panicking` and `cve_returning`). OSV mock replaces the network OSV
+/// provider and does not add to this count.
+#[cfg(any(test, feature = "testing"))]
+pub const TESTING_EXTRA_CVE_PROVIDERS: usize = 2;
 
 /// Ensures at least one reporter is registered (default plain-text table reporter).
 /// Call this at startup so the default reporter is used when no plugin has registered one.
@@ -505,39 +519,97 @@ pub fn registry_test_mutex() -> &'static Mutex<()> {
     REGISTRY_TEST_MUTEX.get_or_init(|| Mutex::new(()))
 }
 
+thread_local! {
+    static REGISTRY_TEST_LOCK_DEPTH: Cell<u32> = const { Cell::new(0) };
+}
+
+/// RAII guard for [`lock_registry_for_test`]. Nested acquires on the same
+/// thread increment a depth counter instead of re-locking (std Mutex is not
+/// reentrant).
+#[cfg(any(test, feature = "testing"))]
+pub struct RegistryTestGuard {
+    held: Option<MutexGuard<'static, ()>>,
+}
+
+#[cfg(any(test, feature = "testing"))]
+impl Drop for RegistryTestGuard {
+    fn drop(&mut self) {
+        let release = REGISTRY_TEST_LOCK_DEPTH.with(|depth| {
+            let current = depth.get();
+            if current <= 1 {
+                depth.set(0);
+                true
+            } else {
+                depth.set(current - 1);
+                false
+            }
+        });
+        if release {
+            self.held.take();
+        }
+    }
+}
+
+/// Acquire the registry test mutex (reentrant on the calling thread).
+///
+/// Prefer this over locking [`registry_test_mutex`] directly so
+/// `clear_*` / `register` / `ensure_default_cve_provider` can nest safely.
+#[cfg(any(test, feature = "testing"))]
+pub fn lock_registry_for_test() -> RegistryTestGuard {
+    REGISTRY_TEST_LOCK_DEPTH.with(|depth| {
+        let current = depth.get();
+        if current > 0 {
+            depth.set(current + 1);
+            return RegistryTestGuard { held: None };
+        }
+        let held = registry_test_mutex()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        depth.set(1);
+        RegistryTestGuard { held: Some(held) }
+    })
+}
+
 /// Clear registries for test use. Call before registering mocks (e.g. FailingResolver).
 #[cfg(any(test, feature = "testing"))]
 pub fn clear_resolvers() {
+    let _registry_test_guard = lock_registry_for_test();
     resolvers().lock().unwrap().clear();
 }
 
 #[cfg(any(test, feature = "testing"))]
 pub fn clear_providers() {
+    let _registry_test_guard = lock_registry_for_test();
     providers().lock().unwrap().clear();
 }
 
 #[cfg(any(test, feature = "testing"))]
 pub fn clear_db_backends() {
+    let _registry_test_guard = lock_registry_for_test();
     db_backends().lock().unwrap().clear();
 }
 
 #[cfg(any(test, feature = "testing"))]
 pub fn clear_reporters() {
+    let _registry_test_guard = lock_registry_for_test();
     reporters().lock().unwrap().clear();
 }
 
 #[cfg(any(test, feature = "testing"))]
 pub fn clear_reachability_analyzers() {
+    let _registry_test_guard = lock_registry_for_test();
     reachability_analyzers().lock().unwrap().clear();
 }
 
 #[cfg(any(test, feature = "testing"))]
 pub fn clear_integrity_checkers() {
+    let _registry_test_guard = lock_registry_for_test();
     integrity_checkers().lock().unwrap().clear();
 }
 
 #[cfg(any(test, feature = "testing"))]
 pub fn clear_remediators() {
+    let _registry_test_guard = lock_registry_for_test();
     remediators().lock().unwrap().clear();
 }
 
@@ -579,9 +651,7 @@ mod tests {
     /// global-state races when tests run in parallel.
     #[test]
     fn test_registry_register_and_ensure_defaults() {
-        let _guard = registry_test_mutex()
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let _guard = lock_registry_for_test();
         // 1) register(Plugin) pushes to the correct registry
         clear_finders();
         #[cfg(feature = "python")]
@@ -724,7 +794,11 @@ mod tests {
             + if cfg!(feature = "nvd") { 1 } else { 0 }
             + if cfg!(feature = "github") { 1 } else { 0 }
             + if cfg!(feature = "sonatype") { 1 } else { 0 }
-            + if cfg!(feature = "testing") { 2 } else { 0 };
+            + if cfg!(feature = "testing") {
+                TESTING_EXTRA_CVE_PROVIDERS
+            } else {
+                0
+            };
         assert_eq!(providers().lock().unwrap().len(), expected_providers);
         ensure_default_cve_provider(&cve_cfg);
         assert_eq!(providers().lock().unwrap().len(), expected_providers);
@@ -791,5 +865,17 @@ mod tests {
         db.mark("CVE-1", "c", None).unwrap();
         let db2 = open_ignore_db(path).expect("reopen");
         assert!(db2.is_marked("CVE-1").unwrap());
+    }
+
+    #[test]
+    fn registry_test_lock_reentrant_with_clear_and_register() {
+        let _outer = lock_registry_for_test();
+        // Nested acquire must not deadlock (std Mutex is not reentrant).
+        let _inner = lock_registry_for_test();
+        super::clear_providers();
+        register(Plugin::CveProvider(Box::new(OsvProvider::default())));
+        assert_eq!(providers().lock().unwrap().len(), 1);
+        super::clear_providers();
+        assert_eq!(providers().lock().unwrap().len(), 0);
     }
 }

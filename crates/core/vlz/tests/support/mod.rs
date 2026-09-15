@@ -115,9 +115,7 @@ pub fn write_requirements_with_pylock(
 }
 
 pub fn ensure_registries_for_run() {
-    let _guard = vlz::registry::registry_test_mutex()
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _guard = vlz::registry::lock_registry_for_test();
     vlz::registry::ensure_default_manifest_finder();
     vlz::registry::ensure_default_parser();
     vlz::registry::clear_resolvers();
@@ -151,9 +149,7 @@ pub fn ensure_registries_for_run() {
 }
 
 pub fn run_async(args: &[&str]) -> i32 {
-    let _guard = vlz::registry::registry_test_mutex()
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _guard = vlz::registry::lock_registry_for_test();
     let mut v = vec!["vlz"];
     v.extend(args.iter().copied());
     let args = match Cli::try_parse_from(v) {
