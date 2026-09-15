@@ -1639,9 +1639,9 @@
     {
       "@type": "Package",
       "name": "rustls",
-      "packageUrl": "pkg:cargo/rustls@0.23.44",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-0-23-44",
-      "versionInfo": "0.23.44"
+      "packageUrl": "pkg:cargo/rustls@0.23.45",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-0-23-45",
+      "versionInfo": "0.23.45"
     },
     {
       "@type": "Package",
@@ -2713,6 +2713,13 @@
       "packageUrl": "pkg:cargo/libfuzzer-sys@0.4.13",
       "spdxId": "urn:spdx.dev:pkg-cargo-libfuzzer-sys-0-4-13",
       "versionInfo": "0.4.13"
+    },
+    {
+      "@type": "Package",
+      "name": "rustls",
+      "packageUrl": "pkg:cargo/rustls@0.23.44",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-0-23-44",
+      "versionInfo": "0.23.44"
     },
     {
       "@type": "Package",
