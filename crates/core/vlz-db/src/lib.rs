@@ -368,6 +368,20 @@ pub trait IgnoreDb: Send + Sync {
         project_id: Option<&str>,
     ) -> Result<(), DatabaseError>;
 
+    /// Mark a CVE as false positive with optional VEX triage metadata (FR-044).
+    fn mark_with_details(
+        &self,
+        cve_id: &str,
+        comment: &str,
+        project_id: Option<&str>,
+        justification: Option<&str>,
+        status: Option<&str>,
+        detail: Option<&str>,
+    ) -> Result<(), DatabaseError> {
+        let _ = (justification, status, detail);
+        self.mark(cve_id, comment, project_id)
+    }
+
     /// Remove a false-positive marking.
     fn unmark(&self, cve_id: &str) -> Result<(), DatabaseError>;
 
@@ -381,6 +395,35 @@ pub trait IgnoreDb: Send + Sync {
         &self,
         project_id: Option<&str>,
     ) -> Result<std::collections::HashSet<String>, DatabaseError>;
+
+    /// Return marked FP entries (including VEX triage fields) for the project.
+    /// Default builds from `marked_ids` without metadata; backends that store
+    /// `FpEntry` should override.
+    fn marked_entries(
+        &self,
+        project_id: Option<&str>,
+    ) -> Result<std::collections::HashMap<String, crate::FpEntry>, DatabaseError>
+    {
+        let ids = self.marked_ids(project_id)?;
+        Ok(ids
+            .into_iter()
+            .map(|id| {
+                (
+                    id,
+                    crate::FpEntry {
+                        comment: String::new(),
+                        timestamp_secs: 0,
+                        user: None,
+                        host: None,
+                        project_id: None,
+                        justification: None,
+                        status: None,
+                        detail: None,
+                    },
+                )
+            })
+            .collect())
+    }
 }
 
 /// SEC-014: Returns Err if the file at path exists and is world-writable.
@@ -659,7 +702,7 @@ mod tests {
     #[derive(Default)]
     struct MockIgnoreDb {
         entries: std::sync::RwLock<
-            std::collections::HashMap<String, (String, Option<String>)>,
+            std::collections::HashMap<String, crate::FpEntry>,
         >,
     }
 
@@ -670,9 +713,32 @@ mod tests {
             comment: &str,
             project_id: Option<&str>,
         ) -> Result<(), DatabaseError> {
+            self.mark_with_details(
+                cve_id, comment, project_id, None, None, None,
+            )
+        }
+
+        fn mark_with_details(
+            &self,
+            cve_id: &str,
+            comment: &str,
+            project_id: Option<&str>,
+            justification: Option<&str>,
+            status: Option<&str>,
+            detail: Option<&str>,
+        ) -> Result<(), DatabaseError> {
             self.entries.write().unwrap().insert(
                 cve_id.to_string(),
-                (comment.to_string(), project_id.map(String::from)),
+                crate::FpEntry {
+                    comment: comment.to_string(),
+                    timestamp_secs: 0,
+                    user: None,
+                    host: None,
+                    project_id: project_id.map(String::from),
+                    justification: justification.map(String::from),
+                    status: status.map(String::from),
+                    detail: detail.map(String::from),
+                },
             );
             Ok(())
         }
@@ -690,17 +756,27 @@ mod tests {
             &self,
             project_id: Option<&str>,
         ) -> Result<std::collections::HashSet<String>, DatabaseError> {
+            Ok(self.marked_entries(project_id)?.into_keys().collect())
+        }
+
+        fn marked_entries(
+            &self,
+            project_id: Option<&str>,
+        ) -> Result<
+            std::collections::HashMap<String, crate::FpEntry>,
+            DatabaseError,
+        > {
             let guard = self.entries.read().unwrap();
-            let set: std::collections::HashSet<String> = guard
+            let map: std::collections::HashMap<String, crate::FpEntry> = guard
                 .iter()
-                .filter(|(_, (_, pid))| match (pid, project_id) {
+                .filter(|(_, entry)| match (&entry.project_id, project_id) {
                     (None, _) => true,
                     (Some(p), Some(sp)) => p == sp,
                     (Some(_), None) => false,
                 })
-                .map(|(k, _)| k.clone())
+                .map(|(k, v)| (k.clone(), v.clone()))
                 .collect();
-            Ok(set)
+            Ok(map)
         }
     }
 
