@@ -1507,11 +1507,11 @@
       "version": "0.14.10"
     },
     {
-      "bom-ref": "pkg:cargo/redb@4.2.0",
+      "bom-ref": "pkg:cargo/redb@4.3.0",
       "name": "redb",
-      "purl": "pkg:cargo/redb@4.2.0",
+      "purl": "pkg:cargo/redb@4.3.0",
       "type": "library",
-      "version": "4.2.0"
+      "version": "4.3.0"
     },
     {
       "bom-ref": "pkg:cargo/redox_syscall@0.5.18",

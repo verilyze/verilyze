@@ -1520,9 +1520,9 @@
     {
       "@type": "Package",
       "name": "redb",
-      "packageUrl": "pkg:cargo/redb@4.2.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-redb-4-2-0",
-      "versionInfo": "4.2.0"
+      "packageUrl": "pkg:cargo/redb@4.3.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-redb-4-3-0",
+      "versionInfo": "4.3.0"
     },
     {
       "@type": "Package",
