@@ -195,6 +195,16 @@ fn help_subcommand_respects_docs_feature() {
     let stderr = String::from_utf8_lossy(&out.stderr);
     let stdout = String::from_utf8_lossy(&out.stdout);
     if out.status.code() == Some(2) {
+        // Docs feature off, or docs on but `man` is unavailable in the
+        // environment (common in minimal CI / cloud agent images).
+        if stderr.contains("could not run 'man'") {
+            assert!(
+                stderr.contains(DOCS_ONLINE_URL) || stderr.contains("man vlz"),
+                "expected recovery hint when man is missing, stderr: {}",
+                stderr
+            );
+            return;
+        }
         assert!(
             stderr.contains("built without documentation")
                 || stderr.contains("without documentation"),
