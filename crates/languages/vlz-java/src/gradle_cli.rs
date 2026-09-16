@@ -158,12 +158,16 @@ mod tests {
         assert_eq!(pkgs[0].name, "com.google.guava:guava");
     }
 
+    /// Write an executable stub via rename-before-exec (avoids Linux ETXTBSY
+    /// when the final path is still open for write).
     #[cfg(unix)]
     fn write_executable(path: &Path, body: &str) {
         use std::os::unix::fs::PermissionsExt;
-        std::fs::write(path, body).unwrap();
-        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755))
+        let tmp = path.with_extension("write-tmp");
+        std::fs::write(&tmp, body).unwrap();
+        std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o755))
             .unwrap();
+        std::fs::rename(&tmp, path).unwrap();
     }
 
     #[cfg(unix)]
