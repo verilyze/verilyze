@@ -158,6 +158,18 @@ mod tests {
         assert_eq!(pkgs[0].name, "com.google.guava:guava");
     }
 
+    /// Write an executable stub via rename-before-exec (avoids Linux ETXTBSY
+    /// when the final path is still open for write).
+    #[cfg(unix)]
+    fn write_executable(path: &Path, body: &str) {
+        use std::os::unix::fs::PermissionsExt;
+        let tmp = path.with_extension("write-tmp");
+        std::fs::write(&tmp, body).unwrap();
+        std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o755))
+            .unwrap();
+        std::fs::rename(&tmp, path).unwrap();
+    }
+
     #[cfg(unix)]
     #[tokio::test]
     async fn run_gradle_dependencies_with_fake_gradle() {
@@ -172,7 +184,7 @@ mod tests {
         let bin = dir.path().join("bin");
         std::fs::create_dir_all(&bin).unwrap();
         let gradle = bin.join("gradle");
-        crate::unix_test_stub::write_executable(
+        write_executable(
             &gradle,
             "#!/bin/sh\n\
              echo '+--- com.example:app:1.0'\n",
@@ -195,7 +207,7 @@ mod tests {
         )
         .unwrap();
         let gradle = project.join("gradle");
-        crate::unix_test_stub::write_executable(
+        write_executable(
             &gradle,
             "#!/bin/sh\n\
              exit 1\n",
