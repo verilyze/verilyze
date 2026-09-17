@@ -18,23 +18,33 @@ pub const MIN_FIXED_VERSION_UNKNOWN: &str = "unknown";
 
 mod remediator;
 pub use remediator::{
-    BUN_BIN_NAME, BUN_IGNORE_SCRIPTS_FLAG, BUN_LOCK_FILE_NAME, BunRemediator,
-    CARGO_BIN_NAME, CARGO_LOCK_FILE_NAME, CARGO_MANIFEST_FILE_NAME,
-    CargoRemediator, NPM_BIN_NAME, NPM_IGNORE_SCRIPTS_FLAG,
-    NPM_LOCKFILE_NPM_SHRINKWRAP_JSON, NPM_LOCKFILE_PACKAGE_LOCK_JSON,
-    NPM_MANIFEST_FILE_NAME, NPM_NO_SAVE_FLAG, NPM_PACKAGE_LOCK_ONLY_FLAG,
-    NpmRemediator, PNPM_BIN_NAME, PNPM_LOCK_FILE_NAME,
-    PNPM_LOCKFILE_ONLY_FLAG, POETRY_BIN_NAME, POETRY_LOCK_FILE_NAME,
-    POETRY_LOCK_FLAG, PYLOCK_TOML_FILE_NAME, PYTHON_MANIFEST_FILE_NAME,
-    PnpmRemediator, PythonRemediator, RemediationContext, RemediationError,
-    RemediationPreview, Remediator, UV_BIN_NAME, UV_LOCK_FILE_NAME,
-    UV_NO_SYNC_FLAG, YARN_BERRY_SKIP_BUILD_FLAG, YARN_BERRY_UP_SUBCOMMAND,
-    YARN_BIN_NAME, YARN_CLASSIC_IGNORE_SCRIPTS_FLAG,
-    YARN_CLASSIC_LOCKFILE_MARKER, YARN_CLASSIC_UPGRADE_SUBCOMMAND,
-    YARN_LOCK_FILE_NAME, YarnLockFlavor, YarnRemediator, bun_update_argv,
-    cargo_update_argv, detect_yarn_lock_flavor, npm_install_argv,
-    pnpm_update_argv, poetry_add_argv, remediation_apply_strategy_for_finding,
-    uv_add_argv, yarn_remediate_argv, yarn_up_argv,
+    BUN_BIN_NAME, BUN_IGNORE_SCRIPTS_FLAG, BUN_LOCK_FILE_NAME,
+    BUNDLE_BIN_NAME, BUNDLE_SKIP_INSTALL_FLAG, BunRemediator, CARGO_BIN_NAME,
+    CARGO_LOCK_FILE_NAME, CARGO_MANIFEST_FILE_NAME, CargoRemediator,
+    GO_BIN_NAME, GO_MANIFEST_FILE_NAME, GO_SUM_FILE_NAME, GRADLE_BIN_NAME,
+    GRADLE_BUILDSCRIPT_LOCK_FILE_NAME, GRADLE_LOCK_FILE_NAME,
+    GRADLE_MANIFEST_BUILD_FILE_NAME, GRADLE_MANIFEST_BUILD_KTS_FILE_NAME,
+    GRADLE_SETTINGS_FILE_NAME, GRADLE_SETTINGS_KTS_FILE_NAME,
+    GRADLE_VERSION_CATALOG_FILE_NAME, GoRemediator, GradleRemediator,
+    MAVEN_MANIFEST_FILE_NAME, MavenRemediator, NPM_BIN_NAME,
+    NPM_IGNORE_SCRIPTS_FLAG, NPM_LOCKFILE_NPM_SHRINKWRAP_JSON,
+    NPM_LOCKFILE_PACKAGE_LOCK_JSON, NPM_MANIFEST_FILE_NAME, NPM_NO_SAVE_FLAG,
+    NPM_PACKAGE_LOCK_ONLY_FLAG, NpmRemediator, PNPM_BIN_NAME,
+    PNPM_LOCK_FILE_NAME, PNPM_LOCKFILE_ONLY_FLAG, POETRY_BIN_NAME,
+    POETRY_LOCK_FILE_NAME, POETRY_LOCK_FLAG, PYLOCK_TOML_FILE_NAME,
+    PYTHON_MANIFEST_FILE_NAME, PnpmRemediator, PythonRemediator,
+    RUBY_LOCK_GEMFILE_LOCK_FILE_NAME, RUBY_LOCK_GEMS_LOCKED_FILE_NAME,
+    RUBY_MANIFEST_GEMFILE_FILE_NAME, RUBY_MANIFEST_GEMS_RB_FILE_NAME,
+    RemediationContext, RemediationError, RemediationPreview, Remediator,
+    RubyGemsRemediator, UV_BIN_NAME, UV_LOCK_FILE_NAME, UV_NO_SYNC_FLAG,
+    YARN_BERRY_SKIP_BUILD_FLAG, YARN_BERRY_UP_SUBCOMMAND, YARN_BIN_NAME,
+    YARN_CLASSIC_IGNORE_SCRIPTS_FLAG, YARN_CLASSIC_LOCKFILE_MARKER,
+    YARN_CLASSIC_UPGRADE_SUBCOMMAND, YARN_LOCK_FILE_NAME, YarnLockFlavor,
+    YarnRemediator, bun_update_argv, bundle_add_argv, cargo_update_argv,
+    detect_yarn_lock_flavor, go_get_argv, gradle_update_argv,
+    npm_install_argv, pnpm_update_argv, poetry_add_argv,
+    remediation_apply_strategy_for_finding, uv_add_argv, yarn_remediate_argv,
+    yarn_up_argv,
 };
 
 /// Upgrade plan confidence for a planned remediation.
@@ -69,6 +79,10 @@ pub enum ApplyStrategy {
     Yarn,
     Pnpm,
     Bun,
+    Go,
+    RubyGems,
+    Gradle,
+    Maven,
 }
 
 impl ApplyStrategy {
@@ -81,6 +95,11 @@ impl ApplyStrategy {
             Self::Yarn => "yarn",
             Self::Pnpm => "pnpm",
             Self::Bun => "bun",
+            Self::Go => "go",
+            // Serde snake_case for `RubyGems` is `ruby_gems`; keep in sync.
+            Self::RubyGems => "ruby_gems",
+            Self::Gradle => "gradle",
+            Self::Maven => "maven",
         }
     }
 }
@@ -404,6 +423,10 @@ mod tests {
         assert_eq!(ApplyStrategy::Yarn.as_str(), "yarn");
         assert_eq!(ApplyStrategy::Pnpm.as_str(), "pnpm");
         assert_eq!(ApplyStrategy::Bun.as_str(), "bun");
+        assert_eq!(ApplyStrategy::Go.as_str(), "go");
+        assert_eq!(ApplyStrategy::RubyGems.as_str(), "ruby_gems");
+        assert_eq!(ApplyStrategy::Gradle.as_str(), "gradle");
+        assert_eq!(ApplyStrategy::Maven.as_str(), "maven");
         assert_eq!(DependencyKind::Direct.as_str(), "direct");
         assert_eq!(DependencyKind::Transitive.as_str(), "transitive");
         assert_eq!(DependencyKind::Unknown.as_str(), "unknown");
