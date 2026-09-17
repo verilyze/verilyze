@@ -1923,6 +1923,21 @@ impl Remediator for RubyGemsRemediator {
             "multiple RubyGems lock directories declare this gem; refusing ambiguous remediation (fix each tree separately)",
         )?;
         require_sibling_manifest(&lock_dir, manifest_name)?;
+        // `bundle add` must own a simple requirement: exotic declarations
+        // (sources, groups, operators, duplicates) stay manual-only so the
+        // manifest cannot be corrupted with a duplicated stanza.
+        let manifest_text = std::fs::read_to_string(
+            lock_dir.join(manifest_name),
+        )
+        .map_err(|err| {
+            RemediationError::UnsupportedLockLayout(format!(
+                "unable to read {manifest_name} for bundle add guard: {err}"
+            ))
+        })?;
+        check_ruby_manifest_allows_bundle_add(
+            &manifest_text,
+            ctx.package_name,
+        )?;
         Ok(RemediationPreview {
             strategy: RubyGems,
             workdir: lock_dir.clone(),
@@ -1953,6 +1968,91 @@ impl Remediator for RubyGemsRemediator {
         let preview = self.preview(ctx)?;
         run_allowlisted_argv(&preview.argv, &preview.workdir, BUNDLE_BIN_NAME)
     }
+}
+
+/// Whether `bundle add --version` may own the `gem` requirement.
+///
+/// Allows: no declaration (fresh add), or exactly one top-level declaration
+/// with no version or a single plain version string. Refuses duplicates,
+/// source/group options (`github:`, `path:`, `group:`, ...), requirement
+/// operators (`~>`, `>=`, ...), and nested (indented) declarations: `bundle
+/// add` semantics for those are unverified and could duplicate the stanza
+/// instead of updating it (Wave 1 review finding).
+fn check_ruby_manifest_allows_bundle_add(
+    manifest_text: &str,
+    gem: &str,
+) -> Result<(), RemediationError> {
+    let refuse = |why: String| {
+        RemediationError::UnsupportedLockLayout(format!(
+            "Gemfile declares {gem} with {why}; refusing bundle add (update the requirement manually)"
+        ))
+    };
+    let mut found = 0;
+    for line in manifest_text.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        let Some(rest) = trimmed
+            .strip_prefix("gem")
+            .filter(|rest| rest.starts_with([' ', '\t', '(']))
+        else {
+            continue;
+        };
+        let top_level = line.starts_with("gem");
+        let rest = rest.trim_start_matches([' ', '\t', '(']);
+        let quote = match rest.chars().next() {
+            Some(q) if q == '"' || q == '\'' => q,
+            _ => continue,
+        };
+        let after_open = &rest[1..];
+        let Some(end) = after_open.find(quote) else {
+            continue;
+        };
+        if &after_open[..end] != gem {
+            continue;
+        }
+        found += 1;
+        if found > 1 {
+            return Err(refuse("duplicate declarations".to_string()));
+        }
+        if !top_level {
+            return Err(refuse(
+                "a nested (group/platform block) declaration".to_string(),
+            ));
+        }
+        let mut tail = after_open[end + 1..].trim();
+        if let Some(hash) = tail.find('#') {
+            tail = tail[..hash].trim();
+        }
+        if tail.is_empty() {
+            continue;
+        }
+        let Some(second) = tail.strip_prefix(',').map(str::trim) else {
+            return Err(refuse("source or group options".to_string()));
+        };
+        let second_quote = match second.chars().next() {
+            Some(q) if q == '"' || q == '\'' => q,
+            _ => {
+                return Err(refuse("a non-string requirement".to_string()));
+            }
+        };
+        let after_second = &second[1..];
+        let Some(second_end) = after_second.find(second_quote) else {
+            return Err(refuse("an unterminated requirement".to_string()));
+        };
+        let requirement = &after_second[..second_end];
+        let trailing = after_second[second_end + 1..].trim();
+        let plain = !requirement.is_empty()
+            && requirement.starts_with(|c: char| c.is_ascii_digit())
+            && requirement.chars().all(|c| {
+                c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_' | '+')
+            });
+        if !plain || !trailing.is_empty() {
+            return Err(refuse("a complex requirement".to_string()));
+        }
+    }
+    Ok(())
 }
 
 /// Pair-matched RubyGems lock selection.
@@ -2887,6 +2987,57 @@ mod tests {
     }
 
     #[test]
+    fn ruby_manifest_guard_allows_simple_decls_only() {
+        // Fresh add and simple declarations are allowed.
+        assert!(
+            check_ruby_manifest_allows_bundle_add(
+                "source \"https://rubygems.org\"\n",
+                "rails"
+            )
+            .is_ok()
+        );
+        assert!(
+            check_ruby_manifest_allows_bundle_add(
+                "source \"https://rubygems.org\"\ngem \"rails\"\n",
+                "rails"
+            )
+            .is_ok()
+        );
+        assert!(
+            check_ruby_manifest_allows_bundle_add(
+                "source \"https://rubygems.org\"\ngem \"rails\", \"7.0.7\"\n",
+                "rails"
+            )
+            .is_ok()
+        );
+        // Other gems and comments are ignored.
+        assert!(
+            check_ruby_manifest_allows_bundle_add(
+                "# gem \"rails\", github: \"rails/rails\"\ngem \"rack\"\n",
+                "rails"
+            )
+            .is_ok()
+        );
+        // Duplicates, options, operators, and nested declarations refuse.
+        for body in [
+            "gem \"rails\"\ngem \"rails\"\n",
+            "gem \"rails\", github: \"rails/rails\"\n",
+            "gem \"rails\", path: \"../rails\"\n",
+            "gem \"rails\", \"~> 7.0\"\n",
+            "gem \"rails\", \">= 7.0\", \"< 8\"\n",
+            "group :development do\n  gem \"rails\"\nend\n",
+            "  gem \"rails\"\n",
+        ] {
+            let err = check_ruby_manifest_allows_bundle_add(body, "rails")
+                .unwrap_err();
+            assert!(
+                matches!(err, RemediationError::UnsupportedLockLayout(_)),
+                "must refuse exotic declaration: {body:?}"
+            );
+        }
+    }
+
+    #[test]
     fn rubygems_preview_pairs_locks_and_gates_execution() {
         let dir = test_tempdir();
         let root = dir.path();
@@ -2989,6 +3140,30 @@ mod tests {
             .preview(&RemediationContext {
                 scan_root: root3,
                 declarations: &[lock_decl(RUBY_LOCK_GEMS_LOCKED_FILE_NAME)],
+                package_name: "rails",
+                target_version: "7.0.8",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: true,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+
+        // Exotic Gemfile declarations stay manual-only.
+        let dir4 = test_tempdir();
+        let root4 = dir4.path();
+        fs::create_dir_all(root4).unwrap();
+        fs::write(root4.join(RUBY_LOCK_GEMFILE_LOCK_FILE_NAME), "GEM\n")
+            .unwrap();
+        fs::write(
+            root4.join(RUBY_MANIFEST_GEMFILE_FILE_NAME),
+            "source \"https://rubygems.org\"\ngem \"rails\", github: \"rails/rails\"\n",
+        )
+        .unwrap();
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: root4,
+                declarations: &[lock_decl(RUBY_LOCK_GEMFILE_LOCK_FILE_NAME)],
                 package_name: "rails",
                 target_version: "7.0.8",
                 dependency_kind: DependencyKind::Direct,
