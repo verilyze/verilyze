@@ -28,7 +28,7 @@ ARG RUSTUP_INIT_SHA256_ARM64=15f6e4ce9f583b929c996c91562bad6d4454f3281de858b02cd
 
 # ubuntu:26.04 (resolute) @ 2026-09 (re-pin periodically via docker buildx imagetools).
 # --- Stage: fetch and hash-pin rustup-init (do not execute here). ---
-FROM ubuntu:26.04@sha256:513c074113a871b51a8d16ab445c88779d6452d937a164fb5cc479f32668a41d AS rustup-fetch
+FROM ubuntu:26.04@sha256:cd21a4f68a617580279d4b091cb18e3af9fa8a87500665f0ae5f7f757d17d367 AS rustup-fetch
 
 # Pipefail for RUN lines that use | (Hadolint DL4006).
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -58,7 +58,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # --- Stage: Cloud Agent runtime image. ---
 # ubuntu:26.04 digest must match rustup-fetch FROM (Renovate dockerfile manager).
-FROM ubuntu:26.04@sha256:513c074113a871b51a8d16ab445c88779d6452d937a164fb5cc479f32668a41d
+FROM ubuntu:26.04@sha256:cd21a4f68a617580279d4b091cb18e3af9fa8a87500665f0ae5f7f757d17d367
 
 # Pipefail for RUN lines that use | (Hadolint DL4006).
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
