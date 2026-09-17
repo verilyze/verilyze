@@ -2092,7 +2092,43 @@ impl Remediator for GradleRemediator {
             ));
         }
         let preview = self.preview(ctx)?;
-        run_allowlisted_argv(&preview.argv, &preview.workdir, GRADLE_BIN_NAME)
+        run_allowlisted_argv(
+            &preview.argv,
+            &preview.workdir,
+            GRADLE_BIN_NAME,
+        )?;
+        // Regeneration is not an exact pin: verify the lock entry advanced
+        // instead of silently no-opping (e.g. a catalog pin Gradle refuses
+        // to override).
+        let [lock_path] = preview.files.as_slice() else {
+            return Err(RemediationError::UnsupportedLockLayout(
+                "Gradle preview must reference exactly one lockfile"
+                    .to_string(),
+            ));
+        };
+        let lock_text = std::fs::read_to_string(lock_path).map_err(|err| {
+            RemediationError::CommandFailed {
+                strategy: GRADLE_BIN_NAME.to_string(),
+                message: format!(
+                    "unable to re-read {} after regeneration: {err}",
+                    lock_path.display()
+                ),
+            }
+        })?;
+        if !gradle_lock_satisfies_target(
+            &lock_text,
+            ctx.package_name,
+            ctx.target_version,
+        ) {
+            return Err(RemediationError::CommandFailed {
+                strategy: GRADLE_BIN_NAME.to_string(),
+                message: format!(
+                    "lock entry for {} did not advance to {} after regeneration; check version constraints (the catalog or build file may pin the vulnerable version)",
+                    ctx.package_name, ctx.target_version
+                ),
+            });
+        }
+        Ok(())
     }
 }
 
@@ -2108,6 +2144,50 @@ fn select_gradle_lock(
         }
     }
     None
+}
+
+/// Locked versions for one `group:artifact` coordinate in `gradle.lockfile`
+/// text (`group:artifact:version=configuration` lines; comments and `empty=`
+/// markers skipped).
+fn gradle_lock_versions_for(lock_text: &str, coordinate: &str) -> Vec<String> {
+    let prefix = format!("{coordinate}:");
+    lock_text
+        .lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            if trimmed.is_empty()
+                || trimmed.starts_with('#')
+                || trimmed.starts_with("empty=")
+            {
+                return None;
+            }
+            let entry = trimmed.split('=').next().unwrap_or(trimmed);
+            let version = entry.strip_prefix(prefix.as_str())?;
+            if version.is_empty() || version.contains(':') {
+                return None;
+            }
+            Some(version.to_string())
+        })
+        .collect()
+}
+
+/// True when the lock already records `coordinate` at `target` (or newer
+/// when both parse as strict semver).
+fn gradle_lock_satisfies_target(
+    lock_text: &str,
+    coordinate: &str,
+    target: &str,
+) -> bool {
+    let versions = gradle_lock_versions_for(lock_text, coordinate);
+    if versions.iter().any(|v| v == target) {
+        return true;
+    }
+    let Ok(want) = semver::Version::parse(target) else {
+        return false;
+    };
+    versions
+        .iter()
+        .any(|v| semver::Version::parse(v).is_ok_and(|have| have >= want))
 }
 
 /// Apply Maven remediation with a no-exec in-place `pom.xml` version bump.
@@ -3104,8 +3184,17 @@ mod tests {
         let dir = test_tempdir();
         let root = dir.path();
         write_gradle_tree(root);
+        fs::write(
+            root.join(GRADLE_LOCK_FILE_NAME),
+            "com.example:lib:2.0.0=runtimeClasspath\n",
+        )
+        .unwrap();
+        // Stub simulates lock regeneration by advancing the entry.
         let ok_bin = root.join("gradle-ok");
-        write_exec(&ok_bin, "#!/bin/sh\nexit 0\n");
+        write_exec(
+            &ok_bin,
+            "#!/usr/bin/env python3\nimport sys\nfrom pathlib import Path\nif len(sys.argv) > 1 and sys.argv[1] == '--version':\n    print('Gradle 8.0')\n    raise SystemExit(0)\nlock = Path('gradle.lockfile')\nlock.write_text(lock.read_text().replace('com.example:lib:2.0.0=', 'com.example:lib:2.0.1='), encoding='utf-8')\n",
+        );
         let rem = GradleRemediator::with_bin(ok_bin.to_string_lossy());
 
         let err = rem
@@ -3160,6 +3249,90 @@ mod tests {
             offline: false,
         })
         .unwrap();
+    }
+
+    #[test]
+    fn gradle_lock_versions_for_parses_gav_lines() {
+        let text = "# lockfile\nempty=\ncom.example:lib:2.0.0=runtimeClasspath\ncom.example:lib:2.0.0=testRuntimeClasspath\ncom.other:thing:1.0=compileClasspath\nnot-a-gav-line\n";
+        assert_eq!(
+            gradle_lock_versions_for(text, "com.example:lib"),
+            vec!["2.0.0".to_string(), "2.0.0".to_string()]
+        );
+        assert_eq!(
+            gradle_lock_versions_for(text, "com.other:thing"),
+            vec!["1.0".to_string()]
+        );
+        assert!(gradle_lock_versions_for(text, "com.missing:lib").is_empty());
+        assert!(gradle_lock_versions_for("", "com.example:lib").is_empty());
+    }
+
+    #[test]
+    fn gradle_lock_satisfies_target_compares_semver() {
+        let at_target = "com.example:lib:2.0.1=runtimeClasspath\n";
+        let newer = "com.example:lib:2.2.0=runtimeClasspath\n";
+        let older = "com.example:lib:2.0.0=runtimeClasspath\n";
+        assert!(gradle_lock_satisfies_target(
+            at_target,
+            "com.example:lib",
+            "2.0.1"
+        ));
+        assert!(gradle_lock_satisfies_target(
+            newer,
+            "com.example:lib",
+            "2.0.1"
+        ));
+        assert!(!gradle_lock_satisfies_target(
+            older,
+            "com.example:lib",
+            "2.0.1"
+        ));
+        assert!(!gradle_lock_satisfies_target(
+            "",
+            "com.example:lib",
+            "2.0.1"
+        ));
+        // Unparseable locked versions never satisfy a semver target.
+        assert!(!gradle_lock_satisfies_target(
+            "com.example:lib:1.0-SNAPSHOT=runtimeClasspath\n",
+            "com.example:lib",
+            "2.0.1"
+        ));
+    }
+
+    #[test]
+    fn gradle_apply_errors_when_lock_does_not_advance() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_gradle_tree(root);
+        fs::write(
+            root.join(GRADLE_LOCK_FILE_NAME),
+            "com.example:lib:2.0.0=runtimeClasspath\n",
+        )
+        .unwrap();
+        // Stub reports success but leaves the lock untouched.
+        let noop_bin = root.join("gradle-noop");
+        write_exec(&noop_bin, "#!/bin/sh\nexit 0\n");
+        let err = GradleRemediator::with_bin(noop_bin.to_string_lossy())
+            .apply(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl(GRADLE_LOCK_FILE_NAME)],
+                package_name: "com.example:lib",
+                target_version: "2.0.1",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: true,
+                offline: false,
+            })
+            .unwrap_err();
+        match err {
+            RemediationError::CommandFailed { strategy, message } => {
+                assert_eq!(strategy, GRADLE_BIN_NAME);
+                assert!(
+                    message.contains("did not advance"),
+                    "stale lock must be loud, got: {message}"
+                );
+            }
+            other => panic!("expected CommandFailed, got {other:?}"),
+        }
     }
 
     fn write_pom(root: &Path, body: &str) {
