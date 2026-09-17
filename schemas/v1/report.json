@@ -147,7 +147,11 @@
             "python",
             "yarn",
             "pnpm",
-            "bun"
+            "bun",
+            "go",
+            "ruby_gems",
+            "gradle",
+            "maven"
           ]
         },
         "confidence": {

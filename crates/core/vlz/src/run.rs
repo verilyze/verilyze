@@ -1546,6 +1546,10 @@ pub fn apply_upgrade_request(
         "yarn" => vlz_remediate::ApplyStrategy::Yarn,
         "pnpm" => vlz_remediate::ApplyStrategy::Pnpm,
         "bun" => vlz_remediate::ApplyStrategy::Bun,
+        "go" => vlz_remediate::ApplyStrategy::Go,
+        "ruby_gems" => vlz_remediate::ApplyStrategy::RubyGems,
+        "gradle" => vlz_remediate::ApplyStrategy::Gradle,
+        "maven" => vlz_remediate::ApplyStrategy::Maven,
         _ => {
             return Err(
                 vlz_remediate::RemediationError::UnsupportedLockLayout(

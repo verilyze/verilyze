@@ -15,8 +15,9 @@ use vlz_manifest_parser::{Parser, Resolver};
 use vlz_plugin_macro::vlz_register;
 use vlz_reachability_trait::ReachabilityAnalyzer;
 use vlz_remediate::{
-    ApplyStrategy, BunRemediator, CargoRemediator, NpmRemediator,
-    PnpmRemediator, PythonRemediator, Remediator, YarnRemediator,
+    ApplyStrategy, BunRemediator, CargoRemediator, GoRemediator,
+    GradleRemediator, MavenRemediator, NpmRemediator, PnpmRemediator,
+    PythonRemediator, Remediator, RubyGemsRemediator, YarnRemediator,
 };
 use vlz_report::{DefaultReporter, Reporter};
 
@@ -450,6 +451,18 @@ pub fn ensure_default_remediator() {
     register_if_missing(ApplyStrategy::Bun, || {
         vlz_register!(Remediator, BunRemediator);
     });
+    register_if_missing(ApplyStrategy::Go, || {
+        vlz_register!(Remediator, GoRemediator);
+    });
+    register_if_missing(ApplyStrategy::RubyGems, || {
+        vlz_register!(Remediator, RubyGemsRemediator);
+    });
+    register_if_missing(ApplyStrategy::Gradle, || {
+        vlz_register!(Remediator, GradleRemediator);
+    });
+    register_if_missing(ApplyStrategy::Maven, || {
+        vlz_register!(Remediator, MavenRemediator);
+    });
 }
 
 // ---------------------------------------------------------------------
@@ -825,10 +838,16 @@ mod tests {
             assert!(rem.iter().any(|r| r.strategy() == ApplyStrategy::Yarn));
             assert!(rem.iter().any(|r| r.strategy() == ApplyStrategy::Pnpm));
             assert!(rem.iter().any(|r| r.strategy() == ApplyStrategy::Bun));
-            assert_eq!(rem.len(), 6);
+            assert!(rem.iter().any(|r| r.strategy() == ApplyStrategy::Go));
+            assert!(
+                rem.iter().any(|r| r.strategy() == ApplyStrategy::RubyGems)
+            );
+            assert!(rem.iter().any(|r| r.strategy() == ApplyStrategy::Gradle));
+            assert!(rem.iter().any(|r| r.strategy() == ApplyStrategy::Maven));
+            assert_eq!(rem.len(), 10);
         }
         ensure_default_remediator();
-        assert_eq!(remediators().lock().unwrap().len(), 6);
+        assert_eq!(remediators().lock().unwrap().len(), 10);
 
         // 3) ensure_default_db_backend_with_path (redb) when empty adds one
         #[cfg(feature = "redb")]
