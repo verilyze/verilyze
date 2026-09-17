@@ -3312,6 +3312,283 @@ fn run_fix_apply_cargo_updates_lockfile() {
     });
 }
 
+#[cfg(all(feature = "go", unix))]
+fn write_go_fixture(root: &std::path::Path, module: &str, version: &str) {
+    std::fs::write(
+        root.join("go.mod"),
+        format!(
+            "module example.com/app\n\ngo 1.22\n\nrequire {module} {version}\n"
+        ),
+    )
+    .expect("write go.mod");
+    std::fs::write(
+        root.join("go.sum"),
+        format!(
+            "{module} {version} h1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n\
+             {module} {version}/go.mod h1:BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=\n"
+        ),
+    )
+    .expect("write go.sum");
+}
+
+/// Fake `go` that edits `go.mod`/`go.sum` on `get` and fails `list` so the
+/// resolver falls back to the parser graph (hermetic without a toolchain).
+#[cfg(all(feature = "go", unix))]
+fn write_fake_go(fake_bin_dir: &std::path::Path) {
+    let path = fake_bin_dir.join("go");
+    let body = r#"#!/usr/bin/env python3
+import sys
+from pathlib import Path
+
+
+def main() -> int:
+    if len(sys.argv) > 1 and sys.argv[1] == "--version":
+        print("go version go1.22.0 linux/amd64")
+        return 0
+
+    if len(sys.argv) >= 3 and sys.argv[1] == "get":
+        operand = sys.argv[-1]
+        if "@" not in operand:
+            print("fake go: missing module@version", file=sys.stderr)
+            return 2
+        module, version = operand.rsplit("@", 1)
+
+        gomod = Path("go.mod")
+        updated = 0
+        lines = []
+        for line in gomod.read_text(encoding="utf-8").splitlines(keepends=True):
+            stripped = line.strip()
+            prefix = ""
+            rest = stripped
+            if rest.startswith("require "):
+                prefix = "require "
+                rest = rest[len(prefix):]
+            if rest.startswith(module + " "):
+                indent = line[: len(line) - len(line.lstrip())]
+                lines.append(f"{indent}{prefix}{module} {version}\n")
+                updated += 1
+            else:
+                lines.append(line)
+        if updated != 1:
+            print(f"fake go: expected 1 require line, found {updated}", file=sys.stderr)
+            return 2
+        gomod.write_text("".join(lines), encoding="utf-8")
+
+        gosum = Path("go.sum")
+        if gosum.is_file():
+            out = []
+            for line in gosum.read_text(encoding="utf-8").splitlines(keepends=True):
+                fields = line.split()
+                if len(fields) >= 2 and fields[0] == module:
+                    ver, sep, rest = fields[1].partition("/")
+                    fields[1] = version + (sep + rest if sep else "")
+                    out.append(" ".join(fields) + "\n")
+                else:
+                    out.append(line)
+            gosum.write_text("".join(out), encoding="utf-8")
+        return 0
+
+    print("fake go: unsupported command", file=sys.stderr)
+    return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+"#;
+    write_executable_script(&path, body);
+}
+
+#[cfg(all(feature = "java", unix))]
+fn write_maven_pom(
+    root: &std::path::Path,
+    group: &str,
+    artifact: &str,
+    version: &str,
+) {
+    std::fs::write(
+        root.join("pom.xml"),
+        format!(
+            "<project>\n  <modelVersion>4.0.0</modelVersion>\n  <dependencies>\n    <dependency>\n      <groupId>{group}</groupId>\n      <artifactId>{artifact}</artifactId>\n      <version>{version}</version>\n    </dependency>\n  </dependencies>\n</project>\n"
+        ),
+    )
+    .expect("write pom.xml");
+}
+
+/// `vlz fix --dry-run` on a Go module surfaces the `go` strategy with a
+/// `go get` preview and writes nothing.
+#[cfg(all(feature = "go", unix, feature = "testing"))]
+#[test]
+fn run_fix_dry_run_go_surfaces_go_strategy() {
+    use vlz::registry::Plugin;
+
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        temp_env::with_var("VLZ_EXIT_CODE_ON_CVE", Some("0"), || {
+            let dir = tempfile::tempdir().expect("tempdir");
+            write_go_fixture(dir.path(), "github.com/example/mod", "v1.0.0");
+            let root = dir.path().to_str().unwrap();
+            let out_path = dir.path().join("fix-out.json");
+
+            let fake_bin_dir = tempfile::tempdir().expect("fake bin tempdir");
+            write_fake_go(fake_bin_dir.path());
+            let old_path =
+                std::env::var("PATH").unwrap_or_else(|_| String::new());
+            let new_path =
+                format!("{}:{}", fake_bin_dir.path().display(), old_path);
+
+            let provider = VersionAwareOsvProvider {
+                pkg_name: "github.com/example/mod",
+                ecosystem: vlz_db::GO_ECOSYSTEM,
+                fixed_version: "1.2.4",
+                cve_id: "CVE-TEST-GO-FIX",
+            };
+            vlz::registry::clear_providers();
+            vlz::registry::register(Plugin::CveProvider(Box::new(provider)));
+
+            temp_env::with_var("PATH", Some(new_path.as_str()), || {
+                let code = run_async(&[
+                    "fix",
+                    root,
+                    "--dry-run",
+                    "--format",
+                    "json",
+                    "--output",
+                    out_path.to_str().unwrap(),
+                ]);
+                assert_eq!(code, 0, "go dry-run must exit 0");
+            });
+
+            let content =
+                std::fs::read_to_string(&out_path).expect("read fix output");
+            let parsed: serde_json::Value =
+                serde_json::from_str(&content).expect("parse fix JSON");
+            let findings = parsed["findings"].as_array().unwrap();
+            assert_eq!(findings.len(), 1);
+            assert_eq!(
+                findings[0]["upgrade_plan"]["apply_strategy"], "go",
+                "go finding must select the go strategy"
+            );
+            let preview = &findings[0]["preview"];
+            assert_eq!(
+                preview["argv"],
+                serde_json::json!([
+                    "go",
+                    "get",
+                    "github.com/example/mod@v1.2.4",
+                ]),
+                "go preview must pin the fixed version with a v prefix"
+            );
+            let files: Vec<&str> = preview["files"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_str().unwrap())
+                .collect();
+            assert!(
+                files.iter().any(|f| f.ends_with("go.mod")),
+                "go preview must list go.mod: {files:?}"
+            );
+            assert!(
+                files.iter().any(|f| f.ends_with("go.sum")),
+                "go preview must list go.sum: {files:?}"
+            );
+            let gomod = std::fs::read_to_string(dir.path().join("go.mod"))
+                .expect("read go.mod");
+            assert!(
+                gomod.contains("github.com/example/mod v1.0.0"),
+                "dry-run must not mutate go.mod"
+            );
+        });
+    });
+}
+
+/// `vlz fix` on a Go module applies `go get` via the stub and re-scans
+/// clean.
+#[cfg(all(feature = "go", unix, feature = "testing"))]
+#[test]
+fn run_fix_apply_go_updates_go_mod() {
+    use vlz::registry::Plugin;
+
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_go_fixture(dir.path(), "github.com/example/mod", "v1.0.0");
+        let root = dir.path().to_str().unwrap();
+
+        let fake_bin_dir = tempfile::tempdir().expect("fake bin tempdir");
+        write_fake_go(fake_bin_dir.path());
+        let old_path = std::env::var("PATH").unwrap_or_else(|_| String::new());
+        let new_path =
+            format!("{}:{}", fake_bin_dir.path().display(), old_path);
+
+        let provider = VersionAwareOsvProvider {
+            pkg_name: "github.com/example/mod",
+            ecosystem: vlz_db::GO_ECOSYSTEM,
+            fixed_version: "1.2.4",
+            cve_id: "CVE-TEST-GO-APPLY",
+        };
+        vlz::registry::clear_providers();
+        vlz::registry::register(Plugin::CveProvider(Box::new(provider)));
+
+        temp_env::with_var("PATH", Some(new_path.as_str()), || {
+            let code = run_async(&["fix", root]);
+            assert_eq!(code, 0, "go apply must succeed and re-scan clean");
+        });
+
+        let gomod = std::fs::read_to_string(dir.path().join("go.mod"))
+            .expect("read go.mod");
+        assert!(
+            gomod.contains("github.com/example/mod v1.2.4"),
+            "apply must update go.mod require: {gomod}"
+        );
+    });
+}
+
+/// `vlz fix` on a lock-less Maven `pom.xml` applies the no-exec version
+/// bump and re-scans clean (direct-only fallback, offline-safe).
+#[cfg(all(feature = "java", unix, feature = "testing"))]
+#[test]
+fn run_fix_apply_maven_edits_pom() {
+    use vlz::registry::Plugin;
+
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        temp_env::with_var(
+            "VLZ_ALLOW_DIRECT_ONLY_FALLBACK",
+            Some("true"),
+            || {
+                let dir = tempfile::tempdir().expect("tempdir");
+                write_maven_pom(dir.path(), "com.example", "lib", "1.0");
+                let root = dir.path().to_str().unwrap();
+
+                let provider = VersionAwareOsvProvider {
+                    pkg_name: "com.example:lib",
+                    ecosystem: vlz_db::MAVEN_ECOSYSTEM,
+                    fixed_version: "2.0.1",
+                    cve_id: "CVE-TEST-MAVEN-FIX",
+                };
+                vlz::registry::clear_providers();
+                vlz::registry::register(Plugin::CveProvider(Box::new(
+                    provider,
+                )));
+
+                let code = run_async(&["fix", root]);
+                assert_eq!(
+                    code, 0,
+                    "maven apply must succeed and re-scan clean"
+                );
+
+                let pom = std::fs::read_to_string(dir.path().join("pom.xml"))
+                    .expect("read pom.xml");
+                assert!(
+                    pom.contains("<version>2.0.1</version>"),
+                    "apply must bump the pom version: {pom}"
+                );
+            },
+        );
+    });
+}
+
 /// `vlz fix <relative-subdir>` from a parent CWD must update the target tree
 /// (not mark remediations unavailable due to relative path double-join).
 #[cfg(all(feature = "rust", unix, feature = "testing"))]
