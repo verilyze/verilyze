@@ -70,7 +70,9 @@ Run scans with the built binary (adjust the path if you use `CARGO_TARGET_DIR`):
 # Preview lock upgrades without writing (FR-041)
 ./target/release/vlz fix --dry-run /path/to/project
 
-# Apply supported remediations (npm / Cargo / poetry / uv / yarn / pnpm / bun)
+# Apply supported remediations (npm / Cargo / poetry / uv / yarn / pnpm /
+# bun / go / bundler / gradle / Maven pom edits; bundler and gradle apply
+# require --allow-dependency-code-execution)
 ./target/release/vlz fix /path/to/project
 
 # Language Server for editor diagnostics (FR-042); add --folder-trust for Apply
