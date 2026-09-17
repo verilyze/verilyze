@@ -3544,6 +3544,189 @@ fn run_fix_apply_go_updates_go_mod() {
     });
 }
 
+#[cfg(all(feature = "ruby", unix))]
+fn write_ruby_pair(root: &std::path::Path) {
+    std::fs::write(
+        root.join("Gemfile"),
+        "source \"https://rubygems.org\"\ngem \"rails\"\n",
+    )
+    .expect("write Gemfile");
+    std::fs::write(
+        root.join("Gemfile.lock"),
+        "GEM\n  specs:\n    rails (7.0.7)\n\nPLATFORMS\n  ruby\n\nBUNDLED WITH\n   2.4.10\n",
+    )
+    .expect("write Gemfile.lock");
+}
+
+#[cfg(all(feature = "java", unix))]
+fn write_gradle_pair(root: &std::path::Path) {
+    std::fs::write(root.join("build.gradle"), "plugins {}\n")
+        .expect("write build.gradle");
+    std::fs::write(
+        root.join("gradle.lockfile"),
+        "com.example:lib:1.0=runtimeClasspath\n",
+    )
+    .expect("write gradle.lockfile");
+}
+
+fn read_fix_findings(out_path: &std::path::Path) -> serde_json::Value {
+    let content = std::fs::read_to_string(out_path).expect("read fix output");
+    serde_json::from_str(&content).expect("parse fix JSON")
+}
+
+/// `vlz fix --dry-run` on a RubyGems pair surfaces `ruby_gems` with the
+/// gate on and `unavailable` without it (SEC-023 fail-closed).
+#[cfg(all(feature = "ruby", unix, feature = "testing"))]
+#[test]
+fn run_fix_dry_run_rubygems_gates_execution() {
+    use vlz::registry::Plugin;
+
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        temp_env::with_var("VLZ_EXIT_CODE_ON_CVE", Some("0"), || {
+            let provider = VersionAwareOsvProvider {
+                pkg_name: "rails",
+                ecosystem: vlz_db::RUBYGEMS_ECOSYSTEM,
+                fixed_version: "7.0.8",
+                cve_id: "CVE-TEST-RUBY-FIX",
+            };
+            vlz::registry::clear_providers();
+            vlz::registry::register(Plugin::CveProvider(Box::new(
+                provider.clone(),
+            )));
+
+            for (gate, expected) in
+                [(Some("true"), "ruby_gems"), (None, "unavailable")]
+            {
+                // Re-register each iteration: provider selection removes the
+                // entry from the registry on every run.
+                vlz::registry::clear_providers();
+                vlz::registry::register(Plugin::CveProvider(Box::new(
+                    provider.clone(),
+                )));
+                let dir = tempfile::tempdir().expect("tempdir");
+                write_ruby_pair(dir.path());
+                let root = dir.path().to_str().unwrap();
+                let out_path = dir.path().join("fix-out.json");
+                temp_env::with_var(
+                    "VLZ_ALLOW_DEPENDENCY_CODE_EXECUTION",
+                    gate,
+                    || {
+                        let code = run_async(&[
+                            "fix",
+                            root,
+                            "--dry-run",
+                            "--format",
+                            "json",
+                            "--output",
+                            out_path.to_str().unwrap(),
+                        ]);
+                        assert_eq!(code, 0, "ruby dry-run must exit 0");
+                    },
+                );
+                let parsed = read_fix_findings(&out_path);
+                let findings = parsed["findings"].as_array().unwrap();
+                assert_eq!(findings.len(), 1);
+                assert_eq!(
+                    findings[0]["upgrade_plan"]["apply_strategy"], expected,
+                    "gate {gate:?} must select {expected}"
+                );
+                if expected == "ruby_gems" {
+                    assert_eq!(
+                        findings[0]["preview"]["argv"],
+                        serde_json::json!([
+                            "bundle",
+                            "add",
+                            "rails",
+                            "--version=7.0.8",
+                            "--skip-install",
+                        ])
+                    );
+                } else {
+                    assert!(
+                        findings[0].get("preview").is_none(),
+                        "gated-off preview must be omitted"
+                    );
+                }
+            }
+        });
+    });
+}
+
+/// `vlz fix --dry-run` on a Gradle lock surfaces `gradle` with the gate on
+/// and `unavailable` without it (SEC-023 fail-closed).
+#[cfg(all(feature = "java", unix, feature = "testing"))]
+#[test]
+fn run_fix_dry_run_gradle_gates_execution() {
+    use vlz::registry::Plugin;
+
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        temp_env::with_var("VLZ_EXIT_CODE_ON_CVE", Some("0"), || {
+            let provider = VersionAwareOsvProvider {
+                pkg_name: "com.example:lib",
+                ecosystem: vlz_db::MAVEN_ECOSYSTEM,
+                fixed_version: "2.0.1",
+                cve_id: "CVE-TEST-GRADLE-FIX",
+            };
+            vlz::registry::clear_providers();
+            vlz::registry::register(Plugin::CveProvider(Box::new(
+                provider.clone(),
+            )));
+
+            for (gate, expected) in
+                [(Some("true"), "gradle"), (None, "unavailable")]
+            {
+                // Re-register each iteration: provider selection removes the
+                // entry from the registry on every run.
+                vlz::registry::clear_providers();
+                vlz::registry::register(Plugin::CveProvider(Box::new(
+                    provider.clone(),
+                )));
+                let dir = tempfile::tempdir().expect("tempdir");
+                write_gradle_pair(dir.path());
+                let root = dir.path().to_str().unwrap();
+                let out_path = dir.path().join("fix-out.json");
+                temp_env::with_var(
+                    "VLZ_ALLOW_DEPENDENCY_CODE_EXECUTION",
+                    gate,
+                    || {
+                        let code = run_async(&[
+                            "fix",
+                            root,
+                            "--dry-run",
+                            "--format",
+                            "json",
+                            "--output",
+                            out_path.to_str().unwrap(),
+                        ]);
+                        assert_eq!(code, 0, "gradle dry-run must exit 0");
+                    },
+                );
+                let parsed = read_fix_findings(&out_path);
+                let findings = parsed["findings"].as_array().unwrap();
+                assert_eq!(findings.len(), 1);
+                assert_eq!(
+                    findings[0]["upgrade_plan"]["apply_strategy"], expected,
+                    "gate {gate:?} must select {expected}"
+                );
+                if expected == "gradle" {
+                    assert_eq!(
+                        findings[0]["preview"]["argv"],
+                        serde_json::json!([
+                            "gradle",
+                            "dependencies",
+                            "--write-locks",
+                            "--update-locks",
+                            "com.example:lib",
+                        ])
+                    );
+                }
+            }
+        });
+    });
+}
+
 /// `vlz fix` on a lock-less Maven `pom.xml` applies the no-exec version
 /// bump and re-scans clean (direct-only fallback, offline-safe).
 #[cfg(all(feature = "java", unix, feature = "testing"))]
