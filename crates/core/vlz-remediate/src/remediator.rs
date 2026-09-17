@@ -1512,19 +1512,49 @@ pub fn gradle_update_argv(bin: &str, coordinate: &str) -> Vec<String> {
     ]
 }
 
-fn select_manifest_dir_by_basename(
+/// Distinct scan-root-confined directories for same-kind declarations.
+///
+/// Refusing multi-tree findings instead of fixing only the first tree:
+/// a partial fix would leave sibling modules vulnerable with no message
+/// explaining why (Wave 1 review finding).
+fn distinct_decl_dirs(
     ctx: &RemediationContext<'_>,
-    manifest_name: &str,
-) -> Option<std::path::PathBuf> {
-    ctx.declarations.iter().find_map(|d| {
-        if d.kind != DeclarationKind::Manifest {
-            return None;
+    kind: DeclarationKind,
+    matches: impl Fn(&str) -> bool,
+) -> Vec<std::path::PathBuf> {
+    let mut dirs = Vec::new();
+    for d in ctx
+        .declarations
+        .iter()
+        .filter(|d| d.kind == kind && matches(d.path.as_str()))
+    {
+        if let Some(dir) =
+            resolve_lock_workdir_under_root(ctx.scan_root, d.path.as_str())
+            && !dirs.contains(&dir)
+        {
+            dirs.push(dir);
         }
-        if !lock_basename_eq(d.path.as_str(), manifest_name) {
-            return None;
-        }
-        resolve_lock_workdir_under_root(ctx.scan_root, d.path.as_str())
-    })
+    }
+    dirs
+}
+
+fn require_single_decl_dir(
+    ctx: &RemediationContext<'_>,
+    kind: DeclarationKind,
+    matches: impl Fn(&str) -> bool,
+    missing_msg: &str,
+    multi_msg: &str,
+) -> Result<std::path::PathBuf, RemediationError> {
+    let dirs = distinct_decl_dirs(ctx, kind, matches);
+    match dirs.as_slice() {
+        [dir] => Ok(dir.clone()),
+        [] => Err(RemediationError::UnsupportedLockLayout(
+            missing_msg.to_string(),
+        )),
+        _ => Err(RemediationError::UnsupportedLockLayout(
+            multi_msg.to_string(),
+        )),
+    }
 }
 
 fn require_gradle_sibling_manifest(
@@ -1786,13 +1816,13 @@ impl Remediator for GoRemediator {
             format!("v{}", ctx.target_version)
         };
         require_allowlisted_go_operands(ctx.package_name, &version)?;
-        let manifest_dir =
-            select_manifest_dir_by_basename(ctx, GO_MANIFEST_FILE_NAME)
-                .ok_or_else(|| {
-                    RemediationError::UnsupportedLockLayout(
-                        "go.mod not found under scan root".to_string(),
-                    )
-                })?;
+        let manifest_dir = require_single_decl_dir(
+            ctx,
+            DeclarationKind::Manifest,
+            |p| lock_basename_eq(p, GO_MANIFEST_FILE_NAME),
+            "go.mod not found under scan root",
+            "multiple go.mod directories declare this module; refusing ambiguous remediation (fix each module separately)",
+        )?;
         require_sibling_manifest(&manifest_dir, GO_MANIFEST_FILE_NAME)?;
         Ok(RemediationPreview {
             strategy: Go,
@@ -1880,6 +1910,18 @@ impl Remediator for RubyGemsRemediator {
                         .to_string(),
                 )
             })?;
+        // One tree only: a finding spanning several lock directories must
+        // not fix just the first one.
+        require_single_decl_dir(
+            ctx,
+            DeclarationKind::Lockfile,
+            |p| {
+                lock_basename_eq(p, RUBY_LOCK_GEMFILE_LOCK_FILE_NAME)
+                    || lock_basename_eq(p, RUBY_LOCK_GEMS_LOCKED_FILE_NAME)
+            },
+            "supported RubyGems lockfile not found under scan root",
+            "multiple RubyGems lock directories declare this gem; refusing ambiguous remediation (fix each tree separately)",
+        )?;
         require_sibling_manifest(&lock_dir, manifest_name)?;
         Ok(RemediationPreview {
             strategy: RubyGems,
@@ -2016,6 +2058,18 @@ impl Remediator for GradleRemediator {
                         .to_string(),
                 )
             })?;
+        // One tree only: a finding spanning several lock directories must
+        // not regenerate just the first one.
+        require_single_decl_dir(
+            ctx,
+            DeclarationKind::Lockfile,
+            |p| {
+                lock_basename_eq(p, GRADLE_LOCK_FILE_NAME)
+                    || lock_basename_eq(p, GRADLE_BUILDSCRIPT_LOCK_FILE_NAME)
+            },
+            "supported Gradle lockfile not found under scan root",
+            "multiple Gradle lock directories declare this dependency; refusing ambiguous remediation (fix each module separately)",
+        )?;
         require_gradle_sibling_manifest(&lock_dir)?;
         Ok(RemediationPreview {
             strategy: Gradle,
@@ -2085,13 +2139,13 @@ impl Remediator for MavenRemediator {
             ctx.package_name,
             ctx.target_version,
         )?;
-        let pom_dir =
-            select_manifest_dir_by_basename(ctx, MAVEN_MANIFEST_FILE_NAME)
-                .ok_or_else(|| {
-                    RemediationError::UnsupportedLockLayout(
-                        "pom.xml not found under scan root".to_string(),
-                    )
-                })?;
+        let pom_dir = require_single_decl_dir(
+            ctx,
+            DeclarationKind::Manifest,
+            |p| lock_basename_eq(p, MAVEN_MANIFEST_FILE_NAME),
+            "pom.xml not found under scan root",
+            "multiple pom.xml directories declare this dependency; refusing ambiguous remediation (fix each module separately)",
+        )?;
         let pom_path = pom_dir.join(MAVEN_MANIFEST_FILE_NAME);
         let pom_text = std::fs::read_to_string(&pom_path).map_err(|err| {
             RemediationError::UnsupportedLockLayout(format!(
@@ -3334,6 +3388,134 @@ mod tests {
         assert_eq!(GradleRemediator::new().bin, GRADLE_BIN_NAME);
         assert_eq!(GradleRemediator::default().bin, GRADLE_BIN_NAME);
         assert_eq!(MavenRemediator::new().strategy(), ApplyStrategy::Maven);
+    }
+
+    fn preview_err_contains(err: RemediationError, needle: &str) -> bool {
+        err.to_string().contains(needle)
+    }
+
+    #[test]
+    fn go_preview_refuses_multiple_go_mod_dirs() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_go_tree(root);
+        let sub = root.join("sub");
+        write_go_tree(&sub);
+        let rem = GoRemediator::new();
+        let decls = [
+            manifest_decl(GO_MANIFEST_FILE_NAME),
+            manifest_decl("sub/go.mod"),
+        ];
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &decls,
+                package_name: "github.com/example/mod",
+                target_version: "1.2.4",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(
+            preview_err_contains(err, "multiple"),
+            "multi-module go trees must be refused, not first-only fixed"
+        );
+    }
+
+    #[test]
+    fn rubygems_preview_refuses_multiple_lock_dirs() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_ruby_tree(
+            root,
+            RUBY_MANIFEST_GEMFILE_FILE_NAME,
+            RUBY_LOCK_GEMFILE_LOCK_FILE_NAME,
+        );
+        let sub = root.join("sub");
+        write_ruby_tree(
+            &sub,
+            RUBY_MANIFEST_GEMFILE_FILE_NAME,
+            RUBY_LOCK_GEMFILE_LOCK_FILE_NAME,
+        );
+        let rem = RubyGemsRemediator::new();
+        let decls = [
+            lock_decl(RUBY_LOCK_GEMFILE_LOCK_FILE_NAME),
+            lock_decl("sub/Gemfile.lock"),
+        ];
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &decls,
+                package_name: "rails",
+                target_version: "7.0.8",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: true,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(
+            preview_err_contains(err, "multiple"),
+            "multi-tree RubyGems findings must be refused"
+        );
+    }
+
+    #[test]
+    fn gradle_preview_refuses_multiple_lock_dirs() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_gradle_tree(root);
+        let sub = root.join("sub");
+        write_gradle_tree(&sub);
+        let rem = GradleRemediator::new();
+        let decls = [
+            lock_decl(GRADLE_LOCK_FILE_NAME),
+            lock_decl("sub/gradle.lockfile"),
+        ];
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &decls,
+                package_name: "com.example:lib",
+                target_version: "2.0.1",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: true,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(
+            preview_err_contains(err, "multiple"),
+            "multi-module Gradle findings must be refused"
+        );
+    }
+
+    #[test]
+    fn maven_preview_refuses_multiple_pom_dirs() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_pom(root, SINGLE_DEP_POM);
+        let sub = root.join("sub");
+        write_pom(&sub, SINGLE_DEP_POM);
+        let rem = MavenRemediator::new();
+        let decls = [
+            manifest_decl(MAVEN_MANIFEST_FILE_NAME),
+            manifest_decl("sub/pom.xml"),
+        ];
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &decls,
+                package_name: "com.example:lib",
+                target_version: "2.0.1",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(
+            preview_err_contains(err, "multiple"),
+            "multi-module Maven findings must be refused, not first-only edited"
+        );
     }
 
     #[test]
