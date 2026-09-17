@@ -1605,9 +1605,7 @@ fn compute_pom_version_edit(
                 continue;
             }
             let inner_start = tag_start + open.len();
-            let Some(rel) = block[inner_start..].find(close.as_str()) else {
-                return None;
-            };
+            let rel = block[inner_start..].find(close.as_str())?;
             let inner_end = inner_start + rel;
             let inner = &block[inner_start..inner_end];
             if inner.contains('<') || inner.contains('>') {
@@ -1652,17 +1650,14 @@ fn compute_pom_version_edit(
         }
         let body = &pom_text[*block_start..*block_end];
         let exclusions = region_spans(body, "exclusions");
-        let matched = match (
-            element_text_outside(body, "groupId", &exclusions),
-            element_text_outside(body, "artifactId", &exclusions),
-        ) {
+        let matched = matches!(
+            (
+                element_text_outside(body, "groupId", &exclusions),
+                element_text_outside(body, "artifactId", &exclusions),
+            ),
             (Some((_, _, g)), Some((_, _, a)))
-                if g == group && a == artifact =>
-            {
-                true
-            }
-            _ => false,
-        };
+                if g == group && a == artifact
+        );
         if matched {
             let version = element_text_outside(body, "version", &exclusions);
             candidates.push((*block_start, *block_end, version));
