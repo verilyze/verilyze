@@ -3636,6 +3636,17 @@ mod tests {
         let err = rem.apply(&ctx_for(dir.path(), &decls)).unwrap_err();
         assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
 
+        // Managed version with a version-less dependency is refused: the
+        // two coordinate matches are ambiguous, so managed layouts stay
+        // manual in Wave 1.
+        let dir = test_tempdir();
+        write_pom(
+            dir.path(),
+            "<project>\n  <dependencyManagement>\n    <dependencies>\n      <dependency>\n        <groupId>com.example</groupId>\n        <artifactId>lib</artifactId>\n        <version>1.0</version>\n      </dependency>\n    </dependencies>\n  </dependencyManagement>\n  <dependencies>\n    <dependency>\n      <groupId>com.example</groupId>\n      <artifactId>lib</artifactId>\n    </dependency>\n  </dependencies>\n</project>\n",
+        );
+        let err = rem.apply(&ctx_for(dir.path(), &decls)).unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+
         // Property referenced but not defined in the same file.
         let dir = test_tempdir();
         write_pom(

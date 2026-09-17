@@ -308,7 +308,10 @@ strategies (npm, Yarn, pnpm, bun, Cargo, Python poetry/uv, Go, RubyGems,
 Gradle, and Maven pom edits); `vlz fix --dry-run`
 previews without writing. RubyGems and Gradle apply require
 `allow_dependency_code_execution`; Maven pom edits are local file edits and
-also work offline.
+also work offline. Maven edits cover direct single-match versions only:
+managed, inherited, ranged, or profile-scoped versions stay unavailable.
+Findings spanning several module trees stay unavailable; fix each tree
+separately.
 
 ### How do I use editor diagnostics?
 
