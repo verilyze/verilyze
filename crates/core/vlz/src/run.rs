@@ -1546,6 +1546,10 @@ pub fn apply_upgrade_request(
         "yarn" => vlz_remediate::ApplyStrategy::Yarn,
         "pnpm" => vlz_remediate::ApplyStrategy::Pnpm,
         "bun" => vlz_remediate::ApplyStrategy::Bun,
+        "go" => vlz_remediate::ApplyStrategy::Go,
+        "ruby_gems" => vlz_remediate::ApplyStrategy::RubyGems,
+        "gradle" => vlz_remediate::ApplyStrategy::Gradle,
+        "maven" => vlz_remediate::ApplyStrategy::Maven,
         _ => {
             return Err(
                 vlz_remediate::RemediationError::UnsupportedLockLayout(
@@ -3173,5 +3177,113 @@ mod tests {
             err,
             vlz_remediate::RemediationError::OfflineBlocked
         ));
+    }
+
+    #[cfg(feature = "lsp")]
+    #[test]
+    fn apply_upgrade_request_routes_go_gradle_rubygems_maven() {
+        crate::registry::ensure_default_remediator();
+        let decl = |path: &str, kind: &str| vlz_lsp::ApplyDeclaration {
+            path: path.to_string(),
+            start_line: 1,
+            kind: kind.to_string(),
+        };
+
+        // Go arm: offline blocks before any binary check.
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("go.mod"), "module example\n").unwrap();
+        let err = apply_upgrade_request(
+            dir.path(),
+            &vlz_lsp::ApplyUpgradeRequest {
+                package_name: "github.com/example/mod".to_string(),
+                target_version: "1.2.4".to_string(),
+                apply_strategy: "go".to_string(),
+                dependency_kind: "direct".to_string(),
+                declarations: vec![decl("go.mod", "manifest")],
+            },
+            false,
+            true,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            err,
+            vlz_remediate::RemediationError::OfflineBlocked
+        ));
+
+        // RubyGems and Gradle arms route to the gated remediators. Offline
+        // apply blocks before any binary check, so this is hermetic
+        // regardless of installed PMs (without the new arms these strings
+        // would hit the unknown-strategy fallback instead). The SEC-023
+        // gate itself is covered by remediator unit tests with stub
+        // binaries.
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("Gemfile.lock"), "GEM\n").unwrap();
+        std::fs::write(dir.path().join("Gemfile"), "source rubygems\n")
+            .unwrap();
+        let err = apply_upgrade_request(
+            dir.path(),
+            &vlz_lsp::ApplyUpgradeRequest {
+                package_name: "rails".to_string(),
+                target_version: "7.0.8".to_string(),
+                apply_strategy: "ruby_gems".to_string(),
+                dependency_kind: "direct".to_string(),
+                declarations: vec![decl("Gemfile.lock", "lockfile")],
+            },
+            true,
+            true,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            err,
+            vlz_remediate::RemediationError::OfflineBlocked
+        ));
+
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("gradle.lockfile"), "empty=\n")
+            .unwrap();
+        std::fs::write(dir.path().join("build.gradle"), "plugins {}\n")
+            .unwrap();
+        let err = apply_upgrade_request(
+            dir.path(),
+            &vlz_lsp::ApplyUpgradeRequest {
+                package_name: "com.example:lib".to_string(),
+                target_version: "2.0.1".to_string(),
+                apply_strategy: "gradle".to_string(),
+                dependency_kind: "direct".to_string(),
+                declarations: vec![decl("gradle.lockfile", "lockfile")],
+            },
+            true,
+            true,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            err,
+            vlz_remediate::RemediationError::OfflineBlocked
+        ));
+
+        // Maven arm: local pom edit applies even offline through the shared
+        // LSP path.
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("pom.xml"),
+            "<project>\n  <dependencies>\n    <dependency>\n      <groupId>com.example</groupId>\n      <artifactId>lib</artifactId>\n      <version>1.0</version>\n    </dependency>\n  </dependencies>\n</project>\n",
+        )
+        .unwrap();
+        apply_upgrade_request(
+            dir.path(),
+            &vlz_lsp::ApplyUpgradeRequest {
+                package_name: "com.example:lib".to_string(),
+                target_version: "2.0.1".to_string(),
+                apply_strategy: "maven".to_string(),
+                dependency_kind: "direct".to_string(),
+                declarations: vec![decl("pom.xml", "manifest")],
+            },
+            false,
+            true,
+        )
+        .expect("maven LSP apply edits pom offline");
+        let updated =
+            std::fs::read_to_string(dir.path().join("pom.xml")).unwrap();
+        assert!(updated.contains("<version>2.0.1</version>"));
     }
 }

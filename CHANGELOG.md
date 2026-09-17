@@ -10,6 +10,17 @@ Human-readable release notes for each version.
 
 ## [Unreleased]
 
+### Added
+
+- `vlz fix` remediators for Go, RubyGems, Gradle, and Maven (FR-041,
+  MOD-011): Go via `go get` on `go.mod` manifests; RubyGems via
+  `bundle add --version --skip-install` on pair-matched locks (requires
+  `allow_dependency_code_execution`); Gradle via `dependencies
+  --write-locks --update-locks` on `gradle.lockfile` (requires
+  `allow_dependency_code_execution`); Maven via no-exec in-place `pom.xml`
+  version bump (works offline). Report schema `apply_strategy` gains `go`,
+  `ruby_gems`, `gradle`, and `maven`.
+
 ## [0.12.0] - 2026-09-15
 
 ### Added

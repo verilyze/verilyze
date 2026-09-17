@@ -223,8 +223,14 @@ Map reachability false to VEX
 .It Nm fix
 .Op Ar path
 Apply remediations for scan findings (FR-041). Default root is current directory.
-Writes supported lock or manifest updates by default (npm and Cargo in this
-release). Use
+Writes supported lock or manifest updates by default (npm, Cargo, Python
+poetry/uv, Yarn, pnpm, bun, Go, RubyGems, Gradle, and Maven pom edits).
+RubyGems and Gradle apply require
+.Ic allow_dependency_code_execution .
+Maven pom edits are local and need no package manager. Maven edits cover
+direct single-match versions only; managed, inherited, ranged, or
+profile-scoped versions stay unavailable. Findings spanning several module
+trees stay unavailable; fix each tree separately. Use
 .Fl -dry-run
 to preview without writing.
 .Bl -tag -width Ds
@@ -240,7 +246,8 @@ Force vulnerability provider (same names as
 .It Fl -offline
 Disable network access. Offline apply exits
 .Sy 6
-when a remediator would need the network.
+when a remediator would need the network. Maven pom edits need no network
+and still apply offline.
 .El
 .It Nm lsp
 Run the Language Server Protocol server over standard I/O (FR-042). Editors

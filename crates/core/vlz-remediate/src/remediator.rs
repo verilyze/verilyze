@@ -11,21 +11,39 @@
 //! - bun via `bun.lock`
 //! - Cargo via `Cargo.lock`
 //! - Python (PyPI) via `poetry.lock` (`poetry`) or `uv.lock` (`uv`)
+//! - Go via `go.mod` (`go get`; `go.sum` is co-modified, not a selector)
+//! - RubyGems via `Gemfile.lock` / `gems.locked` (`bundle add --skip-install`)
+//! - Gradle via `gradle.lockfile` / `buildscript-gradle.lockfile`
+//!   (`gradle dependencies --write-locks --update-locks <group:artifact>`)
+//! - Maven via in-place `pom.xml` version bump (no subprocess; empty argv)
 //!
 //! Strategy selection for the npm ecosystem prefers npm locks, then yarn,
 //! pnpm, then bun. PyPI apply strategies require `poetry.lock` or `uv.lock`;
 //! `pylock.toml` / `pylock.*.toml` stay plan-only (`unavailable`) until an
-//! apply path exists.
+//! apply path exists. Go findings select on `go.mod` manifest declarations
+//! (Go emits no lockfile-kind declarations). Maven-ecosystem findings prefer a
+//! Gradle lock (`Gradle` strategy) over a bare `pom.xml` (`Maven` strategy).
 //!
 //! SEC-023 for argv that can run lifecycle scripts: npm and bun default to
 //! `--ignore-scripts` unless `allow_dependency_code_execution` is set. Yarn
 //! Berry defaults to `--mode=skip-build`; Yarn Classic defaults to
 //! `--ignore-scripts`. Cargo `update`, pnpm `--lockfile-only`, poetry
 //! `--lock`, and uv `--no-sync` do not run dependency lifecycle installs.
+//! RubyGems (`bundle`) and Gradle evaluate project code (`Gemfile` Ruby,
+//! build scripts), so their previews fail closed without
+//! `allow_dependency_code_execution` and apply stays `unavailable` with the
+//! FR-041 stderr warning. Maven performs a local file edit only, so it needs
+//! no gate and works offline. `go get` does not run dependency lifecycle
+//! scripts, so the gate does not change Go argv.
 //!
 //! Transitive findings: npm uses `--no-save`; Cargo `update --precise` is
-//! lock-safe. Yarn / pnpm / bun / poetry / uv refuse transitive apply so
+//! lock-safe; Gradle `--update-locks` regenerates the lock entry without
+//! touching manifests. Yarn / pnpm / bun / poetry / uv refuse transitive apply so
 //! they do not promote a transitive pin into a direct manifest dependency.
+//! RubyGems `bundle add` edits the `Gemfile`, so it also refuses transitive
+//! apply. Go `go get` records an explicit `require` directive, so transitive
+//! apply is allowed and documented as promoting the module to a direct
+//! requirement (the idiomatic `go get` behavior).
 //!
 //! Apply is fail-fast (first remediator error stops the batch). Earlier
 //! successful writes are not rolled back.
@@ -35,14 +53,17 @@ use std::process::Command;
 
 use thiserror::Error;
 use vlz_db::{
-    CRATES_IO_ECOSYSTEM, DeclarationKind, NPM_ECOSYSTEM, PYPI_ECOSYSTEM,
-    Package, PackageDeclarationLocation,
+    CRATES_IO_ECOSYSTEM, DeclarationKind, GO_ECOSYSTEM, MAVEN_ECOSYSTEM,
+    NPM_ECOSYSTEM, PYPI_ECOSYSTEM, Package, PackageDeclarationLocation,
+    RUBYGEMS_ECOSYSTEM,
 };
 
 use crate::{
     ApplyStrategy, ApplyStrategy::Bun, ApplyStrategy::Cargo,
+    ApplyStrategy::Go, ApplyStrategy::Gradle, ApplyStrategy::Maven,
     ApplyStrategy::Npm, ApplyStrategy::Pnpm, ApplyStrategy::Python,
-    ApplyStrategy::Yarn, DependencyKind, MIN_FIXED_VERSION_UNKNOWN,
+    ApplyStrategy::RubyGems, ApplyStrategy::Yarn, DependencyKind,
+    MIN_FIXED_VERSION_UNKNOWN,
 };
 
 /// npm lockfile basename (`package-lock.json`).
@@ -107,6 +128,44 @@ pub const PNPM_LOCKFILE_ONLY_FLAG: &str = "--lockfile-only";
 pub const POETRY_LOCK_FLAG: &str = "--lock";
 /// uv flag that updates the lock/manifest without syncing the env.
 pub const UV_NO_SYNC_FLAG: &str = "--no-sync";
+/// Go manifest basename (also the version selector; Go emits manifest-kind
+/// declarations for `go.mod` and no lockfile-kind declarations).
+pub const GO_MANIFEST_FILE_NAME: &str = "go.mod";
+/// Go checksum basename (co-modified by `go get`, not a version selector).
+pub const GO_SUM_FILE_NAME: &str = "go.sum";
+/// Allowlisted go binary name (SEC-025).
+pub const GO_BIN_NAME: &str = "go";
+/// Ruby manifest basenames.
+pub const RUBY_MANIFEST_GEMFILE_FILE_NAME: &str = "Gemfile";
+pub const RUBY_MANIFEST_GEMS_RB_FILE_NAME: &str = "gems.rb";
+/// Ruby lock basenames (pair-matched: `Gemfile` pairs `Gemfile.lock`,
+/// `gems.rb` pairs `gems.locked`; mirrors `vlz-ruby` lock rules).
+pub const RUBY_LOCK_GEMFILE_LOCK_FILE_NAME: &str = "Gemfile.lock";
+pub const RUBY_LOCK_GEMS_LOCKED_FILE_NAME: &str = "gems.locked";
+/// Allowlisted bundler binary name (SEC-025).
+pub const BUNDLE_BIN_NAME: &str = "bundle";
+/// Bundler flag that rewrites `Gemfile` and the lock without installing.
+pub const BUNDLE_SKIP_INSTALL_FLAG: &str = "--skip-install";
+/// Gradle lock basenames.
+pub const GRADLE_LOCK_FILE_NAME: &str = "gradle.lockfile";
+pub const GRADLE_BUILDSCRIPT_LOCK_FILE_NAME: &str =
+    "buildscript-gradle.lockfile";
+/// Gradle manifest basenames accepted as SEC-025 siblings next to the lock.
+pub const GRADLE_MANIFEST_BUILD_FILE_NAME: &str = "build.gradle";
+pub const GRADLE_MANIFEST_BUILD_KTS_FILE_NAME: &str = "build.gradle.kts";
+/// Gradle version catalog basename (matched by file name; lives under
+/// `gradle/`).
+pub const GRADLE_VERSION_CATALOG_FILE_NAME: &str = "libs.versions.toml";
+/// Gradle settings basenames (multi-module root markers).
+pub const GRADLE_SETTINGS_FILE_NAME: &str = "settings.gradle";
+pub const GRADLE_SETTINGS_KTS_FILE_NAME: &str = "settings.gradle.kts";
+/// Allowlisted Gradle binary name (SEC-025; project wrappers stay a
+/// follow-up).
+pub const GRADLE_BIN_NAME: &str = "gradle";
+/// Maven manifest basename (edited in place; Maven has no standard lock).
+pub const MAVEN_MANIFEST_FILE_NAME: &str = "pom.xml";
+/// Maximum `pom.xml` size read for in-place edits (1 MiB, SEC-017).
+pub const MAVEN_POM_MAX_BYTES: usize = 1024 * 1024;
 
 /// Yarn lockfile dialect (Classic v1 vs Berry).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -370,6 +429,49 @@ pub fn remediation_apply_strategy_for_finding(
                 ApplyStrategy::Unavailable
             }
         }
+        Some(e) if e.eq_ignore_ascii_case(GO_ECOSYSTEM) => {
+            // Go emits manifest-kind declarations for `go.mod` (no
+            // lockfile-kind declarations); `go.sum` is hashes only.
+            if declarations.iter().any(|d| {
+                d.kind == DeclarationKind::Manifest
+                    && lock_basename_eq(d.path.as_str(), GO_MANIFEST_FILE_NAME)
+            }) {
+                Go
+            } else {
+                ApplyStrategy::Unavailable
+            }
+        }
+        Some(e) if e.eq_ignore_ascii_case(RUBYGEMS_ECOSYSTEM) => {
+            if declaration_has_lock(declarations, |p| {
+                lock_basename_eq(p, RUBY_LOCK_GEMFILE_LOCK_FILE_NAME)
+                    || lock_basename_eq(p, RUBY_LOCK_GEMS_LOCKED_FILE_NAME)
+            }) {
+                RubyGems
+            } else {
+                ApplyStrategy::Unavailable
+            }
+        }
+        Some(e) if e.eq_ignore_ascii_case(MAVEN_ECOSYSTEM) => {
+            // Maven ecosystem covers both build systems: a Gradle lock
+            // selects Gradle regeneration, otherwise a `pom.xml` manifest
+            // selects the no-exec pom editor.
+            if declaration_has_lock(declarations, |p| {
+                lock_basename_eq(p, GRADLE_LOCK_FILE_NAME)
+                    || lock_basename_eq(p, GRADLE_BUILDSCRIPT_LOCK_FILE_NAME)
+            }) {
+                Gradle
+            } else if declarations.iter().any(|d| {
+                d.kind == DeclarationKind::Manifest
+                    && lock_basename_eq(
+                        d.path.as_str(),
+                        MAVEN_MANIFEST_FILE_NAME,
+                    )
+            }) {
+                Maven
+            } else {
+                ApplyStrategy::Unavailable
+            }
+        }
         _ => ApplyStrategy::Unavailable,
     }
 }
@@ -431,7 +533,8 @@ pub struct RemediationPreview {
     /// Absolute paths the remediator intends to change.
     pub files: Vec<std::path::PathBuf>,
     /// Full argv including the program name as `argv[0]` (NFR-024 shared
-    /// with apply).
+    /// with apply). Empty for file-edit strategies that run no subprocess
+    /// (e.g. Maven); apply then performs the previewed file edit directly.
     pub argv: Vec<String>,
 }
 
@@ -1275,6 +1378,1019 @@ impl Remediator for BunRemediator {
     }
 }
 
+// ---------------------------------------------------------------------
+// Go / RubyGems / Gradle / Maven remediators (Wave 1 expansion).
+// TDD red phase: builders, validators, and preview/apply are stubs until
+// the failing tests below are confirmed red, then implemented slice by
+// slice (Go, RubyGems, Gradle, Maven).
+// ---------------------------------------------------------------------
+
+/// Allowlisted Go module path for `go get` operands.
+///
+/// Segments of alnum plus `.`, `-`, `_`, `~` joined by `/`; rejects `!`
+/// (uppercase escape), empty segments, and `..`.
+fn is_allowlisted_go_module(name: &str) -> bool {
+    if name.is_empty() || name.len() > 256 {
+        return false;
+    }
+    if !name.chars().all(|c| {
+        c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_' | '~' | '/')
+    }) {
+        return false;
+    }
+    if name.starts_with('-') || name.starts_with('.') || name.starts_with('/')
+    {
+        return false;
+    }
+    for segment in name.split('/') {
+        if segment.is_empty()
+            || segment == "."
+            || segment == ".."
+            || segment.starts_with('-')
+        {
+            return false;
+        }
+    }
+    true
+}
+
+/// Allowlisted Maven coordinate (`groupId:artifactId`, exactly one colon).
+fn is_allowlisted_maven_coordinate(coord: &str) -> bool {
+    if coord.is_empty() || coord.len() > 256 {
+        return false;
+    }
+    let Some((group, artifact)) = coord.split_once(':') else {
+        return false;
+    };
+    if artifact.contains(':') {
+        return false;
+    }
+    for part in [group, artifact] {
+        if part.is_empty() {
+            return false;
+        }
+        if !part
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'))
+        {
+            return false;
+        }
+        if part.starts_with('-') || part.starts_with('.') {
+            return false;
+        }
+    }
+    true
+}
+
+fn require_allowlisted_go_operands(
+    module: &str,
+    version: &str,
+) -> Result<(), RemediationError> {
+    if is_allowlisted_go_module(module)
+        && is_allowlisted_version_operand(version)
+    {
+        Ok(())
+    } else {
+        Err(RemediationError::InvalidOperand(format!(
+            "go module/version not allowlisted: {module}@{version}"
+        )))
+    }
+}
+
+fn require_allowlisted_maven_operands(
+    coordinate: &str,
+    version: &str,
+) -> Result<(), RemediationError> {
+    if is_allowlisted_maven_coordinate(coordinate)
+        && is_allowlisted_version_operand(version)
+    {
+        Ok(())
+    } else {
+        Err(RemediationError::InvalidOperand(format!(
+            "Maven coordinate/version not allowlisted: {coordinate}@{version}"
+        )))
+    }
+}
+
+/// Build allowlisted `go get` argv shared by preview and apply (NFR-024).
+///
+/// `version` must already carry the `v` prefix when required (the remediator
+/// normalizes `minimal_fixed_version` before calling).
+pub fn go_get_argv(bin: &str, module: &str, version: &str) -> Vec<String> {
+    vec![
+        bin.to_string(),
+        "get".to_string(),
+        format!("{module}@{version}"),
+    ]
+}
+
+/// Build allowlisted `bundle add` argv shared by preview and apply (NFR-024).
+///
+/// Uses `--skip-install` so only `Gemfile` and the lock update (no install).
+pub fn bundle_add_argv(bin: &str, gem: &str, version: &str) -> Vec<String> {
+    vec![
+        bin.to_string(),
+        "add".to_string(),
+        gem.to_string(),
+        format!("--version={version}"),
+        BUNDLE_SKIP_INSTALL_FLAG.to_string(),
+    ]
+}
+
+/// Build allowlisted Gradle lock-regeneration argv shared by preview and
+/// apply (NFR-024).
+///
+/// Scopes regeneration to one `group:artifact` coordinate; Gradle resolves
+/// the entry to the latest version allowed by declared constraints.
+pub fn gradle_update_argv(bin: &str, coordinate: &str) -> Vec<String> {
+    vec![
+        bin.to_string(),
+        "dependencies".to_string(),
+        "--write-locks".to_string(),
+        "--update-locks".to_string(),
+        coordinate.to_string(),
+    ]
+}
+
+/// Distinct scan-root-confined directories for same-kind declarations.
+///
+/// Refusing multi-tree findings instead of fixing only the first tree:
+/// a partial fix would leave sibling modules vulnerable with no message
+/// explaining why (Wave 1 review finding).
+fn distinct_decl_dirs(
+    ctx: &RemediationContext<'_>,
+    kind: DeclarationKind,
+    matches: impl Fn(&str) -> bool,
+) -> Vec<std::path::PathBuf> {
+    let mut dirs = Vec::new();
+    for d in ctx
+        .declarations
+        .iter()
+        .filter(|d| d.kind == kind && matches(d.path.as_str()))
+    {
+        if let Some(dir) =
+            resolve_lock_workdir_under_root(ctx.scan_root, d.path.as_str())
+            && !dirs.contains(&dir)
+        {
+            dirs.push(dir);
+        }
+    }
+    dirs
+}
+
+fn require_single_decl_dir(
+    ctx: &RemediationContext<'_>,
+    kind: DeclarationKind,
+    matches: impl Fn(&str) -> bool,
+    missing_msg: &str,
+    multi_msg: &str,
+) -> Result<std::path::PathBuf, RemediationError> {
+    let dirs = distinct_decl_dirs(ctx, kind, matches);
+    match dirs.as_slice() {
+        [dir] => Ok(dir.clone()),
+        [] => Err(RemediationError::UnsupportedLockLayout(
+            missing_msg.to_string(),
+        )),
+        _ => Err(RemediationError::UnsupportedLockLayout(
+            multi_msg.to_string(),
+        )),
+    }
+}
+
+fn require_gradle_sibling_manifest(
+    lock_dir: &Path,
+) -> Result<(), RemediationError> {
+    for name in [
+        GRADLE_MANIFEST_BUILD_FILE_NAME,
+        GRADLE_MANIFEST_BUILD_KTS_FILE_NAME,
+        GRADLE_VERSION_CATALOG_FILE_NAME,
+        GRADLE_SETTINGS_FILE_NAME,
+        GRADLE_SETTINGS_KTS_FILE_NAME,
+    ] {
+        if lock_dir.join(name).is_file() {
+            return Ok(());
+        }
+    }
+    Err(RemediationError::UnsupportedLockLayout(
+        "Gradle lockfile without a sibling build manifest (build.gradle, build.gradle.kts, gradle/libs.versions.toml, or settings.gradle*)"
+            .to_string(),
+    ))
+}
+
+/// Compute the edited `pom.xml` text for a strict single-match version bump.
+///
+/// Matches one `<dependency>` block for `groupId:artifactId` outside
+/// `<profiles>`; bumps a direct `<version>` or the single same-file
+/// `<properties>` entry it references. Refuses zero/multiple matches,
+/// ranges, inherited (missing) versions, and properties defined outside the
+/// same file.
+fn compute_pom_version_edit(
+    pom_text: &str,
+    group: &str,
+    artifact: &str,
+    new_version: &str,
+) -> Result<String, RemediationError> {
+    if pom_text.len() > MAVEN_POM_MAX_BYTES {
+        return Err(RemediationError::UnsupportedLockLayout(format!(
+            "pom.xml exceeds size limit ({} bytes)",
+            MAVEN_POM_MAX_BYTES
+        )));
+    }
+    let unsupported =
+        |msg: String| RemediationError::UnsupportedLockLayout(msg);
+
+    // Non-nested `<tag>...</tag>` region spans in `text`.
+    fn region_spans(text: &str, tag: &str) -> Vec<(usize, usize)> {
+        let open = format!("<{tag}>");
+        let close = format!("</{tag}>");
+        let mut spans = Vec::new();
+        let mut cursor = 0;
+        while let Some(found) = text[cursor..].find(open.as_str()) {
+            let start = cursor + found;
+            let after_open = start + open.len();
+            let Some(rel) = text[after_open..].find(close.as_str()) else {
+                break;
+            };
+            let end = after_open + rel + close.len();
+            spans.push((start, end));
+            cursor = end;
+        }
+        spans
+    }
+
+    // First `<tag>text</tag>` whose start is outside `skip`, with inner
+    // offsets relative to `block`. Refuses nested markup inside the value.
+    fn element_text_outside(
+        block: &str,
+        tag: &str,
+        skip: &[(usize, usize)],
+    ) -> Option<(usize, usize, String)> {
+        let open = format!("<{tag}>");
+        let close = format!("</{tag}>");
+        let mut cursor = 0;
+        while let Some(found) = block[cursor..].find(open.as_str()) {
+            let tag_start = cursor + found;
+            if skip.iter().any(|(s, e)| tag_start >= *s && tag_start < *e) {
+                cursor = tag_start + 1;
+                continue;
+            }
+            let inner_start = tag_start + open.len();
+            let rel = block[inner_start..].find(close.as_str())?;
+            let inner_end = inner_start + rel;
+            let inner = &block[inner_start..inner_end];
+            if inner.contains('<') || inner.contains('>') {
+                return None;
+            }
+            return Some((inner_start, inner_end, inner.trim().to_string()));
+        }
+        None
+    }
+
+    fn is_range_version(text: &str) -> bool {
+        text.contains(['[', ']', '(', ')', ','])
+    }
+
+    let profiles = region_spans(pom_text, "profiles");
+    let in_profiles =
+        |off: usize| profiles.iter().any(|(s, e)| off >= *s && off < *e);
+
+    // All `<dependency>` blocks with absolute offsets.
+    let mut blocks = Vec::new();
+    {
+        let mut cursor = 0;
+        while let Some(found) = pom_text[cursor..].find("<dependency>") {
+            let start = cursor + found;
+            let after_open = start + "<dependency>".len();
+            let Some(rel) = pom_text[after_open..].find("</dependency>")
+            else {
+                break;
+            };
+            let end = after_open + rel + "</dependency>".len();
+            blocks.push((start, end));
+            cursor = end;
+        }
+    }
+
+    // Candidate blocks: outside profiles with matching coordinates
+    // (exclusion coordinates never match).
+    let mut candidates = Vec::new();
+    for (block_start, block_end) in &blocks {
+        if in_profiles(*block_start) {
+            continue;
+        }
+        let body = &pom_text[*block_start..*block_end];
+        let exclusions = region_spans(body, "exclusions");
+        let matched = matches!(
+            (
+                element_text_outside(body, "groupId", &exclusions),
+                element_text_outside(body, "artifactId", &exclusions),
+            ),
+            (Some((_, _, g)), Some((_, _, a)))
+                if g == group && a == artifact
+        );
+        if matched {
+            let version = element_text_outside(body, "version", &exclusions);
+            candidates.push((*block_start, *block_end, version));
+        }
+    }
+    if candidates.is_empty() {
+        return Err(unsupported(format!(
+            "no updatable dependency {group}:{artifact} in pom.xml (missing, inherited, or profile-scoped)"
+        )));
+    }
+    if candidates.len() > 1 {
+        return Err(unsupported(format!(
+            "multiple dependencies match {group}:{artifact}; refusing ambiguous pom.xml edit"
+        )));
+    }
+    let (block_start, _, version) = &candidates[0];
+    let Some((ver_start, ver_end, ver_text)) = version else {
+        return Err(unsupported(format!(
+            "dependency {group}:{artifact} has no direct version (inherited); refusing pom.xml edit"
+        )));
+    };
+    if ver_text.is_empty() || is_range_version(ver_text) {
+        return Err(unsupported(format!(
+            "dependency {group}:{artifact} version is a range or empty; refusing pom.xml edit"
+        )));
+    }
+
+    // Resolve the absolute replacement span: direct version text, or the
+    // single same-file property it references.
+    let (abs_start, abs_end) = if let Some(prop) = ver_text
+        .strip_prefix("${")
+        .and_then(|s| s.strip_suffix('}'))
+    {
+        if prop.is_empty()
+            || !prop.chars().all(|c| {
+                c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_')
+            })
+        {
+            return Err(unsupported(format!(
+                "dependency {group}:{artifact} references an unsupported property; refusing pom.xml edit"
+            )));
+        }
+        let mut defs = Vec::new();
+        let mut cursor = 0;
+        while let Some(found) =
+            pom_text[cursor..].find(format!("<{prop}>").as_str())
+        {
+            let tag_start = cursor + found;
+            if !in_profiles(tag_start)
+                && let Some((inner_start, inner_end, text)) =
+                    element_text_outside(&pom_text[tag_start..], prop, &[])
+            {
+                defs.push((
+                    tag_start + inner_start,
+                    tag_start + inner_end,
+                    text,
+                ));
+            }
+            cursor = tag_start + 1;
+        }
+        if defs.len() != 1 {
+            return Err(unsupported(format!(
+                "property {prop} is defined {} times; refusing pom.xml edit",
+                defs.len()
+            )));
+        }
+        let (def_start, def_end, def_text) = &defs[0];
+        if def_text.is_empty() || is_range_version(def_text) {
+            return Err(unsupported(format!(
+                "property {prop} value is a range or empty; refusing pom.xml edit"
+            )));
+        }
+        (*def_start, *def_end)
+    } else {
+        (block_start + ver_start, block_start + ver_end)
+    };
+
+    let mut edited = pom_text.to_string();
+    edited.replace_range(abs_start..abs_end, new_version);
+    Ok(edited)
+}
+
+/// Apply Go remediation by invoking: `go get <module>@<version>`.
+#[derive(Debug, Clone)]
+pub struct GoRemediator {
+    pub(crate) bin: String,
+}
+
+impl Default for GoRemediator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl GoRemediator {
+    pub fn new() -> Self {
+        Self {
+            bin: GO_BIN_NAME.to_string(),
+        }
+    }
+
+    /// Override the go executable path (tests inject a stub binary).
+    pub fn with_bin(bin: impl Into<String>) -> Self {
+        Self { bin: bin.into() }
+    }
+}
+
+impl Remediator for GoRemediator {
+    fn strategy(&self) -> ApplyStrategy {
+        Go
+    }
+
+    fn preview(
+        &self,
+        ctx: &RemediationContext<'_>,
+    ) -> Result<RemediationPreview, RemediationError> {
+        if ctx.target_version == MIN_FIXED_VERSION_UNKNOWN {
+            return Err(RemediationError::TargetVersionUnknown);
+        }
+        // `go get` records an explicit `require` directive, so transitive
+        // findings are allowed (the promotion is idiomatic `go get`
+        // behavior, unlike manifest-promoting Yarn/pnpm/bun edits).
+        let version = if ctx.target_version.starts_with('v') {
+            ctx.target_version.to_string()
+        } else {
+            format!("v{}", ctx.target_version)
+        };
+        require_allowlisted_go_operands(ctx.package_name, &version)?;
+        let manifest_dir = require_single_decl_dir(
+            ctx,
+            DeclarationKind::Manifest,
+            |p| lock_basename_eq(p, GO_MANIFEST_FILE_NAME),
+            "go.mod not found under scan root",
+            "multiple go.mod directories declare this module; refusing ambiguous remediation (fix each module separately)",
+        )?;
+        require_sibling_manifest(&manifest_dir, GO_MANIFEST_FILE_NAME)?;
+        Ok(RemediationPreview {
+            strategy: Go,
+            workdir: manifest_dir.clone(),
+            files: vec![
+                manifest_dir.join(GO_MANIFEST_FILE_NAME),
+                manifest_dir.join(GO_SUM_FILE_NAME),
+            ],
+            argv: go_get_argv(&self.bin, ctx.package_name, &version),
+        })
+    }
+
+    fn apply(
+        &self,
+        ctx: &RemediationContext<'_>,
+    ) -> Result<(), RemediationError> {
+        if ctx.offline {
+            return Err(RemediationError::OfflineBlocked);
+        }
+        if !bin_available(&self.bin) {
+            return Err(RemediationError::MissingPackageManager(
+                GO_BIN_NAME.to_string(),
+            ));
+        }
+        let preview = self.preview(ctx)?;
+        run_allowlisted_argv(&preview.argv, &preview.workdir, GO_BIN_NAME)
+    }
+}
+
+/// Apply RubyGems remediation by invoking:
+/// `bundle add <gem> --version=<version> --skip-install`.
+#[derive(Debug, Clone)]
+pub struct RubyGemsRemediator {
+    pub(crate) bin: String,
+}
+
+impl Default for RubyGemsRemediator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl RubyGemsRemediator {
+    pub fn new() -> Self {
+        Self {
+            bin: BUNDLE_BIN_NAME.to_string(),
+        }
+    }
+
+    /// Override the bundle executable path (tests inject a stub binary).
+    pub fn with_bin(bin: impl Into<String>) -> Self {
+        Self { bin: bin.into() }
+    }
+}
+
+impl Remediator for RubyGemsRemediator {
+    fn strategy(&self) -> ApplyStrategy {
+        RubyGems
+    }
+
+    fn preview(
+        &self,
+        ctx: &RemediationContext<'_>,
+    ) -> Result<RemediationPreview, RemediationError> {
+        if ctx.target_version == MIN_FIXED_VERSION_UNKNOWN {
+            return Err(RemediationError::TargetVersionUnknown);
+        }
+        require_allowlisted_pypi_operands(
+            ctx.package_name,
+            ctx.target_version,
+        )?;
+        refuse_transitive_manifest_mutation(ctx, "rubygems")?;
+        // `bundle` evaluates `Gemfile` Ruby (project code, SEC-023):
+        // fail closed without the gate.
+        if !ctx.allow_dependency_code_execution {
+            return Err(RemediationError::UnsupportedLockLayout(
+                "RubyGems remediation requires allow_dependency_code_execution (bundle evaluates Gemfile Ruby)"
+                    .to_string(),
+            ));
+        }
+        let (lock_dir, lock_name, manifest_name) =
+            select_ruby_lock(ctx).ok_or_else(|| {
+                RemediationError::UnsupportedLockLayout(
+                    "supported RubyGems lockfile not found under scan root (need Gemfile.lock with Gemfile, or gems.locked with gems.rb)"
+                        .to_string(),
+                )
+            })?;
+        // One tree only: a finding spanning several lock directories must
+        // not fix just the first one.
+        require_single_decl_dir(
+            ctx,
+            DeclarationKind::Lockfile,
+            |p| {
+                lock_basename_eq(p, RUBY_LOCK_GEMFILE_LOCK_FILE_NAME)
+                    || lock_basename_eq(p, RUBY_LOCK_GEMS_LOCKED_FILE_NAME)
+            },
+            "supported RubyGems lockfile not found under scan root",
+            "multiple RubyGems lock directories declare this gem; refusing ambiguous remediation (fix each tree separately)",
+        )?;
+        require_sibling_manifest(&lock_dir, manifest_name)?;
+        // `bundle add` must own a simple requirement: exotic declarations
+        // (sources, groups, operators, duplicates) stay manual-only so the
+        // manifest cannot be corrupted with a duplicated stanza.
+        let manifest_text = std::fs::read_to_string(
+            lock_dir.join(manifest_name),
+        )
+        .map_err(|err| {
+            RemediationError::UnsupportedLockLayout(format!(
+                "unable to read {manifest_name} for bundle add guard: {err}"
+            ))
+        })?;
+        check_ruby_manifest_allows_bundle_add(
+            &manifest_text,
+            ctx.package_name,
+        )?;
+        Ok(RemediationPreview {
+            strategy: RubyGems,
+            workdir: lock_dir.clone(),
+            files: vec![
+                lock_dir.join(lock_name),
+                lock_dir.join(manifest_name),
+            ],
+            argv: bundle_add_argv(
+                &self.bin,
+                ctx.package_name,
+                ctx.target_version,
+            ),
+        })
+    }
+
+    fn apply(
+        &self,
+        ctx: &RemediationContext<'_>,
+    ) -> Result<(), RemediationError> {
+        if ctx.offline {
+            return Err(RemediationError::OfflineBlocked);
+        }
+        if !bin_available(&self.bin) {
+            return Err(RemediationError::MissingPackageManager(
+                BUNDLE_BIN_NAME.to_string(),
+            ));
+        }
+        let preview = self.preview(ctx)?;
+        run_allowlisted_argv(&preview.argv, &preview.workdir, BUNDLE_BIN_NAME)
+    }
+}
+
+/// Whether `bundle add --version` may own the `gem` requirement.
+///
+/// Allows: no declaration (fresh add), or exactly one top-level declaration
+/// with no version or a single plain version string. Refuses duplicates,
+/// source/group options (`github:`, `path:`, `group:`, ...), requirement
+/// operators (`~>`, `>=`, ...), and nested (indented) declarations: `bundle
+/// add` semantics for those are unverified and could duplicate the stanza
+/// instead of updating it (Wave 1 review finding).
+fn check_ruby_manifest_allows_bundle_add(
+    manifest_text: &str,
+    gem: &str,
+) -> Result<(), RemediationError> {
+    let refuse = |why: String| {
+        RemediationError::UnsupportedLockLayout(format!(
+            "Gemfile declares {gem} with {why}; refusing bundle add (update the requirement manually)"
+        ))
+    };
+    let mut found = 0;
+    for line in manifest_text.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        let Some(rest) = trimmed
+            .strip_prefix("gem")
+            .filter(|rest| rest.starts_with([' ', '\t', '(']))
+        else {
+            continue;
+        };
+        let top_level = line.starts_with("gem");
+        let rest = rest.trim_start_matches([' ', '\t', '(']);
+        let quote = match rest.chars().next() {
+            Some(q) if q == '"' || q == '\'' => q,
+            _ => continue,
+        };
+        let after_open = &rest[1..];
+        let Some(end) = after_open.find(quote) else {
+            continue;
+        };
+        if &after_open[..end] != gem {
+            continue;
+        }
+        found += 1;
+        if found > 1 {
+            return Err(refuse("duplicate declarations".to_string()));
+        }
+        if !top_level {
+            return Err(refuse(
+                "a nested (group/platform block) declaration".to_string(),
+            ));
+        }
+        let mut tail = after_open[end + 1..].trim();
+        if let Some(hash) = tail.find('#') {
+            tail = tail[..hash].trim();
+        }
+        if tail.is_empty() {
+            continue;
+        }
+        let Some(second) = tail.strip_prefix(',').map(str::trim) else {
+            return Err(refuse("source or group options".to_string()));
+        };
+        let second_quote = match second.chars().next() {
+            Some(q) if q == '"' || q == '\'' => q,
+            _ => {
+                return Err(refuse("a non-string requirement".to_string()));
+            }
+        };
+        let after_second = &second[1..];
+        let Some(second_end) = after_second.find(second_quote) else {
+            return Err(refuse("an unterminated requirement".to_string()));
+        };
+        let requirement = &after_second[..second_end];
+        let trailing = after_second[second_end + 1..].trim();
+        let plain = !requirement.is_empty()
+            && requirement.starts_with(|c: char| c.is_ascii_digit())
+            && requirement.chars().all(|c| {
+                c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_' | '+')
+            });
+        if !plain || !trailing.is_empty() {
+            return Err(refuse("a complex requirement".to_string()));
+        }
+    }
+    Ok(())
+}
+
+/// Pair-matched RubyGems lock selection.
+///
+/// Returns the lock directory, lock basename, and required sibling manifest
+/// basename. `Gemfile` pairs `Gemfile.lock`; `gems.rb` pairs `gems.locked`;
+/// mismatched pairs are refused (mirrors `vlz-ruby` lock rules without
+/// depending on the language crate).
+fn select_ruby_lock(
+    ctx: &RemediationContext<'_>,
+) -> Option<(std::path::PathBuf, &'static str, &'static str)> {
+    ctx.declarations.iter().find_map(|d| {
+        if d.kind != DeclarationKind::Lockfile {
+            return None;
+        }
+        let (lock_name, manifest_name) = if lock_basename_eq(
+            d.path.as_str(),
+            RUBY_LOCK_GEMFILE_LOCK_FILE_NAME,
+        ) {
+            (
+                RUBY_LOCK_GEMFILE_LOCK_FILE_NAME,
+                RUBY_MANIFEST_GEMFILE_FILE_NAME,
+            )
+        } else if lock_basename_eq(
+            d.path.as_str(),
+            RUBY_LOCK_GEMS_LOCKED_FILE_NAME,
+        ) {
+            (
+                RUBY_LOCK_GEMS_LOCKED_FILE_NAME,
+                RUBY_MANIFEST_GEMS_RB_FILE_NAME,
+            )
+        } else {
+            return None;
+        };
+        let dir =
+            resolve_lock_workdir_under_root(ctx.scan_root, d.path.as_str())?;
+        // The sibling manifest itself must be the paired one: a lock dir
+        // containing the wrong manifest (e.g. `gems.locked` next to a
+        // `Gemfile`) is a mismatched pair.
+        if !dir.join(manifest_name).is_file() {
+            return None;
+        }
+        Some((dir, lock_name, manifest_name))
+    })
+}
+
+/// Apply Gradle remediation by invoking:
+/// `gradle dependencies --write-locks --update-locks <group:artifact>`.
+#[derive(Debug, Clone)]
+pub struct GradleRemediator {
+    pub(crate) bin: String,
+}
+
+impl Default for GradleRemediator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl GradleRemediator {
+    pub fn new() -> Self {
+        Self {
+            bin: GRADLE_BIN_NAME.to_string(),
+        }
+    }
+
+    /// Override the gradle executable path (tests inject a stub binary).
+    pub fn with_bin(bin: impl Into<String>) -> Self {
+        Self { bin: bin.into() }
+    }
+}
+
+impl Remediator for GradleRemediator {
+    fn strategy(&self) -> ApplyStrategy {
+        Gradle
+    }
+
+    fn preview(
+        &self,
+        ctx: &RemediationContext<'_>,
+    ) -> Result<RemediationPreview, RemediationError> {
+        if ctx.target_version == MIN_FIXED_VERSION_UNKNOWN {
+            return Err(RemediationError::TargetVersionUnknown);
+        }
+        require_allowlisted_maven_operands(
+            ctx.package_name,
+            ctx.target_version,
+        )?;
+        // Gradle executes build scripts (project code, SEC-023): fail closed
+        // without the gate.
+        if !ctx.allow_dependency_code_execution {
+            return Err(RemediationError::UnsupportedLockLayout(
+                "Gradle remediation requires allow_dependency_code_execution (Gradle executes build scripts)"
+                    .to_string(),
+            ));
+        }
+        // Lock regeneration touches only the lock entry, so transitive
+        // findings are allowed (no manifest promotion).
+        let (lock_dir, lock_name) =
+            select_gradle_lock(ctx).ok_or_else(|| {
+                RemediationError::UnsupportedLockLayout(
+                    "supported Gradle lockfile not found under scan root (need gradle.lockfile or buildscript-gradle.lockfile)"
+                        .to_string(),
+                )
+            })?;
+        // One tree only: a finding spanning several lock directories must
+        // not regenerate just the first one.
+        require_single_decl_dir(
+            ctx,
+            DeclarationKind::Lockfile,
+            |p| {
+                lock_basename_eq(p, GRADLE_LOCK_FILE_NAME)
+                    || lock_basename_eq(p, GRADLE_BUILDSCRIPT_LOCK_FILE_NAME)
+            },
+            "supported Gradle lockfile not found under scan root",
+            "multiple Gradle lock directories declare this dependency; refusing ambiguous remediation (fix each module separately)",
+        )?;
+        require_gradle_sibling_manifest(&lock_dir)?;
+        Ok(RemediationPreview {
+            strategy: Gradle,
+            workdir: lock_dir.clone(),
+            files: vec![lock_dir.join(lock_name)],
+            argv: gradle_update_argv(&self.bin, ctx.package_name),
+        })
+    }
+
+    fn apply(
+        &self,
+        ctx: &RemediationContext<'_>,
+    ) -> Result<(), RemediationError> {
+        if ctx.offline {
+            return Err(RemediationError::OfflineBlocked);
+        }
+        if !bin_available(&self.bin) {
+            return Err(RemediationError::MissingPackageManager(
+                GRADLE_BIN_NAME.to_string(),
+            ));
+        }
+        let preview = self.preview(ctx)?;
+        run_allowlisted_argv(
+            &preview.argv,
+            &preview.workdir,
+            GRADLE_BIN_NAME,
+        )?;
+        // Regeneration is not an exact pin: verify the lock entry advanced
+        // instead of silently no-opping (e.g. a catalog pin Gradle refuses
+        // to override).
+        let [lock_path] = preview.files.as_slice() else {
+            return Err(RemediationError::UnsupportedLockLayout(
+                "Gradle preview must reference exactly one lockfile"
+                    .to_string(),
+            ));
+        };
+        let lock_text = std::fs::read_to_string(lock_path).map_err(|err| {
+            RemediationError::CommandFailed {
+                strategy: GRADLE_BIN_NAME.to_string(),
+                message: format!(
+                    "unable to re-read {} after regeneration: {err}",
+                    lock_path.display()
+                ),
+            }
+        })?;
+        if !gradle_lock_satisfies_target(
+            &lock_text,
+            ctx.package_name,
+            ctx.target_version,
+        ) {
+            return Err(RemediationError::CommandFailed {
+                strategy: GRADLE_BIN_NAME.to_string(),
+                message: format!(
+                    "lock entry for {} did not advance to {} after regeneration; check version constraints (the catalog or build file may pin the vulnerable version)",
+                    ctx.package_name, ctx.target_version
+                ),
+            });
+        }
+        Ok(())
+    }
+}
+
+/// Gradle lock selection (prefers `gradle.lockfile` over the buildscript
+/// lock when both are declared).
+fn select_gradle_lock(
+    ctx: &RemediationContext<'_>,
+) -> Option<(std::path::PathBuf, &'static str)> {
+    for lock_name in [GRADLE_LOCK_FILE_NAME, GRADLE_BUILDSCRIPT_LOCK_FILE_NAME]
+    {
+        if let Some(dir) = select_lock_dir_by_basename(ctx, lock_name) {
+            return Some((dir, lock_name));
+        }
+    }
+    None
+}
+
+/// Locked versions for one `group:artifact` coordinate in `gradle.lockfile`
+/// text (`group:artifact:version=configuration` lines; comments and `empty=`
+/// markers skipped).
+fn gradle_lock_versions_for(lock_text: &str, coordinate: &str) -> Vec<String> {
+    let prefix = format!("{coordinate}:");
+    lock_text
+        .lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            if trimmed.is_empty()
+                || trimmed.starts_with('#')
+                || trimmed.starts_with("empty=")
+            {
+                return None;
+            }
+            let entry = trimmed.split('=').next().unwrap_or(trimmed);
+            let version = entry.strip_prefix(prefix.as_str())?;
+            if version.is_empty() || version.contains(':') {
+                return None;
+            }
+            Some(version.to_string())
+        })
+        .collect()
+}
+
+/// True when the lock already records `coordinate` at `target` (or newer
+/// when both parse as strict semver).
+fn gradle_lock_satisfies_target(
+    lock_text: &str,
+    coordinate: &str,
+    target: &str,
+) -> bool {
+    let versions = gradle_lock_versions_for(lock_text, coordinate);
+    if versions.iter().any(|v| v == target) {
+        return true;
+    }
+    let Ok(want) = semver::Version::parse(target) else {
+        return false;
+    };
+    versions
+        .iter()
+        .any(|v| semver::Version::parse(v).is_ok_and(|have| have >= want))
+}
+
+/// Apply Maven remediation with a no-exec in-place `pom.xml` version bump.
+///
+/// Preview carries an empty `argv` (no subprocess) and `files: [pom.xml]`;
+/// apply rewrites the single matched `<version>` element.
+#[derive(Debug, Clone, Default)]
+pub struct MavenRemediator;
+
+impl MavenRemediator {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Remediator for MavenRemediator {
+    fn strategy(&self) -> ApplyStrategy {
+        Maven
+    }
+
+    fn preview(
+        &self,
+        ctx: &RemediationContext<'_>,
+    ) -> Result<RemediationPreview, RemediationError> {
+        if ctx.target_version == MIN_FIXED_VERSION_UNKNOWN {
+            return Err(RemediationError::TargetVersionUnknown);
+        }
+        require_allowlisted_maven_operands(
+            ctx.package_name,
+            ctx.target_version,
+        )?;
+        let pom_dir = require_single_decl_dir(
+            ctx,
+            DeclarationKind::Manifest,
+            |p| lock_basename_eq(p, MAVEN_MANIFEST_FILE_NAME),
+            "pom.xml not found under scan root",
+            "multiple pom.xml directories declare this dependency; refusing ambiguous remediation (fix each module separately)",
+        )?;
+        let pom_path = pom_dir.join(MAVEN_MANIFEST_FILE_NAME);
+        let pom_text = std::fs::read_to_string(&pom_path).map_err(|err| {
+            RemediationError::UnsupportedLockLayout(format!(
+                "unable to read pom.xml for edit preview: {err}"
+            ))
+        })?;
+        let (group, artifact) =
+            ctx.package_name.split_once(':').ok_or_else(|| {
+                RemediationError::InvalidOperand(format!(
+                    "Maven coordinate is not group:artifact: {}",
+                    ctx.package_name
+                ))
+            })?;
+        // Validate the edit applies before advertising it (FR-041 dry-run
+        // fidelity); the same computation runs again on apply.
+        compute_pom_version_edit(
+            &pom_text,
+            group,
+            artifact,
+            ctx.target_version,
+        )?;
+        Ok(RemediationPreview {
+            strategy: Maven,
+            workdir: pom_dir.clone(),
+            files: vec![pom_path],
+            // No subprocess for file-edit strategies (see trait docs).
+            argv: Vec::new(),
+        })
+    }
+
+    fn apply(
+        &self,
+        ctx: &RemediationContext<'_>,
+    ) -> Result<(), RemediationError> {
+        // No offline block: the edit is local and needs no network.
+        // No package-manager availability check: no subprocess runs.
+        let preview = self.preview(ctx)?;
+        let [pom_path] = preview.files.as_slice() else {
+            return Err(RemediationError::UnsupportedLockLayout(
+                "Maven preview must reference exactly one pom.xml".to_string(),
+            ));
+        };
+        let pom_text = std::fs::read_to_string(pom_path).map_err(|err| {
+            RemediationError::UnsupportedLockLayout(format!(
+                "unable to read pom.xml for edit: {err}"
+            ))
+        })?;
+        let (group, artifact) =
+            ctx.package_name.split_once(':').ok_or_else(|| {
+                RemediationError::InvalidOperand(format!(
+                    "Maven coordinate is not group:artifact: {}",
+                    ctx.package_name
+                ))
+            })?;
+        let edited = compute_pom_version_edit(
+            &pom_text,
+            group,
+            artifact,
+            ctx.target_version,
+        )?;
+        std::fs::write(pom_path, edited)?;
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1524,6 +2640,1240 @@ mod tests {
                 &[lock_decl("pylock.dev.toml")],
             ),
             ApplyStrategy::Unavailable
+        );
+    }
+
+    #[test]
+    fn strategy_selects_go_rubygems_gradle_maven() {
+        use vlz_db::{GO_ECOSYSTEM, MAVEN_ECOSYSTEM, RUBYGEMS_ECOSYSTEM};
+
+        // Go selects on the `go.mod` manifest declaration (Go emits no
+        // lockfile-kind declarations); `go.sum` alone never selects.
+        let go_pkg = pkg(GO_ECOSYSTEM, "github.com/example/mod");
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &go_pkg,
+                "1.2.4",
+                &[manifest_decl(GO_MANIFEST_FILE_NAME)],
+            ),
+            ApplyStrategy::Go
+        );
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &go_pkg,
+                "1.2.4",
+                &[lock_decl(GO_MANIFEST_FILE_NAME)],
+            ),
+            ApplyStrategy::Unavailable
+        );
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &go_pkg,
+                "1.2.4",
+                &[lock_decl(GO_SUM_FILE_NAME)],
+            ),
+            ApplyStrategy::Unavailable
+        );
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &go_pkg,
+                MIN_FIXED_VERSION_UNKNOWN,
+                &[manifest_decl(GO_MANIFEST_FILE_NAME)],
+            ),
+            ApplyStrategy::Unavailable
+        );
+
+        // RubyGems selects on either pair-matched lock basename.
+        let gem_pkg = pkg(RUBYGEMS_ECOSYSTEM, "rails");
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &gem_pkg,
+                "7.0.8",
+                &[lock_decl(RUBY_LOCK_GEMFILE_LOCK_FILE_NAME)],
+            ),
+            ApplyStrategy::RubyGems
+        );
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &gem_pkg,
+                "7.0.8",
+                &[lock_decl(RUBY_LOCK_GEMS_LOCKED_FILE_NAME)],
+            ),
+            ApplyStrategy::RubyGems
+        );
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &gem_pkg,
+                "7.0.8",
+                &[manifest_decl(RUBY_MANIFEST_GEMFILE_FILE_NAME)],
+            ),
+            ApplyStrategy::Unavailable
+        );
+
+        // Maven ecosystem prefers a Gradle lock over a bare `pom.xml`.
+        let java_pkg = pkg(MAVEN_ECOSYSTEM, "com.example:lib");
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &java_pkg,
+                "2.0.1",
+                &[lock_decl(GRADLE_LOCK_FILE_NAME)],
+            ),
+            ApplyStrategy::Gradle
+        );
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &java_pkg,
+                "2.0.1",
+                &[lock_decl(GRADLE_BUILDSCRIPT_LOCK_FILE_NAME)],
+            ),
+            ApplyStrategy::Gradle
+        );
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &java_pkg,
+                "2.0.1",
+                &[manifest_decl(MAVEN_MANIFEST_FILE_NAME)],
+            ),
+            ApplyStrategy::Maven
+        );
+        // Gradle lock wins when both are declared (mixed tree).
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &java_pkg,
+                "2.0.1",
+                &[
+                    manifest_decl(MAVEN_MANIFEST_FILE_NAME),
+                    lock_decl(GRADLE_LOCK_FILE_NAME),
+                ],
+            ),
+            ApplyStrategy::Gradle
+        );
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &java_pkg,
+                MIN_FIXED_VERSION_UNKNOWN,
+                &[manifest_decl(MAVEN_MANIFEST_FILE_NAME)],
+            ),
+            ApplyStrategy::Unavailable
+        );
+    }
+
+    fn write_go_tree(root: &Path) {
+        fs::create_dir_all(root).unwrap();
+        fs::write(root.join(GO_MANIFEST_FILE_NAME), "module example\n")
+            .unwrap();
+        fs::write(root.join(GO_SUM_FILE_NAME), "").unwrap();
+    }
+
+    fn write_ruby_tree(root: &Path, manifest: &str, lock: &str) {
+        fs::create_dir_all(root).unwrap();
+        fs::write(root.join(lock), "GEM\n").unwrap();
+        fs::write(root.join(manifest), "source rubygems\n").unwrap();
+    }
+
+    fn write_gradle_tree(root: &Path) {
+        fs::create_dir_all(root).unwrap();
+        fs::write(root.join(GRADLE_LOCK_FILE_NAME), "empty=\n").unwrap();
+        fs::write(root.join(GRADLE_MANIFEST_BUILD_FILE_NAME), "plugins {}\n")
+            .unwrap();
+    }
+
+    #[test]
+    fn go_get_argv_builder_is_stable() {
+        assert_eq!(
+            go_get_argv(GO_BIN_NAME, "github.com/example/mod", "v1.2.4"),
+            vec![
+                GO_BIN_NAME.to_string(),
+                "get".to_string(),
+                "github.com/example/mod@v1.2.4".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn allowlist_helpers_cover_go_modules_and_maven_coordinates() {
+        assert!(is_allowlisted_go_module("github.com/example/mod"));
+        assert!(is_allowlisted_go_module("golang.org/x/text"));
+        assert!(is_allowlisted_go_module("example.com/foo-bar_baz~1"));
+        assert!(!is_allowlisted_go_module(""));
+        assert!(!is_allowlisted_go_module("-x"));
+        assert!(!is_allowlisted_go_module(".x"));
+        assert!(!is_allowlisted_go_module("/x"));
+        assert!(!is_allowlisted_go_module("a//b"));
+        assert!(!is_allowlisted_go_module("a/../b"));
+        assert!(!is_allowlisted_go_module("github.com/!BurntSushi/toml"));
+        assert!(!is_allowlisted_go_module("a b"));
+        assert!(!is_allowlisted_go_module("a;b"));
+        assert!(is_allowlisted_maven_coordinate("com.example:lib"));
+        assert!(is_allowlisted_maven_coordinate(
+            "org.apache.logging.log4j:log4j-core"
+        ));
+        assert!(!is_allowlisted_maven_coordinate("lib"));
+        assert!(!is_allowlisted_maven_coordinate("a:b:c"));
+        assert!(!is_allowlisted_maven_coordinate(":b"));
+        assert!(!is_allowlisted_maven_coordinate("a:"));
+        assert!(!is_allowlisted_maven_coordinate("-a:b"));
+        assert!(!is_allowlisted_maven_coordinate("a:b;c"));
+    }
+
+    #[test]
+    fn go_preview_readds_v_prefix_and_allows_transitive() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_go_tree(root);
+        let rem = GoRemediator::new();
+        assert_eq!(rem.strategy(), ApplyStrategy::Go);
+        for (target, expected) in [("1.2.4", "v1.2.4"), ("v1.2.4", "v1.2.4")] {
+            for kind in [DependencyKind::Direct, DependencyKind::Transitive] {
+                let preview = rem
+                    .preview(&RemediationContext {
+                        scan_root: root,
+                        declarations: &[manifest_decl(GO_MANIFEST_FILE_NAME)],
+                        package_name: "github.com/example/mod",
+                        target_version: target,
+                        dependency_kind: kind,
+                        allow_dependency_code_execution: false,
+                        offline: false,
+                    })
+                    .expect("go preview");
+                assert_eq!(preview.strategy, ApplyStrategy::Go);
+                assert_eq!(
+                    preview.argv,
+                    go_get_argv(
+                        GO_BIN_NAME,
+                        "github.com/example/mod",
+                        expected,
+                    )
+                );
+                assert_eq!(
+                    preview.files,
+                    vec![
+                        root.join(GO_MANIFEST_FILE_NAME),
+                        root.join(GO_SUM_FILE_NAME),
+                    ]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn go_apply_rejects_bad_inputs_and_runs_stub() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_go_tree(root);
+        let ok_bin = root.join("go-ok");
+        write_exec(&ok_bin, "#!/bin/sh\nexit 0\n");
+        let rem = GoRemediator::with_bin(ok_bin.to_string_lossy());
+        assert_eq!(rem.strategy(), ApplyStrategy::Go);
+
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &[manifest_decl(GO_MANIFEST_FILE_NAME)],
+                package_name: "github.com/example/mod",
+                target_version: MIN_FIXED_VERSION_UNKNOWN,
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::TargetVersionUnknown));
+
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &[manifest_decl(GO_MANIFEST_FILE_NAME)],
+                package_name: "-evil",
+                target_version: "1.2.4",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::InvalidOperand(_)));
+
+        // Missing sibling go.mod.
+        let bare = test_tempdir();
+        fs::create_dir_all(bare.path()).unwrap();
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: bare.path(),
+                declarations: &[manifest_decl(GO_MANIFEST_FILE_NAME)],
+                package_name: "github.com/example/mod",
+                target_version: "1.2.4",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+
+        let err = rem
+            .apply(&RemediationContext {
+                scan_root: root,
+                declarations: &[manifest_decl(GO_MANIFEST_FILE_NAME)],
+                package_name: "github.com/example/mod",
+                target_version: "1.2.4",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: true,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::OfflineBlocked));
+
+        let missing =
+            GoRemediator::with_bin(root.join("no-such-go").to_string_lossy());
+        let err = missing
+            .apply(&RemediationContext {
+                scan_root: root,
+                declarations: &[manifest_decl(GO_MANIFEST_FILE_NAME)],
+                package_name: "github.com/example/mod",
+                target_version: "1.2.4",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::MissingPackageManager(_)));
+
+        rem.apply(&RemediationContext {
+            scan_root: root,
+            declarations: &[manifest_decl(GO_MANIFEST_FILE_NAME)],
+            package_name: "github.com/example/mod",
+            target_version: "1.2.4",
+            dependency_kind: DependencyKind::Direct,
+            allow_dependency_code_execution: false,
+            offline: false,
+        })
+        .unwrap();
+
+        let fail_bin = root.join("go-fail");
+        write_exec(
+            &fail_bin,
+            "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then exit 0; fi\necho go-fail >&2\nexit 1\n",
+        );
+        let err = GoRemediator::with_bin(fail_bin.to_string_lossy())
+            .apply(&RemediationContext {
+                scan_root: root,
+                declarations: &[manifest_decl(GO_MANIFEST_FILE_NAME)],
+                package_name: "github.com/example/mod",
+                target_version: "1.2.4",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        match err {
+            RemediationError::CommandFailed { strategy, message } => {
+                assert_eq!(strategy, GO_BIN_NAME);
+                assert!(message.contains("go-fail"));
+            }
+            other => panic!("expected CommandFailed, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn bundle_add_argv_builder_is_stable() {
+        assert_eq!(
+            bundle_add_argv(BUNDLE_BIN_NAME, "rails", "7.0.8"),
+            vec![
+                BUNDLE_BIN_NAME.to_string(),
+                "add".to_string(),
+                "rails".to_string(),
+                "--version=7.0.8".to_string(),
+                BUNDLE_SKIP_INSTALL_FLAG.to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn ruby_manifest_guard_allows_simple_decls_only() {
+        // Fresh add and simple declarations are allowed.
+        assert!(
+            check_ruby_manifest_allows_bundle_add(
+                "source \"https://rubygems.org\"\n",
+                "rails"
+            )
+            .is_ok()
+        );
+        assert!(
+            check_ruby_manifest_allows_bundle_add(
+                "source \"https://rubygems.org\"\ngem \"rails\"\n",
+                "rails"
+            )
+            .is_ok()
+        );
+        assert!(
+            check_ruby_manifest_allows_bundle_add(
+                "source \"https://rubygems.org\"\ngem \"rails\", \"7.0.7\"\n",
+                "rails"
+            )
+            .is_ok()
+        );
+        // Other gems and comments are ignored.
+        assert!(
+            check_ruby_manifest_allows_bundle_add(
+                "# gem \"rails\", github: \"rails/rails\"\ngem \"rack\"\n",
+                "rails"
+            )
+            .is_ok()
+        );
+        // Duplicates, options, operators, and nested declarations refuse.
+        for body in [
+            "gem \"rails\"\ngem \"rails\"\n",
+            "gem \"rails\", github: \"rails/rails\"\n",
+            "gem \"rails\", path: \"../rails\"\n",
+            "gem \"rails\", \"~> 7.0\"\n",
+            "gem \"rails\", \">= 7.0\", \"< 8\"\n",
+            "group :development do\n  gem \"rails\"\nend\n",
+            "  gem \"rails\"\n",
+        ] {
+            let err = check_ruby_manifest_allows_bundle_add(body, "rails")
+                .unwrap_err();
+            assert!(
+                matches!(err, RemediationError::UnsupportedLockLayout(_)),
+                "must refuse exotic declaration: {body:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn rubygems_preview_pairs_locks_and_gates_execution() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_ruby_tree(
+            root,
+            RUBY_MANIFEST_GEMFILE_FILE_NAME,
+            RUBY_LOCK_GEMFILE_LOCK_FILE_NAME,
+        );
+        let rem = RubyGemsRemediator::new();
+        assert_eq!(rem.strategy(), ApplyStrategy::RubyGems);
+
+        // Fail-closed without the SEC-023 gate (Gemfile Ruby is project code).
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl(RUBY_LOCK_GEMFILE_LOCK_FILE_NAME)],
+                package_name: "rails",
+                target_version: "7.0.8",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+
+        let preview = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl(RUBY_LOCK_GEMFILE_LOCK_FILE_NAME)],
+                package_name: "rails",
+                target_version: "7.0.8",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: true,
+                offline: false,
+            })
+            .expect("rubygems preview");
+        assert_eq!(preview.strategy, ApplyStrategy::RubyGems);
+        assert_eq!(
+            preview.argv,
+            bundle_add_argv(BUNDLE_BIN_NAME, "rails", "7.0.8")
+        );
+        assert_eq!(
+            preview.files,
+            vec![
+                root.join(RUBY_LOCK_GEMFILE_LOCK_FILE_NAME),
+                root.join(RUBY_MANIFEST_GEMFILE_FILE_NAME),
+            ]
+        );
+
+        // gems.rb / gems.locked pair.
+        let dir2 = test_tempdir();
+        let root2 = dir2.path();
+        write_ruby_tree(
+            root2,
+            RUBY_MANIFEST_GEMS_RB_FILE_NAME,
+            RUBY_LOCK_GEMS_LOCKED_FILE_NAME,
+        );
+        let preview2 = rem
+            .preview(&RemediationContext {
+                scan_root: root2,
+                declarations: &[lock_decl(RUBY_LOCK_GEMS_LOCKED_FILE_NAME)],
+                package_name: "rails",
+                target_version: "7.0.8",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: true,
+                offline: false,
+            })
+            .expect("gems.rb preview");
+        assert_eq!(
+            preview2.files,
+            vec![
+                root2.join(RUBY_LOCK_GEMS_LOCKED_FILE_NAME),
+                root2.join(RUBY_MANIFEST_GEMS_RB_FILE_NAME),
+            ]
+        );
+
+        // Transitive apply would promote into the Gemfile: refuse.
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl(RUBY_LOCK_GEMFILE_LOCK_FILE_NAME)],
+                package_name: "rails",
+                target_version: "7.0.8",
+                dependency_kind: DependencyKind::Transitive,
+                allow_dependency_code_execution: true,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+
+        // Mismatched pair (gems.locked next to Gemfile) is refused.
+        let dir3 = test_tempdir();
+        let root3 = dir3.path();
+        write_ruby_tree(
+            root3,
+            RUBY_MANIFEST_GEMFILE_FILE_NAME,
+            RUBY_LOCK_GEMS_LOCKED_FILE_NAME,
+        );
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: root3,
+                declarations: &[lock_decl(RUBY_LOCK_GEMS_LOCKED_FILE_NAME)],
+                package_name: "rails",
+                target_version: "7.0.8",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: true,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+
+        // Exotic Gemfile declarations stay manual-only.
+        let dir4 = test_tempdir();
+        let root4 = dir4.path();
+        fs::create_dir_all(root4).unwrap();
+        fs::write(root4.join(RUBY_LOCK_GEMFILE_LOCK_FILE_NAME), "GEM\n")
+            .unwrap();
+        fs::write(
+            root4.join(RUBY_MANIFEST_GEMFILE_FILE_NAME),
+            "source \"https://rubygems.org\"\ngem \"rails\", github: \"rails/rails\"\n",
+        )
+        .unwrap();
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: root4,
+                declarations: &[lock_decl(RUBY_LOCK_GEMFILE_LOCK_FILE_NAME)],
+                package_name: "rails",
+                target_version: "7.0.8",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: true,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+    }
+
+    #[test]
+    fn rubygems_apply_rejects_bad_inputs_and_runs_stub() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_ruby_tree(
+            root,
+            RUBY_MANIFEST_GEMFILE_FILE_NAME,
+            RUBY_LOCK_GEMFILE_LOCK_FILE_NAME,
+        );
+        let ok_bin = root.join("bundle-ok");
+        write_exec(&ok_bin, "#!/bin/sh\nexit 0\n");
+        let rem = RubyGemsRemediator::with_bin(ok_bin.to_string_lossy());
+
+        for (gem, version) in
+            [("rails", MIN_FIXED_VERSION_UNKNOWN), ("-evil", "7.0.8")]
+        {
+            let err = rem
+                .preview(&RemediationContext {
+                    scan_root: root,
+                    declarations: &[lock_decl(
+                        RUBY_LOCK_GEMFILE_LOCK_FILE_NAME,
+                    )],
+                    package_name: gem,
+                    target_version: version,
+                    dependency_kind: DependencyKind::Direct,
+                    allow_dependency_code_execution: true,
+                    offline: false,
+                })
+                .unwrap_err();
+            assert!(matches!(
+                err,
+                RemediationError::TargetVersionUnknown
+                    | RemediationError::InvalidOperand(_)
+            ));
+        }
+
+        let err = rem
+            .apply(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl(RUBY_LOCK_GEMFILE_LOCK_FILE_NAME)],
+                package_name: "rails",
+                target_version: "7.0.8",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: true,
+                offline: true,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::OfflineBlocked));
+
+        let missing = RubyGemsRemediator::with_bin(
+            root.join("no-such-bundle").to_string_lossy(),
+        );
+        let err = missing
+            .apply(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl(RUBY_LOCK_GEMFILE_LOCK_FILE_NAME)],
+                package_name: "rails",
+                target_version: "7.0.8",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: true,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::MissingPackageManager(_)));
+
+        // Gated apply without the gate fails closed.
+        let err = rem
+            .apply(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl(RUBY_LOCK_GEMFILE_LOCK_FILE_NAME)],
+                package_name: "rails",
+                target_version: "7.0.8",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+
+        rem.apply(&RemediationContext {
+            scan_root: root,
+            declarations: &[lock_decl(RUBY_LOCK_GEMFILE_LOCK_FILE_NAME)],
+            package_name: "rails",
+            target_version: "7.0.8",
+            dependency_kind: DependencyKind::Direct,
+            allow_dependency_code_execution: true,
+            offline: false,
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn gradle_update_argv_builder_is_stable() {
+        assert_eq!(
+            gradle_update_argv(GRADLE_BIN_NAME, "com.example:lib"),
+            vec![
+                GRADLE_BIN_NAME.to_string(),
+                "dependencies".to_string(),
+                "--write-locks".to_string(),
+                "--update-locks".to_string(),
+                "com.example:lib".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn gradle_preview_regenerates_lock_and_gates_execution() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_gradle_tree(root);
+        let rem = GradleRemediator::new();
+        assert_eq!(rem.strategy(), ApplyStrategy::Gradle);
+
+        // Fail-closed without the SEC-023 gate (Gradle runs build scripts).
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl(GRADLE_LOCK_FILE_NAME)],
+                package_name: "com.example:lib",
+                target_version: "2.0.1",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+
+        for kind in [DependencyKind::Direct, DependencyKind::Transitive] {
+            let preview = rem
+                .preview(&RemediationContext {
+                    scan_root: root,
+                    declarations: &[lock_decl(GRADLE_LOCK_FILE_NAME)],
+                    package_name: "com.example:lib",
+                    target_version: "2.0.1",
+                    dependency_kind: kind,
+                    allow_dependency_code_execution: true,
+                    offline: false,
+                })
+                .expect("gradle preview");
+            assert_eq!(preview.strategy, ApplyStrategy::Gradle);
+            assert_eq!(
+                preview.argv,
+                gradle_update_argv(GRADLE_BIN_NAME, "com.example:lib")
+            );
+            assert_eq!(preview.files, vec![root.join(GRADLE_LOCK_FILE_NAME)]);
+        }
+
+        // Lock without any sibling build manifest is refused.
+        let bare = test_tempdir();
+        fs::create_dir_all(bare.path()).unwrap();
+        fs::write(bare.path().join(GRADLE_LOCK_FILE_NAME), "empty=\n")
+            .unwrap();
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: bare.path(),
+                declarations: &[lock_decl(GRADLE_LOCK_FILE_NAME)],
+                package_name: "com.example:lib",
+                target_version: "2.0.1",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: true,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+
+        // Non-coordinate package names are refused.
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl(GRADLE_LOCK_FILE_NAME)],
+                package_name: "not-a-coordinate",
+                target_version: "2.0.1",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: true,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::InvalidOperand(_)));
+    }
+
+    #[test]
+    fn gradle_apply_rejects_bad_inputs_and_runs_stub() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_gradle_tree(root);
+        fs::write(
+            root.join(GRADLE_LOCK_FILE_NAME),
+            "com.example:lib:2.0.0=runtimeClasspath\n",
+        )
+        .unwrap();
+        // Stub simulates lock regeneration by advancing the entry.
+        let ok_bin = root.join("gradle-ok");
+        write_exec(
+            &ok_bin,
+            "#!/usr/bin/env python3\nimport sys\nfrom pathlib import Path\nif len(sys.argv) > 1 and sys.argv[1] == '--version':\n    print('Gradle 8.0')\n    raise SystemExit(0)\nlock = Path('gradle.lockfile')\nlock.write_text(lock.read_text().replace('com.example:lib:2.0.0=', 'com.example:lib:2.0.1='), encoding='utf-8')\n",
+        );
+        let rem = GradleRemediator::with_bin(ok_bin.to_string_lossy());
+
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl(GRADLE_LOCK_FILE_NAME)],
+                package_name: "com.example:lib",
+                target_version: MIN_FIXED_VERSION_UNKNOWN,
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: true,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::TargetVersionUnknown));
+
+        let err = rem
+            .apply(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl(GRADLE_LOCK_FILE_NAME)],
+                package_name: "com.example:lib",
+                target_version: "2.0.1",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: true,
+                offline: true,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::OfflineBlocked));
+
+        let missing = GradleRemediator::with_bin(
+            root.join("no-such-gradle").to_string_lossy(),
+        );
+        let err = missing
+            .apply(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl(GRADLE_LOCK_FILE_NAME)],
+                package_name: "com.example:lib",
+                target_version: "2.0.1",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: true,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::MissingPackageManager(_)));
+
+        rem.apply(&RemediationContext {
+            scan_root: root,
+            declarations: &[lock_decl(GRADLE_LOCK_FILE_NAME)],
+            package_name: "com.example:lib",
+            target_version: "2.0.1",
+            dependency_kind: DependencyKind::Direct,
+            allow_dependency_code_execution: true,
+            offline: false,
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn gradle_lock_versions_for_parses_gav_lines() {
+        let text = "# lockfile\nempty=\ncom.example:lib:2.0.0=runtimeClasspath\ncom.example:lib:2.0.0=testRuntimeClasspath\ncom.other:thing:1.0=compileClasspath\nnot-a-gav-line\n";
+        assert_eq!(
+            gradle_lock_versions_for(text, "com.example:lib"),
+            vec!["2.0.0".to_string(), "2.0.0".to_string()]
+        );
+        assert_eq!(
+            gradle_lock_versions_for(text, "com.other:thing"),
+            vec!["1.0".to_string()]
+        );
+        assert!(gradle_lock_versions_for(text, "com.missing:lib").is_empty());
+        assert!(gradle_lock_versions_for("", "com.example:lib").is_empty());
+    }
+
+    #[test]
+    fn gradle_lock_satisfies_target_compares_semver() {
+        let at_target = "com.example:lib:2.0.1=runtimeClasspath\n";
+        let newer = "com.example:lib:2.2.0=runtimeClasspath\n";
+        let older = "com.example:lib:2.0.0=runtimeClasspath\n";
+        assert!(gradle_lock_satisfies_target(
+            at_target,
+            "com.example:lib",
+            "2.0.1"
+        ));
+        assert!(gradle_lock_satisfies_target(
+            newer,
+            "com.example:lib",
+            "2.0.1"
+        ));
+        assert!(!gradle_lock_satisfies_target(
+            older,
+            "com.example:lib",
+            "2.0.1"
+        ));
+        assert!(!gradle_lock_satisfies_target(
+            "",
+            "com.example:lib",
+            "2.0.1"
+        ));
+        // Unparseable locked versions never satisfy a semver target.
+        assert!(!gradle_lock_satisfies_target(
+            "com.example:lib:1.0-SNAPSHOT=runtimeClasspath\n",
+            "com.example:lib",
+            "2.0.1"
+        ));
+    }
+
+    #[test]
+    fn gradle_apply_errors_when_lock_does_not_advance() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_gradle_tree(root);
+        fs::write(
+            root.join(GRADLE_LOCK_FILE_NAME),
+            "com.example:lib:2.0.0=runtimeClasspath\n",
+        )
+        .unwrap();
+        // Stub reports success but leaves the lock untouched.
+        let noop_bin = root.join("gradle-noop");
+        write_exec(&noop_bin, "#!/bin/sh\nexit 0\n");
+        let err = GradleRemediator::with_bin(noop_bin.to_string_lossy())
+            .apply(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl(GRADLE_LOCK_FILE_NAME)],
+                package_name: "com.example:lib",
+                target_version: "2.0.1",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: true,
+                offline: false,
+            })
+            .unwrap_err();
+        match err {
+            RemediationError::CommandFailed { strategy, message } => {
+                assert_eq!(strategy, GRADLE_BIN_NAME);
+                assert!(
+                    message.contains("did not advance"),
+                    "stale lock must be loud, got: {message}"
+                );
+            }
+            other => panic!("expected CommandFailed, got {other:?}"),
+        }
+    }
+
+    fn write_pom(root: &Path, body: &str) {
+        fs::create_dir_all(root).unwrap();
+        fs::write(root.join(MAVEN_MANIFEST_FILE_NAME), body).unwrap();
+    }
+
+    const SINGLE_DEP_POM: &str = "<project>\n  <modelVersion>4.0.0</modelVersion>\n  <dependencies>\n    <dependency>\n      <groupId>com.example</groupId>\n      <artifactId>lib</artifactId>\n      <version>1.0</version>\n    </dependency>\n  </dependencies>\n</project>\n";
+
+    const PROPERTY_DEP_POM: &str = "<project>\n  <properties>\n    <lib.version>1.0</lib.version>\n  </properties>\n  <dependencies>\n    <dependency>\n      <groupId>com.example</groupId>\n      <artifactId>lib</artifactId>\n      <version>${lib.version}</version>\n    </dependency>\n  </dependencies>\n</project>\n";
+
+    #[test]
+    fn maven_preview_is_no_exec_with_empty_argv() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_pom(root, SINGLE_DEP_POM);
+        let rem = MavenRemediator::new();
+        assert_eq!(rem.strategy(), ApplyStrategy::Maven);
+        let preview = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &[manifest_decl(MAVEN_MANIFEST_FILE_NAME)],
+                package_name: "com.example:lib",
+                target_version: "2.0.1",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .expect("maven preview");
+        assert_eq!(preview.strategy, ApplyStrategy::Maven);
+        assert!(preview.argv.is_empty());
+        assert_eq!(preview.files, vec![root.join(MAVEN_MANIFEST_FILE_NAME)]);
+        assert_eq!(preview.workdir, root.to_path_buf());
+    }
+
+    #[test]
+    fn maven_apply_bumps_direct_and_property_versions() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_pom(root, SINGLE_DEP_POM);
+        let rem = MavenRemediator::new();
+        // Offline file edits are allowed (no package-manager network access).
+        rem.apply(&RemediationContext {
+            scan_root: root,
+            declarations: &[manifest_decl(MAVEN_MANIFEST_FILE_NAME)],
+            package_name: "com.example:lib",
+            target_version: "2.0.1",
+            dependency_kind: DependencyKind::Direct,
+            allow_dependency_code_execution: false,
+            offline: true,
+        })
+        .unwrap();
+        let updated =
+            fs::read_to_string(root.join(MAVEN_MANIFEST_FILE_NAME)).unwrap();
+        assert!(updated.contains("<version>2.0.1</version>"));
+        assert!(!updated.contains("<version>1.0</version>"));
+
+        let dir2 = test_tempdir();
+        let root2 = dir2.path();
+        write_pom(root2, PROPERTY_DEP_POM);
+        rem.apply(&RemediationContext {
+            scan_root: root2,
+            declarations: &[manifest_decl(MAVEN_MANIFEST_FILE_NAME)],
+            package_name: "com.example:lib",
+            target_version: "2.0.1",
+            dependency_kind: DependencyKind::Direct,
+            allow_dependency_code_execution: false,
+            offline: false,
+        })
+        .unwrap();
+        let updated2 =
+            fs::read_to_string(root2.join(MAVEN_MANIFEST_FILE_NAME)).unwrap();
+        assert!(updated2.contains("<lib.version>2.0.1</lib.version>"));
+        assert!(updated2.contains("<version>${lib.version}</version>"));
+    }
+
+    #[test]
+    fn maven_apply_refuses_ambiguous_and_unsafe_layouts() {
+        let rem = MavenRemediator::new();
+        let decls = [manifest_decl(MAVEN_MANIFEST_FILE_NAME)];
+        fn ctx_for<'a>(
+            root: &'a Path,
+            decls: &'a [PackageDeclarationLocation],
+        ) -> RemediationContext<'a> {
+            RemediationContext {
+                scan_root: root,
+                declarations: decls,
+                package_name: "com.example:lib",
+                target_version: "2.0.1",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            }
+        }
+
+        // No matching dependency.
+        let dir = test_tempdir();
+        write_pom(dir.path(), "<project>\n</project>\n");
+        let err = rem.apply(&ctx_for(dir.path(), &decls)).unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+
+        // Two matching dependencies.
+        let dir = test_tempdir();
+        write_pom(
+            dir.path(),
+            "<project>\n  <dependencies>\n    <dependency>\n      <groupId>com.example</groupId>\n      <artifactId>lib</artifactId>\n      <version>1.0</version>\n    </dependency>\n    <dependency>\n      <groupId>com.example</groupId>\n      <artifactId>lib</artifactId>\n      <version>1.0</version>\n    </dependency>\n  </dependencies>\n</project>\n",
+        );
+        let err = rem.apply(&ctx_for(dir.path(), &decls)).unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+
+        // Range version in pom is refused.
+        let dir = test_tempdir();
+        write_pom(
+            dir.path(),
+            "<project>\n  <dependencies>\n    <dependency>\n      <groupId>com.example</groupId>\n      <artifactId>lib</artifactId>\n      <version>[1.0,2.0)</version>\n    </dependency>\n  </dependencies>\n</project>\n",
+        );
+        let err = rem.apply(&ctx_for(dir.path(), &decls)).unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+
+        // Missing version (inherited) is refused.
+        let dir = test_tempdir();
+        write_pom(
+            dir.path(),
+            "<project>\n  <dependencies>\n    <dependency>\n      <groupId>com.example</groupId>\n      <artifactId>lib</artifactId>\n    </dependency>\n  </dependencies>\n</project>\n",
+        );
+        let err = rem.apply(&ctx_for(dir.path(), &decls)).unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+
+        // Managed version with a version-less dependency is refused: the
+        // two coordinate matches are ambiguous, so managed layouts stay
+        // manual in Wave 1.
+        let dir = test_tempdir();
+        write_pom(
+            dir.path(),
+            "<project>\n  <dependencyManagement>\n    <dependencies>\n      <dependency>\n        <groupId>com.example</groupId>\n        <artifactId>lib</artifactId>\n        <version>1.0</version>\n      </dependency>\n    </dependencies>\n  </dependencyManagement>\n  <dependencies>\n    <dependency>\n      <groupId>com.example</groupId>\n      <artifactId>lib</artifactId>\n    </dependency>\n  </dependencies>\n</project>\n",
+        );
+        let err = rem.apply(&ctx_for(dir.path(), &decls)).unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+
+        // Property referenced but not defined in the same file.
+        let dir = test_tempdir();
+        write_pom(
+            dir.path(),
+            "<project>\n  <dependencies>\n    <dependency>\n      <groupId>com.example</groupId>\n      <artifactId>lib</artifactId>\n      <version>${lib.version}</version>\n    </dependency>\n  </dependencies>\n</project>\n",
+        );
+        let err = rem.apply(&ctx_for(dir.path(), &decls)).unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+
+        // Dependency inside profiles is refused.
+        let dir = test_tempdir();
+        write_pom(
+            dir.path(),
+            "<project>\n  <profiles>\n    <profile>\n      <dependencies>\n        <dependency>\n          <groupId>com.example</groupId>\n          <artifactId>lib</artifactId>\n          <version>1.0</version>\n        </dependency>\n      </dependencies>\n    </profile>\n  </profiles>\n</project>\n",
+        );
+        let err = rem.apply(&ctx_for(dir.path(), &decls)).unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+
+        // Unknown target version and invalid coordinates are refused.
+        let dir = test_tempdir();
+        write_pom(dir.path(), SINGLE_DEP_POM);
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: dir.path(),
+                declarations: &[manifest_decl(MAVEN_MANIFEST_FILE_NAME)],
+                package_name: "com.example:lib",
+                target_version: MIN_FIXED_VERSION_UNKNOWN,
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::TargetVersionUnknown));
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: dir.path(),
+                declarations: &[manifest_decl(MAVEN_MANIFEST_FILE_NAME)],
+                package_name: "not-a-coordinate",
+                target_version: "2.0.1",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::InvalidOperand(_)));
+    }
+
+    #[test]
+    fn maven_apply_rejects_outside_root_and_missing_pom() {
+        let root_dir = test_tempdir();
+        let outside_dir = test_tempdir();
+        let root = root_dir.path();
+        let outside = outside_dir.path();
+        write_pom(root, SINGLE_DEP_POM);
+        write_pom(outside, SINGLE_DEP_POM);
+        let rem = MavenRemediator::new();
+
+        let abs = outside
+            .join(MAVEN_MANIFEST_FILE_NAME)
+            .canonicalize()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &[manifest_decl(&abs)],
+                package_name: "com.example:lib",
+                target_version: "2.0.1",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+
+        let bare = test_tempdir();
+        fs::create_dir_all(bare.path()).unwrap();
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: bare.path(),
+                declarations: &[manifest_decl(MAVEN_MANIFEST_FILE_NAME)],
+                package_name: "com.example:lib",
+                target_version: "2.0.1",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+    }
+
+    #[test]
+    fn default_constructors_use_standard_bin_names_for_new_strategies() {
+        assert_eq!(GoRemediator::new().bin, GO_BIN_NAME);
+        assert_eq!(GoRemediator::default().bin, GO_BIN_NAME);
+        assert_eq!(RubyGemsRemediator::new().bin, BUNDLE_BIN_NAME);
+        assert_eq!(GradleRemediator::new().bin, GRADLE_BIN_NAME);
+        assert_eq!(GradleRemediator::default().bin, GRADLE_BIN_NAME);
+        assert_eq!(MavenRemediator::new().strategy(), ApplyStrategy::Maven);
+    }
+
+    fn preview_err_contains(err: RemediationError, needle: &str) -> bool {
+        err.to_string().contains(needle)
+    }
+
+    #[test]
+    fn go_preview_refuses_multiple_go_mod_dirs() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_go_tree(root);
+        let sub = root.join("sub");
+        write_go_tree(&sub);
+        let rem = GoRemediator::new();
+        let decls = [
+            manifest_decl(GO_MANIFEST_FILE_NAME),
+            manifest_decl("sub/go.mod"),
+        ];
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &decls,
+                package_name: "github.com/example/mod",
+                target_version: "1.2.4",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(
+            preview_err_contains(err, "multiple"),
+            "multi-module go trees must be refused, not first-only fixed"
+        );
+    }
+
+    #[test]
+    fn rubygems_preview_refuses_multiple_lock_dirs() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_ruby_tree(
+            root,
+            RUBY_MANIFEST_GEMFILE_FILE_NAME,
+            RUBY_LOCK_GEMFILE_LOCK_FILE_NAME,
+        );
+        let sub = root.join("sub");
+        write_ruby_tree(
+            &sub,
+            RUBY_MANIFEST_GEMFILE_FILE_NAME,
+            RUBY_LOCK_GEMFILE_LOCK_FILE_NAME,
+        );
+        let rem = RubyGemsRemediator::new();
+        let decls = [
+            lock_decl(RUBY_LOCK_GEMFILE_LOCK_FILE_NAME),
+            lock_decl("sub/Gemfile.lock"),
+        ];
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &decls,
+                package_name: "rails",
+                target_version: "7.0.8",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: true,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(
+            preview_err_contains(err, "multiple"),
+            "multi-tree RubyGems findings must be refused"
+        );
+    }
+
+    #[test]
+    fn gradle_preview_refuses_multiple_lock_dirs() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_gradle_tree(root);
+        let sub = root.join("sub");
+        write_gradle_tree(&sub);
+        let rem = GradleRemediator::new();
+        let decls = [
+            lock_decl(GRADLE_LOCK_FILE_NAME),
+            lock_decl("sub/gradle.lockfile"),
+        ];
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &decls,
+                package_name: "com.example:lib",
+                target_version: "2.0.1",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: true,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(
+            preview_err_contains(err, "multiple"),
+            "multi-module Gradle findings must be refused"
+        );
+    }
+
+    #[test]
+    fn maven_preview_refuses_multiple_pom_dirs() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_pom(root, SINGLE_DEP_POM);
+        let sub = root.join("sub");
+        write_pom(&sub, SINGLE_DEP_POM);
+        let rem = MavenRemediator::new();
+        let decls = [
+            manifest_decl(MAVEN_MANIFEST_FILE_NAME),
+            manifest_decl("sub/pom.xml"),
+        ];
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &decls,
+                package_name: "com.example:lib",
+                target_version: "2.0.1",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(
+            preview_err_contains(err, "multiple"),
+            "multi-module Maven findings must be refused, not first-only edited"
         );
     }
 

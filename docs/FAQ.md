@@ -304,8 +304,14 @@ and not a single "fix to this version" recommendation. Non-OSV providers may
 omit ranges. Scan JSON/SARIF findings include a structured `upgrade_plan`
 (FR-040) derived from those ranges; plain/HTML keep Ranges only. Applying
 upgrades uses `vlz fix` (FR-041): default writes lock updates for supported
-strategies (npm, Yarn, pnpm, bun, Cargo, Python poetry/uv); `vlz fix --dry-run`
-previews without writing.
+strategies (npm, Yarn, pnpm, bun, Cargo, Python poetry/uv, Go, RubyGems,
+Gradle, and Maven pom edits); `vlz fix --dry-run`
+previews without writing. RubyGems and Gradle apply require
+`allow_dependency_code_execution`; Maven pom edits are local file edits and
+also work offline. Maven edits cover direct single-match versions only:
+managed, inherited, ranged, or profile-scoped versions stay unavailable.
+Findings spanning several module trees stay unavailable; fix each tree
+separately.
 
 ### How do I use editor diagnostics?
 
@@ -327,7 +333,8 @@ Editor diagnostics never execute dependency code, even when the configuration
 enables `allow_dependency_code_execution`. Trusted Apply upgrade still respects
 the SEC-023 scripts gate (npm/bun `--ignore-scripts`, Yarn Classic
 `--ignore-scripts`, Yarn Berry `--mode=skip-build`, unless that gate is
-enabled). `vlz fix` modifies supported lock files; use `vlz fix --dry-run` to
+enabled; RubyGems and Gradle Apply require the gate, Maven pom edits need no
+gate). `vlz fix` modifies supported lock files; use `vlz fix --dry-run` to
 preview changes.
 
 #### Editor configuration snippets (DOC-014)
