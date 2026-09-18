@@ -91,16 +91,18 @@ _run_rust_coverage() {
 
   # Build workspace with instrumentation (per show-env docs, use normal cargo).
   # Exclude vlz-fuzz: it requires cargo afl build (AFL linker symbols).
-  # Match --features vlz/testing on test and binary probes so llvm-cov profiles
+  # Match --features on test and binary probes so llvm-cov profiles
   # are not merged from differently cfg'd builds (CI: "N functions have mismatched data").
+  # rust-tier-d is opt-in on the vlz binary; include it here so new AST
+  # modules are present in cobertura-rust.xml for coverage-new-rust-check.
   _vlz_cov_phase "instrumented cargo build --workspace"
-  cargo build --workspace --exclude vlz-fuzz --features vlz/testing
+  cargo build --workspace --exclude vlz-fuzz --features 'vlz/testing,vlz/rust-tier-d'
 
   # Run all workspace tests (exclude vlz-fuzz; it uses AFL and is run via make fuzz).
   _vlz_cov_phase "cargo test --workspace"
   _vlz_cov_quiet_log
   # shellcheck disable=SC2046
-  cargo test --workspace --exclude vlz-fuzz --features vlz/testing \
+  cargo test --workspace --exclude vlz-fuzz --features 'vlz/testing,vlz/rust-tier-d' \
     $(vlz_cargo_test_quiet_arg)
 
   # Extended pass (nightly / badges): optional features and minimal-feature matrix.
@@ -130,11 +132,11 @@ _run_rust_coverage() {
     _vlz_cov_quiet_log
     if vlz_check_verbose_enabled; then
       env XDG_CONFIG_HOME=/tmp/vlz-cov-cfg XDG_CACHE_HOME=/tmp/vlz-cov-cache \
-        XDG_DATA_HOME=/tmp/vlz-cov-data cargo run --features vlz/testing \
+        XDG_DATA_HOME=/tmp/vlz-cov-data cargo run --features 'vlz/testing,vlz/rust-tier-d' \
         --bin vlz -- "$@"
     else
       env XDG_CONFIG_HOME=/tmp/vlz-cov-cfg XDG_CACHE_HOME=/tmp/vlz-cov-cache \
-        XDG_DATA_HOME=/tmp/vlz-cov-data cargo run --features vlz/testing \
+        XDG_DATA_HOME=/tmp/vlz-cov-data cargo run --features 'vlz/testing,vlz/rust-tier-d' \
         --bin vlz -- "$@" >/dev/null
     fi
   }
