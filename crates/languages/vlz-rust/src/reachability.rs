@@ -442,7 +442,11 @@ impl ReachabilityAnalyzer for RustTierBAnalyzer {
                     continue;
                 };
                 for sym in advisory_symbols {
-                    for line in symbol_match_lines(&content, sym) {
+                    for line in symbol_match_lines(
+                        &content,
+                        sym,
+                        &context.package.name,
+                    ) {
                         push_reachability_evidence(
                             &mut evidence,
                             path.clone(),
@@ -887,5 +891,25 @@ mod tests {
         let result =
             analyzer.analyze_tier_d(&ctx, &["http::a::vuln_fn".to_string()]);
         assert_eq!(result.decision, TierCDecision::Unknown);
+    }
+
+    #[cfg(feature = "tier-d")]
+    #[test]
+    fn analyze_tier_d_unknown_for_oversized_source() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let prefix = "fn main() { http::a::vuln_fn(); }\n";
+        let mut body = prefix.to_string();
+        body.extend(std::iter::repeat_n(
+            'x',
+            (MAX_TIER_D_SOURCE_FILE_BYTES as usize + 1)
+                .saturating_sub(prefix.len()),
+        ));
+        write_rs(dir.path(), &body);
+        let analyzer = RustTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "http");
+        let result =
+            analyzer.analyze_tier_d(&ctx, &["http::a::vuln_fn".to_string()]);
+        assert_eq!(result.decision, TierCDecision::Unknown);
+        assert!(result.evidence.is_empty());
     }
 }

@@ -370,6 +370,68 @@ fn run_scan_best_available_exercises_tier_d_block() {
     });
 }
 
+#[cfg(all(
+    unix,
+    any(
+        all(feature = "rust", feature = "rust-tier-d"),
+        all(feature = "go", feature = "go-tier-d")
+    )
+))]
+struct PackageSymbolCveProvider;
+
+#[cfg(all(
+    unix,
+    any(
+        all(feature = "rust", feature = "rust-tier-d"),
+        all(feature = "go", feature = "go-tier-d")
+    )
+))]
+#[async_trait::async_trait]
+impl vlz_cve_client::CveProvider for PackageSymbolCveProvider {
+    fn name(&self) -> &'static str {
+        "tier_c_reachability"
+    }
+
+    async fn fetch(
+        &self,
+        pkg: &Package,
+    ) -> Result<vlz_cve_client::FetchedCves, vlz_cve_client::ProviderError>
+    {
+        let eco = pkg.ecosystem.clone().unwrap_or_default();
+        let crate_name = pkg.name.replace('-', "_");
+        let specific = if eco.eq_ignore_ascii_case("crates.io") {
+            serde_json::json!({ "functions": [format!("{crate_name}::a::vuln_fn")] })
+        } else {
+            serde_json::json!({
+                "imports": [{
+                    "symbols": [format!("{}.Vuln", pkg.name)]
+                }]
+            })
+        };
+        let record = vlz_db::CveRecord {
+            id: "CVE-TIER-D".to_string(),
+            cvss_score: Some(7.0),
+            cvss_version: Some(vlz_db::CvssVersion::V3),
+            description: "Tier D reachable symbol".to_string(),
+            reachable: None,
+            advisory_symbols: Vec::new(),
+            evidence: Vec::new(),
+            symbol_usage: None,
+            affected_ranges: Vec::new(),
+        };
+        Ok(vlz_cve_client::FetchedCves {
+            raw_vulns: vec![serde_json::json!({
+                "id": record.id,
+                "affected": [{
+                    "package": { "name": pkg.name, "ecosystem": eco },
+                    "ecosystem_specific": specific
+                }]
+            })],
+            records: vec![record],
+        })
+    }
+}
+
 #[cfg(all(feature = "rust", feature = "rust-tier-d", unix))]
 #[test]
 fn run_scan_best_available_exercises_rust_tier_d_block() {
@@ -384,15 +446,43 @@ fn run_scan_best_available_exercises_rust_tier_d_block() {
         )
         .expect("write main.rs");
         let root = dir.path().to_str().unwrap();
+        let out_path = dir.path().join("tier-d-rust.json");
+
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            PackageSymbolCveProvider,
+        )));
+        #[cfg(feature = "redb")]
+        reregister_db_backend();
+
         let code = run_async(&[
             "scan",
             root,
-            "--offline",
-            "--benchmark",
+            "--format",
+            "json",
+            "--summary-file",
+            &format!("json:{}", out_path.display()),
+            "--provider",
+            "tier_c_reachability",
             "--reachability-mode",
             "best-available",
         ]);
-        assert_eq!(code, 0);
+        assert_eq!(code, 86, "one CVE should trigger default CVE exit");
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&out_path).unwrap())
+                .unwrap();
+        let findings = parsed["findings"].as_array().expect("findings");
+        assert_eq!(findings.len(), 1);
+        let cves = findings[0]["cves"].as_array().expect("cves");
+        assert_eq!(cves.len(), 1);
+        assert_eq!(cves[0]["reachable"], true);
+        assert!(
+            cves[0]["evidence"]
+                .as_array()
+                .is_some_and(|e| !e.is_empty()),
+            "Tier D must attach first-party evidence"
+        );
     });
 }
 
@@ -409,15 +499,42 @@ fn run_scan_best_available_exercises_go_tier_d_block() {
         )
         .expect("write main.go");
         let root = dir.path().to_str().unwrap();
+        let out_path = dir.path().join("tier-d-go.json");
+
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            PackageSymbolCveProvider,
+        )));
+        #[cfg(feature = "redb")]
+        reregister_db_backend();
+
         let code = run_async(&[
             "scan",
             root,
-            "--offline",
-            "--benchmark",
+            "--format",
+            "json",
+            "--summary-file",
+            &format!("json:{}", out_path.display()),
+            "--provider",
+            "tier_c_reachability",
             "--reachability-mode",
             "best-available",
         ]);
-        assert_eq!(code, 0);
+        assert_eq!(code, 86, "one CVE should trigger default CVE exit");
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&out_path).unwrap())
+                .unwrap();
+        let findings = parsed["findings"].as_array().expect("findings");
+        assert_eq!(findings.len(), 1);
+        let cves = findings[0]["cves"].as_array().expect("cves");
+        assert_eq!(cves.len(), 1);
+        assert_eq!(cves[0]["reachable"], true);
+        assert_eq!(cves[0]["evidence"][0]["start_line"], 3);
+        assert_eq!(
+            cves[0]["evidence"][0]["symbol"],
+            "github.com/foo/bar.Vuln"
+        );
     });
 }
 

@@ -157,6 +157,14 @@ fn collect_go_import_specs_from_content(content: &str) -> Vec<GoImportSpec> {
         if trimmed.starts_with("import ") {
             if trimmed.contains("import (") || trimmed.ends_with('(') {
                 in_import_block = true;
+                if let Some((_, after_open)) = trimmed.split_once('(') {
+                    if let Some(spec) = parse_go_import_spec(after_open) {
+                        specs.push(spec);
+                    }
+                    if after_open.contains(')') {
+                        in_import_block = false;
+                    }
+                }
                 continue;
             }
             if let Some(spec) = parse_go_import_spec(line) {
@@ -407,9 +415,7 @@ impl ReachabilityAnalyzer for GoTierBAnalyzer {
         }
         #[cfg(feature = "tier-d")]
         {
-            use crate::tier_d::{
-                selector_match_lines, symbol_import_path, trailing_go_ident,
-            };
+            use crate::tier_d::{selector_match_lines, trailing_go_ident};
             use vlz_reachability_trait::TierCDecision;
             let files = list_go_files(context);
             if files.is_empty() || advisory_symbols.is_empty() {
@@ -428,16 +434,13 @@ impl ReachabilityAnalyzer for GoTierBAnalyzer {
                     let Some(ident) = trailing_go_ident(sym) else {
                         continue;
                     };
-                    let symbol_import = symbol_import_path(sym);
                     let mut locals = Vec::new();
                     let mut unresolved = false;
                     for spec in &specs {
                         if !go_import_path_matches(
                             &context.package.name,
                             &spec.path,
-                        ) && !symbol_import.is_some_and(|p| {
-                            go_import_path_matches(p, &spec.path)
-                        }) {
+                        ) {
                             continue;
                         }
                         match &spec.local {
@@ -601,6 +604,11 @@ mod tests {
             GoImportLocal::Blank
         );
         assert_eq!(go_default_local_name("github.com/foo/bar/v2"), "bar");
+        let grouped = collect_go_import_specs_from_content(
+            "package main\nimport (\"fmt\")\n",
+        );
+        assert_eq!(grouped.len(), 1);
+        assert_eq!(grouped[0].path, "fmt");
     }
 
     #[test]
@@ -853,6 +861,47 @@ mod tests {
         let result = analyzer
             .analyze_tier_d(&ctx, &["github.com/foo/bar.Vuln".to_string()]);
         assert_eq!(result.decision, TierCDecision::Unknown);
+    }
+
+    #[cfg(feature = "tier-d")]
+    #[test]
+    fn analyze_tier_d_unknown_when_symbol_names_other_import() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("main.go"),
+            concat!(
+                "package main\n",
+                "import nethttp \"net/http\"\n",
+                "func main() { nethttp.Get() }\n",
+            ),
+        )
+        .expect("write");
+        let analyzer = GoTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "github.com/foo/bar");
+        let result =
+            analyzer.analyze_tier_d(&ctx, &["net/http.Get".to_string()]);
+        assert_eq!(result.decision, TierCDecision::Unknown);
+        assert!(result.evidence.is_empty());
+    }
+
+    #[cfg(feature = "tier-d")]
+    #[test]
+    fn analyze_tier_d_unknown_for_oversized_source() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let prefix = "package main\nimport alias \"github.com/foo/bar\"\nfunc main() { alias.Vuln() }\n";
+        let mut body = prefix.to_string();
+        body.extend(std::iter::repeat_n(
+            'x',
+            (MAX_TIER_D_SOURCE_FILE_BYTES as usize + 1)
+                .saturating_sub(prefix.len()),
+        ));
+        std::fs::write(dir.path().join("main.go"), body).expect("write");
+        let analyzer = GoTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "github.com/foo/bar");
+        let result = analyzer
+            .analyze_tier_d(&ctx, &["github.com/foo/bar.Vuln".to_string()]);
+        assert_eq!(result.decision, TierCDecision::Unknown);
+        assert!(result.evidence.is_empty());
     }
 
     #[cfg(feature = "tier-d")]

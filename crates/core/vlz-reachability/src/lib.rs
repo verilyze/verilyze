@@ -481,7 +481,9 @@ pub fn apply_tier_c_to_findings(
     }
 }
 
-/// Refine Tier C unknowns using Tier D analyzers when enabled (optional stretch).
+/// Refine findings using Tier D analyzers when enabled (optional stretch).
+/// Skips CVEs already marked reachable. May promote `reachable: false` or
+/// unset to true when first-party evidence exists; never sets false.
 pub fn apply_tier_d_to_findings(
     scan_root: &std::path::Path,
     exclude_dir_names: &HashSet<String>,
@@ -496,7 +498,7 @@ pub fn apply_tier_d_to_findings(
         };
         let ctx = package_contexts.get(pkg);
         for rec in recs.iter_mut() {
-            if rec.reachable.is_some() {
+            if rec.reachable == Some(true) {
                 continue;
             }
             let Some(vuln) = vuln_for_cve_id(raw_vulns, &rec.id) else {
@@ -521,12 +523,11 @@ pub fn apply_tier_d_to_findings(
                 analyzers,
                 &symbols,
             );
-            apply_symbol_metadata(rec, &symbols, &tier_d, scan_root);
-            match tier_d.decision {
-                TierCDecision::Reachable => rec.reachable = Some(true),
-                TierCDecision::NotReachable => rec.reachable = Some(false),
-                TierCDecision::Unknown => {}
+            if tier_d.decision != TierCDecision::Reachable {
+                continue;
             }
+            apply_symbol_metadata(rec, &symbols, &tier_d, scan_root);
+            rec.reachable = Some(true);
         }
     }
 }
@@ -1272,6 +1273,106 @@ mod tests {
                 cvss_version: None,
                 description: String::new(),
                 reachable: None,
+                advisory_symbols: Vec::new(),
+                evidence: Vec::new(),
+                symbol_usage: None,
+                affected_ranges: Vec::new(),
+            }],
+        )];
+        let raw_vulns = HashMap::from([(
+            package.clone(),
+            vec![serde_json::json!({
+                "id": "CVE-D",
+                "affected": [{
+                    "package": { "name": "http", "ecosystem": "PyPI" },
+                    "ecosystem_specific": { "affected_functions": ["deep_fn"] }
+                }]
+            })],
+        )]);
+        apply_tier_d_to_findings(
+            std::path::Path::new("."),
+            &HashSet::new(),
+            &mut findings,
+            &contexts,
+            &analyzers,
+            &raw_vulns,
+        );
+        assert_eq!(findings[0].1[0].reachable, Some(true));
+    }
+
+    #[test]
+    fn apply_tier_d_does_not_set_not_reachable() {
+        let package = pkg("http", Some("PyPI"));
+        let mut contexts = HashMap::new();
+        contexts.insert(
+            package.clone(),
+            PackageContext {
+                languages: HashSet::from(["python".to_string()]),
+                manifest_paths: vec![],
+            },
+        );
+        let analyzers: Vec<Box<dyn ReachabilityAnalyzer>> =
+            vec![Box::new(TierDAnalyzer {
+                reachable_symbols: HashSet::new(),
+            })];
+        let mut findings = vec![(
+            package.clone(),
+            vec![CveRecord {
+                id: "CVE-D".to_string(),
+                cvss_score: None,
+                cvss_version: None,
+                description: String::new(),
+                reachable: None,
+                advisory_symbols: Vec::new(),
+                evidence: Vec::new(),
+                symbol_usage: None,
+                affected_ranges: Vec::new(),
+            }],
+        )];
+        let raw_vulns = HashMap::from([(
+            package.clone(),
+            vec![serde_json::json!({
+                "id": "CVE-D",
+                "affected": [{
+                    "package": { "name": "http", "ecosystem": "PyPI" },
+                    "ecosystem_specific": { "affected_functions": ["deep_fn"] }
+                }]
+            })],
+        )]);
+        apply_tier_d_to_findings(
+            std::path::Path::new("."),
+            &HashSet::new(),
+            &mut findings,
+            &contexts,
+            &analyzers,
+            &raw_vulns,
+        );
+        assert_eq!(findings[0].1[0].reachable, None);
+    }
+
+    #[test]
+    fn apply_tier_d_promotes_not_reachable_when_evidence_exists() {
+        let package = pkg("http", Some("PyPI"));
+        let mut contexts = HashMap::new();
+        contexts.insert(
+            package.clone(),
+            PackageContext {
+                languages: HashSet::from(["python".to_string()]),
+                manifest_paths: vec![],
+            },
+        );
+        let analyzers: Vec<Box<dyn ReachabilityAnalyzer>> =
+            vec![Box::new(TierDAnalyzer {
+                reachable_symbols: HashSet::from(["deep_fn".to_string()]),
+            })];
+        let mut findings = vec![(
+            package.clone(),
+            vec![CveRecord {
+                id: "CVE-D".to_string(),
+                cvss_score: None,
+                cvss_version: None,
+                description: String::new(),
+                reachable: Some(false),
                 advisory_symbols: Vec::new(),
                 evidence: Vec::new(),
                 symbol_usage: None,

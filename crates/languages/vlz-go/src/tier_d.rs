@@ -46,6 +46,7 @@ pub fn trailing_go_ident(symbol: &str) -> Option<&str> {
 }
 
 /// Import path prefix of `path.Ident` symbols, if present.
+#[cfg(test)]
 pub fn symbol_import_path(symbol: &str) -> Option<&str> {
     let (head, ident) = symbol.rsplit_once('.')?;
     if ident.is_empty() || head.is_empty() || ident.contains('/') {

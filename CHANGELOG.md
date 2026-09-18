@@ -23,7 +23,11 @@ Human-readable release notes for each version.
 - Go and Rust Tier D first-party refinement: Go (`go-tier-d`, default)
   uses import-aware selectors (no new parser); Rust (`rust-tier-d`,
   opt-in) uses `syn` AST paths. Evidence sets `reachable: true`;
-  otherwise unknown. Never `reachable: false` from Tier D.
+  otherwise unknown. Never `reachable: false` from Tier D. Rust matches
+  only crate-rooted paths (not last-segment suffixes on other crates).
+  Go selectors use imports of the vulnerable module only. Tier D may
+  promote a prior `reachable: false` to true when consumer evidence
+  exists.
 
 - `vlz fix` remediators for Go, RubyGems, Gradle, and Maven (FR-041,
   MOD-011): Go via `go get` on `go.mod` manifests; RubyGems via

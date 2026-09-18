@@ -14,9 +14,14 @@ use syn::spanned::Spanned;
 use syn::visit::Visit;
 use syn::{ItemUse, Path as SynPath, UseTree};
 
-/// 1-based line numbers where `symbol` appears as a crate-qualified path.
-pub fn symbol_match_lines(content: &str, symbol: &str) -> Vec<u32> {
-    if symbol.is_empty() {
+/// 1-based line numbers where `symbol` appears as a crate-qualified path
+/// rooted at `crate_name` (hyphens normalized to underscores).
+pub fn symbol_match_lines(
+    content: &str,
+    symbol: &str,
+    crate_name: &str,
+) -> Vec<u32> {
+    if symbol.is_empty() || crate_name.is_empty() {
         return Vec::new();
     }
     let Ok(file) = syn::parse_file(content) else {
@@ -27,8 +32,8 @@ pub fn symbol_match_lines(content: &str, symbol: &str) -> Vec<u32> {
     let mut lines = Vec::new();
     for (path, line) in visitor.paths {
         let expanded = expand_alias(&path, &visitor.aliases);
-        if path_matches_symbol(&path, symbol)
-            || path_matches_symbol(&expanded, symbol)
+        if path_matches_symbol(&path, symbol, crate_name)
+            || path_matches_symbol(&expanded, symbol, crate_name)
         {
             lines.push(line);
         }
@@ -42,10 +47,22 @@ fn normalize_path(path: &str) -> String {
     path.trim().trim_start_matches("::").replace('-', "_")
 }
 
-fn path_matches_symbol(path: &str, symbol: &str) -> bool {
+fn path_is_crate_rooted(path: &str, crate_name: &str) -> bool {
+    let path = normalize_path(path);
+    let crate_name = normalize_path(crate_name);
+    if crate_name.is_empty() {
+        return false;
+    }
+    path == crate_name || path.starts_with(&format!("{crate_name}::"))
+}
+
+fn path_matches_symbol(path: &str, symbol: &str, crate_name: &str) -> bool {
     let path = normalize_path(path);
     let symbol = normalize_path(symbol);
     if path.is_empty() || symbol.is_empty() {
+        return false;
+    }
+    if !path_is_crate_rooted(&path, crate_name) {
         return false;
     }
     if path == symbol {
@@ -149,42 +166,86 @@ mod tests {
     #[test]
     fn ast_detects_qualified_call() {
         let src = "fn main() { http::a::vuln_fn(); }\n";
-        assert!(!symbol_match_lines(src, "http::a::vuln_fn").is_empty());
-        assert_eq!(symbol_match_lines(src, "http::a::vuln_fn"), vec![1]);
+        assert!(
+            !symbol_match_lines(src, "http::a::vuln_fn", "http").is_empty()
+        );
+        assert_eq!(
+            symbol_match_lines(src, "http::a::vuln_fn", "http"),
+            vec![1]
+        );
     }
 
     #[test]
     fn ast_ignores_comment_and_string() {
         let src = "// http::a::vuln_fn\nfn main() { let s = \"http::a::vuln_fn\"; }\n";
-        assert!(symbol_match_lines(src, "http::a::vuln_fn").is_empty());
+        assert!(
+            symbol_match_lines(src, "http::a::vuln_fn", "http").is_empty()
+        );
     }
 
     #[test]
     fn ast_resolves_trivial_use_alias() {
         let src = "use http::Vuln as V;\nfn main() { V::run(); }\n";
-        assert!(!symbol_match_lines(src, "http::Vuln::run").is_empty());
+        assert!(
+            !symbol_match_lines(src, "http::Vuln::run", "http").is_empty()
+        );
     }
 
     #[test]
     fn ast_rejects_bare_clone() {
         let src = "fn main() { let x = 1; let _ = x.clone(); }\n";
-        assert!(symbol_match_lines(src, "clone").is_empty());
+        assert!(symbol_match_lines(src, "clone", "http").is_empty());
+    }
+
+    #[test]
+    fn ast_rejects_std_mutex_for_bare_mutex_symbol() {
+        let src = "fn main() { let _ = std::sync::Mutex; }\n";
+        assert!(symbol_match_lines(src, "Mutex", "http").is_empty());
+        assert!(symbol_match_lines(src, "sync::Mutex", "tokio").is_empty());
+    }
+
+    #[test]
+    fn ast_rejects_suffixed_path_from_another_crate() {
+        let src = "fn main() { other::http::a::vuln_fn(); }\n";
+        assert!(
+            symbol_match_lines(src, "http::a::vuln_fn", "http").is_empty()
+        );
+    }
+
+    #[test]
+    fn ast_accepts_crate_rooted_symbol_suffix() {
+        let src = "fn main() { tokio::sync::Mutex; }\n";
+        assert!(!symbol_match_lines(src, "sync::Mutex", "tokio").is_empty());
     }
 
     #[test]
     fn unparseable_is_not_a_match() {
         let src = "fn main() { this is not rust\n";
-        assert!(symbol_match_lines(src, "http::a::vuln_fn").is_empty());
+        assert!(
+            symbol_match_lines(src, "http::a::vuln_fn", "http").is_empty()
+        );
     }
 
     #[test]
     fn empty_symbol_is_not_a_match() {
         assert!(
-            symbol_match_lines("fn main() { http::a::vuln_fn(); }", "")
-                .is_empty()
+            symbol_match_lines(
+                "fn main() { http::a::vuln_fn(); }",
+                "",
+                "http"
+            )
+            .is_empty()
         );
-        assert!(!path_matches_symbol("", "http::a"));
-        assert!(!path_matches_symbol("http::a", ""));
+        assert!(
+            symbol_match_lines(
+                "fn main() { http::a::vuln_fn(); }",
+                "http::a::vuln_fn",
+                ""
+            )
+            .is_empty()
+        );
+        assert!(!path_matches_symbol("", "http::a", "http"));
+        assert!(!path_matches_symbol("http::a", "", "http"));
     }
 
     #[test]
@@ -205,10 +266,13 @@ mod tests {
             "use http::*;\n",
             "fn main() { Vuln::run(); H::go(); Other::x(); }\n",
         );
-        assert!(!symbol_match_lines(src, "http::Vuln::run").is_empty());
         assert!(
-            !symbol_match_lines(src, "http::inner::Helper::go").is_empty()
+            !symbol_match_lines(src, "http::Vuln::run", "http").is_empty()
         );
-        assert!(!symbol_match_lines(src, "http::Other::x").is_empty());
+        assert!(
+            !symbol_match_lines(src, "http::inner::Helper::go", "http")
+                .is_empty()
+        );
+        assert!(!symbol_match_lines(src, "http::Other::x", "http").is_empty());
     }
 }
