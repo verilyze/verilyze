@@ -370,6 +370,57 @@ fn run_scan_best_available_exercises_tier_d_block() {
     });
 }
 
+#[cfg(all(feature = "rust", feature = "rust-tier-d", unix))]
+#[test]
+fn run_scan_best_available_exercises_rust_tier_d_block() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_cargo_lock(dir.path(), "http", "1.0.0");
+        std::fs::create_dir_all(dir.path().join("src")).expect("mkdir");
+        std::fs::write(
+            dir.path().join("src/main.rs"),
+            "fn main() { http::a::vuln_fn(); }\n",
+        )
+        .expect("write main.rs");
+        let root = dir.path().to_str().unwrap();
+        let code = run_async(&[
+            "scan",
+            root,
+            "--offline",
+            "--benchmark",
+            "--reachability-mode",
+            "best-available",
+        ]);
+        assert_eq!(code, 0);
+    });
+}
+
+#[cfg(all(feature = "go", feature = "go-tier-d", unix))]
+#[test]
+fn run_scan_best_available_exercises_go_tier_d_block() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_go_fixture(dir.path(), "github.com/foo/bar", "v1.0.0");
+        std::fs::write(
+            dir.path().join("main.go"),
+            "package main\nimport alias \"github.com/foo/bar\"\nfunc main() { alias.Vuln() }\n",
+        )
+        .expect("write main.go");
+        let root = dir.path().to_str().unwrap();
+        let code = run_async(&[
+            "scan",
+            root,
+            "--offline",
+            "--benchmark",
+            "--reachability-mode",
+            "best-available",
+        ]);
+        assert_eq!(code, 0);
+    });
+}
+
 #[cfg(all(feature = "python", feature = "perf-instrumentation"))]
 #[test]
 fn run_scan_tier_b_with_perf_instrumentation_exits_cleanly() {

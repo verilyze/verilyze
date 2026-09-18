@@ -14,6 +14,10 @@ use vlz_reachability_trait::{
     push_reachability_evidence, qualified_symbol_in_code,
     reachability_evidence_at_cap, tier_c_decision,
 };
+#[cfg(feature = "tier-d")]
+use vlz_reachability_trait::{
+    MAX_TIER_D_SOURCE_FILE_BYTES, read_source_if_within_byte_limit,
+};
 
 #[derive(Debug, Default)]
 pub struct RustTierBAnalyzer;
@@ -406,6 +410,59 @@ impl ReachabilityAnalyzer for RustTierBAnalyzer {
     ) -> TierCResult {
         tier_c_result_for_symbols(context, advisory_symbols)
     }
+
+    fn supports_tier_d(&self) -> bool {
+        cfg!(feature = "tier-d")
+    }
+
+    fn analyze_tier_d(
+        &self,
+        context: &TierBContext<'_>,
+        advisory_symbols: &[String],
+    ) -> TierCResult {
+        #[cfg(not(feature = "tier-d"))]
+        {
+            let _ = (context, advisory_symbols);
+            TierCResult::unknown()
+        }
+        #[cfg(feature = "tier-d")]
+        {
+            use crate::tier_d::symbol_match_lines;
+            use vlz_reachability_trait::TierCDecision;
+            let files = list_rust_files(context);
+            if files.is_empty() || advisory_symbols.is_empty() {
+                return TierCResult::unknown();
+            }
+            let mut evidence = Vec::new();
+            'files: for path in files {
+                let Some(content) = read_source_if_within_byte_limit(
+                    &path,
+                    MAX_TIER_D_SOURCE_FILE_BYTES,
+                ) else {
+                    continue;
+                };
+                for sym in advisory_symbols {
+                    for line in symbol_match_lines(&content, sym) {
+                        push_reachability_evidence(
+                            &mut evidence,
+                            path.clone(),
+                            line,
+                            sym,
+                        );
+                        if reachability_evidence_at_cap(&evidence) {
+                            break 'files;
+                        }
+                    }
+                }
+            }
+            let decision = if !evidence.is_empty() {
+                TierCDecision::Reachable
+            } else {
+                TierCDecision::Unknown
+            };
+            TierCResult { decision, evidence }
+        }
+    }
 }
 
 fn rust_file_cache() -> &'static Mutex<HashMap<String, Vec<PathBuf>>> {
@@ -743,5 +800,92 @@ mod tests {
         let ctx = context_for(dir.path(), "http");
         let result = analyzer.analyze_tier_c(&ctx, &["Vuln::run".to_string()]);
         assert!(result.evidence.is_empty());
+    }
+
+    #[cfg(feature = "tier-d")]
+    fn write_rs(dir: &std::path::Path, body: &str) {
+        std::fs::create_dir_all(dir.join("src")).expect("mkdir");
+        std::fs::write(dir.join("src/main.rs"), body).expect("write");
+    }
+
+    #[cfg(feature = "tier-d")]
+    #[test]
+    fn analyze_tier_d_reachable_for_direct_call() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_rs(dir.path(), "fn main() { http::a::vuln_fn(); }\n");
+        let analyzer = RustTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "http");
+        let result =
+            analyzer.analyze_tier_d(&ctx, &["http::a::vuln_fn".to_string()]);
+        assert!(analyzer.supports_tier_d());
+        assert_eq!(result.decision, TierCDecision::Reachable);
+        assert!(!result.evidence.is_empty());
+    }
+
+    #[cfg(feature = "tier-d")]
+    #[test]
+    fn analyze_tier_d_reachable_for_use_alias() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_rs(
+            dir.path(),
+            "use http::Vuln as V;\nfn main() { V::run(); }\n",
+        );
+        let analyzer = RustTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "http");
+        let result =
+            analyzer.analyze_tier_d(&ctx, &["http::Vuln::run".to_string()]);
+        assert_eq!(result.decision, TierCDecision::Reachable);
+    }
+
+    #[cfg(feature = "tier-d")]
+    #[test]
+    fn analyze_tier_d_unknown_for_comment_or_string() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_rs(
+            dir.path(),
+            "// http::a::vuln_fn\nfn main() { let s = \"http::a::vuln_fn\"; }\n",
+        );
+        let analyzer = RustTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "http");
+        let result =
+            analyzer.analyze_tier_d(&ctx, &["http::a::vuln_fn".to_string()]);
+        assert_eq!(result.decision, TierCDecision::Unknown);
+        assert!(result.evidence.is_empty());
+    }
+
+    #[cfg(feature = "tier-d")]
+    #[test]
+    fn analyze_tier_d_unknown_for_unparseable_file() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_rs(dir.path(), "fn main() { this is not rust\n");
+        let analyzer = RustTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "http");
+        let result =
+            analyzer.analyze_tier_d(&ctx, &["http::a::vuln_fn".to_string()]);
+        assert_eq!(result.decision, TierCDecision::Unknown);
+        assert_ne!(result.decision, TierCDecision::NotReachable);
+    }
+
+    #[cfg(feature = "tier-d")]
+    #[test]
+    fn analyze_tier_d_unknown_for_bare_common_ident() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_rs(dir.path(), "fn main() { let x = 1; let _ = x.clone(); }\n");
+        let analyzer = RustTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "http");
+        let result = analyzer.analyze_tier_d(&ctx, &["clone".to_string()]);
+        assert_eq!(result.decision, TierCDecision::Unknown);
+    }
+
+    #[cfg(feature = "tier-d")]
+    #[test]
+    fn analyze_tier_d_unknown_when_symbol_absent() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_rs(dir.path(), "fn main() { http::ok(); }\n");
+        let analyzer = RustTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "http");
+        let result =
+            analyzer.analyze_tier_d(&ctx, &["http::a::vuln_fn".to_string()]);
+        assert_eq!(result.decision, TierCDecision::Unknown);
     }
 }

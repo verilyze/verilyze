@@ -110,7 +110,7 @@ _run_rust_coverage() {
     _vlz_cov_quiet_log
     # shellcheck disable=SC2046
     cargo test --workspace --exclude vlz-fuzz \
-      --features 'vlz/testing,vlz/perf-instrumentation,vlz/python-tier-d' \
+      --features 'vlz/testing,vlz/perf-instrumentation,vlz/python-tier-d,vlz/rust-tier-d,vlz/go-tier-d' \
       $(vlz_cargo_test_quiet_arg)
     _vlz_cov_phase "coverage-extended minimal features"
     # shellcheck disable=SC2046

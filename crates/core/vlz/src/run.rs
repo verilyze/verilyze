@@ -161,6 +161,88 @@ fn should_apply_tier_c(mode: crate::config::ReachabilityMode) -> bool {
     matches!(mode, crate::config::ReachabilityMode::BestAvailable)
 }
 
+fn apply_reachability_pipeline(
+    mode: crate::config::ReachabilityMode,
+    root_path: &std::path::Path,
+    exclude_dirs: &std::collections::HashSet<String>,
+    findings: &mut [(vlz_db::Package, Vec<vlz_db::CveRecord>)],
+    pkg_contexts: &std::collections::HashMap<
+        vlz_db::Package,
+        vlz_reachability::PackageContext,
+    >,
+    raw_vulns_by_package: &std::collections::HashMap<
+        vlz_db::Package,
+        Vec<serde_json::Value>,
+    >,
+) {
+    if should_apply_tier_b(mode) {
+        #[cfg(feature = "perf-instrumentation")]
+        vlz_reachability::reset_tier_b_counters();
+        #[cfg(feature = "perf-instrumentation")]
+        let tier_b_started_at = Instant::now();
+        {
+            let reachability_analyzers =
+                crate::registry::reachability_analyzers()
+                    .lock()
+                    .expect("REACHABILITY_ANALYZERS lock poisoned");
+            vlz_reachability::apply_tier_b_to_findings(
+                root_path,
+                exclude_dirs,
+                findings,
+                pkg_contexts,
+                &reachability_analyzers,
+            );
+        }
+        #[cfg(feature = "perf-instrumentation")]
+        {
+            let (enum_calls, files_enumerated, read_attempts, read_successes) =
+                vlz_reachability::snapshot_tier_b_counters();
+            if let Some(line) = tier_b_metrics_line(
+                tier_b_started_at.elapsed().as_millis(),
+                enum_calls,
+                files_enumerated,
+                read_attempts,
+                read_successes,
+            ) {
+                info!("{}", line);
+            }
+        }
+    }
+
+    if should_apply_tier_c(mode) {
+        let reachability_analyzers = crate::registry::reachability_analyzers()
+            .lock()
+            .expect("REACHABILITY_ANALYZERS lock poisoned");
+        vlz_reachability::apply_tier_c_to_findings(
+            root_path,
+            exclude_dirs,
+            findings,
+            pkg_contexts,
+            &reachability_analyzers,
+            raw_vulns_by_package,
+        );
+    }
+
+    #[cfg(any(
+        feature = "python-tier-d",
+        feature = "rust-tier-d",
+        feature = "go-tier-d"
+    ))]
+    if should_apply_tier_c(mode) {
+        let reachability_analyzers = crate::registry::reachability_analyzers()
+            .lock()
+            .expect("REACHABILITY_ANALYZERS lock poisoned");
+        vlz_reachability::apply_tier_d_to_findings(
+            root_path,
+            exclude_dirs,
+            findings,
+            pkg_contexts,
+            &reachability_analyzers,
+            raw_vulns_by_package,
+        );
+    }
+}
+
 async fn select_provider_impl(
     provider: Option<String>,
     effective: &crate::config::EffectiveConfig,
@@ -1943,69 +2025,14 @@ async fn run_scan(
             })
             .collect();
 
-    if should_apply_tier_b(effective.reachability_mode) {
-        // FR-032 Tier B: import-based reachability hints (conservative unknown when ambiguous).
-        #[cfg(feature = "perf-instrumentation")]
-        vlz_reachability::reset_tier_b_counters();
-        #[cfg(feature = "perf-instrumentation")]
-        let tier_b_started_at = Instant::now();
-        {
-            let reachability_analyzers =
-                crate::registry::reachability_analyzers()
-                    .lock()
-                    .expect("REACHABILITY_ANALYZERS lock poisoned");
-            vlz_reachability::apply_tier_b_to_findings(
-                &root_path,
-                &exclude_dirs,
-                &mut findings,
-                &pkg_contexts,
-                &reachability_analyzers,
-            );
-        }
-        #[cfg(feature = "perf-instrumentation")]
-        {
-            let (enum_calls, files_enumerated, read_attempts, read_successes) =
-                vlz_reachability::snapshot_tier_b_counters();
-            if let Some(line) = tier_b_metrics_line(
-                tier_b_started_at.elapsed().as_millis(),
-                enum_calls,
-                files_enumerated,
-                read_attempts,
-                read_successes,
-            ) {
-                info!("{}", line);
-            }
-        }
-    }
-
-    if should_apply_tier_c(effective.reachability_mode) {
-        let reachability_analyzers = crate::registry::reachability_analyzers()
-            .lock()
-            .expect("REACHABILITY_ANALYZERS lock poisoned");
-        vlz_reachability::apply_tier_c_to_findings(
-            &root_path,
-            &exclude_dirs,
-            &mut findings,
-            &pkg_contexts,
-            &reachability_analyzers,
-            &raw_vulns_by_package,
-        );
-    }
-
-    #[cfg(feature = "python-tier-d")]
-    if should_apply_tier_c(effective.reachability_mode) {
-        let reachability_analyzers = crate::registry::reachability_analyzers()
-            .lock()
-            .expect("REACHABILITY_ANALYZERS lock poisoned");
-        vlz_reachability::apply_tier_d_to_findings(
-            &root_path,
-            &exclude_dirs,
-            &mut findings,
-            &pkg_contexts,
-            &reachability_analyzers,
-            &raw_vulns_by_package,
-        );
-    }
+    apply_reachability_pipeline(
+        effective.reachability_mode,
+        &root_path,
+        &exclude_dirs,
+        &mut findings,
+        &pkg_contexts,
+        &raw_vulns_by_package,
+    );
 
     let real_cve_count: usize = findings.iter().map(|(_, r)| r.len()).sum();
 
@@ -2419,68 +2446,14 @@ async fn scan_findings_for_fix(
     // -----------------------------------------------------------------
     // Tier analysis (FR-032 / FR-033).
     // -----------------------------------------------------------------
-    if should_apply_tier_b(effective.reachability_mode) {
-        #[cfg(feature = "perf-instrumentation")]
-        vlz_reachability::reset_tier_b_counters();
-        #[cfg(feature = "perf-instrumentation")]
-        let tier_b_started_at = Instant::now();
-        {
-            let reachability_analyzers =
-                crate::registry::reachability_analyzers()
-                    .lock()
-                    .expect("REACHABILITY_ANALYZERS lock poisoned");
-            vlz_reachability::apply_tier_b_to_findings(
-                &root_path,
-                &exclude_dirs,
-                &mut findings,
-                &pkg_contexts,
-                &reachability_analyzers,
-            );
-        }
-        #[cfg(feature = "perf-instrumentation")]
-        {
-            let (enum_calls, files_enumerated, read_attempts, read_successes) =
-                vlz_reachability::snapshot_tier_b_counters();
-            if let Some(line) = tier_b_metrics_line(
-                tier_b_started_at.elapsed().as_millis(),
-                enum_calls,
-                files_enumerated,
-                read_attempts,
-                read_successes,
-            ) {
-                info!("{}", line);
-            }
-        }
-    }
-
-    if should_apply_tier_c(effective.reachability_mode) {
-        let reachability_analyzers = crate::registry::reachability_analyzers()
-            .lock()
-            .expect("REACHABILITY_ANALYZERS lock poisoned");
-        vlz_reachability::apply_tier_c_to_findings(
-            &root_path,
-            &exclude_dirs,
-            &mut findings,
-            &pkg_contexts,
-            &reachability_analyzers,
-            &raw_vulns_by_package,
-        );
-    }
-
-    #[cfg(feature = "python-tier-d")]
-    if should_apply_tier_c(effective.reachability_mode) {
-        let reachability_analyzers = crate::registry::reachability_analyzers()
-            .lock()
-            .expect("REACHABILITY_ANALYZERS lock poisoned");
-        vlz_reachability::apply_tier_d_to_findings(
-            &root_path,
-            &exclude_dirs,
-            &mut findings,
-            &pkg_contexts,
-            &reachability_analyzers,
-            &raw_vulns_by_package,
-        );
-    }
+    apply_reachability_pipeline(
+        effective.reachability_mode,
+        &root_path,
+        &exclude_dirs,
+        &mut findings,
+        &pkg_contexts,
+        &raw_vulns_by_package,
+    );
 
     let real_cve_count: usize = findings.iter().map(|(_, r)| r.len()).sum();
 

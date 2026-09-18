@@ -9,6 +9,8 @@ mod finder;
 mod parser;
 mod reachability;
 mod resolver;
+#[cfg(feature = "tier-d")]
+mod tier_d;
 
 pub use cargo_metadata::{parse_cargo_metadata_packages, run_cargo_metadata};
 pub use finder::{
