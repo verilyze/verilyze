@@ -435,7 +435,6 @@ impl ReachabilityAnalyzer for GoTierBAnalyzer {
                         continue;
                     };
                     let mut locals = Vec::new();
-                    let mut unresolved = false;
                     for spec in &specs {
                         if !go_import_path_matches(
                             &context.package.name,
@@ -444,16 +443,14 @@ impl ReachabilityAnalyzer for GoTierBAnalyzer {
                             continue;
                         }
                         match &spec.local {
-                            GoImportLocal::Dot | GoImportLocal::Blank => {
-                                unresolved = true;
-                            }
+                            GoImportLocal::Dot | GoImportLocal::Blank => {}
                             GoImportLocal::Name(name) if !name.is_empty() => {
                                 locals.push(name.clone());
                             }
                             GoImportLocal::Name(_) => {}
                         }
                     }
-                    if unresolved {
+                    if locals.is_empty() {
                         continue;
                     }
                     for line in selector_match_lines(&content, &locals, ident)
@@ -861,6 +858,54 @@ mod tests {
         let result = analyzer
             .analyze_tier_d(&ctx, &["github.com/foo/bar.Vuln".to_string()]);
         assert_eq!(result.decision, TierCDecision::Unknown);
+    }
+
+    #[cfg(feature = "tier-d")]
+    #[test]
+    fn analyze_tier_d_reachable_when_named_import_alongside_blank() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("main.go"),
+            concat!(
+                "package main\n",
+                "import (\n",
+                "  _ \"github.com/foo/bar\"\n",
+                "  alias \"github.com/foo/bar\"\n",
+                ")\n",
+                "func main() { alias.Vuln() }\n",
+            ),
+        )
+        .expect("write");
+        let analyzer = GoTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "github.com/foo/bar");
+        let result = analyzer
+            .analyze_tier_d(&ctx, &["github.com/foo/bar.Vuln".to_string()]);
+        assert_eq!(result.decision, TierCDecision::Reachable);
+        assert!(!result.evidence.is_empty());
+    }
+
+    #[cfg(feature = "tier-d")]
+    #[test]
+    fn analyze_tier_d_reachable_when_named_import_alongside_dot() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("main.go"),
+            concat!(
+                "package main\n",
+                "import (\n",
+                "  . \"github.com/foo/bar\"\n",
+                "  alias \"github.com/foo/bar\"\n",
+                ")\n",
+                "func main() { alias.Vuln() }\n",
+            ),
+        )
+        .expect("write");
+        let analyzer = GoTierBAnalyzer::new();
+        let ctx = context_for(dir.path(), "github.com/foo/bar");
+        let result = analyzer
+            .analyze_tier_d(&ctx, &["github.com/foo/bar.Vuln".to_string()]);
+        assert_eq!(result.decision, TierCDecision::Reachable);
+        assert!(!result.evidence.is_empty());
     }
 
     #[cfg(feature = "tier-d")]
