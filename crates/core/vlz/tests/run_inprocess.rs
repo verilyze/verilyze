@@ -508,18 +508,24 @@ fn run_scan_best_available_exercises_go_tier_d_block() {
         #[cfg(feature = "redb")]
         reregister_db_backend();
 
-        let code = run_async(&[
-            "scan",
-            root,
-            "--format",
-            "json",
-            "--summary-file",
-            &format!("json:{}", out_path.display()),
-            "--provider",
-            "tier_c_reachability",
-            "--reachability-mode",
-            "best-available",
-        ]);
+        // Hermetic: skip `go list` so go.sum pins resolve (FR-022). CI
+        // images have `go` on PATH; a failed list does not use the sum.
+        let empty_dir = tempfile::tempdir().expect("tempdir");
+        let path_without_go = empty_dir.path().to_string_lossy().into_owned();
+        let code = temp_env::with_var("PATH", Some(&path_without_go), || {
+            run_async(&[
+                "scan",
+                root,
+                "--format",
+                "json",
+                "--summary-file",
+                &format!("json:{}", out_path.display()),
+                "--provider",
+                "tier_c_reachability",
+                "--reachability-mode",
+                "best-available",
+            ])
+        });
         assert_eq!(code, 86, "one CVE should trigger default CVE exit");
 
         let parsed: serde_json::Value =
