@@ -8,6 +8,8 @@ mod finder;
 mod parser;
 mod reachability;
 mod resolver;
+#[cfg(feature = "tier-d")]
+mod tier_d;
 
 pub use finder::{GO_MANIFEST_NAME, GO_SUM_NAME, GoManifestFinder};
 pub use parser::{GO_ECOSYSTEM, GoModParser, parse_go_mod, parse_go_sum};

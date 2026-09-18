@@ -39,7 +39,7 @@ flowchart TD
 | parallel_queries | integer | 10 | `VLZ_PARALLEL_QUERIES` | `--parallel` |
 | parallel_resolutions | integer | 4 | `VLZ_PARALLEL_RESOLUTIONS` | `--parallel-resolutions` |
 | scan_exclude_dirs | string | .git,.venv,venv,node_modules,target,__pycache__,.tox,.eggs,dist,build,site-packages,vendor,.bundle | `VLZ_SCAN_EXCLUDE_DIRS` | `--scan-exclude-dir (repeatable)` |
-| reachability_mode | string | tier-b | `VLZ_REACHABILITY_MODE` | `--reachability-mode` |
+| reachability_mode | string | best-available | `VLZ_REACHABILITY_MODE` | `--reachability-mode` |
 | cache_ttl_secs | integer | 432000 | `VLZ_CACHE_TTL_SECS` | `--cache-ttl-secs` |
 | min_score | float | 0 | `VLZ_MIN_SCORE` | `--min-score` |
 | min_count | integer | 0 | `VLZ_MIN_COUNT` | `--min-count` |
@@ -101,10 +101,9 @@ ecosystem `npm`).
 ## Reachability (FR-032)
 
 `reachability_mode` accepts `off`, `tier-b`, or `best-available`. The default
-is `tier-b` (package-level). The `best-available` value enables Tier C
-(advisory symbol/path metadata) where the language analyzer supports it;
-recommend it for CI when you want per-CVE symbol signals. `reachable: false`
-is heuristic -- findings remain listed.
+is `best-available` (Tier B plus Tier C advisory symbol matching where the
+language analyzer supports it). Use `tier-b` for cheaper package-level
+scans. `reachable: false` is heuristic -- findings remain listed.
 
 Environment-only: set `VLZ_REACHABILITY_PERSIST_CACHE=1` (or `true`/`yes`) to
 persist Tier B and per-CVE Tier C decisions under `.vlz/reachability-cache.json`

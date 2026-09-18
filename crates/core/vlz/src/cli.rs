@@ -262,7 +262,8 @@ pub enum Commands {
         )]
         tls_crl_bundle: Option<String>,
 
-        /// Reachability analysis mode.
+        /// Reachability analysis mode (`off`, `tier-b`, or `best-available`;
+        /// default `best-available`).
         #[arg(
             long,
             value_name = "MODE",

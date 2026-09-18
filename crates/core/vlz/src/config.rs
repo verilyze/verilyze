@@ -54,7 +54,7 @@ pub enum ReachabilityMode {
 }
 
 pub const DEFAULT_REACHABILITY_MODE: ReachabilityMode =
-    ReachabilityMode::TierB;
+    ReachabilityMode::BestAvailable;
 
 /// Per-CVSS-version severity threshold overrides (FR-013).
 /// All fields are optional; when `None`, the corresponding default for that version is kept.
@@ -3286,9 +3286,9 @@ reachability_not_affected = true
     }
 
     #[test]
-    fn reachability_mode_default_is_tier_b() {
+    fn reachability_mode_default_is_best_available() {
         let cfg = load_with_reachability(None, None, None, None);
-        assert_eq!(cfg.reachability_mode, ReachabilityMode::TierB);
+        assert_eq!(cfg.reachability_mode, ReachabilityMode::BestAvailable);
     }
 
     #[test]

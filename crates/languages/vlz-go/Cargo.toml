@@ -27,6 +27,7 @@ vlz-reachability-trait.workspace = true
 tokio = { workspace = true, features = ["fs", "rt"] }
 
 [features]
+tier-d = []
 perf-instrumentation = ["vlz-reachability-trait/perf-instrumentation"]
 
 [dev-dependencies]

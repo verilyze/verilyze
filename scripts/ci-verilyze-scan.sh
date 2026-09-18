@@ -8,7 +8,7 @@
 #
 # Requires: VLZ_BIN, REPORT_JSON, REPORT_SARIF env vars.
 # Optional: GITHUB_WORKSPACE (defaults to repository root).
-# Optional: VLZ_REACHABILITY_MODE (default tier-b).
+# Optional: VLZ_REACHABILITY_MODE (when unset, the vlz binary default applies).
 #
 # Callers must set VLZ_BIN to a verified release binary (nightly) or a freshly
 # built PR binary (supply-chain.yml after make release).
@@ -33,7 +33,6 @@ if [[ ! -x "${VLZ_BIN}" ]]; then
 fi
 
 SCAN_ROOT="${GITHUB_WORKSPACE:-$ROOT}"
-: "${VLZ_REACHABILITY_MODE:=tier-b}"
 
 scan_args=(
   scan "${SCAN_ROOT}"
@@ -41,14 +40,18 @@ scan_args=(
   --provider osv
   --format json
   --output "${REPORT_JSON}"
-  --reachability-mode "${VLZ_REACHABILITY_MODE}"
   --report "sarif:${REPORT_SARIF}"
 )
+if [[ -n "${VLZ_REACHABILITY_MODE:-}" ]]; then
+  scan_args+=(--reachability-mode "${VLZ_REACHABILITY_MODE}")
+  echo "::notice::verilyze scan reachability_mode=${VLZ_REACHABILITY_MODE}"
+else
+  echo "::notice::verilyze scan reachability_mode=<binary-default>"
+fi
 for dir in "${WORKSPACE_SCAN_EXCLUDE_DIRS[@]}"; do
   scan_args+=(--scan-exclude-dir "${dir}")
 done
 
-echo "::notice::verilyze scan reachability_mode=${VLZ_REACHABILITY_MODE}"
 start_epoch="$(date +%s)"
 set +e
 "${VLZ_BIN}" "${scan_args[@]}"

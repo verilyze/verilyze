@@ -138,7 +138,7 @@ jobs:
         env:
           REPORT_JSON: ${{ runner.temp }}/vlz-report.json
           REPORT_SARIF: ${{ runner.temp }}/vlz.sarif
-          VLZ_REACHABILITY_MODE: tier-b
+          VLZ_REACHABILITY_MODE: best-available
         run: |
           set -uo pipefail
           ./target/release/vlz scan . \

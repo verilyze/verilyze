@@ -57,6 +57,22 @@ pub type TierCDecision = TierBDecision;
 /// Maximum first-party evidence locations emitted per CVE (FR-032 symbol avoidance).
 pub const MAX_REACHABILITY_EVIDENCE_PER_CVE: usize = 10;
 
+/// Skip Tier D AST/selector parse when a first-party file exceeds this size.
+pub const MAX_TIER_D_SOURCE_FILE_BYTES: u64 = 1_048_576;
+
+/// Read UTF-8 source when the file exists and is within `max_bytes`.
+/// Oversized or unreadable files return `None` (Tier D treats that as skip).
+pub fn read_source_if_within_byte_limit(
+    path: &Path,
+    max_bytes: u64,
+) -> Option<String> {
+    let meta = std::fs::metadata(path).ok()?;
+    if meta.len() > max_bytes {
+        return None;
+    }
+    std::fs::read_to_string(path).ok()
+}
+
 /// JSON label when advisory symbols appear in first-party source.
 pub const SYMBOL_USAGE_USED: &str = "used";
 /// JSON label when advisory symbols are absent from first-party source (confident).
@@ -589,5 +605,24 @@ mod tests {
         handle.join().expect("join");
         assert_eq!(read_attempts, 1);
         assert_eq!(read_successes, 1);
+    }
+
+    #[test]
+    fn read_source_if_within_byte_limit_skips_oversized_and_missing() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let small = dir.path().join("ok.rs");
+        std::fs::write(&small, "fn main() {}").expect("write");
+        assert_eq!(
+            read_source_if_within_byte_limit(&small, 1024).as_deref(),
+            Some("fn main() {}")
+        );
+        assert!(read_source_if_within_byte_limit(&small, 4).is_none());
+        assert!(
+            read_source_if_within_byte_limit(
+                &dir.path().join("missing.rs"),
+                1024
+            )
+            .is_none()
+        );
     }
 }

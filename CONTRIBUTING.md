@@ -664,7 +664,8 @@ Use the same tier names in code comments, docs, and tests:
   Emit `true` only for unambiguous positive evidence, `false` only for
   confident absence, otherwise unknown.
 - **Tier C** -- Tier B plus advisory symbol/path metadata for CVE-specific matching.
-- **Tier D** -- Tier C plus deeper dependency source and flow analysis.
+- **Tier D** -- Tier C plus deeper first-party source inspection (AST or
+  import-aware selectors). Not a dependency call graph.
 
 Tier B must not imply Tier C or Tier D precision. When in doubt, prefer
 unknown over false.
@@ -672,14 +673,15 @@ unknown over false.
 Runtime selection currently supports `off`, `tier-b`, and
 `best-available` via config `reachability_mode`, env
 `VLZ_REACHABILITY_MODE`, or CLI `--reachability-mode`.
-Default remains `tier-b`. `best-available` applies Tier C (advisory
-symbol/path metadata) where the language analyzer supports it, and Tier B
-otherwise. Prefer `best-available` in CI for per-CVE symbol signals;
-`reachable: false` is heuristic and does not suppress findings. GitHub, NVD,
-and Sonatype stay package-level when they lack OSV-shaped symbol metadata.
-Python Tier D (AST name-node refinement) is available only when the
-`python-tier-d` feature is enabled at build time; it refines unknown Tier C
-results and never downgrades Tier C reachable decisions.
+Default is `best-available`: Tier B plus Tier C (advisory symbol/path
+metadata) where the language analyzer supports it. Use `tier-b` for
+package-level-only scans. `reachable: false` is heuristic and does not
+suppress findings. GitHub, NVD, and Sonatype stay package-level when they
+lack OSV-shaped symbol metadata.
+Python and Go Tier D are on in the default `vlz` feature set (`python-tier-d`,
+`go-tier-d`). Rust Tier D (`rust-tier-d`) is opt-in because it links `syn`.
+Tier D never emits `reachable: false` and never downgrades a Tier C reachable
+decision.
 
 Set `VLZ_REACHABILITY_PERSIST_CACHE=1` (or `true`/`yes`) to persist Tier B and
 per-CVE Tier C **decisions** under `.vlz/reachability-cache.json` in the scan root.
@@ -1513,8 +1515,9 @@ PR create, issue intake) use `GH_TOKEN` when set.
   [`.commitlintrc.json`](.commitlintrc.json).
 - **Verilyze self-scan (SEC-015):** PR/push path-filtered scans run in the
   **verilyze** job in [`.github/workflows/supply-chain.yml`](.github/workflows/supply-chain.yml)
-  (build `vlz` from source, set `VLZ_BIN` to `target/release/vlz`; default
-  `VLZ_REACHABILITY_MODE=tier-b` via [`scripts/ci-verilyze-scan.sh`](scripts/ci-verilyze-scan.sh)).
+  (build `vlz` from source, set `VLZ_BIN` to `target/release/vlz`;
+  [`scripts/ci-verilyze-scan.sh`](scripts/ci-verilyze-scan.sh) uses the binary
+  default unless `VLZ_REACHABILITY_MODE` is set).
   Same-repo `pull_request` events may upload SARIF to Code Scanning (`category:
   verilyze-sca`); fork PRs and `push` to `main` stay artifact-only. The nightly
   schedule and README badge use

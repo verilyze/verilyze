@@ -75,6 +75,7 @@ def _run_scan(
     report_sarif = tmp_path / "report.sarif"
     gh_output = tmp_path / "github-output"
     merged = os.environ.copy()
+    merged.pop("VLZ_REACHABILITY_MODE", None)
     merged.update(
         {
             "VLZ_BIN": str(fake_vlz),
@@ -118,10 +119,10 @@ class TestCiVerilyzeScan:
         assert proc.returncode != 0
         assert "VLZ_BIN is required" in proc.stderr
 
-    def test_default_reachability_mode_is_tier_b(self, tmp_path: Path) -> None:
+    def test_default_omits_reachability_mode_flag(self, tmp_path: Path) -> None:
         proc = _run_scan(tmp_path)
         assert proc.returncode == 0
-        assert "reachability_mode=tier-b" in proc.arg_log
+        assert "reachability_mode=" not in proc.arg_log
 
     def test_reachability_mode_env_override(self, tmp_path: Path) -> None:
         proc = _run_scan(
