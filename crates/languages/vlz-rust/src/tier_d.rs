@@ -176,4 +176,39 @@ mod tests {
         let src = "fn main() { this is not rust\n";
         assert!(symbol_match_lines(src, "http::a::vuln_fn").is_empty());
     }
+
+    #[test]
+    fn empty_symbol_is_not_a_match() {
+        assert!(
+            symbol_match_lines("fn main() { http::a::vuln_fn(); }", "")
+                .is_empty()
+        );
+        assert!(!path_matches_symbol("", "http::a"));
+        assert!(!path_matches_symbol("http::a", ""));
+    }
+
+    #[test]
+    fn expand_alias_bare_and_empty_rest() {
+        let mut aliases = HashMap::new();
+        aliases.insert("V".to_string(), "http::Vuln".to_string());
+        assert_eq!(expand_alias("V", &aliases), "http::Vuln");
+        assert_eq!(expand_alias("V::", &aliases), "http::Vuln");
+        assert_eq!(expand_alias("other::x", &aliases), "other::x");
+        assert_eq!(expand_alias("plain", &HashMap::new()), "plain");
+    }
+
+    #[test]
+    fn ast_use_name_group_glob_and_nested_path() {
+        let src = concat!(
+            "use http::Vuln;\n",
+            "use http::{inner::Helper as H, Other};\n",
+            "use http::*;\n",
+            "fn main() { Vuln::run(); H::go(); Other::x(); }\n",
+        );
+        assert!(!symbol_match_lines(src, "http::Vuln::run").is_empty());
+        assert!(
+            !symbol_match_lines(src, "http::inner::Helper::go").is_empty()
+        );
+        assert!(!symbol_match_lines(src, "http::Other::x").is_empty());
+    }
 }

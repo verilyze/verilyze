@@ -209,4 +209,42 @@ mod tests {
             Some("github.com/foo/bar")
         );
     }
+
+    #[test]
+    fn selector_match_skips_empty_locals_or_ident() {
+        let src = "func main() { bar.Vuln() }\n";
+        assert!(selector_match_lines(src, &[], "Vuln").is_empty());
+        assert!(
+            selector_match_lines(src, &["bar".to_string()], "").is_empty()
+        );
+        assert!(
+            selector_match_lines(src, &[String::new()], "Vuln").is_empty()
+        );
+    }
+
+    #[test]
+    fn trailing_ident_and_import_path_reject_invalid() {
+        assert_eq!(trailing_go_ident(""), None);
+        assert_eq!(trailing_go_ident("."), None);
+        assert_eq!(trailing_go_ident("9Bad"), None);
+        assert_eq!(trailing_go_ident("pkg.bad-name"), None);
+        assert_eq!(symbol_import_path("nosplit"), None);
+        assert_eq!(symbol_import_path("head."), None);
+        assert_eq!(symbol_import_path(".Ident"), None);
+        assert_eq!(symbol_import_path("head.in/ident"), None);
+    }
+
+    #[test]
+    fn selector_match_ignores_block_comment_raw_and_escape() {
+        let src = concat!(
+            "func main() {\n",
+            "  /* bar.Vuln */\n",
+            "  s := `bar.Vuln`\n",
+            "  t := \"bar.\\\"Vuln\"\n",
+            "}\n",
+        );
+        assert!(
+            selector_match_lines(src, &["bar".to_string()], "Vuln").is_empty()
+        );
+    }
 }
