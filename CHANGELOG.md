@@ -10,7 +10,20 @@ Human-readable release notes for each version.
 
 ## [Unreleased]
 
+### Changed
+
+- Default `reachability_mode` is `best-available` (Tier B plus Tier C
+  symbol matching). Use `tier-b` for cheaper package-level-only scans.
+  Findings stay listed; reachability does not change exit codes. Default
+  JSON may include `advisory_symbols` / `evidence` when the provider
+  supplies symbol metadata (schema unchanged).
+
 ### Added
+
+- Go and Rust Tier D first-party refinement: Go (`go-tier-d`, default)
+  uses import-aware selectors (no new parser); Rust (`rust-tier-d`,
+  opt-in) uses `syn` AST paths. Evidence sets `reachable: true`;
+  otherwise unknown. Never `reachable: false` from Tier D.
 
 - `vlz fix` remediators for Go, RubyGems, Gradle, and Maven (FR-041,
   MOD-011): Go via `go get` on `go.mod` manifests; RubyGems via

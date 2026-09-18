@@ -53,12 +53,12 @@ default = ".git,.venv,venv,node_modules,target,__pycache__,.tox,.eggs,dist,build
 [reachability_mode]
 description = """
 Reachability mode for scan output: off, tier-b, or best-available
-(default: tier-b)
+(default: best-available)
 """
 type = "string"
 env = "VLZ_REACHABILITY_MODE"
 cli = "--reachability-mode"
-default = "tier-b"
+default = "best-available"
 
 [vex_product_id]
 description = "Product identifier for OpenVEX statements (defaults to project_id)"

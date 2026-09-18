@@ -251,15 +251,15 @@ world-writable bits. Do not use `0666` for DB files. Prefer XDG paths
 
 ### No `evidence` or `advisory_symbols` in my JSON report
 
-**Cause:** Symbol-level evidence requires `--reachability-mode best-available`
-(or config/env equivalent). The default `tier-b` mode reports package-level
-reachability only.
+**Cause:** Symbol-level evidence requires `best-available` (the default)
+or an explicit `--reachability-mode best-available`. Mode `tier-b` reports
+package-level reachability only.
 
-**Remediation:** Run `vlz scan --reachability-mode best-available` (recommended
-for CI when you want symbol-level signals; default remains `tier-b`). Evidence
-appears only when the CVE provider lists advisory symbols (mostly OSV-shaped
-data) and your first-party source references them. Findings stay listed even
-when `reachable` is `false`.
+**Remediation:** Omit `--reachability-mode` or set it to `best-available`.
+Use `--reachability-mode tier-b` only for cheaper package-level scans.
+Evidence appears only when the CVE provider lists advisory symbols (mostly
+OSV-shaped data) and your first-party source references them. Findings stay
+listed even when `reachable` is `false`.
 
 ### What does `symbol_usage: not_found` mean?
 

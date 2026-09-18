@@ -67,7 +67,7 @@ complete -c vlz -n "__fish_vlz_using_subcommand scan" -l max-retries -d 'Maximum
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l provider-http-connect-timeout-secs -d 'CVE provider HTTPS connect timeout in seconds (default 15)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l provider-http-request-timeout-secs -d 'CVE provider HTTPS total request timeout in seconds (default 120)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l tls-crl-bundle -d 'PEM file of CRLs for optional Linux TLS certificate revocation (SEC-024)' -r -F
-complete -c vlz -n "__fish_vlz_using_subcommand scan" -l reachability-mode -d 'Reachability analysis mode' -r -f -a "off\t''
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l reachability-mode -d 'Reachability analysis mode (`off`, `tier-b`, or `best-available`; default `best-available`)' -r -f -a "off\t''
 tier-b\t''
 best-available\t''"
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l severity-v2-critical-min -d 'CVSS v2 critical severity minimum score (default 9.0)' -r
