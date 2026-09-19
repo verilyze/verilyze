@@ -39,6 +39,12 @@ Human-readable release notes for each version.
   version bump (works offline). Report schema `apply_strategy` gains `go`,
   `ruby_gems`, `gradle`, and `maven`.
 
+- CISA KEV and FIRST EPSS ranking on findings (FR-048): attach `in_kev`,
+  `epss`, and `epss_percentile` as report signal (JSON/SARIF/CycloneDX
+  properties). Default exit codes are unchanged; opt in with
+  `[exploitability] exit_on_kev` / `min_epss`. Ranking is not OpenVEX
+  `exploited` (that mapping is not shipped).
+
 ## [0.12.0] - 2026-09-15
 
 ### Added

@@ -17,6 +17,9 @@ NEW_RUST_MIN_REGION_RATE = 95
 
 _DEFAULT_COBERTURA = Path("reports/cobertura-rust.xml")
 
+# llvm-cov workspace reports exclude AFL (vlz-fuzz) and cargo-fuzz trees.
+_COVERAGE_EXEMPT_PREFIXES = ("tests/fuzz/", "fuzz/")
+
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse CLI arguments for the new-Rust-file coverage checker."""
@@ -85,6 +88,12 @@ def normalize_rust_path(filename: str, target: str) -> str | None:
     if norm_name == norm_target or norm_name.endswith("/" + norm_target):
         return norm_target
     return None
+
+
+def is_coverage_exempt_rust_path(path: str) -> bool:
+    """True when llvm-cov does not measure this added .rs file."""
+    norm = path.replace("\\", "/").lstrip("./")
+    return any(norm.startswith(prefix) for prefix in _COVERAGE_EXEMPT_PREFIXES)
 
 
 def _method_function_rate(cls: ET.Element) -> float | None:
@@ -185,7 +194,11 @@ def discover_added_rust_files(git_base: str) -> list[str]:
     if proc.returncode != 0:
         msg = proc.stderr.strip() or proc.stdout.strip() or "git diff failed"
         raise RuntimeError(msg)
-    return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+    return [
+        line.strip()
+        for line in proc.stdout.splitlines()
+        if line.strip() and not is_coverage_exempt_rust_path(line.strip())
+    ]
 
 
 def _lookup_file_rates(
@@ -230,7 +243,11 @@ def check_new_rust_coverage(
     min_region_rate: float = NEW_RUST_MIN_REGION_RATE,
 ) -> list[str]:
     """Return error messages for new files below thresholds."""
-    normalized = [p.replace("\\", "/").lstrip("./") for p in files if p]
+    normalized = [
+        p.replace("\\", "/").lstrip("./")
+        for p in files
+        if p and not is_coverage_exempt_rust_path(p)
+    ]
     if not normalized:
         return []
 
