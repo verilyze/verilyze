@@ -1420,6 +1420,30 @@ pub fn apply_env_vex_overrides(vex: &mut vlz_report::VexConfig) {
     }
 }
 
+fn parse_exploitability_min_epss_env_value(
+    trimmed: &str,
+) -> Result<Option<f32>, ConfigError> {
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    let n = trimmed.parse::<f64>().map_err(|_| {
+        ConfigError::InvalidExploitability {
+            message: format!(
+                "VLZ_EXPLOITABILITY_MIN_EPSS is not a number: {trimmed}"
+            ),
+        }
+    })?;
+    let f = n as f32;
+    if !vlz_exploitability::min_epss_in_range(f) {
+        return Err(ConfigError::InvalidExploitability {
+            message: format!(
+                "VLZ_EXPLOITABILITY_MIN_EPSS must be 0.0-1.0; got {f}"
+            ),
+        });
+    }
+    Ok(Some(f))
+}
+
 /// Apply `VLZ_EXPLOITABILITY_*` environment overrides (FR-048, CFG-005).
 pub fn apply_env_exploitability_overrides(
     exploitability: &mut vlz_exploitability::ExploitabilityConfig,
@@ -1432,26 +1456,10 @@ pub fn apply_env_exploitability_overrides(
             exploitability.enabled = false;
         }
     }
-    if let Ok(v) = std::env::var("VLZ_EXPLOITABILITY_MIN_EPSS") {
-        let trimmed = v.trim();
-        if !trimmed.is_empty() {
-            let n = trimmed.parse::<f64>().map_err(|_| {
-                ConfigError::InvalidExploitability {
-                    message: format!(
-                        "VLZ_EXPLOITABILITY_MIN_EPSS is not a number: {trimmed}"
-                    ),
-                }
-            })?;
-            let f = n as f32;
-            if !vlz_exploitability::min_epss_in_range(f) {
-                return Err(ConfigError::InvalidExploitability {
-                    message: format!(
-                        "VLZ_EXPLOITABILITY_MIN_EPSS must be 0.0-1.0; got {f}"
-                    ),
-                });
-            }
-            exploitability.min_epss = Some(f);
-        }
+    if let Ok(v) = std::env::var("VLZ_EXPLOITABILITY_MIN_EPSS")
+        && let Some(f) = parse_exploitability_min_epss_env_value(v.trim())?
+    {
+        exploitability.min_epss = Some(f);
     }
     if let Ok(v) = std::env::var("VLZ_EXPLOITABILITY_EXIT_ON_KEV") {
         let lower = v.to_ascii_lowercase();
@@ -2533,19 +2541,16 @@ ttl_secs = 3600
 
     #[test]
     fn exploitability_env_rejects_invalid_min_epss() {
-        with_isolated_load_env(|| {
-            temp_env::with_var(
-                "VLZ_EXPLOITABILITY_MIN_EPSS",
-                Some("1.5"),
-                || {
-                    let err = load_parallel_test(None, None, None, None, None);
-                    assert!(matches!(
-                        err,
-                        Err(ConfigError::InvalidExploitability { .. })
-                    ));
-                },
-            );
-        });
+        let err = parse_exploitability_min_epss_env_value("1.5");
+        assert!(matches!(
+            err,
+            Err(ConfigError::InvalidExploitability { .. })
+        ));
+        let err = parse_exploitability_min_epss_env_value("not-a-number");
+        assert!(matches!(
+            err,
+            Err(ConfigError::InvalidExploitability { .. })
+        ));
     }
 
     #[test]
