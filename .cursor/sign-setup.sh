@@ -26,11 +26,17 @@ fi
 
 # Prefer the system OpenSSH binary so boot `start` does not depend on
 # Cursor's /exec-daemon PATH (which may be absent when start runs).
-if [ -x /usr/bin/ssh-keygen ]; then
+# VLZ_SSH_KEYGEN overrides resolution when set (including empty) so tests can
+# force the missing-binary path without hiding coreutils from PATH.
+SSH_KEYGEN=""
+if [ -n "${VLZ_SSH_KEYGEN+x}" ]; then
+  SSH_KEYGEN="${VLZ_SSH_KEYGEN}"
+elif [ -x /usr/bin/ssh-keygen ]; then
   SSH_KEYGEN=/usr/bin/ssh-keygen
 elif command -v ssh-keygen >/dev/null 2>&1; then
   SSH_KEYGEN="$(command -v ssh-keygen)"
-else
+fi
+if [ -z "${SSH_KEYGEN}" ] || [ ! -x "${SSH_KEYGEN}" ]; then
   echo "[sign-setup] ERROR: ssh-keygen not found; cannot configure SSH signing." >&2
   echo "[sign-setup] Install openssh-client in the Cloud Agent image (see .cursor/Dockerfile)." >&2
   exit 1
