@@ -70,6 +70,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 # Base tools required by Cloud Agents and install.sh.
 # acl: setfacl for docker.sock without world-writable mode.
+# openssh-client: ssh-keygen for sign-setup.sh / make check-signatures.
 # Ubuntu archive package pins drift; ignore DL3008 for this layer only.
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -77,6 +78,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     gnupg \
     git \
+    openssh-client \
     sudo \
     acl \
     build-essential \
