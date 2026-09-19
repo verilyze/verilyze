@@ -3420,8 +3420,10 @@ mod tests {
         crate::registry::register(crate::registry::Plugin::CveProvider(
             Box::new(crate::mocks::OsvMockCveProvider),
         ));
-        let mut effective = crate::config::EffectiveConfig::default();
-        effective.providers = vec!["failing".to_string()];
+        let effective = crate::config::EffectiveConfig {
+            providers: vec!["failing".to_string()],
+            ..crate::config::EffectiveConfig::default()
+        };
         let selected = select_provider_impl(None, None, &effective)
             .await
             .expect("select");
