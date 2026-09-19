@@ -547,6 +547,171 @@ fn run_scan_best_available_exercises_go_tier_d_block() {
     });
 }
 
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_epss_file_triggers_exit_below_cvss_bar() {
+    use vlz::mocks::LowScoreCveProvider;
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
+        let root = dir.path().to_str().unwrap();
+        let out_path = dir.path().join("epss-exit.json");
+        std::fs::write(
+            dir.path().join("epss.csv"),
+            "cve,epss,percentile\nCVE-2024-4101,0.9,0.95\n",
+        )
+        .expect("write epss.csv");
+        std::fs::write(
+            dir.path().join("kev.json"),
+            r#"{"vulnerabilities":[]}"#,
+        )
+        .expect("write kev.json");
+
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            LowScoreCveProvider::new(),
+        )));
+        #[cfg(feature = "redb")]
+        reregister_db_backend();
+
+        let code = run_async(&[
+            "scan",
+            root,
+            "--format",
+            "json",
+            "--summary-file",
+            &format!("json:{}", out_path.display()),
+            "--provider",
+            "low_score",
+            "--min-score",
+            "9.0",
+            "--min-epss",
+            "0.7",
+            "--epss-file",
+            dir.path().join("epss.csv").to_str().unwrap(),
+            "--kev-file",
+            dir.path().join("kev.json").to_str().unwrap(),
+        ]);
+        assert_eq!(code, 86, "EPSS above --min-epss should trigger CVE exit");
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&out_path).unwrap())
+                .unwrap();
+        let cves = parsed["findings"][0]["cves"].as_array().expect("cves");
+        assert!(((cves[0]["epss"].as_f64().unwrap()) - 0.9).abs() < 0.001);
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_exit_on_kev_triggers_despite_high_min_score() {
+    use vlz::mocks::LowScoreCveProvider;
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
+        let root = dir.path().to_str().unwrap();
+        let out_path = dir.path().join("kev-exit.json");
+        std::fs::write(
+            dir.path().join("kev.json"),
+            r#"{"vulnerabilities":[{"cveID":"CVE-2024-4101"}]}"#,
+        )
+        .expect("write kev.json");
+        std::fs::write(dir.path().join("epss.csv"), "cve,epss,percentile\n")
+            .expect("write epss.csv");
+
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            LowScoreCveProvider::new(),
+        )));
+        #[cfg(feature = "redb")]
+        reregister_db_backend();
+
+        let code = run_async(&[
+            "scan",
+            root,
+            "--format",
+            "json",
+            "--summary-file",
+            &format!("json:{}", out_path.display()),
+            "--provider",
+            "low_score",
+            "--min-score",
+            "9.0",
+            "--exit-on-kev",
+            "--kev-file",
+            dir.path().join("kev.json").to_str().unwrap(),
+            "--epss-file",
+            dir.path().join("epss.csv").to_str().unwrap(),
+        ]);
+        assert_eq!(
+            code, 86,
+            "KEV-listed CVE should trigger exit independent of min_count"
+        );
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&out_path).unwrap())
+                .unwrap();
+        let cves = parsed["findings"][0]["cves"].as_array().expect("cves");
+        assert_eq!(cves[0]["in_kev"], true);
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_ranking_attaches_without_opt_in_exit() {
+    use vlz::mocks::LowScoreCveProvider;
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
+        let root = dir.path().to_str().unwrap();
+        let out_path = dir.path().join("ranking-signal.json");
+        std::fs::write(
+            dir.path().join("epss.csv"),
+            "cve,epss,percentile\nCVE-2024-4101,0.9,0.95\n",
+        )
+        .expect("write epss.csv");
+        std::fs::write(
+            dir.path().join("kev.json"),
+            r#"{"vulnerabilities":[]}"#,
+        )
+        .expect("write kev.json");
+
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            LowScoreCveProvider::new(),
+        )));
+        #[cfg(feature = "redb")]
+        reregister_db_backend();
+
+        let code = run_async(&[
+            "scan",
+            root,
+            "--format",
+            "json",
+            "--summary-file",
+            &format!("json:{}", out_path.display()),
+            "--provider",
+            "low_score",
+            "--min-score",
+            "9.0",
+            "--epss-file",
+            dir.path().join("epss.csv").to_str().unwrap(),
+            "--kev-file",
+            dir.path().join("kev.json").to_str().unwrap(),
+        ]);
+        assert_eq!(code, 0, "ranking without opt-in exits must stay quiet");
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&out_path).unwrap())
+                .unwrap();
+        let cves = parsed["findings"][0]["cves"].as_array().expect("cves");
+        assert!(((cves[0]["epss"].as_f64().unwrap()) - 0.9).abs() < 0.001);
+    });
+}
+
 #[cfg(all(feature = "python", feature = "perf-instrumentation"))]
 #[test]
 fn run_scan_tier_b_with_perf_instrumentation_exits_cleanly() {
@@ -2979,6 +3144,9 @@ impl vlz_cve_client::CveProvider for VersionAwareOsvProvider {
             evidence: vec![],
             symbol_usage: None,
             affected_ranges,
+            in_kev: None,
+            epss: None,
+            epss_percentile: None,
         };
 
         Ok(vlz_cve_client::FetchedCves {
@@ -4443,6 +4611,9 @@ impl vlz_cve_client::CveProvider for MultiVersionAwareOsvProvider {
                     package_name: Some((*name).to_string()),
                     ecosystem: Some((*ecosystem).to_string()),
                 }],
+                in_kev: None,
+                epss: None,
+                epss_percentile: None,
             };
             return Ok(vlz_cve_client::FetchedCves {
                 raw_vulns: raw.as_array().cloned().unwrap_or_default(),

@@ -57,6 +57,12 @@ flowchart TD
 | allow_direct_only_fallback | boolean | false | `VLZ_ALLOW_DIRECT_ONLY_FALLBACK` | `--allow-direct-only-fallback` |
 | fail_fast | boolean | false | `VLZ_FAIL_FAST` | `--fail-fast` |
 | lsp_folder_trust | boolean | false | `VLZ_LSP_FOLDER_TRUST` | `vlz lsp --folder-trust` |
+| exploitability_enabled | string | true | - | - |
+| exploitability_min_epss | string |  | - | - |
+| exploitability_exit_on_kev | string | false | - | - |
+| exploitability_kev_file | string |  | - | - |
+| exploitability_epss_file | string |  | - | - |
+| exploitability_ttl_secs | string | 86400 | - | - |
 | vex_product_id | string |  | `VLZ_VEX_PRODUCT_ID` | `--vex-product-id` |
 | vex_author_name | string | verilyze | `VLZ_VEX_AUTHOR_NAME` | `--vex-author-name` |
 | vex_author_namespace | string |  | `VLZ_VEX_AUTHOR_NAMESPACE` | `--vex-author-namespace` |

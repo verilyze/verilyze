@@ -90,59 +90,6 @@ env = "VLZ_VEX_REACHABILITY_NOT_AFFECTED"
 cli = "--vex-reachability-not-affected"
 default = "false"
 
-[exploitability_enabled]
-description = """
-Attach CISA KEV / FIRST EPSS ranking when data is available
-(default: true; --no-exploitability disables)
-"""
-type = "boolean"
-env = "VLZ_EXPLOITABILITY_ENABLED"
-cli = "--no-exploitability (negates)"
-default = "true"
-
-[exploitability_min_epss]
-description = """
-Minimum EPSS score (0.0-1.0) to trigger the CVE exit code; unset disables
-"""
-type = "float"
-env = "VLZ_EXPLOITABILITY_MIN_EPSS"
-cli = "--min-epss"
-default = ""
-
-[exploitability_exit_on_kev]
-description = """
-Any single KEV-listed CVE triggers the CVE exit code (default: false)
-"""
-type = "boolean"
-env = "VLZ_EXPLOITABILITY_EXIT_ON_KEV"
-cli = "--exit-on-kev"
-default = "false"
-
-[exploitability_kev_file]
-description = """
-KEV snapshot file (JSON or CSV) instead of cache/network
-"""
-type = "string"
-env = "VLZ_EXPLOITABILITY_KEV_FILE"
-cli = "--kev-file"
-default = ""
-
-[exploitability_epss_file]
-description = """
-EPSS snapshot file (uncompressed JSON or CSV) instead of cache/network
-"""
-type = "string"
-env = "VLZ_EXPLOITABILITY_EPSS_FILE"
-cli = "--epss-file"
-default = ""
-
-[exploitability_ttl_secs]
-description = "Ranking snapshot TTL in seconds (default: 86400 = 24 hours)"
-type = "integer"
-env = "VLZ_EXPLOITABILITY_TTL_SECS"
-cli = "(none; file/env only)"
-default = "86400"
-
 [cache_ttl_secs]
 description = "Default cache TTL in seconds (5 days); only affects new entries"
 type = "integer"

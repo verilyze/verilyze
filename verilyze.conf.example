@@ -100,6 +100,18 @@
 # that (SEC-023)
 # lsp_folder_trust = false
 
+# exploitability_enabled = true
+
+# exploitability_min_epss = 
+
+# exploitability_exit_on_kev = false
+
+# exploitability_kev_file = 
+
+# exploitability_epss_file = 
+
+# exploitability_ttl_secs = 86400
+
 #
 # [severity.v2], [severity.v3], [severity.v4] (CVSS thresholds)
 # [severity.v2]
