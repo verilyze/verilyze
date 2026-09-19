@@ -505,7 +505,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__fix)
-            opts="-f -o -v -c -h --format --output --dry-run --provider --offline --verbose --config --help"
+            opts="-f -o -v -c -h --format --output --dry-run --provider --providers --offline --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -551,6 +551,10 @@ _vlz() {
                     ;;
                 --provider)
                     COMPREPLY=($(compgen -W "osv" -- "${cur}"))
+                    return 0
+                    ;;
+                --providers)
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --config)
@@ -915,7 +919,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__preload)
-            opts="-j -v -c -h --provider --parallel --parallel-resolutions --cache-db --scan-exclude-dir --lock-file --from-sbom --cache-ttl-secs --offline --package-manager-required --keep-ephemeral-venv --allow-dependency-code-execution --allow-direct-only-fallback --fail-fast --backoff-base --backoff-max --max-retries --provider-http-connect-timeout-secs --provider-http-request-timeout-secs --tls-crl-bundle --verbose --config --help"
+            opts="-j -v -c -h --provider --providers --parallel --parallel-resolutions --cache-db --scan-exclude-dir --lock-file --from-sbom --cache-ttl-secs --offline --package-manager-required --keep-ephemeral-venv --allow-dependency-code-execution --allow-direct-only-fallback --fail-fast --backoff-base --backoff-max --max-retries --provider-http-connect-timeout-secs --provider-http-request-timeout-secs --tls-crl-bundle --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -923,6 +927,10 @@ _vlz() {
             case "${prev}" in
                 --provider)
                     COMPREPLY=($(compgen -W "osv" -- "${cur}"))
+                    return 0
+                    ;;
+                --providers)
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --parallel)
@@ -1066,7 +1074,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__scan)
-            opts="-f -o -s -j -v -c -h --format --output --report --provider --parallel --parallel-resolutions --cache-db --ignore-db --scan-exclude-dir --lock-file --from-sbom --cache-ttl-secs --offline --benchmark --min-score --min-count --exit-code --fp-exit-code --project-id --package-manager-required --keep-ephemeral-venv --allow-dependency-code-execution --allow-direct-only-fallback --fail-fast --backoff-base --backoff-max --max-retries --provider-http-connect-timeout-secs --provider-http-request-timeout-secs --tls-crl-bundle --reachability-mode --severity-v2-critical-min --severity-v2-high-min --severity-v2-medium-min --severity-v2-low-min --severity-v3-critical-min --severity-v3-high-min --severity-v3-medium-min --severity-v3-low-min --severity-v4-critical-min --severity-v4-high-min --severity-v4-medium-min --severity-v4-low-min --no-vex --vex-product-id --vex-author-name --vex-author-namespace --vex-reachability-not-affected --no-exploitability --min-epss --exit-on-kev --kev-file --epss-file --refresh-exploitability --verbose --config --help"
+            opts="-f -o -s -j -v -c -h --format --output --report --provider --providers --parallel --parallel-resolutions --cache-db --ignore-db --scan-exclude-dir --lock-file --from-sbom --cache-ttl-secs --offline --benchmark --min-score --min-count --exit-code --fp-exit-code --project-id --package-manager-required --keep-ephemeral-venv --allow-dependency-code-execution --allow-direct-only-fallback --fail-fast --backoff-base --backoff-max --max-retries --provider-http-connect-timeout-secs --provider-http-request-timeout-secs --tls-crl-bundle --reachability-mode --severity-v2-critical-min --severity-v2-high-min --severity-v2-medium-min --severity-v2-low-min --severity-v3-critical-min --severity-v3-high-min --severity-v3-medium-min --severity-v3-low-min --severity-v4-critical-min --severity-v4-high-min --severity-v4-medium-min --severity-v4-low-min --no-vex --vex-product-id --vex-author-name --vex-author-namespace --vex-reachability-not-affected --no-exploitability --min-epss --exit-on-kev --kev-file --epss-file --refresh-exploitability --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1120,6 +1128,10 @@ _vlz() {
                     ;;
                 --provider)
                     COMPREPLY=($(compgen -W "osv" -- "${cur}"))
+                    return 0
+                    ;;
+                --providers)
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --parallel)

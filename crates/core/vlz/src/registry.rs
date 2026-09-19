@@ -5,9 +5,11 @@
 use std::cell::Cell;
 #[cfg(any(test, feature = "testing"))]
 use std::sync::MutexGuard;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 
-use vlz_cve_client::{CveProvider, OSV_QUERY_URL, OsvProvider};
+use vlz_cve_client::{
+    CveProvider, OSV_QUERY_URL, OsvProvider, SharedCveProvider,
+};
 use vlz_db::{DatabaseBackend, FileIgnoreDb, IgnoreDb};
 use vlz_integrity::{BackendDelegatingChecker, IntegrityChecker};
 use vlz_manifest_finder::ManifestFinder;
@@ -62,7 +64,8 @@ pub fn register(plugin: Plugin) {
             reachability_analyzers().lock().unwrap().push(r);
         }
         Plugin::CveProvider(cp) => {
-            providers().lock().unwrap().push(cp);
+            let boxed: Box<dyn CveProvider + Send + Sync> = cp;
+            providers().lock().unwrap().push(Arc::from(boxed));
         }
         Plugin::DatabaseBackend(db) => {
             db_backends().lock().unwrap().push(db);
@@ -328,16 +331,16 @@ pub fn ensure_default_cve_provider(cfg: &crate::config::EffectiveConfig) {
         use crate::mocks::OsvMockCveProvider;
         if !providers.iter().any(|p| p.name() == "osv") {
             // Append, rather than insert, to preserve any test-registered
-            // provider ordering (select_provider_impl defaults to the first
-            // provider when --provider is not specified).
-            providers.push(Box::new(OsvMockCveProvider));
+            // provider ordering (resolved names wrap registry Arcs; lookup
+            // does not drain, so a later scan still sees the same provider).
+            providers.push(Arc::new(OsvMockCveProvider));
         }
     }
     let c = cfg.provider_http_connect_timeout_secs;
     let r = cfg.provider_http_request_timeout_secs;
     let crl = cfg.tls_crl_bundle.as_deref();
     if !providers.iter().any(|p| p.name() == "osv") {
-        providers.push(Box::new(
+        providers.push(Arc::new(
             OsvProvider::with_base_url_timeouts(OSV_QUERY_URL, c, r, crl)
                 .expect("OsvProvider HTTP client"),
         ));
@@ -346,7 +349,7 @@ pub fn ensure_default_cve_provider(cfg: &crate::config::EffectiveConfig) {
     {
         if !providers.iter().any(|p| p.name() == "nvd") {
             vlz_cve_provider_nvd::register_nvd_decoder();
-            providers.push(Box::new(
+            providers.push(Arc::new(
                 vlz_cve_provider_nvd::NvdProvider::with_base_url_timeouts(
                     vlz_cve_provider_nvd::NVD_DEFAULT_BASE_URL,
                     c,
@@ -361,7 +364,7 @@ pub fn ensure_default_cve_provider(cfg: &crate::config::EffectiveConfig) {
     {
         if !providers.iter().any(|p| p.name() == "github") {
             vlz_cve_provider_github::register_github_decoder();
-            providers.push(Box::new(
+            providers.push(Arc::new(
                 vlz_cve_provider_github::GitHubProvider::with_base_url_timeouts(
                     vlz_cve_provider_github::GITHUB_DEFAULT_ADVISORIES_URL,
                     c,
@@ -376,7 +379,7 @@ pub fn ensure_default_cve_provider(cfg: &crate::config::EffectiveConfig) {
     {
         if !providers.iter().any(|p| p.name() == "sonatype") {
             vlz_cve_provider_sonatype::register_sonatype_decoder();
-            providers.push(Box::new(
+            providers.push(Arc::new(
                 vlz_cve_provider_sonatype::SonatypeProvider::with_base_url_timeouts(
                     vlz_cve_provider_sonatype::OSSINDEX_DEFAULT_BASE_URL,
                     c,
@@ -391,10 +394,10 @@ pub fn ensure_default_cve_provider(cfg: &crate::config::EffectiveConfig) {
     {
         use crate::mocks::{CveReturningProvider, PanickingCveProvider};
         if !providers.iter().any(|p| p.name() == "panicking") {
-            providers.push(Box::new(PanickingCveProvider::new()));
+            providers.push(Arc::new(PanickingCveProvider::new()));
         }
         if !providers.iter().any(|p| p.name() == "cve_returning") {
-            providers.push(Box::new(CveReturningProvider::new()));
+            providers.push(Arc::new(CveReturningProvider::new()));
         }
     }
 }
@@ -486,8 +489,8 @@ pub fn resolvers() -> &'static Mutex<Vec<Box<dyn Resolver>>> {
     RESOLVERS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
-pub fn providers() -> &'static Mutex<Vec<Box<dyn CveProvider>>> {
-    static PROVIDERS: OnceLock<Mutex<Vec<Box<dyn CveProvider>>>> =
+pub fn providers() -> &'static Mutex<Vec<SharedCveProvider>> {
+    static PROVIDERS: OnceLock<Mutex<Vec<SharedCveProvider>>> =
         OnceLock::new();
     PROVIDERS.get_or_init(|| Mutex::new(Vec::new()))
 }

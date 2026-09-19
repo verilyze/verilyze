@@ -293,42 +293,43 @@ fn apply_reachability_pipeline(
 
 async fn select_provider_impl(
     provider: Option<String>,
+    providers_list: Option<String>,
     effective: &crate::config::EffectiveConfig,
-) -> Result<Arc<Box<dyn vlz_cve_client::CveProvider + Send + Sync + 'static>>>
-{
-    let mut prov = crate::registry::providers()
-        .lock()
-        .expect("PROVIDERS lock poisoned");
-    if prov.is_empty() {
-        error!("No CveProvider plug-in registered");
-        return Err(anyhow!("No CveProvider plug-in registered"));
-    }
-    let inner = if let Some(ref name) = provider {
-        let pos = prov.iter().position(|p| p.name() == name.as_str());
-        match pos {
-            Some(i) => prov.remove(i),
-            None => {
-                error!(
-                    "Unknown provider: {} (use `vlz db list-providers` to list)",
-                    name
-                );
-                return Err(anyhow!(
-                    "Unknown provider: {} (use `vlz db list-providers` to list)",
-                    name
-                ));
-            }
+) -> Result<Vec<vlz_cve_client::SharedCveProvider>> {
+    {
+        let prov = crate::registry::providers()
+            .lock()
+            .expect("PROVIDERS lock poisoned");
+        if prov.is_empty() {
+            error!("No CveProvider plug-in registered");
+            return Err(anyhow!("No CveProvider plug-in registered"));
         }
-    } else {
-        prov.remove(0)
-    };
-    let backoff_config = vlz_cve_client::BackoffConfig {
-        base_ms: effective.backoff_base_ms,
-        max_ms: effective.backoff_max_ms,
-        max_retries: effective.max_retries,
-    };
-    let wrapped =
-        vlz_cve_client::RetryingCveProvider::new(inner, backoff_config);
-    Ok(Arc::new(Box::new(wrapped)))
+    }
+    let mut cfg = effective.clone();
+    crate::providers::apply_cli_providers(
+        &mut cfg,
+        provider.as_deref(),
+        providers_list.as_deref(),
+    )?;
+    crate::providers::select_providers(&cfg.providers, &cfg)
+}
+
+fn emit_provider_fetch_diagnostics(
+    provider_fetch_failed: bool,
+    failed_providers: &[String],
+    _verbosity: u8,
+) {
+    if !failed_providers.is_empty() {
+        eprintln!(
+            "Unable to fetch CVE data from provider(s): {}. Run with -v for details.",
+            failed_providers.join(", ")
+        );
+    }
+    if provider_fetch_failed {
+        eprintln!(
+            "Unable to fetch CVE data from provider. Run with -v for details."
+        );
+    }
 }
 
 /// MOD-009, DOC-013: Show man page via `vlz help` or `vlz help <subcommand>`.
@@ -611,6 +612,7 @@ pub async fn run(args: Cli) -> Result<i32> {
             output,
             report,
             provider,
+            providers,
             parallel: cli_parallel,
             parallel_resolutions: cli_parallel_resolutions,
             cache_db: cli_cache_db,
@@ -811,6 +813,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                 output,
                 report,
                 provider,
+                providers,
                 effective,
                 args.verbose,
                 db_backend,
@@ -825,6 +828,7 @@ pub async fn run(args: Cli) -> Result<i32> {
             output,
             dry_run,
             provider,
+            providers,
             offline,
         } => {
             let effective = crate::config::load_with_reachability_overrides(
@@ -884,6 +888,7 @@ pub async fn run(args: Cli) -> Result<i32> {
                 output,
                 dry_run,
                 provider,
+                providers,
                 effective,
                 args.verbose,
                 db_backend,
@@ -1050,6 +1055,10 @@ pub async fn run(args: Cli) -> Result<i32> {
                 write_stdout(&format!(
                     "scan_exclude_dirs = {}\n",
                     cfg.scan_exclude_dirs.join(",")
+                ));
+                write_stdout(&format!(
+                    "providers = {}\n",
+                    cfg.providers.join(",")
                 ));
                 let reachability_mode = match cfg.reachability_mode {
                     crate::config::ReachabilityMode::Off => "off",
@@ -1412,6 +1421,7 @@ pub async fn run(args: Cli) -> Result<i32> {
         Commands::Preload {
             root,
             provider,
+            providers,
             parallel: cli_parallel,
             parallel_resolutions: cli_parallel_resolutions,
             cache_db: cli_cache_db_preload,
@@ -1513,8 +1523,15 @@ pub async fn run(args: Cli) -> Result<i32> {
                 );
                 return Ok(2);
             }
-            run_preload(root, provider, effective, args.verbose, db_backend)
-                .await
+            run_preload(
+                root,
+                provider,
+                providers,
+                effective,
+                args.verbose,
+                db_backend,
+            )
+            .await
         }
 
         #[cfg(feature = "lsp")]
@@ -1552,11 +1569,13 @@ pub async fn run(args: Cli) -> Result<i32> {
 async fn run_preload(
     root: Option<String>,
     provider: Option<String>,
+    providers_list: Option<String>,
     effective: crate::config::EffectiveConfig,
     verbosity: u8,
     db_backend: Arc<Box<dyn vlz_db::DatabaseBackend + Send + Sync + 'static>>,
 ) -> Result<i32> {
-    let provider_impl = select_provider_impl(provider, &effective).await?;
+    let provider_impl =
+        select_provider_impl(provider, providers_list, &effective).await?;
     let resolved = resolve_packages_for_path(root, &effective).await?;
     if resolved.package_manager_missing {
         return Ok(EXIT_MISSING_PACKAGE_MANAGER);
@@ -1648,11 +1667,11 @@ async fn run_preload(
     if warm.summary.offline_cache_miss {
         eprintln!("{}", OFFLINE_CACHE_MISS_MESSAGE);
     }
-    if warm.summary.provider_fetch_failed {
-        eprintln!(
-            "Unable to fetch CVE data from provider. Run with -v for details."
-        );
-    }
+    emit_provider_fetch_diagnostics(
+        warm.summary.provider_fetch_failed,
+        &warm.failed_providers,
+        verbosity,
+    );
 
     Ok(exit_code::pick_exit_code(&ExitSignals::for_scan_end(
         blocking,
@@ -1710,6 +1729,7 @@ impl vlz_lsp::ScanService for LspScanService {
             "json".to_string(),
             Some(output),
             Vec::new(),
+            None,
             None,
             effective,
             0,
@@ -2019,13 +2039,15 @@ async fn run_scan(
     output: Option<String>,
     report: Vec<String>,
     provider: Option<String>,
+    providers_list: Option<String>,
     effective: crate::config::EffectiveConfig,
     verbosity: u8,
     db_backend: Arc<Box<dyn vlz_db::DatabaseBackend + Send + Sync + 'static>>,
 ) -> Result<i32> {
     let benchmark_start = effective.benchmark.then(Instant::now);
 
-    let provider_impl = select_provider_impl(provider, &effective).await?;
+    let provider_impl =
+        select_provider_impl(provider, providers_list, &effective).await?;
     let resolved = resolve_packages_for_path(root, &effective).await?;
     if resolved.package_manager_missing {
         return Ok(EXIT_MISSING_PACKAGE_MANAGER);
@@ -2083,6 +2105,7 @@ async fn run_scan(
 
     let mut offline_cache_miss = false;
     let mut provider_fetch_failed = false;
+    let mut failed_providers = Vec::new();
     let mut findings = Vec::new();
     let mut raw_vulns_by_package = std::collections::HashMap::new();
 
@@ -2100,6 +2123,7 @@ async fn run_scan(
         .await?;
         offline_cache_miss = warm.summary.offline_cache_miss;
         provider_fetch_failed = warm.summary.provider_fetch_failed;
+        failed_providers = warm.failed_providers;
         findings = warm.findings;
         raw_vulns_by_package = warm.raw_vulns_by_package;
         if provider_fetch_failed && verbosity > 0 {
@@ -2396,11 +2420,11 @@ async fn run_scan(
             "CVE not found in cache, and unable to lookup CVE due to `--offline` argument."
         );
     }
-    if provider_fetch_failed {
-        eprintln!(
-            "Unable to fetch CVE data from provider. Run with -v for details."
-        );
-    }
+    emit_provider_fetch_diagnostics(
+        provider_fetch_failed,
+        &failed_providers,
+        verbosity,
+    );
 
     let manifest_blocking = crate::scan::count_blocking_manifest_failures(
         &report_data.manifest_coverage,
@@ -2557,10 +2581,9 @@ fn sbom_only_packages_from_manifests(
 async fn scan_findings_for_fix(
     root: Option<String>,
     effective: &crate::config::EffectiveConfig,
-    provider_impl: Arc<
-        Box<dyn vlz_cve_client::CveProvider + Send + Sync + 'static>,
-    >,
+    provider_impl: Vec<vlz_cve_client::SharedCveProvider>,
     db_backend: Arc<Box<dyn vlz_db::DatabaseBackend + Send + Sync + 'static>>,
+    verbosity: u8,
 ) -> Result<ScanFixOutcome> {
     let resolved = resolve_packages_for_path(root, effective).await?;
     if resolved.package_manager_missing {
@@ -2611,6 +2634,11 @@ async fn scan_findings_for_fix(
         provider_fetch_failed = warm.summary.provider_fetch_failed;
         findings = warm.findings;
         raw_vulns_by_package = warm.raw_vulns_by_package;
+        emit_provider_fetch_diagnostics(
+            provider_fetch_failed,
+            &warm.failed_providers,
+            verbosity,
+        );
     }
 
     // Apply false-positive filter (FR-015).
@@ -2716,18 +2744,21 @@ async fn run_fix(
     output: Option<String>,
     dry_run: bool,
     provider: Option<String>,
+    providers_list: Option<String>,
     effective: crate::config::EffectiveConfig,
-    _verbosity: u8,
+    verbosity: u8,
     db_backend: Arc<Box<dyn vlz_db::DatabaseBackend + Send + Sync + 'static>>,
     offline: bool,
 ) -> Result<i32> {
-    let provider_impl = select_provider_impl(provider, &effective).await?;
+    let provider_impl =
+        select_provider_impl(provider, providers_list, &effective).await?;
 
     let first_scan = scan_findings_for_fix(
         root.clone(),
         &effective,
         provider_impl.clone(),
         db_backend.clone(),
+        verbosity,
     )
     .await?;
     let ScanFixOutcome {
@@ -3032,9 +3063,14 @@ async fn run_fix(
 
     // Re-scan after apply to decide if CVEs remain (FR-041). Exit codes follow
     // the post-apply scan (FR-010); unavailable skips do not force exit 4.
-    let after_scan =
-        scan_findings_for_fix(root, &effective, provider_impl, db_backend)
-            .await?;
+    let after_scan = scan_findings_for_fix(
+        root,
+        &effective,
+        provider_impl,
+        db_backend,
+        verbosity,
+    )
+    .await?;
     Ok(after_scan.exit_code)
 }
 
@@ -3375,11 +3411,31 @@ mod tests {
 
     #[tokio::test]
     #[allow(clippy::await_holding_lock)]
+    async fn select_provider_impl_cli_none_uses_effective_providers() {
+        let _guard = crate::registry::lock_registry_for_test();
+        crate::registry::clear_providers();
+        crate::registry::register(crate::registry::Plugin::CveProvider(
+            Box::new(crate::mocks::FailingCveProvider::new()),
+        ));
+        crate::registry::register(crate::registry::Plugin::CveProvider(
+            Box::new(crate::mocks::OsvMockCveProvider),
+        ));
+        let mut effective = crate::config::EffectiveConfig::default();
+        effective.providers = vec!["failing".to_string()];
+        let selected = select_provider_impl(None, None, &effective)
+            .await
+            .expect("select");
+        assert_eq!(selected.len(), 1);
+        assert_eq!(selected[0].name(), "failing");
+    }
+
+    #[tokio::test]
+    #[allow(clippy::await_holding_lock)]
     async fn select_provider_impl_empty_registry_errors() {
         let _guard = crate::registry::lock_registry_for_test();
         crate::registry::clear_providers();
         let effective = crate::config::EffectiveConfig::default();
-        let err = match select_provider_impl(None, &effective).await {
+        let err = match select_provider_impl(None, None, &effective).await {
             Ok(_) => panic!("empty providers must error"),
             Err(e) => e,
         };

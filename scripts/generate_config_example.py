@@ -437,6 +437,12 @@ def generate_example_conf(
             val_line = '# cache_db = "/path/to/db.redb"'
         elif key == "ignore_db" and not default:
             val_line = '# ignore_db = "/path/to/vlz-ignore.json"'
+        elif key == "providers":
+            names = [
+                part.strip() for part in default.split(",") if part.strip()
+            ]
+            quoted = ", ".join(f'"{name}"' for name in names)
+            val_line = f"# {key} = [{quoted}]"
         else:
             path_keys = ("cache_db", "ignore_db")
             val = f'"{default}"' if default and key in path_keys else default

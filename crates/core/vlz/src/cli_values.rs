@@ -38,7 +38,7 @@ const HELP_SUBCOMMANDS_BASE: &[&str] = &[
 ];
 
 /// Mock CVE provider names registered only for integration tests.
-#[cfg(feature = "testing")]
+#[cfg(any(test, feature = "testing"))]
 pub const TESTING_PROVIDER_NAMES: &[&str] = &[
     "failing",
     "counting",
@@ -48,35 +48,26 @@ pub const TESTING_PROVIDER_NAMES: &[&str] = &[
     "low_score",
 ];
 
+/// Production CVE provider names for the current build (feature-gated).
+pub fn production_provider_names() -> Vec<&'static str> {
+    #[allow(unused_mut)]
+    let mut names = vec![crate::config::DEFAULT_CVE_PROVIDER];
+    #[cfg(feature = "nvd")]
+    names.push("nvd");
+    #[cfg(feature = "github")]
+    names.push("github");
+    #[cfg(feature = "sonatype")]
+    names.push("sonatype");
+    names
+}
+
 /// Registered CVE provider names for the current build (feature-gated).
 pub fn provider_names() -> Vec<&'static str> {
-    #[cfg(not(any(
-        feature = "nvd",
-        feature = "github",
-        feature = "sonatype",
-        feature = "testing"
-    )))]
-    {
-        vec!["osv"]
-    }
-    #[cfg(any(
-        feature = "nvd",
-        feature = "github",
-        feature = "sonatype",
-        feature = "testing"
-    ))]
-    {
-        let mut names = vec!["osv"];
-        #[cfg(feature = "nvd")]
-        names.push("nvd");
-        #[cfg(feature = "github")]
-        names.push("github");
-        #[cfg(feature = "sonatype")]
-        names.push("sonatype");
-        #[cfg(feature = "testing")]
-        names.extend_from_slice(TESTING_PROVIDER_NAMES);
-        names
-    }
+    #[allow(unused_mut)]
+    let mut names = production_provider_names();
+    #[cfg(any(test, feature = "testing"))]
+    names.extend_from_slice(TESTING_PROVIDER_NAMES);
+    names
 }
 
 /// Top-level subcommand names for `vlz help [SUBCOMMAND]`.
@@ -121,6 +112,33 @@ pub fn db_show_format_parser() -> PossibleValuesParser {
 /// `value_parser` for `scan --provider` and `preload --provider`.
 pub fn provider_parser() -> PossibleValuesParser {
     PossibleValuesParser::new(provider_names())
+}
+
+/// Parse `--providers` CSV: registered names and/or `all`.
+pub fn parse_providers_list_arg(value: &str) -> Result<String, String> {
+    let tokens: Vec<&str> = value
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
+    if tokens.is_empty() {
+        return Err(
+            "providers list is empty (use `vlz db list-providers` to list)"
+                .to_string(),
+        );
+    }
+    let allowed = provider_names();
+    for token in tokens {
+        if token.eq_ignore_ascii_case("all") {
+            continue;
+        }
+        if !allowed.iter().any(|n| n.eq_ignore_ascii_case(token)) {
+            return Err(format!(
+                "Unknown provider: {token} (use `vlz db list-providers` to list)"
+            ));
+        }
+    }
+    Ok(value.to_string())
 }
 
 /// `value_parser` for `help [SUBCOMMAND]`.
@@ -264,6 +282,15 @@ mod tests {
     #[test]
     fn provider_parser_rejects_unknown() {
         assert!(parse_provider("nonexistentprovider").is_err());
+    }
+
+    #[test]
+    fn providers_list_parser_accepts_all_and_osv() {
+        assert_eq!(parse_providers_list_arg("all").unwrap(), "all");
+        assert_eq!(parse_providers_list_arg("osv").unwrap(), "osv");
+        assert_eq!(parse_providers_list_arg("osv, all").unwrap(), "osv, all");
+        assert!(parse_providers_list_arg(",,").is_err());
+        assert!(parse_providers_list_arg("not-a-provider").is_err());
     }
 
     #[cfg(feature = "testing")]

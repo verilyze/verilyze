@@ -98,6 +98,9 @@ pub const DEFAULT_SCAN_EXCLUDE_DIRS: &[&str] = &[
     ".bundle",
 ];
 
+/// Default CVE provider when no CLI/env/file list is set (FR-019).
+pub const DEFAULT_CVE_PROVIDER: &str = "osv";
+
 /// Default backoff base in milliseconds (SEC-007).
 pub const DEFAULT_BACKOFF_BASE_MS: u64 = 100;
 
@@ -138,6 +141,8 @@ pub struct EffectiveConfig {
     pub from_sbom: Vec<PathBuf>,
     /// Directory names to skip during manifest discovery.
     pub scan_exclude_dirs: Vec<String>,
+    /// CVE providers to query (FR-019 / FR-019-EXT). Default `osv`.
+    pub providers: Vec<String>,
     /// If true, exit 3 with hint when required package manager (e.g. pip) is not on PATH (FR-024).
     pub package_manager_required: bool,
     /// Do not remove ephemeral Python venv after scan (FR-023 debug).
@@ -201,6 +206,7 @@ impl Default for EffectiveConfig {
                 .iter()
                 .map(|v| (*v).to_string())
                 .collect(),
+            providers: vec![DEFAULT_CVE_PROVIDER.to_string()],
             package_manager_required: false,
             keep_ephemeral_venv: false,
             allow_dependency_code_execution: false,
@@ -310,7 +316,10 @@ pub enum ConfigError {
     #[error("Invalid exploitability setting: {message}")]
     InvalidExploitability { message: String },
 
-    #[error("Invalid Python lock file allowlist: {message}")]
+    #[error("Invalid providers list: {message}")]
+    InvalidProviders { message: String },
+
+    #[error("Invalid python.lock_files: {message}")]
     InvalidPythonLockFiles { message: String },
 
     #[error("IO error: {0}")]
@@ -336,6 +345,7 @@ const KNOWN_FILE_CONFIG_KEYS: &[&str] = &[
     "provider_http_request_timeout_secs",
     "tls_crl_bundle",
     "scan_exclude_dirs",
+    "providers",
     "reachability_mode",
     "keep_ephemeral_venv",
     "allow_dependency_code_execution",
@@ -437,6 +447,7 @@ fn apply_file_config_inner(
     if let Some(dirs) = parsed.scan_exclude_dirs {
         cfg.scan_exclude_dirs = dirs;
     }
+    extract_providers_toml(cfg, raw)?;
     if let Some(mode) = parsed.reachability_mode {
         cfg.reachability_mode = parse_reachability_mode(&mode, source)?;
     }
@@ -660,6 +671,48 @@ fn extract_python_lock_files(
         return Ok(());
     };
     cfg.python_lock_files = parse_python_lock_files_toml_value(lock_files)?;
+    Ok(())
+}
+
+fn parse_providers_toml_value(
+    value: &toml::Value,
+) -> Result<Vec<String>, ConfigError> {
+    let raw: Vec<String> = match value {
+        toml::Value::Array(arr) => arr
+            .iter()
+            .filter_map(|v| v.as_str().map(str::to_string))
+            .collect(),
+        toml::Value::String(s) => parse_csv_list(s),
+        _ => {
+            return Err(ConfigError::InvalidProviders {
+                message:
+                    "providers must be an array or comma-separated string"
+                        .to_string(),
+            });
+        }
+    };
+    if raw.is_empty() {
+        return Err(ConfigError::InvalidProviders {
+            message: "providers list is empty".to_string(),
+        });
+    }
+    Ok(raw)
+}
+
+fn extract_providers_toml(
+    cfg: &mut EffectiveConfig,
+    raw: &str,
+) -> Result<(), ConfigError> {
+    let Ok(value) = toml::from_str::<toml::Value>(raw) else {
+        return Ok(());
+    };
+    let Some(table) = value.as_table() else {
+        return Ok(());
+    };
+    let Some(providers) = table.get("providers") else {
+        return Ok(());
+    };
+    cfg.providers = parse_providers_toml_value(providers)?;
     Ok(())
 }
 
@@ -1205,6 +1258,9 @@ pub fn load_with_reachability_overrides(
     if let Some(dirs) = env_scan_exclude_dirs() {
         cfg.scan_exclude_dirs = dirs;
     }
+    if let Some(names) = env_providers() {
+        cfg.providers = names;
+    }
     #[cfg(feature = "python")]
     if let Some(files) = env_python_lock_files() {
         cfg.python_lock_files = files;
@@ -1532,15 +1588,27 @@ pub fn env_reachability_mode() -> Option<ReachabilityMode> {
         .and_then(|v| parse_reachability_mode(&v, "environment").ok())
 }
 
+/// Split a comma-separated list; trim and drop empty tokens.
+pub fn parse_csv_list(raw: &str) -> Vec<String> {
+    raw.split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(ToOwned::to_owned)
+        .collect()
+}
+
 /// Read `VLZ_SCAN_EXCLUDE_DIRS` as comma-separated directory names.
 pub fn env_scan_exclude_dirs() -> Option<Vec<String>> {
-    std::env::var("VLZ_SCAN_EXCLUDE_DIRS").ok().map(|raw| {
-        raw.split(',')
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(ToOwned::to_owned)
-            .collect()
-    })
+    std::env::var("VLZ_SCAN_EXCLUDE_DIRS")
+        .ok()
+        .map(|raw| parse_csv_list(&raw))
+}
+
+/// Read `VLZ_PROVIDERS` as comma-separated CVE provider names (FR-019-EXT).
+pub fn env_providers() -> Option<Vec<String>> {
+    std::env::var("VLZ_PROVIDERS")
+        .ok()
+        .map(|raw| parse_csv_list(&raw))
 }
 
 /// Read `VLZ_PYTHON_LOCK_FILES` as comma-separated lock file basenames.
@@ -1748,7 +1816,13 @@ mod tests {
         let absent_system = dir.path().join("absent-system-verilyze.conf");
         set_mock_system_config_path(Some(absent_system));
         let _clear = ClearSystemConfigMock;
-        temp_env::with_var("VLZ_SCAN_EXCLUDE_DIRS", None::<&str>, f)
+        temp_env::with_vars(
+            [
+                ("VLZ_SCAN_EXCLUDE_DIRS", None::<&str>),
+                ("VLZ_PROVIDERS", None::<&str>),
+            ],
+            f,
+        )
     }
 
     /// Like [`with_isolated_load_env`], and also pin empty `XDG_CONFIG_HOME`.
@@ -1763,6 +1837,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("VLZ_SCAN_EXCLUDE_DIRS", None::<&str>),
+                ("VLZ_PROVIDERS", None::<&str>),
                 ("XDG_CONFIG_HOME", Some(xdg_str.as_str())),
             ],
             f,
@@ -1869,6 +1944,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("VLZ_SCAN_EXCLUDE_DIRS", None::<&str>),
+                ("VLZ_PROVIDERS", None::<&str>),
                 ("XDG_CONFIG_HOME", Some(xdg_str.as_str())),
             ],
             || {
@@ -2155,6 +2231,16 @@ mod tests {
     }
 
     #[test]
+    fn env_providers_parses_csv() {
+        temp_env::with_var("VLZ_PROVIDERS", Some(" osv, nvd ,"), || {
+            assert_eq!(
+                env_providers(),
+                Some(vec!["osv".to_string(), "nvd".to_string()])
+            );
+        });
+    }
+
+    #[test]
     fn env_vars_unset_return_none() {
         temp_env::with_vars(
             [
@@ -2423,6 +2509,98 @@ regex = "^req\\.txt$"
         let r = parse_and_validate_toml("unknown_key = 1");
         assert!(r.is_err());
         assert!(matches!(r.unwrap_err(), ConfigError::UnknownKey { .. }));
+    }
+
+    #[test]
+    fn providers_toml_array_and_csv_parse() {
+        with_isolated_load_env_empty_xdg(|| {
+            let dir = test_tempdir();
+            let array_path = dir.path().join("providers-array.conf");
+            std::fs::write(&array_path, "providers = [\"osv\"]\n").unwrap();
+            let array_str = array_path.to_string_lossy().into_owned();
+            let cfg = load_no_severity(Some(&array_str));
+            assert_eq!(cfg.providers, vec!["osv".to_string()]);
+
+            let csv_path = dir.path().join("providers-csv.conf");
+            std::fs::write(&csv_path, "providers = \"osv, nvd\"\n").unwrap();
+            let csv_str = csv_path.to_string_lossy().into_owned();
+            let cfg = load_no_severity(Some(&csv_str));
+            assert_eq!(
+                cfg.providers,
+                vec!["osv".to_string(), "nvd".to_string()]
+            );
+        });
+    }
+
+    #[test]
+    fn providers_empty_list_is_error() {
+        let r = parse_and_validate_toml("providers = []");
+        assert!(matches!(r, Err(ConfigError::InvalidProviders { .. })));
+    }
+
+    #[test]
+    fn env_providers_override_file() {
+        let dir = test_tempdir();
+        let config_path = dir.path().join("providers.conf");
+        std::fs::write(&config_path, "providers = [\"osv\"]\n").unwrap();
+        let path_str = config_path.to_string_lossy().into_owned();
+        let xdg = dir.path().join("xdg");
+        std::fs::create_dir_all(&xdg).unwrap();
+        let xdg_str = xdg.to_string_lossy().into_owned();
+        let absent_system = dir.path().join("absent-system-verilyze.conf");
+        set_mock_system_config_path(Some(absent_system));
+        let _clear = ClearSystemConfigMock;
+        temp_env::with_vars(
+            [
+                ("VLZ_SCAN_EXCLUDE_DIRS", None::<&str>),
+                ("VLZ_PROVIDERS", Some("nvd")),
+                ("XDG_CONFIG_HOME", Some(xdg_str.as_str())),
+            ],
+            || {
+                let cfg = load(
+                    Some(&path_str),
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    SeverityOverrides::default(),
+                    SeverityOverrides::default(),
+                )
+                .unwrap();
+                assert_eq!(cfg.providers, vec!["nvd".to_string()]);
+            },
+        );
     }
 
     #[test]

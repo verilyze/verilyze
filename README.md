@@ -221,7 +221,8 @@ uses the installed man page. Source: [man/vlz.1](man/vlz.1).
 `-o`/`--output PATH` (write primary report to file; no stdout),
 `-s`/`--report TYPE:PATH` (alias `--summary-file`; additional typed files),
 `--from-sbom PATH` (repeatable; CycloneDX 1.x / SPDX 2.x or 3.0 JSON inventory),
-`--provider osv|nvd|github|sonatype`, `-j`/`--parallel N`, `--project-id ID`,
+`--provider osv|nvd|github|sonatype`, `--providers LIST` (or `all`; default
+OSV only), `-j`/`--parallel N`, `--project-id ID`,
 `--cache-ttl-secs SECS`, `--offline`, `--benchmark`, `--min-score`, `--min-count`,
 `--exit-code` (alias `--exit-code-on-cve`), `--fp-exit-code`, `--cache-db`, `--ignore-db`,
 `--reachability-mode off|tier-b|best-available` (default `best-available`

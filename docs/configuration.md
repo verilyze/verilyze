@@ -39,6 +39,7 @@ flowchart TD
 | parallel_queries | integer | 10 | `VLZ_PARALLEL_QUERIES` | `--parallel` |
 | parallel_resolutions | integer | 4 | `VLZ_PARALLEL_RESOLUTIONS` | `--parallel-resolutions` |
 | scan_exclude_dirs | string | .git,.venv,venv,node_modules,target,__pycache__,.tox,.eggs,dist,build,site-packages,vendor,.bundle | `VLZ_SCAN_EXCLUDE_DIRS` | `--scan-exclude-dir (repeatable)` |
+| providers | string | osv | `VLZ_PROVIDERS` | `--providers` |
 | reachability_mode | string | best-available | `VLZ_REACHABILITY_MODE` | `--reachability-mode` |
 | cache_ttl_secs | integer | 432000 | `VLZ_CACHE_TTL_SECS` | `--cache-ttl-secs` |
 | min_score | float | 0 | `VLZ_MIN_SCORE` | `--min-score` |

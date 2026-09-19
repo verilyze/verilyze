@@ -71,6 +71,12 @@ Default: .git,.venv,venv,node_modules,target,__pycache__,.tox,.eggs,dist,build,s
 Env: VLZ_SCAN_EXCLUDE_DIRS.
 CLI: --scan-exclude-dir (repeatable).
 
+.It Va providers
+CVE providers to query (default: osv). Comma-separated names or a TOML array. Opt in to multi-provider merge with more than one name, or `all` for production providers registered in this binary (never test mocks).
+Default: osv.
+Env: VLZ_PROVIDERS.
+CLI: --providers.
+
 .It Va reachability_mode
 Reachability mode for scan output: off, tier-b, or best-available (default: best-available).
 Default: best-available.

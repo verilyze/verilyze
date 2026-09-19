@@ -21,6 +21,11 @@
 # build, site-packages)
 # scan_exclude_dirs = .git,.venv,venv,node_modules,target,__pycache__,.tox,.eggs,dist,build,site-packages,vendor,.bundle
 
+# CVE providers to query (default: osv). Comma-separated names or a TOML array.
+# Opt in to multi-provider merge with more than one name, or `all` for
+# production providers registered in this binary (never test mocks)
+# providers = ["osv"]
+
 # Reachability mode for scan output: off, tier-b, or best-available (default:
 # best-available)
 # reachability_mode = best-available

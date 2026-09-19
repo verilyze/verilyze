@@ -397,11 +397,9 @@ fn vuln_for_cve_id<'a>(
     raw_vulns: &'a [serde_json::Value],
     cve_id: &str,
 ) -> Option<&'a serde_json::Value> {
-    raw_vulns.iter().find(|v| {
-        v.get("id")
-            .and_then(|id| id.as_str())
-            .is_some_and(|id| id == cve_id)
-    })
+    raw_vulns
+        .iter()
+        .find(|v| vlz_db::raw_matches_record_id(v, cve_id))
 }
 
 /// Apply Tier C per-CVE reachability when advisory symbol data is present (FR-032 phase 2a).

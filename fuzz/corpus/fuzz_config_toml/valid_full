@@ -3,6 +3,7 @@ parallel_queries = 20
 cache_ttl_secs = 86400
 min_score = 7.0
 min_count = 3
+providers = ["osv"]
 [exploitability]
 enabled = true
 exit_on_kev = false

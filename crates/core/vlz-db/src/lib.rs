@@ -61,6 +61,52 @@ pub struct Package {
     pub ecosystem: Option<String>,
 }
 
+/// True when `s` looks like a CVE ID (`CVE-YYYY-NNNN`, case-insensitive).
+pub fn is_cve_id(s: &str) -> bool {
+    let upper = s.to_ascii_uppercase();
+    let rest = match upper.strip_prefix("CVE-") {
+        Some(rest) => rest,
+        None => return false,
+    };
+    let mut parts = rest.splitn(2, '-');
+    let year = parts.next().unwrap_or("");
+    let num = parts.next().unwrap_or("");
+    year.len() == 4
+        && year.bytes().all(|b| b.is_ascii_digit())
+        && !num.is_empty()
+        && num.bytes().all(|b| b.is_ascii_digit())
+}
+
+/// Canonical form for merge keys and ranking: uppercase CVE IDs, else as-is.
+pub fn normalize_vuln_id(s: &str) -> String {
+    if is_cve_id(s) {
+        s.to_ascii_uppercase()
+    } else {
+        s.to_string()
+    }
+}
+
+/// True when `raw` `id` or `aliases` matches `record_id` (CVE-normalized).
+pub fn raw_matches_record_id(
+    raw: &serde_json::Value,
+    record_id: &str,
+) -> bool {
+    let want = normalize_vuln_id(record_id);
+    if raw
+        .get("id")
+        .and_then(|v| v.as_str())
+        .is_some_and(|id| normalize_vuln_id(id) == want)
+    {
+        return true;
+    }
+    raw.get("aliases")
+        .and_then(|v| v.as_array())
+        .into_iter()
+        .flatten()
+        .filter_map(|alias| alias.as_str())
+        .any(|alias| normalize_vuln_id(alias) == want)
+}
+
 /// CVSS version used for the primary score (FR-034).
 #[derive(
     Debug,
@@ -550,6 +596,21 @@ mod tests {
         assert_eq!(Severity::Medium.as_str(), "MEDIUM");
         assert_eq!(Severity::Low.as_str(), "LOW");
         assert_eq!(Severity::Unknown.as_str(), "UNKNOWN");
+    }
+
+    #[test]
+    fn raw_matches_record_id_uses_aliases_and_cve_case() {
+        let ghsa = serde_json::json!({
+            "id": "GHSA-abcd-efgh-ijkl",
+            "aliases": ["cve-2024-1708"],
+        });
+        assert!(raw_matches_record_id(&ghsa, "CVE-2024-1708"));
+        assert!(raw_matches_record_id(&ghsa, "GHSA-abcd-efgh-ijkl"));
+        assert!(!raw_matches_record_id(&ghsa, "CVE-2024-9999"));
+        let cve = serde_json::json!({"id": "CVE-2024-1708"});
+        assert!(raw_matches_record_id(&cve, "cve-2024-1708"));
+        assert_eq!(normalize_vuln_id("cve-2024-1708"), "CVE-2024-1708");
+        assert_eq!(normalize_vuln_id("GHSA-x"), "GHSA-x");
     }
 
     #[test]

@@ -490,6 +490,18 @@ class TestGenerateExampleConf:
         assert "# parallel_queries = 10" in result
         assert "  # Max queries" not in result
 
+    def test_providers_example_is_commented_toml_array(self) -> None:
+        """Default providers stay commented as a TOML array (FR-019-EXT)."""
+        config_list = {"providers": "osv"}
+        comments = {
+            "providers": {"description": "CVE providers to query"},
+        }
+        result = generate_config_example.generate_example_conf(
+            config_list, comments
+        )
+        assert '# providers = ["osv"]' in result
+        assert "# providers = osv\n" not in result
+
     def test_long_comment_wrapped_at_79_chars(self) -> None:
         """Long descriptions are wrapped at 79 characters."""
         long_desc = (
