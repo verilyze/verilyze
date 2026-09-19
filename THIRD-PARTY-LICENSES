@@ -199,6 +199,7 @@ COMPONENTS
 - vlz v0.12.0 (GPL-3.0-or-later)
 - vlz-cve-client v0.12.0 (GPL-3.0-or-later)
 - vlz-db v0.12.0 (GPL-3.0-or-later)
+- vlz-exploitability v0.12.0 (GPL-3.0-or-later)
 - vlz-integrity v0.12.0 (GPL-3.0-or-later)
 - vlz-lsp v0.12.0 (GPL-3.0-or-later)
 - vlz-manifest-finder v0.12.0 (GPL-3.0-or-later)

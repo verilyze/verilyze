@@ -2228,6 +2228,13 @@
       "version": "0.12.0"
     },
     {
+      "bom-ref": "pkg:cargo/vlz-exploitability@0.12.0",
+      "name": "vlz-exploitability",
+      "purl": "pkg:cargo/vlz-exploitability@0.12.0",
+      "type": "library",
+      "version": "0.12.0"
+    },
+    {
       "bom-ref": "pkg:cargo/vlz-fuzz@0.12.0",
       "name": "vlz-fuzz",
       "purl": "pkg:cargo/vlz-fuzz@0.12.0",
