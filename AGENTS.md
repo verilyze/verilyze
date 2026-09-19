@@ -145,7 +145,8 @@ Cloud Agents use [`.cursor/environment.json`](.cursor/environment.json):
  `/usr/local/lib/vlz/docker-start.sh` (baked into the image so warm-fork
  start does not depend on checkout). That script starts `dockerd` and
  falls back to `vfs` via `--storage-driver` if fuse-overlayfs cannot start.
- Docker start is soft-fail: a dockerd outage warns and the agent continues.
+ Both steps soft-fail: a signing or dockerd outage warns and the agent
+ continues, and Docker still starts if signing setup fails.
  `sign-setup.sh` materializes the `ssh_key` secret, configures global *and*
  repo-local SSH signing (local wins if Cursor later overwrites global with a
  managed key), and `ship-pr.sh` re-runs it before remote writes. If commits

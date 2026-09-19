@@ -24,6 +24,18 @@ if [ -z "${ssh_key:-}" ]; then
   exit 0
 fi
 
+# Prefer the system OpenSSH binary so boot `start` does not depend on
+# Cursor's /exec-daemon PATH (which may be absent when start runs).
+if [ -x /usr/bin/ssh-keygen ]; then
+  SSH_KEYGEN=/usr/bin/ssh-keygen
+elif command -v ssh-keygen >/dev/null 2>&1; then
+  SSH_KEYGEN="$(command -v ssh-keygen)"
+else
+  echo "[sign-setup] WARNING: ssh-keygen not found; skipping SSH signing setup." >&2
+  echo "[sign-setup] Install openssh-client in the Cloud Agent image (see .cursor/Dockerfile)." >&2
+  exit 0
+fi
+
 # Attribute commits to the owner. Identity comes from the git_signing_name /
 # git_signing_email secrets, not this shared script -- name and email are public
 # (they appear in every commit), so secrets here are just the per-user runtime
@@ -64,10 +76,10 @@ printf '%s\n' "${ssh_key%$'\n'}" >"${KEY_PATH}"
 
 # Strip the passphrase on this ephemeral copy so signing is non-interactive
 # across the agent's separate shells (no ssh-agent/socket to propagate).
-ssh-keygen -p -P "${ssh_key_pass:-}" -N "" -f "${KEY_PATH}" >/dev/null
+"${SSH_KEYGEN}" -p -P "${ssh_key_pass:-}" -N "" -f "${KEY_PATH}" >/dev/null
 
 # Derive the public key from the private key so it always matches.
-ssh-keygen -y -f "${KEY_PATH}" >"${PUB_PATH}"
+"${SSH_KEYGEN}" -y -f "${KEY_PATH}" >"${PUB_PATH}"
 chmod 644 "${PUB_PATH}"
 
 # allowed_signers maps the committer identity to the key for local
@@ -86,7 +98,7 @@ configure_git_signing() {
   local scope="$1"
   git config "${scope}" gpg.format ssh
   git config "${scope}" user.signingkey "${KEY_PATH}"
-  git config "${scope}" gpg.ssh.program "$(command -v ssh-keygen)"
+  git config "${scope}" gpg.ssh.program "${SSH_KEYGEN}"
   git config "${scope}" gpg.ssh.allowedSignersFile "${SIGNERS_FILE}"
   git config "${scope}" commit.gpgsign true
 }
