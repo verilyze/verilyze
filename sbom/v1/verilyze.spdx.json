@@ -463,16 +463,16 @@
     {
       "@type": "Package",
       "name": "cc",
-      "packageUrl": "pkg:cargo/cc@1.4.6",
-      "spdxId": "urn:spdx.dev:pkg-cargo-cc-1-4-6",
-      "versionInfo": "1.4.6"
+      "packageUrl": "pkg:cargo/cc@1.4.7",
+      "spdxId": "urn:spdx.dev:pkg-cargo-cc-1-4-7",
+      "versionInfo": "1.4.7"
     },
     {
       "@type": "Package",
       "name": "cfg-if",
-      "packageUrl": "pkg:cargo/cfg-if@1.0.4",
-      "spdxId": "urn:spdx.dev:pkg-cargo-cfg-if-1-0-4",
-      "versionInfo": "1.0.4"
+      "packageUrl": "pkg:cargo/cfg-if@1.0.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-cfg-if-1-0-5",
+      "versionInfo": "1.0.5"
     },
     {
       "@type": "Package",
@@ -498,9 +498,9 @@
     {
       "@type": "Package",
       "name": "clap_complete",
-      "packageUrl": "pkg:cargo/clap_complete@4.6.10",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-complete-4-6-10",
-      "versionInfo": "4.6.10"
+      "packageUrl": "pkg:cargo/clap_complete@4.6.11",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-complete-4-6-11",
+      "versionInfo": "4.6.11"
     },
     {
       "@type": "Package",
@@ -680,9 +680,9 @@
     {
       "@type": "Package",
       "name": "derive-where",
-      "packageUrl": "pkg:cargo/derive-where@1.6.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-derive-where-1-6-1",
-      "versionInfo": "1.6.1"
+      "packageUrl": "pkg:cargo/derive-where@1.7.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-derive-where-1-7-0",
+      "versionInfo": "1.7.0"
     },
     {
       "@type": "Package",
@@ -757,9 +757,9 @@
     {
       "@type": "Package",
       "name": "find-msvc-tools",
-      "packageUrl": "pkg:cargo/find-msvc-tools@0.1.12",
-      "spdxId": "urn:spdx.dev:pkg-cargo-find-msvc-tools-0-1-12",
-      "versionInfo": "0.1.12"
+      "packageUrl": "pkg:cargo/find-msvc-tools@0.1.13",
+      "spdxId": "urn:spdx.dev:pkg-cargo-find-msvc-tools-0-1-13",
+      "versionInfo": "0.1.13"
     },
     {
       "@type": "Package",
@@ -1632,9 +1632,9 @@
     {
       "@type": "Package",
       "name": "rustix",
-      "packageUrl": "pkg:cargo/rustix@1.1.4",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rustix-1-1-4",
-      "versionInfo": "1.1.4"
+      "packageUrl": "pkg:cargo/rustix@1.1.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustix-1-1-5",
+      "versionInfo": "1.1.5"
     },
     {
       "@type": "Package",
@@ -1918,6 +1918,13 @@
     },
     {
       "@type": "Package",
+      "name": "synstructure",
+      "packageUrl": "pkg:cargo/synstructure@0.14.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-synstructure-0-14-0",
+      "versionInfo": "0.14.0"
+    },
+    {
+      "@type": "Package",
       "name": "system-configuration",
       "packageUrl": "pkg:cargo/system-configuration@0.7.0",
       "spdxId": "urn:spdx.dev:pkg-cargo-system-configuration-0-7-0",
@@ -1947,9 +1954,9 @@
     {
       "@type": "Package",
       "name": "thin-vec",
-      "packageUrl": "pkg:cargo/thin-vec@0.2.19",
-      "spdxId": "urn:spdx.dev:pkg-cargo-thin-vec-0-2-19",
-      "versionInfo": "0.2.19"
+      "packageUrl": "pkg:cargo/thin-vec@0.2.20",
+      "spdxId": "urn:spdx.dev:pkg-cargo-thin-vec-0-2-20",
+      "versionInfo": "0.2.20"
     },
     {
       "@type": "Package",
@@ -2115,9 +2122,9 @@
     {
       "@type": "Package",
       "name": "unicode-ident",
-      "packageUrl": "pkg:cargo/unicode-ident@1.0.24",
-      "spdxId": "urn:spdx.dev:pkg-cargo-unicode-ident-1-0-24",
-      "versionInfo": "1.0.24"
+      "packageUrl": "pkg:cargo/unicode-ident@1.0.26",
+      "spdxId": "urn:spdx.dev:pkg-cargo-unicode-ident-1-0-26",
+      "versionInfo": "1.0.26"
     },
     {
       "@type": "Package",
@@ -2598,9 +2605,9 @@
     {
       "@type": "Package",
       "name": "yoke-derive",
-      "packageUrl": "pkg:cargo/yoke-derive@0.8.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-yoke-derive-0-8-2",
-      "versionInfo": "0.8.2"
+      "packageUrl": "pkg:cargo/yoke-derive@0.8.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-yoke-derive-0-8-3",
+      "versionInfo": "0.8.3"
     },
     {
       "@type": "Package",
@@ -2626,9 +2633,9 @@
     {
       "@type": "Package",
       "name": "zerofrom-derive",
-      "packageUrl": "pkg:cargo/zerofrom-derive@0.1.7",
-      "spdxId": "urn:spdx.dev:pkg-cargo-zerofrom-derive-0-1-7",
-      "versionInfo": "0.1.7"
+      "packageUrl": "pkg:cargo/zerofrom-derive@0.1.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-zerofrom-derive-0-1-8",
+      "versionInfo": "0.1.8"
     },
     {
       "@type": "Package",
