@@ -331,6 +331,8 @@ thresholds (FR-014) unless you set `exit_on_kev` and/or `min_epss`. Use
 `--no-exploitability` to omit ranking. See [configuration.md](configuration.md)
 for `[exploitability]` keys and `--refresh-exploitability`.
 
+## Editor diagnostics (FR-042)
+
 ### How do I use editor diagnostics?
 
 Run `vlz lsp` from an editor Language Server configuration. It uses standard
