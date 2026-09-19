@@ -502,6 +502,13 @@ class TestGenerateExampleConf:
         assert '# providers = ["osv"]' in result
         assert "# providers = osv\n" not in result
 
+    def test_providers_csv_default_becomes_toml_array(self) -> None:
+        result = generate_config_example.generate_example_conf(
+            {"providers": "osv, nvd"},
+            {"providers": {"description": "CVE providers"}},
+        )
+        assert '# providers = ["osv", "nvd"]' in result
+
     def test_long_comment_wrapped_at_79_chars(self) -> None:
         """Long descriptions are wrapped at 79 characters."""
         long_desc = (

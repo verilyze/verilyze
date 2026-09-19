@@ -293,7 +293,7 @@ fn run_preload_provider_failure_exits_5() {
         vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
             vlz::mocks::FailingCveProvider::new(),
         )));
-        assert_eq!(run_async(&["preload", root]), 5);
+        assert_eq!(run_async(&["preload", root, "--provider", "failing"]), 5,);
     });
 }
 
@@ -2579,7 +2579,7 @@ fn run_scan_cve_provider_fails_logs_error() {
         vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
             vlz::mocks::FailingCveProvider::new(),
         )));
-        let code = run_async(&["-v", "scan", root]);
+        let code = run_async(&["-v", "scan", root, "--provider", "failing"]);
         assert_eq!(
             code, 5,
             "scan exits 5 when CVE provider fetch fails (avoid false negative)"
@@ -2948,23 +2948,18 @@ fn run_scan_with_output_writes_file_not_stdout() {
     let root = dir.path().to_str().unwrap();
     let out_path = dir.path().join("report.json");
     let out_str = out_path.to_str().unwrap();
-    let output = std::process::Command::new(env!("CARGO_BIN_EXE_vlz"))
-        .args([
-            "scan",
-            root,
-            "--offline",
-            "--format",
-            "json",
-            "--output",
-            out_str,
-        ])
-        .env("XDG_CACHE_HOME", xdg.path())
-        .env("XDG_DATA_HOME", xdg.path())
-        .env("XDG_CONFIG_HOME", xdg.path())
-        .env("VLZ_CACHE_DB", xdg.path().join("vlz-cache.redb"))
-        .env("VLZ_IGNORE_DB", xdg.path().join("vlz-ignore.json"))
-        .output()
-        .expect("spawn vlz");
+    let mut output = std::process::Command::new(env!("CARGO_BIN_EXE_vlz"));
+    output.args([
+        "scan",
+        root,
+        "--offline",
+        "--format",
+        "json",
+        "--output",
+        out_str,
+    ]);
+    apply_isolated_db_env(&mut output, xdg.path());
+    let output = output.output().expect("spawn vlz");
     assert_eq!(output.status.code(), Some(0));
     assert!(
         output.stdout.is_empty(),

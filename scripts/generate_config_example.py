@@ -413,6 +413,21 @@ def build_severity_data(
     return "\n".join(lines)
 
 
+def _example_scalar_value_line(key: str, default: str) -> str:
+    """Format one commented scalar assignment for verilyze.conf.example."""
+    if key == "cache_db" and not default:
+        return '# cache_db = "/path/to/db.redb"'
+    if key == "ignore_db" and not default:
+        return '# ignore_db = "/path/to/vlz-ignore.json"'
+    if key == "providers":
+        names = [part.strip() for part in default.split(",") if part.strip()]
+        quoted = ", ".join(f'"{name}"' for name in names)
+        return f"# {key} = [{quoted}]"
+    path_keys = ("cache_db", "ignore_db")
+    val = f'"{default}"' if default and key in path_keys else default
+    return f"# {key} = {val}"
+
+
 def generate_example_conf(
     config_list: dict[str, str],
     comments: dict[str, dict[str, str]],
@@ -433,20 +448,7 @@ def generate_example_conf(
             "default", ""
         )
         desc = comments.get(key, {}).get("description", "")
-        if key == "cache_db" and not default:
-            val_line = '# cache_db = "/path/to/db.redb"'
-        elif key == "ignore_db" and not default:
-            val_line = '# ignore_db = "/path/to/vlz-ignore.json"'
-        elif key == "providers":
-            names = [
-                part.strip() for part in default.split(",") if part.strip()
-            ]
-            quoted = ", ".join(f'"{name}"' for name in names)
-            val_line = f"# {key} = [{quoted}]"
-        else:
-            path_keys = ("cache_db", "ignore_db")
-            val = f'"{default}"' if default and key in path_keys else default
-            val_line = f"# {key} = {val}"
+        val_line = _example_scalar_value_line(key, default)
         for comment_line in wrap_comment(desc):
             lines.append(comment_line)
         lines.append(val_line)

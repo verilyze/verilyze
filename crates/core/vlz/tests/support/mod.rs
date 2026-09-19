@@ -17,7 +17,10 @@ pub fn apply_isolated_db_env(cmd: &mut Command, xdg_root: &Path) {
     cmd.env("XDG_CACHE_HOME", xdg_root)
         .env("XDG_DATA_HOME", xdg_root)
         .env("XDG_CONFIG_HOME", xdg_root)
-        .env("VLZ_IGNORE_DB", &ignore_db);
+        .env("VLZ_IGNORE_DB", &ignore_db)
+        // Parallel in-process tests may set VLZ_PROVIDERS via temp_env;
+        // subprocesses must not inherit that (unknown names exit 2).
+        .env_remove("VLZ_PROVIDERS");
     #[cfg(feature = "redb")]
     {
         let cache_db = xdg_root.join("vlz-cache.redb");
