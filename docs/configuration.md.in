@@ -118,7 +118,9 @@ ttl_secs = 86400
 
 `min_epss` unions with CVSS `min_score` for `min_count` exit policy.
 `exit_on_kev` is independent. Use `--refresh-exploitability` to force online
-reload of KEV/EPSS snapshots.
+reload of KEV/EPSS snapshots. Ranking is report signal; it does not set
+OpenVEX `exploited`. Network fetch uses the canonical CISA KEV catalog URL
+(no mirror fallback).
 
 ## Resolution policy (FR-022, SEC-023)
 
