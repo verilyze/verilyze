@@ -13,6 +13,7 @@ from scripts.coverage_new_rust_check import (
     NEW_RUST_MIN_REGION_RATE,
     check_new_rust_coverage,
     discover_added_rust_files,
+    is_coverage_exempt_rust_path,
     main,
     normalize_rust_path,
     rust_file_rates,
@@ -128,6 +129,37 @@ def test_discover_added_rust_files_parses_git_output() -> None:
         assert discover_added_rust_files("origin/main") == [
             "crates/vlz/src/new.rs"
         ]
+
+
+def test_discover_added_rust_files_omits_fuzz_harness_paths() -> None:
+    completed = type(
+        "Completed",
+        (),
+        {
+            "returncode": 0,
+            "stdout": (
+                "crates/vlz/src/new.rs\n"
+                "tests/fuzz/fuzz_targets/kev.rs\n"
+                "fuzz/fuzz_targets/fuzz_kev.rs\n"
+            ),
+            "stderr": "",
+        },
+    )()
+    with patch(
+        "scripts.coverage_new_rust_check.subprocess.run",
+        return_value=completed,
+    ):
+        assert discover_added_rust_files("origin/main") == [
+            "crates/vlz/src/new.rs"
+        ]
+
+
+def test_is_coverage_exempt_rust_path_fuzz_trees() -> None:
+    assert is_coverage_exempt_rust_path("tests/fuzz/fuzz_targets/kev.rs")
+    assert is_coverage_exempt_rust_path("./fuzz/fuzz_targets/fuzz_epss.rs")
+    assert is_coverage_exempt_rust_path("fuzz\\fuzz_targets\\fuzz_kev.rs")
+    assert not is_coverage_exempt_rust_path("crates/vlz/src/lib.rs")
+    assert not is_coverage_exempt_rust_path("tests/integration/mod.rs")
 
 
 def test_discover_added_rust_files_raises_on_git_failure() -> None:
@@ -301,6 +333,41 @@ def test_check_new_rust_coverage_fails_missing_file_in_xml(
     )
     assert len(errors) == 1
     assert "not found in coverage XML" in errors[0]
+
+
+def test_check_new_rust_coverage_skips_fuzz_harness_paths(
+    tmp_path: Path,
+) -> None:
+    """AFL and cargo-fuzz harnesses are excluded from llvm-cov reports."""
+    xml = tmp_path / "cobertura-rust.xml"
+    xml.write_text(
+        """<?xml version="1.0" ?>
+<coverage line-rate="1.0">
+  <packages><package><classes>
+    <class filename="crates/vlz/src/other.rs" line-rate="1.0"
+           branch-rate="1.0"/>
+  </classes></package></packages>
+</coverage>
+""",
+        encoding="utf-8",
+    )
+    errors = check_new_rust_coverage(
+        xml,
+        [
+            "tests/fuzz/fuzz_targets/kev.rs",
+            "fuzz/fuzz_targets/fuzz_kev.rs",
+        ],
+    )
+    assert errors == []
+    crate_errors = check_new_rust_coverage(
+        xml,
+        [
+            "tests/fuzz/fuzz_targets/kev.rs",
+            "crates/vlz/src/missing.rs",
+        ],
+    )
+    assert len(crate_errors) == 1
+    assert "crates/vlz/src/missing.rs" in crate_errors[0]
 
 
 def test_check_new_rust_coverage_skips_when_no_files() -> None:
