@@ -105,6 +105,9 @@ SemVer is genuinely ambiguous (e.g. conflicting major vs minor signals).
 - `make -j check` green (or run it now)
 - `make release-preflight` passes (includes local publish layout round-trip via
   `scripts/release-verify-upload-roundtrip.sh`)
+- New production crates under `crates/` are picked up automatically by
+  `scripts/crates_publish.py`; run `make check-crates-publish` before release
+  (see CONTRIBUTING "Adding a new production crate")
 
 ## Never push directly to `main`
 

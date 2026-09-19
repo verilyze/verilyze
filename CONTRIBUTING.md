@@ -459,6 +459,11 @@ changes):
 
 **crates.io** (OP-001, DOC-009):
 
+- **Auto-discovery (no manual allowlist):** [scripts/crates_publish.py](scripts/crates_publish.py)
+  discovers every publishable crate under `crates/` (`publish = false` is
+  skipped, e.g. fuzz helpers). Publish order is a topological sort of
+  internal `vlz` / `vlz-*` dependencies. Do **not** maintain a hard-coded
+  crate name list or regex allowlist; run `make check-crates-publish` instead.
 - All production workspace crates publish on tagged releases in bottom-up
   dependency order via [scripts/cargo-publish-release.sh](scripts/cargo-publish-release.sh).
   That script retries HTTP 429 rate limits using the `try again after` timestamp
@@ -483,6 +488,21 @@ changes):
   dependencies exist on the registry.
 - Once a version is on crates.io it is immutable; cut the next patch release
   instead of republishing the same SemVer.
+
+**Adding a new production crate** (core, language, provider, or db-backend):
+
+1. Create the crate under `crates/` with `package.description` mentioning
+   **verilyze** and registry fields inherited from the workspace
+   (`keywords`, `categories`, `readme`, `rust-version` via `*.workspace = true`).
+2. Add the crate to workspace `members` (and `default-members` when it is part
+   of the default build) in the root [Cargo.toml](Cargo.toml).
+3. When other crates depend on it with `{ workspace = true }`, add a matching
+   `[workspace.dependencies]` entry (`path` under `crates/`, `version` equal to
+   `[workspace.package].version`).
+4. Run `make check-crates-publish` (manifest validation, vlz assets, leaf
+   `cargo package`). Optional crates linked only by direct `path =` (e.g.
+   `vlz-lsp`) still publish when present under `crates/` without a workspace
+   dependency key.
 
 **Future work:** `workflow_dispatch` on `release.yml` still skips
 `create-draft` / `publish-release` (`if: github.event_name == 'push'`).

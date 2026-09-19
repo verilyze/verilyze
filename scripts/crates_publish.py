@@ -3,7 +3,13 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""crates.io publish order and manifest validation."""
+"""crates.io publish order and manifest validation.
+
+Publishable crates are discovered automatically from ``crates/**/Cargo.toml``
+(omit ``publish = false``). There is no manual allowlist. Internal dependency
+edges use the discovered set plus ``vlz`` / ``vlz-*`` manifest names. Run
+``make check-crates-publish`` after adding a production crate.
+"""
 
 import argparse
 import math
