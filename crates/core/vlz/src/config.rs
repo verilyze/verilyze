@@ -172,6 +172,11 @@ pub struct EffectiveConfig {
     pub vex: vlz_report::VexConfig,
     /// When true, omit VEX analysis from reports (`--no-vex`).
     pub no_vex: bool,
+    /// Exploitability ranking settings (FR-048, `[exploitability]`).
+    pub exploitability: vlz_exploitability::ExploitabilityConfig,
+    /// Force refresh of KEV/EPSS snapshots (FR-048).
+    /// CLI-only transient (`--refresh-exploitability`); never from file/env.
+    pub refresh_exploitability: bool,
 }
 
 impl Default for EffectiveConfig {
@@ -213,6 +218,9 @@ impl Default for EffectiveConfig {
             reachability_mode: DEFAULT_REACHABILITY_MODE,
             vex: vlz_report::VexConfig::default(),
             no_vex: false,
+            exploitability: vlz_exploitability::ExploitabilityConfig::default(
+            ),
+            refresh_exploitability: false,
         }
     }
 }
@@ -298,6 +306,9 @@ pub enum ConfigError {
 
     #[error("Invalid reachability mode '{value}' (from {origin})")]
     InvalidReachabilityMode { value: String, origin: String },
+
+    #[error("Invalid exploitability setting: {message}")]
+    InvalidExploitability { message: String },
 
     #[error("Invalid Python lock file allowlist: {message}")]
     InvalidPythonLockFiles { message: String },
@@ -476,6 +487,14 @@ fn apply_file_config_inner(
     {
         apply_toml_vex_table(vex, &mut cfg.vex, source)?;
     }
+    // FR-048: parse [exploitability] section.
+    if let Ok(value) = toml::from_str::<toml::Value>(raw)
+        && let Some(t) = value.as_table()
+        && let Some(exp_val) = t.get("exploitability")
+        && let Some(exp) = exp_val.as_table()
+    {
+        apply_toml_exploitability_table(exp, &mut cfg.exploitability, source)?;
+    }
     extract_python_lock_files(cfg, raw)?;
     Ok(())
 }
@@ -486,6 +505,65 @@ const KNOWN_VEX_KEYS: &[&str] = &[
     "author_namespace",
     "reachability_not_affected",
 ];
+
+/// Known `[exploitability]` table keys (FR-048, SEC-006).
+const KNOWN_EXPLOITABILITY_KEYS: &[&str] = &[
+    "enabled",
+    "min_epss",
+    "exit_on_kev",
+    "kev_file",
+    "epss_file",
+    "ttl_secs",
+];
+
+/// Parse the `[exploitability]` TOML table (FR-048, SEC-006).
+fn apply_toml_exploitability_table(
+    table: &toml::map::Map<String, toml::Value>,
+    exploitability: &mut vlz_exploitability::ExploitabilityConfig,
+    source: &str,
+) -> Result<(), ConfigError> {
+    for key in table.keys() {
+        if !KNOWN_EXPLOITABILITY_KEYS.contains(&key.as_str()) {
+            return Err(ConfigError::UnknownKey {
+                key: format!("exploitability.{key}"),
+                origin: source.to_string(),
+            });
+        }
+    }
+    if let Some(v) = table.get("enabled").and_then(|v| v.as_bool()) {
+        exploitability.enabled = v;
+    }
+    if let Some(v) = table.get("min_epss").and_then(|v| v.as_float()) {
+        let v = v as f32;
+        if !vlz_exploitability::min_epss_in_range(v) {
+            return Err(ConfigError::InvalidExploitability {
+                message: format!(
+                    "min_epss must be 0.0-1.0 (from {source}); got {v}"
+                ),
+            });
+        }
+        exploitability.min_epss = Some(v);
+    }
+    if let Some(v) = table.get("exit_on_kev").and_then(|v| v.as_bool()) {
+        exploitability.exit_on_kev = v;
+    }
+    if let Some(v) = table.get("kev_file").and_then(|v| v.as_str()) {
+        exploitability.kev_file =
+            vlz_report::nonempty_optional_id(Some(v.to_string()))
+                .map(std::path::PathBuf::from);
+    }
+    if let Some(v) = table.get("epss_file").and_then(|v| v.as_str()) {
+        exploitability.epss_file =
+            vlz_report::nonempty_optional_id(Some(v.to_string()))
+                .map(std::path::PathBuf::from);
+    }
+    if let Some(v) = table.get("ttl_secs").and_then(|v| v.as_integer()) {
+        if v >= 0 {
+            exploitability.ttl_secs = v as u64;
+        }
+    }
+    Ok(())
+}
 
 fn apply_toml_vex_table(
     table: &toml::map::Map<String, toml::Value>,
@@ -1139,6 +1217,7 @@ pub fn load_with_reachability_overrides(
         cfg.lsp_folder_trust = v;
     }
     apply_env_vex_overrides(&mut cfg.vex);
+    apply_env_exploitability_overrides(&mut cfg.exploitability);
 
     // 5) CLI
     if let Some(n) = cli_parallel {
@@ -1327,6 +1406,49 @@ pub fn apply_env_vex_overrides(vex: &mut vlz_report::VexConfig) {
         } else if matches!(lower.as_str(), "0" | "false" | "no" | "off") {
             vex.reachability_not_affected = false;
         }
+    }
+}
+
+/// Apply `VLZ_EXPLOITABILITY_*` environment overrides (FR-048, CFG-005).
+pub fn apply_env_exploitability_overrides(
+    exploitability: &mut vlz_exploitability::ExploitabilityConfig,
+) {
+    if let Ok(v) = std::env::var("VLZ_EXPLOITABILITY_ENABLED") {
+        let lower = v.to_ascii_lowercase();
+        if matches!(lower.as_str(), "1" | "true" | "yes" | "on") {
+            exploitability.enabled = true;
+        } else if matches!(lower.as_str(), "0" | "false" | "no" | "off") {
+            exploitability.enabled = false;
+        }
+    }
+    if let Ok(v) = std::env::var("VLZ_EXPLOITABILITY_MIN_EPSS")
+        && let Ok(n) = v.trim().parse::<f64>()
+    {
+        let f = n as f32;
+        if vlz_exploitability::min_epss_in_range(f) {
+            exploitability.min_epss = Some(f);
+        }
+    }
+    if let Ok(v) = std::env::var("VLZ_EXPLOITABILITY_EXIT_ON_KEV") {
+        let lower = v.to_ascii_lowercase();
+        if matches!(lower.as_str(), "1" | "true" | "yes" | "on") {
+            exploitability.exit_on_kev = true;
+        } else if matches!(lower.as_str(), "0" | "false" | "no" | "off") {
+            exploitability.exit_on_kev = false;
+        }
+    }
+    if let Ok(v) = std::env::var("VLZ_EXPLOITABILITY_KEV_FILE") {
+        exploitability.kev_file = vlz_report::nonempty_optional_id(Some(v))
+            .map(std::path::PathBuf::from);
+    }
+    if let Ok(v) = std::env::var("VLZ_EXPLOITABILITY_EPSS_FILE") {
+        exploitability.epss_file = vlz_report::nonempty_optional_id(Some(v))
+            .map(std::path::PathBuf::from);
+    }
+    if let Ok(v) = std::env::var("VLZ_EXPLOITABILITY_TTL_SECS")
+        && let Ok(n) = v.trim().parse::<u64>()
+    {
+        exploitability.ttl_secs = n;
     }
 }
 
@@ -2307,6 +2429,89 @@ reachability_not_affected = true
             }
             other => panic!("expected UnknownKey, got {other}"),
         }
+    }
+
+    #[test]
+    fn exploitability_table_parses_and_rejects_unknown_keys() {
+        with_isolated_load_env(|| {
+            let dir = test_tempdir();
+            let config_path = dir.path().join("exploitability.conf");
+            std::fs::write(
+                &config_path,
+                r#"
+[exploitability]
+enabled = true
+min_epss = 0.7
+exit_on_kev = true
+ttl_secs = 3600
+"#,
+            )
+            .unwrap();
+            let path_str = config_path.to_string_lossy().into_owned();
+            let cfg = load_no_severity(Some(&path_str));
+            assert!(cfg.exploitability.enabled);
+            assert_eq!(cfg.exploitability.min_epss, Some(0.7));
+            assert!(cfg.exploitability.exit_on_kev);
+            assert_eq!(cfg.exploitability.ttl_secs, 3600);
+            assert!(cfg.exploitability.kev_file.is_none());
+        });
+        let r = parse_and_validate_toml(
+            "[exploitability]\nunknown_exploitability_key = 1\n",
+        );
+        assert!(r.is_err());
+        match r.unwrap_err() {
+            ConfigError::UnknownKey { key, .. } => {
+                assert_eq!(key, "exploitability.unknown_exploitability_key");
+            }
+            other => panic!("expected UnknownKey, got {other}"),
+        }
+    }
+
+    #[test]
+    fn exploitability_defaults_when_table_absent() {
+        with_isolated_load_env(|| {
+            let cfg = load_no_severity(None);
+            assert!(cfg.exploitability.enabled);
+            assert!(cfg.exploitability.min_epss.is_none());
+            assert!(!cfg.exploitability.exit_on_kev);
+            assert_eq!(
+                cfg.exploitability.ttl_secs,
+                vlz_exploitability::DEFAULT_EXPLOITABILITY_TTL_SECS
+            );
+        });
+    }
+
+    #[test]
+    fn exploitability_rejects_out_of_range_min_epss() {
+        let r = parse_and_validate_toml("[exploitability]\nmin_epss = 1.5\n");
+        assert!(r.is_err());
+        assert!(matches!(
+            r.unwrap_err(),
+            ConfigError::InvalidExploitability { .. }
+        ));
+        let r = parse_and_validate_toml("[exploitability]\nmin_epss = -0.1\n");
+        assert!(r.is_err());
+    }
+
+    #[test]
+    fn exploitability_env_overrides_apply() {
+        with_isolated_load_env(|| {
+            temp_env::with_vars(
+                [
+                    ("VLZ_EXPLOITABILITY_ENABLED", Some("false")),
+                    ("VLZ_EXPLOITABILITY_MIN_EPSS", Some("0.8")),
+                    ("VLZ_EXPLOITABILITY_EXIT_ON_KEV", Some("true")),
+                    ("VLZ_EXPLOITABILITY_TTL_SECS", Some("123")),
+                ],
+                || {
+                    let cfg = load_no_severity(None);
+                    assert!(!cfg.exploitability.enabled);
+                    assert_eq!(cfg.exploitability.min_epss, Some(0.8));
+                    assert!(cfg.exploitability.exit_on_kev);
+                    assert_eq!(cfg.exploitability.ttl_secs, 123);
+                },
+            );
+        });
     }
 
     #[test]

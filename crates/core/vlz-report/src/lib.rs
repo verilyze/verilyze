@@ -39,6 +39,15 @@ const DESCRIPTION_MAX_LEN: usize = 60;
 /// SBOM / report property name for compact advisory ranges (FR-039, NFR-024).
 pub const VLZ_AFFECTED_RANGES_PROPERTY: &str = "vlz:affected_ranges";
 
+/// SARIF / CycloneDX property name for the CISA KEV flag (FR-048, NFR-024).
+pub const VLZ_KEV_PROPERTY: &str = "vlz:kev";
+
+/// SARIF / CycloneDX property name for the FIRST EPSS score (FR-048, NFR-024).
+pub const VLZ_EPSS_PROPERTY: &str = "vlz:epss";
+
+/// SARIF / CycloneDX property name for the FIRST EPSS percentile (FR-048, NFR-024).
+pub const VLZ_EPSS_PERCENTILE_PROPERTY: &str = "vlz:epss_percentile";
+
 /// Plain/HTML message when scan completed with no CVE findings (FR-010).
 pub const NO_VULNERABILITIES_FOUND_MESSAGE: &str = "No vulnerabilities found.";
 /// Plain/HTML message when findings are empty but analysis did not complete (FR-010).
@@ -158,6 +167,30 @@ pub fn format_affected_ranges_compact(cve: &CveRecord) -> String {
         .collect();
     let joined = pieces.join("; ");
     truncate_display(&joined, DESCRIPTION_MAX_LEN)
+}
+
+/// Inline exploitability markers for plain and HTML CVE cells (FR-048).
+///
+/// Returns `""` when no ranking is attached, `" KEV"` for KEV-listed CVEs,
+/// and appends ` EPSS=0.93` (two decimals) when a score is present.
+pub fn format_exploitability_markers(cve: &CveRecord) -> String {
+    format_exploitability_markers_for(cve.in_kev, cve.epss)
+}
+
+/// Marker text from raw ranking values (FR-048). Used where only
+/// deserialized report JSON is available (e.g. the LSP adapter).
+pub fn format_exploitability_markers_for(
+    in_kev: Option<bool>,
+    epss: Option<f32>,
+) -> String {
+    let mut out = String::new();
+    if in_kev == Some(true) {
+        out.push_str(" KEV");
+    }
+    if let Some(score) = epss {
+        out.push_str(&format!(" EPSS={score:.2}"));
+    }
+    out
 }
 
 /// Compact representation of an upgrade plan for `vlz fix` dry-run text.
@@ -660,6 +693,11 @@ impl Reporter for DefaultReporter {
             for (idx, (cve, severity)) in finding.cves.iter().enumerate() {
                 let severity_display = severity.as_str();
                 let ranges_display = format_affected_ranges_compact(cve);
+                let id_display = format!(
+                    "{}{}",
+                    cve.id,
+                    format_exploitability_markers(cve)
+                );
                 let mut chars = cve.description.chars();
                 let truncated: String =
                     chars.by_ref().take(DESCRIPTION_MAX_LEN).collect();
@@ -676,7 +714,7 @@ impl Reporter for DefaultReporter {
                         "{} | {} | {} | {} | {} | {} | {}",
                         finding.package.name,
                         finding.package.version,
-                        cve.id,
+                        id_display,
                         severity_display,
                         manifests_display,
                         ranges_display,
@@ -686,7 +724,10 @@ impl Reporter for DefaultReporter {
                     writeln!(
                         w,
                         "  |  | {} | {} |  | {} | {}",
-                        cve.id, severity_display, ranges_display, desc_display
+                        id_display,
+                        severity_display,
+                        ranges_display,
+                        desc_display
                     )?;
                 }
                 if let Some(details) = format_cve_symbol_details(cve) {
@@ -872,12 +913,17 @@ impl Reporter for HtmlReporter {
                 for (cve, severity) in &finding.cves {
                     let desc_escaped = html_escape(&cve.description);
                     let ranges_display = format_affected_ranges_compact(cve);
+                    let id_display = html_escape(&format!(
+                        "{}{}",
+                        cve.id,
+                        format_exploitability_markers(cve)
+                    ));
                     writeln!(
                         w,
                         "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
                         html_escape(&finding.package.name),
                         html_escape(&finding.package.version),
-                        html_escape(&cve.id),
+                        id_display,
                         severity.as_str(),
                         html_escape(&manifests_display),
                         html_escape(&ranges_display),
@@ -1006,6 +1052,18 @@ impl Reporter for SarifReporter {
                     if let Some(ref usage) = cve.symbol_usage {
                         result["properties"]["symbol_usage"] =
                             serde_json::json!(usage);
+                    }
+                    if cve.in_kev == Some(true) {
+                        result["properties"][VLZ_KEV_PROPERTY] =
+                            serde_json::json!(true);
+                    }
+                    if let Some(score) = cve.epss {
+                        result["properties"][VLZ_EPSS_PROPERTY] =
+                            serde_json::json!(score);
+                    }
+                    if let Some(percentile) = cve.epss_percentile {
+                        result["properties"][VLZ_EPSS_PERCENTILE_PROPERTY] =
+                            serde_json::json!(percentile);
                     }
                     if !cve.evidence.is_empty() {
                         let evidence_json: Vec<serde_json::Value> = cve
@@ -1276,6 +1334,30 @@ impl Reporter for CycloneDxReporter {
                             "analysis".to_string(),
                             cyclonedx_analysis_for(stmt),
                         );
+                    }
+                    if let Some(obj) = vuln.as_object_mut()
+                        && let Some(props) = obj
+                            .get_mut("properties")
+                            .and_then(|p| p.as_array_mut())
+                    {
+                        if cve.in_kev == Some(true) {
+                            props.push(serde_json::json!({
+                                "name": VLZ_KEV_PROPERTY,
+                                "value": "true"
+                            }));
+                        }
+                        if let Some(score) = cve.epss {
+                            props.push(serde_json::json!({
+                                "name": VLZ_EPSS_PROPERTY,
+                                "value": format!("{score:.2}")
+                            }));
+                        }
+                        if let Some(percentile) = cve.epss_percentile {
+                            props.push(serde_json::json!({
+                                "name": VLZ_EPSS_PERCENTILE_PROPERTY,
+                                "value": format!("{percentile:.2}")
+                            }));
+                        }
                     }
                     vuln
                 })
@@ -1571,6 +1653,9 @@ mod tests {
             evidence: Vec::new(),
             symbol_usage: None,
             affected_ranges: ranges,
+            in_kev: None,
+            epss: None,
+            epss_percentile: None,
         }
     }
 
@@ -1789,6 +1874,124 @@ mod tests {
         let comment = vuln["annotation"][0]["comment"].as_str().unwrap();
         assert!(comment.contains(VLZ_AFFECTED_RANGES_PROPERTY));
         assert!(comment.contains("ECOSYSTEM introduced:0 fixed:1.2.3"));
+    }
+
+    fn sample_report_data_with_ranking() -> ReportData {
+        let mut data = sample_report_data_with_ranges();
+        let cve = &mut data.findings[0].cves[0].0;
+        cve.in_kev = Some(true);
+        cve.epss = Some(0.93);
+        cve.epss_percentile = Some(0.99);
+        data
+    }
+
+    #[test]
+    fn exploitability_markers_format() {
+        let mut cve = sample_report_data_with_ranges().findings[0].cves[0]
+            .0
+            .clone();
+        assert_eq!(format_exploitability_markers(&cve), "");
+        cve.in_kev = Some(false);
+        assert_eq!(format_exploitability_markers(&cve), "");
+        cve.in_kev = Some(true);
+        assert_eq!(format_exploitability_markers(&cve), " KEV");
+        cve.epss = Some(0.93);
+        assert_eq!(format_exploitability_markers(&cve), " KEV EPSS=0.93");
+        cve.in_kev = None;
+        assert_eq!(format_exploitability_markers(&cve), " EPSS=0.93");
+    }
+
+    #[tokio::test]
+    async fn json_sarif_cyclonedx_carry_ranking_fr048() {
+        let data = sample_report_data_with_ranking();
+        let mut json_buf = Vec::new();
+        JsonReporter::new()
+            .render_to_writer(&data, &mut json_buf)
+            .await
+            .unwrap();
+        let json: serde_json::Value =
+            serde_json::from_str(String::from_utf8(json_buf).unwrap().trim())
+                .unwrap();
+        let cve = &json["findings"][0]["cves"][0];
+        assert_eq!(cve["in_kev"], true);
+        assert!(((cve["epss"].as_f64().unwrap()) - 0.93).abs() < 0.001);
+        assert!(
+            ((cve["epss_percentile"].as_f64().unwrap()) - 0.99).abs() < 0.001
+        );
+
+        let mut sarif_buf = Vec::new();
+        SarifReporter::new()
+            .render_to_writer(&data, &mut sarif_buf)
+            .await
+            .unwrap();
+        let sarif: serde_json::Value =
+            serde_json::from_str(String::from_utf8(sarif_buf).unwrap().trim())
+                .unwrap();
+        let props = &sarif["runs"][0]["results"][0]["properties"];
+        assert_eq!(props[VLZ_KEV_PROPERTY], true);
+        assert!(
+            ((props[VLZ_EPSS_PROPERTY].as_f64().unwrap()) - 0.93).abs()
+                < 0.001
+        );
+        assert!(
+            ((props[VLZ_EPSS_PERCENTILE_PROPERTY].as_f64().unwrap()) - 0.99)
+                .abs()
+                < 0.001
+        );
+
+        let mut cdx_buf = Vec::new();
+        CycloneDxReporter::new()
+            .render_to_writer(&data, &mut cdx_buf)
+            .await
+            .unwrap();
+        let cdx: serde_json::Value =
+            serde_json::from_str(String::from_utf8(cdx_buf).unwrap().trim())
+                .unwrap();
+        let props =
+            cdx["vulnerabilities"][0]["properties"].as_array().unwrap();
+        let kev_prop = props
+            .iter()
+            .find(|p| p["name"] == VLZ_KEV_PROPERTY)
+            .expect("vlz:kev property");
+        assert_eq!(kev_prop["value"], "true");
+        let epss_prop = props
+            .iter()
+            .find(|p| p["name"] == VLZ_EPSS_PROPERTY)
+            .expect("vlz:epss property");
+        assert_eq!(epss_prop["value"], "0.93");
+    }
+
+    #[tokio::test]
+    async fn plain_and_html_use_ranking_markers_fr048() {
+        let data = sample_report_data_with_ranking();
+        let mut plain = Vec::new();
+        DefaultReporter::new()
+            .render_to_writer(&data, &mut plain)
+            .await
+            .unwrap();
+        let plain_out = String::from_utf8(plain).unwrap();
+        assert!(plain_out.contains("KEV"));
+        assert!(plain_out.contains("EPSS=0.93"));
+
+        let mut html = Vec::new();
+        HtmlReporter::new()
+            .render_to_writer(&data, &mut html)
+            .await
+            .unwrap();
+        let html_out = String::from_utf8(html).unwrap();
+        assert!(html_out.contains("KEV"));
+        assert!(html_out.contains("EPSS=0.93"));
+
+        // Absent ranking leaves existing output untouched.
+        let unranked = sample_report_data_with_ranges();
+        let mut plain_unranked = Vec::new();
+        DefaultReporter::new()
+            .render_to_writer(&unranked, &mut plain_unranked)
+            .await
+            .unwrap();
+        let plain_unranked_out = String::from_utf8(plain_unranked).unwrap();
+        assert!(!plain_unranked_out.contains("KEV"));
+        assert!(!plain_unranked_out.contains("EPSS="));
     }
 
     #[test]

@@ -34,6 +34,7 @@ const HELP_RESOLUTION: &str = "Resolution";
 const HELP_ANALYSIS: &str = "Analysis";
 const HELP_SEVERITY_MAPPING: &str = "Severity mapping";
 const HELP_VEX: &str = "VEX";
+const HELP_EXPLOITABILITY: &str = "Exploitability";
 const HELP_ADVANCED: &str = "Advanced";
 
 #[derive(ClapParser, Debug)]
@@ -338,6 +339,40 @@ pub enum Commands {
             help_heading = HELP_VEX
         )]
         vex_reachability_not_affected: Option<bool>,
+
+        /// Skip CISA KEV / FIRST EPSS ranking entirely (FR-048)
+        #[arg(long, help_heading = HELP_EXPLOITABILITY)]
+        no_exploitability: bool,
+
+        /// Minimum EPSS score (0.0-1.0) to trigger the CVE exit code (FR-048)
+        #[arg(long, value_name = "SCORE", help_heading = HELP_THRESHOLDS)]
+        min_epss: Option<f32>,
+
+        /// Any KEV-listed CVE triggers the CVE exit code (FR-048)
+        #[arg(long, help_heading = HELP_THRESHOLDS)]
+        exit_on_kev: bool,
+
+        /// KEV snapshot file (JSON or CSV) instead of cache/network (FR-048)
+        #[arg(
+            long,
+            value_name = "PATH",
+            value_hint = ValueHint::FilePath,
+            help_heading = HELP_EXPLOITABILITY,
+        )]
+        kev_file: Option<String>,
+
+        /// EPSS snapshot file (uncompressed JSON or CSV) (FR-048)
+        #[arg(
+            long,
+            value_name = "PATH",
+            value_hint = ValueHint::FilePath,
+            help_heading = HELP_EXPLOITABILITY,
+        )]
+        epss_file: Option<String>,
+
+        /// Force refresh of KEV/EPSS snapshots even when cache is fresh (FR-048)
+        #[arg(long, help_heading = HELP_EXPLOITABILITY)]
+        refresh_exploitability: bool,
     },
 
     /// Apply remediations (updates lock/manifest files by default)
@@ -1139,6 +1174,59 @@ mod tests {
         assert_eq!(vex_product_id.as_deref(), Some("pkg:generic/app@1"));
         assert_eq!(vex_author_name.as_deref(), Some("Acme"));
         assert_eq!(*vex_reachability_not_affected, Some(true));
+    }
+
+    #[test]
+    fn parse_scan_exploitability_flags() {
+        let cli = parse(&[
+            "scan",
+            "--no-exploitability",
+            "--min-epss",
+            "0.7",
+            "--exit-on-kev",
+            "--kev-file",
+            "/tmp/kev.json",
+            "--epss-file",
+            "/tmp/epss.csv",
+            "--refresh-exploitability",
+        ]);
+        let Commands::Scan {
+            no_exploitability,
+            min_epss,
+            exit_on_kev,
+            kev_file,
+            epss_file,
+            refresh_exploitability,
+            ..
+        } = &cli.cmd
+        else {
+            panic!("expected scan")
+        };
+        assert!(*no_exploitability);
+        assert_eq!(*min_epss, Some(0.7));
+        assert!(*exit_on_kev);
+        assert_eq!(kev_file.as_deref(), Some("/tmp/kev.json"));
+        assert_eq!(epss_file.as_deref(), Some("/tmp/epss.csv"));
+        assert!(*refresh_exploitability);
+    }
+
+    #[test]
+    fn parse_scan_exploitability_defaults_off() {
+        let cli = parse(&["scan"]);
+        let Commands::Scan {
+            no_exploitability,
+            min_epss,
+            exit_on_kev,
+            refresh_exploitability,
+            ..
+        } = &cli.cmd
+        else {
+            panic!("expected scan")
+        };
+        assert!(!*no_exploitability);
+        assert!(min_epss.is_none());
+        assert!(!*exit_on_kev);
+        assert!(!*refresh_exploitability);
     }
 
     #[test]

@@ -84,6 +84,54 @@ pub fn benchmark_lookup_result(
     (pkg.clone(), vec![])
 }
 
+/// Apply scan CLI ranking flags onto exploitability config (FR-048).
+/// Returns an error message when `min_epss` is outside 0.0-1.0.
+pub fn apply_scan_exploitability_flags(
+    exploitability: &mut vlz_exploitability::ExploitabilityConfig,
+    no_exploitability: bool,
+    min_epss: Option<f32>,
+    exit_on_kev: bool,
+    kev_file: Option<String>,
+    epss_file: Option<String>,
+) -> Result<(), String> {
+    if no_exploitability {
+        exploitability.enabled = false;
+    }
+    if let Some(v) = min_epss {
+        if !vlz_exploitability::min_epss_in_range(v) {
+            return Err(format!("Invalid --min-epss {v}: must be 0.0-1.0"));
+        }
+        exploitability.min_epss = Some(v);
+    }
+    if exit_on_kev {
+        exploitability.exit_on_kev = true;
+    }
+    if let Some(path) = kev_file {
+        exploitability.kev_file = vlz_report::nonempty_optional_id(Some(path))
+            .map(std::path::PathBuf::from);
+    }
+    if let Some(path) = epss_file {
+        exploitability.epss_file =
+            vlz_report::nonempty_optional_id(Some(path))
+                .map(std::path::PathBuf::from);
+    }
+    Ok(())
+}
+
+/// LSP diagnostic message for one CVE (FR-042, FR-048 ranking suffix).
+pub fn lsp_cve_message(
+    id: &str,
+    title: &str,
+    ranges: &str,
+    ranking_markers: &str,
+) -> String {
+    if ranges.is_empty() {
+        format!("{id}: {title}{ranking_markers}")
+    } else {
+        format!("{id}: {title} [{ranges}]{ranking_markers}")
+    }
+}
+
 /// True if CVE meets min_score threshold (FR-014). When cvss_score is None, passes only if min_score <= 0.
 pub fn cve_meets_score_threshold(
     cvss_score: Option<f32>,
@@ -607,6 +655,12 @@ pub async fn run(args: Cli) -> Result<i32> {
             vex_author_name,
             vex_author_namespace,
             vex_reachability_not_affected,
+            no_exploitability,
+            min_epss,
+            exit_on_kev,
+            kev_file,
+            epss_file,
+            refresh_exploitability,
         } => {
             let cli_severity = crate::config::SeverityOverrides {
                 v2_critical: severity_v2_critical_min,
@@ -720,6 +774,18 @@ pub async fn run(args: Cli) -> Result<i32> {
             if let Some(v) = vex_reachability_not_affected {
                 effective.vex.reachability_not_affected = v;
             }
+            if let Err(message) = apply_scan_exploitability_flags(
+                &mut effective.exploitability,
+                no_exploitability,
+                min_epss,
+                exit_on_kev,
+                kev_file,
+                epss_file,
+            ) {
+                error!("{message}");
+                return Ok(EXIT_MISCONFIGURATION);
+            }
+            effective.refresh_exploitability = refresh_exploitability;
             effective.no_vex = no_vex;
             effective.vex.normalize_optional_ids();
             let openvex_requested = format.eq_ignore_ascii_case("openvex")
@@ -1067,6 +1133,41 @@ pub async fn run(args: Cli) -> Result<i32> {
                 write_stdout(&format!(
                     "vex_reachability_not_affected = {}\n",
                     cfg.vex.reachability_not_affected
+                ));
+                write_stdout(&format!(
+                    "exploitability_enabled = {}\n",
+                    cfg.exploitability.enabled
+                ));
+                write_stdout(&format!(
+                    "exploitability_min_epss = {}\n",
+                    cfg.exploitability
+                        .min_epss
+                        .map(|v| v.to_string())
+                        .unwrap_or_default()
+                ));
+                write_stdout(&format!(
+                    "exploitability_exit_on_kev = {}\n",
+                    cfg.exploitability.exit_on_kev
+                ));
+                write_stdout(&format!(
+                    "exploitability_kev_file = {}\n",
+                    cfg.exploitability
+                        .kev_file
+                        .as_ref()
+                        .map(|p| p.display().to_string())
+                        .unwrap_or_default()
+                ));
+                write_stdout(&format!(
+                    "exploitability_epss_file = {}\n",
+                    cfg.exploitability
+                        .epss_file
+                        .as_ref()
+                        .map(|p| p.display().to_string())
+                        .unwrap_or_default()
+                ));
+                write_stdout(&format!(
+                    "exploitability_ttl_secs = {}\n",
+                    cfg.exploitability.ttl_secs
                 ));
                 write_stdout(&format!(
                     "severity_v2_critical_min = {}\n",
@@ -1497,6 +1598,34 @@ async fn run_preload(
     )
     .await?;
 
+    // FR-048: warm ranking snapshots when online and enabled.
+    if effective.exploitability.enabled && !effective.offline {
+        let cache_db = effective
+            .cache_db
+            .clone()
+            .unwrap_or_else(crate::config::default_cache_path);
+        let ranking_ids = crate::exploitability::distinct_cve_ids(
+            &warm.findings,
+            &warm.raw_vulns_by_package,
+        );
+        crate::exploitability::load_ranking_data(
+            &effective.exploitability,
+            &cache_db,
+            effective.offline,
+            false,
+            effective.refresh_exploitability,
+            &ranking_ids,
+            std::time::Duration::from_secs(
+                effective.provider_http_connect_timeout_secs,
+            ),
+            std::time::Duration::from_secs(
+                effective.provider_http_request_timeout_secs,
+            ),
+            effective.tls_crl_bundle.as_deref(),
+        )
+        .await;
+    }
+
     write_stdout(&format!(
         "Preloaded {} package(s): {} cache hit(s), {} fetched, {} with CVE data.\n",
         warm.summary.packages_checked,
@@ -1728,6 +1857,10 @@ fn lsp_diagnostics_from_report(
         id: String,
         #[serde(default)]
         affected_ranges: Vec<serde_json::Value>,
+        #[serde(default)]
+        in_kev: Option<bool>,
+        #[serde(default)]
+        epss: Option<f32>,
     }
 
     let Ok(contents) = std::fs::read_to_string(path) else {
@@ -1795,11 +1928,13 @@ fn lsp_diagnostics_from_report(
                         .map(|cve| {
                             let ranges =
                                 compact_ranges_from_json(&cve.affected_ranges);
-                            let message = if ranges.is_empty() {
-                                format!("{}: {title}", cve.id)
-                            } else {
-                                format!("{}: {title} [{ranges}]", cve.id)
-                            };
+                            let ranking =
+                                vlz_report::format_exploitability_markers_for(
+                                    cve.in_kev, cve.epss,
+                                );
+                            let message = lsp_cve_message(
+                                &cve.id, &title, &ranges, &ranking,
+                            );
                             vlz_lsp::ScanDiagnostic {
                                 uri: uri.clone(),
                                 line: declaration.start_line.saturating_sub(1),
@@ -2034,18 +2169,72 @@ async fn run_scan(
         &raw_vulns_by_package,
     );
 
+    // -----------------------------------------------------------------
+    // g3) Attach exploitability ranking (FR-048): KEV/EPSS, then sort.
+    // Ranking never suppresses; FP rows were already split out above.
+    // -----------------------------------------------------------------
+    if effective.exploitability.enabled
+        && !effective.benchmark
+        && !findings.is_empty()
+    {
+        let cache_db = effective
+            .cache_db
+            .clone()
+            .unwrap_or_else(crate::config::default_cache_path);
+        let ranking_ids = crate::exploitability::distinct_cve_ids(
+            &findings,
+            &raw_vulns_by_package,
+        );
+        let ranking = crate::exploitability::load_ranking_data(
+            &effective.exploitability,
+            &cache_db,
+            effective.offline,
+            effective.benchmark,
+            effective.refresh_exploitability,
+            &ranking_ids,
+            std::time::Duration::from_secs(
+                effective.provider_http_connect_timeout_secs,
+            ),
+            std::time::Duration::from_secs(
+                effective.provider_http_request_timeout_secs,
+            ),
+            effective.tls_crl_bundle.as_deref(),
+        )
+        .await;
+        crate::exploitability::attach_ranking_to_findings(
+            &mut findings,
+            &raw_vulns_by_package,
+            &ranking,
+        );
+        crate::exploitability::sort_ranked_findings(&mut findings);
+    }
+
     let real_cve_count: usize = findings.iter().map(|(_, r)| r.len()).sum();
 
     // -----------------------------------------------------------------
-    // h) Apply threshold logic (FR-014, FR-010) and decide exit code
+    // h) Apply threshold logic (FR-014, FR-010, FR-048) and decide exit code
     // -----------------------------------------------------------------
-    let meeting_threshold: usize = findings
+    let meeting_threshold: usize =
+        crate::exploitability::count_threshold_union_meeting(
+            &findings,
+            effective.min_score,
+            effective.exploitability.min_epss,
+        );
+    let epss_matching: usize = findings
         .iter()
         .flat_map(|(_, recs)| recs.iter())
         .filter(|cve| {
-            cve_meets_score_threshold(cve.cvss_score, effective.min_score)
+            vlz_exploitability::cve_meets_epss_threshold(
+                cve.epss,
+                effective.exploitability.min_epss,
+            )
         })
         .count();
+    let kev_exit_triggered: bool = effective.exploitability.enabled
+        && crate::exploitability::any_kev_exit(
+            &findings,
+            effective.exploitability.exit_on_kev,
+        );
     let total_cves: usize = findings.iter().map(|(_, r)| r.len()).sum();
     info!(
         "Total CVEs discovered: {}, meeting threshold (score>={}): {}",
@@ -2214,7 +2403,7 @@ async fn run_scan(
     let manifest_blocking = crate::scan::count_blocking_manifest_failures(
         &report_data.manifest_coverage,
     );
-    let exit_signals = ExitSignals::for_scan_end(
+    let mut exit_signals = ExitSignals::for_scan_end(
         manifest_blocking,
         provider_fetch_failed,
         offline_cache_miss,
@@ -2225,6 +2414,12 @@ async fn run_scan(
         real_cve_count,
         effective.fp_exit_code,
     );
+    // FR-048: any single KEV-listed CVE exits independent of min_count.
+    if kev_exit_triggered {
+        exit_signals.cve_threshold_met = true;
+        exit_signals.cve_exit_code =
+            effective.exit_code_on_cve.unwrap_or(DEFAULT_CVE_EXIT_CODE) as i32;
+    }
     let exit_code = exit_code::pick_exit_code(&exit_signals);
     emit_cve_threshold_exit_if_selected(
         &exit_signals,
@@ -2233,6 +2428,24 @@ async fn run_scan(
         effective.min_score,
         effective.min_count,
     );
+    if exit_signals.cve_threshold_met
+        && (kev_exit_triggered || epss_matching > 0)
+    {
+        let mut triggers = Vec::new();
+        if kev_exit_triggered {
+            triggers.push("KEV-listed CVE present".to_string());
+        }
+        if epss_matching > 0 {
+            triggers.push(format!(
+                "{epss_matching} CVE(s) with EPSS >= {}",
+                effective.exploitability.min_epss.unwrap_or(0.0),
+            ));
+        }
+        eprintln!(
+            "Exploitability ranking triggered CVE exit: {}.",
+            triggers.join("; ")
+        );
+    }
 
     // -----------------------------------------------------------------
     // j) Emit optional secondary files (FR-008 --report / --summary-file)
@@ -2954,6 +3167,81 @@ mod tests {
         assert!(cve_meets_score_threshold(None, 0.0));
         assert!(cve_meets_score_threshold(None, -1.0));
         assert!(!cve_meets_score_threshold(None, 1.0));
+    }
+
+    #[test]
+    fn scan_exploitability_flags_apply() {
+        let mut cfg = vlz_exploitability::ExploitabilityConfig::default();
+        apply_scan_exploitability_flags(
+            &mut cfg,
+            false,
+            Some(0.7),
+            true,
+            Some("/tmp/kev.json".to_string()),
+            None,
+        )
+        .unwrap();
+        assert!(cfg.enabled);
+        assert_eq!(cfg.min_epss, Some(0.7));
+        assert!(cfg.exit_on_kev);
+        assert_eq!(
+            cfg.kev_file,
+            Some(std::path::PathBuf::from("/tmp/kev.json"))
+        );
+        assert!(cfg.epss_file.is_none());
+    }
+
+    #[test]
+    fn scan_exploitability_no_flag_disables() {
+        let mut cfg = vlz_exploitability::ExploitabilityConfig::default();
+        apply_scan_exploitability_flags(
+            &mut cfg, true, None, false, None, None,
+        )
+        .unwrap();
+        assert!(!cfg.enabled);
+    }
+
+    #[test]
+    fn lsp_cve_message_appends_ranking_markers() {
+        assert_eq!(
+            lsp_cve_message("CVE-2024-1", "upgrade to 2 (direct)", "", ""),
+            "CVE-2024-1: upgrade to 2 (direct)"
+        );
+        assert_eq!(
+            lsp_cve_message(
+                "CVE-2024-1",
+                "upgrade to 2 (direct)",
+                "ECOSYSTEM",
+                ""
+            ),
+            "CVE-2024-1: upgrade to 2 (direct) [ECOSYSTEM]"
+        );
+        assert_eq!(
+            lsp_cve_message(
+                "CVE-2024-1",
+                "upgrade to 2 (direct)",
+                "",
+                " KEV EPSS=0.93"
+            ),
+            "CVE-2024-1: upgrade to 2 (direct) KEV EPSS=0.93"
+        );
+    }
+
+    #[test]
+    fn scan_exploitability_rejects_out_of_range_min_epss() {
+        let mut cfg = vlz_exploitability::ExploitabilityConfig::default();
+        assert!(
+            apply_scan_exploitability_flags(
+                &mut cfg,
+                false,
+                Some(1.5),
+                false,
+                None,
+                None
+            )
+            .is_err()
+        );
+        assert!(cfg.min_epss.is_none());
     }
 
     #[test]

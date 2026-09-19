@@ -578,13 +578,37 @@ mod tests {
             evidence: Vec::new(),
             symbol_usage: None,
             affected_ranges: Vec::new(),
+            in_kev: Some(true),
+            epss: Some(0.7),
+            epss_percentile: Some(0.9),
         };
         assert_eq!(c.id, "CVE-2023-1234");
         assert_eq!(c.cvss_score, Some(7.5));
         let json = serde_json::to_string(&c).unwrap();
+        assert!(json.contains("in_kev"));
+        assert!(json.contains("epss"));
         let d: CveRecord = serde_json::from_str(&json).unwrap();
         assert_eq!(c.id, d.id);
         assert_eq!(c.cvss_score, d.cvss_score);
+        assert_eq!(d.in_kev, Some(true));
+        assert_eq!(d.epss, Some(0.7));
+        assert_eq!(d.epss_percentile, Some(0.9));
+    }
+
+    #[test]
+    fn cve_record_old_rows_without_ranking_still_load() {
+        let d: CveRecord = serde_json::from_str(
+            r#"{"id":"CVE-2023-1234","cvss_score":7.5,"description":"desc"}"#,
+        )
+        .unwrap();
+        assert_eq!(d.id, "CVE-2023-1234");
+        assert!(d.in_kev.is_none());
+        assert!(d.epss.is_none());
+        assert!(d.epss_percentile.is_none());
+        // Absent fields stay absent on the wire.
+        let json = serde_json::to_string(&d).unwrap();
+        assert!(!json.contains("in_kev"));
+        assert!(!json.contains("epss"));
     }
 
     #[test]

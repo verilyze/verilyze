@@ -60,6 +60,22 @@
           "type": "string",
           "enum": ["used", "not_found", "unknown"]
         },
+        "in_kev": {
+          "type": "boolean",
+          "description": "CISA KEV listed flag; absent means unknown (FR-048)."
+        },
+        "epss": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "FIRST EPSS score; absent means unknown (FR-048)."
+        },
+        "epss_percentile": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "FIRST EPSS percentile; absent means unknown (FR-048)."
+        },
         "affected_ranges": {
           "type": "array",
           "description": "OSV advisory version ranges for the scanned package (FR-039).",
