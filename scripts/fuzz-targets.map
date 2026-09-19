@@ -34,3 +34,5 @@ gemfile_lock=crates/languages/vlz-ruby/src/parser/gemfile_lock.rs
 gemspec=crates/languages/vlz-ruby/src/parser/gemspec.rs
 cyclonedx_json=crates/languages/vlz-sbom/src/parser.rs
 spdx_json=crates/languages/vlz-sbom/src/parser.rs
+kev=crates/core/vlz-exploitability/src/lib.rs
+epss=crates/core/vlz-exploitability/src/lib.rs

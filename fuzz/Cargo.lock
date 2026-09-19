@@ -2470,6 +2470,7 @@ version = "0.0.0"
 dependencies = [
  "libfuzzer-sys",
  "vlz",
+ "vlz-exploitability",
  "vlz-go",
  "vlz-java",
  "vlz-javascript",

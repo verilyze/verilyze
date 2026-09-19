@@ -15,6 +15,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 vlz = { path = "../crates/core/vlz" }
+vlz-exploitability = { path = "../crates/core/vlz-exploitability" }
 vlz-python = { path = "../crates/languages/vlz-python" }
 vlz-rust = { path = "../crates/languages/vlz-rust" }
 vlz-go = { path = "../crates/languages/vlz-go" }
@@ -219,6 +220,20 @@ bench = false
 [[bin]]
 name = "fuzz_spdx_json"
 path = "fuzz_targets/fuzz_spdx_json.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_kev"
+path = "fuzz_targets/fuzz_kev.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_epss"
+path = "fuzz_targets/fuzz_epss.rs"
 test = false
 doc = false
 bench = false
