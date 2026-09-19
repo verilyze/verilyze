@@ -1622,6 +1622,7 @@ async fn run_preload(
                 effective.provider_http_request_timeout_secs,
             ),
             effective.tls_crl_bundle.as_deref(),
+            None,
         )
         .await;
     }
@@ -2199,6 +2200,7 @@ async fn run_scan(
                 effective.provider_http_request_timeout_secs,
             ),
             effective.tls_crl_bundle.as_deref(),
+            None,
         )
         .await;
         crate::exploitability::attach_ranking_to_findings(

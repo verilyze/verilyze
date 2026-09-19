@@ -90,6 +90,7 @@ toml.workspace = true
 [dev-dependencies]
 async-trait.workspace = true
 temp-env.workspace = true
+wiremock.workspace = true
 
 # Integration tests that need `mocks` / registry clear helpers: `vlz` is built as a
 # normal dependency, so `cfg(test)` is false; enable `--features testing` (see Makefile
