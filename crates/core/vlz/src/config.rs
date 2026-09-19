@@ -557,10 +557,10 @@ fn apply_toml_exploitability_table(
             vlz_report::nonempty_optional_id(Some(v.to_string()))
                 .map(std::path::PathBuf::from);
     }
-    if let Some(v) = table.get("ttl_secs").and_then(|v| v.as_integer()) {
-        if v >= 0 {
-            exploitability.ttl_secs = v as u64;
-        }
+    if let Some(v) = table.get("ttl_secs").and_then(|v| v.as_integer())
+        && v >= 0
+    {
+        exploitability.ttl_secs = v as u64;
     }
     Ok(())
 }

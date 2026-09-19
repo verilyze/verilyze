@@ -154,7 +154,7 @@ def publish_order(manifests: dict[str, Path]) -> list[str]:
 
 
 def workspace_internal_dep_versions(cargo_toml: Path) -> dict[str, str]:
-    """Return workspace path dependency name -> version from root Cargo.toml."""
+    """Return workspace path dependency name -> version."""
     data = tomllib.loads(cargo_toml.read_text(encoding="utf-8"))
     deps = data.get("workspace", {}).get("dependencies", {})
     versions: dict[str, str] = {}
