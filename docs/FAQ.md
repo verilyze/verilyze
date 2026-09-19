@@ -313,6 +313,24 @@ managed, inherited, ranged, or profile-scoped versions stay unavailable.
 Findings spanning several module trees stay unavailable; fix each tree
 separately.
 
+## Exploitability ranking (FR-048)
+
+### What do KEV and EPSS markers mean?
+
+**Meaning:** When ranking is enabled (default), `vlz` attaches CISA Known
+Exploited Vulnerabilities (`in_kev`) and FIRST EPSS (`epss` /
+`epss_percentile`) to CVE records. JSON includes those fields. SARIF and
+CycloneDX use `vlz:kev`, `vlz:epss`, and `vlz:epss_percentile`. Plain and
+HTML add compact `KEV` / `EPSS=` markers. Lookup uses the vuln `id` when
+it is CVE-shaped plus OSV `aliases`; `related` is ignored.
+
+**Limits:** Ranking is report and optional exit-policy **signal**, not
+proof of exploitation in your tree and not an OpenVEX `exploited`
+status (that mapping is not shipped). Default exit codes follow CVSS
+thresholds (FR-014) unless you set `exit_on_kev` and/or `min_epss`. Use
+`--no-exploitability` to omit ranking. See [configuration.md](configuration.md)
+for `[exploitability]` keys and `--refresh-exploitability`.
+
 ### How do I use editor diagnostics?
 
 Run `vlz lsp` from an editor Language Server configuration. It uses standard
