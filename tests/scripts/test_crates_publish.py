@@ -5,6 +5,7 @@
 """Tests for scripts/crates_publish.py."""
 
 import subprocess
+import sys
 import tomllib
 from datetime import UTC, datetime
 from pathlib import Path
@@ -15,8 +16,13 @@ from scripts.crates_publish import (
     PUBLISH_RATE_LIMIT_FALLBACK_SECS,
     PUBLISH_RATE_LIMIT_MAX_WAIT_SECS,
     PUBLISH_RATE_LIMIT_SKEW_SECS,
+    _utc_now,
     _wait_secs_until_retry_at,
     check_crates_publish,
+    discover_workspace_crate_names,
+    is_verilyze_crate_name,
+    package_is_publishable,
+    read_workspace_version,
     crate_already_on_registry,
     crate_registry_search_query,
     default_feature_set,
@@ -800,6 +806,136 @@ def test_discover_crate_manifests_rejects_empty(
     (tmp_path / "crates").mkdir()
     with pytest.raises(ValueError, match="no publishable crates"):
         discover_crate_manifests(tmp_path)
+
+
+def test_discover_crate_manifests_rejects_missing_crates_dir(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="missing crates/"):
+        discover_crate_manifests(tmp_path)
+
+
+def test_discover_crate_manifests_rejects_duplicate_names(
+    tmp_path: Path,
+) -> None:
+    for sub in ("a", "b"):
+        crate = tmp_path / "crates" / sub
+        crate.mkdir(parents=True)
+        (crate / "Cargo.toml").write_text(
+            '[package]\nname = "vlz-dup"\n'
+            'description = "dup crate for verilyze"\n',
+            encoding="utf-8",
+        )
+    with pytest.raises(ValueError, match="duplicate package name"):
+        discover_crate_manifests(tmp_path)
+
+
+def test_package_is_publishable_filters_invalid_manifests() -> None:
+    assert not package_is_publishable({})
+    assert not package_is_publishable({"package": "nope"})
+    assert not package_is_publishable({"package": {"name": "  "}})
+    assert package_is_publishable(
+        {"package": {"name": "vlz-db", "publish": False}}
+    ) is False
+    assert package_is_publishable({"package": {"name": "vlz-db"}})
+
+
+def test_is_verilyze_crate_name() -> None:
+    assert is_verilyze_crate_name("vlz")
+    assert is_verilyze_crate_name("vlz-exploitability")
+    assert not is_verilyze_crate_name("serde")
+
+
+def test_read_workspace_version_rejects_non_string(tmp_path: Path) -> None:
+    cargo = tmp_path / "Cargo.toml"
+    cargo.write_text(
+        "[workspace.package]\nversion = 1\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="invalid workspace version"):
+        read_workspace_version(cargo)
+
+
+def test_discover_workspace_crate_names_without_crates_dir(
+    tmp_path: Path,
+) -> None:
+    assert discover_workspace_crate_names(tmp_path) == {}
+
+
+def test_parse_internal_dependencies_skips_non_dict_sections(
+    tmp_path: Path,
+) -> None:
+    manifest = tmp_path / "Cargo.toml"
+    manifest.write_text(
+        "[package]\nname = 'vlz-db'\n"
+        "[dependencies]\ndep = 'nope'\n"
+        "[build-dependencies]\nbuild = 1\n",
+        encoding="utf-8",
+    )
+    assert parse_internal_dependencies(manifest, {"vlz-db"}) == set()
+
+
+def test_default_feature_set_non_dict_features(tmp_path: Path) -> None:
+    manifest = tmp_path / "Cargo.toml"
+    manifest.write_text(
+        "[package]\nname = 'vlz'\nfeatures = 'bad'\n",
+        encoding="utf-8",
+    )
+    assert default_feature_set(manifest) == set()
+
+
+def test_list_vlz_package_binaries_skips_malformed_bin_entries(
+    repo_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = repo_root / "crates" / "core" / "vlz" / "Cargo.toml"
+    data = tomllib.loads(manifest.read_text(encoding="utf-8"))
+    data["bin"] = ["bad", {"name": 1}, {"name": "vlz", "required-features": ["missing"]}]
+    monkeypatch.setattr(
+        "scripts.crates_publish.tomllib.loads",
+        lambda _text: data,
+    )
+    assert list_vlz_package_binaries("vlz", repo_root) == set()
+
+
+def test_check_crates_publish_returns_early_on_validation_errors(
+    repo_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "scripts.crates_publish.validate_workspace_dep_versions",
+        lambda _root: ["bad version"],
+    )
+    package_calls: list[str] = []
+
+    def fake_package(crate: str, _root: Path) -> subprocess.CompletedProcess[str]:
+        package_calls.append(crate)
+        return subprocess.CompletedProcess(["cargo"], 0, "", "")
+
+    monkeypatch.setattr(
+        "scripts.crates_publish.run_cargo_package",
+        fake_package,
+    )
+    errors = check_crates_publish(repo_root, package_leaves=True)
+    assert errors == ["bad version"]
+    assert package_calls == []
+
+
+def test_utc_now_returns_aware_datetime() -> None:
+    now = _utc_now()
+    assert now.tzinfo is UTC
+
+
+def test_script_main_entry_point(repo_root: Path) -> None:
+    script = repo_root / "scripts" / "crates_publish.py"
+    result = subprocess.run(  # nosec B603
+        [sys.executable, str(script)],
+        cwd=repo_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 2
+    assert "crates.io publish helpers" in result.stdout
 
 
 def test_publish_order_detects_unknown_dep_and_cycle(
