@@ -90,6 +90,48 @@ env = "VLZ_VEX_REACHABILITY_NOT_AFFECTED"
 cli = "--vex-reachability-not-affected"
 default = "false"
 
+[exploitability_enabled]
+description = "Enable CISA KEV and FIRST EPSS exploitability ranking (FR-048)"
+type = "boolean"
+env = "VLZ_EXPLOITABILITY_ENABLED"
+cli = "--exploitability"
+default = "true"
+
+[exploitability_min_epss]
+description = "Minimum EPSS score (0.0-1.0) for exit policy union with CVSS"
+type = "string"
+env = "VLZ_EXPLOITABILITY_MIN_EPSS"
+cli = "--exploitability-min-epss"
+default = ""
+
+[exploitability_exit_on_kev]
+description = "Exit when any non-FP CVE is in the CISA KEV catalog"
+type = "boolean"
+env = "VLZ_EXPLOITABILITY_EXIT_ON_KEV"
+cli = "--exploitability-exit-on-kev"
+default = "false"
+
+[exploitability_kev_file]
+description = "Optional local KEV catalog JSON/CSV instead of online fetch"
+type = "string"
+env = "VLZ_EXPLOITABILITY_KEV_FILE"
+cli = "--exploitability-kev-file"
+default = ""
+
+[exploitability_epss_file]
+description = "Optional local EPSS JSON/CSV instead of online fetch"
+type = "string"
+env = "VLZ_EXPLOITABILITY_EPSS_FILE"
+cli = "--exploitability-epss-file"
+default = ""
+
+[exploitability_ttl_secs]
+description = "Snapshot TTL in seconds for online KEV/EPSS cache"
+type = "integer"
+env = "VLZ_EXPLOITABILITY_TTL_SECS"
+cli = "--exploitability-ttl-secs"
+default = "86400"
+
 [cache_ttl_secs]
 description = "Default cache TTL in seconds (5 days); only affects new entries"
 type = "integer"

@@ -2587,6 +2587,9 @@ ttl_secs = 3600
         let flat = parse_and_validate_toml("vex_product_id = \"x\"\n");
         assert!(flat.is_err());
         assert!(matches!(flat.unwrap_err(), ConfigError::UnknownKey { .. }));
+        let flat = parse_and_validate_toml("exploitability_enabled = false\n");
+        assert!(flat.is_err());
+        assert!(matches!(flat.unwrap_err(), ConfigError::UnknownKey { .. }));
     }
 
     #[test]
