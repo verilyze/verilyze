@@ -16,7 +16,6 @@ from scripts.crates_publish import (
     PUBLISH_RATE_LIMIT_MAX_WAIT_SECS,
     PUBLISH_RATE_LIMIT_SKEW_SECS,
     _wait_secs_until_retry_at,
-    PUBLISHED_CRATE_NAMES,
     check_crates_publish,
     crate_already_on_registry,
     crate_registry_search_query,
@@ -51,13 +50,11 @@ def repo_root() -> Path:
 
 def test_published_crate_manifests_exist(repo_root: Path) -> None:
     manifests = discover_crate_manifests(repo_root)
-    assert set(manifests) == set(PUBLISHED_CRATE_NAMES)
-
-
-def test_published_crate_names_include_remediate_and_lsp() -> None:
-    assert "vlz-remediate" in PUBLISHED_CRATE_NAMES
-    assert "vlz-lsp" in PUBLISHED_CRATE_NAMES
-    assert len(PUBLISHED_CRATE_NAMES) == 24
+    assert "vlz" in manifests
+    assert "vlz-exploitability" in manifests
+    assert "vlz-remediate" in manifests
+    assert "vlz-lsp" in manifests
+    assert len(manifests) >= 25
 
 
 def test_all_workspace_crates_under_crates_are_published(
@@ -80,7 +77,7 @@ def test_validate_all_workspace_crates_published_reports_omission(
     errors = validate_all_workspace_crates_published(tmp_path, {})
     assert errors
     assert any("vlz-orphan" in err for err in errors)
-    assert any("PUBLISHED_CRATE_NAMES" in err for err in errors)
+    assert any("publish set" in err for err in errors)
 
 
 def test_validate_all_workspace_crates_published_skips_publish_false(
@@ -104,6 +101,8 @@ def test_publish_order_places_remediate_and_lsp_before_dependents(
     assert index["vlz-remediate"] < index["vlz-report"]
     assert index["vlz-remediate"] < index["vlz"]
     assert index["vlz-lsp"] < index["vlz"]
+    assert index["vlz-exploitability"] < index["vlz"]
+    assert index["vlz-db"] < index["vlz-exploitability"]
 
 
 def test_vlz_remediate_description_names_verilyze(repo_root: Path) -> None:
@@ -175,8 +174,12 @@ def test_publish_order_starts_with_leaf_crates(repo_root: Path) -> None:
 
 def test_leaf_crates_have_no_internal_dependencies(repo_root: Path) -> None:
     manifests = discover_crate_manifests(repo_root)
+    published_names = set(manifests)
     for name in leaf_crates(manifests):
-        assert parse_internal_dependencies(manifests[name]) == set()
+        assert (
+            parse_internal_dependencies(manifests[name], published_names)
+            == set()
+        )
 
 
 def test_crate_registry_search_query_includes_version() -> None:
@@ -791,11 +794,11 @@ def test_read_workspace_version_and_dep_version_mismatch(
     assert any("vlz-db" in err for err in errors)
 
 
-def test_discover_crate_manifests_rejects_missing(
+def test_discover_crate_manifests_rejects_empty(
     tmp_path: Path,
 ) -> None:
     (tmp_path / "crates").mkdir()
-    with pytest.raises(ValueError, match="missing Cargo.toml"):
+    with pytest.raises(ValueError, match="no publishable crates"):
         discover_crate_manifests(tmp_path)
 
 
