@@ -1959,6 +1959,11 @@ mod tests {
             .find(|p| p["name"] == VLZ_EPSS_PROPERTY)
             .expect("vlz:epss property");
         assert_eq!(epss_prop["value"], "0.93");
+        let percentile_prop = props
+            .iter()
+            .find(|p| p["name"] == VLZ_EPSS_PERCENTILE_PROPERTY)
+            .expect("vlz:epss_percentile property");
+        assert_eq!(percentile_prop["value"], "0.99");
     }
 
     #[tokio::test]
