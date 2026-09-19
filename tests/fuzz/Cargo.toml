@@ -12,6 +12,7 @@ publish = false
 [dependencies]
 afl = "0.17"
 vlz = { path = "../../crates/core/vlz" }
+vlz-exploitability = { path = "../../crates/core/vlz-exploitability" }
 vlz-python = { path = "../../crates/languages/vlz-python" }
 vlz-rust = { path = "../../crates/languages/vlz-rust" }
 vlz-go = { path = "../../crates/languages/vlz-go" }
@@ -131,3 +132,11 @@ path = "fuzz_targets/cyclonedx_json.rs"
 [[bin]]
 name = "fuzz_spdx_json"
 path = "fuzz_targets/spdx_json.rs"
+
+[[bin]]
+name = "fuzz_kev"
+path = "fuzz_targets/kev.rs"
+
+[[bin]]
+name = "fuzz_epss"
+path = "fuzz_targets/epss.rs"

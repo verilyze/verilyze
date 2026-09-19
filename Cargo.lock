@@ -2854,6 +2854,7 @@ version = "0.12.0"
 dependencies = [
  "afl",
  "vlz",
+ "vlz-exploitability",
  "vlz-go",
  "vlz-java",
  "vlz-javascript",
