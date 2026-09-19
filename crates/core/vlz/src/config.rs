@@ -506,6 +506,12 @@ const KNOWN_VEX_KEYS: &[&str] = &[
     "reachability_not_affected",
 ];
 
+fn toml_value_as_f64(value: &toml::Value) -> Option<f64> {
+    value
+        .as_float()
+        .or_else(|| value.as_integer().map(|i| i as f64))
+}
+
 /// Known `[exploitability]` table keys (FR-048, SEC-006).
 const KNOWN_EXPLOITABILITY_KEYS: &[&str] = &[
     "enabled",
@@ -533,8 +539,13 @@ fn apply_toml_exploitability_table(
     if let Some(v) = table.get("enabled").and_then(|v| v.as_bool()) {
         exploitability.enabled = v;
     }
-    if let Some(v) = table.get("min_epss").and_then(|v| v.as_float()) {
-        let v = v as f32;
+    if let Some(v) = table.get("min_epss") {
+        let Some(n) = toml_value_as_f64(v) else {
+            return Err(ConfigError::InvalidExploitability {
+                message: format!("min_epss must be a number (from {source})"),
+            });
+        };
+        let v = n as f32;
         if !vlz_exploitability::min_epss_in_range(v) {
             return Err(ConfigError::InvalidExploitability {
                 message: format!(
@@ -1217,7 +1228,7 @@ pub fn load_with_reachability_overrides(
         cfg.lsp_folder_trust = v;
     }
     apply_env_vex_overrides(&mut cfg.vex);
-    apply_env_exploitability_overrides(&mut cfg.exploitability);
+    apply_env_exploitability_overrides(&mut cfg.exploitability)?;
 
     // 5) CLI
     if let Some(n) = cli_parallel {
@@ -1412,7 +1423,7 @@ pub fn apply_env_vex_overrides(vex: &mut vlz_report::VexConfig) {
 /// Apply `VLZ_EXPLOITABILITY_*` environment overrides (FR-048, CFG-005).
 pub fn apply_env_exploitability_overrides(
     exploitability: &mut vlz_exploitability::ExploitabilityConfig,
-) {
+) -> Result<(), ConfigError> {
     if let Ok(v) = std::env::var("VLZ_EXPLOITABILITY_ENABLED") {
         let lower = v.to_ascii_lowercase();
         if matches!(lower.as_str(), "1" | "true" | "yes" | "on") {
@@ -1421,11 +1432,24 @@ pub fn apply_env_exploitability_overrides(
             exploitability.enabled = false;
         }
     }
-    if let Ok(v) = std::env::var("VLZ_EXPLOITABILITY_MIN_EPSS")
-        && let Ok(n) = v.trim().parse::<f64>()
-    {
-        let f = n as f32;
-        if vlz_exploitability::min_epss_in_range(f) {
+    if let Ok(v) = std::env::var("VLZ_EXPLOITABILITY_MIN_EPSS") {
+        let trimmed = v.trim();
+        if !trimmed.is_empty() {
+            let n = trimmed.parse::<f64>().map_err(|_| {
+                ConfigError::InvalidExploitability {
+                    message: format!(
+                        "VLZ_EXPLOITABILITY_MIN_EPSS is not a number: {trimmed}"
+                    ),
+                }
+            })?;
+            let f = n as f32;
+            if !vlz_exploitability::min_epss_in_range(f) {
+                return Err(ConfigError::InvalidExploitability {
+                    message: format!(
+                        "VLZ_EXPLOITABILITY_MIN_EPSS must be 0.0-1.0; got {f}"
+                    ),
+                });
+            }
             exploitability.min_epss = Some(f);
         }
     }
@@ -1450,6 +1474,7 @@ pub fn apply_env_exploitability_overrides(
     {
         exploitability.ttl_secs = n;
     }
+    Ok(())
 }
 
 /// Read VLZ_BACKOFF_BASE_MS (OP-010, CFG-005).
@@ -2491,6 +2516,36 @@ ttl_secs = 3600
         ));
         let r = parse_and_validate_toml("[exploitability]\nmin_epss = -0.1\n");
         assert!(r.is_err());
+    }
+
+    #[test]
+    fn exploitability_accepts_integer_min_epss() {
+        with_isolated_load_env(|| {
+            let dir = test_tempdir();
+            let config_path = dir.path().join("exploitability.conf");
+            std::fs::write(&config_path, "[exploitability]\nmin_epss = 1\n")
+                .unwrap();
+            let path_str = config_path.to_string_lossy().into_owned();
+            let cfg = load_no_severity(Some(&path_str));
+            assert_eq!(cfg.exploitability.min_epss, Some(1.0));
+        });
+    }
+
+    #[test]
+    fn exploitability_env_rejects_invalid_min_epss() {
+        with_isolated_load_env(|| {
+            temp_env::with_var(
+                "VLZ_EXPLOITABILITY_MIN_EPSS",
+                Some("1.5"),
+                || {
+                    let err = load_parallel_test(None, None, None, None, None);
+                    assert!(matches!(
+                        err,
+                        Err(ConfigError::InvalidExploitability { .. })
+                    ));
+                },
+            );
+        });
     }
 
     #[test]

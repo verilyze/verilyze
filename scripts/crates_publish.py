@@ -73,7 +73,12 @@ def package_is_publishable(data: dict[str, object]) -> bool:
     name = package.get("name")
     if not isinstance(name, str) or not name.strip():
         return False
-    return package.get("publish") is not False
+    publish = package.get("publish")
+    if publish is False:
+        return False
+    if isinstance(publish, list) and not publish:
+        return False
+    return True
 
 
 def discover_crate_manifests(repo_root: Path) -> dict[str, Path]:
@@ -324,11 +329,14 @@ def validate_all_workspace_crates_published(
     discovered = discover_workspace_crate_names(repo_root)
     for name, path in sorted(discovered.items()):
         data = tomllib.loads(path.read_text(encoding="utf-8"))
-        if not package_is_publishable(data):
-            continue
-        if name not in publishable:
+        should_publish = package_is_publishable(data)
+        if should_publish and name not in publishable:
             errors.append(
                 f"{name}: present under crates/ but missing from publish set"
+            )
+        elif not should_publish and name in publishable:
+            errors.append(
+                f"{name}: marked private but included in publish set"
             )
     return errors
 

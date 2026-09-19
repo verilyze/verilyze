@@ -98,6 +98,23 @@ def test_validate_all_workspace_crates_published_skips_publish_false(
     assert validate_all_workspace_crates_published(tmp_path, {}) == []
 
 
+def test_validate_all_workspace_crates_published_rejects_private_in_set(
+    tmp_path: Path,
+) -> None:
+    crate = tmp_path / "crates" / "core" / "vlz-private"
+    crate.mkdir(parents=True)
+    manifest = crate / "Cargo.toml"
+    manifest.write_text(
+        '[package]\nname = "vlz-private"\npublish = false\n',
+        encoding="utf-8",
+    )
+    errors = validate_all_workspace_crates_published(
+        tmp_path, {"vlz-private": manifest}
+    )
+    assert errors
+    assert any("marked private" in err for err in errors)
+
+
 def test_publish_order_places_remediate_and_lsp_before_dependents(
     repo_root: Path,
 ) -> None:
@@ -834,9 +851,12 @@ def test_package_is_publishable_filters_invalid_manifests() -> None:
     assert not package_is_publishable({})
     assert not package_is_publishable({"package": "nope"})
     assert not package_is_publishable({"package": {"name": "  "}})
-    assert package_is_publishable(
+    assert not package_is_publishable(
         {"package": {"name": "vlz-db", "publish": False}}
-    ) is False
+    )
+    assert not package_is_publishable(
+        {"package": {"name": "vlz-db", "publish": []}}
+    )
     assert package_is_publishable({"package": {"name": "vlz-db"}})
 
 
