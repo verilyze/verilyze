@@ -137,9 +137,8 @@ fn walk_expr(expr: &Expr, symbol: &str, found: &mut bool) {
         }
         Expr::UnaryOp(unary) => walk_expr(&unary.operand, symbol, found),
         Expr::Compare(cmp) => {
-            walk_expr(&cmp.left, symbol, found);
-            for right in &cmp.comparators {
-                walk_expr(right, symbol, found);
+            for operand in cmp.operands.iter() {
+                walk_expr(operand, symbol, found);
             }
         }
         Expr::If(if_expr) => {
@@ -208,5 +207,23 @@ mod tests {
     fn ast_detects_qualified_attribute() {
         let src = "import pkg\npkg.submod.vuln_fn()\n";
         assert!(file_references_symbol(src, "pkg.submod.vuln_fn"));
+    }
+
+    #[test]
+    fn ast_detects_symbol_in_compare_left_operand() {
+        let src = "from pkg import vuln_fn\nif vuln_fn == 1:\n    pass\n";
+        assert!(file_references_symbol(src, "vuln_fn"));
+    }
+
+    #[test]
+    fn ast_detects_symbol_in_compare_right_operand() {
+        let src = "from pkg import vuln_fn\nif x == vuln_fn:\n    pass\n";
+        assert!(file_references_symbol(src, "vuln_fn"));
+    }
+
+    #[test]
+    fn ast_detects_symbol_in_chained_compare_middle_operand() {
+        let src = "from pkg import vuln_fn\nif 0 < vuln_fn < 10:\n    pass\n";
+        assert!(file_references_symbol(src, "vuln_fn"));
     }
 }
