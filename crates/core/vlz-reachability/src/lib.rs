@@ -612,6 +612,9 @@ mod tests {
                 evidence: Vec::new(),
                 symbol_usage: None,
                 affected_ranges: Vec::new(),
+                in_kev: None,
+                epss: None,
+                epss_percentile: None,
             }],
         )];
         apply_tier_b_to_findings(
@@ -657,6 +660,9 @@ mod tests {
                 evidence: Vec::new(),
                 symbol_usage: None,
                 affected_ranges: Vec::new(),
+                in_kev: None,
+                epss: None,
+                epss_percentile: None,
             }],
         )];
         apply_tier_b_to_findings(
@@ -705,6 +711,9 @@ mod tests {
                 evidence: Vec::new(),
                 symbol_usage: None,
                 affected_ranges: Vec::new(),
+                in_kev: None,
+                epss: None,
+                epss_percentile: None,
             }],
         )];
         apply_tier_b_to_findings(
@@ -908,6 +917,9 @@ mod tests {
                     evidence: Vec::new(),
                     symbol_usage: None,
                     affected_ranges: Vec::new(),
+                    in_kev: None,
+                    epss: None,
+                    epss_percentile: None,
                 }],
             ),
             (
@@ -922,6 +934,9 @@ mod tests {
                     evidence: Vec::new(),
                     symbol_usage: None,
                     affected_ranges: Vec::new(),
+                    in_kev: None,
+                    epss: None,
+                    epss_percentile: None,
                 }],
             ),
         ];
@@ -1006,6 +1021,9 @@ mod tests {
                     evidence: Vec::new(),
                     symbol_usage: None,
                     affected_ranges: Vec::new(),
+                    in_kev: None,
+                    epss: None,
+                    epss_percentile: None,
                 },
                 CveRecord {
                     id: "CVE-B".to_string(),
@@ -1017,6 +1035,9 @@ mod tests {
                     evidence: Vec::new(),
                     symbol_usage: None,
                     affected_ranges: Vec::new(),
+                    in_kev: None,
+                    epss: None,
+                    epss_percentile: None,
                 },
             ],
         )];
@@ -1098,6 +1119,9 @@ mod tests {
                 evidence: Vec::new(),
                 symbol_usage: None,
                 affected_ranges: Vec::new(),
+                in_kev: None,
+                epss: None,
+                epss_percentile: None,
             }],
         )];
         let raw_vulns = HashMap::from([(
@@ -1178,6 +1202,9 @@ mod tests {
                 evidence: Vec::new(),
                 symbol_usage: None,
                 affected_ranges: Vec::new(),
+                in_kev: None,
+                epss: None,
+                epss_percentile: None,
             }],
         )];
         let raw_vulns = HashMap::from([(
@@ -1277,6 +1304,9 @@ mod tests {
                 evidence: Vec::new(),
                 symbol_usage: None,
                 affected_ranges: Vec::new(),
+                in_kev: None,
+                epss: None,
+                epss_percentile: None,
             }],
         )];
         let raw_vulns = HashMap::from([(
@@ -1327,6 +1357,9 @@ mod tests {
                 evidence: Vec::new(),
                 symbol_usage: None,
                 affected_ranges: Vec::new(),
+                in_kev: None,
+                epss: None,
+                epss_percentile: None,
             }],
         )];
         let raw_vulns = HashMap::from([(
@@ -1377,6 +1410,9 @@ mod tests {
                 evidence: Vec::new(),
                 symbol_usage: None,
                 affected_ranges: Vec::new(),
+                in_kev: None,
+                epss: None,
+                epss_percentile: None,
             }],
         )];
         let raw_vulns = HashMap::from([(
@@ -1430,6 +1466,9 @@ mod tests {
                 evidence: Vec::new(),
                 symbol_usage: None,
                 affected_ranges: Vec::new(),
+                in_kev: None,
+                epss: None,
+                epss_percentile: None,
             }],
         )];
         temp_env::with_var(
@@ -1504,6 +1543,9 @@ mod tests {
                 evidence: Vec::new(),
                 symbol_usage: None,
                 affected_ranges: Vec::new(),
+                in_kev: None,
+                epss: None,
+                epss_percentile: None,
             }],
         )];
         let raw_vulns = HashMap::from([(

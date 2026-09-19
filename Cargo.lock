@@ -2824,6 +2824,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "vlz-exploitability"
+version = "0.12.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+ "vlz-db",
+]
+
+[[package]]
 name = "vlz-fuzz"
 version = "0.12.0"
 dependencies = [

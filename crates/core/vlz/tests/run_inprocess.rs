@@ -418,6 +418,9 @@ impl vlz_cve_client::CveProvider for PackageSymbolCveProvider {
             evidence: Vec::new(),
             symbol_usage: None,
             affected_ranges: Vec::new(),
+            in_kev: None,
+            epss: None,
+            epss_percentile: None,
         };
         Ok(vlz_cve_client::FetchedCves {
             raw_vulns: vec![serde_json::json!({

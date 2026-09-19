@@ -313,6 +313,15 @@ pub struct CveRecord {
     /// Provider advisory version ranges for this CVE (FR-039).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub affected_ranges: Vec<AffectedRange>,
+    /// CISA KEV listed flag (FR-048). None means unknown or not looked up.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub in_kev: Option<bool>,
+    /// FIRST EPSS score 0.0-1.0 (FR-048). None means unknown.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub epss: Option<f32>,
+    /// FIRST EPSS percentile 0.0-1.0 (FR-048). None means unknown.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub epss_percentile: Option<f32>,
 }
 
 #[derive(Debug, Default)]

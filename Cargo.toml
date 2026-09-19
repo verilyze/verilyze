@@ -35,6 +35,7 @@ default-members = [
     "crates/core/vlz-remediate",
     "crates/core/vlz-integrity",
     "crates/core/vlz-plugin-macro",
+    "crates/core/vlz-exploitability",
 ]
 
 # Enforce a single Rust edition for all members
@@ -75,6 +76,7 @@ vlz-reachability-trait = { path = "crates/core/vlz-reachability-trait", version 
 vlz-reachability = { path = "crates/core/vlz-reachability", version = "0.12.0" }
 vlz-cve-client = { path = "crates/core/vlz-cve-client", version = "0.12.0" }
 vlz-report = { path = "crates/core/vlz-report", version = "0.12.0" }
+vlz-exploitability = { path = "crates/core/vlz-exploitability", version = "0.12.0" }
 vlz-remediate = { path = "crates/core/vlz-remediate", version = "0.12.0" }
 vlz-integrity = { path = "crates/core/vlz-integrity", version = "0.12.0" }
 vlz-plugin-macro = { path = "crates/core/vlz-plugin-macro", version = "0.12.0" }

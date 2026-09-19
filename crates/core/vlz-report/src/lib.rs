@@ -1909,6 +1909,9 @@ mod tests {
             evidence: Vec::new(),
             symbol_usage: None,
             affected_ranges: Vec::new(),
+            in_kev: None,
+            epss: None,
+            epss_percentile: None,
         };
         ReportData {
             findings: vec![Finding {
@@ -1991,6 +1994,9 @@ mod tests {
             evidence: Vec::new(),
             symbol_usage: None,
             affected_ranges: Vec::new(),
+            in_kev: None,
+            epss: None,
+            epss_percentile: None,
         };
         ReportData {
             findings: vec![Finding {
@@ -2389,6 +2395,9 @@ mod tests {
             evidence: Vec::new(),
             symbol_usage: None,
             affected_ranges: Vec::new(),
+            in_kev: None,
+            epss: None,
+            epss_percentile: None,
         };
         let data = ReportData {
             findings: vec![Finding {
@@ -2453,6 +2462,9 @@ mod tests {
             evidence: Vec::new(),
             symbol_usage: None,
             affected_ranges: Vec::new(),
+            in_kev: None,
+            epss: None,
+            epss_percentile: None,
         };
         let data = ReportData {
             findings: vec![Finding {
@@ -2532,6 +2544,9 @@ mod tests {
             }],
             symbol_usage: Some("used".to_string()),
             affected_ranges: Vec::new(),
+            in_kev: None,
+            epss: None,
+            epss_percentile: None,
         };
         let data = ReportData {
             findings: vec![Finding {
@@ -2616,6 +2631,9 @@ mod tests {
             }],
             symbol_usage: Some("used".to_string()),
             affected_ranges: Vec::new(),
+            in_kev: None,
+            epss: None,
+            epss_percentile: None,
         };
         let data = ReportData {
             findings: vec![Finding {

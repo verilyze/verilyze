@@ -299,6 +299,9 @@ mod tests {
                     evidence: Vec::new(),
                     symbol_usage: None,
                     affected_ranges: Vec::new(),
+                    in_kev: None,
+                    epss: None,
+                    epss_percentile: None,
                 }],
             })
         }
@@ -772,6 +775,9 @@ mod tests {
                         evidence: Vec::new(),
                         symbol_usage: None,
                         affected_ranges: Vec::new(),
+                        in_kev: None,
+                        epss: None,
+                        epss_percentile: None,
                     }],
                 })
             }
