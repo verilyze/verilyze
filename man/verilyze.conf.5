@@ -184,6 +184,9 @@ Defaults: 9.0, 7.0, 4.0, 0.1.
 .It Sy [vex]
 VEX generation: product_id, author_name, author_namespace, reachability_not_affected. File keys live under this table (not as flat vex_* top-level keys). Env/CLI use VLZ_VEX_* / --vex-*.
 
+.It Sy [exploitability]
+KEV/EPSS ranking: enabled, min_epss, exit_on_kev, kev_file, epss_file, ttl_secs. File keys live under this table (not as flat exploitability_* top-level keys). Env/CLI use VLZ_EXPLOITABILITY_* / --exploitability-*.
+
 .It Sy [lang].regex
 Per-language regex for manifest file names (e.g. [python], [rust], [go], [javascript], [ruby]).
 .El

@@ -137,13 +137,16 @@ pub fn run_pip_lock(
     project_dir: &Path,
     ctx: &ResolveContext,
 ) -> Result<Vec<vlz_db::Package>, ResolverError> {
-    if ctx.skip_pip_resolution || !python_package_manager_available() {
+    if ctx.skip_pip_resolution {
         return Err(ResolverError::Resolve("pip lock skipped".to_string()));
     }
     if manifest_is_pipfile(manifest_path) {
         return Err(ResolverError::Resolve(
             "pip lock unsupported for Pipfile".to_string(),
         ));
+    }
+    if !python_package_manager_available() {
+        return Err(ResolverError::Resolve("pip lock skipped".to_string()));
     }
     let version = detect_pip_version();
     if !version

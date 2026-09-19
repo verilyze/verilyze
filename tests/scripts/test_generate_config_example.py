@@ -521,6 +521,28 @@ class TestGenerateExampleConf:
         assert "[severity.v3]" in result
         assert "[severity.v4]" in result
 
+    def test_contains_exploitability_table_not_flat_keys(self) -> None:
+        config_list = {
+            "exploitability_enabled": "true",
+            "exploitability_ttl_secs": "86400",
+        }
+        comments = {
+            "exploitability_enabled": {
+                "description": "Enable exploitability ranking",
+                "default": "true",
+            },
+            "exploitability_ttl_secs": {
+                "description": "Snapshot TTL",
+                "default": "86400",
+            },
+        }
+        result = generate_config_example.generate_example_conf(
+            config_list, comments
+        )
+        assert "# [exploitability]" in result
+        assert "# enabled = true" in result
+        assert "# exploitability_enabled =" not in result
+
     def test_generate_example_conf_includes_severity_from_config_list(
         self,
     ) -> None:

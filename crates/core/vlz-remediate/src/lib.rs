@@ -277,6 +277,9 @@ mod tests {
             evidence: vec![],
             symbol_usage: None,
             affected_ranges,
+            in_kev: None,
+            epss: None,
+            epss_percentile: None,
         }
     }
 

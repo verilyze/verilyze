@@ -78,6 +78,9 @@
               "symbol": "requests.auth"
             }
           ],
+          "in_kev": true,
+          "epss": 0.93,
+          "epss_percentile": 0.99,
           "severity": "MEDIUM"
         }
       ]

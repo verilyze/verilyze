@@ -177,6 +177,7 @@ Cloud Agents use [`.cursor/environment.json`](.cursor/environment.json):
 | TDD / test scope     | [CONTRIBUTING.md -- Test scope and layering](CONTRIBUTING.md#test-scope-and-layering); [TDD](CONTRIBUTING.md#test-driven-development-tdd) |
 | Pre-merge validation | This file "Pre-merge validation"; [targets.md](.cursor/skills/pre-merge-check/targets.md) |
 | Ship PR pipeline | [`.cursor/skills/verilyze-ship-pr/SKILL.md`](.cursor/skills/verilyze-ship-pr/SKILL.md) (explicit user request only) |
+| crates.io publish | CONTRIBUTING "crates.io" and "Adding a new production crate"; [scripts/crates_publish.py](scripts/crates_publish.py) auto-discovers publishable crates (no manual allowlist); `make check-crates-publish` |
 | CI gate quiet / verbose | This file "CI gate quietness"; CONTRIBUTING "CI check debug output"; [`scripts/lib/check-quiet-env.sh`](scripts/lib/check-quiet-env.sh); `benchmark-gate` reference |
 | AI learnings (`ai-learnings` / type `Learning`) | [ai-learnings.md](.cursor/skills/pre-merge-check/ai-learnings.md) |
 | Security             | PRD section 6 (SEC-*), section 11 (Risk & Threat Model); [SECURITY.md](SECURITY.md); [COMPLIANCE.md](COMPLIANCE.md) |

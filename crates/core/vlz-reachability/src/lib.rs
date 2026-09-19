@@ -612,6 +612,9 @@ mod tests {
                 evidence: Vec::new(),
                 symbol_usage: None,
                 affected_ranges: Vec::new(),
+                in_kev: None,
+                epss: None,
+                epss_percentile: None,
             }],
         )];
         apply_tier_b_to_findings(
@@ -657,6 +660,9 @@ mod tests {
                 evidence: Vec::new(),
                 symbol_usage: None,
                 affected_ranges: Vec::new(),
+                in_kev: None,
+                epss: None,
+                epss_percentile: None,
             }],
         )];
         apply_tier_b_to_findings(
@@ -705,6 +711,9 @@ mod tests {
                 evidence: Vec::new(),
                 symbol_usage: None,
                 affected_ranges: Vec::new(),
+                in_kev: None,
+                epss: None,
+                epss_percentile: None,
             }],
         )];
         apply_tier_b_to_findings(
@@ -878,6 +887,7 @@ mod tests {
 
     #[test]
     fn apply_tier_b_memoizes_per_package_within_run() {
+        let dir = tempfile::tempdir().expect("tempdir");
         let package = pkg("serde", Some("crates.io"));
         let calls = Arc::new(AtomicUsize::new(0));
         let mut contexts = HashMap::new();
@@ -908,6 +918,9 @@ mod tests {
                     evidence: Vec::new(),
                     symbol_usage: None,
                     affected_ranges: Vec::new(),
+                    in_kev: None,
+                    epss: None,
+                    epss_percentile: None,
                 }],
             ),
             (
@@ -922,15 +935,24 @@ mod tests {
                     evidence: Vec::new(),
                     symbol_usage: None,
                     affected_ranges: Vec::new(),
+                    in_kev: None,
+                    epss: None,
+                    epss_percentile: None,
                 }],
             ),
         ];
-        apply_tier_b_to_findings(
-            std::path::Path::new("."),
-            &HashSet::new(),
-            &mut findings,
-            &contexts,
-            &analyzers,
+        temp_env::with_var(
+            "VLZ_REACHABILITY_PERSIST_CACHE",
+            None::<&str>,
+            || {
+                apply_tier_b_to_findings(
+                    dir.path(),
+                    &HashSet::new(),
+                    &mut findings,
+                    &contexts,
+                    &analyzers,
+                );
+            },
         );
         assert_eq!(calls.load(Ordering::Relaxed), 1);
         assert_eq!(findings[0].1[0].reachable, Some(false));
@@ -1006,6 +1028,9 @@ mod tests {
                     evidence: Vec::new(),
                     symbol_usage: None,
                     affected_ranges: Vec::new(),
+                    in_kev: None,
+                    epss: None,
+                    epss_percentile: None,
                 },
                 CveRecord {
                     id: "CVE-B".to_string(),
@@ -1017,6 +1042,9 @@ mod tests {
                     evidence: Vec::new(),
                     symbol_usage: None,
                     affected_ranges: Vec::new(),
+                    in_kev: None,
+                    epss: None,
+                    epss_percentile: None,
                 },
             ],
         )];
@@ -1098,6 +1126,9 @@ mod tests {
                 evidence: Vec::new(),
                 symbol_usage: None,
                 affected_ranges: Vec::new(),
+                in_kev: None,
+                epss: None,
+                epss_percentile: None,
             }],
         )];
         let raw_vulns = HashMap::from([(
@@ -1178,6 +1209,9 @@ mod tests {
                 evidence: Vec::new(),
                 symbol_usage: None,
                 affected_ranges: Vec::new(),
+                in_kev: None,
+                epss: None,
+                epss_percentile: None,
             }],
         )];
         let raw_vulns = HashMap::from([(
@@ -1277,6 +1311,9 @@ mod tests {
                 evidence: Vec::new(),
                 symbol_usage: None,
                 affected_ranges: Vec::new(),
+                in_kev: None,
+                epss: None,
+                epss_percentile: None,
             }],
         )];
         let raw_vulns = HashMap::from([(
@@ -1327,6 +1364,9 @@ mod tests {
                 evidence: Vec::new(),
                 symbol_usage: None,
                 affected_ranges: Vec::new(),
+                in_kev: None,
+                epss: None,
+                epss_percentile: None,
             }],
         )];
         let raw_vulns = HashMap::from([(
@@ -1377,6 +1417,9 @@ mod tests {
                 evidence: Vec::new(),
                 symbol_usage: None,
                 affected_ranges: Vec::new(),
+                in_kev: None,
+                epss: None,
+                epss_percentile: None,
             }],
         )];
         let raw_vulns = HashMap::from([(
@@ -1430,6 +1473,9 @@ mod tests {
                 evidence: Vec::new(),
                 symbol_usage: None,
                 affected_ranges: Vec::new(),
+                in_kev: None,
+                epss: None,
+                epss_percentile: None,
             }],
         )];
         temp_env::with_var(
@@ -1504,6 +1550,9 @@ mod tests {
                 evidence: Vec::new(),
                 symbol_usage: None,
                 affected_ranges: Vec::new(),
+                in_kev: None,
+                epss: None,
+                epss_percentile: None,
             }],
         )];
         let raw_vulns = HashMap::from([(

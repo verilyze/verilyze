@@ -442,6 +442,54 @@ impl CveProvider for CveReturningProvider {
             evidence: Vec::new(),
             symbol_usage: None,
             affected_ranges: Vec::new(),
+            in_kev: None,
+            epss: None,
+            epss_percentile: None,
+        };
+        Ok(FetchedCves {
+            raw_vulns: vec![serde_json::json!({"id": record.id})],
+            records: vec![record],
+        })
+    }
+}
+
+/// CVE provider returning one low-CVSS CVE per package (FR-048 tests).
+///
+/// `CVE-2024-4101` scores 2.0, below any realistic `--min-score` bar, so
+/// only KEV/EPSS opt-in policy can trigger the CVE exit. The ID is
+/// CVE-shaped (numeric suffix) so ranking ID mapping applies.
+#[derive(Debug, Default)]
+pub struct LowScoreCveProvider;
+
+impl LowScoreCveProvider {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[async_trait]
+impl CveProvider for LowScoreCveProvider {
+    fn name(&self) -> &'static str {
+        "low_score"
+    }
+
+    async fn fetch(
+        &self,
+        _pkg: &Package,
+    ) -> Result<FetchedCves, ProviderError> {
+        let record = CveRecord {
+            id: "CVE-2024-4101".to_string(),
+            cvss_score: Some(2.0),
+            cvss_version: Some(vlz_db::CvssVersion::V3),
+            description: "Low-severity CVE for ranking tests".to_string(),
+            reachable: None,
+            advisory_symbols: Vec::new(),
+            evidence: Vec::new(),
+            symbol_usage: None,
+            affected_ranges: Vec::new(),
+            in_kev: None,
+            epss: None,
+            epss_percentile: None,
         };
         Ok(FetchedCves {
             raw_vulns: vec![serde_json::json!({"id": record.id})],
@@ -481,6 +529,9 @@ impl CveProvider for TierCReachabilityProvider {
             evidence: Vec::new(),
             symbol_usage: None,
             affected_ranges: Vec::new(),
+            in_kev: None,
+            epss: None,
+            epss_percentile: None,
         };
         let record_b = CveRecord {
             id: "CVE-TIER-C-B".to_string(),
@@ -492,6 +543,9 @@ impl CveProvider for TierCReachabilityProvider {
             evidence: Vec::new(),
             symbol_usage: None,
             affected_ranges: Vec::new(),
+            in_kev: None,
+            epss: None,
+            epss_percentile: None,
         };
         Ok(FetchedCves {
             raw_vulns: vec![

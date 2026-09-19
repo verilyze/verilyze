@@ -61,6 +61,12 @@ flowchart TD
 | vex_author_name | string | verilyze | `VLZ_VEX_AUTHOR_NAME` | `--vex-author-name` |
 | vex_author_namespace | string |  | `VLZ_VEX_AUTHOR_NAMESPACE` | `--vex-author-namespace` |
 | vex_reachability_not_affected | boolean | false | `VLZ_VEX_REACHABILITY_NOT_AFFECTED` | `--vex-reachability-not-affected` |
+| exploitability_enabled | boolean | true | `VLZ_EXPLOITABILITY_ENABLED` | `--exploitability` |
+| exploitability_min_epss | string |  | `VLZ_EXPLOITABILITY_MIN_EPSS` | `--exploitability-min-epss` |
+| exploitability_exit_on_kev | boolean | false | `VLZ_EXPLOITABILITY_EXIT_ON_KEV` | `--exploitability-exit-on-kev` |
+| exploitability_kev_file | string |  | `VLZ_EXPLOITABILITY_KEV_FILE` | `--exploitability-kev-file` |
+| exploitability_epss_file | string |  | `VLZ_EXPLOITABILITY_EPSS_FILE` | `--exploitability-epss-file` |
+| exploitability_ttl_secs | integer | 86400 | `VLZ_EXPLOITABILITY_TTL_SECS` | `--exploitability-ttl-secs` |
 
 ## Severity thresholds (FR-013)
 
@@ -129,6 +135,26 @@ reachability_not_affected = false
 identifier. `--no-vex` omits analysis / VEX statements. When
 `reachability_not_affected` is false (default), `reachable: false` maps to
 `in_triage` rather than asserting `not_affected`.
+
+## Exploitability (FR-048)
+
+CISA KEV and FIRST EPSS ranking for scan output and exit policy. File config
+uses an `[exploitability]` table (keys map to `exploitability_*` rows in the
+scalar table above):
+
+```toml
+[exploitability]
+enabled = true
+# min_epss = 0.7
+exit_on_kev = false
+# kev_file = "/path/to/kev.json"
+# epss_file = "/path/to/epss.csv"
+ttl_secs = 86400
+```
+
+`min_epss` unions with CVSS `min_score` for `min_count` exit policy.
+`exit_on_kev` is independent. Use `--refresh-exploitability` to force online
+reload of KEV/EPSS snapshots.
 
 ## Resolution policy (FR-022, SEC-023)
 

@@ -132,6 +132,22 @@
 # When true, map reachability false to VEX not_affected (default: in_triage)
 # reachability_not_affected = false
 
+#
+# [exploitability] CISA KEV / FIRST EPSS ranking (FR-048)
+# [exploitability]
+# Enable CISA KEV and FIRST EPSS exploitability ranking (FR-048)
+# enabled = true
+# Minimum EPSS score (0.0-1.0) for exit policy union with CVSS
+# min_epss = 
+# Exit when any non-FP CVE is in the CISA KEV catalog
+# exit_on_kev = false
+# Optional local KEV catalog JSON/CSV instead of online fetch
+# kev_file = ""
+# Optional local EPSS JSON/CSV instead of online fetch
+# epss_file = ""
+# Snapshot TTL in seconds for online KEV/EPSS cache
+# ttl_secs = 86400
+
 # Per-language manifest regex (FR-006)
 # [go]
 # regex = "^go\.mod$"

@@ -263,14 +263,15 @@ def _scalar_keys_from_config_list(
 ) -> list[str]:
     """Derive scalar keys from config --list.
 
-    Excludes severity_*, lang.regex, and flat vex_* keys (file format uses
-    a [vex] table).
+    Excludes severity_*, lang.regex, and flat vex_* / exploitability_* keys
+    (file format uses [vex] and [exploitability] tables).
     """
     keys = [
         k
         for k in config_list.keys()
         if not k.startswith("severity_")
         and not k.startswith("vex_")
+        and not k.startswith("exploitability_")
         and ".regex" not in k
     ]
     if keys:
@@ -283,6 +284,7 @@ def _scalar_keys_from_config_list(
             if k not in _FALLBACK_SCALAR_KEYS
             and not k.startswith("severity_")
             and not k.startswith("vex_")
+            and not k.startswith("exploitability_")
             and ".regex" not in k
         ]
         return known + extra
@@ -320,6 +322,39 @@ def _vex_example_block(
     return lines
 
 
+def _exploitability_example_block(
+    config_list: dict[str, str],
+    comments: dict[str, dict[str, str]],
+) -> list[str]:
+    """Emit a commented `[exploitability]` table (not flat keys)."""
+    lines = [
+        "#",
+        "# [exploitability] CISA KEV / FIRST EPSS ranking (FR-048)",
+        "# [exploitability]",
+    ]
+    fields = (
+        ("enabled", "exploitability_enabled", False),
+        ("min_epss", "exploitability_min_epss", False),
+        ("exit_on_kev", "exploitability_exit_on_kev", False),
+        ("kev_file", "exploitability_kev_file", True),
+        ("epss_file", "exploitability_epss_file", True),
+        ("ttl_secs", "exploitability_ttl_secs", False),
+    )
+    for toml_key, list_key, quote in fields:
+        default = config_list.get(list_key) or comments.get(list_key, {}).get(
+            "default", ""
+        )
+        desc = comments.get(list_key, {}).get("description", "")
+        for comment_line in wrap_comment(desc):
+            lines.append(comment_line)
+        if quote:
+            lines.append(f'# {toml_key} = "{default}"')
+        else:
+            lines.append(f"# {toml_key} = {default}")
+    lines.append("")
+    return lines
+
+
 def build_config_data(
     config_list: dict[str, str],
     comments: dict[str, dict[str, str]],
@@ -333,9 +368,16 @@ def build_config_data(
     vex_keys = [k for k in config_list.keys() if k.startswith("vex_")]
     if not vex_keys and comments:
         vex_keys = [k for k in comments if k.startswith("vex_")]
+    exploitability_keys = [
+        k for k in config_list.keys() if k.startswith("exploitability_")
+    ]
+    if not exploitability_keys and comments:
+        exploitability_keys = [
+            k for k in comments if k.startswith("exploitability_")
+        ]
 
     rows: list[tuple[str, str, str, str, str]] = []
-    for key in scalar_keys + vex_keys:
+    for key in scalar_keys + vex_keys + exploitability_keys:
         meta = comments.get(key, {})
         default = config_list.get(key, meta.get("default", ""))
         type_ = meta.get("type", "string")
@@ -420,6 +462,7 @@ def generate_example_conf(
         lines.append("#")
 
     lines.extend(_vex_example_block(config_list, comments))
+    lines.extend(_exploitability_example_block(config_list, comments))
 
     # Language regex
     lines.append("# Per-language manifest regex (FR-006)")
@@ -482,6 +525,14 @@ def generate_man_options(
         "VEX generation: product_id, author_name, author_namespace, "
         "reachability_not_affected. File keys live under this table "
         "(not as flat vex_* top-level keys). Env/CLI use VLZ_VEX_* / --vex-*."
+    )
+    lines.append("")
+    lines.append(".It Sy [exploitability]")
+    lines.append(
+        "KEV/EPSS ranking: enabled, min_epss, exit_on_kev, kev_file, "
+        "epss_file, ttl_secs. File keys live under this table (not as flat "
+        "exploitability_* top-level keys). Env/CLI use VLZ_EXPLOITABILITY_* / "
+        "--exploitability-*."
     )
     lines.append("")
     lines.append(".It Sy [lang].regex")

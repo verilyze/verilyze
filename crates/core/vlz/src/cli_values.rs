@@ -45,6 +45,7 @@ pub const TESTING_PROVIDER_NAMES: &[&str] = &[
     "cve_returning",
     "panicking",
     "tier_c_reachability",
+    "low_score",
 ];
 
 /// Registered CVE provider names for the current build (feature-gated).

@@ -100,6 +100,26 @@ identifier. `--no-vex` omits analysis / VEX statements. When
 `reachability_not_affected` is false (default), `reachable: false` maps to
 `in_triage` rather than asserting `not_affected`.
 
+## Exploitability (FR-048)
+
+CISA KEV and FIRST EPSS ranking for scan output and exit policy. File config
+uses an `[exploitability]` table (keys map to `exploitability_*` rows in the
+scalar table above):
+
+```toml
+[exploitability]
+enabled = true
+# min_epss = 0.7
+exit_on_kev = false
+# kev_file = "/path/to/kev.json"
+# epss_file = "/path/to/epss.csv"
+ttl_secs = 86400
+```
+
+`min_epss` unions with CVSS `min_score` for `min_count` exit policy.
+`exit_on_kev` is independent. Use `--refresh-exploitability` to force online
+reload of KEV/EPSS snapshots.
+
 ## Resolution policy (FR-022, SEC-023)
 
 `allow_dependency_code_execution` (default false) and

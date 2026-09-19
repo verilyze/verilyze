@@ -39,6 +39,7 @@ log = "0.4"
 env_logger = "0.11"
 anyhow = "1.0"
 futures = "0.3"
+reqwest.workspace = true
 toml.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
@@ -46,6 +47,7 @@ thiserror.workspace = true
 
 # Workspace-internal trait crates (core siblings)
 vlz-db.workspace = true
+vlz-exploitability.workspace = true
 vlz-manifest-finder.workspace = true
 vlz-manifest-parser.workspace = true
 vlz-reachability-trait.workspace = true
@@ -88,6 +90,7 @@ toml.workspace = true
 [dev-dependencies]
 async-trait.workspace = true
 temp-env.workspace = true
+wiremock.workspace = true
 
 # Integration tests that need `mocks` / registry clear helpers: `vlz` is built as a
 # normal dependency, so `cfg(test)` is false; enable `--features testing` (see Makefile

@@ -262,6 +262,39 @@ pub fn generate_example(cfg: &crate::config::EffectiveConfig) -> String {
     ));
     lines.push("".to_string());
 
+    lines.push("# [exploitability] KEV/EPSS ranking (FR-048)".to_string());
+    lines.push("# [exploitability]".to_string());
+    lines.push(format!("# enabled = {}", cfg.exploitability.enabled));
+    lines.push(format!(
+        "# min_epss = {}",
+        cfg.exploitability
+            .min_epss
+            .map(|v| v.to_string())
+            .unwrap_or_default()
+    ));
+    lines.push(format!(
+        "# exit_on_kev = {}",
+        cfg.exploitability.exit_on_kev
+    ));
+    lines.push(format!(
+        "# kev_file = \"{}\"",
+        cfg.exploitability
+            .kev_file
+            .as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_default()
+    ));
+    lines.push(format!(
+        "# epss_file = \"{}\"",
+        cfg.exploitability
+            .epss_file
+            .as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_default()
+    ));
+    lines.push(format!("# ttl_secs = {}", cfg.exploitability.ttl_secs));
+    lines.push("".to_string());
+
     lines.push("# Per-language manifest regex (FR-006)".to_string());
     for (lang, re) in &cfg.language_regexes {
         lines.push(format!("# [{}]", lang));

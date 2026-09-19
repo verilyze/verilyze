@@ -3,7 +3,13 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""crates.io publish order and manifest validation."""
+"""crates.io publish order and manifest validation.
+
+Publishable crates are discovered automatically from ``crates/**/Cargo.toml``
+(omit ``publish = false``). There is no manual allowlist. Internal dependency
+edges use the discovered set plus ``vlz`` / ``vlz-*`` manifest names. Run
+``make check-crates-publish`` after adding a production crate.
+"""
 
 import argparse
 import math
@@ -19,43 +25,9 @@ from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 
-# Production crates published to crates.io (fuzz crates excluded).
-PUBLISHED_CRATE_NAMES: tuple[str, ...] = (
-    "vlz-db",
-    "vlz-manifest-finder",
-    "vlz-plugin-macro",
-    "vlz-reachability-trait",
-    "vlz-manifest-parser",
-    "vlz-cve-client",
-    "vlz-report",
-    "vlz-remediate",
-    "vlz-integrity",
-    "vlz-reachability",
-    "vlz-python",
-    "vlz-rust",
-    "vlz-go",
-    "vlz-javascript",
-    "vlz-java",
-    "vlz-ruby",
-    "vlz-sbom",
-    "vlz-cve-provider-nvd",
-    "vlz-cve-provider-github",
-    "vlz-cve-provider-sonatype",
-    "vlz-db-redb",
-    "vlz-db-mem",
-    "vlz-lsp",
-    "vlz",
-)
-
-WORKSPACE_INTERNAL_DEP_RE = re.compile(
-    r"^vlz-(?:db|manifest-finder|manifest-parser|reachability-trait|"
-    r"reachability|cve-client|report|remediate|integrity|plugin-macro|"
-    r"python|rust|go|javascript|java|ruby|sbom|cve-provider-nvd|"
-    r"cve-provider-github|cve-provider-sonatype|db-redb|db-mem|lsp)$"
-)
-
 VLZ_INSTALL_BINARIES = frozenset({"vlz"})
 REGISTRY_INHERIT_FIELDS = ("keywords", "categories", "readme", "rust-version")
+VERILYZE_CRATE_NAME_RE = re.compile(r"^vlz(?:-|$)")
 
 PUBLISH_RATE_LIMIT_MAX_RETRIES = 5
 PUBLISH_RATE_LIMIT_FALLBACK_SECS = 600
@@ -93,25 +65,58 @@ def read_workspace_version(cargo_toml: Path) -> str:
     return version
 
 
+def package_is_publishable(data: dict[str, object]) -> bool:
+    """Return True when a manifest declares a crates.io-publishable package."""
+    package = data.get("package")
+    if not isinstance(package, dict):
+        return False
+    name = package.get("name")
+    if not isinstance(name, str) or not name.strip():
+        return False
+    publish = package.get("publish")
+    if publish is False:
+        return False
+    if isinstance(publish, list) and not publish:
+        return False
+    return True
+
+
 def discover_crate_manifests(repo_root: Path) -> dict[str, Path]:
-    """Map published crate name -> Cargo.toml path under crates/."""
+    """Map publishable crate name -> Cargo.toml path under crates/."""
     manifests: dict[str, Path] = {}
-    for manifest in sorted((repo_root / "crates").rglob("Cargo.toml")):
+    crates_root = repo_root / "crates"
+    if not crates_root.is_dir():
+        msg = "missing crates/ directory"
+        raise ValueError(msg)
+    for manifest in sorted(crates_root.rglob("Cargo.toml")):
         data = tomllib.loads(manifest.read_text(encoding="utf-8"))
-        name = data.get("package", {}).get("name")
+        if not package_is_publishable(data):
+            continue
+        package = data["package"]
+        if not isinstance(package, dict):
+            continue
+        name = package["name"]
         if not isinstance(name, str):
             continue
-        if name in PUBLISHED_CRATE_NAMES:
-            manifests[name] = manifest
-    missing = [name for name in PUBLISHED_CRATE_NAMES if name not in manifests]
-    if missing:
-        msg = f"missing Cargo.toml for published crates: {', '.join(missing)}"
+        if name in manifests:
+            msg = f"duplicate package name {name!r} under crates/"
+            raise ValueError(msg)
+        manifests[name] = manifest
+    if not manifests:
+        msg = "no publishable crates found under crates/"
         raise ValueError(msg)
     return manifests
 
 
-def parse_internal_dependencies(manifest_path: Path) -> set[str]:
-    """Return workspace-internal dependency names declared in a manifest."""
+def is_verilyze_crate_name(name: str) -> bool:
+    """Return True for the binary crate and published library name prefix."""
+    return VERILYZE_CRATE_NAME_RE.match(name) is not None
+
+
+def parse_internal_dependencies(
+    manifest_path: Path, published_names: set[str]
+) -> set[str]:
+    """Return verilyze workspace crate names declared in a manifest."""
     data = tomllib.loads(manifest_path.read_text(encoding="utf-8"))
     deps: set[str] = set()
     for section in ("dependencies", "build-dependencies"):
@@ -119,15 +124,16 @@ def parse_internal_dependencies(manifest_path: Path) -> set[str]:
         if not isinstance(table, dict):
             continue
         for dep_name in table:
-            if WORKSPACE_INTERNAL_DEP_RE.match(dep_name):
+            if dep_name in published_names or is_verilyze_crate_name(dep_name):
                 deps.add(dep_name)
     return deps
 
 
 def publish_order(manifests: dict[str, Path]) -> list[str]:
     """Topological sort: dependencies before dependents."""
+    published_names = set(manifests)
     internal_deps = {
-        name: parse_internal_dependencies(path)
+        name: parse_internal_dependencies(path, published_names)
         for name, path in manifests.items()
     }
     in_degree = {name: 0 for name in manifests}
@@ -159,19 +165,21 @@ def publish_order(manifests: dict[str, Path]) -> list[str]:
 
 
 def workspace_internal_dep_versions(cargo_toml: Path) -> dict[str, str]:
-    """Return workspace dependency name -> version from root Cargo.toml."""
+    """Return workspace path dependency name -> version."""
     data = tomllib.loads(cargo_toml.read_text(encoding="utf-8"))
     deps = data.get("workspace", {}).get("dependencies", {})
     versions: dict[str, str] = {}
     if not isinstance(deps, dict):
         return versions
     for name, spec in deps.items():
-        if not WORKSPACE_INTERNAL_DEP_RE.match(name):
+        if not isinstance(spec, dict):
             continue
-        if isinstance(spec, dict):
-            version = spec.get("version")
-            if isinstance(version, str):
-                versions[name] = version
+        path = spec.get("path")
+        if not isinstance(path, str) or not path.startswith("crates/"):
+            continue
+        version = spec.get("version")
+        if isinstance(version, str):
+            versions[name] = version
     return versions
 
 
@@ -312,26 +320,23 @@ def discover_workspace_crate_names(repo_root: Path) -> dict[str, Path]:
 def validate_all_workspace_crates_published(
     repo_root: Path, manifests: dict[str, Path]
 ) -> list[str]:
-    """Fail when a crates/ package is omitted from PUBLISHED_CRATE_NAMES.
+    """Fail when a crates/ package is omitted from auto-discovery.
 
     Crates that set ``publish = false`` are excluded (e.g. fuzz helpers).
     """
     errors: list[str] = []
-    published = set(PUBLISHED_CRATE_NAMES)
+    publishable = set(manifests)
     discovered = discover_workspace_crate_names(repo_root)
     for name, path in sorted(discovered.items()):
         data = tomllib.loads(path.read_text(encoding="utf-8"))
-        package = data.get("package", {})
-        if isinstance(package, dict) and package.get("publish") is False:
-            continue
-        if name not in published:
+        should_publish = package_is_publishable(data)
+        if should_publish and name not in publishable:
             errors.append(
-                f"{name}: present under crates/ but missing from "
-                "PUBLISHED_CRATE_NAMES"
+                f"{name}: present under crates/ but missing from publish set"
             )
-        elif name not in manifests:
+        elif not should_publish and name in publishable:
             errors.append(
-                f"{name}: in PUBLISHED_CRATE_NAMES but not discovered"
+                f"{name}: marked private but included in publish set"
             )
     return errors
 
@@ -426,10 +431,11 @@ def run_cargo_package(
 
 def leaf_crates(manifests: dict[str, Path]) -> list[str]:
     """Return published crates with no internal workspace dependencies."""
+    published_names = set(manifests)
     leaves = [
         name
         for name, path in sorted(manifests.items())
-        if not parse_internal_dependencies(path)
+        if not parse_internal_dependencies(path, published_names)
     ]
     return leaves
 
