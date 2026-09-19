@@ -31,9 +31,9 @@ if [ -x /usr/bin/ssh-keygen ]; then
 elif command -v ssh-keygen >/dev/null 2>&1; then
   SSH_KEYGEN="$(command -v ssh-keygen)"
 else
-  echo "[sign-setup] WARNING: ssh-keygen not found; skipping SSH signing setup." >&2
+  echo "[sign-setup] ERROR: ssh-keygen not found; cannot configure SSH signing." >&2
   echo "[sign-setup] Install openssh-client in the Cloud Agent image (see .cursor/Dockerfile)." >&2
-  exit 0
+  exit 1
 fi
 
 # Attribute commits to the owner. Identity comes from the git_signing_name /
