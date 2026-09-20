@@ -214,6 +214,10 @@ pub fn ensure_default_manifest_finder() {
     if !f.iter().any(|x| x.language_name() == "php") {
         f.push(Box::new(vlz_php::PhpManifestFinder::new()));
     }
+    #[cfg(feature = "dotnet")]
+    if !f.iter().any(|x| x.language_name() == "dotnet") {
+        f.push(Box::new(vlz_dotnet::DotnetManifestFinder::new()));
+    }
     #[cfg(feature = "sbom")]
     if !f.iter().any(|x| x.language_name() == "sbom") {
         f.push(Box::new(vlz_sbom::SbomManifestFinder::new()));
@@ -252,6 +256,10 @@ pub fn ensure_default_parser() {
     if !p.iter().any(|x| x.language_name() == "php") {
         p.push(Box::new(vlz_php::PhpManifestParser::new()));
     }
+    #[cfg(feature = "dotnet")]
+    if !p.iter().any(|x| x.language_name() == "dotnet") {
+        p.push(Box::new(vlz_dotnet::DotnetManifestParser::new()));
+    }
     #[cfg(feature = "sbom")]
     if !p.iter().any(|x| x.language_name() == "sbom") {
         p.push(Box::new(vlz_sbom::SbomParser::new()));
@@ -289,6 +297,10 @@ pub fn ensure_default_resolver() {
     if !r.iter().any(|x| x.language_name() == "php") {
         r.push(Box::new(vlz_php::PhpResolver::new()));
     }
+    #[cfg(feature = "dotnet")]
+    if !r.iter().any(|x| x.language_name() == "dotnet") {
+        r.push(Box::new(vlz_dotnet::DotnetResolver::new()));
+    }
     #[cfg(feature = "sbom")]
     if !r.iter().any(|x| x.language_name() == "sbom") {
         r.push(Box::new(vlz_sbom::SbomResolver::new()));
@@ -325,6 +337,10 @@ pub fn ensure_default_reachability_analyzer() {
     #[cfg(feature = "php")]
     if !analyzers.iter().any(|x| x.language_name() == "php") {
         analyzers.push(Box::new(vlz_php::PhpTierBAnalyzer::new()));
+    }
+    #[cfg(feature = "dotnet")]
+    if !analyzers.iter().any(|x| x.language_name() == "dotnet") {
+        analyzers.push(Box::new(vlz_dotnet::DotnetTierBAnalyzer::new()));
     }
 }
 
@@ -763,6 +779,7 @@ mod tests {
             feature = "java",
             feature = "ruby",
             feature = "php",
+            feature = "dotnet",
             feature = "sbom"
         ))]
         {
@@ -774,6 +791,7 @@ mod tests {
                 cfg!(feature = "java"),
                 cfg!(feature = "ruby"),
                 cfg!(feature = "php"),
+                cfg!(feature = "dotnet"),
                 cfg!(feature = "sbom"),
             ]
             .into_iter()

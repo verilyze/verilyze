@@ -868,13 +868,13 @@ architecture/PRD.md DOC-003 and design notes on single source of truth).
 
 The `vlz` binary supports optional capabilities via Cargo features:
 
-- **runtime** = `["redb", "python", "rust", "go", "javascript", "java", "ruby", "php", "sbom"]`
+- **runtime** = `["redb", "python", "rust", "go", "javascript", "java", "ruby", "php", "dotnet", "sbom"]`
   -- desktop scan capabilities with on-disk RedB **CVE cache**. When adding a
   new language, add it here **and** to `runtime-mem` so Docker stays in sync.
-- **runtime-mem** = `["mem", "python", "rust", "go", "javascript", "java", "ruby", "php", "sbom"]`
+- **runtime-mem** = `["mem", "python", "rust", "go", "javascript", "java", "ruby", "php", "dotnet", "sbom"]`
   -- same languages with an in-memory CVE cache (no `redb`; for ephemeral /
   Docker).
-- **default** = `["runtime", "completions", "docs", "lsp"]` -- full build with
+- **default** = `["runtime", "completions", "docs", "lsp", "python-tier-d", "go-tier-d"]` -- full build with
   runtime capabilities, shell completion generation, man page via `vlz help`,
   and the Language Server (`vlz lsp`). Release builds omit the `testing`
   feature for a smaller binary.
@@ -905,6 +905,10 @@ The `vlz` binary supports optional capabilities via Cargo features:
   Tier B/C reachability on `.java` / `.kt` sources.
 - **ruby** -- Ruby language plugin (`vlz-ruby` crate); Bundler Gemfile/gems.rb
   and gemspec manifests with Gemfile.lock / gems.locked (OSV `RubyGems`).
+- **php** -- PHP language plugin (`vlz-php` crate); Composer `composer.json`
+  with `composer.lock` (OSV `Packagist`).
+- **dotnet** -- .NET / NuGet language plugin (`vlz-dotnet` crate); `*.csproj` /
+  `*.fsproj` / `*.vbproj` with `packages.lock.json` (OSV `NuGet`).
 - **sbom** -- SBOM inventory plugin (`vlz-sbom` crate); CycloneDX 1.x and
   SPDX 2.2 / 2.3 / 3.0 JSON via allowlisted basenames and `--from-sbom` (FR-038).
 - **nvd** -- NVD CVE provider (`vlz-cve-provider-nvd` crate); opt-in.

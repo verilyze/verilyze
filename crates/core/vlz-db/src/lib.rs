@@ -51,6 +51,9 @@ pub const RUBYGEMS_ECOSYSTEM: &str = "RubyGems";
 /// OSV / package ecosystem for Packagist (PHP / Composer).
 pub const PACKAGIST_ECOSYSTEM: &str = "Packagist";
 
+/// OSV / package ecosystem for NuGet (.NET).
+pub const NUGET_ECOSYSTEM: &str = "NuGet";
+
 #[derive(
     Debug,
     Clone,
@@ -145,9 +148,7 @@ pub fn finding_class_for_id(id: &str) -> FindingClass {
 
 /// Canonical form for merge keys and ranking: uppercase CVE IDs, else as-is.
 pub fn normalize_vuln_id(s: &str) -> String {
-    if is_cve_id(s) {
-        s.to_ascii_uppercase()
-    } else if is_mal_id(s) {
+    if is_cve_id(s) || is_mal_id(s) {
         s.to_ascii_uppercase()
     } else {
         s.to_string()

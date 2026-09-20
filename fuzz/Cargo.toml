@@ -23,6 +23,7 @@ vlz-javascript = { path = "../crates/languages/vlz-javascript" }
 vlz-java = { path = "../crates/languages/vlz-java" }
 vlz-ruby = { path = "../crates/languages/vlz-ruby" }
 vlz-php = { path = "../crates/languages/vlz-php" }
+vlz-dotnet = { path = "../crates/languages/vlz-dotnet" }
 vlz-sbom = { path = "../crates/languages/vlz-sbom" }
 
 # Independent workspace so root cargo / clippy / deny do not build these.
@@ -221,6 +222,20 @@ bench = false
 [[bin]]
 name = "fuzz_composer_lock"
 path = "fuzz_targets/fuzz_composer_lock.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_csproj"
+path = "fuzz_targets/fuzz_csproj.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_packages_lock"
+path = "fuzz_targets/fuzz_packages_lock.rs"
 test = false
 doc = false
 bench = false
