@@ -10,6 +10,8 @@ Human-readable release notes for each version.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-09-20
+
 ### Changed
 
 - Default `reachability_mode` is `best-available` (Tier B plus Tier C

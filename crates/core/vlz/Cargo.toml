@@ -83,7 +83,7 @@ async-trait = { workspace = true, optional = true }
 
 # Secure temp file/dir creation (SEC-013, FR-023)
 tempfile.workspace = true
-vlz-lsp = { version = "0.12.0", path = "../vlz-lsp", optional = true }
+vlz-lsp = { workspace = true, optional = true }
 
 [build-dependencies]
 serde = { workspace = true, features = ["derive"] }
