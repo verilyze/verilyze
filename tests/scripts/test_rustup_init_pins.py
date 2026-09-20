@@ -4,8 +4,10 @@
 
 """Unit tests for scripts/rustup_init_pins.py."""
 
+import re
 import runpy
 import sys
+import urllib.request
 from pathlib import Path
 
 import pytest
@@ -227,15 +229,55 @@ class TestCommittedDockerfile:
 
 
 class TestModuleMain:
-    def test_runpy_module_main_exits_zero_when_current(
+    def test_runpy_path_main_exits_zero_when_current(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(
-            rustup_init_pins,
-            "sync_dockerfile_sha256s",
-            lambda *_a, **_k: False,
+        """Cover ``__main__`` via run_path (avoids run_module RuntimeWarning)."""
+        dockerfile = (_ROOT / ".cursor" / "Dockerfile").read_text(
+            encoding="utf-8"
         )
+        amd64 = re.search(
+            r"^ARG RUSTUP_INIT_SHA256_AMD64=([0-9a-f]{64})\s*$",
+            dockerfile,
+            re.MULTILINE,
+        )
+        arm64 = re.search(
+            r"^ARG RUSTUP_INIT_SHA256_ARM64=([0-9a-f]{64})\s*$",
+            dockerfile,
+            re.MULTILINE,
+        )
+        assert amd64 is not None and arm64 is not None
+        digests = {
+            "x86_64-unknown-linux-gnu": amd64.group(1),
+            "aarch64-unknown-linux-gnu": arm64.group(1),
+        }
+
+        class _Resp:
+            def __init__(self, body: str) -> None:
+                self._body = body.encode("utf-8")
+
+            def __enter__(self) -> "_Resp":
+                return self
+
+            def __exit__(self, *_args: object) -> None:
+                return None
+
+            def read(self) -> bytes:
+                return self._body
+
+        def fake_urlopen(url: object, timeout: float = 30) -> _Resp:
+            del timeout
+            url_s = str(url)
+            for triple, digest in digests.items():
+                if triple in url_s:
+                    return _Resp(f"{digest}\n")
+            raise AssertionError(f"unexpected rustup-init URL: {url_s}")
+
+        # run_path loads a fresh module, so patch urllib (not the imported
+        # sync_dockerfile_sha256s) to keep the entrypoint offline-safe.
+        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
         monkeypatch.setattr(sys, "argv", ["rustup_init_pins.py"])
+        script = _ROOT / "scripts" / "rustup_init_pins.py"
         with pytest.raises(SystemExit) as excinfo:
-            runpy.run_module("scripts.rustup_init_pins", run_name="__main__")
+            runpy.run_path(str(script), run_name="__main__")
         assert excinfo.value.code == 0
