@@ -3,32 +3,64 @@
     {
       "id": "version",
       "category": "startup",
-      "modes": ["smoke", "full"],
-      "args": ["--version"],
-      "expect_exit": [0],
-      "stdout_contains": ["vlz"]
+      "modes": [
+        "smoke",
+        "full"
+      ],
+      "args": [
+        "--version"
+      ],
+      "expect_exit": [
+        0
+      ],
+      "stdout_contains": [
+        "vlz"
+      ]
     },
     {
       "id": "help",
       "category": "startup",
-      "modes": ["smoke", "full"],
-      "args": ["--help"],
-      "expect_exit": [0],
-      "stdout_contains": ["Usage"]
+      "modes": [
+        "smoke",
+        "full"
+      ],
+      "args": [
+        "--help"
+      ],
+      "expect_exit": [
+        0
+      ],
+      "stdout_contains": [
+        "Usage"
+      ]
     },
     {
       "id": "invalid-subcommand",
       "category": "cli_contract",
-      "modes": ["smoke", "full"],
-      "args": ["not-a-subcommand"],
-      "expect_exit": [2]
+      "modes": [
+        "smoke",
+        "full"
+      ],
+      "args": [
+        "not-a-subcommand"
+      ],
+      "expect_exit": [
+        2
+      ]
     },
     {
       "id": "languages",
       "category": "startup",
-      "modes": ["smoke", "full"],
-      "args": ["languages"],
-      "expect_exit": [0],
+      "modes": [
+        "smoke",
+        "full"
+      ],
+      "args": [
+        "languages"
+      ],
+      "expect_exit": [
+        0
+      ],
       "stdout_contains": [
         "python",
         "rust",
@@ -37,6 +69,7 @@
         "java",
         "ruby",
         "php",
+        "dotnet",
         "sbom"
       ]
     },
@@ -44,387 +77,929 @@
       "id": "python-lock-offline",
       "category": "lock_parse",
       "language": "python",
-      "modes": ["smoke", "full"],
+      "modes": [
+        "smoke",
+        "full"
+      ],
       "fixture": "python/lock",
-      "args": ["scan", "{fixture}", "--offline"],
-      "expect_exit": [6, 86],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "python-lockless",
       "category": "exit_code",
       "language": "python",
-      "modes": ["smoke", "full"],
+      "modes": [
+        "smoke",
+        "full"
+      ],
       "fixture": "python/lockless",
-      "args": ["scan", "{fixture}"],
-      "expect_exit": [4],
-      "stderr_contains": ["could not be fully analyzed"],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}"
+      ],
+      "expect_exit": [
+        4
+      ],
+      "stderr_contains": [
+        "could not be fully analyzed"
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "python-lockless-offline",
       "category": "exit_code",
       "language": "python",
-      "modes": ["smoke", "full"],
+      "modes": [
+        "smoke",
+        "full"
+      ],
       "fixture": "python/lockless",
-      "args": ["scan", "{fixture}", "--offline"],
-      "expect_exit": [6, 86],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "python-malformed",
       "category": "manifest_discovery",
       "language": "python",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "python/malformed",
-      "args": ["scan", "{fixture}", "--offline"],
-      "expect_exit": [4],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline"
+      ],
+      "expect_exit": [
+        4
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "rust-lock-offline",
       "category": "lock_parse",
       "language": "rust",
-      "modes": ["smoke", "full"],
+      "modes": [
+        "smoke",
+        "full"
+      ],
       "fixture": "rust/lock",
-      "args": ["scan", "{fixture}", "--offline"],
-      "expect_exit": [6, 86],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "rust-lockless-offline",
       "category": "exit_code",
       "language": "rust",
-      "modes": ["smoke", "full"],
+      "modes": [
+        "smoke",
+        "full"
+      ],
       "fixture": "rust/lockless",
-      "args": ["scan", "{fixture}", "--offline"],
-      "expect_exit": [6, 86],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "go-mod-offline",
       "category": "lock_parse",
       "language": "go",
-      "modes": ["smoke", "full"],
+      "modes": [
+        "smoke",
+        "full"
+      ],
       "fixture": "go/mod",
-      "args": ["scan", "{fixture}", "--offline"],
-      "expect_exit": [6, 86],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "go-lockless-offline",
       "category": "exit_code",
       "language": "go",
-      "modes": ["smoke", "full"],
+      "modes": [
+        "smoke",
+        "full"
+      ],
       "fixture": "go/lockless",
-      "args": ["scan", "{fixture}", "--offline"],
-      "expect_exit": [6, 86],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "javascript-lock-offline",
       "category": "lock_parse",
       "language": "javascript",
-      "modes": ["smoke", "full"],
+      "modes": [
+        "smoke",
+        "full"
+      ],
       "fixture": "javascript/lock",
-      "args": ["scan", "{fixture}", "--offline"],
-      "expect_exit": [6, 86],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "javascript-lockless",
       "category": "exit_code",
       "language": "javascript",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "javascript/lockless",
-      "args": ["scan", "{fixture}"],
-      "expect_exit": [4],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}"
+      ],
+      "expect_exit": [
+        4
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "javascript-lockless-offline",
       "category": "exit_code",
       "language": "javascript",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "javascript/lockless",
-      "args": ["scan", "{fixture}", "--offline"],
-      "expect_exit": [6, 86],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "java-gradle-lock-offline",
       "category": "lock_parse",
       "language": "java",
-      "modes": ["smoke", "full"],
+      "modes": [
+        "smoke",
+        "full"
+      ],
       "fixture": "java/lock",
-      "args": ["scan", "{fixture}", "--offline"],
-      "expect_exit": [6, 86],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "java-pom-lockless",
       "category": "exit_code",
       "language": "java",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "java/pom-lockless",
-      "args": ["scan", "{fixture}"],
-      "expect_exit": [4],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}"
+      ],
+      "expect_exit": [
+        4
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "java-pom-lockless-offline",
       "category": "exit_code",
       "language": "java",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "java/pom-lockless",
-      "args": ["scan", "{fixture}", "--offline"],
-      "expect_exit": [6, 86],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "ruby-lock-offline",
       "category": "lock_parse",
       "language": "ruby",
-      "modes": ["smoke", "full"],
+      "modes": [
+        "smoke",
+        "full"
+      ],
       "fixture": "ruby/lock",
-      "args": ["scan", "{fixture}", "--offline"],
-      "expect_exit": [6, 86],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "php-lock-offline",
       "category": "lock_parse",
       "language": "php",
-      "modes": ["smoke", "full"],
+      "modes": [
+        "smoke",
+        "full"
+      ],
       "fixture": "php/lock",
-      "args": ["scan", "{fixture}", "--offline"],
-      "expect_exit": [6, 86],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "python-lock-offline-pin",
       "category": "lock_parse",
       "language": "python",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "python/lock",
-      "args": ["scan", "{fixture}", "--offline", "--format", "cyclonedx"],
-      "expect_exit": [6, 86],
-      "stdout_contains": ["cli-contract-pkg"],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline",
+        "--format",
+        "cyclonedx"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_contains": [
+        "cli-contract-pkg"
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "rust-lock-offline-pin",
       "category": "lock_parse",
       "language": "rust",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "rust/lock",
-      "args": ["scan", "{fixture}", "--offline", "--format", "cyclonedx"],
-      "expect_exit": [6, 86],
-      "stdout_contains": ["cli-contract-demo"],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline",
+        "--format",
+        "cyclonedx"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_contains": [
+        "cli-contract-demo"
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "go-lock-offline-pin",
       "category": "lock_parse",
       "language": "go",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "go/mod",
-      "args": ["scan", "{fixture}", "--offline", "--format", "cyclonedx"],
-      "expect_exit": [6, 86],
-      "stdout_contains": ["cli-contract-pkg"],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline",
+        "--format",
+        "cyclonedx"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_contains": [
+        "cli-contract-pkg"
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "javascript-lock-offline-pin",
       "category": "lock_parse",
       "language": "javascript",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "javascript/lock",
-      "args": ["scan", "{fixture}", "--offline", "--format", "cyclonedx"],
-      "expect_exit": [6, 86],
-      "stdout_contains": ["cli-contract-pkg"],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline",
+        "--format",
+        "cyclonedx"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_contains": [
+        "cli-contract-pkg"
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "java-gradle-lock-offline-pin",
       "category": "lock_parse",
       "language": "java",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "java/lock",
-      "args": ["scan", "{fixture}", "--offline", "--format", "cyclonedx"],
-      "expect_exit": [6, 86],
-      "stdout_contains": ["cli-contract"],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline",
+        "--format",
+        "cyclonedx"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_contains": [
+        "cli-contract"
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "ruby-lock-offline-pin",
       "category": "lock_parse",
       "language": "ruby",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "ruby/lock",
-      "args": ["scan", "{fixture}", "--offline", "--format", "cyclonedx"],
-      "expect_exit": [6, 86],
-      "stdout_contains": ["cli_contract_demo"],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline",
+        "--format",
+        "cyclonedx"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_contains": [
+        "cli_contract_demo"
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "ruby-lockless",
       "category": "exit_code",
       "language": "ruby",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "ruby/lockless",
-      "args": ["scan", "{fixture}"],
-      "expect_exit": [4],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}"
+      ],
+      "expect_exit": [
+        4
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "ruby-lockless-offline",
       "category": "exit_code",
       "language": "ruby",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "ruby/lockless",
-      "args": ["scan", "{fixture}", "--offline"],
-      "expect_exit": [6, 86],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "php-lock-offline-pin",
       "category": "lock_parse",
       "language": "php",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "php/lock",
-      "args": ["scan", "{fixture}", "--offline", "--format", "cyclonedx"],
-      "expect_exit": [6, 86],
-      "stdout_contains": ["cli/contract_demo"],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline",
+        "--format",
+        "cyclonedx"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_contains": [
+        "cli/contract_demo"
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "php-lockless",
       "category": "exit_code",
       "language": "php",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "php/lockless",
-      "args": ["scan", "{fixture}"],
-      "expect_exit": [4],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}"
+      ],
+      "expect_exit": [
+        4
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "php-lockless-offline",
       "category": "exit_code",
       "language": "php",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "php/lockless",
-      "args": ["scan", "{fixture}", "--offline"],
-      "expect_exit": [6, 86],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "mixed-good-and-lockless",
       "category": "exit_code",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "mixed/good-and-lockless",
-      "args": ["scan", "{fixture}", "--format", "cyclonedx"],
-      "expect_exit": [4],
-      "stdout_contains": ["cli-contract-pkg"],
-      "stderr_contains": ["could not be fully analyzed"],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--format",
+        "cyclonedx"
+      ],
+      "expect_exit": [
+        4
+      ],
+      "stdout_contains": [
+        "cli-contract-pkg"
+      ],
+      "stderr_contains": [
+        "could not be fully analyzed"
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "python-empty-lock",
       "category": "exit_code",
       "language": "python",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "python/empty-lock",
-      "args": ["scan", "{fixture}"],
-      "expect_exit": [4],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}"
+      ],
+      "expect_exit": [
+        4
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "javascript-empty-lock",
       "category": "exit_code",
       "language": "javascript",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "javascript/empty-lock",
-      "args": ["scan", "{fixture}"],
-      "expect_exit": [4],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}"
+      ],
+      "expect_exit": [
+        4
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "java-empty-gradle-lock",
       "category": "exit_code",
       "language": "java",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "java/empty-lock",
-      "args": ["scan", "{fixture}"],
-      "expect_exit": [4],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}"
+      ],
+      "expect_exit": [
+        4
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "ruby-empty-lock",
       "category": "exit_code",
       "language": "ruby",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "ruby/empty-lock",
-      "args": ["scan", "{fixture}"],
-      "expect_exit": [4],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}"
+      ],
+      "expect_exit": [
+        4
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "php-empty-lock",
       "category": "exit_code",
       "language": "php",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "php/empty-lock",
-      "args": ["scan", "{fixture}"],
-      "expect_exit": [4],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}"
+      ],
+      "expect_exit": [
+        4
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
+    },
+    {
+      "id": "dotnet-lock-offline",
+      "category": "lock_parse",
+      "language": "dotnet",
+      "modes": [
+        "smoke",
+        "full"
+      ],
+      "fixture": "dotnet/lock",
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
+    },
+    {
+      "id": "dotnet-lock-offline-pin",
+      "category": "lock_parse",
+      "language": "dotnet",
+      "modes": [
+        "full"
+      ],
+      "fixture": "dotnet/lock",
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline",
+        "--format",
+        "cyclonedx"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_contains": [
+        "Cli.Contract"
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
+    },
+    {
+      "id": "dotnet-lockless",
+      "category": "exit_code",
+      "language": "dotnet",
+      "modes": [
+        "full"
+      ],
+      "fixture": "dotnet/lockless",
+      "args": [
+        "scan",
+        "{fixture}"
+      ],
+      "expect_exit": [
+        4
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
+    },
+    {
+      "id": "dotnet-lockless-offline",
+      "category": "exit_code",
+      "language": "dotnet",
+      "modes": [
+        "full"
+      ],
+      "fixture": "dotnet/lockless",
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
+    },
+    {
+      "id": "dotnet-empty-lock",
+      "category": "exit_code",
+      "language": "dotnet",
+      "modes": [
+        "full"
+      ],
+      "fixture": "dotnet/empty-lock",
+      "args": [
+        "scan",
+        "{fixture}"
+      ],
+      "expect_exit": [
+        4
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "sbom-lock-offline",
       "category": "lock_parse",
       "language": "sbom",
-      "modes": ["smoke", "full"],
+      "modes": [
+        "smoke",
+        "full"
+      ],
       "fixture": "sbom/lock",
-      "args": ["scan", "{fixture}", "--offline"],
-      "expect_exit": [6, 86],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "sbom-lockless",
       "category": "exit_code",
       "language": "sbom",
-      "modes": ["smoke", "full"],
+      "modes": [
+        "smoke",
+        "full"
+      ],
       "fixture": "sbom/lockless",
-      "args": ["scan", "{fixture}"],
-      "expect_exit": [4],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}"
+      ],
+      "expect_exit": [
+        4
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "sbom-lock-offline-pin",
       "category": "lock_parse",
       "language": "sbom",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "sbom/lock",
-      "args": ["scan", "{fixture}", "--offline", "--format", "cyclonedx"],
-      "expect_exit": [6, 86],
-      "stdout_contains": ["cli-contract-pkg"],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline",
+        "--format",
+        "cyclonedx"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_contains": [
+        "cli-contract-pkg"
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "sbom-empty-lock",
       "category": "exit_code",
       "language": "sbom",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "sbom/empty-lock",
-      "args": ["scan", "{fixture}"],
-      "expect_exit": [0],
-      "stdout_contains": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}"
+      ],
+      "expect_exit": [
+        0
+      ],
+      "stdout_contains": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "sbom-from-sbom-flag-offline",
       "category": "lock_parse",
       "language": "sbom",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "sbom/from-sbom-flag",
       "args": [
         "scan",
@@ -433,66 +1008,127 @@
         "{fixture}/bom.json",
         "--offline"
       ],
-      "expect_exit": [6, 86],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "sbom-spdx23-offline",
       "category": "lock_parse",
       "language": "sbom",
-      "modes": ["full"],
+      "modes": [
+        "full"
+      ],
       "fixture": "sbom/spdx23",
-      "args": ["scan", "{fixture}", "--offline"],
-      "expect_exit": [6, 86],
-      "stdout_forbids": ["No vulnerabilities found."]
+      "args": [
+        "scan",
+        "{fixture}",
+        "--offline"
+      ],
+      "expect_exit": [
+        6,
+        86
+      ],
+      "stdout_forbids": [
+        "No vulnerabilities found."
+      ]
     },
     {
       "id": "generate-completions-bash",
       "category": "completion",
-      "modes": ["smoke", "full"],
-      "args": ["generate-completions", "bash"],
-      "expect_exit": [0],
-      "stdout_contains": ["languages"]
+      "modes": [
+        "smoke",
+        "full"
+      ],
+      "args": [
+        "generate-completions",
+        "bash"
+      ],
+      "expect_exit": [
+        0
+      ],
+      "stdout_contains": [
+        "languages"
+      ]
     },
     {
       "id": "generate-completions-zsh",
       "category": "completion",
-      "modes": ["smoke", "full"],
-      "args": ["generate-completions", "zsh"],
-      "expect_exit": [0],
-      "stdout_contains": ["languages"]
+      "modes": [
+        "smoke",
+        "full"
+      ],
+      "args": [
+        "generate-completions",
+        "zsh"
+      ],
+      "expect_exit": [
+        0
+      ],
+      "stdout_contains": [
+        "languages"
+      ]
     },
     {
       "id": "generate-completions-fish",
       "category": "completion",
-      "modes": ["smoke", "full"],
-      "args": ["generate-completions", "fish"],
-      "expect_exit": [0],
-      "stdout_contains": ["languages"]
+      "modes": [
+        "smoke",
+        "full"
+      ],
+      "args": [
+        "generate-completions",
+        "fish"
+      ],
+      "expect_exit": [
+        0
+      ],
+      "stdout_contains": [
+        "languages"
+      ]
     },
     {
       "id": "completion-bash-source",
       "category": "completion",
       "kind": "completion_shell",
       "shell": "bash",
-      "modes": ["full"],
-      "args": ["generate-completions", "bash"]
+      "modes": [
+        "full"
+      ],
+      "args": [
+        "generate-completions",
+        "bash"
+      ]
     },
     {
       "id": "completion-zsh-source",
       "category": "completion",
       "kind": "completion_shell",
       "shell": "zsh",
-      "modes": ["full"],
-      "args": ["generate-completions", "zsh"]
+      "modes": [
+        "full"
+      ],
+      "args": [
+        "generate-completions",
+        "zsh"
+      ]
     },
     {
       "id": "completion-fish-source",
       "category": "completion",
       "kind": "completion_shell",
       "shell": "fish",
-      "modes": ["full"],
-      "args": ["generate-completions", "fish"]
+      "modes": [
+        "full"
+      ],
+      "args": [
+        "generate-completions",
+        "fish"
+      ]
     }
   ]
 }

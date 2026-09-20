@@ -38,6 +38,13 @@ Human-readable release notes for each version.
   Tier B/C reachability scans `.php` `use` / `require` references. CLI
   contract fixtures and dual fuzz targets for composer.json / composer.lock.
 
+- .NET / NuGet language plugin (`vlz-dotnet`, feature `dotnet`): discover
+  `*.csproj` / `*.fsproj` / `*.vbproj`, prefer `packages.lock.json` (opt-in
+  via `RestorePackagesWithLockFile`), NuGet OSV pins, fail-closed lock-less
+  exit 4 (MSBuild may execute project targets). Tier B/C reachability on
+  `.cs` / `.fs` `using` / `open` heuristics. CLI contract fixtures and dual
+  fuzz targets for csproj / packages.lock.json.
+
 - `vlz db import PATH [--sha256 HEX]` (FR-021a): load a versioned JSON CVE
   corpus (or `vlz db show --full --format json` with `raw_vulns`) so
   `--offline` works without per-tree online `vlz preload`. Optional SHA-256

@@ -157,6 +157,13 @@ fn discover_manifests_one_pass(
                 out.entry("php".to_string()).or_default().push(entry.path());
                 continue;
             }
+            #[cfg(feature = "dotnet")]
+            if vlz_dotnet::is_dotnet_manifest_name(name) {
+                out.entry("dotnet".to_string())
+                    .or_default()
+                    .push(entry.path());
+                continue;
+            }
             #[cfg(feature = "sbom")]
             if vlz_sbom::is_sbom_basename(name) {
                 out.entry("sbom".to_string())
@@ -766,6 +773,7 @@ pub async fn resolve_packages_for_path(
             && first_lang != Some("java")
             && first_lang != Some("ruby")
             && first_lang != Some("php")
+            && first_lang != Some("dotnet")
             && first_lang != Some("sbom")
         {
             match vlz_python::PythonManifestFinder::with_patterns(
@@ -791,6 +799,7 @@ pub async fn resolve_packages_for_path(
                 && first_lang != Some("java")
                 && first_lang != Some("ruby")
                 && first_lang != Some("php")
+                && first_lang != Some("dotnet")
                 && first_lang != Some("sbom"))
         {
             match vlz_rust::RustManifestFinder::with_patterns(patterns.clone())
@@ -812,6 +821,7 @@ pub async fn resolve_packages_for_path(
                 && first_lang != Some("java")
                 && first_lang != Some("ruby")
                 && first_lang != Some("php")
+                && first_lang != Some("dotnet")
                 && first_lang != Some("sbom"))
         {
             match vlz_go::GoManifestFinder::with_patterns(patterns.clone()) {
@@ -831,6 +841,7 @@ pub async fn resolve_packages_for_path(
                 && first_lang != Some("java")
                 && first_lang != Some("ruby")
                 && first_lang != Some("php")
+                && first_lang != Some("dotnet")
                 && first_lang != Some("sbom"))
         {
             match vlz_javascript::JsManifestFinder::with_patterns(
@@ -851,6 +862,7 @@ pub async fn resolve_packages_for_path(
             || (finders.is_empty()
                 && first_lang != Some("ruby")
                 && first_lang != Some("php")
+                && first_lang != Some("dotnet")
                 && first_lang != Some("sbom"))
         {
             match vlz_java::JavaManifestFinder::with_patterns(patterns.clone())
@@ -869,6 +881,7 @@ pub async fn resolve_packages_for_path(
         if first_lang == Some("ruby")
             || (finders.is_empty()
                 && first_lang != Some("php")
+                && first_lang != Some("dotnet")
                 && first_lang != Some("sbom"))
         {
             match vlz_ruby::RubyManifestFinder::with_patterns(patterns.clone())
@@ -885,9 +898,28 @@ pub async fn resolve_packages_for_path(
         }
         #[cfg(feature = "php")]
         if first_lang == Some("php")
-            || (finders.is_empty() && first_lang != Some("sbom"))
+            || (finders.is_empty()
+                && first_lang != Some("dotnet")
+                && first_lang != Some("sbom"))
         {
             match vlz_php::PhpManifestFinder::with_patterns(patterns.clone()) {
+                Ok(f) => finders.push(Box::new(f)),
+                Err(e) => {
+                    error!("Invalid language regex in config: {}", e);
+                    return Err(anyhow!(
+                        "Invalid language regex in config: {}",
+                        e
+                    ));
+                }
+            }
+        }
+        #[cfg(feature = "dotnet")]
+        if first_lang == Some("dotnet")
+            || (finders.is_empty() && first_lang != Some("sbom"))
+        {
+            match vlz_dotnet::DotnetManifestFinder::with_patterns(
+                patterns.clone(),
+            ) {
                 Ok(f) => finders.push(Box::new(f)),
                 Err(e) => {
                     error!("Invalid language regex in config: {}", e);
@@ -919,6 +951,7 @@ pub async fn resolve_packages_for_path(
             feature = "java",
             feature = "ruby",
             feature = "php",
+            feature = "dotnet",
             feature = "sbom"
         )))]
         {
@@ -1085,6 +1118,7 @@ pub(crate) async fn resolve_packages_with_plugins(
                     | "java"
                     | "ruby"
                     | "php"
+                    | "dotnet"
                     | "sbom"
             )
         });
