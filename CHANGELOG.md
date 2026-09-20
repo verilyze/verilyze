@@ -37,10 +37,6 @@ Human-readable release notes for each version.
 - `vlz fix --format diff` (FR-041): explicit unified-diff recipe for dry-run
   remediations (optional `--output`); does not use ambient stdout.
 
-- Opt-in reachability CI gate (`exit_on_reachable` / `VLZ_EXIT_ON_REACHABLE`
-  / `--exit-on-reachable`): only `reachable: true` CVEs count toward exit
-  86 and SARIF; plain/JSON keep the full finding list (FR-032).
-
 - Go and Rust Tier D first-party refinement: Go (`go-tier-d`, default)
   uses import-aware selectors (no new parser); Rust (`rust-tier-d`,
   opt-in) uses `syn` AST paths. Evidence sets `reachable: true`;
