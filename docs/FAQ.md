@@ -20,6 +20,11 @@ gate subset, or `full` for Appendix A fixtures. This target is **not** part
 of `make check`; GitHub Actions runs it on Ubuntu, macOS, and Windows.
 Smoke includes one `--offline` lock-backed scan per default language.
 
+CI samples (NFR-014): GitHub -- [examples/github-action-vlz-scan.yml](../examples/github-action-vlz-scan.yml)
+and `.github/actions/vlz-scan`; GitLab -- [examples/gitlab-ci-vlz-scan.yml](../examples/gitlab-ci-vlz-scan.yml)
+(release binary, SARIF/JSON artifacts, FR-010 via `scripts/ci-enforce-scan-exit.sh`
+when present). Prefer JSON (DOC-005) for custom Code Quality wrappers.
+
 Tag publish (`release.yml`) downloads **draft** GitHub archives, verifies
 checksums and Cosign bundles, installs the native `vlz`, then runs smoke.
 That gate runs **before** the release leaves draft. The nightly
