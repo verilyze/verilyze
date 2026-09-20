@@ -245,20 +245,24 @@ impl ReachabilityAnalyzer for JsTierBAnalyzer {
                     } else {
                         #[cfg(feature = "tier-d")]
                         {
-                            crate::tier_d::trailing_js_ident(sym).is_some_and(
-                                |ident| {
-                                    bindings.iter().any(|b| {
-                                        b.package == context.package.name
-                                            && b.named
-                                            && b.local == ident
-                                            && line_code_for_symbol_match(
-                                                line.trim(),
-                                                LineCommentStyle::SlashSlash,
-                                            )
-                                            .contains(ident)
+                            // Named-import local use: skip the import line
+                            // itself so only call sites count as evidence.
+                            import_specs_from_content(line).is_empty()
+                                && crate::tier_d::trailing_js_ident(sym)
+                                    .is_some_and(|ident| {
+                                        bindings.iter().any(|b| {
+                                            b.package == context.package.name
+                                                && b.named
+                                                && b.local == ident
+                                                && qualified_symbol_in_code(
+                                                    &line_code_for_symbol_match(
+                                                        line.trim(),
+                                                        LineCommentStyle::SlashSlash,
+                                                    ),
+                                                    ident,
+                                                )
+                                        })
                                     })
-                                },
-                            )
                         }
                         #[cfg(not(feature = "tier-d"))]
                         {
@@ -721,6 +725,44 @@ mod tests {
         assert_eq!(analyzer.analyze_tier_b(&ctx), TierBDecision::Reachable);
         // Second call uses import cache.
         assert_eq!(analyzer.analyze_tier_b(&ctx), TierBDecision::Reachable);
+    }
+
+    #[cfg(feature = "tier-d")]
+    #[test]
+    fn tier_c_named_import_ignores_substring_false_positive() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::write(
+            tmp.join("app.js"),
+            "import { get } from 'lodash';\nconst getting = 1;\n",
+        )
+        .unwrap();
+        let pkg = Package {
+            name: "lodash".into(),
+            version: "4.17.21".into(),
+            ecosystem: Some(NPM_ECOSYSTEM.into()),
+        };
+        let exclude = Box::leak(Box::new(HashSet::new()));
+        let manifests = Box::leak(Box::new(Vec::<PathBuf>::new()));
+        let ctx = TierBContext {
+            package: &pkg,
+            scan_root: tmp,
+            exclude_dir_names: exclude,
+            language: "javascript",
+            manifest_paths: manifests,
+        };
+        let analyzer = JsTierBAnalyzer::new();
+        let miss = analyzer.analyze_tier_c(&ctx, &["lodash.get".to_string()]);
+        assert_eq!(miss.decision, TierCDecision::NotReachable);
+        assert!(miss.evidence.is_empty());
+
+        std::fs::write(
+            tmp.join("app.js"),
+            "import { get } from 'lodash';\nconst x = get(obj, 'a');\n",
+        )
+        .unwrap();
+        let hit = analyzer.analyze_tier_c(&ctx, &["lodash.get".to_string()]);
+        assert_eq!(hit.decision, TierCDecision::Reachable);
     }
 
     #[cfg(feature = "tier-d")]

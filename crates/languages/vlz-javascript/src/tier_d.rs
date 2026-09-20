@@ -118,7 +118,7 @@ pub fn collect_js_import_bindings(content: &str) -> Vec<JsImportBinding> {
     out
 }
 
-/// 1-based lines where `local.ident` appears outside strings/comments (heuristic).
+/// 1-based lines where `local.ident` appears outside line comments (heuristic).
 pub fn selector_match_lines(
     content: &str,
     locals: &[String],
@@ -129,7 +129,10 @@ pub fn selector_match_lines(
     }
     let mut lines = Vec::new();
     for (idx, line) in content.lines().enumerate() {
-        let code = strip_line_comment(line);
+        let code = vlz_reachability_trait::line_code_for_symbol_match(
+            line.trim(),
+            vlz_reachability_trait::LineCommentStyle::SlashSlash,
+        );
         if locals
             .iter()
             .any(|local| line_has_selector(&code, local, ident))
@@ -138,14 +141,6 @@ pub fn selector_match_lines(
         }
     }
     lines
-}
-
-fn strip_line_comment(line: &str) -> String {
-    if let Some(idx) = line.find("//") {
-        line[..idx].to_string()
-    } else {
-        line.to_string()
-    }
 }
 
 fn line_has_selector(line: &str, local: &str, ident: &str) -> bool {

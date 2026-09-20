@@ -216,6 +216,14 @@ impl Resolver for DotnetResolver {
         if let Some(reason) = skip_package_manager_reason(ctx) {
             return Ok(direct_only_result_from_graph(graph, reason));
         }
+        // Empty project: no PackageReferences and no usable lock pins.
+        if graph.packages.is_empty() && graph.parsed_dependencies.is_empty() {
+            return Ok(ResolveResult {
+                packages: Vec::new(),
+                depth: ResolutionDepth::Transitive,
+                ..Default::default()
+            });
+        }
         let Some(manifest) = graph.manifest_path.as_deref() else {
             return Err(fr022_transitive_error());
         };
@@ -335,6 +343,27 @@ mod tests {
         assert!(result.packages.iter().any(|p| {
             p.name == "Newtonsoft.Json" && p.version == "13.0.3"
         }));
+    }
+
+    #[tokio::test]
+    async fn empty_project_is_transitive_without_fr022() {
+        let dir = tempfile::tempdir().unwrap();
+        let manifest = dir.path().join("App.csproj");
+        std::fs::write(&manifest, "<Project />").unwrap();
+        let graph = DependencyGraph {
+            packages: Vec::new(),
+            parsed_dependencies: Vec::new(),
+            manifest_path: Some(manifest),
+        };
+        let ctx = ResolveContext {
+            scan_root: Some(dir.path().to_path_buf()),
+            ..Default::default()
+        };
+        let result =
+            DotnetResolver::new().resolve(&graph, &ctx).await.unwrap();
+        assert_eq!(result.depth, ResolutionDepth::Transitive);
+        assert!(result.packages.is_empty());
+        assert_eq!(result.direct_only_reason, None);
     }
 
     #[tokio::test]

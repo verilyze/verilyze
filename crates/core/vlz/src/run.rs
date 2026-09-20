@@ -274,7 +274,8 @@ fn apply_reachability_pipeline(
     #[cfg(any(
         feature = "python-tier-d",
         feature = "rust-tier-d",
-        feature = "go-tier-d"
+        feature = "go-tier-d",
+        feature = "javascript-tier-d"
     ))]
     if should_apply_tier_c(mode) {
         let reachability_analyzers = crate::registry::reachability_analyzers()

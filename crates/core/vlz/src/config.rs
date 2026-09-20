@@ -613,10 +613,20 @@ fn parse_from_vex_toml_value(
     source: &str,
 ) -> Result<Vec<PathBuf>, ConfigError> {
     let paths: Vec<PathBuf> = match value {
-        toml::Value::Array(arr) => arr
-            .iter()
-            .filter_map(|v| v.as_str().map(PathBuf::from))
-            .collect(),
+        toml::Value::Array(arr) => {
+            let mut out = Vec::with_capacity(arr.len());
+            for (idx, entry) in arr.iter().enumerate() {
+                let Some(s) = entry.as_str() else {
+                    return Err(ConfigError::InvalidVex {
+                        message: format!(
+                            "from_vex[{idx}] must be a path string (from {source})"
+                        ),
+                    });
+                };
+                out.push(PathBuf::from(s));
+            }
+            out
+        }
         toml::Value::String(s) => {
             parse_csv_list(s).into_iter().map(PathBuf::from).collect()
         }
@@ -2853,6 +2863,16 @@ from_vex = "one.json, two.json"
         let r = parse_and_validate_toml("[vex]\nfrom_vex = 1\n");
         assert!(r.is_err());
         assert!(matches!(r.unwrap_err(), ConfigError::InvalidVex { .. }));
+        let r =
+            parse_and_validate_toml("[vex]\nfrom_vex = [\"ok.json\", 2]\n");
+        assert!(r.is_err());
+        let err = r.unwrap_err();
+        assert!(matches!(err, ConfigError::InvalidVex { .. }));
+        assert!(
+            err.to_string()
+                .contains("from_vex[1] must be a path string"),
+            "unexpected error: {err}"
+        );
     }
 
     #[test]
