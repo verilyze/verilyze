@@ -190,21 +190,17 @@ pub fn suppress_vuln_ids(
             }
             continue;
         }
-        if let Some(want) = policy.product_id.as_deref() {
-            if !stmt.product_ids.is_empty()
-                && !stmt
-                    .product_ids
-                    .iter()
-                    .any(|p| product_id_matches(p, want))
-            {
-                warnings.push(format!(
-                    "VEX ingest {}: product mismatch for {} (want {want}); \
-                     finding kept",
-                    stmt.source_path.display(),
-                    stmt.vuln_id
-                ));
-                continue;
-            }
+        if let Some(want) = policy.product_id.as_deref()
+            && !stmt.product_ids.is_empty()
+            && !stmt.product_ids.iter().any(|p| product_id_matches(p, want))
+        {
+            warnings.push(format!(
+                "VEX ingest {}: product mismatch for {} (want {want}); \
+                 finding kept",
+                stmt.source_path.display(),
+                stmt.vuln_id
+            ));
+            continue;
         }
         let key = normalize_vuln_id(&stmt.vuln_id);
         if !key.is_empty() {
@@ -241,7 +237,7 @@ fn is_openvex_document(value: &Value) -> bool {
 
 fn openvex_context_ok(s: &str) -> bool {
     let s = s.trim();
-    OPENVEX_INGEST_CONTEXTS.iter().any(|c| s == *c)
+    OPENVEX_INGEST_CONTEXTS.contains(&s)
         || s.starts_with("https://openvex.dev/ns")
 }
 
