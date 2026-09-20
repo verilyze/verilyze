@@ -45,6 +45,11 @@ Human-readable release notes for each version.
   `.cs` / `.fs` `using` / `open` heuristics. CLI contract fixtures and dual
   fuzz targets for csproj / packages.lock.json.
 
+- JavaScript Tier D first-party reachability (`javascript-tier-d`, default):
+  import-binding selectors (default / named / require) match advisory
+  trailing identifiers in first-party sources only -- no `node_modules`
+  fetch. Improves `exit_on_reachable` usefulness on Node trees (FR-032).
+
 - `vlz db import PATH [--sha256 HEX]` (FR-021a): load a versioned JSON CVE
   corpus (or `vlz db show --full --format json` with `raw_vulns`) so
   `--offline` works without per-tree online `vlz preload`. Optional SHA-256
