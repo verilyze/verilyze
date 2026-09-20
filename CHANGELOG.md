@@ -25,6 +25,9 @@ Human-readable release notes for each version.
   merge into CVE/GHSA alias groups (FR-019-EXT). SARIF helpUri for
   malicious ids points at osv.dev.
 
+- GitLab CI sample at `examples/gitlab-ci-vlz-scan.yml` (NFR-014): release
+  binary install, SARIF/JSON artifacts, FR-010 exit enforcement.
+
 - Opt-in reachability CI gate (`exit_on_reachable` / `VLZ_EXIT_ON_REACHABLE`
   / `--exit-on-reachable`): only `reachable: true` CVEs count toward exit
   86 and SARIF; plain/JSON keep the full finding list (FR-032).
