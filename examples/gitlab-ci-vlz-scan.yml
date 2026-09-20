@@ -1,0 +1,72 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Example GitLab CI job: scan a repository with vlz (NFR-014).
+# Copy into .gitlab-ci.yml (or include from this file) and adjust VLZ_VERSION.
+#
+# In-tree sample (parity with examples/github-action-vlz-scan.yml). A separate
+# GitLab CI/CD Component project is optional later for tagged
+# `include: component:` publishes.
+#
+# Prerequisites:
+# - Network access to OSV (or --offline with populated cache / vlz db import)
+# - Pin release archives via SHA256SUMS before production use
+# - SARIF is uploaded as a job artifact for review; GitLab security-dashboard
+#   SARIF ingestion varies by tier -- JSON (`vlz-report.json`) is the stable
+#   contract (DOC-005) for custom parsing / Code Quality wrappers
+
+variables:
+  VLZ_VERSION: "0.12.0"
+  VLZ_REACHABILITY_MODE: "best-available"
+
+vlz-scan:
+  stage: test
+  image: alpine:3.21
+  before_script:
+    - apk add --no-cache curl ca-certificates bash coreutils
+  script:
+    - |
+      set -euo pipefail
+      platform="linux-x86_64"
+      archive="vlz-${VLZ_VERSION}-${platform}.tar.gz"
+      base="https://github.com/verilyze/verilyze/releases/download/v${VLZ_VERSION}"
+      curl -fsSL -O "${base}/SHA256SUMS"
+      curl -fsSL -O "${base}/${archive}"
+      line="$(grep -F "${archive}" SHA256SUMS)" || {
+        echo "missing SHA256SUMS entry for ${archive}" >&2
+        exit 1
+      }
+      expected="$(echo "${line}" | awk '{print $1}')"
+      actual="$(sha256sum "${archive}" | awk '{print $1}')"
+      if [[ "${actual}" != "${expected}" ]]; then
+        echo "${archive}: FAILED" >&2
+        exit 1
+      fi
+      tar -xzf "${archive}"
+      chmod +x "vlz-${VLZ_VERSION}-${platform}/bin/vlz"
+      VLZ_BIN="${PWD}/vlz-${VLZ_VERSION}-${platform}/bin/vlz"
+      set +e
+      "${VLZ_BIN}" scan . \
+        --project-id "${CI_PROJECT_PATH}" \
+        --reachability-mode "${VLZ_REACHABILITY_MODE}" \
+        --format sarif \
+        --output "${CI_PROJECT_DIR}/vlz.sarif" \
+        --report "json:${CI_PROJECT_DIR}/vlz-report.json"
+      SCAN_EXIT=$?
+      set -e
+      echo "SCAN_EXIT=${SCAN_EXIT}" | tee vlz-scan.env
+      # Artifacts use when: always; re-apply FR-010 exit policy last.
+      if [[ -x ./scripts/ci-enforce-scan-exit.sh ]]; then
+        SCAN_EXIT="${SCAN_EXIT}" REPORT_JSON="${CI_PROJECT_DIR}/vlz-report.json" \
+          ./scripts/ci-enforce-scan-exit.sh
+      else
+        exit "${SCAN_EXIT}"
+      fi
+  artifacts:
+    when: always
+    paths:
+      - vlz.sarif
+      - vlz-report.json
+      - vlz-scan.env
+    expire_in: 1 week
