@@ -88,7 +88,29 @@ runs:
         curl -fsSL -O "${base}/${archive}"
         curl -fsSL -O "${base}/${archive}.sigstore.json"
         curl -fsSL -O "${base}/${archive}.intoto.jsonl"
-        grep -F "${archive}" SHA256SUMS | sha256sum -c
+        # Portable SHA-256 check: GNU sha256sum -c on Linux; shasum/openssl on
+        # macOS (BSD sha256sum has no GNU -c).
+        line="$(grep -F "${archive}" SHA256SUMS)" || {
+          echo "missing SHA256SUMS entry for ${archive}" >&2
+          exit 1
+        }
+        if ! printf '%s\n' "${line}" | sha256sum -c --status 2>/dev/null; then
+          expected="$(awk '{print $1}' <<<"${line}")"
+          fname="$(awk '{print $2}' <<<"${line}")"
+          if command -v shasum >/dev/null 2>&1; then
+            actual="$(shasum -a 256 "${fname}" | awk '{print $1}')"
+          elif command -v openssl >/dev/null 2>&1; then
+            actual="$(openssl dgst -sha256 "${fname}" | awk '{print $NF}')"
+          else
+            echo "need GNU sha256sum, shasum, or openssl to verify ${archive}" >&2
+            exit 1
+          fi
+          if [[ "${actual}" != "${expected}" ]]; then
+            echo "${archive}: FAILED" >&2
+            exit 1
+          fi
+        fi
+        printf '%s: OK\n' "${archive}"
         case "${archive}" in
           *.tar.gz) tar -xzf "${archive}" ;;
           *.zip) python3 -c "import zipfile; zipfile.ZipFile('${archive}').extractall()" ;;
