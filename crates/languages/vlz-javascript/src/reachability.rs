@@ -226,18 +226,46 @@ impl ReachabilityAnalyzer for JsTierBAnalyzer {
                 let Ok(content) = std::fs::read_to_string(path) else {
                     continue;
                 };
+                #[cfg(feature = "tier-d")]
+                let bindings: Vec<
+                    crate::tier_d::JsImportBinding,
+                > = crate::tier_d::collect_js_import_bindings(&content);
                 for (idx, line) in content.lines().enumerate() {
                     let code = line_code_for_symbol_match(
                         line.trim(),
                         LineCommentStyle::SlashSlash,
                     );
-                    if qualified_symbol_in_code(&code, sym)
+                    let hit = if qualified_symbol_in_code(&code, sym)
                         || import_specs_from_content(line).iter().any(|s| {
                             s == sym
                                 || package_name_from_specifier(s).as_deref()
                                     == Some(sym.as_str())
-                        })
-                    {
+                        }) {
+                        true
+                    } else {
+                        #[cfg(feature = "tier-d")]
+                        {
+                            crate::tier_d::trailing_js_ident(sym).is_some_and(
+                                |ident| {
+                                    bindings.iter().any(|b| {
+                                        b.package == context.package.name
+                                            && b.named
+                                            && b.local == ident
+                                            && line_code_for_symbol_match(
+                                                line.trim(),
+                                                LineCommentStyle::SlashSlash,
+                                            )
+                                            .contains(ident)
+                                    })
+                                },
+                            )
+                        }
+                        #[cfg(not(feature = "tier-d"))]
+                        {
+                            false
+                        }
+                    };
+                    if hit {
                         push_reachability_evidence(
                             &mut evidence,
                             path.clone(),
@@ -258,6 +286,111 @@ impl ReachabilityAnalyzer for JsTierBAnalyzer {
             package_ambiguous(&context.package.name),
         );
         TierCResult { decision, evidence }
+    }
+
+    fn supports_tier_d(&self) -> bool {
+        cfg!(feature = "tier-d")
+    }
+
+    fn analyze_tier_d(
+        &self,
+        context: &TierBContext<'_>,
+        advisory_symbols: &[String],
+    ) -> TierCResult {
+        #[cfg(not(feature = "tier-d"))]
+        {
+            let _ = (context, advisory_symbols);
+            TierCResult::unknown()
+        }
+        #[cfg(feature = "tier-d")]
+        {
+            use crate::tier_d::{
+                collect_js_import_bindings, selector_match_lines,
+                trailing_js_ident,
+            };
+            use vlz_reachability_trait::{
+                MAX_TIER_D_SOURCE_FILE_BYTES, TierCDecision,
+                read_source_if_within_byte_limit,
+            };
+            let files = list_js_ts_files(context);
+            if files.is_empty() || advisory_symbols.is_empty() {
+                return TierCResult::unknown();
+            }
+            let mut evidence = Vec::new();
+            'files: for path in files {
+                let Some(content) = read_source_if_within_byte_limit(
+                    &path,
+                    MAX_TIER_D_SOURCE_FILE_BYTES,
+                ) else {
+                    continue;
+                };
+                let bindings = collect_js_import_bindings(&content);
+                for sym in advisory_symbols {
+                    let Some(ident) = trailing_js_ident(sym) else {
+                        continue;
+                    };
+                    let locals: Vec<String> = bindings
+                        .iter()
+                        .filter(|b| {
+                            b.package == context.package.name && !b.named
+                        })
+                        .map(|b| b.local.clone())
+                        .collect();
+                    // Named imports: local already is the symbol (or alias).
+                    let named_locals: Vec<String> = bindings
+                        .iter()
+                        .filter(|b| {
+                            b.package == context.package.name
+                                && b.named
+                                && (b.local == ident
+                                    || trailing_js_ident(&b.local)
+                                        == Some(ident))
+                        })
+                        .map(|b| b.local.clone())
+                        .collect();
+                    for line in selector_match_lines(&content, &locals, ident)
+                    {
+                        push_reachability_evidence(
+                            &mut evidence,
+                            path.clone(),
+                            line,
+                            sym,
+                        );
+                        if reachability_evidence_at_cap(&evidence) {
+                            break 'files;
+                        }
+                    }
+                    // Named import used as bare identifier (not local.ident).
+                    if !named_locals.is_empty() {
+                        for (idx, line) in content.lines().enumerate() {
+                            let code = line_code_for_symbol_match(
+                                line.trim(),
+                                LineCommentStyle::SlashSlash,
+                            );
+                            if named_locals.iter().any(|local| {
+                                qualified_symbol_in_code(&code, local)
+                            }) {
+                                push_reachability_evidence(
+                                    &mut evidence,
+                                    path.clone(),
+                                    (idx + 1) as u32,
+                                    sym,
+                                );
+                                if reachability_evidence_at_cap(&evidence) {
+                                    break 'files;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            let decision = if !evidence.is_empty() {
+                TierCDecision::Reachable
+            } else {
+                TierCDecision::Unknown
+            };
+            TierCResult { decision, evidence }
+        }
     }
 }
 
@@ -588,5 +721,67 @@ mod tests {
         assert_eq!(analyzer.analyze_tier_b(&ctx), TierBDecision::Reachable);
         // Second call uses import cache.
         assert_eq!(analyzer.analyze_tier_b(&ctx), TierBDecision::Reachable);
+    }
+
+    #[cfg(feature = "tier-d")]
+    #[test]
+    fn analyze_tier_d_reachable_for_default_import_selector() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::write(
+            tmp.join("app.js"),
+            "import _ from 'lodash';\nconst x = _.get(obj, 'a');\n",
+        )
+        .unwrap();
+        let pkg = Package {
+            name: "lodash".into(),
+            version: "4.17.21".into(),
+            ecosystem: Some(NPM_ECOSYSTEM.into()),
+        };
+        let exclude = Box::leak(Box::new(HashSet::new()));
+        let manifests = Box::leak(Box::new(Vec::<PathBuf>::new()));
+        let ctx = TierBContext {
+            package: &pkg,
+            scan_root: tmp,
+            exclude_dir_names: exclude,
+            language: "javascript",
+            manifest_paths: manifests,
+        };
+        let analyzer = JsTierBAnalyzer::new();
+        assert!(analyzer.supports_tier_d());
+        let result =
+            analyzer.analyze_tier_d(&ctx, &["lodash.get".to_string()]);
+        assert_eq!(result.decision, TierCDecision::Reachable);
+        assert!(!result.evidence.is_empty());
+    }
+
+    #[cfg(feature = "tier-d")]
+    #[test]
+    fn analyze_tier_d_unknown_without_selector_use() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        std::fs::write(
+            tmp.join("app.js"),
+            "import _ from 'lodash';\nconsole.log(_);\n",
+        )
+        .unwrap();
+        let pkg = Package {
+            name: "lodash".into(),
+            version: "4.17.21".into(),
+            ecosystem: Some(NPM_ECOSYSTEM.into()),
+        };
+        let exclude = Box::leak(Box::new(HashSet::new()));
+        let manifests = Box::leak(Box::new(Vec::<PathBuf>::new()));
+        let ctx = TierBContext {
+            package: &pkg,
+            scan_root: tmp,
+            exclude_dir_names: exclude,
+            language: "javascript",
+            manifest_paths: manifests,
+        };
+        let analyzer = JsTierBAnalyzer::new();
+        let result =
+            analyzer.analyze_tier_d(&ctx, &["lodash.get".to_string()]);
+        assert_eq!(result.decision, TierCDecision::Unknown);
     }
 }

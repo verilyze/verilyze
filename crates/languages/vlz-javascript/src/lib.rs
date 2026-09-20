@@ -9,6 +9,8 @@ mod lock_names;
 mod parser;
 mod reachability;
 mod resolver;
+#[cfg(feature = "tier-d")]
+mod tier_d;
 
 pub use finder::{JS_MANIFEST_NAME, JsManifestFinder};
 pub use lock_names::{JS_LOCK_FILE_NAMES, is_js_lock_file, select_lock_file};
