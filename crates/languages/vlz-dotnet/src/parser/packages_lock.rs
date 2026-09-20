@@ -310,4 +310,45 @@ mod tests {
         assert!(!is_nuget_package_name(""));
         assert!(!is_nuget_package_name("   "));
     }
+
+    #[test]
+    fn skips_blank_names_empty_versions_and_typeless_entries() {
+        // Compact `:"` form exercises value_start's no-space arm.
+        let content = r#"{
+  "dependencies": {
+    "net8.0": {
+      "": {
+        "type": "Direct",
+        "resolved": "1.0.0"
+      },
+      "Blank.Ver": {
+        "type": "Direct",
+        "resolved": "   "
+      },
+      "No.Type": {
+        "resolved":"2.0.0"
+      }
+    }
+  }
+}"#;
+        let packages = parse_packages_lock(content).unwrap();
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "No.Type");
+        assert_eq!(packages[0].version, "2.0.0");
+    }
+
+    #[test]
+    fn declaration_line_falls_back_when_resolved_key_missing() {
+        // Package present in JSON object form that name_resolved_lines may
+        // not pair; still returns a declaration with a default line.
+        let content = r#"{"dependencies":{"net8.0":{"Fallback.Pkg":{"type":"Direct","resolved":"9.9.9"}}}}"#;
+        let (packages, parsed) = parse_packages_lock_with_declarations(
+            content,
+            Path::new("packages.lock.json"),
+        )
+        .unwrap();
+        assert_eq!(packages.len(), 1);
+        assert_eq!(parsed.len(), 1);
+        assert!(parsed[0].start_line >= 1);
+    }
 }

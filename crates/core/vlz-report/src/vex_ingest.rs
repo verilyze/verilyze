@@ -676,4 +676,263 @@ mod tests {
         .unwrap_err();
         assert!(matches!(err, VexIngestError::Io { .. }));
     }
+
+    #[test]
+    fn parse_vex_ingest_bytes_rejects_invalid_json() {
+        let policy = VexIngestPolicy::default();
+        let err = parse_vex_ingest_bytes(
+            b"{not-json",
+            Path::new("bad.json"),
+            &policy,
+        )
+        .unwrap_err();
+        assert!(matches!(err, VexIngestError::Json { .. }));
+    }
+
+    #[test]
+    fn parse_vex_ingest_bytes_and_file_round_trip() {
+        let path = std::env::temp_dir().join(format!(
+            "vlz-vex-ingest-{}-{}.openvex.json",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        ));
+        let doc = serde_json::json!({
+            "@context": OPENVEX_CONTEXT,
+            "statements": [{
+                "vulnerability": { "name": "CVE-2024-10" },
+                "status": "not_affected"
+            }]
+        });
+        std::fs::write(&path, serde_json::to_vec(&doc).unwrap()).unwrap();
+        let policy = VexIngestPolicy::default();
+        let from_file = parse_vex_ingest_file(&path, &policy).unwrap();
+        let from_bytes = parse_vex_ingest_bytes(
+            &std::fs::read(&path).unwrap(),
+            &path,
+            &policy,
+        )
+        .unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(from_file.statements.len(), 1);
+        assert_eq!(from_bytes.statements.len(), 1);
+        assert_eq!(from_file.statements[0].vuln_id, "CVE-2024-10");
+    }
+
+    #[test]
+    fn openvex_context_array_and_edge_statements() {
+        let doc = serde_json::json!({
+            "@context": ["https://openvex.dev/ns/v0.2.0", "other"],
+            "statements": [
+                { "status": "affected" },
+                {
+                    "vulnerability": "",
+                    "status": "under_investigation"
+                },
+                {
+                    "vulnerability": { "name": "   " },
+                    "status": "affected"
+                },
+                {
+                    "vulnerability": "CVE-2024-11",
+                    "products": [{
+                        "@id": "pkg:generic/app@1",
+                        "subcomponents": [
+                            { "@id": "pkg:npm/left-pad@1.0.0" },
+                            { "@id": "app:component" }
+                        ]
+                    }],
+                    "status": "affected",
+                    "impact_statement": "tracked"
+                }
+            ]
+        });
+        let policy = VexIngestPolicy::default();
+        let parsed = parse_vex_ingest_value(
+            &doc,
+            Path::new("arr.openvex.json"),
+            &policy,
+        );
+        assert_eq!(parsed.kind, Some(VexIngestKind::OpenVex));
+        assert!(
+            parsed
+                .warnings
+                .iter()
+                .any(|w| w.contains("missing vulnerability"))
+        );
+        let hit = parsed
+            .statements
+            .iter()
+            .find(|s| s.vuln_id == "CVE-2024-11")
+            .expect("string vulnerability name");
+        assert_eq!(hit.status, IngestStatus::Affected);
+        assert_eq!(hit.purl.as_deref(), Some("pkg:npm/left-pad@1.0.0"));
+        assert!(hit.product_ids.iter().any(|p| p == "app:component"));
+        assert_eq!(hit.detail.as_deref(), Some("tracked"));
+    }
+
+    #[test]
+    fn openvex_missing_statements_warns() {
+        let doc = serde_json::json!({
+            "@context": "https://openvex.dev/ns",
+            "author": "x"
+        });
+        let policy = VexIngestPolicy::default();
+        let parsed =
+            parse_vex_ingest_value(&doc, Path::new("nostmts.json"), &policy);
+        assert!(parsed.statements.is_empty());
+        assert!(
+            parsed
+                .warnings
+                .iter()
+                .any(|w| w.contains("no statements array"))
+        );
+    }
+
+    #[test]
+    fn openvex_invalid_context_type_is_unrecognized() {
+        let doc = serde_json::json!({
+            "@context": 1,
+            "statements": []
+        });
+        let policy = VexIngestPolicy::default();
+        let parsed =
+            parse_vex_ingest_value(&doc, Path::new("badctx.json"), &policy);
+        assert!(parsed.kind.is_none());
+    }
+
+    #[test]
+    fn cyclonedx_edge_states_and_missing_id() {
+        let doc = serde_json::json!({
+            "bomFormat": "CycloneDX",
+            "vulnerabilities": [
+                { "analysis": { "state": "exploitable" } },
+                {
+                    "id": "CVE-2024-12",
+                    "analysis": { "state": "false_positive" }
+                },
+                {
+                    "id": "CVE-2024-13",
+                    "analysis": { "state": "resolved_with_pedigree" }
+                },
+                {
+                    "id": "CVE-2024-14",
+                    "analysis": { "state": "in_triage" }
+                },
+                {
+                    "id": "CVE-2024-15",
+                    "analysis": { "state": "weird_state" }
+                },
+                {
+                    "id": "CVE-2024-16",
+                    "analysis": { "state": "exploitable" },
+                    "affects": [{ "ref": "not-a-purl" }]
+                }
+            ]
+        });
+        let policy = VexIngestPolicy::default();
+        let parsed =
+            parse_vex_ingest_value(&doc, Path::new("cdx-edge.json"), &policy);
+        assert!(parsed.warnings.iter().any(|w| w.contains("missing id")));
+        assert!(parsed.warnings.iter().any(|w| w.contains("weird_state")));
+        let by_id: std::collections::HashMap<_, _> = parsed
+            .statements
+            .iter()
+            .map(|s| (s.vuln_id.as_str(), s.status))
+            .collect();
+        assert_eq!(by_id["CVE-2024-12"], IngestStatus::NotAffected);
+        assert_eq!(by_id["CVE-2024-13"], IngestStatus::Fixed);
+        assert_eq!(by_id["CVE-2024-14"], IngestStatus::UnderInvestigation);
+        assert_eq!(by_id["CVE-2024-15"], IngestStatus::Unknown);
+        assert_eq!(by_id["CVE-2024-16"], IngestStatus::Affected);
+    }
+
+    #[test]
+    fn cyclonedx_vulnerabilities_null_is_noop() {
+        let doc = serde_json::json!({
+            "bomFormat": "CycloneDX",
+            "vulnerabilities": null
+        });
+        let policy = VexIngestPolicy::default();
+        let parsed =
+            parse_vex_ingest_value(&doc, Path::new("cdx-null.json"), &policy);
+        assert_eq!(parsed.kind, Some(VexIngestKind::CycloneDxAnalysis));
+        assert!(parsed.statements.is_empty());
+    }
+
+    #[test]
+    fn ingest_status_and_justification_mappings() {
+        assert_eq!(
+            ingest_status_as_vex(IngestStatus::NotAffected),
+            Some(VexStatus::NotAffected)
+        );
+        assert_eq!(
+            ingest_status_as_vex(IngestStatus::Fixed),
+            Some(VexStatus::NotAffected)
+        );
+        assert_eq!(
+            ingest_status_as_vex(IngestStatus::Affected),
+            Some(VexStatus::Affected)
+        );
+        assert_eq!(
+            ingest_status_as_vex(IngestStatus::UnderInvestigation),
+            Some(VexStatus::UnderInvestigation)
+        );
+        assert_eq!(ingest_status_as_vex(IngestStatus::Unknown), None);
+        assert!(!IngestStatus::Unknown.may_suppress());
+        assert!(IngestStatus::Fixed.may_suppress());
+
+        assert_eq!(
+            ingest_justification_as_vex(Some("code_not_present")),
+            Some(VexJustification::VulnerableCodeNotPresent)
+        );
+        assert_eq!(
+            ingest_justification_as_vex(Some("code_not_reachable")),
+            Some(VexJustification::VulnerableCodeNotInExecutePath)
+        );
+        assert_eq!(
+            ingest_justification_as_vex(Some("requires_dependency")),
+            Some(VexJustification::ComponentNotPresent)
+        );
+        assert_eq!(
+            ingest_justification_as_vex(Some("protected_at_perimeter")),
+            Some(
+                VexJustification::VulnerableCodeCannotBeControlledByAdversary
+            )
+        );
+        assert_eq!(
+            ingest_justification_as_vex(Some(
+                "protected_by_mitigating_control"
+            )),
+            Some(VexJustification::InlineMitigationsAlreadyExist)
+        );
+        assert_eq!(ingest_justification_as_vex(Some("nope")), None);
+        assert_eq!(ingest_justification_as_vex(None), None);
+        assert_eq!(
+            ingest_justification_as_vex(Some("vulnerable_code_not_present")),
+            Some(VexJustification::VulnerableCodeNotPresent)
+        );
+    }
+
+    #[test]
+    fn suppress_skips_unknown_without_extra_noise_when_empty_status() {
+        let stmt = IngestedVexStatement {
+            vuln_id: "CVE-2024-20".into(),
+            purl: None,
+            product_ids: Vec::new(),
+            status: IngestStatus::Affected,
+            justification: None,
+            detail: None,
+            source: VexIngestSource::OpenVex,
+            source_path: PathBuf::from("x.json"),
+            trusted: true,
+        };
+        let policy = VexIngestPolicy::default();
+        let mut warnings = Vec::new();
+        let keys = suppress_vuln_ids(&[stmt], &policy, &mut warnings);
+        assert!(keys.is_empty());
+        assert!(warnings.is_empty());
+    }
 }

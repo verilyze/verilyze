@@ -683,4 +683,51 @@ mod tests {
             assert!(!dotnet_package_manager_available());
         });
     }
+
+    #[test]
+    fn parse_lock_path_rejects_oversized_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let lock = dir.path().join("packages.lock.json");
+        // Just over the parser byte limit.
+        let mut body = String::from(r#"{"version":1,"dependencies":{}}"#);
+        body.push_str(
+            &" ".repeat(
+                (crate::parser::DOTNET_LOCK_MAX_BYTES as usize)
+                    .saturating_sub(body.len())
+                    + 1,
+            ),
+        );
+        std::fs::write(&lock, body).unwrap();
+        let err = parse_lock_path(&lock).unwrap_err();
+        assert!(err.to_string().contains("byte limit"));
+    }
+
+    #[test]
+    fn find_lock_stops_outside_scan_root() {
+        let dir = tempfile::tempdir().unwrap();
+        let scan = dir.path().join("scan");
+        let outside = dir.path().join("outside");
+        std::fs::create_dir_all(scan.join("src")).unwrap();
+        std::fs::create_dir_all(&outside).unwrap();
+        std::fs::write(outside.join("packages.lock.json"), sample_lock())
+            .unwrap();
+        std::fs::write(scan.join("src").join("App.csproj"), "<Project />")
+            .unwrap();
+        assert!(
+            find_dotnet_lock_file(
+                &scan.join("src").join("App.csproj"),
+                Some(&scan),
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn parse_lock_path_maps_parser_errors() {
+        let dir = tempfile::tempdir().unwrap();
+        let lock = dir.path().join("packages.lock.json");
+        std::fs::write(&lock, "{").unwrap();
+        let err = parse_lock_path(&lock).unwrap_err();
+        assert!(err.to_string().contains("packages.lock.json"));
+    }
 }
