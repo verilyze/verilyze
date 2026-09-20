@@ -12,6 +12,7 @@ use vlz::registry::{ensure_default_manifest_finder, finders};
 
 /// Languages registered by the default `runtime` feature set.
 const RUNTIME_FINDER_LANGUAGES: &[&str] = &[
+    "dotnet",
     "go",
     "java",
     "javascript",
