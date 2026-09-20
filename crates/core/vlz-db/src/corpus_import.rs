@@ -322,4 +322,37 @@ mod tests {
         assert_eq!(parsed.version, "9");
         assert_eq!(provider, "osv");
     }
+
+    #[test]
+    fn parse_corpus_json_invalid_json_errors() {
+        let err = parse_corpus_json(b"{").unwrap_err();
+        assert!(matches!(err, CorpusImportError::Parse(_)));
+    }
+
+    #[test]
+    fn parse_corpus_json_envelope_type_error() {
+        let body = json!({"schema_version": "x", "entries": []});
+        let err = parse_corpus_json(body.to_string().as_bytes()).unwrap_err();
+        assert!(matches!(err, CorpusImportError::Parse(_)));
+    }
+
+    #[test]
+    fn parse_corpus_json_array_item_type_error() {
+        let body = json!([{"key": 1, "ttl_secs": 1, "raw_vulns": []}]);
+        let err = parse_corpus_json(body.to_string().as_bytes()).unwrap_err();
+        assert!(matches!(err, CorpusImportError::Parse(_)));
+    }
+
+    #[test]
+    fn parse_corpus_json_rejects_scalar_root() {
+        let err = parse_corpus_json(b"null").unwrap_err();
+        match err {
+            CorpusImportError::Parse(msg) => {
+                assert!(
+                    msg.contains("schema_version") || msg.contains("array")
+                );
+            }
+            other => panic!("expected Parse, got {other:?}"),
+        }
+    }
 }

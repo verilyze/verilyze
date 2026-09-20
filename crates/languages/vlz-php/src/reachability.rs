@@ -308,4 +308,36 @@ mod tests {
         assert_eq!(result.decision, TierCDecision::Reachable);
         assert!(!result.evidence.is_empty());
     }
+
+    #[test]
+    fn scoped_roots_use_manifest_parents() {
+        let dir = tempfile::tempdir().unwrap();
+        let nested = dir.path().join("app");
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::write(
+            nested.join("main.php"),
+            "<?php\nuse Symfony\\Component\\HttpFoundation\\Request;\n",
+        )
+        .unwrap();
+        let package = Package {
+            name: "symfony/http-foundation".into(),
+            version: "6.4.0".into(),
+            ecosystem: Some(PACKAGIST_ECOSYSTEM.into()),
+        };
+        let excludes = HashSet::new();
+        let manifest = nested.join("composer.json");
+        std::fs::write(&manifest, "{}").unwrap();
+        let manifests = [manifest];
+        let context = TierBContext {
+            scan_root: dir.path(),
+            exclude_dir_names: &excludes,
+            package: &package,
+            language: "php",
+            manifest_paths: &manifests,
+        };
+        assert_eq!(
+            PhpTierBAnalyzer::new().analyze_tier_b(&context),
+            TierBDecision::Reachable
+        );
+    }
 }

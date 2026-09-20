@@ -318,4 +318,59 @@ mod tests {
         assert_eq!(parsed.len(), 1);
         assert!(parsed[0].start_line >= 1);
     }
+
+    #[test]
+    fn value_start_accepts_compact_colon() {
+        let content = r#"{"packages":[{"name":"a/b","version":"1.0.0","dist":{"type":"zip"}}]}"#;
+        let (packages, parsed) = parse_composer_lock_with_declarations(
+            content,
+            Path::new("composer.lock"),
+        )
+        .unwrap();
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "a/b");
+        assert_eq!(packages[0].version, "1.0.0");
+        assert!(parsed[0].start_line >= 1);
+    }
+
+    #[test]
+    fn skips_entry_with_empty_normalized_version() {
+        let content = r#"{
+  "packages": [
+    {
+      "name": "a/b",
+      "version": "v",
+      "dist": { "type": "zip" }
+    },
+    {
+      "name": "c/d",
+      "version": "1.0.0",
+      "dist": { "type": "zip" }
+    }
+  ]
+}"#;
+        let packages = parse_composer_lock(content).unwrap();
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "c/d");
+    }
+
+    #[test]
+    fn skips_entry_with_null_name() {
+        let content = r#"{
+  "packages": [
+    {
+      "version": "1.0.0",
+      "dist": { "type": "zip" }
+    },
+    {
+      "name": "ok/pkg",
+      "version": "2.0.0",
+      "dist": { "type": "zip" }
+    }
+  ]
+}"#;
+        let packages = parse_composer_lock(content).unwrap();
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "ok/pkg");
+    }
 }

@@ -24,3 +24,16 @@ pub use resolver::{
     php_package_manager_hint,
 };
 pub use vlz_db::PACKAGIST_ECOSYSTEM;
+
+/// Stable crate identity for coverage and plugin diagnostics.
+pub fn php_crate_id() -> &'static str {
+    "php"
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn php_crate_id_is_php() {
+        assert_eq!(super::php_crate_id(), "php");
+    }
+}

@@ -188,4 +188,47 @@ mod tests {
             "vlz-fix/group_artifact.recipe"
         );
     }
+
+    #[test]
+    fn emits_sbom_only_banner() {
+        let pkg = Package {
+            name: "lodash".into(),
+            version: "4.17.20".into(),
+            ecosystem: Some("npm".into()),
+        };
+        let upgrade = plan(ApplyStrategy::Npm);
+        let entry = FixDiffEntry {
+            package: &pkg,
+            upgrade_plan: &upgrade,
+            preview: None,
+            sbom_only: true,
+        };
+        let text = format_fix_diff_recipe(&[entry], Path::new("/tmp"));
+        assert!(text.contains("SBOM entry point"));
+        assert!(text.contains("preview: unavailable"));
+    }
+
+    #[test]
+    fn emits_file_edit_argv_placeholder() {
+        let pkg = Package {
+            name: "lodash".into(),
+            version: "4.17.20".into(),
+            ecosystem: Some("npm".into()),
+        };
+        let upgrade = plan(ApplyStrategy::Npm);
+        let preview = RemediationPreview {
+            strategy: ApplyStrategy::Npm,
+            workdir: PathBuf::from("/tmp/app"),
+            files: vec![PathBuf::from("/tmp/app/package.json")],
+            argv: vec![],
+        };
+        let entry = FixDiffEntry {
+            package: &pkg,
+            upgrade_plan: &upgrade,
+            preview: Some(&preview),
+            sbom_only: false,
+        };
+        let text = format_fix_diff_recipe(&[entry], Path::new("/tmp/app"));
+        assert!(text.contains("file-edit strategy; no subprocess"));
+    }
 }
