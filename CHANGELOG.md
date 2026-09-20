@@ -20,6 +20,11 @@ Human-readable release notes for each version.
 
 ### Added
 
+- `vlz db import PATH [--sha256 HEX]` (FR-021a): load a versioned JSON CVE
+  corpus (or `vlz db show --full --format json` with `raw_vulns`) so
+  `--offline` works without per-tree online `vlz preload`. Optional SHA-256
+  digest check before parse.
+
 - Go and Rust Tier D first-party refinement: Go (`go-tier-d`, default)
   uses import-aware selectors (no new parser); Rust (`rust-tier-d`,
   opt-in) uses `syn` AST paths. Evidence sets `reachable: true`;

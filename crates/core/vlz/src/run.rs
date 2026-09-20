@@ -1339,6 +1339,53 @@ pub async fn run(args: Cli) -> Result<i32> {
                 }
                 Ok(0)
             }
+            crate::cli::DbCommands::Import { path, sha256 } => {
+                use std::path::Path;
+                use vlz_db::{
+                    importable_entries, parse_corpus_json, verify_sha256,
+                };
+
+                let path = Path::new(&path);
+                let bytes = std::fs::read(path).map_err(|e| {
+                    error!("Failed to read corpus {}: {}", path.display(), e);
+                    anyhow!("Failed to read corpus {}: {}", path.display(), e)
+                })?;
+                if let Some(ref expected) = sha256 {
+                    verify_sha256(&bytes, expected).map_err(|e| {
+                        error!("{}", e);
+                        anyhow!(e)
+                    })?;
+                }
+                let doc = parse_corpus_json(&bytes).map_err(|e| {
+                    error!("{}", e);
+                    anyhow!(e)
+                })?;
+                let entries = importable_entries(&doc).map_err(|e| {
+                    error!("{}", e);
+                    anyhow!(e)
+                })?;
+                let mut imported = 0usize;
+                for entry in entries {
+                    db_backend
+                        .put(
+                            &entry.package,
+                            &entry.provider_id,
+                            &entry.raw_vulns,
+                            Some(entry.ttl_secs),
+                        )
+                        .await
+                        .map_err(|e| {
+                            error!("corpus import put failed: {}", e);
+                            anyhow!(e)
+                        })?;
+                    imported += 1;
+                }
+                write_stdout(&format!(
+                    "Imported {imported} cache entr{}\n",
+                    if imported == 1 { "y" } else { "ies" }
+                ));
+                Ok(0)
+            }
             crate::cli::DbCommands::SetTtl {
                 secs,
                 entry,

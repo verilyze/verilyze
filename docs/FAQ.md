@@ -521,7 +521,9 @@ network calls and the cache has no entries for them (FR-031).
 1. Run a scan without `--offline` once to populate the cache, then use
    `--offline`.
 2. Use `vlz preload` to pre-populate the cache before an offline scan.
-3. Remove `--offline` if network access is acceptable.
+3. In airgap environments, use `vlz db import PATH` (FR-021a) with a corpus
+   produced elsewhere (optionally `--sha256 HEX`), then scan offline.
+4. Remove `--offline` if network access is acceptable.
 
 ---
 

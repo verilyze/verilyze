@@ -322,6 +322,16 @@ Run database migrations.
 .Op Fl f Ar fmt , Fl -format Ar fmt
 .Op Fl -full
 Display cache entries (key, TTL, added-at, CVE summary or full payload).
+.It Nm import Ar path
+.Op Fl -sha256 Ar hex
+Import an airgap CVE corpus JSON into the local cache (FR-021a). Accepts a
+versioned envelope or
+.Nm db show Fl -full Fl -format Ar json
+output that includes
+.Cm raw_vulns .
+Optional
+.Fl -sha256
+verifies the file digest before import.
 .It Nm set-ttl Ar secs
 .Op Fl -entry Ar key
 .Op Fl -all

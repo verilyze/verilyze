@@ -247,6 +247,68 @@ fn run_preload_then_db_show_lists_cached_entry() {
     });
 }
 
+#[cfg(feature = "redb")]
+#[test]
+fn run_db_import_corpus_then_show() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let corpus_path = dir.path().join("corpus.json");
+        let corpus = serde_json::json!({
+            "schema_version": 1,
+            "entries": [{
+                "key": "airgap-pkg::1.0.0::osv",
+                "ttl_secs": 3600,
+                "raw_vulns": [{"id": "CVE-2099-1", "summary": "test"}]
+            }]
+        });
+        let bytes = serde_json::to_vec_pretty(&corpus).expect("serialize");
+        let digest = vlz_db::sha256_hex(&bytes);
+        std::fs::write(&corpus_path, &bytes).expect("write corpus");
+
+        reregister_db_backend();
+        assert_eq!(
+            run_async(&[
+                "db",
+                "import",
+                corpus_path.to_str().unwrap(),
+                "--sha256",
+                &digest,
+            ]),
+            0
+        );
+
+        reregister_db_backend();
+        let rt = tokio::runtime::Runtime::new().expect("runtime");
+        let entries = {
+            let mut backends = vlz::registry::db_backends()
+                .lock()
+                .expect("db backends lock");
+            let backend = backends.remove(0);
+            rt.block_on(backend.list_entries(true))
+                .expect("list cache entries")
+        };
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].key, "airgap-pkg::1.0.0::osv");
+        assert!(
+            entries[0].raw_vulns.as_ref().is_some_and(|v| !v.is_empty()),
+            "imported entry should retain raw_vulns"
+        );
+
+        reregister_db_backend();
+        assert_eq!(
+            run_async(&[
+                "db",
+                "import",
+                corpus_path.to_str().unwrap(),
+                "--sha256",
+                &"0".repeat(64),
+            ]),
+            2
+        );
+    });
+}
+
 #[cfg(feature = "python")]
 #[test]
 fn run_preload_partial_manifest_warms_then_exits_4() {

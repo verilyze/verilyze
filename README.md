@@ -207,6 +207,7 @@ uses the installed man page. Source: [man/vlz.1](man/vlz.1).
 | `vlz db list-providers`      | List CVE providers (e.g. osv, nvd, github, sonatype when built with respective features) |
 | `vlz db stats`               | Cache statistics                                              |
 | `vlz db show [--format FORMAT] [--full]` | Display cache entries (key, TTL, added-at, CVE summary or full payload) |
+| `vlz db import PATH [--sha256 HEX]` | Import airgap CVE corpus JSON into the cache (FR-021a) |
 | `vlz db set-ttl SECS [--entry KEY] [--all] [--pattern PATTERN] [--entries KEYS]` | Update TTL for existing cache entries |
 | `vlz db verify`              | Verify database integrity (SHA-256)                           |
 | `vlz preload [path]`         | Pre-populate CVE cache without a scan report (FR-021)           |

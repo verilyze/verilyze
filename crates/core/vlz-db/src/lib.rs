@@ -5,12 +5,18 @@
 #![deny(unsafe_code)]
 
 mod cache_entry;
+mod corpus_import;
 mod file_ignore;
 mod purl;
 
 pub use cache_entry::{
     PurgeEntry, StoredEntry, entry_is_expired, new_stored_entry,
     normalize_stored_entry, pkg_cache_key, unix_now_secs,
+};
+pub use corpus_import::{
+    CORPUS_SCHEMA_VERSION, CorpusDocument, CorpusEntry, CorpusImportError,
+    ImportableEntry, hex_encode, importable_entries, parse_corpus_json,
+    parse_pkg_cache_key, sha256_hex, verify_sha256,
 };
 pub use file_ignore::{
     DEFAULT_IGNORE_FILE_NAME, FileIgnoreDb, FpEntry, FpMarkFields, FpMarkMeta,

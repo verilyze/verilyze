@@ -702,6 +702,15 @@ pub enum DbCommands {
         #[arg(long, help_heading = HELP_OUTPUT)]
         full: bool,
     },
+    /// Import an airgap CVE corpus snapshot into the local cache (FR-021a)
+    Import {
+        /// Corpus JSON path (versioned envelope or `db show --full --format json`)
+        #[arg(value_name = "PATH", value_hint = ValueHint::FilePath)]
+        path: String,
+        /// Optional lowercase hex SHA-256 of the corpus file (SEC-016)
+        #[arg(long = "sha256", value_name = "HEX")]
+        sha256: Option<String>,
+    },
     /// Update TTL for existing cache entries
     SetTtl {
         /// New TTL in seconds
@@ -1171,6 +1180,25 @@ mod tests {
             panic!("expected show")
         };
         assert!(*full);
+    }
+
+    #[test]
+    fn parse_db_import_with_sha256() {
+        let cli = parse(&[
+            "db",
+            "import",
+            "/tmp/corpus.json",
+            "--sha256",
+            &"ab".repeat(32),
+        ]);
+        let Commands::Db { sub, .. } = &cli.cmd else {
+            panic!("expected db")
+        };
+        let DbCommands::Import { path, sha256 } = sub else {
+            panic!("expected import")
+        };
+        assert_eq!(path, "/tmp/corpus.json");
+        assert_eq!(sha256.as_deref(), Some(&*"ab".repeat(32)));
     }
 
     #[test]
