@@ -142,6 +142,8 @@ pub struct EffectiveConfig {
     pub python_lock_files: Vec<String>,
     /// Explicit SBOM inventory paths from `--from-sbom` (FR-038).
     pub from_sbom: Vec<PathBuf>,
+    /// Explicit VEX ingest paths from `--from-vex` / `[vex] from_vex` (FR-049).
+    pub from_vex: Vec<PathBuf>,
     /// Directory names to skip during manifest discovery.
     pub scan_exclude_dirs: Vec<String>,
     /// CVE providers to query (FR-019 / FR-019-EXT). Default `osv`.
@@ -208,6 +210,7 @@ impl Default for EffectiveConfig {
             language_regexes: Vec::new(),
             python_lock_files: Vec::new(),
             from_sbom: Vec::new(),
+            from_vex: Vec::new(),
             scan_exclude_dirs: DEFAULT_SCAN_EXCLUDE_DIRS
                 .iter()
                 .map(|v| (*v).to_string())
@@ -324,6 +327,9 @@ pub enum ConfigError {
 
     #[error("Invalid exploitability setting: {message}")]
     InvalidExploitability { message: String },
+
+    #[error("Invalid vex setting: {message}")]
+    InvalidVex { message: String },
 
     #[error("Invalid providers list: {message}")]
     InvalidProviders { message: String },
@@ -509,7 +515,7 @@ fn apply_file_config_inner(
         && let Some(vex_val) = t.get("vex")
         && let Some(vex) = vex_val.as_table()
     {
-        apply_toml_vex_table(vex, &mut cfg.vex, source)?;
+        apply_toml_vex_table(vex, &mut cfg.vex, &mut cfg.from_vex, source)?;
     }
     // FR-048: parse [exploitability] section.
     if let Ok(value) = toml::from_str::<toml::Value>(raw)
@@ -528,6 +534,8 @@ const KNOWN_VEX_KEYS: &[&str] = &[
     "author_name",
     "author_namespace",
     "reachability_not_affected",
+    "from_vex",
+    "allow_unsigned_vex",
 ];
 
 fn toml_value_as_f64(value: &toml::Value) -> Option<f64> {
@@ -600,9 +608,33 @@ fn apply_toml_exploitability_table(
     Ok(())
 }
 
+fn parse_from_vex_toml_value(
+    value: &toml::Value,
+    source: &str,
+) -> Result<Vec<PathBuf>, ConfigError> {
+    let paths: Vec<PathBuf> = match value {
+        toml::Value::Array(arr) => arr
+            .iter()
+            .filter_map(|v| v.as_str().map(PathBuf::from))
+            .collect(),
+        toml::Value::String(s) => {
+            parse_csv_list(s).into_iter().map(PathBuf::from).collect()
+        }
+        _ => {
+            return Err(ConfigError::InvalidVex {
+                message: format!(
+                    "from_vex must be a string or array of paths (from {source})"
+                ),
+            });
+        }
+    };
+    Ok(paths)
+}
+
 fn apply_toml_vex_table(
     table: &toml::map::Map<String, toml::Value>,
     vex: &mut vlz_report::VexConfig,
+    from_vex: &mut Vec<PathBuf>,
     source: &str,
 ) -> Result<(), ConfigError> {
     for key in table.keys() {
@@ -633,6 +665,13 @@ fn apply_toml_vex_table(
         .and_then(|v| v.as_bool())
     {
         vex.reachability_not_affected = v;
+    }
+    if let Some(v) = table.get("from_vex") {
+        *from_vex = parse_from_vex_toml_value(v, source)?;
+    }
+    if let Some(v) = table.get("allow_unsigned_vex").and_then(|v| v.as_bool())
+    {
+        vex.allow_unsigned_vex = v;
     }
     Ok(())
 }
@@ -1304,7 +1343,7 @@ pub fn load_with_reachability_overrides(
     if let Some(v) = env_lsp_folder_trust() {
         cfg.lsp_folder_trust = v;
     }
-    apply_env_vex_overrides(&mut cfg.vex);
+    apply_env_vex_overrides(&mut cfg.vex, &mut cfg.from_vex);
     apply_env_exploitability_overrides(&mut cfg.exploitability)?;
 
     // 5) CLI
@@ -1471,8 +1510,12 @@ pub fn env_project_id() -> Option<String> {
     std::env::var("VLZ_PROJECT_ID").ok()
 }
 
-/// Apply `VLZ_VEX_*` environment overrides (FR-046, CFG-005).
-pub fn apply_env_vex_overrides(vex: &mut vlz_report::VexConfig) {
+/// Apply `VLZ_VEX_*` / `VLZ_FROM_VEX` / `VLZ_ALLOW_UNSIGNED_VEX` overrides
+/// (FR-046, FR-049, CFG-005).
+pub fn apply_env_vex_overrides(
+    vex: &mut vlz_report::VexConfig,
+    from_vex: &mut Vec<PathBuf>,
+) {
     if let Ok(v) = std::env::var("VLZ_VEX_PRODUCT_ID") {
         vex.product_id = vlz_report::nonempty_optional_id(Some(v));
     }
@@ -1493,6 +1536,18 @@ pub fn apply_env_vex_overrides(vex: &mut vlz_report::VexConfig) {
             vex.reachability_not_affected = true;
         } else if matches!(lower.as_str(), "0" | "false" | "no" | "off") {
             vex.reachability_not_affected = false;
+        }
+    }
+    if let Ok(v) = std::env::var("VLZ_FROM_VEX") {
+        *from_vex =
+            parse_csv_list(&v).into_iter().map(PathBuf::from).collect();
+    }
+    if let Ok(v) = std::env::var("VLZ_ALLOW_UNSIGNED_VEX") {
+        let lower = v.to_ascii_lowercase();
+        if matches!(lower.as_str(), "1" | "true" | "yes" | "on") {
+            vex.allow_unsigned_vex = true;
+        } else if matches!(lower.as_str(), "0" | "false" | "no" | "off") {
+            vex.allow_unsigned_vex = false;
         }
     }
 }
@@ -2738,6 +2793,8 @@ reachability_not_affected = true
                 Some("https://acme.example")
             );
             assert!(cfg.vex.reachability_not_affected);
+            assert!(cfg.vex.allow_unsigned_vex);
+            assert!(cfg.from_vex.is_empty());
         });
         let r = parse_and_validate_toml("[vex]\nunknown_vex_key = 1\n");
         assert!(r.is_err());
@@ -2747,6 +2804,80 @@ reachability_not_affected = true
             }
             other => panic!("expected UnknownKey, got {other}"),
         }
+    }
+
+    #[test]
+    fn vex_table_parses_from_vex_and_allow_unsigned() {
+        with_isolated_load_env(|| {
+            let dir = test_tempdir();
+            let config_path = dir.path().join("vex_ingest.conf");
+            std::fs::write(
+                &config_path,
+                r#"
+[vex]
+from_vex = ["a.openvex.json", "b.cdx.json"]
+allow_unsigned_vex = false
+"#,
+            )
+            .unwrap();
+            let path_str = config_path.to_string_lossy().into_owned();
+            let cfg = load_no_severity(Some(&path_str));
+            assert_eq!(
+                cfg.from_vex,
+                vec![
+                    PathBuf::from("a.openvex.json"),
+                    PathBuf::from("b.cdx.json")
+                ]
+            );
+            assert!(!cfg.vex.allow_unsigned_vex);
+        });
+        with_isolated_load_env(|| {
+            let dir = test_tempdir();
+            let config_path = dir.path().join("vex_ingest_str.conf");
+            std::fs::write(
+                &config_path,
+                r#"
+[vex]
+from_vex = "one.json, two.json"
+"#,
+            )
+            .unwrap();
+            let path_str = config_path.to_string_lossy().into_owned();
+            let cfg = load_no_severity(Some(&path_str));
+            assert_eq!(
+                cfg.from_vex,
+                vec![PathBuf::from("one.json"), PathBuf::from("two.json")]
+            );
+            assert!(cfg.vex.allow_unsigned_vex);
+        });
+        let r = parse_and_validate_toml("[vex]\nfrom_vex = 1\n");
+        assert!(r.is_err());
+        assert!(matches!(r.unwrap_err(), ConfigError::InvalidVex { .. }));
+    }
+
+    #[test]
+    fn env_from_vex_and_allow_unsigned_override() {
+        with_isolated_load_env(|| {
+            temp_env::with_vars(
+                [
+                    ("VLZ_FROM_VEX", Some("/tmp/a.json,/tmp/b.json")),
+                    ("VLZ_ALLOW_UNSIGNED_VEX", Some("false")),
+                ],
+                || {
+                    let mut vex = vlz_report::VexConfig::default();
+                    let mut from_vex = Vec::new();
+                    apply_env_vex_overrides(&mut vex, &mut from_vex);
+                    assert_eq!(
+                        from_vex,
+                        vec![
+                            PathBuf::from("/tmp/a.json"),
+                            PathBuf::from("/tmp/b.json")
+                        ]
+                    );
+                    assert!(!vex.allow_unsigned_vex);
+                },
+            );
+        });
     }
 
     #[test]

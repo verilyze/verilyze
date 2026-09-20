@@ -58,6 +58,18 @@ vlz scan --from-sbom inventory.spdx.json /path/to/project
 vlz preload --from-sbom bom.json
 ```
 
+## VEX consume (FR-049)
+
+Pass `--from-vex PATH` (repeatable), `[vex] from_vex`, or `VLZ_FROM_VEX`
+(comma-separated) to ingest OpenVEX documents or CycloneDX analysis as
+**ephemeral** suppress input merged with `vlz-ignore.json` at filter time
+(ignore file is not rewritten). Only allowlisted statuses suppress
+(`not_affected` / `fixed`, plus CycloneDX `false_positive` / `resolved` /
+`resolved_with_pedigree`). Unknown status, product mismatch, or unrecognized
+shape emits a stderr warning and keeps the finding. Unreadable configured
+paths exit **2**. Unsigned documents suppress only when
+`allow_unsigned_vex` / `--allow-unsigned-vex` is true (default true).
+
 ## Docker
 
 ### Docker cache files owned by root

@@ -659,6 +659,7 @@ pub async fn run(args: Cli) -> Result<i32> {
             scan_exclude_dir: cli_scan_exclude_dir_scan,
             lock_file: cli_lock_files_scan,
             from_sbom: cli_from_sbom_scan,
+            from_vex: cli_from_vex_scan,
             severity_v2_critical_min,
             severity_v2_high_min,
             severity_v2_medium_min,
@@ -676,6 +677,7 @@ pub async fn run(args: Cli) -> Result<i32> {
             vex_author_name,
             vex_author_namespace,
             vex_reachability_not_affected,
+            allow_unsigned_vex,
             no_exploitability,
             min_epss,
             exit_on_kev,
@@ -776,6 +778,12 @@ pub async fn run(args: Cli) -> Result<i32> {
                 );
                 return Ok(2);
             }
+            if !cli_from_vex_scan.is_empty() {
+                effective.from_vex = cli_from_vex_scan
+                    .into_iter()
+                    .map(std::path::PathBuf::from)
+                    .collect();
+            }
             if let Some(id) = vex_product_id {
                 effective.vex.product_id =
                     vlz_report::nonempty_optional_id(Some(id));
@@ -794,6 +802,9 @@ pub async fn run(args: Cli) -> Result<i32> {
             }
             if let Some(v) = vex_reachability_not_affected {
                 effective.vex.reachability_not_affected = v;
+            }
+            if let Some(v) = allow_unsigned_vex {
+                effective.vex.allow_unsigned_vex = v;
             }
             if let Err(message) = apply_scan_exploitability_flags(
                 &mut effective.exploitability,
@@ -1168,6 +1179,18 @@ pub async fn run(args: Cli) -> Result<i32> {
                 write_stdout(&format!(
                     "vex_reachability_not_affected = {}\n",
                     cfg.vex.reachability_not_affected
+                ));
+                write_stdout(&format!(
+                    "vex_from_vex = {}\n",
+                    cfg.from_vex
+                        .iter()
+                        .map(|p| p.display().to_string())
+                        .collect::<Vec<_>>()
+                        .join(",")
+                ));
+                write_stdout(&format!(
+                    "vex_allow_unsigned_vex = {}\n",
+                    cfg.vex.allow_unsigned_vex
                 ));
                 write_stdout(&format!(
                     "exploitability_enabled = {}\n",
@@ -2226,8 +2249,38 @@ async fn run_scan(
                 return Ok(EXIT_MISCONFIGURATION);
             }
         };
-    let marked_fp: std::collections::HashSet<String> =
+    let mut marked_fp: std::collections::HashSet<String> =
         fp_entries.keys().cloned().collect();
+    // FR-049: merge ephemeral VEX ingest suppressions with ignore-db marks.
+    if !effective.from_vex.is_empty() {
+        let policy = vlz_report::VexIngestPolicy {
+            allow_unsigned: effective.vex.allow_unsigned_vex,
+            product_id: effective.vex.product_id.clone(),
+        };
+        let mut ingest_warnings = Vec::new();
+        let mut ingested_keys = std::collections::HashSet::new();
+        for path in &effective.from_vex {
+            match vlz_report::parse_vex_ingest_file(path, &policy) {
+                Ok(parsed) => {
+                    ingest_warnings.extend(parsed.warnings);
+                    let keys = vlz_report::suppress_vuln_ids(
+                        &parsed.statements,
+                        &policy,
+                        &mut ingest_warnings,
+                    );
+                    ingested_keys.extend(keys);
+                }
+                Err(e) => {
+                    error!("{}", e);
+                    return Ok(EXIT_MISCONFIGURATION);
+                }
+            }
+        }
+        for w in &ingest_warnings {
+            user_warning(w);
+        }
+        marked_fp = vlz_report::merge_suppress_keys(&marked_fp, ingested_keys);
+    }
     let had_any_cves_before_fp_filter =
         findings.iter().map(|(_, r)| r.len()).sum::<usize>() > 0;
     let mut suppressed_raw: Vec<(vlz_db::Package, Vec<vlz_db::CveRecord>)> =
@@ -2752,12 +2805,12 @@ async fn scan_findings_for_fix(
         );
     }
 
-    // Apply false-positive filter (FR-015).
+    // Apply false-positive filter (FR-015, FR-049).
     let ignore_path = effective
         .ignore_db
         .clone()
         .unwrap_or_else(crate::config::default_ignore_path);
-    let marked_fp: std::collections::HashSet<String> =
+    let mut marked_fp: std::collections::HashSet<String> =
         match crate::registry::open_ignore_db(ignore_path) {
             Ok(db) => match db.marked_ids(effective.project_id.as_deref()) {
                 Ok(ids) => ids,
@@ -2783,6 +2836,41 @@ async fn scan_findings_for_fix(
                 });
             }
         };
+    if !effective.from_vex.is_empty() {
+        let policy = vlz_report::VexIngestPolicy {
+            allow_unsigned: effective.vex.allow_unsigned_vex,
+            product_id: effective.vex.product_id.clone(),
+        };
+        let mut ingest_warnings = Vec::new();
+        let mut ingested_keys = std::collections::HashSet::new();
+        for path in &effective.from_vex {
+            match vlz_report::parse_vex_ingest_file(path, &policy) {
+                Ok(parsed) => {
+                    ingest_warnings.extend(parsed.warnings);
+                    let keys = vlz_report::suppress_vuln_ids(
+                        &parsed.statements,
+                        &policy,
+                        &mut ingest_warnings,
+                    );
+                    ingested_keys.extend(keys);
+                }
+                Err(e) => {
+                    error!("{}", e);
+                    return Ok(ScanFixOutcome {
+                        root_path,
+                        pkg_declarations,
+                        sbom_only_packages,
+                        findings: vec![],
+                        exit_code: EXIT_MISCONFIGURATION,
+                    });
+                }
+            }
+        }
+        for w in &ingest_warnings {
+            user_warning(w);
+        }
+        marked_fp = vlz_report::merge_suppress_keys(&marked_fp, ingested_keys);
+    }
     let had_any_cves_before_fp_filter =
         findings.iter().map(|(_, r)| r.len()).sum::<usize>() > 0;
     findings = findings

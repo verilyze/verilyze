@@ -178,6 +178,15 @@ pub enum Commands {
         )]
         from_sbom: Vec<String>,
 
+        /// Ingest OpenVEX / CycloneDX analysis as scan suppress input (FR-049; repeatable)
+        #[arg(
+            long = "from-vex",
+            value_name = "PATH",
+            value_hint = ValueHint::FilePath,
+            help_heading = HELP_VEX,
+        )]
+        from_vex: Vec<String>,
+
         /// Default TTL in seconds for new cache entries (default: 432000 = 5 days).
         /// Does not change existing entries; use `vlz db set-ttl` to update those.
         #[arg(long, value_name = "SECS", help_heading = HELP_PROVIDER_CACHE)]
@@ -352,6 +361,20 @@ pub enum Commands {
             help_heading = HELP_VEX
         )]
         vex_reachability_not_affected: Option<bool>,
+
+        /// Allow unsigned VEX ingest documents to suppress findings (FR-049).
+        /// Omit to leave config/env unchanged; pass `true`/`false` to override.
+        /// A bare flag (no value) means true. Default is true until signing is
+        /// mandatory.
+        #[arg(
+            long = "allow-unsigned-vex",
+            value_name = "BOOL",
+            num_args = 0..=1,
+            default_missing_value = "true",
+            value_parser = clap::builder::BoolishValueParser::new(),
+            help_heading = HELP_VEX
+        )]
+        allow_unsigned_vex: Option<bool>,
 
         /// Skip CISA KEV / FIRST EPSS ranking entirely (FR-048)
         #[arg(long, help_heading = HELP_EXPLOITABILITY)]
@@ -1262,12 +1285,20 @@ mod tests {
             "--vex-author-name",
             "Acme",
             "--vex-reachability-not-affected",
+            "--from-vex",
+            "a.openvex.json",
+            "--from-vex",
+            "b.cdx.json",
+            "--allow-unsigned-vex",
+            "false",
         ]);
         let Commands::Scan {
             no_vex,
             vex_product_id,
             vex_author_name,
             vex_reachability_not_affected,
+            from_vex,
+            allow_unsigned_vex,
             ..
         } = &cli.cmd
         else {
@@ -1277,6 +1308,8 @@ mod tests {
         assert_eq!(vex_product_id.as_deref(), Some("pkg:generic/app@1"));
         assert_eq!(vex_author_name.as_deref(), Some("Acme"));
         assert_eq!(*vex_reachability_not_affected, Some(true));
+        assert_eq!(from_vex.as_slice(), ["a.openvex.json", "b.cdx.json"]);
+        assert_eq!(*allow_unsigned_vex, Some(false));
     }
 
     #[test]

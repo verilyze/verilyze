@@ -142,7 +142,7 @@ pub fn cisa_to_cyclonedx_justification(j: VexJustification) -> &'static str {
     }
 }
 
-/// Configuration snapshot for VEX generation (FR-046).
+/// Configuration snapshot for VEX generation and consume (FR-046, FR-049).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VexConfig {
     pub product_id: Option<String>,
@@ -150,6 +150,9 @@ pub struct VexConfig {
     pub author_namespace: Option<String>,
     /// When true, map `reachable: false` to `not_affected` (opt-in).
     pub reachability_not_affected: bool,
+    /// When true, unsigned VEX ingest documents may suppress findings (FR-049).
+    /// Default true until signing verification is mandatory.
+    pub allow_unsigned_vex: bool,
 }
 
 impl Default for VexConfig {
@@ -159,6 +162,7 @@ impl Default for VexConfig {
             author_name: DEFAULT_VEX_AUTHOR_NAME.to_string(),
             author_namespace: None,
             reachability_not_affected: false,
+            allow_unsigned_vex: true,
         }
     }
 }
