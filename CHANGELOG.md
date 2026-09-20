@@ -20,6 +20,11 @@ Human-readable release notes for each version.
 
 ### Added
 
+- OSV `MAL-*` finding class (FR-011): JSON/SARIF include
+  `finding_class` (`vulnerability` | `malicious`); `MAL-*` ids do not
+  merge into CVE/GHSA alias groups (FR-019-EXT). SARIF helpUri for
+  malicious ids points at osv.dev.
+
 - Opt-in reachability CI gate (`exit_on_reachable` / `VLZ_EXIT_ON_REACHABLE`
   / `--exit-on-reachable`): only `reachable: true` CVEs count toward exit
   86 and SARIF; plain/JSON keep the full finding list (FR-032).

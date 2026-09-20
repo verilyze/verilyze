@@ -84,6 +84,11 @@
         "severity": {
           "type": "string",
           "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"]
+        },
+        "finding_class": {
+          "type": "string",
+          "enum": ["vulnerability", "malicious"],
+          "description": "OSV MAL-* malicious-package records vs ordinary advisories (FR-011)."
         }
       }
     },
