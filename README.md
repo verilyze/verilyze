@@ -314,7 +314,8 @@ Then run `make check` for the standard pre-commit gate. For fuzz testing
 - **Security:** [SECURITY.md](SECURITY.md)
 - **Compliance:** [COMPLIANCE.md](COMPLIANCE.md)
 - **JSON report schema:** [schemas/v1/report.json](schemas/v1/report.json)
-- **CI examples:** [examples/github-action-vlz-scan.yml](examples/github-action-vlz-scan.yml)
+- **CI examples:** [examples/github-action-vlz-scan.yml](examples/github-action-vlz-scan.yml),
+  [examples/gitlab-ci-vlz-scan.yml](examples/gitlab-ci-vlz-scan.yml)
 - **Workspace SBOM:** [sbom/v1/](sbom/v1/) (SEC-019; `make generate-sbom`)
 - **Python dogfood lock:** [pylock.dev.toml](pylock.dev.toml) (PEP 751; SEC-015)
 - **Changelog:** [CHANGELOG.md](CHANGELOG.md)
