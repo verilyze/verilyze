@@ -147,21 +147,21 @@ pub fn parse_corpus_json(
     let value: serde_json::Value = serde_json::from_slice(bytes)
         .map_err(|e| CorpusImportError::Parse(e.to_string()))?;
 
-    if let Some(obj) = value.as_object() {
-        if obj.contains_key("schema_version") || obj.contains_key("entries") {
-            let doc: CorpusDocument = serde_json::from_value(value)
-                .map_err(|e| CorpusImportError::Parse(e.to_string()))?;
-            if doc.schema_version != CORPUS_SCHEMA_VERSION {
-                return Err(CorpusImportError::UnsupportedSchema {
-                    found: doc.schema_version,
-                    supported: CORPUS_SCHEMA_VERSION,
-                });
-            }
-            for entry in &doc.entries {
-                let _ = parse_pkg_cache_key(&entry.key)?;
-            }
-            return Ok(doc);
+    if let Some(obj) = value.as_object()
+        && (obj.contains_key("schema_version") || obj.contains_key("entries"))
+    {
+        let doc: CorpusDocument = serde_json::from_value(value)
+            .map_err(|e| CorpusImportError::Parse(e.to_string()))?;
+        if doc.schema_version != CORPUS_SCHEMA_VERSION {
+            return Err(CorpusImportError::UnsupportedSchema {
+                found: doc.schema_version,
+                supported: CORPUS_SCHEMA_VERSION,
+            });
         }
+        for entry in &doc.entries {
+            let _ = parse_pkg_cache_key(&entry.key)?;
+        }
+        return Ok(doc);
     }
 
     if let Some(arr) = value.as_array() {

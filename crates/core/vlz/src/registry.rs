@@ -210,6 +210,10 @@ pub fn ensure_default_manifest_finder() {
     if !f.iter().any(|x| x.language_name() == "ruby") {
         f.push(Box::new(vlz_ruby::RubyManifestFinder::new()));
     }
+    #[cfg(feature = "php")]
+    if !f.iter().any(|x| x.language_name() == "php") {
+        f.push(Box::new(vlz_php::PhpManifestFinder::new()));
+    }
     #[cfg(feature = "sbom")]
     if !f.iter().any(|x| x.language_name() == "sbom") {
         f.push(Box::new(vlz_sbom::SbomManifestFinder::new()));
@@ -244,6 +248,10 @@ pub fn ensure_default_parser() {
     if !p.iter().any(|x| x.language_name() == "ruby") {
         p.push(Box::new(vlz_ruby::RubyManifestParser::new()));
     }
+    #[cfg(feature = "php")]
+    if !p.iter().any(|x| x.language_name() == "php") {
+        p.push(Box::new(vlz_php::PhpManifestParser::new()));
+    }
     #[cfg(feature = "sbom")]
     if !p.iter().any(|x| x.language_name() == "sbom") {
         p.push(Box::new(vlz_sbom::SbomParser::new()));
@@ -277,6 +285,10 @@ pub fn ensure_default_resolver() {
     if !r.iter().any(|x| x.language_name() == "ruby") {
         r.push(Box::new(vlz_ruby::RubyResolver::new()));
     }
+    #[cfg(feature = "php")]
+    if !r.iter().any(|x| x.language_name() == "php") {
+        r.push(Box::new(vlz_php::PhpResolver::new()));
+    }
     #[cfg(feature = "sbom")]
     if !r.iter().any(|x| x.language_name() == "sbom") {
         r.push(Box::new(vlz_sbom::SbomResolver::new()));
@@ -309,6 +321,10 @@ pub fn ensure_default_reachability_analyzer() {
     #[cfg(feature = "ruby")]
     if !analyzers.iter().any(|x| x.language_name() == "ruby") {
         analyzers.push(Box::new(vlz_ruby::RubyTierBAnalyzer::new()));
+    }
+    #[cfg(feature = "php")]
+    if !analyzers.iter().any(|x| x.language_name() == "php") {
+        analyzers.push(Box::new(vlz_php::PhpTierBAnalyzer::new()));
     }
 }
 
@@ -746,6 +762,7 @@ mod tests {
             feature = "javascript",
             feature = "java",
             feature = "ruby",
+            feature = "php",
             feature = "sbom"
         ))]
         {
@@ -756,6 +773,7 @@ mod tests {
                 cfg!(feature = "javascript"),
                 cfg!(feature = "java"),
                 cfg!(feature = "ruby"),
+                cfg!(feature = "php"),
                 cfg!(feature = "sbom"),
             ]
             .into_iter()

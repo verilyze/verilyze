@@ -1,0 +1,7 @@
+{
+  "name": "cli-contract/lockless",
+  "require": {
+    "php": ">=8.1",
+    "cli/contract_demo": "^1.0"
+  }
+}

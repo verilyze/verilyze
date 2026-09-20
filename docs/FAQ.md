@@ -29,7 +29,7 @@ move.
 
 Known limits: Linux musl is not a GitHub archive; Windows has no first-class
 Bash/Zsh/Fish install (generation plus zip layout only). Default lock-less
-Python, JavaScript, Java, and Ruby scans exit 4. Lock-less `--offline` is
+Python, JavaScript, Java, Ruby, and PHP scans exit 4. Lock-less `--offline` is
 FR-022a DirectOnly (never unqualified `No vulnerabilities found.`).
 
 ## SBOM inventory input (FR-038)
@@ -641,6 +641,13 @@ default (SEC-023 does not run `bundle`; `bundle lock` evaluates Gemfile as
 Ruby). Use `--allow-dependency-code-execution` for ephemeral `bundle lock`, or
 `--allow-direct-only-fallback` for direct-only coverage.
 
+**PHP (Composer / Packagist):** The `php` language covers `composer.json`. Prefer
+an adjacent or parent `composer.lock` (walk up to the scan root). Without a
+usable lock, the scan exits **4** by default (SEC-023 does not run `composer`;
+Composer executes PHP). Use `--allow-dependency-code-execution` for ephemeral
+`composer update --no-install`, or `--allow-direct-only-fallback` for
+direct-only coverage.
+
 ### Unable to detect transitive dependencies (exit 4)
 
 **Message:** `Unable to detect transitive dependencies. Add an adjacent lock
@@ -656,7 +663,8 @@ on PATH; `package.json` without an adjacent/parent lock file when package
 manager execution is disabled; lock-less Java Maven/Gradle manifests without
 `gradle.lockfile` when PM execution is disabled; lock-less Ruby Gemfile/gems.rb
 or gemspec without Gemfile.lock/gems.locked when Bundler execution is disabled;
-explicit pip resolution failed after
+lock-less PHP `composer.json` without `composer.lock` when Composer execution
+is disabled; explicit pip resolution failed after
 `--allow-dependency-code-execution`; or the parser found no dependencies.
 
 **Remediation:**
@@ -665,7 +673,7 @@ explicit pip resolution failed after
    `pylock.<name>.toml` for Python, `Cargo.lock`, `go.sum` (with `go.mod`), or
    a JS lock (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lock`),
    or `gradle.lockfile` for Java/Gradle, or `Gemfile.lock` / `gems.locked` for
-   Ruby.
+   Ruby, or `composer.lock` for PHP.
 2. Ensure pip >= 25.1 is on PATH for safe `pip lock -r` on `requirements.txt`.
 3. For Rust lock-less scans, ensure `cargo` is on PATH and the crates.io
    registry is reachable (or use `--offline` with a committed `Cargo.lock`).
@@ -677,12 +685,14 @@ explicit pip resolution failed after
 7. For Ruby, commit `Gemfile.lock` / `gems.locked` or use
    `--allow-dependency-code-execution` only in trusted CI or workspaces
    (`bundle lock` evaluates Gemfile as Ruby).
-8. For local Python projects, use `--allow-dependency-code-execution` only in
+8. For PHP, commit `composer.lock` or use `--allow-dependency-code-execution`
+   only in trusted CI or workspaces (Composer executes PHP).
+9. For local Python projects, use `--allow-dependency-code-execution` only in
    trusted CI or workspaces (see SECURITY.md).
-9. When you accept direct-only scanning without transitive coverage, use
+10. When you accept direct-only scanning without transitive coverage, use
    `--allow-direct-only-fallback`, `VLZ_ALLOW_DIRECT_ONLY_FALLBACK=1`, or
    `allow_direct_only_fallback = true` in config.
-10. Use `--offline` or `--benchmark` only when you accept direct-only scanning
+11. Use `--offline` or `--benchmark` only when you accept direct-only scanning
    (warnings will be emitted for affected manifests).
 
 See also `man vlz` for configuration keys `keep_ephemeral_venv`,

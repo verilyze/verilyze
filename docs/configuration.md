@@ -180,6 +180,11 @@ pair-matched lock (`Gemfile.lock` / `gems.locked`). Without a usable lock, the
 scan exits 4 by default; `bundle lock` runs only with
 `allow_dependency_code_execution` (ephemeral directory; Gemfile evaluation is
 project code under SEC-023).
+
+For **PHP** (`composer.json`, language `php`), prefer an adjacent or parent
+`composer.lock`. Without a usable lock, the scan exits 4 by default; Composer
+runs only with `allow_dependency_code_execution` (ephemeral directory; Composer
+executes PHP under SEC-023).
 See [docs/FAQ.md](FAQ.md) and `man vlz`.
 
 ## See also

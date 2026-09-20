@@ -48,6 +48,9 @@ pub const MAVEN_ECOSYSTEM: &str = "Maven";
 /// OSV / package ecosystem for RubyGems (Ruby).
 pub const RUBYGEMS_ECOSYSTEM: &str = "RubyGems";
 
+/// OSV / package ecosystem for Packagist (PHP / Composer).
+pub const PACKAGIST_ECOSYSTEM: &str = "Packagist";
+
 #[derive(
     Debug,
     Clone,

@@ -65,6 +65,7 @@ vlz-go = { workspace = true, optional = true }
 vlz-javascript = { workspace = true, optional = true }
 vlz-java = { workspace = true, optional = true }
 vlz-ruby = { workspace = true, optional = true }
+vlz-php = { workspace = true, optional = true }
 vlz-sbom = { workspace = true, optional = true }
 
 # CVE providers (optional)
@@ -113,8 +114,8 @@ required-features = ["testing", "mem", "python"]
 
 # Feature gating – matches MOD‑003, MOD‑009
 [features]
-runtime = ["redb", "python", "rust", "go", "javascript", "java", "ruby", "sbom"]
-runtime-mem = ["mem", "python", "rust", "go", "javascript", "java", "ruby", "sbom"]
+runtime = ["redb", "python", "rust", "go", "javascript", "java", "ruby", "php", "sbom"]
+runtime-mem = ["mem", "python", "rust", "go", "javascript", "java", "ruby", "php", "sbom"]
 default = ["runtime", "completions", "docs", "lsp", "python-tier-d", "go-tier-d"]
 docs = []           # Man page via vlz help; omit for minimal binary
 lsp = ["dep:vlz-lsp"]
@@ -132,6 +133,7 @@ go-tier-d = ["go", "vlz-go/tier-d"]
 javascript = ["vlz-javascript"]
 java = ["vlz-java"]
 ruby = ["vlz-ruby"]
+php = ["vlz-php"]
 sbom = ["vlz-sbom"]
 nvd = ["dep:vlz-cve-provider-nvd"]
 github = ["dep:vlz-cve-provider-github"]
@@ -148,6 +150,7 @@ perf-instrumentation = [
     "vlz-javascript?/perf-instrumentation",
     "vlz-java?/perf-instrumentation",
     "vlz-ruby?/perf-instrumentation",
+    "vlz-php?/perf-instrumentation",
 ]
 sqlite = []      # placeholder for a future SQLite backend
 vlz-lsp = ["dep:vlz-lsp"]

@@ -20,6 +20,12 @@ Human-readable release notes for each version.
 
 ### Added
 
+- PHP Composer language plugin (`vlz-php`, feature `php`): discover
+  `composer.json`, parse `composer.lock` (`packages` + `packages-dev`) for
+  Packagist OSV pins, fail-closed lock-less exit 4 (Composer executes PHP).
+  Tier B/C reachability scans `.php` `use` / `require` references. CLI
+  contract fixtures and dual fuzz targets for composer.json / composer.lock.
+
 - `vlz db import PATH [--sha256 HEX]` (FR-021a): load a versioned JSON CVE
   corpus (or `vlz db show --full --format json` with `raw_vulns`) so
   `--offline` works without per-tree online `vlz preload`. Optional SHA-256
@@ -30,6 +36,10 @@ Human-readable release notes for each version.
 
 - `vlz fix --format diff` (FR-041): explicit unified-diff recipe for dry-run
   remediations (optional `--output`); does not use ambient stdout.
+
+- Opt-in reachability CI gate (`exit_on_reachable` / `VLZ_EXIT_ON_REACHABLE`
+  / `--exit-on-reachable`): only `reachable: true` CVEs count toward exit
+  86 and SARIF; plain/JSON keep the full finding list (FR-032).
 
 - Go and Rust Tier D first-party refinement: Go (`go-tier-d`, default)
   uses import-aware selectors (no new parser); Rust (`rust-tier-d`,

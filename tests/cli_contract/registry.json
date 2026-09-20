@@ -36,6 +36,7 @@
         "javascript",
         "java",
         "ruby",
+        "php",
         "sbom"
       ]
     },
@@ -191,6 +192,16 @@
       "stdout_forbids": ["No vulnerabilities found."]
     },
     {
+      "id": "php-lock-offline",
+      "category": "lock_parse",
+      "language": "php",
+      "modes": ["smoke", "full"],
+      "fixture": "php/lock",
+      "args": ["scan", "{fixture}", "--offline"],
+      "expect_exit": [6, 86],
+      "stdout_forbids": ["No vulnerabilities found."]
+    },
+    {
       "id": "python-lock-offline-pin",
       "category": "lock_parse",
       "language": "python",
@@ -277,6 +288,37 @@
       "stdout_forbids": ["No vulnerabilities found."]
     },
     {
+      "id": "php-lock-offline-pin",
+      "category": "lock_parse",
+      "language": "php",
+      "modes": ["full"],
+      "fixture": "php/lock",
+      "args": ["scan", "{fixture}", "--offline", "--format", "cyclonedx"],
+      "expect_exit": [6, 86],
+      "stdout_contains": ["cli/contract_demo"],
+      "stdout_forbids": ["No vulnerabilities found."]
+    },
+    {
+      "id": "php-lockless",
+      "category": "exit_code",
+      "language": "php",
+      "modes": ["full"],
+      "fixture": "php/lockless",
+      "args": ["scan", "{fixture}"],
+      "expect_exit": [4],
+      "stdout_forbids": ["No vulnerabilities found."]
+    },
+    {
+      "id": "php-lockless-offline",
+      "category": "exit_code",
+      "language": "php",
+      "modes": ["full"],
+      "fixture": "php/lockless",
+      "args": ["scan", "{fixture}", "--offline"],
+      "expect_exit": [6, 86],
+      "stdout_forbids": ["No vulnerabilities found."]
+    },
+    {
       "id": "mixed-good-and-lockless",
       "category": "exit_code",
       "modes": ["full"],
@@ -323,6 +365,16 @@
       "language": "ruby",
       "modes": ["full"],
       "fixture": "ruby/empty-lock",
+      "args": ["scan", "{fixture}"],
+      "expect_exit": [4],
+      "stdout_forbids": ["No vulnerabilities found."]
+    },
+    {
+      "id": "php-empty-lock",
+      "category": "exit_code",
+      "language": "php",
+      "modes": ["full"],
+      "fixture": "php/empty-lock",
       "args": ["scan", "{fixture}"],
       "expect_exit": [4],
       "stdout_forbids": ["No vulnerabilities found."]

@@ -2716,6 +2716,7 @@ dependencies = [
  "vlz-lsp",
  "vlz-manifest-finder",
  "vlz-manifest-parser",
+ "vlz-php",
  "vlz-plugin-macro",
  "vlz-python",
  "vlz-reachability",
@@ -2859,6 +2860,7 @@ dependencies = [
  "vlz-go",
  "vlz-java",
  "vlz-javascript",
+ "vlz-php",
  "vlz-python",
  "vlz-ruby",
  "vlz-rust",
@@ -2960,6 +2962,24 @@ dependencies = [
  "thiserror",
  "tokio",
  "vlz-db",
+]
+
+[[package]]
+name = "vlz-php"
+version = "0.12.0"
+dependencies = [
+ "async-trait",
+ "regex",
+ "serde",
+ "serde_json",
+ "temp-env",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "vlz-db",
+ "vlz-manifest-finder",
+ "vlz-manifest-parser",
+ "vlz-reachability-trait",
 ]
 
 [[package]]

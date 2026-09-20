@@ -152,6 +152,11 @@ fn discover_manifests_one_pass(
                     .push(entry.path());
                 continue;
             }
+            #[cfg(feature = "php")]
+            if vlz_php::is_php_manifest_name(name) {
+                out.entry("php".to_string()).or_default().push(entry.path());
+                continue;
+            }
             #[cfg(feature = "sbom")]
             if vlz_sbom::is_sbom_basename(name) {
                 out.entry("sbom".to_string())
@@ -760,6 +765,7 @@ pub async fn resolve_packages_for_path(
             && first_lang != Some("javascript")
             && first_lang != Some("java")
             && first_lang != Some("ruby")
+            && first_lang != Some("php")
             && first_lang != Some("sbom")
         {
             match vlz_python::PythonManifestFinder::with_patterns(
@@ -784,6 +790,7 @@ pub async fn resolve_packages_for_path(
                 && first_lang != Some("javascript")
                 && first_lang != Some("java")
                 && first_lang != Some("ruby")
+                && first_lang != Some("php")
                 && first_lang != Some("sbom"))
         {
             match vlz_rust::RustManifestFinder::with_patterns(patterns.clone())
@@ -804,6 +811,7 @@ pub async fn resolve_packages_for_path(
                 && first_lang != Some("javascript")
                 && first_lang != Some("java")
                 && first_lang != Some("ruby")
+                && first_lang != Some("php")
                 && first_lang != Some("sbom"))
         {
             match vlz_go::GoManifestFinder::with_patterns(patterns.clone()) {
@@ -822,6 +830,7 @@ pub async fn resolve_packages_for_path(
             || (finders.is_empty()
                 && first_lang != Some("java")
                 && first_lang != Some("ruby")
+                && first_lang != Some("php")
                 && first_lang != Some("sbom"))
         {
             match vlz_javascript::JsManifestFinder::with_patterns(
@@ -841,6 +850,7 @@ pub async fn resolve_packages_for_path(
         if first_lang == Some("java")
             || (finders.is_empty()
                 && first_lang != Some("ruby")
+                && first_lang != Some("php")
                 && first_lang != Some("sbom"))
         {
             match vlz_java::JavaManifestFinder::with_patterns(patterns.clone())
@@ -857,10 +867,27 @@ pub async fn resolve_packages_for_path(
         }
         #[cfg(feature = "ruby")]
         if first_lang == Some("ruby")
-            || (finders.is_empty() && first_lang != Some("sbom"))
+            || (finders.is_empty()
+                && first_lang != Some("php")
+                && first_lang != Some("sbom"))
         {
             match vlz_ruby::RubyManifestFinder::with_patterns(patterns.clone())
             {
+                Ok(f) => finders.push(Box::new(f)),
+                Err(e) => {
+                    error!("Invalid language regex in config: {}", e);
+                    return Err(anyhow!(
+                        "Invalid language regex in config: {}",
+                        e
+                    ));
+                }
+            }
+        }
+        #[cfg(feature = "php")]
+        if first_lang == Some("php")
+            || (finders.is_empty() && first_lang != Some("sbom"))
+        {
+            match vlz_php::PhpManifestFinder::with_patterns(patterns.clone()) {
                 Ok(f) => finders.push(Box::new(f)),
                 Err(e) => {
                     error!("Invalid language regex in config: {}", e);
@@ -891,11 +918,12 @@ pub async fn resolve_packages_for_path(
             feature = "javascript",
             feature = "java",
             feature = "ruby",
+            feature = "php",
             feature = "sbom"
         )))]
         {
             error!(
-                "Custom language regexes require a language plugin (e.g. python, rust, go, javascript, java, ruby, or sbom feature)"
+                "Custom language regexes require a language plugin (e.g. python, rust, go, javascript, java, ruby, php, or sbom feature)"
             );
             return Err(anyhow!(
                 "Custom language regexes require a language plugin"
@@ -1056,6 +1084,7 @@ pub(crate) async fn resolve_packages_with_plugins(
                     | "javascript"
                     | "java"
                     | "ruby"
+                    | "php"
                     | "sbom"
             )
         });

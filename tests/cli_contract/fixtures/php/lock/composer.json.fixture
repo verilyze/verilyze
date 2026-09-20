@@ -1,0 +1,7 @@
+{
+  "name": "cli-contract/demo",
+  "require": {
+    "php": ">=8.1",
+    "cli/contract_demo": "1.0.0"
+  }
+}
