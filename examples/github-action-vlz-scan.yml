@@ -43,6 +43,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Download and extract vlz release archive
+        id: install-vlz
         env:
           VERSION: "0.12.0"
         run: |
@@ -77,16 +78,18 @@ jobs:
             *.zip) python3 -c "import zipfile; zipfile.ZipFile('${archive}').extractall()" ;;
           esac
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            echo "VLZ_BIN=${PWD}/vlz-${VERSION}-${platform}/vlz.exe" >> "${GITHUB_ENV}"
+            vlz_bin="${PWD}/vlz-${VERSION}-${platform}/vlz.exe"
           else
             chmod +x "vlz-${VERSION}-${platform}/bin/vlz"
-            echo "VLZ_BIN=${PWD}/vlz-${VERSION}-${platform}/bin/vlz" >> "${GITHUB_ENV}"
+            vlz_bin="${PWD}/vlz-${VERSION}-${platform}/bin/vlz"
           fi
+          echo "vlz_bin=${vlz_bin}" >> "${GITHUB_OUTPUT}"
 
       - name: Scan with vlz
         id: vlz-scan
         continue-on-error: true
         env:
+          VLZ_BIN: ${{ steps.install-vlz.outputs.vlz_bin }}
           VLZ_REACHABILITY_MODE: best-available
         run: |
           set -uo pipefail
