@@ -105,8 +105,9 @@ complete -c vlz -n "__fish_vlz_using_subcommand scan" -l exit-on-kev -d 'Any KEV
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l refresh-exploitability -d 'Force refresh of KEV/EPSS snapshots even when cache is fresh (FR-048)'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -s h -l help -d 'Print help'
-complete -c vlz -n "__fish_vlz_using_subcommand fix" -s f -l format -d 'Output format for dry-run (plain or json)' -r -f -a "plain\t''
-json\t''"
+complete -c vlz -n "__fish_vlz_using_subcommand fix" -s f -l format -d 'Output format for dry-run (plain, json, or diff)' -r -f -a "plain\t''
+json\t''
+diff\t''"
 complete -c vlz -n "__fish_vlz_using_subcommand fix" -s o -l output -d 'Write dry-run output to file instead of stdout' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand fix" -l provider -d 'Force a particular vulnerability provider' -r -f -a "osv\t''"
 complete -c vlz -n "__fish_vlz_using_subcommand fix" -l providers -d 'Comma-separated CVE providers, or `all` (FR-019-EXT)' -r
@@ -128,16 +129,17 @@ complete -c vlz -n "__fish_vlz_using_subcommand config" -l list -d 'List effecti
 complete -c vlz -n "__fish_vlz_using_subcommand config" -l example -d 'Output verilyze.conf.example with effective values for this environment'
 complete -c vlz -n "__fish_vlz_using_subcommand config" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
 complete -c vlz -n "__fish_vlz_using_subcommand config" -s h -l help -d 'Print help'
-complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -l cache-ttl-secs -d 'Default TTL in seconds when opening the cache (default: 432000 = 5 days). Does not change existing entries; use `vlz db set-ttl` to update those' -r
-complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -s c -l config -d 'Override configuration file location' -r -F
-complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
-complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -s h -l help -d 'Print help'
-complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -f -a "stats"
-complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -f -a "verify"
-complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -f -a "migrate"
-complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -f -a "list-providers" -d 'List supported CVE providers'
-complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -f -a "show" -d 'Display cache entries with TTL and added timestamp'
-complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show set-ttl" -f -a "set-ttl" -d 'Update TTL for existing cache entries'
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show import set-ttl" -l cache-ttl-secs -d 'Default TTL in seconds when opening the cache (default: 432000 = 5 days). Does not change existing entries; use `vlz db set-ttl` to update those' -r
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show import set-ttl" -s c -l config -d 'Override configuration file location' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show import set-ttl" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show import set-ttl" -s h -l help -d 'Print help'
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show import set-ttl" -f -a "stats"
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show import set-ttl" -f -a "verify"
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show import set-ttl" -f -a "migrate"
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show import set-ttl" -f -a "list-providers" -d 'List supported CVE providers'
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show import set-ttl" -f -a "show" -d 'Display cache entries with TTL and added timestamp'
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show import set-ttl" -f -a "import" -d 'Import an airgap CVE corpus snapshot into the local cache (FR-021a)'
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show import set-ttl" -f -a "set-ttl" -d 'Update TTL for existing cache entries'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from stats" -s c -l config -d 'Override configuration file location' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from stats" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from stats" -s h -l help -d 'Print help'
@@ -155,6 +157,10 @@ complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_f
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from show" -l full -d 'Include full CVE payload for each entry'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from show" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from show" -s h -l help -d 'Print help'
+complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from import" -l sha256 -d 'Optional lowercase hex SHA-256 of the corpus file (SEC-016)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from import" -s c -l config -d 'Override configuration file location' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from import" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
+complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from import" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from set-ttl" -l entry -d 'Update a single entry by key (e.g. "name::version")' -r
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from set-ttl" -l pattern -d 'Update entries matching pattern' -r
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from set-ttl" -l entries -d 'Update multiple entries (comma-separated keys)' -r

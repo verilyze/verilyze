@@ -105,8 +105,8 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (fix)
 _arguments "${_arguments_options[@]}" : \
-'-f+[Output format for dry-run (plain or json)]:FORMAT:(plain json)' \
-'--format=[Output format for dry-run (plain or json)]:FORMAT:(plain json)' \
+'-f+[Output format for dry-run (plain, json, or diff)]:FORMAT:(plain json diff)' \
+'--format=[Output format for dry-run (plain, json, or diff)]:FORMAT:(plain json diff)' \
 '-o+[Write dry-run output to file instead of stdout]:PATH:_files' \
 '--output=[Write dry-run output to file instead of stdout]:PATH:_files' \
 '--provider=[Force a particular vulnerability provider]:PROVIDER:(osv)' \
@@ -226,6 +226,18 @@ _arguments "${_arguments_options[@]}" : \
 '*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
 '-h[Print help]' \
 '--help[Print help]' \
+&& ret=0
+;;
+(import)
+_arguments "${_arguments_options[@]}" : \
+'--sha256=[Optional lowercase hex SHA-256 of the corpus file (SEC-016)]:HEX:_default' \
+'-c+[Override configuration file location]:PATH:_files' \
+'--config=[Override configuration file location]:PATH:_files' \
+'*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'*--verbose[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':path -- Corpus JSON path (versioned envelope or `db show --full --format json`):_files' \
 && ret=0
 ;;
 (set-ttl)
@@ -384,9 +396,15 @@ _vlz__subcmd__db_commands() {
 'migrate:' \
 'list-providers:List supported CVE providers' \
 'show:Display cache entries with TTL and added timestamp' \
+'import:Import an airgap CVE corpus snapshot into the local cache (FR-021a)' \
 'set-ttl:Update TTL for existing cache entries' \
     )
     _describe -t commands 'vlz db commands' commands "$@"
+}
+(( $+functions[_vlz__subcmd__db__subcmd__import_commands] )) ||
+_vlz__subcmd__db__subcmd__import_commands() {
+    local commands; commands=()
+    _describe -t commands 'vlz db import commands' commands "$@"
 }
 (( $+functions[_vlz__subcmd__db__subcmd__list-providers_commands] )) ||
 _vlz__subcmd__db__subcmd__list-providers_commands() {

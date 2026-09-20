@@ -46,6 +46,9 @@ _vlz() {
             vlz,scan)
                 cmd="vlz__subcmd__scan"
                 ;;
+            vlz__subcmd__db,import)
+                cmd="vlz__subcmd__db__subcmd__import"
+                ;;
             vlz__subcmd__db,list-providers)
                 cmd="vlz__subcmd__db__subcmd__list__subcmd__providers"
                 ;;
@@ -173,13 +176,61 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__db)
-            opts="-v -c -h --cache-ttl-secs --verbose --config --help stats verify migrate list-providers show set-ttl"
+            opts="-v -c -h --cache-ttl-secs --verbose --config --help stats verify migrate list-providers show import set-ttl"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --cache-ttl-secs)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --config)
+                    local oldifs
+                    if [ -n "${IFS+x}" ]; then
+                        oldifs="$IFS"
+                    fi
+                    IFS=$'\n'
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    if [ -n "${oldifs+x}" ]; then
+                        IFS="$oldifs"
+                    fi
+                    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+                        compopt -o filenames
+                    fi
+                    return 0
+                    ;;
+                -c)
+                    local oldifs
+                    if [ -n "${IFS+x}" ]; then
+                        oldifs="$IFS"
+                    fi
+                    IFS=$'\n'
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    if [ -n "${oldifs+x}" ]; then
+                        IFS="$oldifs"
+                    fi
+                    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+                        compopt -o filenames
+                    fi
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vlz__subcmd__db__subcmd__import)
+            opts="-v -c -h --sha256 --verbose --config --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --sha256)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -512,11 +563,11 @@ _vlz() {
             fi
             case "${prev}" in
                 --format)
-                    COMPREPLY=($(compgen -W "plain json" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "plain json diff" -- "${cur}"))
                     return 0
                     ;;
                 -f)
-                    COMPREPLY=($(compgen -W "plain json" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "plain json diff" -- "${cur}"))
                     return 0
                     ;;
                 --output)

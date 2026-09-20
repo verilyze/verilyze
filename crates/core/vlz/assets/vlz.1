@@ -252,7 +252,11 @@ trees stay unavailable; fix each tree separately. Use
 to preview without writing.
 .Bl -tag -width Ds
 .It Fl f Ar fmt , Fl -format Ar fmt
-Dry-run output format: plain or json (default: plain).
+Dry-run output format: plain, json, or diff (default: plain).
+.Cm diff
+emits an explicit unified-diff recipe (optional
+.Fl -output )
+for PR bots; not ambient stdout.
 .It Fl o Ar path , Fl -output Ar path
 Write dry-run output to file instead of stdout.
 .It Fl -dry-run
@@ -322,6 +326,16 @@ Run database migrations.
 .Op Fl f Ar fmt , Fl -format Ar fmt
 .Op Fl -full
 Display cache entries (key, TTL, added-at, CVE summary or full payload).
+.It Nm import Ar path
+.Op Fl -sha256 Ar hex
+Import an airgap CVE corpus JSON into the local cache (FR-021a). Accepts a
+versioned envelope or
+.Nm db show Fl -full Fl -format Ar json
+output that includes
+.Cm raw_vulns .
+Optional
+.Fl -sha256
+verifies the file digest before import.
 .It Nm set-ttl Ar secs
 .Op Fl -entry Ar key
 .Op Fl -all
