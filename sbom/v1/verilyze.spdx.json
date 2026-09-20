@@ -2310,6 +2310,13 @@
     },
     {
       "@type": "Package",
+      "name": "vlz-php",
+      "packageUrl": "pkg:cargo/vlz-php@0.12.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-php-0-12-0",
+      "versionInfo": "0.12.0"
+    },
+    {
+      "@type": "Package",
       "name": "vlz-plugin-macro",
       "packageUrl": "pkg:cargo/vlz-plugin-macro@0.12.0",
       "spdxId": "urn:spdx.dev:pkg-cargo-vlz-plugin-macro-0-12-0",

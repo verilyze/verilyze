@@ -54,11 +54,17 @@ runs:
   using: composite
   steps:
     - name: Download and extract vlz release archive
+      id: install-vlz
       shell: bash
       env:
         VERSION: ${{ inputs.version }}
       run: |
         set -euo pipefail
+        # Reject values that would break path/env wiring (zizmor github-env).
+        if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9._-]+)?$ ]]; then
+          echo "invalid version input: ${VERSION}" >&2
+          exit 1
+        fi
         case "${RUNNER_OS}" in
           Linux)
             platform="linux-x86_64"
@@ -88,17 +94,20 @@ runs:
           *.zip) python3 -c "import zipfile; zipfile.ZipFile('${archive}').extractall()" ;;
         esac
         if [[ "${RUNNER_OS}" == "Windows" ]]; then
-          echo "VLZ_BIN=${PWD}/vlz-${VERSION}-${platform}/vlz.exe" >> "${GITHUB_ENV}"
+          vlz_bin="${PWD}/vlz-${VERSION}-${platform}/vlz.exe"
         else
           chmod +x "vlz-${VERSION}-${platform}/bin/vlz"
-          echo "VLZ_BIN=${PWD}/vlz-${VERSION}-${platform}/bin/vlz" >> "${GITHUB_ENV}"
+          vlz_bin="${PWD}/vlz-${VERSION}-${platform}/bin/vlz"
         fi
+        # Pass via GITHUB_OUTPUT (not GITHUB_ENV) for step-scoped wiring.
+        echo "vlz_bin=${vlz_bin}" >> "${GITHUB_OUTPUT}"
 
     - name: Scan with vlz
       id: vlz-scan
       shell: bash
       continue-on-error: true
       env:
+        VLZ_BIN: ${{ steps.install-vlz.outputs.vlz_bin }}
         VLZ_REACHABILITY_MODE: ${{ inputs.reachability-mode }}
         SCAN_PATH: ${{ inputs.path }}
         PROJECT_ID_INPUT: ${{ inputs.project-id }}
