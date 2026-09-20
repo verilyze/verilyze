@@ -5,6 +5,7 @@
 #![deny(unsafe_code)]
 
 mod vex;
+mod vex_ingest;
 
 pub use vex::{
     CISA_JUSTIFICATIONS, DEFAULT_FP_JUSTIFICATION, DEFAULT_FP_VEX_STATUS,
@@ -12,6 +13,13 @@ pub use vex::{
     VexJustification, VexStatement, VexStatus,
     cisa_to_cyclonedx_justification, cyclonedx_analysis_for,
     derive_vex_statements, nonempty_optional_id,
+};
+pub use vex_ingest::{
+    IngestStatus, IngestedVexStatement, OPENVEX_INGEST_CONTEXTS,
+    VexIngestError, VexIngestKind, VexIngestParseResult, VexIngestPolicy,
+    VexIngestSource, ingest_justification_as_vex, ingest_status_as_vex,
+    merge_suppress_keys, parse_vex_ingest_bytes, parse_vex_ingest_file,
+    parse_vex_ingest_value, suppress_vuln_ids,
 };
 
 use async_trait::async_trait;
