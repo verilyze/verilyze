@@ -698,10 +698,12 @@ metadata) where the language analyzer supports it. Use `tier-b` for
 package-level-only scans. `reachable: false` is heuristic and does not
 suppress findings. GitHub, NVD, and Sonatype stay package-level when they
 lack OSV-shaped symbol metadata.
-Python and Go Tier D are on in the default `vlz` feature set (`python-tier-d`,
-`go-tier-d`). Rust Tier D (`rust-tier-d`) is opt-in because it links `syn`.
-Tier D never emits `reachable: false` and never downgrades a Tier C reachable
-decision.
+Python, Go, and JavaScript Tier D are on in the default `vlz` feature set
+(`python-tier-d`, `go-tier-d`, `javascript-tier-d`). Rust Tier D
+(`rust-tier-d`) is opt-in because it links `syn`. JavaScript Tier D matches
+import bindings to advisory trailing identifiers in first-party sources only
+(no dependency source fetch). Tier D never emits `reachable: false` and never
+downgrades a Tier C reachable decision.
 
 Set `VLZ_REACHABILITY_PERSIST_CACHE=1` (or `true`/`yes`) to persist Tier B and
 per-CVE Tier C **decisions** under `.vlz/reachability-cache.json` in the scan root.
@@ -868,16 +870,17 @@ architecture/PRD.md DOC-003 and design notes on single source of truth).
 
 The `vlz` binary supports optional capabilities via Cargo features:
 
-- **runtime** = `["redb", "python", "rust", "go", "javascript", "java", "ruby", "php", "sbom"]`
+- **runtime** = `["redb", "python", "rust", "go", "javascript", "java", "ruby", "php", "dotnet", "sbom"]`
   -- desktop scan capabilities with on-disk RedB **CVE cache**. When adding a
   new language, add it here **and** to `runtime-mem` so Docker stays in sync.
-- **runtime-mem** = `["mem", "python", "rust", "go", "javascript", "java", "ruby", "php", "sbom"]`
+- **runtime-mem** = `["mem", "python", "rust", "go", "javascript", "java", "ruby", "php", "dotnet", "sbom"]`
   -- same languages with an in-memory CVE cache (no `redb`; for ephemeral /
   Docker).
-- **default** = `["runtime", "completions", "docs", "lsp"]` -- full build with
+- **default** = `["runtime", "completions", "docs", "lsp", "python-tier-d", "go-tier-d", "javascript-tier-d"]` -- full build with
   runtime capabilities, shell completion generation, man page via `vlz help`,
-  and the Language Server (`vlz lsp`). Release builds omit the `testing`
-  feature for a smaller binary.
+  the Language Server (`vlz lsp`), and default Tier D reachability for Python,
+  Go, and JavaScript. Release builds omit the `testing` feature for a smaller
+  binary.
 - **completions** -- `vlz generate-completions` subcommand (bash, zsh, fish);
   pulls in `clap_complete`. Omitted from Docker image to reduce binary size.
 - **docs** -- Man page via **`vlz help`** (runs `man` on embedded `vlz.1`); optional
@@ -905,6 +908,10 @@ The `vlz` binary supports optional capabilities via Cargo features:
   Tier B/C reachability on `.java` / `.kt` sources.
 - **ruby** -- Ruby language plugin (`vlz-ruby` crate); Bundler Gemfile/gems.rb
   and gemspec manifests with Gemfile.lock / gems.locked (OSV `RubyGems`).
+- **php** -- PHP language plugin (`vlz-php` crate); Composer `composer.json`
+  with `composer.lock` (OSV `Packagist`).
+- **dotnet** -- .NET / NuGet language plugin (`vlz-dotnet` crate); `*.csproj` /
+  `*.fsproj` / `*.vbproj` with `packages.lock.json` (OSV `NuGet`).
 - **sbom** -- SBOM inventory plugin (`vlz-sbom` crate); CycloneDX 1.x and
   SPDX 2.2 / 2.3 / 3.0 JSON via allowlisted basenames and `--from-sbom` (FR-038).
 - **nvd** -- NVD CVE provider (`vlz-cve-provider-nvd` crate); opt-in.

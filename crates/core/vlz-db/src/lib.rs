@@ -51,6 +51,9 @@ pub const RUBYGEMS_ECOSYSTEM: &str = "RubyGems";
 /// OSV / package ecosystem for Packagist (PHP / Composer).
 pub const PACKAGIST_ECOSYSTEM: &str = "Packagist";
 
+/// OSV / package ecosystem for NuGet (.NET).
+pub const NUGET_ECOSYSTEM: &str = "NuGet";
+
 #[derive(
     Debug,
     Clone,
@@ -86,9 +89,66 @@ pub fn is_cve_id(s: &str) -> bool {
         && num.bytes().all(|b| b.is_ascii_digit())
 }
 
+/// True when `s` looks like an OSV malicious-package ID (`MAL-YYYY-NNNN`).
+///
+/// OpenSSF Malicious Packages records use this prefix in OSV.dev (FR-011).
+pub fn is_mal_id(s: &str) -> bool {
+    let upper = s.to_ascii_uppercase();
+    let rest = match upper.strip_prefix("MAL-") {
+        Some(rest) => rest,
+        None => return false,
+    };
+    let mut parts = rest.splitn(2, '-');
+    let year = parts.next().unwrap_or("");
+    let num = parts.next().unwrap_or("");
+    year.len() == 4
+        && year.bytes().all(|b| b.is_ascii_digit())
+        && !num.is_empty()
+        && num.bytes().all(|b| b.is_ascii_digit())
+}
+
+/// Finding class for report consumers (OSV CVE/GHSA vs `MAL-*`).
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum FindingClass {
+    /// Ordinary vulnerability advisory (CVE, GHSA, etc.).
+    #[default]
+    Vulnerability,
+    /// OpenSSF / OSV malicious-package record (`MAL-*`).
+    Malicious,
+}
+
+impl FindingClass {
+    /// Stable snake_case label for JSON/SARIF.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Vulnerability => "vulnerability",
+            Self::Malicious => "malicious",
+        }
+    }
+}
+
+/// Derive [`FindingClass`] from a vulnerability record id.
+pub fn finding_class_for_id(id: &str) -> FindingClass {
+    if is_mal_id(id) {
+        FindingClass::Malicious
+    } else {
+        FindingClass::Vulnerability
+    }
+}
+
 /// Canonical form for merge keys and ranking: uppercase CVE IDs, else as-is.
 pub fn normalize_vuln_id(s: &str) -> String {
-    if is_cve_id(s) {
+    if is_cve_id(s) || is_mal_id(s) {
         s.to_ascii_uppercase()
     } else {
         s.to_string()
@@ -683,6 +743,26 @@ mod tests {
         assert_eq!(Severity::Medium.as_str(), "MEDIUM");
         assert_eq!(Severity::Low.as_str(), "LOW");
         assert_eq!(Severity::Unknown.as_str(), "UNKNOWN");
+    }
+
+    #[test]
+    fn is_mal_id_accepts_osv_malicious_prefix() {
+        assert!(is_mal_id("MAL-2025-6812"));
+        assert!(is_mal_id("mal-2022-7441"));
+        assert!(!is_mal_id("CVE-2025-6812"));
+        assert!(!is_mal_id("MAL-25-1"));
+        assert!(!is_mal_id("MAL-2025-"));
+        assert!(!is_mal_id("GHSA-aaaa-bbbb-cccc"));
+        assert_eq!(
+            finding_class_for_id("MAL-2025-6812"),
+            FindingClass::Malicious
+        );
+        assert_eq!(
+            finding_class_for_id("CVE-2024-1708"),
+            FindingClass::Vulnerability
+        );
+        assert_eq!(FindingClass::Malicious.as_str(), "malicious");
+        assert_eq!(normalize_vuln_id("mal-2025-6812"), "MAL-2025-6812");
     }
 
     #[test]

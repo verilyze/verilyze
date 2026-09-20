@@ -20,6 +20,20 @@ Human-readable release notes for each version.
 
 ### Added
 
+- VEX consume (FR-049): `vlz scan` ingests OpenVEX and CycloneDX
+  `vulnerabilities[].analysis` as ephemeral suppress input via `--from-vex`,
+  `[vex] from_vex`, and `VLZ_FROM_VEX`, merged with `vlz-ignore.json` at
+  filter time. Unsigned documents require `allow_unsigned_vex` /
+  `--allow-unsigned-vex` (default true). Unreadable configured paths exit 2.
+
+- OSV `MAL-*` finding class (FR-011): JSON/SARIF include
+  `finding_class` (`vulnerability` | `malicious`); `MAL-*` ids do not
+  merge into CVE/GHSA alias groups (FR-019-EXT). SARIF helpUri for
+  malicious ids points at osv.dev.
+
+- GitLab CI sample at `examples/gitlab-ci-vlz-scan.yml` (NFR-014): release
+  binary install, SARIF/JSON artifacts, FR-010 exit enforcement.
+
 - Opt-in reachability CI gate (`exit_on_reachable` / `VLZ_EXIT_ON_REACHABLE`
   / `--exit-on-reachable`): only `reachable: true` CVEs count toward exit
   86 and SARIF; plain/JSON keep the full finding list (FR-032).
@@ -29,6 +43,18 @@ Human-readable release notes for each version.
   Packagist OSV pins, fail-closed lock-less exit 4 (Composer executes PHP).
   Tier B/C reachability scans `.php` `use` / `require` references. CLI
   contract fixtures and dual fuzz targets for composer.json / composer.lock.
+
+- .NET / NuGet language plugin (`vlz-dotnet`, feature `dotnet`): discover
+  `*.csproj` / `*.fsproj` / `*.vbproj`, prefer `packages.lock.json` (opt-in
+  via `RestorePackagesWithLockFile`), NuGet OSV pins, fail-closed lock-less
+  exit 4 (MSBuild may execute project targets). Tier B/C reachability on
+  `.cs` / `.fs` `using` / `open` heuristics. CLI contract fixtures and dual
+  fuzz targets for csproj / packages.lock.json.
+
+- JavaScript Tier D first-party reachability (`javascript-tier-d`, default):
+  import-binding selectors (default / named / require) match advisory
+  trailing identifiers in first-party sources only -- no `node_modules`
+  fetch. Improves `exit_on_reachable` usefulness on Node trees (FR-032).
 
 - `vlz db import PATH [--sha256 HEX]` (FR-021a): load a versioned JSON CVE
   corpus (or `vlz db show --full --format json` with `raw_vulns`) so

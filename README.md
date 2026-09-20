@@ -42,7 +42,8 @@ Run scans with the built binary (adjust the path if you use `CARGO_TARGET_DIR`):
 # Scan current directory for manifests (Python: requirements.txt, pyproject.toml,
 # Pipfile, setup.cfg, setup.py; Rust: Cargo.toml; Go: go.mod; JavaScript/TypeScript:
 # package.json; Java/Kotlin: pom.xml, build.gradle, gradle/libs.versions.toml;
-# Ruby: Gemfile, gems.rb, *.gemspec; PHP: composer.json)
+# Ruby: Gemfile, gems.rb, *.gemspec; PHP: composer.json; .NET: *.csproj /
+# *.fsproj / *.vbproj)
 # and check for CVEs
 # Prefer an adjacent PEP 751 pylock.toml / pylock.<name>.toml for Python
 # transitive coverage (lock-less Python projects exit 4 by default).
@@ -51,6 +52,8 @@ Run scans with the built binary (adjust the path if you use `CARGO_TARGET_DIR`):
 # Prefer gradle.lockfile for Java/Gradle (lock-less Maven/Gradle exits 4 by default).
 # Prefer Gemfile.lock / gems.locked for Ruby (lock-less Gemfile exits 4 by default).
 # Prefer composer.lock for PHP (lock-less composer.json exits 4 by default).
+# Prefer packages.lock.json for .NET (opt-in RestorePackagesWithLockFile;
+# lock-less project files exit 4 by default).
 ./target/release/vlz scan
 
 # Scan a specific path
@@ -84,6 +87,9 @@ Run scans with the built binary (adjust the path if you use `CARGO_TARGET_DIR`):
 
 # Scan a PHP project (language name: php; Packagist ecosystem)
 ./target/release/vlz scan /path/to/php/project
+
+# Scan a .NET project (language name: dotnet; NuGet ecosystem)
+./target/release/vlz scan /path/to/dotnet/project
 
 # JSON output
 ./target/release/vlz scan --format json
@@ -314,7 +320,9 @@ Then run `make check` for the standard pre-commit gate. For fuzz testing
 - **Security:** [SECURITY.md](SECURITY.md)
 - **Compliance:** [COMPLIANCE.md](COMPLIANCE.md)
 - **JSON report schema:** [schemas/v1/report.json](schemas/v1/report.json)
-- **CI examples:** [examples/github-action-vlz-scan.yml](examples/github-action-vlz-scan.yml)
+- **CI examples:** [examples/github-action-vlz-scan.yml](examples/github-action-vlz-scan.yml),
+  [examples/gitlab-ci-vlz-scan.yml](examples/gitlab-ci-vlz-scan.yml),
+  [examples/gitlab-ci-vlz-scan.yml](examples/gitlab-ci-vlz-scan.yml)
 - **Workspace SBOM:** [sbom/v1/](sbom/v1/) (SEC-019; `make generate-sbom`)
 - **Python dogfood lock:** [pylock.dev.toml](pylock.dev.toml) (PEP 751; SEC-015)
 - **Changelog:** [CHANGELOG.md](CHANGELOG.md)

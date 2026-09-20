@@ -5,6 +5,7 @@
 #![deny(unsafe_code)]
 
 mod vex;
+mod vex_ingest;
 
 pub use vex::{
     CISA_JUSTIFICATIONS, DEFAULT_FP_JUSTIFICATION, DEFAULT_FP_VEX_STATUS,
@@ -12,6 +13,13 @@ pub use vex::{
     VexJustification, VexStatement, VexStatus,
     cisa_to_cyclonedx_justification, cyclonedx_analysis_for,
     derive_vex_statements, nonempty_optional_id,
+};
+pub use vex_ingest::{
+    IngestStatus, IngestedVexStatement, OPENVEX_INGEST_CONTEXTS,
+    VexIngestError, VexIngestKind, VexIngestParseResult, VexIngestPolicy,
+    VexIngestSource, ingest_justification_as_vex, ingest_status_as_vex,
+    merge_suppress_keys, parse_vex_ingest_bytes, parse_vex_ingest_file,
+    parse_vex_ingest_value, suppress_vuln_ids,
 };
 
 use async_trait::async_trait;
@@ -807,6 +815,8 @@ struct JsonCveWithSeverity<'a> {
     #[serde(flatten)]
     cve: &'a CveRecord,
     severity: String,
+    /// `vulnerability` or `malicious` (OSV `MAL-*`; FR-011).
+    finding_class: vlz_db::FindingClass,
 }
 
 /// Reporter that outputs findings as JSON to stdout (FR-007 --format json).
@@ -848,6 +858,9 @@ impl Reporter for JsonReporter {
                         .map(|(cve, severity)| JsonCveWithSeverity {
                             cve,
                             severity: severity.as_str().to_string(),
+                            finding_class: vlz_db::finding_class_for_id(
+                                &cve.id,
+                            ),
                         })
                         .collect(),
                 })
@@ -1054,7 +1067,10 @@ impl Reporter for SarifReporter {
                             "package": finding.package.name,
                             "version": finding.package.version,
                             "severity": severity.as_str(),
-                            "manifest_paths": manifest_uris
+                            "manifest_paths": manifest_uris,
+                            "finding_class": vlz_db::finding_class_for_id(
+                                &cve.id
+                            ).as_str()
                         }
                     });
                     result["properties"]["upgrade_plan"] =
@@ -1121,10 +1137,15 @@ impl Reporter for SarifReporter {
             .collect::<std::collections::HashSet<_>>()
             .into_iter()
             .map(|id| {
+                let help_uri = if vlz_db::is_mal_id(&id) {
+                    format!("https://osv.dev/vulnerability/{}", id)
+                } else {
+                    format!("https://nvd.nist.gov/vuln/detail/{}", id)
+                };
                 serde_json::json!({
                     "id": id,
                     "shortDescription": { "text": id },
-                    "helpUri": format!("https://nvd.nist.gov/vuln/detail/{}", id)
+                    "helpUri": help_uri
                 })
             })
             .collect();
@@ -2587,6 +2608,23 @@ mod tests {
             .unwrap();
         assert_eq!(manifest_paths.len(), 1);
         assert_eq!(manifest_paths[0], "Cargo.toml");
+        assert_eq!(cves[0].get("finding_class").unwrap(), "vulnerability");
+    }
+
+    #[tokio::test]
+    async fn json_reporter_mal_id_finding_class_fr011() {
+        let mut data = sample_report_data_one_finding();
+        data.findings[0].cves[0].0.id = "MAL-2025-6812".to_string();
+        let mut buf = Vec::new();
+        JsonReporter::new()
+            .render_to_writer(&data, &mut buf)
+            .await
+            .unwrap();
+        let out = String::from_utf8(buf).unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(out.trim()).unwrap();
+        let cves = parsed["findings"][0]["cves"].as_array().unwrap();
+        assert_eq!(cves[0].get("finding_class").unwrap(), "malicious");
     }
 
     #[tokio::test]

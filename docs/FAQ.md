@@ -20,6 +20,11 @@ gate subset, or `full` for Appendix A fixtures. This target is **not** part
 of `make check`; GitHub Actions runs it on Ubuntu, macOS, and Windows.
 Smoke includes one `--offline` lock-backed scan per default language.
 
+CI samples (NFR-014): GitHub -- [examples/github-action-vlz-scan.yml](../examples/github-action-vlz-scan.yml)
+and `.github/actions/vlz-scan`; GitLab -- [examples/gitlab-ci-vlz-scan.yml](../examples/gitlab-ci-vlz-scan.yml)
+(release binary, SARIF/JSON artifacts, FR-010 via `scripts/ci-enforce-scan-exit.sh`
+when present). Prefer JSON (DOC-005) for custom Code Quality wrappers.
+
 Tag publish (`release.yml`) downloads **draft** GitHub archives, verifies
 checksums and Cosign bundles, installs the native `vlz`, then runs smoke.
 That gate runs **before** the release leaves draft. The nightly
@@ -29,7 +34,7 @@ move.
 
 Known limits: Linux musl is not a GitHub archive; Windows has no first-class
 Bash/Zsh/Fish install (generation plus zip layout only). Default lock-less
-Python, JavaScript, Java, Ruby, and PHP scans exit 4. Lock-less `--offline` is
+Python, JavaScript, Java, Ruby, PHP, and .NET scans exit 4. Lock-less `--offline` is
 FR-022a DirectOnly (never unqualified `No vulnerabilities found.`).
 
 ## SBOM inventory input (FR-038)
@@ -52,6 +57,18 @@ vlz scan --from-sbom sbom.cdx.json
 vlz scan --from-sbom inventory.spdx.json /path/to/project
 vlz preload --from-sbom bom.json
 ```
+
+## VEX consume (FR-049)
+
+Pass `--from-vex PATH` (repeatable), `[vex] from_vex`, or `VLZ_FROM_VEX`
+(comma-separated) to ingest OpenVEX documents or CycloneDX analysis as
+**ephemeral** suppress input merged with `vlz-ignore.json` at filter time
+(ignore file is not rewritten). Only allowlisted statuses suppress
+(`not_affected` / `fixed`, plus CycloneDX `false_positive` / `resolved` /
+`resolved_with_pedigree`). Unknown status, product mismatch, or unrecognized
+shape emits a stderr warning and keeps the finding. Unreadable configured
+paths exit **2**. Unsigned documents suppress only when
+`allow_unsigned_vex` / `--allow-unsigned-vex` is true (default true).
 
 ## Docker
 
@@ -648,6 +665,16 @@ Composer executes PHP). Use `--allow-dependency-code-execution` for ephemeral
 `composer update --no-install`, or `--allow-direct-only-fallback` for
 direct-only coverage.
 
+**.NET / NuGet:** The `dotnet` language covers `*.csproj`, `*.fsproj`, and
+`*.vbproj`. Prefer an adjacent or parent `packages.lock.json` (walk up to the
+scan root). NuGet lock files are **opt-in** in SDK-style projects: set
+`RestorePackagesWithLockFile` to `true` in the project (or Directory.Build.props)
+and commit `packages.lock.json` after `dotnet restore`. Without a usable lock,
+the scan exits **4** by default (SEC-023 does not run `dotnet restore`; MSBuild
+may execute project targets). Use `--allow-dependency-code-execution` for
+ephemeral restore with lock generation, or `--allow-direct-only-fallback` for
+direct-only coverage.
+
 ### Unable to detect transitive dependencies (exit 4)
 
 **Message:** `Unable to detect transitive dependencies. Add an adjacent lock
@@ -664,7 +691,9 @@ manager execution is disabled; lock-less Java Maven/Gradle manifests without
 `gradle.lockfile` when PM execution is disabled; lock-less Ruby Gemfile/gems.rb
 or gemspec without Gemfile.lock/gems.locked when Bundler execution is disabled;
 lock-less PHP `composer.json` without `composer.lock` when Composer execution
-is disabled; explicit pip resolution failed after
+is disabled; lock-less .NET `*.csproj` / `*.fsproj` / `*.vbproj` without
+`packages.lock.json` when `dotnet` execution is disabled; explicit pip
+resolution failed after
 `--allow-dependency-code-execution`; or the parser found no dependencies.
 
 **Remediation:**
@@ -673,7 +702,8 @@ is disabled; explicit pip resolution failed after
    `pylock.<name>.toml` for Python, `Cargo.lock`, `go.sum` (with `go.mod`), or
    a JS lock (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lock`),
    or `gradle.lockfile` for Java/Gradle, or `Gemfile.lock` / `gems.locked` for
-   Ruby, or `composer.lock` for PHP.
+   Ruby, or `composer.lock` for PHP, or `packages.lock.json` for .NET
+   (`RestorePackagesWithLockFile=true`).
 2. Ensure pip >= 25.1 is on PATH for safe `pip lock -r` on `requirements.txt`.
 3. For Rust lock-less scans, ensure `cargo` is on PATH and the crates.io
    registry is reachable (or use `--offline` with a committed `Cargo.lock`).
@@ -687,9 +717,12 @@ is disabled; explicit pip resolution failed after
    (`bundle lock` evaluates Gemfile as Ruby).
 8. For PHP, commit `composer.lock` or use `--allow-dependency-code-execution`
    only in trusted CI or workspaces (Composer executes PHP).
-9. For local Python projects, use `--allow-dependency-code-execution` only in
+9. For .NET, enable `RestorePackagesWithLockFile`, commit `packages.lock.json`,
+   or use `--allow-dependency-code-execution` only in trusted CI or workspaces
+   (`dotnet restore` evaluates MSBuild targets).
+10. For local Python projects, use `--allow-dependency-code-execution` only in
    trusted CI or workspaces (see SECURITY.md).
-10. When you accept direct-only scanning without transitive coverage, use
+11. When you accept direct-only scanning without transitive coverage, use
    `--allow-direct-only-fallback`, `VLZ_ALLOW_DIRECT_ONLY_FALLBACK=1`, or
    `allow_direct_only_fallback = true` in config.
 11. Use `--offline` or `--benchmark` only when you accept direct-only scanning

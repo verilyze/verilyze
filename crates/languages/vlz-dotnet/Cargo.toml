@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[package]
+name = "vlz-dotnet"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+description = "NuGet/.NET language plugin for verilyze (packages.lock.json)"
+
+[dependencies]
+async-trait.workspace = true
+quick-xml = { workspace = true, features = ["encoding"] }
+regex.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["fs", "rt", "process", "time"] }
+vlz-db.workspace = true
+vlz-manifest-finder.workspace = true
+vlz-manifest-parser.workspace = true
+vlz-reachability-trait.workspace = true
+
+[features]
+perf-instrumentation = ["vlz-reachability-trait/perf-instrumentation"]
+
+[dev-dependencies]
+temp-env = { workspace = true, features = ["async_closure"] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt", "macros"] }

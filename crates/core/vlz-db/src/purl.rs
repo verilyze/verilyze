@@ -6,7 +6,8 @@
 
 use crate::{
     CRATES_IO_ECOSYSTEM, GO_ECOSYSTEM, MAVEN_ECOSYSTEM, NPM_ECOSYSTEM,
-    PACKAGIST_ECOSYSTEM, PYPI_ECOSYSTEM, Package, RUBYGEMS_ECOSYSTEM,
+    NUGET_ECOSYSTEM, PACKAGIST_ECOSYSTEM, PYPI_ECOSYSTEM, Package,
+    RUBYGEMS_ECOSYSTEM,
 };
 
 /// PURL type string for SBOM output from a package ecosystem (SEC-019).
@@ -18,6 +19,7 @@ pub fn purl_type_for_ecosystem(ecosystem: Option<&str>) -> &'static str {
         Some(MAVEN_ECOSYSTEM) => "maven",
         Some(RUBYGEMS_ECOSYSTEM) => "gem",
         Some(PACKAGIST_ECOSYSTEM) => "composer",
+        Some(NUGET_ECOSYSTEM) => "nuget",
         Some(PYPI_ECOSYSTEM) | None => "pypi",
         _ => "pypi",
     }
@@ -32,6 +34,7 @@ pub fn ecosystem_for_purl_type(purl_type: &str) -> Option<&'static str> {
         "maven" => Some(MAVEN_ECOSYSTEM),
         "gem" => Some(RUBYGEMS_ECOSYSTEM),
         "composer" => Some(PACKAGIST_ECOSYSTEM),
+        "nuget" => Some(NUGET_ECOSYSTEM),
         "pypi" => Some(PYPI_ECOSYSTEM),
         _ => None,
     }
@@ -46,7 +49,7 @@ pub fn purl_for_package(pkg: &Package) -> String {
 /// Parse a Package URL into a [`Package`] for CVE lookup (FR-038).
 ///
 /// Supported types: `pypi`, `cargo`, `golang`, `npm`, `maven`, `gem`,
-/// `composer`. Maven names use OSV `groupId:artifactId`. Accepts both
+/// `composer`, `nuget`. Maven names use OSV `groupId:artifactId`. Accepts both
 /// `pkg:maven/group/artifact@version` and `pkg:maven/group:artifact@version`
 /// (the latter matches vlz export).
 pub fn package_from_purl(purl: &str) -> Option<Package> {
@@ -220,5 +223,18 @@ mod tests {
             ecosystem_for_purl_type("COMPOSER"),
             Some(PACKAGIST_ECOSYSTEM)
         );
+    }
+
+    #[test]
+    fn purl_round_trip_nuget() {
+        let pkg = Package {
+            name: "Newtonsoft.Json".to_string(),
+            version: "13.0.3".to_string(),
+            ecosystem: Some(NUGET_ECOSYSTEM.to_string()),
+        };
+        let purl = purl_for_package(&pkg);
+        assert_eq!(purl, "pkg:nuget/Newtonsoft.Json@13.0.3");
+        assert_eq!(package_from_purl(&purl), Some(pkg));
+        assert_eq!(ecosystem_for_purl_type("NUGET"), Some(NUGET_ECOSYSTEM));
     }
 }

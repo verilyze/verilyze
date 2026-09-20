@@ -2708,6 +2708,7 @@ dependencies = [
  "vlz-db",
  "vlz-db-mem",
  "vlz-db-redb",
+ "vlz-dotnet",
  "vlz-exploitability",
  "vlz-go",
  "vlz-integrity",
@@ -2840,6 +2841,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "vlz-dotnet"
+version = "0.12.0"
+dependencies = [
+ "async-trait",
+ "quick-xml",
+ "regex",
+ "serde",
+ "serde_json",
+ "temp-env",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "vlz-db",
+ "vlz-manifest-finder",
+ "vlz-manifest-parser",
+ "vlz-reachability-trait",
+]
+
+[[package]]
 name = "vlz-exploitability"
 version = "0.12.0"
 dependencies = [
@@ -2856,6 +2876,7 @@ version = "0.12.0"
 dependencies = [
  "afl",
  "vlz",
+ "vlz-dotnet",
  "vlz-exploitability",
  "vlz-go",
  "vlz-java",

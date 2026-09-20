@@ -56,6 +56,7 @@ complete -c vlz -n "__fish_vlz_using_subcommand scan" -l ignore-db -d 'Override 
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l scan-exclude-dir -d 'Exclude directory name from manifest discovery (repeatable)' -r -f -a "(__fish_complete_directories)"
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l lock-file -d 'Only discover/merge listed Python lock file basenames (repeatable)' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l from-sbom -d 'Scan SBOM inventory file (CycloneDX 1.x / SPDX 2.x or 3.0 JSON; repeatable)' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l from-vex -d 'Ingest OpenVEX / CycloneDX analysis as scan suppress input (FR-049; repeatable)' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l cache-ttl-secs -d 'Default TTL in seconds for new cache entries (default: 432000 = 5 days). Does not change existing entries; use `vlz db set-ttl` to update those' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l min-score -d 'Minimum CVSS score to count toward exit code' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l min-count -d 'Minimum count of CVEs meeting min-score to trigger CVE exit code (0 = any)' -r
@@ -87,6 +88,8 @@ complete -c vlz -n "__fish_vlz_using_subcommand scan" -l vex-product-id -d 'Prod
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l vex-author-name -d 'Author name for OpenVEX documents (default: verilyze)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l vex-author-namespace -d 'Author namespace / role for OpenVEX documents' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l vex-reachability-not-affected -d 'Map reachability false to VEX not_affected (default: in_triage). Omit to leave config/env unchanged; pass `true`/`false` to override. A bare flag (no value) means true' -r -f -a "true\t''
+false\t''"
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l allow-unsigned-vex -d 'Allow unsigned VEX ingest documents to suppress findings (FR-049). Omit to leave config/env unchanged; pass `true`/`false` to override. A bare flag (no value) means true. Default is true until signing is mandatory' -r -f -a "true\t''
 false\t''"
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l min-epss -d 'Minimum EPSS score (0.0-1.0) to trigger the CVE exit code (FR-048)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l kev-file -d 'KEV snapshot file (JSON or CSV) instead of cache/network (FR-048)' -r -F
