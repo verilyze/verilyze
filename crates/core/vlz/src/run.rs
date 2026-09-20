@@ -2953,6 +2953,7 @@ async fn run_fix(
     // -----------------------------------------------------------------
     // Emit plan output. Detailed files/argv preview is dry-run only so
     // apply stdout stays compact for scripts (FR-041).
+    // Explicit `--format diff` selects a unified-diff recipe (NFR-013).
     // -----------------------------------------------------------------
     let output_body = if format.eq_ignore_ascii_case("json") {
         let findings: Vec<serde_json::Value> = plan_entries
@@ -2975,6 +2976,21 @@ async fn run_fix(
             })
             .collect();
         serde_json::json!({ "findings": findings })
+    } else if format.eq_ignore_ascii_case("diff") {
+        let diff_entries: Vec<crate::fix_diff::FixDiffEntry<'_>> =
+            plan_entries
+                .iter()
+                .map(|e| crate::fix_diff::FixDiffEntry {
+                    package: &e.package,
+                    upgrade_plan: &e.upgrade_plan,
+                    preview: e.preview.as_ref(),
+                    sbom_only: e.sbom_only,
+                })
+                .collect();
+        serde_json::Value::String(crate::fix_diff::format_fix_diff_recipe(
+            &diff_entries,
+            &scan_root_path,
+        ))
     } else {
         let mut lines = String::new();
         if plan_entries.is_empty() {
@@ -3019,7 +3035,7 @@ async fn run_fix(
             std::fs::write(path, serde_json::to_string_pretty(&output_body)?)
                 .context("Writing fix JSON output")?;
         } else if let Some(s) = output_body.as_str() {
-            std::fs::write(path, s).context("Writing fix plain output")?;
+            std::fs::write(path, s).context("Writing fix output")?;
         }
     } else if format.eq_ignore_ascii_case("json") {
         write_stdout(&format!(

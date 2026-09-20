@@ -5,6 +5,11 @@
 # Example GitHub Actions workflow: scan a repository with vlz (NFR-014).
 # Copy relevant jobs into .github/workflows/ in your project.
 #
+# Prefer the composite action when you want a short `uses:` form:
+#   - uses: verilyze/verilyze/.github/actions/vlz-scan@<commit-sha>
+#     with:
+#       version: "0.12.0"
+#
 # Prerequisites:
 # - Network access to OSV (or pre-warm cache / use --offline with populated cache)
 # - Code scanning enabled (Settings -> Code security)

@@ -25,6 +25,12 @@ Human-readable release notes for each version.
   `--offline` works without per-tree online `vlz preload`. Optional SHA-256
   digest check before parse.
 
+- Composite GitHub Action at `.github/actions/vlz-scan` (NFR-014 packaging):
+  download a pinned release, scan, upload SARIF, enforce FR-010 exits.
+
+- `vlz fix --format diff` (FR-041): explicit unified-diff recipe for dry-run
+  remediations (optional `--output`); does not use ambient stdout.
+
 - Go and Rust Tier D first-party refinement: Go (`go-tier-d`, default)
   uses import-aware selectors (no new parser); Rust (`rust-tier-d`,
   opt-in) uses `syn` AST paths. Evidence sets `reachable: true`;

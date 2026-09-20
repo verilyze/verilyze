@@ -390,7 +390,7 @@ pub enum Commands {
         #[arg(value_name = "PATH", value_hint = ValueHint::DirPath)]
         root: Option<String>,
 
-        /// Output format for dry-run (plain or json)
+        /// Output format for dry-run (plain, json, or diff)
         #[arg(
             short,
             long,

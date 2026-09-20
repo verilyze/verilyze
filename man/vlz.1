@@ -252,7 +252,11 @@ trees stay unavailable; fix each tree separately. Use
 to preview without writing.
 .Bl -tag -width Ds
 .It Fl f Ar fmt , Fl -format Ar fmt
-Dry-run output format: plain or json (default: plain).
+Dry-run output format: plain, json, or diff (default: plain).
+.Cm diff
+emits an explicit unified-diff recipe (optional
+.Fl -output )
+for PR bots; not ambient stdout.
 .It Fl o Ar path , Fl -output Ar path
 Write dry-run output to file instead of stdout.
 .It Fl -dry-run
