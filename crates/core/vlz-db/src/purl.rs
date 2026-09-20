@@ -6,7 +6,7 @@
 
 use crate::{
     CRATES_IO_ECOSYSTEM, GO_ECOSYSTEM, MAVEN_ECOSYSTEM, NPM_ECOSYSTEM,
-    PYPI_ECOSYSTEM, Package, RUBYGEMS_ECOSYSTEM,
+    PACKAGIST_ECOSYSTEM, PYPI_ECOSYSTEM, Package, RUBYGEMS_ECOSYSTEM,
 };
 
 /// PURL type string for SBOM output from a package ecosystem (SEC-019).
@@ -17,6 +17,7 @@ pub fn purl_type_for_ecosystem(ecosystem: Option<&str>) -> &'static str {
         Some(NPM_ECOSYSTEM) => "npm",
         Some(MAVEN_ECOSYSTEM) => "maven",
         Some(RUBYGEMS_ECOSYSTEM) => "gem",
+        Some(PACKAGIST_ECOSYSTEM) => "composer",
         Some(PYPI_ECOSYSTEM) | None => "pypi",
         _ => "pypi",
     }
@@ -30,6 +31,7 @@ pub fn ecosystem_for_purl_type(purl_type: &str) -> Option<&'static str> {
         "npm" => Some(NPM_ECOSYSTEM),
         "maven" => Some(MAVEN_ECOSYSTEM),
         "gem" => Some(RUBYGEMS_ECOSYSTEM),
+        "composer" => Some(PACKAGIST_ECOSYSTEM),
         "pypi" => Some(PYPI_ECOSYSTEM),
         _ => None,
     }
@@ -43,8 +45,8 @@ pub fn purl_for_package(pkg: &Package) -> String {
 
 /// Parse a Package URL into a [`Package`] for CVE lookup (FR-038).
 ///
-/// Supported types: `pypi`, `cargo`, `golang`, `npm`, `maven`, `gem`.
-/// Maven names use OSV `groupId:artifactId`. Accepts both
+/// Supported types: `pypi`, `cargo`, `golang`, `npm`, `maven`, `gem`,
+/// `composer`. Maven names use OSV `groupId:artifactId`. Accepts both
 /// `pkg:maven/group/artifact@version` and `pkg:maven/group:artifact@version`
 /// (the latter matches vlz export).
 pub fn package_from_purl(purl: &str) -> Option<Package> {
@@ -201,6 +203,22 @@ mod tests {
         assert_eq!(
             ecosystem_for_purl_type("CARGO"),
             Some(CRATES_IO_ECOSYSTEM)
+        );
+    }
+
+    #[test]
+    fn purl_round_trip_packagist() {
+        let pkg = Package {
+            name: "symfony/http-foundation".to_string(),
+            version: "6.4.0".to_string(),
+            ecosystem: Some(PACKAGIST_ECOSYSTEM.to_string()),
+        };
+        let purl = purl_for_package(&pkg);
+        assert_eq!(purl, "pkg:composer/symfony/http-foundation@6.4.0");
+        assert_eq!(package_from_purl(&purl), Some(pkg));
+        assert_eq!(
+            ecosystem_for_purl_type("COMPOSER"),
+            Some(PACKAGIST_ECOSYSTEM)
         );
     }
 }

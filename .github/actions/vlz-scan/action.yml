@@ -1,0 +1,183 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Composite action: install a published vlz release, scan, upload SARIF
+# (NFR-014 / DOC-001 packaging). Prefer pinning this action by commit SHA
+# and verifying release archive digests before production use.
+#
+# Example:
+#   - uses: verilyze/verilyze/.github/actions/vlz-scan@<sha>
+#     with:
+#       version: "0.12.0"
+
+name: vlz scan
+description: >
+  Download a published vlz release archive, scan the repository, upload SARIF
+  to GitHub code scanning, and enforce FR-010 exit policy.
+author: verilyze
+
+inputs:
+  version:
+    description: Published vlz release version (without leading v)
+    required: true
+  path:
+    description: Scan root (relative to workspace)
+    required: false
+    default: "."
+  project-id:
+    description: Project ID for FP scoping (defaults to github.repository)
+    required: false
+    default: ""
+  reachability-mode:
+    description: Reachability mode (off, tier-b, best-available)
+    required: false
+    default: "best-available"
+  upload-sarif:
+    description: Upload SARIF to GitHub code scanning when true
+    required: false
+    default: "true"
+  sarif-category:
+    description: Code scanning category for the SARIF upload
+    required: false
+    default: "verilyze-sca"
+
+outputs:
+  scan_exit:
+    description: Exit code from vlz scan (FR-010)
+    value: ${{ steps.vlz-scan.outputs.scan_exit }}
+  sarif_path:
+    description: Path to the generated SARIF report
+    value: ${{ steps.vlz-scan.outputs.sarif_path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Download and extract vlz release archive
+      id: install-vlz
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        # Reject values that would break path/env wiring (zizmor github-env).
+        if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9._-]+)?$ ]]; then
+          echo "invalid version input: ${VERSION}" >&2
+          exit 1
+        fi
+        case "${RUNNER_OS}" in
+          Linux)
+            platform="linux-x86_64"
+            archive="vlz-${VERSION}-${platform}.tar.gz"
+            ;;
+          macOS)
+            platform="macos-aarch64"
+            archive="vlz-${VERSION}-${platform}.tar.gz"
+            ;;
+          Windows)
+            platform="windows-x86_64"
+            archive="vlz-${VERSION}-${platform}.zip"
+            ;;
+          *)
+            echo "unsupported runner OS: ${RUNNER_OS}" >&2
+            exit 1
+            ;;
+        esac
+        base="https://github.com/verilyze/verilyze/releases/download/v${VERSION}"
+        curl -fsSL -O "${base}/SHA256SUMS"
+        curl -fsSL -O "${base}/${archive}"
+        curl -fsSL -O "${base}/${archive}.sigstore.json"
+        curl -fsSL -O "${base}/${archive}.intoto.jsonl"
+        # Portable SHA-256 check: GNU sha256sum -c on Linux; shasum/openssl on
+        # macOS (BSD sha256sum has no GNU -c).
+        line="$(grep -F "${archive}" SHA256SUMS)" || {
+          echo "missing SHA256SUMS entry for ${archive}" >&2
+          exit 1
+        }
+        if ! printf '%s\n' "${line}" | sha256sum -c --status 2>/dev/null; then
+          expected="$(awk '{print $1}' <<<"${line}")"
+          fname="$(awk '{print $2}' <<<"${line}")"
+          if command -v shasum >/dev/null 2>&1; then
+            actual="$(shasum -a 256 "${fname}" | awk '{print $1}')"
+          elif command -v openssl >/dev/null 2>&1; then
+            actual="$(openssl dgst -sha256 "${fname}" | awk '{print $NF}')"
+          else
+            echo "need GNU sha256sum, shasum, or openssl to verify ${archive}" >&2
+            exit 1
+          fi
+          if [[ "${actual}" != "${expected}" ]]; then
+            echo "${archive}: FAILED" >&2
+            exit 1
+          fi
+        fi
+        printf '%s: OK\n' "${archive}"
+        case "${archive}" in
+          *.tar.gz) tar -xzf "${archive}" ;;
+          *.zip) python3 -c "import zipfile; zipfile.ZipFile('${archive}').extractall()" ;;
+        esac
+        if [[ "${RUNNER_OS}" == "Windows" ]]; then
+          vlz_bin="${PWD}/vlz-${VERSION}-${platform}/vlz.exe"
+        else
+          chmod +x "vlz-${VERSION}-${platform}/bin/vlz"
+          vlz_bin="${PWD}/vlz-${VERSION}-${platform}/bin/vlz"
+        fi
+        # Pass via GITHUB_OUTPUT (not GITHUB_ENV) for step-scoped wiring.
+        echo "vlz_bin=${vlz_bin}" >> "${GITHUB_OUTPUT}"
+
+    - name: Scan with vlz
+      id: vlz-scan
+      shell: bash
+      continue-on-error: true
+      env:
+        VLZ_BIN: ${{ steps.install-vlz.outputs.vlz_bin }}
+        VLZ_REACHABILITY_MODE: ${{ inputs.reachability-mode }}
+        SCAN_PATH: ${{ inputs.path }}
+        PROJECT_ID_INPUT: ${{ inputs.project-id }}
+      run: |
+        set -uo pipefail
+        project_id="${PROJECT_ID_INPUT}"
+        if [[ -z "${project_id}" ]]; then
+          project_id="${GITHUB_REPOSITORY}"
+        fi
+        sarif_path="${RUNNER_TEMP}/vlz.sarif"
+        "${VLZ_BIN}" scan "${SCAN_PATH}" \
+          --project-id "${project_id}" \
+          --reachability-mode "${VLZ_REACHABILITY_MODE}" \
+          --format sarif \
+          --output "${sarif_path}"
+        scan_exit=$?
+        {
+          echo "scan_exit=${scan_exit}"
+          echo "sarif_path=${sarif_path}"
+        } >> "${GITHUB_OUTPUT}"
+        exit "${scan_exit}"
+
+    - name: Upload SARIF to code scanning
+      if: >-
+        inputs.upload-sarif == 'true' &&
+        always() &&
+        steps.vlz-scan.outcome != 'cancelled' &&
+        (github.event_name != 'pull_request' ||
+         github.event.pull_request.head.repo.full_name == github.repository)
+      uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
+      with:
+        sarif_file: ${{ steps.vlz-scan.outputs.sarif_path }}
+        category: ${{ inputs.sarif-category }}
+
+    - name: Enforce scan policy (FR-010)
+      if: >-
+        always() &&
+        steps.vlz-scan.outputs.scan_exit != '' &&
+        steps.vlz-scan.outputs.scan_exit != '0'
+      shell: bash
+      env:
+        SCAN_EXIT: ${{ steps.vlz-scan.outputs.scan_exit }}
+      run: |
+        set -euo pipefail
+        # Composite actions may run outside the repo checkout of this action;
+        # prefer a checked-out copy of the enforce script when present.
+        if [[ -f ./scripts/ci-enforce-scan-exit.sh ]]; then
+          ./scripts/ci-enforce-scan-exit.sh
+        else
+          exit "${SCAN_EXIT}"
+        fi

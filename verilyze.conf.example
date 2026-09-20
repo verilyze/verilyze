@@ -30,6 +30,10 @@
 # best-available)
 # reachability_mode = best-available
 
+# When true, only CVEs with reachable: true count toward exit 86 and SARIF
+# results; plain/JSON keep the full finding list (FR-032; default false)
+# exit_on_reachable = false
+
 # Default cache TTL in seconds (5 days); only affects new entries
 # cache_ttl_secs = 432000
 

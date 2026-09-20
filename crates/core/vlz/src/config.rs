@@ -176,6 +176,9 @@ pub struct EffectiveConfig {
     /// Configurable CVSS severity thresholds per version (FR-013).
     pub severity: vlz_report::SeverityConfig,
     pub reachability_mode: ReachabilityMode,
+    /// When true, only `reachable: true` CVEs count toward exit 86 and SARIF
+    /// results (FR-032). Plain/JSON keep the full finding list. Default false.
+    pub exit_on_reachable: bool,
     /// VEX generation settings (FR-044, FR-046).
     pub vex: vlz_report::VexConfig,
     /// When true, omit VEX analysis from reports (`--no-vex`).
@@ -225,6 +228,7 @@ impl Default for EffectiveConfig {
             config_file: None,
             severity: vlz_report::SeverityConfig::default(),
             reachability_mode: DEFAULT_REACHABILITY_MODE,
+            exit_on_reachable: false,
             vex: vlz_report::VexConfig::default(),
             no_vex: false,
             exploitability: vlz_exploitability::ExploitabilityConfig::default(
@@ -274,6 +278,8 @@ struct FileConfig {
     scan_exclude_dirs: Option<Vec<String>>,
     #[serde(rename = "reachability_mode")]
     reachability_mode: Option<String>,
+    #[serde(rename = "exit_on_reachable")]
+    exit_on_reachable: Option<bool>,
     #[serde(rename = "keep_ephemeral_venv")]
     keep_ephemeral_venv: Option<bool>,
     #[serde(rename = "allow_dependency_code_execution")]
@@ -350,6 +356,7 @@ const KNOWN_FILE_CONFIG_KEYS: &[&str] = &[
     "scan_exclude_dirs",
     "providers",
     "reachability_mode",
+    "exit_on_reachable",
     "keep_ephemeral_venv",
     "allow_dependency_code_execution",
     "allow_direct_only_fallback",
@@ -453,6 +460,9 @@ fn apply_file_config_inner(
     extract_providers_toml(cfg, raw)?;
     if let Some(mode) = parsed.reachability_mode {
         cfg.reachability_mode = parse_reachability_mode(&mode, source)?;
+    }
+    if let Some(v) = parsed.exit_on_reachable {
+        cfg.exit_on_reachable = v;
     }
     if let Some(v) = parsed.keep_ephemeral_venv {
         cfg.keep_ephemeral_venv = v;
@@ -1276,6 +1286,9 @@ pub fn load_with_reachability_overrides(
     if let Some(mode) = env_reachability_mode {
         cfg.reachability_mode = mode;
     }
+    if let Some(v) = env_exit_on_reachable() {
+        cfg.exit_on_reachable = v;
+    }
     if let Some(v) = env_keep_ephemeral_venv() {
         cfg.keep_ephemeral_venv = v;
     }
@@ -1640,6 +1653,22 @@ fn parse_env_bool_var(name: &str) -> Option<bool> {
             "1" | "true" | "yes" | "on"
         )
     })
+}
+
+/// Read `VLZ_EXIT_ON_REACHABLE` (FR-032 CI gate).
+/// Accepts `1`/`true`/`yes`/`on` or `0`/`false`/`no`/`off`.
+pub fn env_exit_on_reachable() -> Option<bool> {
+    let Ok(v) = std::env::var("VLZ_EXIT_ON_REACHABLE") else {
+        return None;
+    };
+    let lower = v.trim().to_ascii_lowercase();
+    if matches!(lower.as_str(), "1" | "true" | "yes" | "on") {
+        Some(true)
+    } else if matches!(lower.as_str(), "0" | "false" | "no" | "off") {
+        Some(false)
+    } else {
+        None
+    }
 }
 
 /// Read `VLZ_KEEP_EPHEMERAL_VENV` (FR-023 debug).
@@ -3878,6 +3907,57 @@ ttl_secs = 3600
     fn reachability_mode_invalid_env_value_returns_none() {
         temp_env::with_var("VLZ_REACHABILITY_MODE", Some("invalid"), || {
             assert_eq!(env_reachability_mode(), None);
+        });
+    }
+
+    #[test]
+    fn exit_on_reachable_default_is_false() {
+        let cfg = load_with_reachability(None, None, None, None);
+        assert!(!cfg.exit_on_reachable);
+    }
+
+    #[test]
+    fn exit_on_reachable_from_config_file() {
+        let dir = test_tempdir();
+        let config_path = dir.path().join("verilyze.conf");
+        std::fs::write(&config_path, "exit_on_reachable = true\n")
+            .expect("write config");
+        let cfg = load_with_reachability(
+            Some(config_path.to_str().expect("path utf-8")),
+            None,
+            None,
+            None,
+        );
+        assert!(cfg.exit_on_reachable);
+    }
+
+    #[test]
+    fn exit_on_reachable_env_overrides_config_file() {
+        let dir = test_tempdir();
+        let config_path = dir.path().join("verilyze.conf");
+        std::fs::write(&config_path, "exit_on_reachable = false\n")
+            .expect("write config");
+        temp_env::with_var("VLZ_EXIT_ON_REACHABLE", Some("1"), || {
+            let cfg = load_with_reachability(
+                Some(config_path.to_str().expect("path utf-8")),
+                None,
+                None,
+                None,
+            );
+            assert!(cfg.exit_on_reachable);
+        });
+    }
+
+    #[test]
+    fn env_exit_on_reachable_parses_truthy_and_falsy() {
+        temp_env::with_var("VLZ_EXIT_ON_REACHABLE", Some("yes"), || {
+            assert_eq!(env_exit_on_reachable(), Some(true));
+        });
+        temp_env::with_var("VLZ_EXIT_ON_REACHABLE", Some("off"), || {
+            assert_eq!(env_exit_on_reachable(), Some(false));
+        });
+        temp_env::with_var("VLZ_EXIT_ON_REACHABLE", Some("maybe"), || {
+            assert_eq!(env_exit_on_reachable(), None);
         });
     }
 

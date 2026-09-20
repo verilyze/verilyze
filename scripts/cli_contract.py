@@ -31,6 +31,7 @@ DEFAULT_LANGUAGES = (
     "javascript",
     "java",
     "ruby",
+    "php",
     "sbom",
 )
 VALID_MODES = ("smoke", "full")

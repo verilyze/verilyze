@@ -19,6 +19,7 @@ vlz-go = { path = "../../crates/languages/vlz-go" }
 vlz-javascript = { path = "../../crates/languages/vlz-javascript" }
 vlz-java = { path = "../../crates/languages/vlz-java" }
 vlz-ruby = { path = "../../crates/languages/vlz-ruby" }
+vlz-php = { path = "../../crates/languages/vlz-php" }
 vlz-sbom = { path = "../../crates/languages/vlz-sbom" }
 
 [[bin]]
@@ -124,6 +125,14 @@ path = "fuzz_targets/gemfile_lock.rs"
 [[bin]]
 name = "fuzz_gemspec"
 path = "fuzz_targets/gemspec.rs"
+
+[[bin]]
+name = "fuzz_composer_json"
+path = "fuzz_targets/composer_json.rs"
+
+[[bin]]
+name = "fuzz_composer_lock"
+path = "fuzz_targets/composer_lock.rs"
 
 [[bin]]
 name = "fuzz_cyclonedx_json"

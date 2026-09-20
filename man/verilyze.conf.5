@@ -83,6 +83,12 @@ Default: best-available.
 Env: VLZ_REACHABILITY_MODE.
 CLI: --reachability-mode.
 
+.It Va exit_on_reachable
+When true, only CVEs with reachable: true count toward exit 86 and SARIF results; plain/JSON keep the full finding list (FR-032; default false).
+Default: false.
+Env: VLZ_EXIT_ON_REACHABLE.
+CLI: --exit-on-reachable.
+
 .It Va cache_ttl_secs
 Default cache TTL in seconds (5 days); only affects new entries.
 Default: 432000.

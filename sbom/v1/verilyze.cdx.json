@@ -2298,6 +2298,13 @@
       "version": "0.12.0"
     },
     {
+      "bom-ref": "pkg:cargo/vlz-php@0.12.0",
+      "name": "vlz-php",
+      "purl": "pkg:cargo/vlz-php@0.12.0",
+      "type": "library",
+      "version": "0.12.0"
+    },
+    {
       "bom-ref": "pkg:cargo/vlz-plugin-macro@0.12.0",
       "name": "vlz-plugin-macro",
       "purl": "pkg:cargo/vlz-plugin-macro@0.12.0",

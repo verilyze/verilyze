@@ -5,6 +5,11 @@
 # Example GitHub Actions workflow: scan a repository with vlz (NFR-014).
 # Copy relevant jobs into .github/workflows/ in your project.
 #
+# Prefer the composite action when you want a short `uses:` form:
+#   - uses: verilyze/verilyze/.github/actions/vlz-scan@<commit-sha>
+#     with:
+#       version: "0.12.0"
+#
 # Prerequisites:
 # - Network access to OSV (or pre-warm cache / use --offline with populated cache)
 # - Code scanning enabled (Settings -> Code security)
@@ -38,8 +43,9 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Download and extract vlz release archive
+        id: install-vlz
         env:
-          VERSION: "0.7.1"
+          VERSION: "0.12.0"
         run: |
           set -euo pipefail
           case "${{ runner.os }}" in
@@ -65,23 +71,47 @@ jobs:
           curl -fsSL -O "${base}/${archive}"
           curl -fsSL -O "${base}/${archive}.sigstore.json"
           curl -fsSL -O "${base}/${archive}.intoto.jsonl"
-          grep -F "${archive}" SHA256SUMS | sha256sum -c
+          # Portable SHA-256 check: GNU sha256sum -c on Linux; shasum/openssl
+          # on macOS (BSD sha256sum has no GNU -c).
+          line="$(grep -F "${archive}" SHA256SUMS)" || {
+            echo "missing SHA256SUMS entry for ${archive}" >&2
+            exit 1
+          }
+          if ! printf '%s\n' "${line}" | sha256sum -c --status 2>/dev/null; then
+            expected="$(awk '{print $1}' <<<"${line}")"
+            fname="$(awk '{print $2}' <<<"${line}")"
+            if command -v shasum >/dev/null 2>&1; then
+              actual="$(shasum -a 256 "${fname}" | awk '{print $1}')"
+            elif command -v openssl >/dev/null 2>&1; then
+              actual="$(openssl dgst -sha256 "${fname}" | awk '{print $NF}')"
+            else
+              echo "need GNU sha256sum, shasum, or openssl to verify ${archive}" >&2
+              exit 1
+            fi
+            if [[ "${actual}" != "${expected}" ]]; then
+              echo "${archive}: FAILED" >&2
+              exit 1
+            fi
+          fi
+          printf '%s: OK\n' "${archive}"
           # Verify Sigstore bundles before production use (see INSTALL.md).
           case "${archive}" in
             *.tar.gz) tar -xzf "${archive}" ;;
             *.zip) python3 -c "import zipfile; zipfile.ZipFile('${archive}').extractall()" ;;
           esac
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            echo "VLZ_BIN=${PWD}/vlz-${VERSION}-${platform}/vlz.exe" >> "${GITHUB_ENV}"
+            vlz_bin="${PWD}/vlz-${VERSION}-${platform}/vlz.exe"
           else
             chmod +x "vlz-${VERSION}-${platform}/bin/vlz"
-            echo "VLZ_BIN=${PWD}/vlz-${VERSION}-${platform}/bin/vlz" >> "${GITHUB_ENV}"
+            vlz_bin="${PWD}/vlz-${VERSION}-${platform}/bin/vlz"
           fi
+          echo "vlz_bin=${vlz_bin}" >> "${GITHUB_OUTPUT}"
 
       - name: Scan with vlz
         id: vlz-scan
         continue-on-error: true
         env:
+          VLZ_BIN: ${{ steps.install-vlz.outputs.vlz_bin }}
           VLZ_REACHABILITY_MODE: best-available
         run: |
           set -uo pipefail

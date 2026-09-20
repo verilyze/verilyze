@@ -102,6 +102,7 @@ def test_lock_offline_pin_cases_use_cyclonedx_full_only() -> None:
         "javascript-lock-offline-pin": "cli-contract-pkg",
         "java-gradle-lock-offline-pin": "cli-contract",
         "ruby-lock-offline-pin": "cli_contract_demo",
+        "php-lock-offline-pin": "cli/contract_demo",
         "sbom-lock-offline-pin": "cli-contract-pkg",
     }
     assert {c["id"] for c in pins} == set(expected)
@@ -129,6 +130,7 @@ def test_default_lockless_cases_expect_exit_4() -> None:
         "javascript-lockless",
         "java-pom-lockless",
         "ruby-lockless",
+        "php-lockless",
         "sbom-lockless",
     }
     for case in default_lockless:

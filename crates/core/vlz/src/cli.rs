@@ -282,6 +282,10 @@ pub enum Commands {
         )]
         reachability_mode: Option<String>,
 
+        /// Only reachable-true CVEs count toward exit 86 and SARIF (FR-032)
+        #[arg(long, help_heading = HELP_THRESHOLDS)]
+        exit_on_reachable: bool,
+
         // FR-013: per-CVSS-version severity threshold overrides
         /// CVSS v2 critical severity minimum score (default 9.0)
         #[arg(long, value_name = "SCORE", help_heading = HELP_SEVERITY_MAPPING)]
@@ -390,7 +394,7 @@ pub enum Commands {
         #[arg(value_name = "PATH", value_hint = ValueHint::DirPath)]
         root: Option<String>,
 
-        /// Output format for dry-run (plain or json)
+        /// Output format for dry-run (plain, json, or diff)
         #[arg(
             short,
             long,
@@ -701,6 +705,15 @@ pub enum DbCommands {
         /// Include full CVE payload for each entry
         #[arg(long, help_heading = HELP_OUTPUT)]
         full: bool,
+    },
+    /// Import an airgap CVE corpus snapshot into the local cache (FR-021a)
+    Import {
+        /// Corpus JSON path (versioned envelope or `db show --full --format json`)
+        #[arg(value_name = "PATH", value_hint = ValueHint::FilePath)]
+        path: String,
+        /// Optional lowercase hex SHA-256 of the corpus file (SEC-016)
+        #[arg(long = "sha256", value_name = "HEX")]
+        sha256: Option<String>,
     },
     /// Update TTL for existing cache entries
     SetTtl {
@@ -1174,6 +1187,25 @@ mod tests {
     }
 
     #[test]
+    fn parse_db_import_with_sha256() {
+        let cli = parse(&[
+            "db",
+            "import",
+            "/tmp/corpus.json",
+            "--sha256",
+            &"ab".repeat(32),
+        ]);
+        let Commands::Db { sub, .. } = &cli.cmd else {
+            panic!("expected db")
+        };
+        let DbCommands::Import { path, sha256 } = sub else {
+            panic!("expected import")
+        };
+        assert_eq!(path, "/tmp/corpus.json");
+        assert_eq!(sha256.as_deref(), Some(&*"ab".repeat(32)));
+    }
+
+    #[test]
     fn parse_fp_mark() {
         let cli = parse(&["fp", "mark", "CVE-2023-1234", "--comment", "fp"]);
         let Commands::Fp { sub } = &cli.cmd else {
@@ -1279,6 +1311,30 @@ mod tests {
         assert_eq!(kev_file.as_deref(), Some("/tmp/kev.json"));
         assert_eq!(epss_file.as_deref(), Some("/tmp/epss.csv"));
         assert!(*refresh_exploitability);
+    }
+
+    #[test]
+    fn parse_scan_with_exit_on_reachable() {
+        let cli = parse(&["scan", "--exit-on-reachable"]);
+        let Commands::Scan {
+            exit_on_reachable, ..
+        } = &cli.cmd
+        else {
+            panic!("expected scan")
+        };
+        assert!(*exit_on_reachable);
+    }
+
+    #[test]
+    fn parse_scan_exit_on_reachable_defaults_off() {
+        let cli = parse(&["scan"]);
+        let Commands::Scan {
+            exit_on_reachable, ..
+        } = &cli.cmd
+        else {
+            panic!("expected scan")
+        };
+        assert!(!*exit_on_reachable);
     }
 
     #[test]

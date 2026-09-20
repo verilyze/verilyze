@@ -42,7 +42,7 @@ Run scans with the built binary (adjust the path if you use `CARGO_TARGET_DIR`):
 # Scan current directory for manifests (Python: requirements.txt, pyproject.toml,
 # Pipfile, setup.cfg, setup.py; Rust: Cargo.toml; Go: go.mod; JavaScript/TypeScript:
 # package.json; Java/Kotlin: pom.xml, build.gradle, gradle/libs.versions.toml;
-# Ruby: Gemfile, gems.rb, *.gemspec)
+# Ruby: Gemfile, gems.rb, *.gemspec; PHP: composer.json)
 # and check for CVEs
 # Prefer an adjacent PEP 751 pylock.toml / pylock.<name>.toml for Python
 # transitive coverage (lock-less Python projects exit 4 by default).
@@ -50,6 +50,7 @@ Run scans with the built binary (adjust the path if you use `CARGO_TARGET_DIR`):
 # or bun.lock) for JavaScript/TypeScript (lock-less package.json exits 4 by default).
 # Prefer gradle.lockfile for Java/Gradle (lock-less Maven/Gradle exits 4 by default).
 # Prefer Gemfile.lock / gems.locked for Ruby (lock-less Gemfile exits 4 by default).
+# Prefer composer.lock for PHP (lock-less composer.json exits 4 by default).
 ./target/release/vlz scan
 
 # Scan a specific path
@@ -80,6 +81,9 @@ Run scans with the built binary (adjust the path if you use `CARGO_TARGET_DIR`):
 
 # Scan a Ruby project (language name: ruby; RubyGems ecosystem)
 ./target/release/vlz scan /path/to/ruby/project
+
+# Scan a PHP project (language name: php; Packagist ecosystem)
+./target/release/vlz scan /path/to/php/project
 
 # JSON output
 ./target/release/vlz scan --format json
@@ -207,6 +211,7 @@ uses the installed man page. Source: [man/vlz.1](man/vlz.1).
 | `vlz db list-providers`      | List CVE providers (e.g. osv, nvd, github, sonatype when built with respective features) |
 | `vlz db stats`               | Cache statistics                                              |
 | `vlz db show [--format FORMAT] [--full]` | Display cache entries (key, TTL, added-at, CVE summary or full payload) |
+| `vlz db import PATH [--sha256 HEX]` | Import airgap CVE corpus JSON into the cache (FR-021a) |
 | `vlz db set-ttl SECS [--entry KEY] [--all] [--pattern PATTERN] [--entries KEYS]` | Update TTL for existing cache entries |
 | `vlz db verify`              | Verify database integrity (SHA-256)                           |
 | `vlz preload [path]`         | Pre-populate CVE cache without a scan report (FR-021)           |

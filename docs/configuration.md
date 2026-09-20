@@ -41,6 +41,7 @@ flowchart TD
 | scan_exclude_dirs | string | .git,.venv,venv,node_modules,target,__pycache__,.tox,.eggs,dist,build,site-packages,vendor,.bundle | `VLZ_SCAN_EXCLUDE_DIRS` | `--scan-exclude-dir (repeatable)` |
 | providers | string | osv | `VLZ_PROVIDERS` | `--providers` |
 | reachability_mode | string | best-available | `VLZ_REACHABILITY_MODE` | `--reachability-mode` |
+| exit_on_reachable | boolean | false | `VLZ_EXIT_ON_REACHABLE` | `--exit-on-reachable` |
 | cache_ttl_secs | integer | 432000 | `VLZ_CACHE_TTL_SECS` | `--cache-ttl-secs` |
 | min_score | float | 0 | `VLZ_MIN_SCORE` | `--min-score` |
 | min_count | integer | 0 | `VLZ_MIN_COUNT` | `--min-count` |
@@ -112,6 +113,13 @@ is `best-available` (Tier B plus Tier C advisory symbol matching where the
 language analyzer supports it). Use `tier-b` for cheaper package-level
 scans. `reachable: false` is heuristic -- findings remain listed.
 
+`exit_on_reachable` (default false) is an opt-in CI gate. When true, only
+CVEs with `reachable: true` count toward exit 86 (`min_score` / `min_count`,
+and `exit_on_kev` / `min_epss` composition) and SARIF report results.
+Plain, JSON, and other non-SARIF formats keep the full finding list.
+Set via config, `VLZ_EXIT_ON_REACHABLE` (`1`/`true`/`yes`/`on` or
+`0`/`false`/`no`/`off`), or `--exit-on-reachable`.
+
 Environment-only: set `VLZ_REACHABILITY_PERSIST_CACHE=1` (or `true`/`yes`) to
 persist Tier B and per-CVE Tier C decisions under `.vlz/reachability-cache.json`
 in the scan root. Tier C entries are write-only (decisions are always
@@ -180,6 +188,11 @@ pair-matched lock (`Gemfile.lock` / `gems.locked`). Without a usable lock, the
 scan exits 4 by default; `bundle lock` runs only with
 `allow_dependency_code_execution` (ephemeral directory; Gemfile evaluation is
 project code under SEC-023).
+
+For **PHP** (`composer.json`, language `php`), prefer an adjacent or parent
+`composer.lock`. Without a usable lock, the scan exits 4 by default; Composer
+runs only with `allow_dependency_code_execution` (ephemeral directory; Composer
+executes PHP under SEC-023).
 See [docs/FAQ.md](FAQ.md) and `man vlz`.
 
 ## See also

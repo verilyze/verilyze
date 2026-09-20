@@ -11,7 +11,7 @@ pub const SCAN_OUTPUT_FORMATS: &[&str] =
     &["plain", "json", "sarif", "cyclonedx", "spdx", "openvex"];
 
 /// Output formats for `vlz fix --dry-run --format`.
-pub const FIX_OUTPUT_FORMATS: &[&str] = &["plain", "json"];
+pub const FIX_OUTPUT_FORMATS: &[&str] = &["plain", "json", "diff"];
 
 /// Output formats for `vlz db show --format`.
 pub const DB_SHOW_FORMATS: &[&str] = &["json"];

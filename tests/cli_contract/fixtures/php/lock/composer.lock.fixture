@@ -1,0 +1,13 @@
+{
+  "packages": [
+    {
+      "name": "cli/contract_demo",
+      "version": "1.0.0",
+      "dist": {
+        "type": "zip",
+        "url": "https://example.test/cli-contract-demo.zip"
+      }
+    }
+  ],
+  "packages-dev": []
+}
