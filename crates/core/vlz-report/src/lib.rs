@@ -2288,6 +2288,20 @@ mod tests {
     }
 
     #[test]
+    fn with_findings_replaces_findings_keeps_other_fields() {
+        let mut data = sample_report_data_one_finding();
+        data.project_id = Some("proj".to_string());
+        data.offline_cache_miss = true;
+        let original_len = data.findings.len();
+        assert!(original_len > 0);
+        let replaced = data.with_findings(vec![]);
+        assert!(replaced.findings.is_empty());
+        assert_eq!(replaced.project_id.as_deref(), Some("proj"));
+        assert!(replaced.offline_cache_miss);
+        assert_eq!(data.findings.len(), original_len);
+    }
+
+    #[test]
     fn empty_findings_message_degraded_coverage() {
         let data = ReportData {
             findings: vec![],

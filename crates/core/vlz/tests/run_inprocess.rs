@@ -412,6 +412,116 @@ fn run_scan_json_tier_c_per_cve_reachable_divergence() {
     });
 }
 
+/// FR-032: `--exit-on-reachable` with `min_count=2` exits 0 when only one CVE
+/// is reachable, while JSON still lists both findings.
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_exit_on_reachable_gates_exit_keeps_json_full() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
+        std::fs::write(dir.path().join("main.py"), "import pkg\n")
+            .expect("write main.py");
+        let json_path = dir.path().join("gated.json");
+        let root = dir.path().to_str().unwrap();
+
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            TierCReachabilityProvider::new(),
+        )));
+        #[cfg(feature = "redb")]
+        reregister_db_backend();
+
+        let gated = run_async(&[
+            "scan",
+            root,
+            "--format",
+            "json",
+            "--summary-file",
+            &format!("json:{}", json_path.display()),
+            "--provider",
+            "tier_c_reachability",
+            "--reachability-mode",
+            "best-available",
+            "--min-count",
+            "2",
+            "--exit-on-reachable",
+        ]);
+        assert_eq!(
+            gated, 0,
+            "gate counts only reachable:true so min_count=2 is not met"
+        );
+
+        let parsed: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(&json_path).unwrap(),
+        )
+        .unwrap();
+        let findings = parsed["findings"].as_array().expect("findings");
+        assert_eq!(findings.len(), 1, "package finding preserved");
+        let cves = findings[0]["cves"].as_array().expect("cves");
+        assert_eq!(
+            cves.len(),
+            2,
+            "JSON must keep the full finding list under the gate"
+        );
+    });
+}
+
+/// FR-032: SARIF under `--exit-on-reachable` includes only reachable:true.
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_exit_on_reachable_filters_sarif_not_json() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
+        std::fs::write(dir.path().join("main.py"), "import pkg\n")
+            .expect("write main.py");
+        let json_path = dir.path().join("full.json");
+        let sarif_path = dir.path().join("gated.sarif");
+        let root = dir.path().to_str().unwrap();
+
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            TierCReachabilityProvider::new(),
+        )));
+        #[cfg(feature = "redb")]
+        reregister_db_backend();
+
+        let code = run_async(&[
+            "scan",
+            root,
+            "--format",
+            "json",
+            "--summary-file",
+            &format!("json:{}", json_path.display()),
+            "--report",
+            &format!("sarif:{}", sarif_path.display()),
+            "--provider",
+            "tier_c_reachability",
+            "--reachability-mode",
+            "best-available",
+            "--exit-on-reachable",
+        ]);
+        assert_eq!(code, 86, "one reachable CVE still triggers exit 86");
+
+        let json: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(&json_path).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(json["findings"][0]["cves"].as_array().unwrap().len(), 2);
+
+        let sarif: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(&sarif_path).unwrap(),
+        )
+        .unwrap();
+        let results = sarif["runs"][0]["results"].as_array().expect("results");
+        assert_eq!(results.len(), 1, "SARIF keeps only reachable:true");
+        assert_eq!(results[0]["properties"]["reachable"], true);
+    });
+}
+
 /// Exercises the `python-tier-d` apply_tier_d_to_findings path in run_scan when
 /// reachability mode is best-available (compiled only with that feature).
 #[cfg(all(feature = "python", feature = "python-tier-d"))]
