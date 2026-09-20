@@ -298,7 +298,7 @@ def _vex_example_block(
     """Emit a commented `[vex]` table (file format; not flat vex_* keys)."""
     lines = [
         "#",
-        "# [vex] VEX generation (FR-044, FR-046)",
+        "# [vex] VEX generation and consume (FR-044, FR-046, FR-049)",
         "# [vex]",
     ]
     fields = (
@@ -306,6 +306,8 @@ def _vex_example_block(
         ("author_name", "vex_author_name", True),
         ("author_namespace", "vex_author_namespace", True),
         ("reachability_not_affected", "vex_reachability_not_affected", False),
+        ("from_vex", "vex_from_vex", True),
+        ("allow_unsigned_vex", "vex_allow_unsigned_vex", False),
     )
     for toml_key, list_key, quote in fields:
         default = config_list.get(list_key) or comments.get(list_key, {}).get(

@@ -111,6 +111,24 @@ env = "VLZ_VEX_REACHABILITY_NOT_AFFECTED"
 cli = "--vex-reachability-not-affected"
 default = "false"
 
+[vex_from_vex]
+description = """
+OpenVEX / CycloneDX analysis paths to ingest as scan suppress input (FR-049)
+"""
+type = "string"
+env = "VLZ_FROM_VEX"
+cli = "--from-vex"
+default = ""
+
+[vex_allow_unsigned_vex]
+description = """
+Allow unsigned VEX ingest documents to suppress findings (FR-049; default true)
+"""
+type = "boolean"
+env = "VLZ_ALLOW_UNSIGNED_VEX"
+cli = "--allow-unsigned-vex"
+default = "true"
+
 [exploitability_enabled]
 description = "Enable CISA KEV and FIRST EPSS exploitability ranking (FR-048)"
 type = "boolean"

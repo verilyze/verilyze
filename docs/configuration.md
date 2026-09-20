@@ -63,6 +63,8 @@ flowchart TD
 | vex_author_name | string | verilyze | `VLZ_VEX_AUTHOR_NAME` | `--vex-author-name` |
 | vex_author_namespace | string |  | `VLZ_VEX_AUTHOR_NAMESPACE` | `--vex-author-namespace` |
 | vex_reachability_not_affected | boolean | false | `VLZ_VEX_REACHABILITY_NOT_AFFECTED` | `--vex-reachability-not-affected` |
+| vex_from_vex | string |  | `VLZ_FROM_VEX` | `--from-vex` |
+| vex_allow_unsigned_vex | boolean | true | `VLZ_ALLOW_UNSIGNED_VEX` | `--allow-unsigned-vex` |
 | exploitability_enabled | boolean | true | `VLZ_EXPLOITABILITY_ENABLED` | `--exploitability` |
 | exploitability_min_epss | string |  | `VLZ_EXPLOITABILITY_MIN_EPSS` | `--exploitability-min-epss` |
 | exploitability_exit_on_kev | boolean | false | `VLZ_EXPLOITABILITY_EXIT_ON_KEV` | `--exploitability-exit-on-kev` |
@@ -126,7 +128,7 @@ in the scan root. Tier C entries are write-only (decisions are always
 recomputed; evidence is never cached). See `man vlz` ENVIRONMENT and
 CONTRIBUTING.md.
 
-## VEX (FR-044, FR-046)
+## VEX (FR-044, FR-046, FR-049)
 
 VEX statement generation for CycloneDX `vulnerabilities[].analysis` and
 standalone OpenVEX (`--format openvex`). File config uses a `[vex]` table
@@ -138,12 +140,19 @@ product_id = "pkg:generic/my-app@1.0.0"
 author_name = "verilyze"
 # author_namespace = "https://example.com"
 reachability_not_affected = false
+# from_vex = ["triage.openvex.json"]
+allow_unsigned_vex = true
 ```
 
 `product_id` defaults to `--project-id` when unset. OpenVEX requires a product
 identifier. `--no-vex` omits analysis / VEX statements. When
 `reachability_not_affected` is false (default), `reachable: false` maps to
 `in_triage` rather than asserting `not_affected`.
+
+`from_vex` / `--from-vex` / `VLZ_FROM_VEX` ingest OpenVEX or CycloneDX analysis
+as ephemeral suppress input at scan time (FR-049; does not rewrite
+`vlz-ignore.json`). `allow_unsigned_vex` / `--allow-unsigned-vex` /
+`VLZ_ALLOW_UNSIGNED_VEX` defaults to true.
 
 ## Exploitability (FR-048)
 

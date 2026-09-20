@@ -130,7 +130,7 @@
 # low_min = 0.1
 #
 #
-# [vex] VEX generation (FR-044, FR-046)
+# [vex] VEX generation and consume (FR-044, FR-046, FR-049)
 # [vex]
 # Product identifier for OpenVEX statements (defaults to project_id)
 # product_id = ""
@@ -140,6 +140,10 @@
 # author_namespace = ""
 # When true, map reachability false to VEX not_affected (default: in_triage)
 # reachability_not_affected = false
+# OpenVEX / CycloneDX analysis paths to ingest as scan suppress input (FR-049)
+# from_vex = ""
+# Allow unsigned VEX ingest documents to suppress findings (FR-049; default true)
+# allow_unsigned_vex = true
 
 #
 # [exploitability] CISA KEV / FIRST EPSS ranking (FR-048)

@@ -20,6 +20,12 @@ Human-readable release notes for each version.
 
 ### Added
 
+- VEX consume (FR-049): `vlz scan` ingests OpenVEX and CycloneDX
+  `vulnerabilities[].analysis` as ephemeral suppress input via `--from-vex`,
+  `[vex] from_vex`, and `VLZ_FROM_VEX`, merged with `vlz-ignore.json` at
+  filter time. Unsigned documents require `allow_unsigned_vex` /
+  `--allow-unsigned-vex` (default true). Unreadable configured paths exit 2.
+
 - OSV `MAL-*` finding class (FR-011): JSON/SARIF include
   `finding_class` (`vulnerability` | `malicious`); `MAL-*` ids do not
   merge into CVE/GHSA alias groups (FR-019-EXT). SARIF helpUri for
