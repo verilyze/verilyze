@@ -142,7 +142,8 @@
 # reachability_not_affected = false
 # OpenVEX / CycloneDX analysis paths to ingest as scan suppress input (FR-049)
 # from_vex = ""
-# Allow unsigned VEX ingest documents to suppress findings (FR-049; default true)
+# Allow unsigned VEX ingest documents to suppress findings (FR-049; default
+# true)
 # allow_unsigned_vex = true
 
 #

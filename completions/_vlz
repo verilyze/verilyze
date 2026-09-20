@@ -51,6 +51,7 @@ _arguments "${_arguments_options[@]}" : \
 '*--scan-exclude-dir=[Exclude directory name from manifest discovery (repeatable)]:DIR:_files -/' \
 '*--lock-file=[Only discover/merge listed Python lock file basenames (repeatable)]:PATH:_files' \
 '*--from-sbom=[Scan SBOM inventory file (CycloneDX 1.x / SPDX 2.x or 3.0 JSON; repeatable)]:PATH:_files' \
+'*--from-vex=[Ingest OpenVEX / CycloneDX analysis as scan suppress input (FR-049; repeatable)]:PATH:_files' \
 '--cache-ttl-secs=[Default TTL in seconds for new cache entries (default\: 432000 = 5 days). Does not change existing entries; use \`vlz db set-ttl\` to update those]:SECS:_default' \
 '--min-score=[Minimum CVSS score to count toward exit code]:SCORE:_default' \
 '--min-count=[Minimum count of CVEs meeting min-score to trigger CVE exit code (0 = any)]:N:_default' \
@@ -80,6 +81,7 @@ _arguments "${_arguments_options[@]}" : \
 '--vex-author-name=[Author name for OpenVEX documents (default\: verilyze)]:NAME:_default' \
 '--vex-author-namespace=[Author namespace / role for OpenVEX documents]:NS:_default' \
 '--vex-reachability-not-affected=[Map reachability false to VEX not_affected (default\: in_triage). Omit to leave config/env unchanged; pass \`true\`/\`false\` to override. A bare flag (no value) means true]::BOOL:(true false)' \
+'--allow-unsigned-vex=[Allow unsigned VEX ingest documents to suppress findings (FR-049). Omit to leave config/env unchanged; pass \`true\`/\`false\` to override. A bare flag (no value) means true. Default is true until signing is mandatory]::BOOL:(true false)' \
 '--min-epss=[Minimum EPSS score (0.0-1.0) to trigger the CVE exit code (FR-048)]:SCORE:_default' \
 '--kev-file=[KEV snapshot file (JSON or CSV) instead of cache/network (FR-048)]:PATH:_files' \
 '--epss-file=[EPSS snapshot file (uncompressed JSON or CSV) (FR-048)]:PATH:_files' \
