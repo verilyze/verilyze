@@ -11,7 +11,7 @@ use clap_complete::Shell;
 
 use crate::cli_values::{
     db_show_format_parser, fix_format_parser, help_subcommand_parser,
-    provider_parser, scan_format_parser,
+    parse_providers_list_arg, provider_parser, scan_format_parser,
 };
 
 /// Parse KEY=VALUE for `config --set`. Returns None if key is empty or no `=` present.
@@ -115,6 +115,15 @@ pub enum Commands {
             help_heading = HELP_PROVIDER_CACHE,
         )]
         provider: Option<String>,
+
+        /// Comma-separated CVE providers, or `all` (FR-019-EXT)
+        #[arg(
+            long,
+            value_name = "LIST",
+            value_parser = parse_providers_list_arg,
+            help_heading = HELP_PROVIDER_CACHE,
+        )]
+        providers: Option<String>,
 
         /// Parallel query limit (default 10, max 50)
         #[arg(short = 'j', long, help_heading = HELP_PROVIDER_CACHE)]
@@ -415,6 +424,15 @@ pub enum Commands {
         )]
         provider: Option<String>,
 
+        /// Comma-separated CVE providers, or `all` (FR-019-EXT)
+        #[arg(
+            long,
+            value_name = "LIST",
+            value_parser = parse_providers_list_arg,
+            help_heading = HELP_PROVIDER_CACHE,
+        )]
+        providers: Option<String>,
+
         /// Disable network access (offline apply exits 6 when network is needed)
         #[arg(long, help_heading = HELP_PROVIDER_CACHE)]
         offline: bool,
@@ -481,6 +499,15 @@ pub enum Commands {
             help_heading = HELP_PROVIDER_CACHE,
         )]
         provider: Option<String>,
+
+        /// Comma-separated CVE providers, or `all` (FR-019-EXT)
+        #[arg(
+            long,
+            value_name = "LIST",
+            value_parser = parse_providers_list_arg,
+            help_heading = HELP_PROVIDER_CACHE,
+        )]
+        providers: Option<String>,
 
         /// Parallel query limit (default 10, max 50)
         #[arg(short = 'j', long, help_heading = HELP_PROVIDER_CACHE)]
@@ -1004,6 +1031,50 @@ mod tests {
     }
 
     #[test]
+    fn parse_scan_with_providers_list() {
+        let cli = parse(&["scan", "--providers", "osv,all"]);
+        let Commands::Scan { providers, .. } = &cli.cmd else {
+            panic!("expected scan")
+        };
+        assert_eq!(providers.as_deref(), Some("osv,all"));
+    }
+
+    #[test]
+    fn parse_scan_providers_rejects_empty() {
+        let result = Cli::try_parse_from(["vlz", "scan", "--providers", ","]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_preload_with_providers() {
+        let cli = parse(&["preload", "--providers", "all"]);
+        let Commands::Preload { providers, .. } = &cli.cmd else {
+            panic!("expected preload")
+        };
+        assert_eq!(providers.as_deref(), Some("all"));
+    }
+
+    #[test]
+    fn parse_fix_with_providers() {
+        let cli = parse(&["fix", "--providers", "osv", "--dry-run"]);
+        let Commands::Fix { providers, .. } = &cli.cmd else {
+            panic!("expected fix")
+        };
+        assert_eq!(providers.as_deref(), Some("osv"));
+    }
+
+    #[test]
+    fn parse_scan_providers_rejects_unknown() {
+        let result = Cli::try_parse_from([
+            "vlz",
+            "scan",
+            "--providers",
+            "not-a-provider",
+        ]);
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn parse_db_show_format_json() {
         let cli = parse(&["db", "show", "--format", "json"]);
         let Commands::Db { sub, .. } = &cli.cmd else {
@@ -1424,6 +1495,7 @@ mod tests {
             output,
             dry_run,
             provider,
+            providers,
             offline,
         } = &cli.cmd
         else {
@@ -1434,6 +1506,7 @@ mod tests {
         assert!(output.is_none());
         assert!(!dry_run);
         assert!(provider.is_none());
+        assert!(providers.is_none());
         assert!(!offline);
     }
 

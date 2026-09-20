@@ -215,11 +215,13 @@ commas, invalid escape sequences. Use a TOML validator or check the
 
 **Message:** `Unknown provider: foo (use 'vlz db list-providers' to list)`
 
-**Cause:** `--provider` names a provider that is not registered (FR-019).
+**Cause:** `--provider` or `--providers` names a provider that is not
+registered or not compiled into this binary (FR-019, FR-019-EXT).
 
 **Remediation:** Run `vlz db list-providers` to see available providers (e.g.
 `osv`). Ensure the relevant Cargo feature (e.g. `nvd` for NVD) is enabled when
-building.
+building. `vlz scan --providers all` expands only to production names that
+are actually registered; it never includes test mocks.
 
 ---
 
@@ -444,15 +446,38 @@ See "How do I use NVD?" below.
 
 ---
 
+### `--provider` vs `--providers`
+
+**Cause:** `--provider NAME` forces a single provider (FR-019) and overrides a
+file or `VLZ_PROVIDERS` list. `--providers LIST` (or config `providers`, or
+`VLZ_PROVIDERS`) is the opt-in multi-provider list (FR-019-EXT). Default with
+neither flag is `osv` only.
+
+**Remediation:** Use `--provider osv` (or omit both flags) for the default
+single-provider scan. Use `--providers osv,nvd` when you built with those
+features and want a merged result. `--providers all` expands to production
+providers actually registered in this binary (`osv` plus feature-gated
+`nvd` / `github` / `sonatype`). On an OSV-only build, `all` is just `osv`.
+Passing both `--provider` and `--providers` is allowed only when they name
+the same set (order-insensitive); otherwise vlz exits 2. Empty
+`VLZ_PROVIDERS` (or commas only) is a config error, matching
+`providers = []` in a file.
+
+---
+
 ### How do I use NVD?
 
 **Steps:**
 
 1. Build with the NVD feature: `cargo build --features nvd` or
    `cargo install vlz --features nvd`
-2. Run a scan with NVD: `vlz scan --provider nvd`
+2. Run a scan with NVD: `vlz scan --provider nvd` or
+   `vlz scan --providers nvd` / `--providers osv,nvd`
 3. For unauthenticated NVD use, lower `parallel_queries` (e.g. 2-3) via
-   `--parallel 3` or config to avoid 429 rate-limit responses.
+   `--parallel 3` or config to avoid 429 rate-limit responses. `--parallel`
+   still applies across packages, so `--providers nvd` can issue up to
+   `parallel_queries` concurrent NVD calls. NVD is already 5 requests /
+   30 seconds and opt-in.
 
 ---
 
@@ -508,7 +533,12 @@ network calls and the cache has no entries for them (FR-031).
 
 **Cause:** One or more CVE lookups failed after retries (network error, API
 error, auth failure, etc.). The scan exits 5 instead of reporting "No
-vulnerabilities found" to avoid false negatives (FR-010).
+vulnerabilities found" to avoid false negatives (FR-010). With multiple
+providers, exit 5 happens only when **every** selected provider fails for a
+package and none were cached. A partial failure (one provider hits, another
+fails) prints a stderr warning naming the failed provider and is **not** a
+failed scan. Default verbosity names the failed provider(s); `-v` adds
+cause chains.
 
 **Remediation:** Run with `-v` for detailed error output. Check network
 connectivity, firewall, and provider-specific auth (e.g. VLZ_SONATYPE_EMAIL and

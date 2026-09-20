@@ -16,6 +16,7 @@ pub mod config_example;
 pub mod exit_code;
 pub mod exploitability;
 pub mod package_resolve;
+pub mod providers;
 pub mod registry;
 pub mod run;
 pub mod scan;

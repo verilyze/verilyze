@@ -61,6 +61,130 @@ pub struct Package {
     pub ecosystem: Option<String>,
 }
 
+/// True when `s` looks like a CVE ID (`CVE-YYYY-NNNN`, case-insensitive).
+pub fn is_cve_id(s: &str) -> bool {
+    let upper = s.to_ascii_uppercase();
+    let rest = match upper.strip_prefix("CVE-") {
+        Some(rest) => rest,
+        None => return false,
+    };
+    let mut parts = rest.splitn(2, '-');
+    let year = parts.next().unwrap_or("");
+    let num = parts.next().unwrap_or("");
+    year.len() == 4
+        && year.bytes().all(|b| b.is_ascii_digit())
+        && !num.is_empty()
+        && num.bytes().all(|b| b.is_ascii_digit())
+}
+
+/// Canonical form for merge keys and ranking: uppercase CVE IDs, else as-is.
+pub fn normalize_vuln_id(s: &str) -> String {
+    if is_cve_id(s) {
+        s.to_ascii_uppercase()
+    } else {
+        s.to_string()
+    }
+}
+
+/// Scalar JSON keys that carry a vulnerability identity.
+///
+/// OSV/NVD use `id` (NVD also `cveId`); GitHub uses `ghsa_id`/`cve_id`;
+/// Sonatype uses `id` and/or `cve`. OSV `related` is intentionally absent.
+pub const RAW_IDENTITY_SCALAR_KEYS: &[&str] =
+    &["id", "ghsa_id", "cve_id", "cve", "cveId"];
+
+/// Identity strings from a raw provider blob (CVE-normalized matching later).
+pub fn raw_identity_ids(raw: &serde_json::Value) -> Vec<&str> {
+    let mut out = Vec::new();
+    for key in RAW_IDENTITY_SCALAR_KEYS {
+        if let Some(s) = raw.get(*key).and_then(|v| v.as_str())
+            && !s.is_empty()
+        {
+            out.push(s);
+        }
+    }
+    if let Some(aliases) = raw.get("aliases").and_then(|v| v.as_array()) {
+        for alias in aliases {
+            if let Some(s) = alias.as_str()
+                && !s.is_empty()
+            {
+                out.push(s);
+            }
+        }
+    }
+    out
+}
+
+/// True when a raw identity field matches `record_id` (CVE-normalized).
+pub fn raw_matches_record_id(
+    raw: &serde_json::Value,
+    record_id: &str,
+) -> bool {
+    let want = normalize_vuln_id(record_id);
+    raw_identity_ids(raw)
+        .into_iter()
+        .any(|id| normalize_vuln_id(id) == want)
+}
+
+/// Identity strings for FP/VEX lookup: merged `record_id` plus matching raw fields.
+pub fn record_identity_ids(
+    record_id: &str,
+    raw_vulns: &[serde_json::Value],
+) -> Vec<String> {
+    let mut out = vec![record_id.to_string()];
+    for raw in raw_vulns {
+        if raw_matches_record_id(raw, record_id) {
+            for id in raw_identity_ids(raw) {
+                out.push(id.to_string());
+            }
+        }
+    }
+    out
+}
+
+/// True when any identity for `record_id` matches a marked FP key (CVE-normalized).
+pub fn record_is_fp_marked(
+    record_id: &str,
+    raw_vulns: &[serde_json::Value],
+    marked_ids: &std::collections::HashSet<String>,
+) -> bool {
+    if marked_ids.is_empty() {
+        return false;
+    }
+    for id in record_identity_ids(record_id, raw_vulns) {
+        if marked_ids.contains(&id) {
+            return true;
+        }
+        let norm = normalize_vuln_id(&id);
+        for key in marked_ids {
+            if normalize_vuln_id(key) == norm {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// FP entry for `record_id`, including marks stored under pre-merge alias keys.
+pub fn matching_fp_entry(
+    record_id: &str,
+    raw_vulns: &[serde_json::Value],
+    fp_entries: &std::collections::HashMap<String, FpEntry>,
+) -> Option<FpEntry> {
+    for id in record_identity_ids(record_id, raw_vulns) {
+        if let Some(entry) = fp_entries.get(&id) {
+            return Some(entry.clone());
+        }
+        let norm = normalize_vuln_id(&id);
+        for (key, entry) in fp_entries {
+            if normalize_vuln_id(key) == norm {
+                return Some(entry.clone());
+            }
+        }
+    }
+    None
+}
+
 /// CVSS version used for the primary score (FR-034).
 #[derive(
     Debug,
@@ -550,6 +674,101 @@ mod tests {
         assert_eq!(Severity::Medium.as_str(), "MEDIUM");
         assert_eq!(Severity::Low.as_str(), "LOW");
         assert_eq!(Severity::Unknown.as_str(), "UNKNOWN");
+    }
+
+    #[test]
+    fn raw_matches_record_id_uses_aliases_and_cve_case() {
+        let ghsa = serde_json::json!({
+            "id": "GHSA-abcd-efgh-ijkl",
+            "aliases": ["cve-2024-1708"],
+        });
+        assert!(raw_matches_record_id(&ghsa, "CVE-2024-1708"));
+        assert!(raw_matches_record_id(&ghsa, "GHSA-abcd-efgh-ijkl"));
+        assert!(!raw_matches_record_id(&ghsa, "CVE-2024-9999"));
+        let cve = serde_json::json!({"id": "CVE-2024-1708"});
+        assert!(raw_matches_record_id(&cve, "cve-2024-1708"));
+        assert_eq!(normalize_vuln_id("cve-2024-1708"), "CVE-2024-1708");
+        assert_eq!(normalize_vuln_id("GHSA-x"), "GHSA-x");
+    }
+
+    #[test]
+    fn raw_matches_github_and_sonatype_identity_fields() {
+        let github = serde_json::json!({
+            "ghsa_id": "GHSA-xxxx-yyyy-zzzz",
+            "cve_id": "cve-2024-1708",
+        });
+        assert!(raw_matches_record_id(&github, "CVE-2024-1708"));
+        assert!(raw_matches_record_id(&github, "GHSA-xxxx-yyyy-zzzz"));
+        assert!(!raw_matches_record_id(&github, "CVE-2024-9999"));
+
+        let github_empty_cve = serde_json::json!({
+            "ghsa_id": "GHSA-only-id",
+            "cve_id": "",
+        });
+        assert!(raw_matches_record_id(&github_empty_cve, "GHSA-only-id"));
+        assert!(!raw_matches_record_id(&github_empty_cve, "CVE-2024-1708"));
+
+        let sonatype = serde_json::json!({
+            "id": "ossindex-uuid",
+            "cve": "CVE-2024-5678",
+        });
+        assert!(raw_matches_record_id(&sonatype, "CVE-2024-5678"));
+        assert!(raw_matches_record_id(&sonatype, "ossindex-uuid"));
+
+        let related_only = serde_json::json!({
+            "id": "GHSA-ffff-ffff-ffff",
+            "related": ["CVE-2024-5555"],
+        });
+        assert!(!raw_matches_record_id(&related_only, "CVE-2024-5555"));
+    }
+
+    #[test]
+    fn record_is_fp_marked_matches_pre_merge_alias_keys() {
+        use std::collections::HashSet;
+
+        let raw = serde_json::json!({
+            "id": "GHSA-abcd-efgh-ijkl",
+            "aliases": ["cve-2024-1708"],
+        });
+        let raws = vec![raw];
+        let marked: HashSet<String> =
+            ["GHSA-abcd-efgh-ijkl".into()].into_iter().collect();
+        assert!(record_is_fp_marked("CVE-2024-1708", &raws, &marked));
+        assert!(record_is_fp_marked("cve-2024-1708", &raws, &marked));
+        assert!(!record_is_fp_marked("CVE-2024-9999", &raws, &marked));
+
+        let marked_cve: HashSet<String> =
+            ["cve-2024-1708".into()].into_iter().collect();
+        assert!(record_is_fp_marked("CVE-2024-1708", &raws, &marked_cve));
+    }
+
+    #[test]
+    fn matching_fp_entry_resolves_alias_mark_keys() {
+        use std::collections::HashMap;
+
+        let raw = serde_json::json!({
+            "ghsa_id": "GHSA-xxxx-yyyy-zzzz",
+            "cve_id": "CVE-2024-1708",
+        });
+        let raws = vec![raw];
+        let mut fp = HashMap::new();
+        fp.insert(
+            "GHSA-xxxx-yyyy-zzzz".into(),
+            FpEntry {
+                comment: "triaged".into(),
+                timestamp_secs: 1,
+                user: None,
+                host: None,
+                project_id: None,
+                justification: Some("vulnerable_code_not_present".into()),
+                status: Some("not_affected".into()),
+                detail: Some("unused dep".into()),
+            },
+        );
+        let entry = matching_fp_entry("CVE-2024-1708", &raws, &fp);
+        assert!(entry.is_some());
+        assert_eq!(entry.unwrap().detail.as_deref(), Some("unused dep"));
+        assert!(matching_fp_entry("CVE-2024-9999", &raws, &fp).is_none());
     }
 
     #[test]

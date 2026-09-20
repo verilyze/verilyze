@@ -174,6 +174,7 @@ pub fn generate_example(cfg: &crate::config::EffectiveConfig) -> String {
         ("parallel_queries", cfg.parallel_queries.to_string()),
         ("parallel_resolutions", cfg.parallel_resolutions.to_string()),
         ("scan_exclude_dirs", cfg.scan_exclude_dirs.join(",")),
+        ("providers", cfg.providers.join(",")),
         ("cache_ttl_secs", cfg.cache_ttl_secs.to_string()),
         ("min_score", cfg.min_score.to_string()),
         ("min_count", cfg.min_count.to_string()),
@@ -215,6 +216,17 @@ pub fn generate_example(cfg: &crate::config::EffectiveConfig) -> String {
             for line in wrap_scalar_example_lines(key, &value, LINE_LENGTH) {
                 lines.push(line);
             }
+            lines.push("".to_string());
+            continue;
+        }
+        if key == "providers" {
+            let quoted: Vec<String> = value
+                .split(',')
+                .map(str::trim)
+                .filter(|part| !part.is_empty())
+                .map(|part| format!("\"{part}\""))
+                .collect();
+            lines.push(format!("# {} = [{}]", key, quoted.join(", ")));
             lines.push("".to_string());
             continue;
         }
@@ -373,6 +385,10 @@ mod tests {
         assert!(
             out.contains("# Max concurrent CVE queries"),
             "comment should appear above value"
+        );
+        assert!(
+            out.contains("# providers = [\"osv\"]"),
+            "default providers example should stay commented as an array"
         );
     }
 

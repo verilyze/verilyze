@@ -178,7 +178,7 @@ fn exit_5_cve_provider_fetch_failed() {
             FailingCveProvider::new(),
         )));
         assert_eq!(
-            run_async(&["scan", root]),
+            run_async(&["scan", root, "--provider", "failing"]),
             5,
             "CVE provider fetch failure must not false-negative (FR-010)"
         );

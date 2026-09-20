@@ -94,6 +94,24 @@ fn run_preload_populates_cache_for_fixture() {
 
 #[cfg(feature = "python")]
 #[test]
+fn run_preload_providers_list_populates_cache() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
+        let root = dir.path().to_str().unwrap();
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            CveReturningProvider::new(),
+        )));
+        let code =
+            run_async(&["preload", root, "--providers", "cve_returning"]);
+        assert_eq!(code, 0, "preload --providers must use the resolved list");
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
 fn run_preload_offline_miss_exits_6() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
@@ -275,7 +293,7 @@ fn run_preload_provider_failure_exits_5() {
         vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
             vlz::mocks::FailingCveProvider::new(),
         )));
-        assert_eq!(run_async(&["preload", root]), 5);
+        assert_eq!(run_async(&["preload", root, "--provider", "failing"]), 5,);
     });
 }
 
@@ -2561,7 +2579,7 @@ fn run_scan_cve_provider_fails_logs_error() {
         vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
             vlz::mocks::FailingCveProvider::new(),
         )));
-        let code = run_async(&["-v", "scan", root]);
+        let code = run_async(&["-v", "scan", root, "--provider", "failing"]);
         assert_eq!(
             code, 5,
             "scan exits 5 when CVE provider fetch fails (avoid false negative)"
@@ -2736,6 +2754,155 @@ fn run_scan_unknown_provider_exits_2() {
 }
 
 #[test]
+fn run_scan_unknown_providers_list_exits_2() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().to_str().unwrap();
+        assert_eq!(
+            run_async(&[
+                "scan",
+                root,
+                "--offline",
+                "--providers",
+                "nonexistent"
+            ]),
+            2
+        );
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_providers_all_excludes_test_mocks() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
+        let root = dir.path().to_str().unwrap();
+        let code = run_async(&["scan", root, "--providers", "all"]);
+        assert_ne!(
+            code, 1,
+            "`all` must not include panicking/failing test mocks"
+        );
+        assert_ne!(code, 2);
+    });
+}
+
+#[test]
+fn run_scan_provider_and_providers_conflict_exits_2() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().to_str().unwrap();
+        assert_eq!(
+            run_async(&[
+                "scan",
+                root,
+                "--offline",
+                "--benchmark",
+                "--provider",
+                "osv",
+                "--providers",
+                "failing",
+            ]),
+            2
+        );
+    });
+}
+
+#[test]
+fn run_scan_provider_and_providers_same_set_ok() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().to_str().unwrap();
+        assert_eq!(
+            run_async(&[
+                "scan",
+                root,
+                "--offline",
+                "--benchmark",
+                "--provider",
+                "osv",
+                "--providers",
+                "OSV",
+            ]),
+            0
+        );
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_cli_provider_overrides_config_list() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
+        let cfg_path = dir.path().join("verilyze.conf");
+        std::fs::write(&cfg_path, "providers = [\"failing\"]\n")
+            .expect("write config");
+        let root = dir.path().to_str().unwrap();
+        let code = run_async(&[
+            "scan",
+            root,
+            "-c",
+            cfg_path.to_str().unwrap(),
+            "--provider",
+            "osv",
+        ]);
+        assert_ne!(code, 5, "CLI --provider must override file providers");
+        assert_ne!(code, 2);
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_partial_provider_fail_is_not_exit_5() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
+        let root = dir.path().to_str().unwrap();
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            vlz::mocks::OsvMockCveProvider,
+        )));
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            vlz::mocks::FailingCveProvider::new(),
+        )));
+        #[cfg(feature = "redb")]
+        reregister_db_backend();
+        let code = run_async(&["scan", root, "--providers", "osv,failing"]);
+        assert_ne!(code, 5, "partial provider failure must not exit 5");
+        assert_ne!(code, 1);
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_scan_vlz_providers_failing_exits_5() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
+        let root = dir.path().to_str().unwrap();
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            vlz::mocks::FailingCveProvider::new(),
+        )));
+        #[cfg(feature = "redb")]
+        reregister_db_backend();
+        let code =
+            temp_env::with_var("VLZ_PROVIDERS", Some("failing"), || {
+                run_async(&["scan", root])
+            });
+        assert_eq!(code, 5);
+    });
+}
+
+#[test]
 fn run_scan_with_provider_explicit() {
     let _ = env_logger::try_init();
     with_temp_xdg(|| {
@@ -2781,23 +2948,18 @@ fn run_scan_with_output_writes_file_not_stdout() {
     let root = dir.path().to_str().unwrap();
     let out_path = dir.path().join("report.json");
     let out_str = out_path.to_str().unwrap();
-    let output = std::process::Command::new(env!("CARGO_BIN_EXE_vlz"))
-        .args([
-            "scan",
-            root,
-            "--offline",
-            "--format",
-            "json",
-            "--output",
-            out_str,
-        ])
-        .env("XDG_CACHE_HOME", xdg.path())
-        .env("XDG_DATA_HOME", xdg.path())
-        .env("XDG_CONFIG_HOME", xdg.path())
-        .env("VLZ_CACHE_DB", xdg.path().join("vlz-cache.redb"))
-        .env("VLZ_IGNORE_DB", xdg.path().join("vlz-ignore.json"))
-        .output()
-        .expect("spawn vlz");
+    let mut output = std::process::Command::new(env!("CARGO_BIN_EXE_vlz"));
+    output.args([
+        "scan",
+        root,
+        "--offline",
+        "--format",
+        "json",
+        "--output",
+        out_str,
+    ]);
+    apply_isolated_db_env(&mut output, xdg.path());
+    let output = output.output().expect("spawn vlz");
     assert_eq!(output.status.code(), Some(0));
     assert!(
         output.stdout.is_empty(),
@@ -4450,7 +4612,6 @@ fn run_fix_sbom_only_tree_never_applies_and_dry_run_marks_sbom() {
             );
 
             // Apply must not invent an npm remediator for SBOM-only inventory.
-            // select_provider_impl removes the provider; re-register for apply.
             vlz::registry::clear_providers();
             vlz::registry::register(Plugin::CveProvider(Box::new(
                 VersionAwareOsvProvider {

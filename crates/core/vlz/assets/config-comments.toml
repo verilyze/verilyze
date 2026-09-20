@@ -50,6 +50,17 @@ env = "VLZ_SCAN_EXCLUDE_DIRS"
 cli = "--scan-exclude-dir (repeatable)"
 default = ".git,.venv,venv,node_modules,target,__pycache__,.tox,.eggs,dist,build,site-packages"
 
+[providers]
+description = """
+CVE providers to query (default: osv). Comma-separated names or a TOML
+array. Opt in to multi-provider merge with more than one name, or `all`
+for production providers registered in this binary (never test mocks)
+"""
+type = "string"
+env = "VLZ_PROVIDERS"
+cli = "--providers"
+default = "osv"
+
 [reachability_mode]
 description = """
 Reachability mode for scan output: off, tier-b, or best-available

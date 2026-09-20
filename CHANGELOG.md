@@ -45,6 +45,14 @@ Human-readable release notes for each version.
   `[exploitability] exit_on_kev` / `min_epss`. Ranking is not OpenVEX
   `exploited` (that mapping is not shipped).
 
+- Opt-in multi-provider CVE merge (FR-019-EXT): `--providers`, config
+  `providers`, and `VLZ_PROVIDERS` query more than one registered provider
+  and merge by alias-set (including GitHub `ghsa_id`/`cve_id` and Sonatype
+  `cve`). Default remains OSV only. `--providers all` expands to production
+  names actually compiled in (never test mocks). Partial provider failure
+  warns on stderr and does not exit 5; cause chains require `-v`. Empty
+  `VLZ_PROVIDERS` is rejected like an empty TOML list.
+
 ## [0.12.0] - 2026-09-15
 
 ### Added

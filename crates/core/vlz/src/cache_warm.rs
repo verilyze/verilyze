@@ -39,6 +39,10 @@ pub struct CacheWarmOutcome {
     pub summary: CacheWarmSummary,
     pub findings: Vec<(Package, Vec<CveRecord>)>,
     pub raw_vulns_by_package: HashMap<Package, Vec<serde_json::Value>>,
+    /// Provider names that failed (partial or total for a package).
+    pub failed_providers: Vec<String>,
+    /// First cause chain per failed provider name (`{e:#}`), for `-v`.
+    pub failed_provider_causes: Vec<(String, String)>,
 }
 
 /// Deduplicate packages by `(name, version)`. Keeps first occurrence.
@@ -51,11 +55,11 @@ pub fn deduplicate_packages(packages: &[Package]) -> Vec<Package> {
         .collect()
 }
 
-/// Populate the CVE cache for `packages` using `db` and `provider`.
+/// Populate the CVE cache for `packages` using `db` and `providers`.
 pub async fn warm_cache_for_packages(
     packages: &[Package],
     db: Arc<Box<dyn DatabaseBackend + Send + Sync + 'static>>,
-    provider: Arc<Box<dyn CveProvider + Send + Sync + 'static>>,
+    providers: Vec<vlz_cve_client::SharedCveProvider>,
     opts: &CacheWarmOptions,
 ) -> Result<CacheWarmOutcome> {
     let mut summary = CacheWarmSummary {
@@ -64,12 +68,16 @@ pub async fn warm_cache_for_packages(
     };
     let mut findings = Vec::new();
     let mut raw_vulns_by_package = HashMap::new();
+    let mut failed_providers = Vec::new();
+    let mut failed_provider_causes = Vec::new();
 
-    if packages.is_empty() {
+    if packages.is_empty() || providers.is_empty() {
         return Ok(CacheWarmOutcome {
             summary,
             findings,
             raw_vulns_by_package,
+            failed_providers,
+            failed_provider_causes,
         });
     }
 
@@ -77,80 +85,44 @@ pub async fn warm_cache_for_packages(
     let mut tasks = Vec::new();
     let benchmark_mode = opts.benchmark;
     let use_network = !(opts.offline || opts.benchmark);
+    let providers = Arc::new(providers);
 
     for pkg in packages {
         let db = db.clone();
-        let prov = provider.clone();
+        let providers = providers.clone();
         let sem = semaphore.clone();
         let pkg = pkg.clone();
 
         tasks.push(async move {
             let _permit = sem.acquire_owned().await.unwrap();
-
-            if benchmark_mode {
-                return Ok(WarmPackageResult {
-                    pkg: pkg.clone(),
-                    records: vec![],
-                    raw_vulns: vec![],
-                    cache_hit: false,
-                    fetched: false,
-                });
-            }
-
-            if let Some(raw_vulns) =
-                db.as_ref().get_raw_vulns(&pkg, prov.name()).await?
-            {
-                let mut records =
-                    vlz_cve_client::decode_raw_vulns(prov.name(), &raw_vulns);
-                // FR-039: attach ranges on decode-on-read (warm hit bypasses
-                // DatabaseBackend::get, which also attaches).
-                vlz_cve_client::attach_affected_ranges(
-                    &mut records,
-                    &raw_vulns,
-                    &pkg,
-                );
-                return Ok(WarmPackageResult {
-                    pkg: pkg.clone(),
-                    records,
-                    raw_vulns,
-                    cache_hit: true,
-                    fetched: false,
-                });
-            }
-
-            if !use_network {
-                return Err(anyhow!(OFFLINE_CACHE_MISS_MESSAGE));
-            }
-
-            let fetched =
-                prov.as_ref().fetch(&pkg).await.with_context(|| {
-                    format!("Fetching CVEs for {}@{}", pkg.name, pkg.version)
-                })?;
-            db.as_ref()
-                .put(&pkg, prov.name(), &fetched.raw_vulns, None)
-                .await
-                .with_context(|| {
-                    format!("Storing cache for {}@{}", pkg.name, pkg.version)
-                })?;
-            Ok(WarmPackageResult {
-                pkg: pkg.clone(),
-                records: fetched.records,
-                raw_vulns: fetched.raw_vulns,
-                cache_hit: false,
-                fetched: true,
-            })
+            warm_one_package(
+                pkg,
+                db,
+                providers.as_slice(),
+                benchmark_mode,
+                use_network,
+            )
+            .await
         });
     }
 
     for result in futures::future::join_all(tasks).await {
         match result {
             Ok(result) => {
-                if result.cache_hit {
-                    summary.cache_hits += 1;
+                for (name, cause) in result.partial_failures {
+                    record_provider_failure(
+                        &mut failed_providers,
+                        &mut failed_provider_causes,
+                        name,
+                        cause,
+                    );
                 }
-                if result.fetched {
-                    summary.fetched += 1;
+                if result.all_providers_failed {
+                    summary.provider_fetch_failed = true;
+                    continue;
                 }
+                summary.cache_hits += result.cache_hits;
+                summary.fetched += result.fetched;
                 if !result.raw_vulns.is_empty() {
                     raw_vulns_by_package
                         .insert(result.pkg.clone(), result.raw_vulns);
@@ -172,15 +144,178 @@ pub async fn warm_cache_for_packages(
         summary,
         findings,
         raw_vulns_by_package,
+        failed_providers,
+        failed_provider_causes,
     })
+}
+
+async fn warm_one_package(
+    pkg: Package,
+    db: Arc<Box<dyn DatabaseBackend + Send + Sync + 'static>>,
+    providers: &[vlz_cve_client::SharedCveProvider],
+    benchmark_mode: bool,
+    use_network: bool,
+) -> Result<WarmPackageResult> {
+    if benchmark_mode {
+        return Ok(WarmPackageResult {
+            pkg,
+            records: vec![],
+            raw_vulns: vec![],
+            cache_hits: 0,
+            fetched: 0,
+            partial_failures: vec![],
+            all_providers_failed: false,
+        });
+    }
+
+    let mut merge_items = Vec::new();
+    let mut all_raw = Vec::new();
+    let mut cache_hits = 0usize;
+    let mut fetched = 0usize;
+    let mut any_ok = false;
+    let mut saw_offline_miss = false;
+    let mut saw_fetch_fail = false;
+    let mut partial_failures = Vec::new();
+
+    for (idx, prov) in providers.iter().enumerate() {
+        match warm_one_provider(
+            &pkg,
+            db.as_ref().as_ref(),
+            prov.as_ref(),
+            use_network,
+        )
+        .await
+        {
+            Ok((records, raw, cache_hit, did_fetch)) => {
+                any_ok = true;
+                if cache_hit {
+                    cache_hits += 1;
+                }
+                if did_fetch {
+                    fetched += 1;
+                }
+                merge_items.extend(pair_records(records, &raw, idx));
+                all_raw.extend(raw);
+            }
+            Err(e) => {
+                let msg = e.to_string();
+                if msg.contains("--offline") {
+                    saw_offline_miss = true;
+                } else {
+                    saw_fetch_fail = true;
+                    let name = prov.name().to_string();
+                    partial_failures.push((name, format!("{e:#}")));
+                }
+            }
+        }
+    }
+
+    if any_ok {
+        let records = vlz_cve_client::merge_provider_records(&merge_items);
+        return Ok(WarmPackageResult {
+            pkg,
+            records,
+            raw_vulns: all_raw,
+            cache_hits,
+            fetched,
+            partial_failures,
+            all_providers_failed: false,
+        });
+    }
+
+    if saw_offline_miss {
+        return Err(anyhow!(OFFLINE_CACHE_MISS_MESSAGE));
+    }
+    if saw_fetch_fail {
+        return Ok(WarmPackageResult {
+            pkg,
+            records: vec![],
+            raw_vulns: vec![],
+            cache_hits: 0,
+            fetched: 0,
+            partial_failures,
+            all_providers_failed: true,
+        });
+    }
+    Ok(WarmPackageResult {
+        pkg,
+        records: vec![],
+        raw_vulns: vec![],
+        cache_hits: 0,
+        fetched: 0,
+        partial_failures: vec![],
+        all_providers_failed: false,
+    })
+}
+
+async fn warm_one_provider(
+    pkg: &Package,
+    db: &dyn DatabaseBackend,
+    prov: &dyn CveProvider,
+    use_network: bool,
+) -> Result<(Vec<CveRecord>, Vec<serde_json::Value>, bool, bool)> {
+    if let Some(raw_vulns) = db.get_raw_vulns(pkg, prov.name()).await? {
+        let mut records =
+            vlz_cve_client::decode_raw_vulns(prov.name(), &raw_vulns);
+        vlz_cve_client::attach_affected_ranges(&mut records, &raw_vulns, pkg);
+        return Ok((records, raw_vulns, true, false));
+    }
+    if !use_network {
+        return Err(anyhow!(OFFLINE_CACHE_MISS_MESSAGE));
+    }
+    let fetched = prov.fetch(pkg).await.with_context(|| {
+        format!("Fetching CVEs for {}@{}", pkg.name, pkg.version)
+    })?;
+    db.put(pkg, prov.name(), &fetched.raw_vulns, None)
+        .await
+        .with_context(|| {
+            format!("Storing cache for {}@{}", pkg.name, pkg.version)
+        })?;
+    Ok((fetched.records, fetched.raw_vulns, false, true))
+}
+
+fn pair_records(
+    records: Vec<CveRecord>,
+    raw: &[serde_json::Value],
+    provider_index: usize,
+) -> Vec<vlz_cve_client::ProviderRecord> {
+    records
+        .into_iter()
+        .map(|record| {
+            let raw_one = raw
+                .iter()
+                .find(|v| vlz_db::raw_matches_record_id(v, &record.id))
+                .cloned()
+                .unwrap_or_else(|| serde_json::json!({"id": record.id}));
+            vlz_cve_client::ProviderRecord {
+                record,
+                raw: raw_one,
+                provider_index,
+            }
+        })
+        .collect()
+}
+
+fn record_provider_failure(
+    names: &mut Vec<String>,
+    causes: &mut Vec<(String, String)>,
+    name: String,
+    cause: String,
+) {
+    if !names.iter().any(|n| n == &name) {
+        names.push(name.clone());
+        causes.push((name, cause));
+    }
 }
 
 struct WarmPackageResult {
     pkg: Package,
     records: Vec<CveRecord>,
     raw_vulns: Vec<serde_json::Value>,
-    cache_hit: bool,
-    fetched: bool,
+    cache_hits: usize,
+    fetched: usize,
+    partial_failures: Vec<(String, String)>,
+    all_providers_failed: bool,
 }
 
 #[cfg(test)]
@@ -320,11 +455,10 @@ mod tests {
         let db = Arc::new(Box::new(MapDb::new())
             as Box<dyn DatabaseBackend + Send + Sync + 'static>);
         let calls = Arc::new(Mutex::new(0));
-        let provider = Arc::new(Box::new(StaticProvider {
+        let provider = vec![Arc::new(StaticProvider {
             name: "test",
             calls: calls.clone(),
-        })
-            as Box<dyn CveProvider + Send + Sync + 'static>);
+        }) as vlz_cve_client::SharedCveProvider];
         let opts = CacheWarmOptions {
             parallel: 1,
             offline: false,
@@ -353,11 +487,10 @@ mod tests {
         .await
         .unwrap();
         let calls = Arc::new(Mutex::new(0));
-        let provider = Arc::new(Box::new(StaticProvider {
+        let provider = vec![Arc::new(StaticProvider {
             name: "test",
             calls: calls.clone(),
-        })
-            as Box<dyn CveProvider + Send + Sync + 'static>);
+        }) as vlz_cve_client::SharedCveProvider];
         let opts = CacheWarmOptions {
             parallel: 1,
             offline: false,
@@ -393,11 +526,10 @@ mod tests {
         });
         db.put(&sample_pkg(), "osv", &[raw], None).await.unwrap();
         let calls = Arc::new(Mutex::new(0));
-        let provider = Arc::new(Box::new(StaticProvider {
+        let provider = vec![Arc::new(StaticProvider {
             name: "osv",
             calls: calls.clone(),
-        })
-            as Box<dyn CveProvider + Send + Sync + 'static>);
+        }) as vlz_cve_client::SharedCveProvider];
         let opts = CacheWarmOptions {
             parallel: 1,
             offline: true,
@@ -428,11 +560,10 @@ mod tests {
         let db = Arc::new(Box::new(MapDb::new())
             as Box<dyn DatabaseBackend + Send + Sync + 'static>);
         let calls = Arc::new(Mutex::new(0));
-        let provider = Arc::new(Box::new(StaticProvider {
+        let provider = vec![Arc::new(StaticProvider {
             name: "test",
             calls,
-        })
-            as Box<dyn CveProvider + Send + Sync + 'static>);
+        }) as vlz_cve_client::SharedCveProvider];
         let opts = CacheWarmOptions {
             parallel: 1,
             offline: true,
@@ -461,11 +592,10 @@ mod tests {
     async fn warm_cache_empty_packages_returns_defaults() {
         let db = Arc::new(Box::new(MapDb::new())
             as Box<dyn DatabaseBackend + Send + Sync + 'static>);
-        let provider = Arc::new(Box::new(StaticProvider {
+        let provider = vec![Arc::new(StaticProvider {
             name: "test",
             calls: Arc::new(Mutex::new(0)),
-        })
-            as Box<dyn CveProvider + Send + Sync + 'static>);
+        }) as vlz_cve_client::SharedCveProvider];
         let opts = CacheWarmOptions {
             parallel: 1,
             offline: false,
@@ -483,11 +613,10 @@ mod tests {
         let db = Arc::new(Box::new(MapDb::new())
             as Box<dyn DatabaseBackend + Send + Sync + 'static>);
         let calls = Arc::new(Mutex::new(0));
-        let provider = Arc::new(Box::new(StaticProvider {
+        let provider = vec![Arc::new(StaticProvider {
             name: "test",
             calls: calls.clone(),
-        })
-            as Box<dyn CveProvider + Send + Sync + 'static>);
+        }) as vlz_cve_client::SharedCveProvider];
         let opts = CacheWarmOptions {
             parallel: 1,
             offline: false,
@@ -581,8 +710,9 @@ mod tests {
     async fn warm_cache_provider_failure_sets_flag() {
         let db = Arc::new(Box::new(MapDb::new())
             as Box<dyn DatabaseBackend + Send + Sync + 'static>);
-        let provider = Arc::new(Box::new(FailingProvider)
-            as Box<dyn CveProvider + Send + Sync + 'static>);
+        let provider = vec![
+            Arc::new(FailingProvider) as vlz_cve_client::SharedCveProvider
+        ];
         let opts = CacheWarmOptions {
             parallel: 1,
             offline: false,
@@ -601,11 +731,10 @@ mod tests {
     async fn warm_cache_put_failure_sets_provider_fetch_failed() {
         let db = Arc::new(Box::new(FailingPutDb(MapDb::new()))
             as Box<dyn DatabaseBackend + Send + Sync + 'static>);
-        let provider = Arc::new(Box::new(StaticProvider {
+        let provider = vec![Arc::new(StaticProvider {
             name: "test",
             calls: Arc::new(Mutex::new(0)),
-        })
-            as Box<dyn CveProvider + Send + Sync + 'static>);
+        }) as vlz_cve_client::SharedCveProvider];
         let opts = CacheWarmOptions {
             parallel: 1,
             offline: false,
@@ -663,11 +792,10 @@ mod tests {
     async fn warm_cache_get_raw_vulns_failure_sets_provider_fetch_failed() {
         let db = Arc::new(Box::new(FailingGetRawVulnsDb)
             as Box<dyn DatabaseBackend + Send + Sync + 'static>);
-        let provider = Arc::new(Box::new(StaticProvider {
+        let provider = vec![Arc::new(StaticProvider {
             name: "test",
             calls: Arc::new(Mutex::new(0)),
-        })
-            as Box<dyn CveProvider + Send + Sync + 'static>);
+        }) as vlz_cve_client::SharedCveProvider];
         let opts = CacheWarmOptions {
             parallel: 1,
             offline: false,
@@ -688,11 +816,10 @@ mod tests {
         let db =
             Arc::new(Box::new(map)
                 as Box<dyn DatabaseBackend + Send + Sync + 'static>);
-        let provider = Arc::new(Box::new(StaticProvider {
+        let provider = vec![Arc::new(StaticProvider {
             name: "test",
             calls: Arc::new(Mutex::new(0)),
-        })
-            as Box<dyn CveProvider + Send + Sync + 'static>);
+        }) as vlz_cve_client::SharedCveProvider];
         let opts = CacheWarmOptions {
             parallel: 1,
             offline: false,
@@ -728,8 +855,9 @@ mod tests {
 
         let db = Arc::new(Box::new(MapDb::new())
             as Box<dyn DatabaseBackend + Send + Sync + 'static>);
-        let provider = Arc::new(Box::new(PanickingProvider)
-            as Box<dyn CveProvider + Send + Sync + 'static>);
+        let provider =
+            vec![Arc::new(PanickingProvider)
+                as vlz_cve_client::SharedCveProvider];
         let opts = CacheWarmOptions {
             parallel: 1,
             offline: false,
@@ -786,12 +914,11 @@ mod tests {
         let in_flight = Arc::new(AtomicUsize::new(0));
         let max_in_flight = Arc::new(AtomicUsize::new(0));
         let calls = Arc::new(AtomicUsize::new(0));
-        let provider = Arc::new(Box::new(CountingProvider {
+        let provider = vec![Arc::new(CountingProvider {
             in_flight: in_flight.clone(),
             max_in_flight: max_in_flight.clone(),
             calls: calls.clone(),
-        })
-            as Box<dyn CveProvider + Send + Sync + 'static>);
+        }) as vlz_cve_client::SharedCveProvider];
         let db = Arc::new(Box::new(MapDb::new())
             as Box<dyn DatabaseBackend + Send + Sync + 'static>);
         let packages: Vec<_> = (0..6)
@@ -827,5 +954,184 @@ mod tests {
         db.stats().await.unwrap();
         db.set_ttl(TtlSelector::All, 60).await.unwrap();
         db.verify_integrity().await.unwrap();
+    }
+
+    struct FailingNamedProvider {
+        name: &'static str,
+    }
+
+    #[async_trait]
+    impl CveProvider for FailingNamedProvider {
+        fn name(&self) -> &'static str {
+            self.name
+        }
+
+        async fn fetch(
+            &self,
+            _pkg: &Package,
+        ) -> Result<FetchedCves, ProviderError> {
+            Err(ProviderError::Other("mock fetch failure".to_string()))
+        }
+    }
+
+    #[tokio::test]
+    async fn mixed_offline_cache_is_not_exit_6() {
+        vlz_cve_client::ensure_default_decoders();
+        let db = Arc::new(Box::new(MapDb::new())
+            as Box<dyn DatabaseBackend + Send + Sync + 'static>);
+        db.put(
+            &sample_pkg(),
+            "osv",
+            &[serde_json::json!({"id": "CVE-CACHED"})],
+            None,
+        )
+        .await
+        .unwrap();
+        let providers = vec![
+            Arc::new(StaticProvider {
+                name: "osv",
+                calls: Arc::new(Mutex::new(0)),
+            }) as vlz_cve_client::SharedCveProvider,
+            Arc::new(StaticProvider {
+                name: "nvd",
+                calls: Arc::new(Mutex::new(0)),
+            }) as vlz_cve_client::SharedCveProvider,
+        ];
+        let opts = CacheWarmOptions {
+            parallel: 1,
+            offline: true,
+            benchmark: false,
+        };
+        let outcome =
+            warm_cache_for_packages(&[sample_pkg()], db, providers, &opts)
+                .await
+                .unwrap();
+        assert!(
+            !outcome.summary.offline_cache_miss,
+            "a hit on one selected provider must not set exit 6"
+        );
+        assert!(!outcome.summary.provider_fetch_failed);
+        assert_eq!(outcome.summary.cache_hits, 1);
+        assert_eq!(outcome.findings.len(), 1);
+        assert!(outcome.failed_providers.is_empty());
+    }
+
+    #[tokio::test]
+    async fn all_selected_providers_fail_sets_exit_5() {
+        let db = Arc::new(Box::new(MapDb::new())
+            as Box<dyn DatabaseBackend + Send + Sync + 'static>);
+        let providers = vec![
+            Arc::new(FailingNamedProvider { name: "osv" })
+                as vlz_cve_client::SharedCveProvider,
+            Arc::new(FailingNamedProvider { name: "nvd" })
+                as vlz_cve_client::SharedCveProvider,
+        ];
+        let opts = CacheWarmOptions {
+            parallel: 1,
+            offline: false,
+            benchmark: false,
+        };
+        let outcome =
+            warm_cache_for_packages(&[sample_pkg()], db, providers, &opts)
+                .await
+                .unwrap();
+        assert!(outcome.summary.provider_fetch_failed);
+        assert!(outcome.findings.is_empty());
+        assert_eq!(outcome.failed_providers, vec!["osv", "nvd"]);
+    }
+
+    #[test]
+    fn pair_records_keeps_github_blob_and_cve_case() {
+        let record = CveRecord {
+            id: "CVE-2024-1708".to_string(),
+            cvss_score: None,
+            cvss_version: None,
+            description: "github".to_string(),
+            reachable: None,
+            advisory_symbols: Vec::new(),
+            evidence: Vec::new(),
+            symbol_usage: None,
+            affected_ranges: Vec::new(),
+            in_kev: None,
+            epss: None,
+            epss_percentile: None,
+        };
+        let raw = vec![serde_json::json!({
+            "ghsa_id": "GHSA-xxxx-yyyy-zzzz",
+            "cve_id": "cve-2024-1708",
+        })];
+        let paired = pair_records(vec![record], &raw, 0);
+        assert_eq!(paired.len(), 1);
+        assert_eq!(
+            paired[0].raw.get("ghsa_id").and_then(|v| v.as_str()),
+            Some("GHSA-xxxx-yyyy-zzzz")
+        );
+        assert_eq!(
+            paired[0].raw.get("cve_id").and_then(|v| v.as_str()),
+            Some("cve-2024-1708")
+        );
+    }
+
+    #[tokio::test]
+    async fn partial_provider_fail_still_reports() {
+        let db = Arc::new(Box::new(MapDb::new())
+            as Box<dyn DatabaseBackend + Send + Sync + 'static>);
+        let providers = vec![
+            Arc::new(StaticProvider {
+                name: "osv",
+                calls: Arc::new(Mutex::new(0)),
+            }) as vlz_cve_client::SharedCveProvider,
+            Arc::new(FailingNamedProvider { name: "nvd" })
+                as vlz_cve_client::SharedCveProvider,
+        ];
+        let opts = CacheWarmOptions {
+            parallel: 1,
+            offline: false,
+            benchmark: false,
+        };
+        let outcome =
+            warm_cache_for_packages(&[sample_pkg()], db, providers, &opts)
+                .await
+                .unwrap();
+        assert!(!outcome.summary.provider_fetch_failed);
+        assert_eq!(outcome.failed_providers, vec!["nvd"]);
+        assert_eq!(outcome.summary.fetched, 1);
+        assert_eq!(outcome.findings[0].1[0].id, "CVE-TEST-1");
+    }
+
+    #[tokio::test]
+    async fn counters_count_package_provider_operations() {
+        let db = Arc::new(Box::new(MapDb::new())
+            as Box<dyn DatabaseBackend + Send + Sync + 'static>);
+        db.put(
+            &sample_pkg(),
+            "osv",
+            &[serde_json::json!({"id": "CVE-CACHED"})],
+            None,
+        )
+        .await
+        .unwrap();
+        let providers = vec![
+            Arc::new(StaticProvider {
+                name: "osv",
+                calls: Arc::new(Mutex::new(0)),
+            }) as vlz_cve_client::SharedCveProvider,
+            Arc::new(StaticProvider {
+                name: "nvd",
+                calls: Arc::new(Mutex::new(0)),
+            }) as vlz_cve_client::SharedCveProvider,
+        ];
+        let opts = CacheWarmOptions {
+            parallel: 1,
+            offline: false,
+            benchmark: false,
+        };
+        let outcome =
+            warm_cache_for_packages(&[sample_pkg()], db, providers, &opts)
+                .await
+                .unwrap();
+        assert_eq!(outcome.summary.packages_checked, 1);
+        assert_eq!(outcome.summary.cache_hits, 1);
+        assert_eq!(outcome.summary.fetched, 1);
     }
 }
