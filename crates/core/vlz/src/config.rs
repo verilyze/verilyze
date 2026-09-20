@@ -101,6 +101,9 @@ pub const DEFAULT_SCAN_EXCLUDE_DIRS: &[&str] = &[
 /// Default CVE provider when no CLI/env/file list is set (FR-019).
 pub const DEFAULT_CVE_PROVIDER: &str = "osv";
 
+/// Shared error text when `providers` / `VLZ_PROVIDERS` parses to no names.
+pub const EMPTY_PROVIDERS_LIST_MESSAGE: &str = "providers list is empty";
+
 /// Default backoff base in milliseconds (SEC-007).
 pub const DEFAULT_BACKOFF_BASE_MS: u64 = 100;
 
@@ -693,7 +696,7 @@ fn parse_providers_toml_value(
     };
     if raw.is_empty() {
         return Err(ConfigError::InvalidProviders {
-            message: "providers list is empty".to_string(),
+            message: EMPTY_PROVIDERS_LIST_MESSAGE.to_string(),
         });
     }
     Ok(raw)
@@ -1259,6 +1262,11 @@ pub fn load_with_reachability_overrides(
         cfg.scan_exclude_dirs = dirs;
     }
     if let Some(names) = env_providers() {
+        if names.is_empty() {
+            return Err(ConfigError::InvalidProviders {
+                message: EMPTY_PROVIDERS_LIST_MESSAGE.to_string(),
+            });
+        }
         cfg.providers = names;
     }
     #[cfg(feature = "python")]
@@ -2536,6 +2544,76 @@ regex = "^req\\.txt$"
     fn providers_empty_list_is_error() {
         let r = parse_and_validate_toml("providers = []");
         assert!(matches!(r, Err(ConfigError::InvalidProviders { .. })));
+    }
+
+    #[test]
+    fn env_providers_empty_list_is_error() {
+        let dir = test_tempdir();
+        let xdg = dir.path().join("xdg");
+        std::fs::create_dir_all(&xdg).unwrap();
+        let xdg_str = xdg.to_string_lossy().into_owned();
+        let absent_system = dir.path().join("absent-system-verilyze.conf");
+        set_mock_system_config_path(Some(absent_system));
+        let _clear = ClearSystemConfigMock;
+        for raw in ["", " , , "] {
+            temp_env::with_vars(
+                [
+                    ("VLZ_SCAN_EXCLUDE_DIRS", None::<&str>),
+                    ("VLZ_PROVIDERS", Some(raw)),
+                    ("XDG_CONFIG_HOME", Some(xdg_str.as_str())),
+                ],
+                || {
+                    let r = load(
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        false,
+                        false,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        false,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        SeverityOverrides::default(),
+                        SeverityOverrides::default(),
+                    );
+                    match r {
+                        Err(ConfigError::InvalidProviders { message }) => {
+                            assert_eq!(message, EMPTY_PROVIDERS_LIST_MESSAGE);
+                        }
+                        other => panic!(
+                            "expected empty providers error for {raw:?}, got {other:?}"
+                        ),
+                    }
+                },
+            );
+        }
     }
 
     #[test]

@@ -33,3 +33,11 @@ def test_check_reachable_recipes_are_brief_safe() -> None:
         lines.append(f"  - {item.target}: {item.reason}")
         lines.append(f"    recipe: {item.recipe[:120]}")
     raise AssertionError("\n".join(lines))
+
+
+def test_generate_completions_rebuilds_default_feature_vlz() -> None:
+    """Avoid leaking `cargo test --features testing` mock names into completions."""
+    text = (repo_root() / "Makefile").read_text(encoding="utf-8")
+    assert 'GENERATE_COMPLETIONS = cd "$(MKFILE_DIR)" && cargo build -p vlz &&' in text
+    recipes = "\n".join(parse_makefile(text)["generate-completions"].recipes)
+    assert "$(GENERATE_COMPLETIONS)" in recipes

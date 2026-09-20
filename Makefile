@@ -286,16 +286,20 @@ release: check-headers
 # (Make 4.0+; no grouped-target &: which needs 4.3+).
 # Touch the stamp only after a successful generate so a failed run retries.
 # Uses scripts/generate_completions.sh (DRY: same script used by packaging).
+# Always `cargo build -p vlz` (default features) so a prior
+# `cargo test --features testing` binary cannot leak mock provider names.
+GENERATE_COMPLETIONS = cd "$(MKFILE_DIR)" && cargo build -p vlz && "$(SCRIPTS_DIR)/generate_completions.sh" "$(VLZ_DEBUG)"
+
 completions: completions/.generated
 
 completions/.generated: $(VLZ_DEBUG)
 	@mkdir -p "$(MKFILE_DIR)/completions"
-	@$(MAKE_RUN_LEAF) generate-completions -- bash -c 'cd "$(MKFILE_DIR)" && "$(SCRIPTS_DIR)/generate_completions.sh" "$(VLZ_DEBUG)"'
+	@$(MAKE_RUN_LEAF) generate-completions -- bash -c '$(GENERATE_COMPLETIONS)'
 	@touch "$@"
 
 generate-completions: $(VLZ_DEBUG)
 	@mkdir -p "$(MKFILE_DIR)/completions"
-	@$(MAKE_RUN_LEAF) generate-completions -- bash -c 'cd "$(MKFILE_DIR)" && "$(SCRIPTS_DIR)/generate_completions.sh" "$(VLZ_DEBUG)"'
+	@$(MAKE_RUN_LEAF) generate-completions -- bash -c '$(GENERATE_COMPLETIONS)'
 	@touch "$(MKFILE_DIR)/completions/.generated"
 
 # Completions from release binary; used by packaging targets (deb, etc.).

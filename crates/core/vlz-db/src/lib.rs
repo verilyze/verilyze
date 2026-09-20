@@ -86,25 +86,44 @@ pub fn normalize_vuln_id(s: &str) -> String {
     }
 }
 
-/// True when `raw` `id` or `aliases` matches `record_id` (CVE-normalized).
+/// Scalar JSON keys that carry a vulnerability identity.
+///
+/// OSV/NVD use `id` (NVD also `cveId`); GitHub uses `ghsa_id`/`cve_id`;
+/// Sonatype uses `id` and/or `cve`. OSV `related` is intentionally absent.
+pub const RAW_IDENTITY_SCALAR_KEYS: &[&str] =
+    &["id", "ghsa_id", "cve_id", "cve", "cveId"];
+
+/// Identity strings from a raw provider blob (CVE-normalized matching later).
+pub fn raw_identity_ids(raw: &serde_json::Value) -> Vec<&str> {
+    let mut out = Vec::new();
+    for key in RAW_IDENTITY_SCALAR_KEYS {
+        if let Some(s) = raw.get(*key).and_then(|v| v.as_str())
+            && !s.is_empty()
+        {
+            out.push(s);
+        }
+    }
+    if let Some(aliases) = raw.get("aliases").and_then(|v| v.as_array()) {
+        for alias in aliases {
+            if let Some(s) = alias.as_str()
+                && !s.is_empty()
+            {
+                out.push(s);
+            }
+        }
+    }
+    out
+}
+
+/// True when a raw identity field matches `record_id` (CVE-normalized).
 pub fn raw_matches_record_id(
     raw: &serde_json::Value,
     record_id: &str,
 ) -> bool {
     let want = normalize_vuln_id(record_id);
-    if raw
-        .get("id")
-        .and_then(|v| v.as_str())
-        .is_some_and(|id| normalize_vuln_id(id) == want)
-    {
-        return true;
-    }
-    raw.get("aliases")
-        .and_then(|v| v.as_array())
+    raw_identity_ids(raw)
         .into_iter()
-        .flatten()
-        .filter_map(|alias| alias.as_str())
-        .any(|alias| normalize_vuln_id(alias) == want)
+        .any(|id| normalize_vuln_id(id) == want)
 }
 
 /// CVSS version used for the primary score (FR-034).
@@ -611,6 +630,37 @@ mod tests {
         assert!(raw_matches_record_id(&cve, "cve-2024-1708"));
         assert_eq!(normalize_vuln_id("cve-2024-1708"), "CVE-2024-1708");
         assert_eq!(normalize_vuln_id("GHSA-x"), "GHSA-x");
+    }
+
+    #[test]
+    fn raw_matches_github_and_sonatype_identity_fields() {
+        let github = serde_json::json!({
+            "ghsa_id": "GHSA-xxxx-yyyy-zzzz",
+            "cve_id": "cve-2024-1708",
+        });
+        assert!(raw_matches_record_id(&github, "CVE-2024-1708"));
+        assert!(raw_matches_record_id(&github, "GHSA-xxxx-yyyy-zzzz"));
+        assert!(!raw_matches_record_id(&github, "CVE-2024-9999"));
+
+        let github_empty_cve = serde_json::json!({
+            "ghsa_id": "GHSA-only-id",
+            "cve_id": "",
+        });
+        assert!(raw_matches_record_id(&github_empty_cve, "GHSA-only-id"));
+        assert!(!raw_matches_record_id(&github_empty_cve, "CVE-2024-1708"));
+
+        let sonatype = serde_json::json!({
+            "id": "ossindex-uuid",
+            "cve": "CVE-2024-5678",
+        });
+        assert!(raw_matches_record_id(&sonatype, "CVE-2024-5678"));
+        assert!(raw_matches_record_id(&sonatype, "ossindex-uuid"));
+
+        let related_only = serde_json::json!({
+            "id": "GHSA-ffff-ffff-ffff",
+            "related": ["CVE-2024-5555"],
+        });
+        assert!(!raw_matches_record_id(&related_only, "CVE-2024-5555"));
     }
 
     #[test]

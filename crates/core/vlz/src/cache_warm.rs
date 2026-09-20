@@ -39,8 +39,10 @@ pub struct CacheWarmOutcome {
     pub summary: CacheWarmSummary,
     pub findings: Vec<(Package, Vec<CveRecord>)>,
     pub raw_vulns_by_package: HashMap<Package, Vec<serde_json::Value>>,
-    /// Provider names that failed while another selected provider succeeded.
+    /// Provider names that failed (partial or total for a package).
     pub failed_providers: Vec<String>,
+    /// First cause chain per failed provider name (`{e:#}`), for `-v`.
+    pub failed_provider_causes: Vec<(String, String)>,
 }
 
 /// Deduplicate packages by `(name, version)`. Keeps first occurrence.
@@ -67,6 +69,7 @@ pub async fn warm_cache_for_packages(
     let mut findings = Vec::new();
     let mut raw_vulns_by_package = HashMap::new();
     let mut failed_providers = Vec::new();
+    let mut failed_provider_causes = Vec::new();
 
     if packages.is_empty() || providers.is_empty() {
         return Ok(CacheWarmOutcome {
@@ -74,6 +77,7 @@ pub async fn warm_cache_for_packages(
             findings,
             raw_vulns_by_package,
             failed_providers,
+            failed_provider_causes,
         });
     }
 
@@ -105,6 +109,18 @@ pub async fn warm_cache_for_packages(
     for result in futures::future::join_all(tasks).await {
         match result {
             Ok(result) => {
+                for (name, cause) in result.partial_failures {
+                    record_provider_failure(
+                        &mut failed_providers,
+                        &mut failed_provider_causes,
+                        name,
+                        cause,
+                    );
+                }
+                if result.all_providers_failed {
+                    summary.provider_fetch_failed = true;
+                    continue;
+                }
                 summary.cache_hits += result.cache_hits;
                 summary.fetched += result.fetched;
                 if !result.raw_vulns.is_empty() {
@@ -112,11 +128,6 @@ pub async fn warm_cache_for_packages(
                         .insert(result.pkg.clone(), result.raw_vulns);
                 }
                 findings.push((result.pkg, result.records));
-                for name in result.partial_failed_providers {
-                    if !failed_providers.iter().any(|n| n == &name) {
-                        failed_providers.push(name);
-                    }
-                }
             }
             Err(e) => {
                 let msg = e.to_string();
@@ -134,6 +145,7 @@ pub async fn warm_cache_for_packages(
         findings,
         raw_vulns_by_package,
         failed_providers,
+        failed_provider_causes,
     })
 }
 
@@ -151,7 +163,8 @@ async fn warm_one_package(
             raw_vulns: vec![],
             cache_hits: 0,
             fetched: 0,
-            partial_failed_providers: vec![],
+            partial_failures: vec![],
+            all_providers_failed: false,
         });
     }
 
@@ -162,7 +175,7 @@ async fn warm_one_package(
     let mut any_ok = false;
     let mut saw_offline_miss = false;
     let mut saw_fetch_fail = false;
-    let mut partial_failed_providers = Vec::new();
+    let mut partial_failures = Vec::new();
 
     for (idx, prov) in providers.iter().enumerate() {
         match warm_one_provider(
@@ -191,8 +204,7 @@ async fn warm_one_package(
                 } else {
                     saw_fetch_fail = true;
                     let name = prov.name().to_string();
-                    log::error!("Unable to fetch CVE data from {name}: {e:#}");
-                    partial_failed_providers.push(name);
+                    partial_failures.push((name, format!("{e:#}")));
                 }
             }
         }
@@ -206,7 +218,8 @@ async fn warm_one_package(
             raw_vulns: all_raw,
             cache_hits,
             fetched,
-            partial_failed_providers,
+            partial_failures,
+            all_providers_failed: false,
         });
     }
 
@@ -214,7 +227,15 @@ async fn warm_one_package(
         return Err(anyhow!(OFFLINE_CACHE_MISS_MESSAGE));
     }
     if saw_fetch_fail {
-        return Err(anyhow!("Fetching CVEs for {}@{}", pkg.name, pkg.version));
+        return Ok(WarmPackageResult {
+            pkg,
+            records: vec![],
+            raw_vulns: vec![],
+            cache_hits: 0,
+            fetched: 0,
+            partial_failures,
+            all_providers_failed: true,
+        });
     }
     Ok(WarmPackageResult {
         pkg,
@@ -222,7 +243,8 @@ async fn warm_one_package(
         raw_vulns: vec![],
         cache_hits: 0,
         fetched: 0,
-        partial_failed_providers: vec![],
+        partial_failures: vec![],
+        all_providers_failed: false,
     })
 }
 
@@ -262,10 +284,7 @@ fn pair_records(
         .map(|record| {
             let raw_one = raw
                 .iter()
-                .find(|v| {
-                    v.get("id").and_then(|id| id.as_str())
-                        == Some(record.id.as_str())
-                })
+                .find(|v| vlz_db::raw_matches_record_id(v, &record.id))
                 .cloned()
                 .unwrap_or_else(|| serde_json::json!({"id": record.id}));
             vlz_cve_client::ProviderRecord {
@@ -277,13 +296,26 @@ fn pair_records(
         .collect()
 }
 
+fn record_provider_failure(
+    names: &mut Vec<String>,
+    causes: &mut Vec<(String, String)>,
+    name: String,
+    cause: String,
+) {
+    if !names.iter().any(|n| n == &name) {
+        names.push(name.clone());
+        causes.push((name, cause));
+    }
+}
+
 struct WarmPackageResult {
     pkg: Package,
     records: Vec<CveRecord>,
     raw_vulns: Vec<serde_json::Value>,
     cache_hits: usize,
     fetched: usize,
-    partial_failed_providers: Vec<String>,
+    partial_failures: Vec<(String, String)>,
+    all_providers_failed: bool,
 }
 
 #[cfg(test)]
@@ -1005,6 +1037,39 @@ mod tests {
                 .unwrap();
         assert!(outcome.summary.provider_fetch_failed);
         assert!(outcome.findings.is_empty());
+        assert_eq!(outcome.failed_providers, vec!["osv", "nvd"]);
+    }
+
+    #[test]
+    fn pair_records_keeps_github_blob_and_cve_case() {
+        let record = CveRecord {
+            id: "CVE-2024-1708".to_string(),
+            cvss_score: None,
+            cvss_version: None,
+            description: "github".to_string(),
+            reachable: None,
+            advisory_symbols: Vec::new(),
+            evidence: Vec::new(),
+            symbol_usage: None,
+            affected_ranges: Vec::new(),
+            in_kev: None,
+            epss: None,
+            epss_percentile: None,
+        };
+        let raw = vec![serde_json::json!({
+            "ghsa_id": "GHSA-xxxx-yyyy-zzzz",
+            "cve_id": "cve-2024-1708",
+        })];
+        let paired = pair_records(vec![record], &raw, 0);
+        assert_eq!(paired.len(), 1);
+        assert_eq!(
+            paired[0].raw.get("ghsa_id").and_then(|v| v.as_str()),
+            Some("GHSA-xxxx-yyyy-zzzz")
+        );
+        assert_eq!(
+            paired[0].raw.get("cve_id").and_then(|v| v.as_str()),
+            Some("cve-2024-1708")
+        );
     }
 
     #[tokio::test]

@@ -314,21 +314,39 @@ async fn select_provider_impl(
     crate::providers::select_providers(&cfg.providers, &cfg)
 }
 
+fn provider_fetch_cause_log_lines(
+    verbosity: u8,
+    causes: &[(String, String)],
+) -> Vec<String> {
+    if verbosity == 0 {
+        return Vec::new();
+    }
+    causes
+        .iter()
+        .map(|(name, cause)| {
+            format!("Unable to fetch CVE data from {name}: {cause}")
+        })
+        .collect()
+}
+
 fn emit_provider_fetch_diagnostics(
     provider_fetch_failed: bool,
     failed_providers: &[String],
-    _verbosity: u8,
+    failed_causes: &[(String, String)],
+    verbosity: u8,
 ) {
     if !failed_providers.is_empty() {
         eprintln!(
             "Unable to fetch CVE data from provider(s): {}. Run with -v for details.",
             failed_providers.join(", ")
         );
-    }
-    if provider_fetch_failed {
+    } else if provider_fetch_failed {
         eprintln!(
             "Unable to fetch CVE data from provider. Run with -v for details."
         );
+    }
+    for line in provider_fetch_cause_log_lines(verbosity, failed_causes) {
+        log::error!("{line}");
     }
 }
 
@@ -1670,6 +1688,7 @@ async fn run_preload(
     emit_provider_fetch_diagnostics(
         warm.summary.provider_fetch_failed,
         &warm.failed_providers,
+        &warm.failed_provider_causes,
         verbosity,
     );
 
@@ -2106,6 +2125,7 @@ async fn run_scan(
     let mut offline_cache_miss = false;
     let mut provider_fetch_failed = false;
     let mut failed_providers = Vec::new();
+    let mut failed_provider_causes = Vec::new();
     let mut findings = Vec::new();
     let mut raw_vulns_by_package = std::collections::HashMap::new();
 
@@ -2124,13 +2144,9 @@ async fn run_scan(
         offline_cache_miss = warm.summary.offline_cache_miss;
         provider_fetch_failed = warm.summary.provider_fetch_failed;
         failed_providers = warm.failed_providers;
+        failed_provider_causes = warm.failed_provider_causes;
         findings = warm.findings;
         raw_vulns_by_package = warm.raw_vulns_by_package;
-        if provider_fetch_failed && verbosity > 0 {
-            error!(
-                "One or more CVE provider fetches failed during cache warm"
-            );
-        }
     }
 
     // -----------------------------------------------------------------
@@ -2423,6 +2439,7 @@ async fn run_scan(
     emit_provider_fetch_diagnostics(
         provider_fetch_failed,
         &failed_providers,
+        &failed_provider_causes,
         verbosity,
     );
 
@@ -2637,6 +2654,7 @@ async fn scan_findings_for_fix(
         emit_provider_fetch_diagnostics(
             provider_fetch_failed,
             &warm.failed_providers,
+            &warm.failed_provider_causes,
             verbosity,
         );
     }
@@ -3141,6 +3159,16 @@ mod tests {
     #[test]
     fn log_level_from_verbosity_count_zero_is_warn() {
         assert_eq!(log_level_from_verbosity_count(0), log::LevelFilter::Warn);
+    }
+
+    #[test]
+    fn provider_fetch_cause_logs_only_when_verbose() {
+        let causes = vec![("nvd".to_string(), "timed out".to_string())];
+        assert!(provider_fetch_cause_log_lines(0, &causes).is_empty());
+        let verbose = provider_fetch_cause_log_lines(1, &causes);
+        assert_eq!(verbose.len(), 1);
+        assert!(verbose[0].contains("nvd"));
+        assert!(verbose[0].contains("timed out"));
     }
 
     #[test]

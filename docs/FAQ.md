@@ -459,7 +459,9 @@ features and want a merged result. `--providers all` expands to production
 providers actually registered in this binary (`osv` plus feature-gated
 `nvd` / `github` / `sonatype`). On an OSV-only build, `all` is just `osv`.
 Passing both `--provider` and `--providers` is allowed only when they name
-the same set (order-insensitive); otherwise vlz exits 2.
+the same set (order-insensitive); otherwise vlz exits 2. Empty
+`VLZ_PROVIDERS` (or commas only) is a config error, matching
+`providers = []` in a file.
 
 ---
 
@@ -535,7 +537,8 @@ vulnerabilities found" to avoid false negatives (FR-010). With multiple
 providers, exit 5 happens only when **every** selected provider fails for a
 package and none were cached. A partial failure (one provider hits, another
 fails) prints a stderr warning naming the failed provider and is **not** a
-failed scan.
+failed scan. Default verbosity names the failed provider(s); `-v` adds
+cause chains.
 
 **Remediation:** Run with `-v` for detailed error output. Check network
 connectivity, firewall, and provider-specific auth (e.g. VLZ_SONATYPE_EMAIL and
