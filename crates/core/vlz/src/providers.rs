@@ -290,4 +290,39 @@ mod tests {
             .unwrap();
         assert_eq!(cfg.providers, vec!["osv", "failing"]);
     }
+
+    #[test]
+    fn select_providers_empty_registry_errors() {
+        let _guard = crate::registry::lock_registry_for_test();
+        crate::registry::clear_providers();
+        let cfg = crate::config::EffectiveConfig::default();
+        let result = super::select_providers(&["osv".to_string()], &cfg);
+        assert!(result.is_err());
+        let err = result.err().expect("error payload");
+        assert!(err.to_string().contains("No CveProvider"));
+    }
+
+    #[test]
+    fn select_providers_unknown_name_errors() {
+        let _guard = crate::registry::lock_registry_for_test();
+        let cfg = locked_cfg();
+        let result =
+            super::select_providers(&["not-a-provider".to_string()], &cfg);
+        assert!(result.is_err());
+        let err = result.err().expect("error payload");
+        assert!(err.to_string().contains("Unknown provider"));
+        assert!(err.to_string().contains("list-providers"));
+    }
+
+    #[test]
+    fn apply_cli_none_errors_when_default_unregistered() {
+        let _guard = crate::registry::lock_registry_for_test();
+        crate::registry::clear_providers();
+        crate::registry::register(crate::registry::Plugin::CveProvider(
+            Box::new(crate::mocks::FailingCveProvider::new()),
+        ));
+        let mut cfg = crate::config::EffectiveConfig::default();
+        let err = apply_cli_providers(&mut cfg, None, None).unwrap_err();
+        assert!(err.to_string().contains("Unknown provider"));
+    }
 }
