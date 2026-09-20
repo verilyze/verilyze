@@ -581,6 +581,9 @@ pub struct ReportData {
     pub offline_cache_miss: bool,
     /// True when CVE provider fetch failed after retries (FR-010).
     pub provider_fetch_failed: bool,
+    /// Raw provider blobs per package (alias-aware FP / VEX lookup after merge).
+    pub raw_vulns_by_package:
+        std::collections::HashMap<Package, Vec<serde_json::Value>>,
 }
 
 impl ReportData {
@@ -1259,6 +1262,7 @@ impl Reporter for CycloneDxReporter {
                 &data.suppressed_findings,
                 &data.fp_entries,
                 &data.vex_config,
+                &data.raw_vulns_by_package,
             )
         } else {
             Vec::new()
@@ -1421,6 +1425,7 @@ impl Reporter for OpenVexReporter {
                 &data.suppressed_findings,
                 &data.fp_entries,
                 &data.vex_config,
+                &data.raw_vulns_by_package,
             )
         } else {
             Vec::new()
@@ -2098,6 +2103,7 @@ mod tests {
             manifest_coverage: vec![],
             offline_cache_miss: false,
             provider_fetch_failed: false,
+            raw_vulns_by_package: std::collections::HashMap::new(),
         }
     }
 
@@ -2145,6 +2151,7 @@ mod tests {
             manifest_coverage: vec![],
             offline_cache_miss: false,
             provider_fetch_failed: false,
+            raw_vulns_by_package: std::collections::HashMap::new(),
         }
     }
 
@@ -2178,6 +2185,7 @@ mod tests {
             ],
             offline_cache_miss: false,
             provider_fetch_failed: false,
+            raw_vulns_by_package: std::collections::HashMap::new(),
         }
     }
 
@@ -2230,6 +2238,7 @@ mod tests {
             manifest_coverage: vec![],
             offline_cache_miss: false,
             provider_fetch_failed: false,
+            raw_vulns_by_package: std::collections::HashMap::new(),
         }
     }
 
@@ -2280,6 +2289,7 @@ mod tests {
             }],
             offline_cache_miss: false,
             provider_fetch_failed: false,
+            raw_vulns_by_package: std::collections::HashMap::new(),
         };
         assert!(data.has_degraded_coverage());
         assert!(!data.is_analysis_incomplete());
@@ -2320,6 +2330,7 @@ mod tests {
             ],
             offline_cache_miss: false,
             provider_fetch_failed: false,
+            raw_vulns_by_package: std::collections::HashMap::new(),
         };
         assert!(data.has_degraded_coverage());
         assert!(data.is_analysis_incomplete());
@@ -2350,6 +2361,7 @@ mod tests {
             }],
             offline_cache_miss: false,
             provider_fetch_failed: false,
+            raw_vulns_by_package: std::collections::HashMap::new(),
         };
         let mut buf = Vec::new();
         DefaultReporter::new()
@@ -2631,6 +2643,7 @@ mod tests {
             manifest_coverage: vec![],
             offline_cache_miss: false,
             provider_fetch_failed: false,
+            raw_vulns_by_package: std::collections::HashMap::new(),
         };
         let mut buf = Vec::new();
         HtmlReporter::new()
@@ -2706,6 +2719,7 @@ mod tests {
             manifest_coverage: vec![],
             offline_cache_miss: false,
             provider_fetch_failed: false,
+            raw_vulns_by_package: std::collections::HashMap::new(),
         };
         let mut buf = Vec::new();
         SarifReporter::new()
@@ -2788,6 +2802,7 @@ mod tests {
             manifest_coverage: vec![],
             offline_cache_miss: false,
             provider_fetch_failed: false,
+            raw_vulns_by_package: std::collections::HashMap::new(),
         };
         let mut buf = Vec::new();
         SarifReporter::new()
@@ -2867,6 +2882,7 @@ mod tests {
             manifest_coverage: vec![],
             offline_cache_miss: false,
             provider_fetch_failed: false,
+            raw_vulns_by_package: std::collections::HashMap::new(),
         };
         let mut buf = Vec::new();
         SarifReporter::new()
@@ -2979,6 +2995,7 @@ mod tests {
             manifest_coverage: vec![],
             offline_cache_miss: false,
             provider_fetch_failed: false,
+            raw_vulns_by_package: std::collections::HashMap::new(),
         };
         let mut buf = Vec::new();
         CycloneDxReporter::new()
@@ -3069,6 +3086,7 @@ mod tests {
             manifest_coverage: vec![],
             offline_cache_miss: false,
             provider_fetch_failed: false,
+            raw_vulns_by_package: std::collections::HashMap::new(),
         };
         let mut buf = Vec::new();
         CycloneDxReporter::new()
@@ -3110,6 +3128,7 @@ mod tests {
             manifest_coverage: vec![],
             offline_cache_miss: false,
             provider_fetch_failed: false,
+            raw_vulns_by_package: std::collections::HashMap::new(),
         };
         let mut buf = Vec::new();
         CycloneDxReporter::new()
@@ -3153,6 +3172,7 @@ mod tests {
                 manifest_coverage: vec![],
                 offline_cache_miss: false,
                 provider_fetch_failed: false,
+                raw_vulns_by_package: std::collections::HashMap::new(),
             };
             let mut buf = Vec::new();
             CycloneDxReporter::new()
@@ -3212,6 +3232,7 @@ mod tests {
                 manifest_coverage: vec![],
                 offline_cache_miss: false,
                 provider_fetch_failed: false,
+                raw_vulns_by_package: std::collections::HashMap::new(),
             };
             let mut buf = Vec::new();
             SpdxReporter::new()
@@ -3274,6 +3295,7 @@ mod tests {
             manifest_coverage: vec![],
             offline_cache_miss: false,
             provider_fetch_failed: false,
+            raw_vulns_by_package: std::collections::HashMap::new(),
         };
         let mut buf = Vec::new();
         SpdxReporter::new()

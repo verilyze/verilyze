@@ -222,14 +222,20 @@ pub fn derive_vex_statements(
     suppressed_findings: &[Finding],
     fp_entries: &HashMap<String, FpEntry>,
     config: &VexConfig,
+    raw_vulns_by_package: &HashMap<vlz_db::Package, Vec<serde_json::Value>>,
 ) -> Vec<VexStatement> {
     let mut out = Vec::new();
     for finding in suppressed_findings {
+        let raw = raw_vulns_by_package
+            .get(&finding.package)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[]);
         for (cve, _) in &finding.cves {
+            let entry = vlz_db::matching_fp_entry(&cve.id, raw, fp_entries);
             out.push(statement_for_suppressed(
                 &finding.package,
                 &cve.id,
-                fp_entries.get(&cve.id),
+                entry.as_ref(),
             ));
         }
     }
@@ -480,6 +486,7 @@ mod tests {
             &suppressed,
             &fp,
             &VexConfig::default(),
+            &HashMap::new(),
         );
         assert_eq!(stmts.len(), 1);
         assert_eq!(stmts[0].status, VexStatus::NotAffected);
@@ -488,6 +495,48 @@ mod tests {
             Some(VexJustification::VulnerableCodeNotPresent)
         );
         assert_eq!(stmts[0].detail.as_deref(), Some("never imported"));
+    }
+
+    #[test]
+    fn fp_mark_under_ghsa_resolves_after_merge_to_cve_id() {
+        let suppressed = vec![finding(cve("CVE-2024-1708", None))];
+        let mut fp = HashMap::new();
+        fp.insert(
+            "GHSA-abcd-efgh-ijkl".into(),
+            FpEntry {
+                comment: "unused".into(),
+                timestamp_secs: 1,
+                user: None,
+                host: None,
+                project_id: None,
+                justification: Some("vulnerable_code_not_present".into()),
+                status: Some("not_affected".into()),
+                detail: Some("alias mark".into()),
+            },
+        );
+        let mut raw_vulns = HashMap::new();
+        raw_vulns.insert(
+            pkg(),
+            vec![serde_json::json!({
+                "id": "GHSA-abcd-efgh-ijkl",
+                "aliases": ["cve-2024-1708"],
+            })],
+        );
+        let stmts = derive_vex_statements(
+            &[],
+            &suppressed,
+            &fp,
+            &VexConfig::default(),
+            &raw_vulns,
+        );
+        assert_eq!(stmts.len(), 1);
+        assert_eq!(stmts[0].cve_id, "CVE-2024-1708");
+        assert_eq!(stmts[0].status, VexStatus::NotAffected);
+        assert_eq!(
+            stmts[0].justification,
+            Some(VexJustification::VulnerableCodeNotPresent)
+        );
+        assert_eq!(stmts[0].detail.as_deref(), Some("alias mark"));
     }
 
     #[test]
@@ -512,6 +561,7 @@ mod tests {
             &suppressed,
             &fp,
             &VexConfig::default(),
+            &HashMap::new(),
         );
         assert_eq!(stmts[0].status, VexStatus::NotAffected);
         assert_eq!(
@@ -529,6 +579,7 @@ mod tests {
             &[],
             &HashMap::new(),
             &VexConfig::default(),
+            &HashMap::new(),
         );
         assert_eq!(stmts[0].status, VexStatus::UnderInvestigation);
         assert!(stmts[0].justification.is_none());
@@ -542,8 +593,13 @@ mod tests {
             reachability_not_affected: true,
             ..VexConfig::default()
         };
-        let stmts =
-            derive_vex_statements(&findings, &[], &HashMap::new(), &cfg);
+        let stmts = derive_vex_statements(
+            &findings,
+            &[],
+            &HashMap::new(),
+            &cfg,
+            &HashMap::new(),
+        );
         assert_eq!(stmts[0].status, VexStatus::NotAffected);
         assert_eq!(
             stmts[0].justification,
@@ -559,6 +615,7 @@ mod tests {
             &[],
             &HashMap::new(),
             &VexConfig::default(),
+            &HashMap::new(),
         );
         assert_eq!(stmts[0].status, VexStatus::Affected);
         assert_eq!(stmts[0].status.as_cyclonedx_state(), "exploitable");
@@ -572,6 +629,7 @@ mod tests {
             &[],
             &HashMap::new(),
             &VexConfig::default(),
+            &HashMap::new(),
         );
         assert_eq!(stmts[0].status, VexStatus::UnderInvestigation);
     }
@@ -601,6 +659,7 @@ mod tests {
             &suppressed,
             &fp,
             &VexConfig::default(),
+            &HashMap::new(),
         );
         assert_eq!(stmts.len(), 1);
         assert_eq!(stmts[0].status, VexStatus::NotAffected);
@@ -619,6 +678,7 @@ mod tests {
             &[],
             &HashMap::new(),
             &VexConfig::default(),
+            &HashMap::new(),
         );
         assert_eq!(stmts.len(), 1);
         assert_eq!(stmts[0].status, VexStatus::Affected);

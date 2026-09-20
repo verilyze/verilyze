@@ -126,6 +126,65 @@ pub fn raw_matches_record_id(
         .any(|id| normalize_vuln_id(id) == want)
 }
 
+/// Identity strings for FP/VEX lookup: merged `record_id` plus matching raw fields.
+pub fn record_identity_ids(
+    record_id: &str,
+    raw_vulns: &[serde_json::Value],
+) -> Vec<String> {
+    let mut out = vec![record_id.to_string()];
+    for raw in raw_vulns {
+        if raw_matches_record_id(raw, record_id) {
+            for id in raw_identity_ids(raw) {
+                out.push(id.to_string());
+            }
+        }
+    }
+    out
+}
+
+/// True when any identity for `record_id` matches a marked FP key (CVE-normalized).
+pub fn record_is_fp_marked(
+    record_id: &str,
+    raw_vulns: &[serde_json::Value],
+    marked_ids: &std::collections::HashSet<String>,
+) -> bool {
+    if marked_ids.is_empty() {
+        return false;
+    }
+    for id in record_identity_ids(record_id, raw_vulns) {
+        if marked_ids.contains(&id) {
+            return true;
+        }
+        let norm = normalize_vuln_id(&id);
+        for key in marked_ids {
+            if normalize_vuln_id(key) == norm {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// FP entry for `record_id`, including marks stored under pre-merge alias keys.
+pub fn matching_fp_entry(
+    record_id: &str,
+    raw_vulns: &[serde_json::Value],
+    fp_entries: &std::collections::HashMap<String, FpEntry>,
+) -> Option<FpEntry> {
+    for id in record_identity_ids(record_id, raw_vulns) {
+        if let Some(entry) = fp_entries.get(&id) {
+            return Some(entry.clone());
+        }
+        let norm = normalize_vuln_id(&id);
+        for (key, entry) in fp_entries {
+            if normalize_vuln_id(key) == norm {
+                return Some(entry.clone());
+            }
+        }
+    }
+    None
+}
+
 /// CVSS version used for the primary score (FR-034).
 #[derive(
     Debug,
@@ -661,6 +720,55 @@ mod tests {
             "related": ["CVE-2024-5555"],
         });
         assert!(!raw_matches_record_id(&related_only, "CVE-2024-5555"));
+    }
+
+    #[test]
+    fn record_is_fp_marked_matches_pre_merge_alias_keys() {
+        use std::collections::HashSet;
+
+        let raw = serde_json::json!({
+            "id": "GHSA-abcd-efgh-ijkl",
+            "aliases": ["cve-2024-1708"],
+        });
+        let raws = vec![raw];
+        let marked: HashSet<String> =
+            ["GHSA-abcd-efgh-ijkl".into()].into_iter().collect();
+        assert!(record_is_fp_marked("CVE-2024-1708", &raws, &marked));
+        assert!(record_is_fp_marked("cve-2024-1708", &raws, &marked));
+        assert!(!record_is_fp_marked("CVE-2024-9999", &raws, &marked));
+
+        let marked_cve: HashSet<String> =
+            ["cve-2024-1708".into()].into_iter().collect();
+        assert!(record_is_fp_marked("CVE-2024-1708", &raws, &marked_cve));
+    }
+
+    #[test]
+    fn matching_fp_entry_resolves_alias_mark_keys() {
+        use std::collections::HashMap;
+
+        let raw = serde_json::json!({
+            "ghsa_id": "GHSA-xxxx-yyyy-zzzz",
+            "cve_id": "CVE-2024-1708",
+        });
+        let raws = vec![raw];
+        let mut fp = HashMap::new();
+        fp.insert(
+            "GHSA-xxxx-yyyy-zzzz".into(),
+            FpEntry {
+                comment: "triaged".into(),
+                timestamp_secs: 1,
+                user: None,
+                host: None,
+                project_id: None,
+                justification: Some("vulnerable_code_not_present".into()),
+                status: Some("not_affected".into()),
+                detail: Some("unused dep".into()),
+            },
+        );
+        let entry = matching_fp_entry("CVE-2024-1708", &raws, &fp);
+        assert!(entry.is_some());
+        assert_eq!(entry.unwrap().detail.as_deref(), Some("unused dep"));
+        assert!(matching_fp_entry("CVE-2024-9999", &raws, &fp).is_none());
     }
 
     #[test]

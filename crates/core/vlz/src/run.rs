@@ -2181,10 +2181,14 @@ async fn run_scan(
         findings
             .into_iter()
             .filter_map(|(pkg, recs)| {
+                let raw = raw_vulns_by_package
+                    .get(&pkg)
+                    .map(|v| v.as_slice())
+                    .unwrap_or(&[]);
                 let mut kept = Vec::new();
                 let mut suppressed = Vec::new();
                 for cve in recs {
-                    if marked_fp.contains(&cve.id) {
+                    if vlz_db::record_is_fp_marked(&cve.id, raw, &marked_fp) {
                         suppressed.push(cve);
                     } else {
                         kept.push(cve);
@@ -2408,6 +2412,7 @@ async fn run_scan(
         manifest_coverage,
         offline_cache_miss,
         provider_fetch_failed,
+        raw_vulns_by_package,
     };
     if let Some(path) = output.as_deref() {
         reporter
@@ -2695,9 +2700,15 @@ async fn scan_findings_for_fix(
     findings = findings
         .into_iter()
         .map(|(pkg, recs)| {
+            let raw = raw_vulns_by_package
+                .get(&pkg)
+                .map(|v| v.as_slice())
+                .unwrap_or(&[]);
             let kept: Vec<_> = recs
                 .into_iter()
-                .filter(|cve| !marked_fp.contains(&cve.id))
+                .filter(|cve| {
+                    !vlz_db::record_is_fp_marked(&cve.id, raw, &marked_fp)
+                })
                 .collect();
             (pkg, kept)
         })
