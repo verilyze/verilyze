@@ -92,6 +92,7 @@ _arguments "${_arguments_options[@]}" : \
 '--allow-dependency-code-execution[Allow package managers to execute dependency build/lifecycle code (SEC-023)]' \
 '--allow-direct-only-fallback[Fall back to direct-only scan with warning when transitive resolution fails (FR-022a). Applies to all Python project manifests (requirements.txt, pyproject.toml, Pipfile, setup.cfg, setup.py), Rust Cargo.toml without Cargo.lock, Go go.mod when go list or cargo metadata cannot run, JavaScript/TypeScript package.json without a usable adjacent or parent lock when package-manager execution is disabled, and Ruby Gemfile/gems.rb/*.gemspec without a usable Gemfile.lock/gems.locked when Bundler execution is disabled]' \
 '--fail-fast[Stop on first manifest parse/resolution failure; skip CVE lookup (FR-037)]' \
+'--exit-on-reachable[Only reachable-true CVEs count toward exit 86 and SARIF (FR-032)]' \
 '--no-vex[Omit VEX analysis from CycloneDX / OpenVEX output]' \
 '--no-exploitability[Skip CISA KEV / FIRST EPSS ranking entirely (FR-048)]' \
 '--exit-on-kev[Any KEV-listed CVE triggers the CVE exit code (FR-048)]' \

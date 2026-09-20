@@ -99,6 +99,7 @@ complete -c vlz -n "__fish_vlz_using_subcommand scan" -l keep-ephemeral-venv -d 
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l allow-dependency-code-execution -d 'Allow package managers to execute dependency build/lifecycle code (SEC-023)'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l allow-direct-only-fallback -d 'Fall back to direct-only scan with warning when transitive resolution fails (FR-022a). Applies to all Python project manifests (requirements.txt, pyproject.toml, Pipfile, setup.cfg, setup.py), Rust Cargo.toml without Cargo.lock, Go go.mod when go list or cargo metadata cannot run, JavaScript/TypeScript package.json without a usable adjacent or parent lock when package-manager execution is disabled, and Ruby Gemfile/gems.rb/*.gemspec without a usable Gemfile.lock/gems.locked when Bundler execution is disabled'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l fail-fast -d 'Stop on first manifest parse/resolution failure; skip CVE lookup (FR-037)'
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l exit-on-reachable -d 'Only reachable-true CVEs count toward exit 86 and SARIF (FR-032)'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l no-vex -d 'Omit VEX analysis from CycloneDX / OpenVEX output'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l no-exploitability -d 'Skip CISA KEV / FIRST EPSS ranking entirely (FR-048)'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l exit-on-kev -d 'Any KEV-listed CVE triggers the CVE exit code (FR-048)'
