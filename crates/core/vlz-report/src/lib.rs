@@ -587,6 +587,25 @@ pub struct ReportData {
 }
 
 impl ReportData {
+    /// Build a copy with replaced `findings` (ReportData is not Clone).
+    /// Used when SARIF needs a reachability-filtered view (FR-032).
+    pub fn with_findings(&self, findings: Vec<Finding>) -> Self {
+        Self {
+            findings,
+            suppressed_findings: self.suppressed_findings.clone(),
+            fp_entries: self.fp_entries.clone(),
+            vex_config: self.vex_config.clone(),
+            emit_vex: self.emit_vex,
+            all_packages: self.all_packages.clone(),
+            project_id: self.project_id.clone(),
+            root_path: self.root_path.clone(),
+            manifest_coverage: self.manifest_coverage.clone(),
+            offline_cache_miss: self.offline_cache_miss,
+            provider_fetch_failed: self.provider_fetch_failed,
+            raw_vulns_by_package: self.raw_vulns_by_package.clone(),
+        }
+    }
+
     /// True when the scan did not fully complete (FR-010).
     pub fn is_analysis_incomplete(&self) -> bool {
         self.offline_cache_miss

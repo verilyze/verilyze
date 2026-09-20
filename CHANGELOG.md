@@ -20,6 +20,10 @@ Human-readable release notes for each version.
 
 ### Added
 
+- Opt-in reachability CI gate (`exit_on_reachable` / `VLZ_EXIT_ON_REACHABLE`
+  / `--exit-on-reachable`): only `reachable: true` CVEs count toward exit
+  86 and SARIF; plain/JSON keep the full finding list (FR-032).
+
 - PHP Composer language plugin (`vlz-php`, feature `php`): discover
   `composer.json`, parse `composer.lock` (`packages` + `packages-dev`) for
   Packagist OSV pins, fail-closed lock-less exit 4 (Composer executes PHP).

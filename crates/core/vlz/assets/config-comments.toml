@@ -71,6 +71,16 @@ env = "VLZ_REACHABILITY_MODE"
 cli = "--reachability-mode"
 default = "best-available"
 
+[exit_on_reachable]
+description = """
+When true, only CVEs with reachable: true count toward exit 86 and SARIF
+results; plain/JSON keep the full finding list (FR-032; default false)
+"""
+type = "boolean"
+env = "VLZ_EXIT_ON_REACHABLE"
+cli = "--exit-on-reachable"
+default = "false"
+
 [vex_product_id]
 description = "Product identifier for OpenVEX statements (defaults to project_id)"
 type = "string"

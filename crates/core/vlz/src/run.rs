@@ -655,6 +655,7 @@ pub async fn run(args: Cli) -> Result<i32> {
             provider_http_request_timeout_secs: cli_provider_http_request_scan,
             tls_crl_bundle: cli_tls_crl_bundle_scan,
             reachability_mode: _cli_reachability_mode_scan,
+            exit_on_reachable,
             scan_exclude_dir: cli_scan_exclude_dir_scan,
             lock_file: cli_lock_files_scan,
             from_sbom: cli_from_sbom_scan,
@@ -804,6 +805,9 @@ pub async fn run(args: Cli) -> Result<i32> {
             ) {
                 error!("{message}");
                 return Ok(EXIT_MISCONFIGURATION);
+            }
+            if exit_on_reachable {
+                effective.exit_on_reachable = true;
             }
             effective.refresh_exploitability = refresh_exploitability;
             effective.no_vex = no_vex;
@@ -1088,6 +1092,10 @@ pub async fn run(args: Cli) -> Result<i32> {
                 write_stdout(&format!(
                     "reachability_mode = {}\n",
                     reachability_mode
+                ));
+                write_stdout(&format!(
+                    "exit_on_reachable = {}\n",
+                    cfg.exit_on_reachable
                 ));
                 write_stdout(&format!(
                     "cache_ttl_secs = {}\n",
@@ -2308,25 +2316,30 @@ async fn run_scan(
     // h) Apply threshold logic (FR-014, FR-010, FR-048) and decide exit code
     // -----------------------------------------------------------------
     let meeting_threshold: usize =
-        crate::exploitability::count_threshold_union_meeting(
+        crate::exploitability::count_threshold_union_meeting_gated(
             &findings,
             effective.min_score,
             effective.exploitability.min_epss,
+            effective.exit_on_reachable,
         );
     let epss_matching: usize = findings
         .iter()
         .flat_map(|(_, recs)| recs.iter())
         .filter(|cve| {
-            vlz_exploitability::cve_meets_epss_threshold(
+            crate::exploitability::cve_passes_reachability_exit_gate(
+                cve.reachable,
+                effective.exit_on_reachable,
+            ) && vlz_exploitability::cve_meets_epss_threshold(
                 cve.epss,
                 effective.exploitability.min_epss,
             )
         })
         .count();
     let kev_exit_triggered: bool = effective.exploitability.enabled
-        && crate::exploitability::any_kev_exit(
+        && crate::exploitability::any_kev_exit_gated(
             &findings,
             effective.exploitability.exit_on_kev,
+            effective.exit_on_reachable,
         );
     let total_cves: usize = findings.iter().map(|(_, r)| r.len()).sum();
     info!(
@@ -2461,14 +2474,36 @@ async fn run_scan(
         provider_fetch_failed,
         raw_vulns_by_package,
     };
+    // FR-032: SARIF primary format uses reachability-filtered findings only.
+    let primary_is_sarif = format.eq_ignore_ascii_case("sarif");
+    let sarif_report_data = if primary_is_sarif
+        || report.iter().any(|spec| {
+            spec.split_once(':').is_some_and(|(fmt, _)| {
+                fmt.trim().eq_ignore_ascii_case("sarif")
+            })
+        }) {
+        let filtered =
+            crate::exploitability::filter_findings_for_reachability_sarif(
+                &report_data.findings,
+                effective.exit_on_reachable,
+            );
+        Some(report_data.with_findings(filtered))
+    } else {
+        None
+    };
+    let primary_report = if primary_is_sarif {
+        sarif_report_data.as_ref().unwrap_or(&report_data)
+    } else {
+        &report_data
+    };
     if let Some(path) = output.as_deref() {
         reporter
-            .render_to_path(&report_data, std::path::Path::new(path))
+            .render_to_path(primary_report, std::path::Path::new(path))
             .await
             .context("Failed while writing the primary report")?;
     } else {
         reporter
-            .render(&report_data)
+            .render(primary_report)
             .await
             .context("Failed while rendering the report")?;
     }
@@ -2572,7 +2607,13 @@ async fn run_scan(
                 continue;
             }
         };
-        if let Err(e) = reporter.render_to_path(&report_data, path).await {
+        // FR-032: --report sarif: uses reachability-filtered findings only.
+        let data_for_report = if fmt == "sarif" {
+            sarif_report_data.as_ref().unwrap_or(&report_data)
+        } else {
+            &report_data
+        };
+        if let Err(e) = reporter.render_to_path(data_for_report, path).await {
             error!(
                 "Failed to write {} report to {}: {}",
                 fmt,
@@ -2776,14 +2817,14 @@ async fn scan_findings_for_fix(
 
     let real_cve_count: usize = findings.iter().map(|(_, r)| r.len()).sum();
 
-    // Apply threshold logic (FR-014, FR-010) and decide scan exit code.
-    let meeting_threshold: usize = findings
-        .iter()
-        .flat_map(|(_, recs)| recs.iter())
-        .filter(|cve| {
-            cve_meets_score_threshold(cve.cvss_score, effective.min_score)
-        })
-        .count();
+    // Apply threshold logic (FR-014, FR-010, FR-032) and decide scan exit code.
+    let meeting_threshold: usize =
+        crate::exploitability::count_threshold_union_meeting_gated(
+            &findings,
+            effective.min_score,
+            effective.exploitability.min_epss,
+            effective.exit_on_reachable,
+        );
 
     let manifest_blocking =
         crate::scan::count_blocking_manifest_failures(&manifest_coverage);

@@ -282,6 +282,10 @@ pub enum Commands {
         )]
         reachability_mode: Option<String>,
 
+        /// Only reachable-true CVEs count toward exit 86 and SARIF (FR-032)
+        #[arg(long, help_heading = HELP_THRESHOLDS)]
+        exit_on_reachable: bool,
+
         // FR-013: per-CVSS-version severity threshold overrides
         /// CVSS v2 critical severity minimum score (default 9.0)
         #[arg(long, value_name = "SCORE", help_heading = HELP_SEVERITY_MAPPING)]
@@ -1307,6 +1311,30 @@ mod tests {
         assert_eq!(kev_file.as_deref(), Some("/tmp/kev.json"));
         assert_eq!(epss_file.as_deref(), Some("/tmp/epss.csv"));
         assert!(*refresh_exploitability);
+    }
+
+    #[test]
+    fn parse_scan_with_exit_on_reachable() {
+        let cli = parse(&["scan", "--exit-on-reachable"]);
+        let Commands::Scan {
+            exit_on_reachable, ..
+        } = &cli.cmd
+        else {
+            panic!("expected scan")
+        };
+        assert!(*exit_on_reachable);
+    }
+
+    #[test]
+    fn parse_scan_exit_on_reachable_defaults_off() {
+        let cli = parse(&["scan"]);
+        let Commands::Scan {
+            exit_on_reachable, ..
+        } = &cli.cmd
+        else {
+            panic!("expected scan")
+        };
+        assert!(!*exit_on_reachable);
     }
 
     #[test]

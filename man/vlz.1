@@ -222,6 +222,11 @@ or
 .Cm best-available
 (Tier C where supported; default:
 .Cm best-available ) .
+.It Fl -exit-on-reachable
+Only CVEs with
+.Cm reachable: true
+count toward exit 86 and SARIF results (FR-032).
+Plain and JSON keep the full finding list. Default off.
 .It Fl -no-vex
 Omit VEX analysis from CycloneDX and OpenVEX output (FR-044).
 .It Fl -vex-product-id Ar id
@@ -470,6 +475,22 @@ Reachability mode:
 .Cm tier-b ,
 or
 .Cm best-available .
+.It Ev VLZ_EXIT_ON_REACHABLE
+When
+.Cm 1 ,
+.Cm true ,
+.Cm yes ,
+or
+.Cm on ,
+only CVEs with
+.Cm reachable: true
+count toward exit 86 and SARIF results (FR-032).
+Accepted false values:
+.Cm 0 ,
+.Cm false ,
+.Cm no ,
+.Cm off .
+Plain and JSON keep the full finding list.
 .It Ev VLZ_VEX_PRODUCT_ID
 Product identifier for OpenVEX statements (overrides
 .Va [vex].product_id ).

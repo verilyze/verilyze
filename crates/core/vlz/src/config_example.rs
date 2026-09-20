@@ -205,6 +205,7 @@ pub fn generate_example(cfg: &crate::config::EffectiveConfig) -> String {
                 .map(|p| p.display().to_string())
                 .unwrap_or_default(),
         ),
+        ("exit_on_reachable", cfg.exit_on_reachable.to_string()),
     ];
 
     for (key, value) in scalar_entries {
