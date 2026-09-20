@@ -184,8 +184,8 @@ mod tests {
     #[test]
     fn sanitizes_package_names_in_path() {
         assert_eq!(
-            recipe_rel_path("group:artifact").display().to_string(),
-            "vlz-fix/group_artifact.recipe"
+            recipe_rel_path("group:artifact"),
+            PathBuf::from("vlz-fix").join("group_artifact.recipe")
         );
     }
 
