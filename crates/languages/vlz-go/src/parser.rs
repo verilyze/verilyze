@@ -153,6 +153,7 @@ fn parse_require_line(
 
 /// Parse replace and exclude directives; return sets of module paths/versions
 /// to skip. Replaced modules are skipped entirely; excluded are (path, version).
+/// Handles both single-line and block (`replace (` / `exclude (` ... `)`) forms.
 fn parse_replace_and_exclude(
     content: &str,
 ) -> (
@@ -162,8 +163,35 @@ fn parse_replace_and_exclude(
     let mut replaced = std::collections::HashSet::new();
     let mut excluded = std::collections::HashSet::new();
 
+    let mut in_replace_block = false;
+    let mut in_exclude_block = false;
     for line in content.lines() {
         let line = line.trim();
+        if in_replace_block {
+            if line == ")" {
+                in_replace_block = false;
+            } else if let Some(path) = extract_replace_module_from_entry(line)
+            {
+                replaced.insert(path);
+            }
+            continue;
+        }
+        if in_exclude_block {
+            if line == ")" {
+                in_exclude_block = false;
+            } else if let Some((path, ver)) = extract_module_version(line) {
+                excluded.insert((path, ver));
+            }
+            continue;
+        }
+        if line == "replace (" {
+            in_replace_block = true;
+            continue;
+        }
+        if line == "exclude (" {
+            in_exclude_block = true;
+            continue;
+        }
         if line.starts_with("replace ") {
             if let Some(path) = extract_replace_module(line) {
                 replaced.insert(path);
@@ -178,6 +206,13 @@ fn parse_replace_and_exclude(
     (replaced, excluded)
 }
 
+/// Extract module path from a block replace entry: "module [vX] => ...".
+fn extract_replace_module_from_entry(line: &str) -> Option<String> {
+    let before_arrow = line.split("=>").next()?.trim();
+    let parts: Vec<&str> = before_arrow.split_whitespace().collect();
+    parts.first().map(|s| (*s).to_string())
+}
+
 /// Extract module path from "replace module => ..." or "replace module v1 => ..."
 fn extract_replace_module(line: &str) -> Option<String> {
     let rest = line["replace ".len()..].trim();
@@ -189,6 +224,11 @@ fn extract_replace_module(line: &str) -> Option<String> {
 /// Extract (module path, version) from "exclude module v1.2.3"
 fn extract_exclude_module_version(line: &str) -> Option<(String, String)> {
     let rest = line["exclude ".len()..].trim();
+    extract_module_version(rest)
+}
+
+/// Extract (module path, version) from "module v1.2.3" (no directive prefix).
+fn extract_module_version(rest: &str) -> Option<(String, String)> {
     let parts: Vec<&str> = rest.split_whitespace().collect();
     if parts.len() >= 2 {
         Some((parts[0].to_string(), parts[1].to_string()))
@@ -296,6 +336,70 @@ exclude github.com/excluded v1.0.0
         let packages = parse_go_mod(content).unwrap();
         assert_eq!(packages.len(), 1);
         assert_eq!(packages[0].name, "github.com/kept");
+    }
+
+    #[test]
+    fn parse_go_mod_replace_block_drops_replaced() {
+        let content = r#"
+module example.com/app
+require (
+    github.com/kept v1.0.0
+    github.com/replaced v1.0.0
+    github.com/alsoreplaced v2.0.0
+)
+replace (
+    github.com/replaced => github.com/fork/replaced v1.0.1
+    github.com/alsoreplaced v2.0.0 => ./local/also
+)
+"#;
+        let packages = parse_go_mod(content).unwrap();
+        let names: Vec<&str> =
+            packages.iter().map(|p| p.name.as_str()).collect();
+        assert!(names.contains(&"github.com/kept"));
+        assert!(!names.contains(&"github.com/replaced"));
+        assert!(!names.contains(&"github.com/alsoreplaced"));
+    }
+
+    #[test]
+    fn parse_go_mod_exclude_block_drops_excluded() {
+        let content = r#"
+module example.com/app
+require (
+    github.com/kept v1.0.0
+    github.com/old v1.0.0
+    github.com/older v2.0.0
+)
+exclude (
+    github.com/old v1.0.0
+    github.com/older v2.0.0
+)
+"#;
+        let packages = parse_go_mod(content).unwrap();
+        let names: Vec<&str> =
+            packages.iter().map(|p| p.name.as_str()).collect();
+        assert!(names.contains(&"github.com/kept"));
+        assert!(!names.contains(&"github.com/old"));
+        assert!(!names.contains(&"github.com/older"));
+    }
+
+    #[test]
+    fn parse_go_mod_mixed_single_and_block_replace() {
+        let content = r#"
+module example.com/app
+require (
+    github.com/a v1.0.0
+    github.com/b v1.0.0
+    github.com/c v1.0.0
+)
+replace github.com/a => ./local/a
+replace (
+    github.com/b => github.com/fork/b v1.0.1
+)
+"#;
+        let packages = parse_go_mod(content).unwrap();
+        let names: Vec<&str> =
+            packages.iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(names, vec!["github.com/c"]);
     }
 
     #[test]
