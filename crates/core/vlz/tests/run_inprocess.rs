@@ -3490,6 +3490,111 @@ impl vlz_cve_client::CveProvider for VersionAwareOsvProvider {
     }
 }
 
+/// OSV-like provider with multiple patched lines in one SEMVER range
+/// (RUSTSEC-2026-0097 / rand shape) for hermetic `vlz fix` tests.
+#[derive(Clone, Debug)]
+struct MultiIntervalOsvProvider {
+    pkg_name: &'static str,
+    ecosystem: &'static str,
+    cve_id: &'static str,
+    /// Alternating introduced/fixed pairs: (intro, fixed)*.
+    intervals: &'static [(&'static str, &'static str)],
+}
+
+#[cfg(all(unix, feature = "testing"))]
+#[async_trait::async_trait]
+impl vlz_cve_client::CveProvider for MultiIntervalOsvProvider {
+    fn name(&self) -> &'static str {
+        "osv"
+    }
+
+    async fn fetch(
+        &self,
+        pkg: &vlz_db::Package,
+    ) -> Result<vlz_cve_client::FetchedCves, vlz_cve_client::ProviderError>
+    {
+        let ecosystem_matches = pkg
+            .ecosystem
+            .as_deref()
+            .map(|e| e.eq_ignore_ascii_case(self.ecosystem))
+            .unwrap_or(false);
+
+        if pkg.name != self.pkg_name || !ecosystem_matches {
+            return Ok(vlz_cve_client::FetchedCves {
+                raw_vulns: vec![],
+                records: vec![],
+            });
+        }
+
+        // Affected when installed is in any [introduced, fixed) interval.
+        let affected = self.intervals.iter().any(|(intro, fixed)| {
+            !version_lt(&pkg.version, intro) && version_lt(&pkg.version, fixed)
+        });
+        if !affected {
+            return Ok(vlz_cve_client::FetchedCves {
+                raw_vulns: vec![],
+                records: vec![],
+            });
+        }
+
+        let mut events = Vec::new();
+        for (intro, fixed) in self.intervals {
+            events.push(serde_json::json!({ "introduced": intro }));
+            events.push(serde_json::json!({ "fixed": fixed }));
+        }
+
+        let raw = serde_json::json!([{
+            "id": self.cve_id,
+            "summary": "multi-interval test vuln",
+            "database_specific": { "cvss_v3_score": 7.5 },
+            "affected": [{
+                "package": { "name": self.pkg_name, "ecosystem": self.ecosystem },
+                "ranges": [{
+                    "type": "SEMVER",
+                    "events": events
+                }]
+            }]
+        }]);
+
+        let mut range_events = Vec::new();
+        for (intro, fixed) in self.intervals {
+            range_events.push(vlz_db::AffectedEvent {
+                introduced: Some((*intro).to_string()),
+                ..Default::default()
+            });
+            range_events.push(vlz_db::AffectedEvent {
+                fixed: Some((*fixed).to_string()),
+                ..Default::default()
+            });
+        }
+
+        let record = vlz_db::CveRecord {
+            id: self.cve_id.to_string(),
+            cvss_score: Some(7.5),
+            cvss_version: Some(vlz_db::CvssVersion::V3),
+            description: "multi-interval test vuln".to_string(),
+            reachable: None,
+            advisory_symbols: vec![],
+            evidence: vec![],
+            symbol_usage: None,
+            affected_ranges: vec![vlz_db::AffectedRange {
+                range_type: vlz_db::AffectedRangeType::Semver,
+                events: range_events,
+                package_name: Some(self.pkg_name.to_string()),
+                ecosystem: Some(self.ecosystem.to_string()),
+            }],
+            in_kev: None,
+            epss: None,
+            epss_percentile: None,
+        };
+
+        Ok(vlz_cve_client::FetchedCves {
+            raw_vulns: raw.as_array().cloned().unwrap_or_default(),
+            records: vec![record],
+        })
+    }
+}
+
 #[cfg(unix)]
 fn write_executable_script(path: &std::path::Path, body: &str) {
     std::fs::write(path, body).expect("write script");
@@ -3987,6 +4092,84 @@ fn run_fix_apply_cargo_updates_lockfile() {
             read_cargo_lock_version(dir.path(), "pkg"),
             "2.0.0",
             "apply must update Cargo.lock"
+        );
+    });
+}
+
+/// FR-040 multi-interval advisory (rand / RUSTSEC-2026-0097 shape):
+/// installed 0.9.2 with patched lines 0.8.6 / 0.9.3 / 0.10.1 must fix to
+/// 0.9.3 via lock-only `cargo update --precise` without editing Cargo.toml
+/// when the requirement is caret `0.9`.
+#[cfg(all(feature = "rust", unix, feature = "testing"))]
+#[test]
+fn run_fix_apply_cargo_multi_interval_lock_only() {
+    use vlz::registry::Plugin;
+
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root_path = dir.path();
+        // Requirement admits 0.9.3; lock is still on the vulnerable pin.
+        std::fs::write(
+            root_path.join("Cargo.toml"),
+            r#"[package]
+name = "guessing_game"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rand = "0.9"
+"#,
+        )
+        .expect("Cargo.toml");
+        std::fs::write(
+            root_path.join("Cargo.lock"),
+            r#"version = 3
+
+[[package]]
+name = "rand"
+version = "0.9.2"
+"#,
+        )
+        .expect("Cargo.lock");
+        let toml_before =
+            std::fs::read_to_string(root_path.join("Cargo.toml")).unwrap();
+        let root = root_path.to_str().unwrap();
+
+        let fake_bin_dir = tempfile::tempdir().expect("fake bin tempdir");
+        write_fake_cargo(fake_bin_dir.path());
+        let old_path = std::env::var("PATH").unwrap_or_else(|_| String::new());
+        let new_path =
+            format!("{}:{}", fake_bin_dir.path().display(), old_path);
+
+        let provider = MultiIntervalOsvProvider {
+            pkg_name: "rand",
+            ecosystem: vlz_db::CRATES_IO_ECOSYSTEM,
+            cve_id: "RUSTSEC-TEST-RAND-MULTI",
+            intervals: &[
+                ("0.7.0", "0.8.6"),
+                ("0.9.0", "0.9.3"),
+                ("0.10.0", "0.10.1"),
+            ],
+        };
+        vlz::registry::clear_providers();
+        vlz::registry::register(Plugin::CveProvider(Box::new(provider)));
+
+        temp_env::with_var("PATH", Some(new_path.as_str()), || {
+            let code = run_async(&["fix", root]);
+            assert_eq!(code, 0, "cargo multi-interval apply must succeed");
+        });
+
+        assert_eq!(
+            read_cargo_lock_version(root_path, "rand"),
+            "0.9.3",
+            "lock must advance to covering fixed version, not 0.10.1"
+        );
+        let toml_after =
+            std::fs::read_to_string(root_path.join("Cargo.toml")).unwrap();
+        assert_eq!(
+            toml_before, toml_after,
+            "caret requirement already admits 0.9.3; Cargo.toml must stay unchanged"
         );
     });
 }

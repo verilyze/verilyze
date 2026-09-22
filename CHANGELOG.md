@@ -10,6 +10,16 @@ Human-readable release notes for each version.
 
 ## [Unreleased]
 
+### Fixed
+
+- FR-040 upgrade planner: `minimal_fixed_version` uses the fixed endpoint of
+  the SEMVER/ECOSYSTEM interval that contains the installed pin (max across
+  CVEs), so multi-line advisories such as rand RUSTSEC-2026-0097 no longer
+  target the wrong major. Cargo `vlz fix` remains lock-first; it rewrites
+  `Cargo.toml` only when a direct requirement excludes the target, verifies
+  `Cargo.lock` after `cargo update --precise`, and prints remediator errors
+  on apply failure (CLI and LSP).
+
 ## [0.13.0] - 2026-09-20
 
 ### Changed

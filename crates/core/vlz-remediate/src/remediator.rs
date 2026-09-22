@@ -9,7 +9,8 @@
 //! - Yarn via `yarn.lock` (Classic and Berry basename)
 //! - pnpm via `pnpm-lock.yaml`
 //! - bun via `bun.lock`
-//! - Cargo via `Cargo.lock`
+//! - Cargo via `Cargo.lock` (`cargo update --precise`; may also rewrite a
+//!   direct `Cargo.toml` requirement when it excludes the target)
 //! - Python (PyPI) via `poetry.lock` (`poetry`) or `uv.lock` (`uv`)
 //! - Go via `go.mod` (`go get`; `go.sum` is co-modified, not a selector)
 //! - RubyGems via `Gemfile.lock` / `gems.locked` (`bundle add --skip-install`)
@@ -37,7 +38,8 @@
 //! scripts, so the gate does not change Go argv.
 //!
 //! Transitive findings: npm uses `--no-save`; Cargo `update --precise` is
-//! lock-safe; Gradle `--update-locks` regenerates the lock entry without
+//! lock-safe (and may edit `Cargo.toml` only for Direct requirements that
+//! block the target); Gradle `--update-locks` regenerates the lock entry without
 //! touching manifests. Yarn / pnpm / bun / poetry / uv refuse transitive apply so
 //! they do not promote a transitive pin into a direct manifest dependency.
 //! RubyGems `bundle add` edits the `Gemfile`, so it also refuses transitive
@@ -922,10 +924,15 @@ impl Remediator for CargoRemediator {
             )
         })?;
         require_sibling_manifest(&lock_dir, CARGO_MANIFEST_FILE_NAME)?;
+        let mut files = vec![lock_dir.join(CARGO_LOCK_FILE_NAME)];
+        if let Some(manifest_path) = plan_cargo_manifest_edit(ctx, &lock_dir)?
+        {
+            files.push(manifest_path);
+        }
         Ok(RemediationPreview {
             strategy: Cargo,
             workdir: lock_dir.clone(),
-            files: vec![lock_dir.join(CARGO_LOCK_FILE_NAME)],
+            files,
             argv: cargo_update_argv(
                 &self.bin,
                 ctx.package_name,
@@ -947,8 +954,358 @@ impl Remediator for CargoRemediator {
             ));
         }
         let preview = self.preview(ctx)?;
-        run_allowlisted_argv(&preview.argv, &preview.workdir, CARGO_BIN_NAME)
+        apply_cargo_manifest_edits_if_needed(ctx, &preview)?;
+        run_allowlisted_argv(&preview.argv, &preview.workdir, CARGO_BIN_NAME)?;
+        let lock_path = preview
+            .files
+            .iter()
+            .find(|p| p.file_name().is_some_and(|n| n == CARGO_LOCK_FILE_NAME))
+            .cloned()
+            .unwrap_or_else(|| preview.workdir.join(CARGO_LOCK_FILE_NAME));
+        verify_cargo_lock_reached_target(
+            &lock_path,
+            ctx.package_name,
+            ctx.target_version,
+        )?;
+        Ok(())
     }
+}
+
+/// True when `Cargo.lock` records `package_name` at `target` (or newer when
+/// both parse as strict semver).
+fn cargo_lock_satisfies_target(
+    lock_text: &str,
+    package_name: &str,
+    target: &str,
+) -> bool {
+    let versions = cargo_lock_versions_for(lock_text, package_name);
+    if versions.iter().any(|v| v == target) {
+        return true;
+    }
+    let Ok(want) = semver::Version::parse(target) else {
+        return false;
+    };
+    versions
+        .iter()
+        .any(|v| semver::Version::parse(v).is_ok_and(|have| have >= want))
+}
+
+/// Collect version pins for `package_name` from Cargo.lock `[[package]]`
+/// stanzas (name match is case-sensitive, as Cargo is).
+fn cargo_lock_versions_for(
+    lock_text: &str,
+    package_name: &str,
+) -> Vec<String> {
+    let Ok(value) = toml::from_str::<toml::Value>(lock_text) else {
+        return Vec::new();
+    };
+    let Some(arr) = value.get("package").and_then(|p| p.as_array()) else {
+        return Vec::new();
+    };
+    arr.iter()
+        .filter_map(|entry| {
+            let tbl = entry.as_table()?;
+            let name = tbl.get("name")?.as_str()?;
+            if name != package_name {
+                return None;
+            }
+            tbl.get("version")?.as_str().map(str::to_string)
+        })
+        .collect()
+}
+
+fn verify_cargo_lock_reached_target(
+    lock_path: &Path,
+    package_name: &str,
+    target: &str,
+) -> Result<(), RemediationError> {
+    let lock_text = std::fs::read_to_string(lock_path).map_err(|err| {
+        RemediationError::CommandFailed {
+            strategy: CARGO_BIN_NAME.to_string(),
+            message: format!(
+                "unable to re-read {} after update: {err}",
+                lock_path.display()
+            ),
+        }
+    })?;
+    if cargo_lock_satisfies_target(&lock_text, package_name, target) {
+        Ok(())
+    } else {
+        Err(RemediationError::CommandFailed {
+            strategy: CARGO_BIN_NAME.to_string(),
+            message: format!(
+                "Cargo.lock entry for {package_name} did not advance to {target} after update; check Cargo.toml version requirements"
+            ),
+        })
+    }
+}
+
+/// Sections of Cargo.toml that declare crate dependencies.
+const CARGO_DEP_SECTIONS: &[&str] =
+    &["dependencies", "dev-dependencies", "build-dependencies"];
+
+/// When Direct and the manifest requirement excludes the target, return the
+/// absolute `Cargo.toml` path to edit. `Ok(None)` means lock-only is enough.
+fn plan_cargo_manifest_edit(
+    ctx: &RemediationContext<'_>,
+    lock_dir: &Path,
+) -> Result<Option<std::path::PathBuf>, RemediationError> {
+    if !matches!(ctx.dependency_kind, DependencyKind::Direct) {
+        return Ok(None);
+    }
+    let manifest_path = match select_cargo_manifest_path(ctx)? {
+        Some(path) => path,
+        None => lock_dir.join(CARGO_MANIFEST_FILE_NAME),
+    };
+    let text = std::fs::read_to_string(&manifest_path).map_err(|err| {
+        RemediationError::UnsupportedLockLayout(format!(
+            "unable to read Cargo.toml for requirement check: {err}"
+        ))
+    })?;
+    match cargo_dep_requirement_status(
+        &text,
+        ctx.package_name,
+        ctx.target_version,
+    )? {
+        CargoReqStatus::AdmitsTarget => Ok(None),
+        CargoReqStatus::NeedsBump { .. } => Ok(Some(manifest_path)),
+    }
+}
+
+/// Distinct `Cargo.toml` paths from manifest declarations, if any.
+fn select_cargo_manifest_path(
+    ctx: &RemediationContext<'_>,
+) -> Result<Option<std::path::PathBuf>, RemediationError> {
+    let mut paths = Vec::new();
+    for d in ctx.declarations {
+        if d.kind != DeclarationKind::Manifest {
+            continue;
+        }
+        if !lock_basename_eq(d.path.as_str(), CARGO_MANIFEST_FILE_NAME) {
+            continue;
+        }
+        let Some(dir) =
+            resolve_lock_workdir_under_root(ctx.scan_root, d.path.as_str())
+        else {
+            return Err(RemediationError::UnsupportedLockLayout(
+                "Cargo.toml declaration path is outside scan root".to_string(),
+            ));
+        };
+        let path = dir.join(CARGO_MANIFEST_FILE_NAME);
+        if !paths.iter().any(|p: &std::path::PathBuf| p == &path) {
+            paths.push(path);
+        }
+    }
+    match paths.len() {
+        0 => Ok(None),
+        1 => Ok(Some(paths.remove(0))),
+        _ => Err(RemediationError::UnsupportedLockLayout(
+            "multiple Cargo.toml files declare this dependency; refusing ambiguous remediation (fix each crate separately)"
+                .to_string(),
+        )),
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum CargoReqStatus {
+    AdmitsTarget,
+    NeedsBump { old_req: String },
+}
+
+/// Inspect a Cargo.toml dependency entry for `package_name`.
+fn cargo_dep_requirement_status(
+    manifest_text: &str,
+    package_name: &str,
+    target_version: &str,
+) -> Result<CargoReqStatus, RemediationError> {
+    let value: toml::Value = toml::from_str(manifest_text).map_err(|err| {
+        RemediationError::UnsupportedLockLayout(format!(
+            "Cargo.toml parse error: {err}"
+        ))
+    })?;
+    let mut found: Option<String> = None;
+    for section in CARGO_DEP_SECTIONS {
+        let Some(tbl) = value.get(*section).and_then(|v| v.as_table()) else {
+            continue;
+        };
+        let Some(entry) = tbl.get(package_name) else {
+            continue;
+        };
+        if found.is_some() {
+            return Err(RemediationError::UnsupportedLockLayout(format!(
+                "crate {package_name} appears in multiple Cargo.toml dependency sections"
+            )));
+        }
+        found = Some(extract_editable_cargo_req(entry, package_name)?);
+    }
+    let Some(old_req) = found else {
+        return Err(RemediationError::UnsupportedLockLayout(format!(
+            "crate {package_name} not found as a plain crates.io dependency in Cargo.toml"
+        )));
+    };
+    let admits = cargo_req_matches_version(&old_req, target_version)
+        .map_err(|reason| {
+            RemediationError::UnsupportedLockLayout(format!(
+                "unable to evaluate Cargo requirement for {package_name}: {reason}"
+            ))
+        })?;
+    if admits {
+        Ok(CargoReqStatus::AdmitsTarget)
+    } else {
+        Ok(CargoReqStatus::NeedsBump { old_req })
+    }
+}
+
+fn extract_editable_cargo_req(
+    entry: &toml::Value,
+    package_name: &str,
+) -> Result<String, RemediationError> {
+    if let Some(s) = entry.as_str() {
+        return Ok(s.to_string());
+    }
+    let Some(tbl) = entry.as_table() else {
+        return Err(RemediationError::UnsupportedLockLayout(format!(
+            "unsupported Cargo.toml dependency form for {package_name}"
+        )));
+    };
+    if tbl.get("workspace").and_then(|v| v.as_bool()) == Some(true) {
+        return Err(RemediationError::UnsupportedLockLayout(format!(
+            "refusing to edit workspace = true dependency {package_name}"
+        )));
+    }
+    if tbl.contains_key("path") {
+        return Err(RemediationError::UnsupportedLockLayout(format!(
+            "refusing to edit path dependency {package_name}"
+        )));
+    }
+    if tbl.contains_key("git") {
+        return Err(RemediationError::UnsupportedLockLayout(format!(
+            "refusing to edit git dependency {package_name}"
+        )));
+    }
+    if let Some(pkg) = tbl.get("package").and_then(|v| v.as_str())
+        && pkg != package_name
+    {
+        return Err(RemediationError::UnsupportedLockLayout(format!(
+            "refusing to edit renamed Cargo dependency {package_name} (package = \"{pkg}\")"
+        )));
+    }
+    let Some(version) = tbl.get("version").and_then(|v| v.as_str()) else {
+        return Err(RemediationError::UnsupportedLockLayout(format!(
+            "Cargo dependency {package_name} has no editable version field"
+        )));
+    };
+    Ok(version.to_string())
+}
+
+/// Cargo caret defaults: a bare version like `0.9.2` means `^0.9.2`.
+fn parse_cargo_version_req(req: &str) -> Result<semver::VersionReq, String> {
+    let req = req.trim();
+    if req.is_empty() {
+        return Err("empty requirement".to_string());
+    }
+    let normalized = if req.starts_with(['=', '>', '<', '~', '^', '*'])
+        || req.contains(',')
+        || req.contains(' ')
+    {
+        req.to_string()
+    } else {
+        format!("^{req}")
+    };
+    semver::VersionReq::parse(&normalized)
+        .map_err(|e| format!("invalid version req {req:?}: {e}"))
+}
+
+fn cargo_req_matches_version(
+    req: &str,
+    version: &str,
+) -> Result<bool, String> {
+    let ver =
+        semver::Version::parse(version.trim().trim_start_matches('v'))
+            .map_err(|e| format!("invalid target version {version:?}: {e}"))?;
+    let req = parse_cargo_version_req(req)?;
+    Ok(req.matches(&ver))
+}
+
+/// Rewrite a plain `name = "req"` or `version = "req"` in dependency tables.
+fn bump_cargo_toml_requirement(
+    manifest_text: &str,
+    package_name: &str,
+    old_req: &str,
+    new_version: &str,
+) -> Result<String, RemediationError> {
+    // Validate the edit is still needed / possible against current text.
+    let status = cargo_dep_requirement_status(
+        manifest_text,
+        package_name,
+        new_version,
+    )?;
+    let CargoReqStatus::NeedsBump {
+        old_req: current_old,
+    } = status
+    else {
+        // Already admits target (idempotent apply).
+        return Ok(manifest_text.to_string());
+    };
+    if current_old != old_req && !old_req.is_empty() {
+        // Preview/apply race: still proceed using the live old_req.
+    }
+    let live_old = current_old;
+
+    // Prefer string-form `name = "old"` replacement within the file.
+    let string_pat = format!("{package_name} = \"{live_old}\"");
+    let string_repl = format!("{package_name} = \"{new_version}\"");
+    if manifest_text.matches(&string_pat).count() == 1 {
+        return Ok(manifest_text.replacen(&string_pat, &string_repl, 1));
+    }
+
+    // Table form: `version = "old"` near the package key. Require a unique
+    // occurrence of the old requirement as a version assignment after the
+    // package name key to avoid clobbering unrelated crates.
+    let version_pat = format!("version = \"{live_old}\"");
+    if manifest_text.matches(&version_pat).count() == 1 {
+        return Ok(manifest_text.replacen(
+            &version_pat,
+            &format!("version = \"{new_version}\""),
+            1,
+        ));
+    }
+
+    Err(RemediationError::UnsupportedLockLayout(format!(
+        "unable to uniquely locate requirement {live_old:?} for {package_name} in Cargo.toml"
+    )))
+}
+
+fn apply_cargo_manifest_edits_if_needed(
+    ctx: &RemediationContext<'_>,
+    preview: &RemediationPreview,
+) -> Result<(), RemediationError> {
+    let Some(manifest_path) = preview.files.iter().find(|p| {
+        p.file_name().is_some_and(|n| n == CARGO_MANIFEST_FILE_NAME)
+    }) else {
+        return Ok(());
+    };
+    let text = std::fs::read_to_string(manifest_path).map_err(|err| {
+        RemediationError::UnsupportedLockLayout(format!(
+            "unable to read Cargo.toml for edit: {err}"
+        ))
+    })?;
+    let status = cargo_dep_requirement_status(
+        &text,
+        ctx.package_name,
+        ctx.target_version,
+    )?;
+    let CargoReqStatus::NeedsBump { old_req } = status else {
+        return Ok(());
+    };
+    let edited = bump_cargo_toml_requirement(
+        &text,
+        ctx.package_name,
+        &old_req,
+        ctx.target_version,
+    )?;
+    std::fs::write(manifest_path, edited)?;
+    Ok(())
 }
 
 fn select_lock_dir_by_basename(
@@ -2485,9 +2842,16 @@ mod tests {
 
     fn write_cargo_tree(root: &Path) {
         fs::create_dir_all(root).unwrap();
-        fs::write(root.join("Cargo.lock"), "# lock\n").unwrap();
-        fs::write(root.join("Cargo.toml"), "[package]\nname=\"app\"\n")
-            .unwrap();
+        fs::write(
+            root.join("Cargo.lock"),
+            "version = 3\n\n[[package]]\nname = \"serde\"\nversion = \"1.0.0\"\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"app\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[dependencies]\nserde = \"1.0\"\n",
+        )
+        .unwrap();
     }
 
     fn write_js_lock_tree(root: &Path, lock_name: &str) {
@@ -4110,8 +4474,35 @@ mod tests {
         write_cargo_tree(root);
         let decls = [lock_decl("Cargo.lock")];
 
+        // Stub that rewrites the lock pin to --precise (hermetic success).
         let ok_bin = root.join("cargo-ok");
-        write_exec(&ok_bin, "#!/bin/sh\nexit 0\n");
+        write_exec(
+            &ok_bin,
+            r#"#!/usr/bin/env python3
+import re, sys
+from pathlib import Path
+if len(sys.argv) > 1 and sys.argv[1] == "--version":
+    raise SystemExit(0)
+args = sys.argv[1:]
+pkg = ver = None
+for i, a in enumerate(args):
+    if a in ("-p", "--package") and i + 1 < len(args):
+        pkg = args[i + 1]
+    if a == "--precise" and i + 1 < len(args):
+        ver = args[i + 1]
+if not pkg or not ver:
+    raise SystemExit(2)
+text = Path("Cargo.lock").read_text()
+pat = re.compile(
+    r'(\[\[package\]\][\s\S]*?name\s*=\s*"' + re.escape(pkg)
+    + r'"[\s\S]*?version\s*=\s*")([^"]+)(")'
+)
+new, n = pat.subn(lambda m: m.group(1) + ver + m.group(3), text, count=1)
+if n != 1:
+    raise SystemExit(f"missing {pkg}")
+Path("Cargo.lock").write_text(new)
+"#,
+        );
         CargoRemediator::with_bin(ok_bin.to_string_lossy())
             .apply(&RemediationContext {
                 scan_root: root,
@@ -4123,12 +4514,19 @@ mod tests {
                 offline: false,
             })
             .unwrap();
+        let lock = fs::read_to_string(root.join("Cargo.lock")).unwrap();
+        assert!(
+            lock.contains("version = \"1.0.200\""),
+            "lock must reach target: {lock}"
+        );
 
         let fail_bin = root.join("cargo-fail");
         write_exec(
             &fail_bin,
             "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then exit 0; fi\necho cargo-fail >&2\nexit 1\n",
         );
+        // Restore vulnerable pin for the failure case.
+        write_cargo_tree(root);
         let err = CargoRemediator::with_bin(fail_bin.to_string_lossy())
             .apply(&RemediationContext {
                 scan_root: root,
@@ -4147,6 +4545,212 @@ mod tests {
             }
             other => panic!("expected CommandFailed, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn cargo_apply_fails_when_lock_not_advanced() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_cargo_tree(root);
+        let ok_noop = root.join("cargo-noop");
+        write_exec(
+            &ok_noop,
+            "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then exit 0; fi\nexit 0\n",
+        );
+        let err = CargoRemediator::with_bin(ok_noop.to_string_lossy())
+            .apply(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl("Cargo.lock")],
+                package_name: "serde",
+                target_version: "1.0.200",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        match err {
+            RemediationError::CommandFailed { strategy, message } => {
+                assert_eq!(strategy, CARGO_BIN_NAME);
+                assert!(
+                    message.contains("did not advance"),
+                    "expected post-apply verify message: {message}"
+                );
+            }
+            other => panic!("expected CommandFailed, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn cargo_lock_satisfies_target_compares_semver() {
+        let lock = "version = 3\n\n[[package]]\nname = \"serde\"\nversion = \"1.0.200\"\n";
+        assert!(cargo_lock_satisfies_target(lock, "serde", "1.0.200"));
+        assert!(cargo_lock_satisfies_target(lock, "serde", "1.0.100"));
+        assert!(!cargo_lock_satisfies_target(lock, "serde", "1.0.201"));
+        assert!(!cargo_lock_satisfies_target(lock, "other", "1.0.200"));
+    }
+
+    #[test]
+    fn cargo_caret_req_admits_compatible_target() {
+        assert!(cargo_req_matches_version("0.9", "0.9.3").unwrap());
+        assert!(cargo_req_matches_version("0.9.2", "0.9.3").unwrap());
+        assert!(!cargo_req_matches_version("0.9.2", "0.10.1").unwrap());
+        assert!(!cargo_req_matches_version("=0.9.2", "0.9.3").unwrap());
+        assert!(cargo_req_matches_version("^1.0", "1.0.200").unwrap());
+    }
+
+    #[test]
+    fn cargo_preview_lock_only_when_requirement_admits_target() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_cargo_tree(root); // serde = "1.0" admits 1.0.200
+        let rem = CargoRemediator::new();
+        let preview = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &[
+                    lock_decl("Cargo.lock"),
+                    manifest_decl("Cargo.toml"),
+                ],
+                package_name: "serde",
+                target_version: "1.0.200",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .expect("preview");
+        assert_eq!(preview.files, vec![root.join(CARGO_LOCK_FILE_NAME)]);
+    }
+
+    #[test]
+    fn cargo_preview_includes_toml_when_requirement_blocks_target() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        fs::create_dir_all(root).unwrap();
+        fs::write(
+            root.join("Cargo.lock"),
+            "version = 3\n\n[[package]]\nname = \"serde\"\nversion = \"1.0.0\"\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"app\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[dependencies]\nserde = \"=1.0.0\"\n",
+        )
+        .unwrap();
+        let rem = CargoRemediator::new();
+        let preview = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &[
+                    lock_decl("Cargo.lock"),
+                    manifest_decl("Cargo.toml"),
+                ],
+                package_name: "serde",
+                target_version: "1.0.200",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .expect("preview");
+        assert_eq!(
+            preview.files,
+            vec![
+                root.join(CARGO_LOCK_FILE_NAME),
+                root.join(CARGO_MANIFEST_FILE_NAME),
+            ]
+        );
+    }
+
+    #[test]
+    fn cargo_apply_bumps_exact_pin_then_updates_lock() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        fs::create_dir_all(root).unwrap();
+        fs::write(
+            root.join("Cargo.lock"),
+            "version = 3\n\n[[package]]\nname = \"serde\"\nversion = \"1.0.0\"\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"app\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[dependencies]\nserde = \"=1.0.0\"\n",
+        )
+        .unwrap();
+        let ok_bin = root.join("cargo-ok");
+        write_exec(
+            &ok_bin,
+            r#"#!/usr/bin/env python3
+import re, sys
+from pathlib import Path
+if len(sys.argv) > 1 and sys.argv[1] == "--version":
+    raise SystemExit(0)
+args = sys.argv[1:]
+pkg = ver = None
+for i, a in enumerate(args):
+    if a in ("-p", "--package") and i + 1 < len(args):
+        pkg = args[i + 1]
+    if a == "--precise" and i + 1 < len(args):
+        ver = args[i + 1]
+text = Path("Cargo.lock").read_text()
+pat = re.compile(
+    r'(\[\[package\]\][\s\S]*?name\s*=\s*"' + re.escape(pkg)
+    + r'"[\s\S]*?version\s*=\s*")([^"]+)(")'
+)
+new, n = pat.subn(lambda m: m.group(1) + ver + m.group(3), text, count=1)
+assert n == 1
+Path("Cargo.lock").write_text(new)
+"#,
+        );
+        CargoRemediator::with_bin(ok_bin.to_string_lossy())
+            .apply(&RemediationContext {
+                scan_root: root,
+                declarations: &[
+                    lock_decl("Cargo.lock"),
+                    manifest_decl("Cargo.toml"),
+                ],
+                package_name: "serde",
+                target_version: "1.0.200",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .expect("apply");
+        let toml_text = fs::read_to_string(root.join("Cargo.toml")).unwrap();
+        assert!(
+            toml_text.contains("serde = \"1.0.200\""),
+            "manifest must bump exact pin: {toml_text}"
+        );
+        let lock = fs::read_to_string(root.join("Cargo.lock")).unwrap();
+        assert!(lock.contains("version = \"1.0.200\""));
+    }
+
+    #[test]
+    fn cargo_preview_refuses_workspace_dep() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        fs::create_dir_all(root).unwrap();
+        fs::write(
+            root.join("Cargo.lock"),
+            "version = 3\n\n[[package]]\nname = \"serde\"\nversion = \"1.0.0\"\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"app\"\nversion = \"0.1.0\"\n\n[dependencies]\nserde = { workspace = true }\n",
+        )
+        .unwrap();
+        let err = CargoRemediator::new()
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl("Cargo.lock")],
+                package_name: "serde",
+                target_version: "1.0.200",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+        assert!(err.to_string().contains("workspace"));
     }
 
     #[test]

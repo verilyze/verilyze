@@ -321,11 +321,16 @@ cached raw vulns.
 **Limits:** Ranges are advisory metadata from OSV, not an auto-upgrade plan
 and not a single "fix to this version" recommendation. Non-OSV providers may
 omit ranges. Scan JSON/SARIF findings include a structured `upgrade_plan`
-(FR-040) derived from those ranges; plain/HTML keep Ranges only. Applying
-upgrades uses `vlz fix` (FR-041): default writes lock updates for supported
-strategies (npm, Yarn, pnpm, bun, Cargo, Python poetry/uv, Go, RubyGems,
-Gradle, and Maven pom edits); `vlz fix --dry-run`
-previews without writing. RubyGems and Gradle apply require
+(FR-040) derived from those ranges; plain/HTML keep Ranges only. The planner
+selects the fixed endpoint of the SEMVER/ECOSYSTEM interval that contains the
+installed pin (maximum across CVEs), not the global max of every `fixed`
+event. Applying upgrades uses `vlz fix` (FR-041): default writes lock updates
+for supported strategies (npm, Yarn, pnpm, bun, Cargo, Python poetry/uv, Go,
+RubyGems, Gradle, and Maven pom edits); `vlz fix --dry-run`
+previews without writing. Cargo is lock-first (`cargo update --precise`); it
+rewrites `Cargo.toml` only when a direct dependency requirement cannot select
+the planned fixed version (for example an exact `=` pin). RubyGems and Gradle
+apply require
 `allow_dependency_code_execution`; Maven pom edits are local file edits and
 also work offline. Maven edits cover direct single-match versions only:
 managed, inherited, ranged, or profile-scoped versions stay unavailable.
