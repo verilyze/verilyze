@@ -13,6 +13,14 @@ use crate::lock_names::is_dotnet_lock_file;
 pub const DOTNET_PROJECT_EXTENSIONS: &[&str] =
     &[".csproj", ".fsproj", ".vbproj"];
 
+/// Legacy NuGet manifest basename.
+pub const PACKAGES_CONFIG_NAME: &str = "packages.config";
+
+/// True when `name` is a legacy `packages.config` manifest basename.
+pub fn is_packages_config_name(name: &str) -> bool {
+    name.eq_ignore_ascii_case(PACKAGES_CONFIG_NAME)
+}
+
 /// True when `name` is a built-in .NET project manifest basename.
 pub fn is_dotnet_manifest_name(name: &str) -> bool {
     let lower = name.to_ascii_lowercase();
@@ -56,7 +64,9 @@ impl ManifestFinder for DotnetManifestFinder {
     }
 
     fn is_sca_sensitive_basename(&self, name: &str) -> bool {
-        is_dotnet_manifest_name(name) || is_dotnet_lock_file(name)
+        is_dotnet_manifest_name(name)
+            || is_packages_config_name(name)
+            || is_dotnet_lock_file(name)
     }
 
     async fn find(&self, root: &Path) -> Result<Vec<PathBuf>, FinderError> {
@@ -83,7 +93,10 @@ fn walk_dir(
         if file_type.is_file() {
             let matches = match patterns {
                 Some(regexes) => regexes.iter().any(|r| r.is_match(name)),
-                None => is_dotnet_manifest_name(name),
+                None => {
+                    is_dotnet_manifest_name(name)
+                        || is_packages_config_name(name)
+                }
             };
             if matches {
                 out.push(entry.path());

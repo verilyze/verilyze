@@ -14,6 +14,7 @@ use quick_xml::events::Event;
 use vlz_db::{DeclarationKind, NUGET_ECOSYSTEM, Package};
 use vlz_manifest_parser::{ParsedDependency, ParserError};
 
+use super::directory_packages_props::load_central_package_versions;
 use super::packages_lock::is_nuget_package_name;
 
 /// Maximum accepted size for a project file (1 MiB, SEC-017).
@@ -44,6 +45,7 @@ pub fn parse_csproj_with_declarations(
     let mut depth = 0_u32;
     let mut packages = Vec::new();
     let mut seen = std::collections::HashSet::new();
+    let cpm_versions = load_central_package_versions(path, None);
 
     loop {
         match reader.read_event_into(&mut buf) {
@@ -81,11 +83,17 @@ pub fn parse_csproj_with_declarations(
                         && !is_non_registry_version(&version)
                         && seen.insert(name.clone())
                     {
+                        let version = if version.is_empty() {
+                            cpm_versions
+                                .get(&name)
+                                .cloned()
+                                .unwrap_or_default()
+                        } else {
+                            version
+                        };
                         packages.push(ParsedDependency {
                             package: Package {
                                 name,
-                                // Ranges / CPM empties are not OSV-ready;
-                                // resolver prefers packages.lock.json pins.
                                 version,
                                 ecosystem: Some(NUGET_ECOSYSTEM.to_string()),
                             },
@@ -172,6 +180,31 @@ mod tests {
                 .iter()
                 .all(|p| p.ecosystem.as_deref() == Some(NUGET_ECOSYSTEM))
         );
+    }
+
+    #[test]
+    fn fills_version_from_directory_packages_props() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(
+            root.join("Directory.Packages.props"),
+            r#"<Project><ItemGroup>
+  <PackageVersion Include="Cli.Contract" Version="2.0.0" />
+</ItemGroup></Project>"#,
+        )
+        .unwrap();
+        let content = r#"<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Cli.Contract" />
+  </ItemGroup>
+</Project>
+"#;
+        let packages =
+            parse_csproj_with_declarations(content, &root.join("App.csproj"))
+                .unwrap()
+                .0;
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].version, "2.0.0");
     }
 
     #[test]

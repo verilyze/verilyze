@@ -17,14 +17,33 @@ use vlz_manifest_parser::{
 
 use crate::lock_names::DOTNET_LOCK_FILE_NAMES;
 use crate::parser::{
-    DOTNET_LOCK_MAX_BYTES, parse_packages_lock_with_declarations,
+    DOTNET_LOCK_MAX_BYTES, parse_deps_json_with_declarations,
+    parse_packages_lock_with_declarations,
+    parse_project_assets_json_with_declarations,
 };
 
 const DOTNET_TIMEOUT: Duration = Duration::from_secs(120);
 
-/// Find `packages.lock.json` next to the manifest or in parent directories up
-/// to the scan root (do not union locks).
+/// Find the best local NuGet lock for `manifest_path` up to `scan_root`.
+///
+/// Ladder: `packages.lock.json` (parent walk) then `obj/project.assets.json`
+/// then the first `*.deps.json` under the project directory.
 pub fn find_dotnet_lock_file(
+    manifest_path: &Path,
+    scan_root: Option<&Path>,
+) -> Option<PathBuf> {
+    if let Some(lock) = find_packages_lock_json(manifest_path, scan_root) {
+        return Some(lock);
+    }
+    let project_dir = manifest_path.parent()?;
+    let assets = project_dir.join("obj").join("project.assets.json");
+    if assets.is_file() {
+        return Some(assets);
+    }
+    find_deps_json(project_dir)
+}
+
+fn find_packages_lock_json(
     manifest_path: &Path,
     scan_root: Option<&Path>,
 ) -> Option<PathBuf> {
@@ -45,18 +64,74 @@ pub fn find_dotnet_lock_file(
     }
 }
 
+fn find_deps_json(project_dir: &Path) -> Option<PathBuf> {
+    if let Ok(entries) = std::fs::read_dir(project_dir) {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            if name.to_str().is_some_and(|n| n.ends_with(".deps.json")) {
+                return Some(entry.path());
+            }
+        }
+    }
+    let bin = project_dir.join("bin");
+    if !bin.is_dir() {
+        return None;
+    }
+    if let Ok(configs) = std::fs::read_dir(&bin) {
+        for cfg in configs.flatten() {
+            if !cfg.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                continue;
+            }
+            if let Ok(tfms) = std::fs::read_dir(cfg.path()) {
+                for tfm in tfms.flatten() {
+                    if !tfm.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                        continue;
+                    }
+                    if let Ok(files) = std::fs::read_dir(tfm.path()) {
+                        for file in files.flatten() {
+                            if file
+                                .file_name()
+                                .to_str()
+                                .is_some_and(|n| n.ends_with(".deps.json"))
+                            {
+                                return Some(file.path());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
 fn parse_lock_path(path: &Path) -> Result<CachedResolution, ResolverError> {
     let metadata = std::fs::metadata(path).map_err(ResolverError::Io)?;
     if metadata.len() > DOTNET_LOCK_MAX_BYTES {
         return Err(ResolverError::Resolve(format!(
-            "packages.lock.json exceeds {} byte limit",
+            "{} exceeds {} byte limit",
+            path.file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("lock file"),
             DOTNET_LOCK_MAX_BYTES
         )));
     }
     let content = std::fs::read_to_string(path).map_err(ResolverError::Io)?;
+    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
     let (packages, parsed) =
-        parse_packages_lock_with_declarations(&content, path)
-            .map_err(|error| ResolverError::Resolve(error.to_string()))?;
+        if name.eq_ignore_ascii_case("packages.lock.json") {
+            parse_packages_lock_with_declarations(&content, path)
+        } else if name.eq_ignore_ascii_case("project.assets.json") {
+            parse_project_assets_json_with_declarations(&content, path)
+        } else if name.ends_with(".deps.json") {
+            parse_deps_json_with_declarations(&content, path)
+        } else {
+            return Err(ResolverError::Resolve(format!(
+                "unsupported .NET lock file: {}",
+                path.display()
+            )));
+        }
+        .map_err(|error| ResolverError::Resolve(error.to_string()))?;
     Ok(CachedResolution {
         packages,
         package_declarations: lock_declarations_from_parsed(&parsed),
@@ -700,6 +775,53 @@ mod tests {
         std::fs::write(&lock, body).unwrap();
         let err = parse_lock_path(&lock).unwrap_err();
         assert!(err.to_string().contains("byte limit"));
+    }
+
+    #[test]
+    fn find_lock_falls_back_to_project_assets_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir_all(root.join("obj")).unwrap();
+        std::fs::write(root.join("App.csproj"), "<Project />").unwrap();
+        std::fs::write(
+            root.join("obj/project.assets.json"),
+            r#"{"libraries":{"Newtonsoft.Json/13.0.3":{"type":"package"}}}"#,
+        )
+        .unwrap();
+        let found =
+            find_dotnet_lock_file(&root.join("App.csproj"), Some(root))
+                .unwrap();
+        assert!(found.ends_with("project.assets.json"));
+    }
+
+    #[tokio::test]
+    async fn resolve_from_project_assets_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir_all(root.join("obj")).unwrap();
+        std::fs::write(root.join("App.csproj"), "<Project />").unwrap();
+        std::fs::write(
+            root.join("obj/project.assets.json"),
+            r#"{"libraries":{"Newtonsoft.Json/13.0.3":{"type":"package"}}}"#,
+        )
+        .unwrap();
+        let graph = DependencyGraph {
+            packages: vec![Package {
+                name: "Newtonsoft.Json".into(),
+                version: "13.0.3".into(),
+                ecosystem: Some(NUGET_ECOSYSTEM.into()),
+            }],
+            parsed_dependencies: Vec::new(),
+            manifest_path: Some(root.join("App.csproj")),
+        };
+        let result = DotnetResolver::new()
+            .resolve(&graph, &ResolveContext::default())
+            .await
+            .unwrap();
+        assert_eq!(result.depth, ResolutionDepth::Transitive);
+        assert!(result.packages.iter().any(|p| {
+            p.name == "Newtonsoft.Json" && p.version == "13.0.3"
+        }));
     }
 
     #[test]

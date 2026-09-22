@@ -10,6 +10,8 @@ pub fn is_dotnet_lock_file(name: &str) -> bool {
     DOTNET_LOCK_FILE_NAMES
         .iter()
         .any(|lock| name.eq_ignore_ascii_case(lock))
+        || name.eq_ignore_ascii_case("project.assets.json")
+        || name.ends_with(".deps.json")
 }
 
 #[cfg(test)]
