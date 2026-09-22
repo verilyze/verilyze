@@ -37,7 +37,7 @@ pub struct PythonManifestFinder {
 /// True for `requirements*.txt` variants (e.g. `requirements-dev.txt`,
 /// `requirements_test.txt`). Excludes `constraints*.txt`. The exact
 /// `requirements.txt` is already in [`PYTHON_MANIFEST_NAMES`].
-fn is_requirements_variant(name: &str) -> bool {
+pub fn is_requirements_manifest_name(name: &str) -> bool {
     name.starts_with("requirements") && name.ends_with(".txt")
 }
 
@@ -78,7 +78,7 @@ impl ManifestFinder for PythonManifestFinder {
 
     fn is_sca_sensitive_basename(&self, name: &str) -> bool {
         PYTHON_MANIFEST_NAMES.contains(&name)
-            || is_requirements_variant(name)
+            || is_requirements_manifest_name(name)
             || is_python_lock_file(name)
     }
 
@@ -131,7 +131,7 @@ fn walk_dir_collect(
                 Some(regexes) => regexes.iter().any(|r| r.is_match(name)),
                 None => {
                     PYTHON_MANIFEST_NAMES.contains(&name)
-                        || is_requirements_variant(name)
+                        || is_requirements_manifest_name(name)
                 }
             };
             if manifest_matches {

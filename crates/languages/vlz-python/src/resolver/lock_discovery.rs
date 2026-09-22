@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 
 use vlz_manifest_parser::{ParserError, lock_declarations_from_parsed};
 
+use crate::finder::is_requirements_manifest_name;
 use crate::lock_names::{
     filter_lock_paths_by_allowlist, is_pylock_variant, manifest_is_lock_file,
     verify_lock_allowlist_for_dir,
@@ -55,10 +56,9 @@ pub fn find_lock_files(
         return Vec::new();
     }
 
-    let use_candidates = matches!(
-        name,
-        "pyproject.toml" | "setup.py" | "setup.cfg" | "requirements.txt"
-    );
+    let use_candidates =
+        matches!(name, "pyproject.toml" | "setup.py" | "setup.cfg")
+            || is_requirements_manifest_name(name);
     if !use_candidates {
         return Vec::new();
     }
@@ -240,6 +240,22 @@ fn collect_pylock_variants(dir: &Path, out: &mut Vec<PathBuf>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn find_lock_files_requirements_variant_returns_locks() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        let req = tmp.join("requirements-dev.txt");
+        let poetry = tmp.join("poetry.lock");
+        std::fs::write(&req, "pkg==1.0\n").unwrap();
+        std::fs::write(
+            &poetry,
+            "[[package]]\nname = \"pkg\"\nversion = \"1.0\"\n",
+        )
+        .unwrap();
+        let found = find_lock_files(req.as_path(), &[], None);
+        assert_eq!(found, vec![poetry]);
+    }
 
     #[test]
     fn find_lock_files_requirements_txt_returns_all_present() {

@@ -19,7 +19,8 @@ pub use csproj::{
     DOTNET_MANIFEST_MAX_BYTES, parse_csproj, parse_csproj_with_declarations,
 };
 pub use directory_packages_props::{
-    load_central_package_versions, parse_directory_packages_props,
+    graph_with_central_package_versions, load_central_package_versions,
+    parse_directory_packages_props,
 };
 pub use local_lock::{
     parse_deps_json, parse_deps_json_with_declarations,

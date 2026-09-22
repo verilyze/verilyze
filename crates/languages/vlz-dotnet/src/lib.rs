@@ -17,7 +17,8 @@ pub use finder::{
 pub use lock_names::{DOTNET_LOCK_FILE_NAMES, is_dotnet_lock_file};
 pub use parser::{
     DOTNET_LOCK_MAX_BYTES, DOTNET_MANIFEST_MAX_BYTES, DotnetManifestParser,
-    is_nuget_package_name, load_central_package_versions, parse_csproj,
+    graph_with_central_package_versions, is_nuget_package_name,
+    load_central_package_versions, parse_csproj,
     parse_csproj_with_declarations, parse_deps_json,
     parse_deps_json_with_declarations, parse_directory_packages_props,
     parse_packages_config, parse_packages_config_with_declarations,

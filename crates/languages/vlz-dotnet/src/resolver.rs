@@ -17,8 +17,8 @@ use vlz_manifest_parser::{
 
 use crate::lock_names::DOTNET_LOCK_FILE_NAMES;
 use crate::parser::{
-    DOTNET_LOCK_MAX_BYTES, parse_deps_json_with_declarations,
-    parse_packages_lock_with_declarations,
+    DOTNET_LOCK_MAX_BYTES, graph_with_central_package_versions,
+    parse_deps_json_with_declarations, parse_packages_lock_with_declarations,
     parse_project_assets_json_with_declarations,
 };
 
@@ -247,6 +247,10 @@ impl Resolver for DotnetResolver {
         graph: &DependencyGraph,
         ctx: &ResolveContext,
     ) -> Result<ResolveResult, ResolverError> {
+        let graph = graph_with_central_package_versions(
+            graph,
+            ctx.scan_root.as_deref(),
+        );
         if let Some(manifest) = graph.manifest_path.as_deref()
             && let Some(lock_path) =
                 find_dotnet_lock_file(manifest, ctx.scan_root.as_deref())
@@ -277,7 +281,7 @@ impl Resolver for DotnetResolver {
                 return Ok(ResolveResult {
                     package_declarations: resolve_declarations_for_packages(
                         &resolution.packages,
-                        graph,
+                        &graph,
                         &resolution.package_declarations,
                     ),
                     packages: resolution.packages,
@@ -289,7 +293,7 @@ impl Resolver for DotnetResolver {
         }
 
         if let Some(reason) = skip_package_manager_reason(ctx) {
-            return Ok(direct_only_result_from_graph(graph, reason));
+            return Ok(direct_only_result_from_graph(&graph, reason));
         }
         // Empty project: no PackageReferences and no usable lock pins.
         if graph.packages.is_empty() && graph.parsed_dependencies.is_empty() {
@@ -303,13 +307,13 @@ impl Resolver for DotnetResolver {
             return Err(fr022_transitive_error());
         };
         if !ctx.allow_dependency_code_execution {
-            return require_transitive_or_fallback(graph, ctx, None);
+            return require_transitive_or_fallback(&graph, ctx, None);
         }
         match ephemeral_packages_lock(manifest).await {
             Ok(resolution) => Ok(ResolveResult {
                 package_declarations: resolve_declarations_for_packages(
                     &resolution.packages,
-                    graph,
+                    &graph,
                     &resolution.package_declarations,
                 ),
                 packages: resolution.packages,
@@ -317,7 +321,7 @@ impl Resolver for DotnetResolver {
                 ..Default::default()
             }),
             Err(error) => {
-                require_transitive_or_fallback(graph, ctx, Some(error))
+                require_transitive_or_fallback(&graph, ctx, Some(error))
             }
         }
     }

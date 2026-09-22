@@ -19,6 +19,7 @@ use decl_spans::{
 };
 use vlz_manifest_parser::{DependencyGraph, Parser, ParserError};
 
+use crate::finder::is_requirements_manifest_name;
 use crate::lock_names::is_python_lock_file;
 
 pub use lockfile::{
@@ -58,7 +59,7 @@ impl Parser for RequirementsTxtParser {
         let name = manifest.file_name().and_then(|n| n.to_str()).unwrap_or("");
         let manifest_path = Some(manifest.to_path_buf());
 
-        if name == "requirements.txt" {
+        if is_requirements_manifest_name(name) {
             let parsed =
                 parse_requirements_txt_with_includes(manifest).await?;
             return Ok(graph_from_parsed(parsed, manifest_path));
@@ -149,6 +150,18 @@ mod tests {
         let parser = RequirementsTxtParser::new();
         let graph = parser.parse(&pylock).await.unwrap();
         assert!(graph.packages.is_empty());
+    }
+
+    #[tokio::test]
+    async fn parse_requirements_variant_manifest() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("requirements-dev.txt");
+        std::fs::write(&path, "requests==2.31.0\n").unwrap();
+        let parser = RequirementsTxtParser::new();
+        let graph = parser.parse(&path).await.unwrap();
+        assert_eq!(graph.packages.len(), 1);
+        assert_eq!(graph.packages[0].name, "requests");
+        assert_eq!(graph.packages[0].version, "2.31.0");
     }
 
     #[tokio::test]
