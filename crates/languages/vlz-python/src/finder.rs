@@ -34,6 +34,13 @@ pub struct PythonManifestFinder {
     lock_file_allowlist: Vec<String>,
 }
 
+/// True for `requirements*.txt` variants (e.g. `requirements-dev.txt`,
+/// `requirements_test.txt`). Excludes `constraints*.txt`. The exact
+/// `requirements.txt` is already in [`PYTHON_MANIFEST_NAMES`].
+fn is_requirements_variant(name: &str) -> bool {
+    name.starts_with("requirements") && name.ends_with(".txt")
+}
+
 impl PythonManifestFinder {
     /// Create a new Python manifest finder (uses built-in list).
     pub fn new() -> Self {
@@ -70,7 +77,9 @@ impl ManifestFinder for PythonManifestFinder {
     }
 
     fn is_sca_sensitive_basename(&self, name: &str) -> bool {
-        PYTHON_MANIFEST_NAMES.contains(&name) || is_python_lock_file(name)
+        PYTHON_MANIFEST_NAMES.contains(&name)
+            || is_requirements_variant(name)
+            || is_python_lock_file(name)
     }
 
     async fn find(&self, root: &Path) -> Result<Vec<PathBuf>, FinderError> {
@@ -120,7 +129,10 @@ fn walk_dir_collect(
         if file_type.is_file() {
             let manifest_matches = match patterns {
                 Some(regexes) => regexes.iter().any(|r| r.is_match(name)),
-                None => PYTHON_MANIFEST_NAMES.contains(&name),
+                None => {
+                    PYTHON_MANIFEST_NAMES.contains(&name)
+                        || is_requirements_variant(name)
+                }
             };
             if manifest_matches {
                 manifests.push(entry.path());
@@ -291,5 +303,62 @@ mod tests {
             .block_on(finder.find(dir.path()))
             .unwrap_err();
         assert!(err.to_string().contains("poetry.lock"));
+    }
+
+    fn find_all(root: &Path) -> Vec<PathBuf> {
+        let finder = PythonManifestFinder::new();
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(finder.find(root))
+            .unwrap()
+    }
+
+    #[test]
+    fn requirements_dev_txt_discovered() {
+        let dir = tempfile::tempdir().unwrap();
+        let req = dir.path().join("requirements-dev.txt");
+        std::fs::write(&req, "foo==1.0\n").unwrap();
+        let found = find_all(dir.path());
+        assert!(found.contains(&req));
+    }
+
+    #[test]
+    fn requirements_underscore_variant_discovered() {
+        let dir = tempfile::tempdir().unwrap();
+        let req = dir.path().join("requirements_test.txt");
+        std::fs::write(&req, "foo==1.0\n").unwrap();
+        let found = find_all(dir.path());
+        assert!(found.contains(&req));
+    }
+
+    #[test]
+    fn requirements_variant_in_subdir_discovered() {
+        let dir = tempfile::tempdir().unwrap();
+        let sub = dir.path().join("services");
+        std::fs::create_dir_all(&sub).unwrap();
+        let req = sub.join("requirements-prod.txt");
+        std::fs::write(&req, "foo==1.0\n").unwrap();
+        let found = find_all(dir.path());
+        assert!(found.contains(&req));
+    }
+
+    #[test]
+    fn constraints_txt_not_discovered_as_manifest() {
+        let dir = tempfile::tempdir().unwrap();
+        let constraints = dir.path().join("constraints.txt");
+        std::fs::write(&constraints, "foo==1.0\n").unwrap();
+        let found = find_all(dir.path());
+        assert!(!found.contains(&constraints));
+    }
+
+    #[test]
+    fn requirements_non_txt_not_discovered() {
+        let dir = tempfile::tempdir().unwrap();
+        let notes = dir.path().join("requirements-notes.md");
+        std::fs::write(&notes, "foo\n").unwrap();
+        let found = find_all(dir.path());
+        assert!(!found.contains(&notes));
     }
 }

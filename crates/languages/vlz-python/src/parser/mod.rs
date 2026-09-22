@@ -27,7 +27,7 @@ pub use lockfile::{
 pub use pipfile::parse_pipfile;
 pub use pyproject::parse_pyproject_toml;
 pub use requirements::{
-    parse_requirements_txt, parse_requirements_txt_with_declarations,
+    parse_requirements_txt, parse_requirements_txt_with_includes,
 };
 pub use setup_cfg::{parse_setup_cfg, parse_setup_cfg_with_declarations};
 pub use setup_py::{parse_setup_py, parse_setup_py_with_declarations};
@@ -59,9 +59,8 @@ impl Parser for RequirementsTxtParser {
         let manifest_path = Some(manifest.to_path_buf());
 
         if name == "requirements.txt" {
-            let content = tokio::fs::read_to_string(manifest).await?;
             let parsed =
-                parse_requirements_txt_with_declarations(&content, manifest)?;
+                parse_requirements_txt_with_includes(manifest).await?;
             return Ok(graph_from_parsed(parsed, manifest_path));
         }
 
