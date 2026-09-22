@@ -120,6 +120,10 @@ name = "fuzz_version_catalog"
 path = "fuzz_targets/version_catalog.rs"
 
 [[bin]]
+name = "fuzz_verification_metadata"
+path = "fuzz_targets/verification_metadata.rs"
+
+[[bin]]
 name = "fuzz_gemfile"
 path = "fuzz_targets/gemfile.rs"
 

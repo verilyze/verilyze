@@ -146,6 +146,48 @@ fn library_to_dependency(
     })
 }
 
+/// Gradle accessor path (e.g. `guava.core`) to resolved `(group, artifact, version)`.
+pub(crate) fn library_alias_index(
+    content: &str,
+) -> Result<HashMap<String, (String, String, String)>, ParserError> {
+    let raw: CatalogToml = toml::from_str(content).map_err(|e| {
+        ParserError::Parse(format!("libs.versions.toml parse error: {e}"))
+    })?;
+    let versions = raw.versions.unwrap_or_default();
+    let mut out = HashMap::new();
+    if let Some(libraries) = raw.libraries {
+        for (alias, entry) in libraries {
+            if let Some(dep) = library_to_dependency(
+                &alias,
+                &entry,
+                &versions,
+                Path::new("libs.versions.toml"),
+                1,
+            ) {
+                let group = dep
+                    .package
+                    .name
+                    .split_once(':')
+                    .map(|(g, _)| g.to_string())
+                    .unwrap_or_default();
+                let artifact = dep
+                    .package
+                    .name
+                    .split_once(':')
+                    .map(|(_, a)| a.to_string())
+                    .unwrap_or_default();
+                let gav = (group, artifact, dep.package.version.clone());
+                out.insert(alias.clone(), gav.clone());
+                let dotted = alias.replace('-', ".");
+                if dotted != alias {
+                    out.insert(dotted, gav);
+                }
+            }
+        }
+    }
+    Ok(out)
+}
+
 fn plugin_to_dependency(
     _alias: &str,
     entry: &PluginEntry,
@@ -204,5 +246,16 @@ spring = { id = "org.springframework.boot", version = "3.2.0" }
             pkgs.iter()
                 .any(|p| p.name == "org.junit.jupiter:junit-jupiter")
         );
+    }
+
+    #[test]
+    fn library_alias_index_maps_accessors() {
+        let index = library_alias_index(CATALOG).unwrap();
+        let guava = index.get("guava").expect("guava alias");
+        assert_eq!(guava.0, "com.google.guava");
+        assert_eq!(guava.1, "guava");
+        assert_eq!(guava.2, "33.0.0-jre");
+        let junit = index.get("junit").expect("junit alias");
+        assert_eq!(junit.0, "org.junit.jupiter");
     }
 }

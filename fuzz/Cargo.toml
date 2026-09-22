@@ -199,6 +199,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "fuzz_verification_metadata"
+path = "fuzz_targets/fuzz_verification_metadata.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "fuzz_gemfile"
 path = "fuzz_targets/fuzz_gemfile.rs"
 test = false

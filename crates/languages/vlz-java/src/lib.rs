@@ -23,7 +23,8 @@ pub use lock_names::{
 pub use parser::{
     JavaManifestParser, parse_gradle_lock,
     parse_gradle_lock_with_declarations, parse_pom_xml,
-    parse_pom_xml_with_declarations, parse_version_catalog,
+    parse_pom_xml_with_declarations, parse_verification_metadata,
+    parse_verification_metadata_with_declarations, parse_version_catalog,
     parse_version_catalog_with_declarations,
 };
 pub use reachability::JavaTierBAnalyzer;
