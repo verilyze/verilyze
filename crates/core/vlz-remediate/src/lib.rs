@@ -283,7 +283,23 @@ fn covering_fixed_from_range(
 fn parse_fixed_version(s: &str) -> Option<Version> {
     let trimmed = s.trim();
     let trimmed = trimmed.strip_prefix('v').unwrap_or(trimmed);
-    Version::parse(trimmed).ok()
+    if let Ok(v) = Version::parse(trimmed) {
+        return Some(v);
+    }
+    // Pad major / major.minor forms common in Maven/OSV pins (e.g. "1.0").
+    let parts: Vec<&str> = trimmed.split('.').collect();
+    match parts.as_slice() {
+        [major] if major.chars().all(|c| c.is_ascii_digit()) => {
+            Version::parse(&format!("{major}.0.0")).ok()
+        }
+        [major, minor]
+            if major.chars().all(|c| c.is_ascii_digit())
+                && minor.chars().all(|c| c.is_ascii_digit()) =>
+        {
+            Version::parse(&format!("{major}.{minor}.0")).ok()
+        }
+        _ => None,
+    }
 }
 
 #[cfg(test)]
@@ -547,6 +563,30 @@ mod tests {
         let plan = plan_upgrade_for_finding(&pkg, &decls, &cves);
         assert_eq!(plan.minimal_fixed_version, MIN_FIXED_VERSION_UNKNOWN);
         assert_eq!(plan.confidence, UpgradePlanConfidence::Unknown);
+    }
+
+    #[test]
+    fn plan_pads_major_minor_installed_versions() {
+        let pkg = Package {
+            name: "com.example:lib".to_string(),
+            version: "1.0".to_string(),
+            ecosystem: Some(vlz_db::MAVEN_ECOSYSTEM.to_string()),
+        };
+        let decls = vec![PackageDeclarationLocation {
+            path: "pom.xml".to_string(),
+            start_line: 1,
+            end_line: None,
+            kind: DeclarationKind::Manifest,
+        }];
+        let cves = vec![cve_with_fixed(
+            "CVE-1",
+            AffectedRangeType::Ecosystem,
+            Some("2.0.1"),
+        )];
+        let plan = plan_upgrade_for_finding(&pkg, &decls, &cves);
+        assert_eq!(plan.minimal_fixed_version, "2.0.1");
+        assert_eq!(plan.apply_strategy, ApplyStrategy::Maven);
+        assert_eq!(plan.confidence, UpgradePlanConfidence::High);
     }
 
     #[test]
