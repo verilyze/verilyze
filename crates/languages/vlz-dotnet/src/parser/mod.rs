@@ -3,23 +3,55 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 mod csproj;
+mod directory_packages_props;
+mod local_lock;
+mod packages_config;
 mod packages_lock;
 
 use async_trait::async_trait;
 use std::path::Path;
 
-use vlz_manifest_parser::{DependencyGraph, Parser, ParserError};
+use vlz_manifest_parser::{
+    DependencyGraph, ParsedDependency, Parser, ParserError,
+};
 
 pub use csproj::{
     DOTNET_MANIFEST_MAX_BYTES, parse_csproj, parse_csproj_with_declarations,
+};
+pub use directory_packages_props::{
+    graph_with_central_package_versions, load_central_package_versions,
+    parse_directory_packages_props,
+};
+pub use local_lock::{
+    parse_deps_json, parse_deps_json_with_declarations,
+    parse_project_assets_json, parse_project_assets_json_with_declarations,
+};
+pub use packages_config::{
+    parse_packages_config, parse_packages_config_with_declarations,
 };
 pub use packages_lock::{
     is_nuget_package_name, parse_packages_lock,
     parse_packages_lock_with_declarations,
 };
 
-use crate::finder::is_dotnet_manifest_name;
+use crate::finder::{is_dotnet_manifest_name, is_packages_config_name};
 use crate::lock_names::is_dotnet_lock_file;
+
+fn parse_lock_content_with_declarations(
+    content: &str,
+    manifest: &Path,
+    name: &str,
+) -> Result<(Vec<vlz_db::Package>, Vec<ParsedDependency>), ParserError> {
+    if name.eq_ignore_ascii_case("packages.lock.json") {
+        parse_packages_lock_with_declarations(content, manifest)
+    } else if name.eq_ignore_ascii_case("project.assets.json") {
+        parse_project_assets_json_with_declarations(content, manifest)
+    } else if name.ends_with(".deps.json") {
+        parse_deps_json_with_declarations(content, manifest)
+    } else {
+        Ok((Vec::new(), Vec::new()))
+    }
+}
 
 /// Maximum accepted size for packages.lock.json files.
 pub const DOTNET_LOCK_MAX_BYTES: u64 = 10 * 1024 * 1024;
@@ -61,7 +93,9 @@ impl Parser for DotnetManifestParser {
             .file_name()
             .and_then(|value| value.to_str())
             .unwrap_or("");
-        let content = if is_dotnet_manifest_name(name) {
+        let content = if is_dotnet_manifest_name(name)
+            || is_packages_config_name(name)
+        {
             read_capped(manifest, DOTNET_MANIFEST_MAX_BYTES).await?
         } else if is_dotnet_lock_file(name) {
             read_capped(manifest, DOTNET_LOCK_MAX_BYTES).await?
@@ -71,8 +105,10 @@ impl Parser for DotnetManifestParser {
         let (packages, parsed_dependencies) = if is_dotnet_manifest_name(name)
         {
             parse_csproj_with_declarations(&content, manifest)?
+        } else if is_packages_config_name(name) {
+            parse_packages_config_with_declarations(&content, manifest)?
         } else if is_dotnet_lock_file(name) {
-            parse_packages_lock_with_declarations(&content, manifest)?
+            parse_lock_content_with_declarations(&content, manifest, name)?
         } else {
             (Vec::new(), Vec::new())
         };

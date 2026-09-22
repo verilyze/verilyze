@@ -64,6 +64,13 @@ fn lock_stanzas_for_content(
             PYPI_ECOSYSTEM,
         ));
     }
+    if name == "pdm.lock" {
+        return Ok(scan_toml_lock_stanzas(
+            content,
+            "[[package]]",
+            PYPI_ECOSYSTEM,
+        ));
+    }
     Err(ParserError::Parse("Unknown lock file format".to_string()))
 }
 
@@ -82,6 +89,9 @@ pub fn parse_lock_file(
     }
     if name == "uv.lock" {
         return parse_uv_lock(content);
+    }
+    if name == "pdm.lock" {
+        return parse_pdm_lock(content);
     }
     if name == "pylock.toml"
         || (name.starts_with("pylock.") && name.ends_with(".toml"))
@@ -263,6 +273,39 @@ pub fn parse_uv_lock(
                     ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
                 });
             }
+        }
+    }
+    Ok(packages)
+}
+
+/// Parse pdm.lock TOML format. Skips path/VCS entries that lack a resolved
+/// version (do not fabricate "any" for non-registry installs).
+pub fn parse_pdm_lock(
+    content: &str,
+) -> Result<Vec<vlz_db::Package>, ParserError> {
+    let value: toml::Value = toml::from_str(content).map_err(|e| {
+        ParserError::Parse(format!("pdm.lock parse error: {}", e))
+    })?;
+
+    let mut packages = Vec::new();
+    if let Some(arr) = value.get("package").and_then(|p| p.as_array()) {
+        for entry in arr {
+            let Some(tbl) = entry.as_table() else {
+                continue;
+            };
+            let Some(name) = tbl.get("name").and_then(|n| n.as_str()) else {
+                continue;
+            };
+            // Skip path/VCS entries without a resolved version.
+            let Some(version) = tbl.get("version").and_then(|v| v.as_str())
+            else {
+                continue;
+            };
+            packages.push(vlz_db::Package {
+                name: name.to_string(),
+                version: version.to_string(),
+                ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
+            });
         }
     }
     Ok(packages)
@@ -475,6 +518,77 @@ version = 1
 "#;
         let packages = parse_uv_lock(content).unwrap();
         assert!(packages.is_empty());
+    }
+
+    #[test]
+    fn parse_pdm_lock_packages() {
+        let content = r#"
+lock-version = "4.1"
+
+[[package]]
+name = "requests"
+version = "2.31.0"
+
+[[package]]
+name = "httpx"
+version = "0.25.0"
+"#;
+        let packages = parse_pdm_lock(content).unwrap();
+        assert_eq!(packages.len(), 2);
+        assert_eq!(packages[0].name, "requests");
+        assert_eq!(packages[0].version, "2.31.0");
+        assert_eq!(packages[1].name, "httpx");
+    }
+
+    #[test]
+    fn parse_pdm_lock_skips_path_entries_without_version() {
+        let content = r#"
+lock-version = "4.1"
+
+[[package]]
+name = "local-pkg"
+path = "."
+
+[[package]]
+name = "attrs"
+version = "25.1.0"
+"#;
+        let packages = parse_pdm_lock(content).unwrap();
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "attrs");
+    }
+
+    #[test]
+    fn parse_pdm_lock_empty() {
+        let content = "lock-version = \"4.1\"\n";
+        let packages = parse_pdm_lock(content).unwrap();
+        assert!(packages.is_empty());
+    }
+
+    #[test]
+    fn parse_pdm_lock_invalid_toml() {
+        let content = "version =";
+        let err = parse_pdm_lock(content).unwrap_err();
+        match &err {
+            ParserError::Parse(s) => assert!(s.contains("pdm")),
+            _ => panic!("expected Parse error"),
+        }
+    }
+
+    #[test]
+    fn parse_lock_file_detects_pdm_lock() {
+        let content = r#"
+lock-version = "4.1"
+
+[[package]]
+name = "requests"
+version = "2.31.0"
+"#;
+        let path = PathBuf::from("/x/pdm.lock");
+        let packages = parse_lock_file(path.as_path(), content).unwrap();
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "requests");
+        assert_eq!(packages[0].version, "2.31.0");
     }
 
     #[test]

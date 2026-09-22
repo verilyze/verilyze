@@ -140,8 +140,9 @@ impl DirectOnlyResolver {
     fn resolve_adjacent_lock_files(
         manifest_path: &Path,
         lock_file_allowlist: &[String],
+        scan_root: Option<&Path>,
     ) -> Result<Option<ResolvedLockFiles>, ResolverError> {
-        resolve_lock_files(manifest_path, lock_file_allowlist)
+        resolve_lock_files(manifest_path, lock_file_allowlist, scan_root)
             .map_err(Self::lock_parse_to_resolve_err)
     }
 
@@ -291,6 +292,7 @@ impl DirectOnlyResolver {
         if let Some(resolved) = Self::resolve_adjacent_lock_files(
             manifest_path,
             &ctx.python_lock_files,
+            ctx.scan_root.as_deref(),
         )? {
             return Ok(Self::transitive_result_for_graph(
                 graph,
@@ -420,7 +422,12 @@ impl Resolver for DirectOnlyResolver {
         if manifest_is_lock_file(manifest_path) {
             return false;
         }
-        find_lock_files(manifest_path, &ctx.python_lock_files).is_empty()
+        find_lock_files(
+            manifest_path,
+            &ctx.python_lock_files,
+            ctx.scan_root.as_deref(),
+        )
+        .is_empty()
     }
 
     fn language_name(&self) -> &'static str {

@@ -36,12 +36,13 @@ pub fn manifest_is_pipfile(manifest_path: &Path) -> bool {
         .is_some_and(|n| n == "Pipfile")
 }
 
-/// Returns true when the manifest basename is `requirements.txt`.
+/// Returns true when the manifest basename is `requirements.txt` or a
+/// `requirements*.txt` variant discovered by the finder.
 pub fn manifest_is_requirements_txt(manifest_path: &Path) -> bool {
     manifest_path
         .file_name()
         .and_then(|n| n.to_str())
-        .is_some_and(|n| n == "requirements.txt")
+        .is_some_and(crate::finder::is_requirements_manifest_name)
 }
 
 /// Returns true for local project manifests that may execute build code during resolution.
@@ -310,6 +311,9 @@ mod tests {
     fn manifest_type_helpers() {
         assert!(manifest_is_requirements_txt(Path::new(
             "/a/requirements.txt"
+        )));
+        assert!(manifest_is_requirements_txt(Path::new(
+            "/a/requirements-dev.txt"
         )));
         assert!(manifest_is_pipfile(Path::new("/a/Pipfile")));
         assert!(manifest_is_local_project(Path::new("/a/setup.py")));

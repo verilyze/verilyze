@@ -115,7 +115,7 @@ fn is_project_or_path_only(entry: &LockPackageEntry) -> bool {
     matches!(lower.as_str(), "project" | "path")
 }
 
-fn normalize_nuget_version(version: &str) -> String {
+pub(crate) fn normalize_nuget_version(version: &str) -> String {
     version.trim().to_string()
 }
 

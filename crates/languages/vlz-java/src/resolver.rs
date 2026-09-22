@@ -50,6 +50,10 @@ pub fn manifest_kind(path: &Path) -> JavaManifestKind {
 }
 
 /// Find Gradle lock files adjacent or in parent dirs up to `scan_root`.
+/// Stops at the Gradle project root (when tighter than `scan_root`) so locks
+/// from unrelated Gradle projects in the same monorepo do not leak in.
+/// Falls back to `gradle/verification-metadata.xml` at the Gradle root when
+/// no `gradle.lockfile` / `buildscript-gradle.lockfile` is present.
 pub fn find_java_lock_files(
     manifest_path: &Path,
     scan_root: Option<&Path>,
@@ -68,13 +72,23 @@ pub fn find_java_lock_files(
         if !locks.is_empty() {
             return locks;
         }
-        let _ = gradle_root;
+        // Stop at the Gradle project root (tighter ceiling than scan_root).
+        if dir == gradle_root {
+            break;
+        }
         if scan_root.is_some_and(|root| dir == root) {
             break;
         }
         if !dir.pop() {
             break;
         }
+    }
+    // Fallback: Gradle dependency verification metadata at the project root.
+    let vm = gradle_root
+        .join("gradle")
+        .join(crate::parser::VERIFICATION_METADATA_NAME);
+    if vm.is_file() {
+        return vec![vm];
     }
     Vec::new()
 }
@@ -102,9 +116,17 @@ fn parse_lock_path(
 ) -> Result<CachedResolution, ResolverError> {
     let content =
         std::fs::read_to_string(lock_path).map_err(ResolverError::Io)?;
-    let (packages, parsed) =
+    let (packages, parsed) = if crate::parser::is_verification_metadata(
+        lock_path.file_name().and_then(|n| n.to_str()).unwrap_or(""),
+    ) {
+        crate::parser::parse_verification_metadata_with_declarations(
+            &content, lock_path,
+        )
+        .map_err(|e| ResolverError::Resolve(e.to_string()))?
+    } else {
         parse_gradle_lock_with_declarations(&content, lock_path)
-            .map_err(|e| ResolverError::Resolve(e.to_string()))?;
+            .map_err(|e| ResolverError::Resolve(e.to_string()))?
+    };
     Ok(CachedResolution {
         packages,
         package_declarations: lock_declarations_from_parsed(&parsed),
@@ -421,6 +443,102 @@ mod tests {
         let locks = find_java_lock_files(&sub.join("pom.xml"), Some(root));
         assert_eq!(locks.len(), 1);
         assert_eq!(locks[0].file_name().unwrap(), "gradle.lockfile");
+    }
+
+    #[test]
+    fn find_lock_files_stops_at_gradle_root() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        // Inner Gradle project has its own settings.gradle (tighter boundary).
+        let inner = root.join("inner");
+        let app = inner.join("app");
+        std::fs::create_dir_all(&app).unwrap();
+        std::fs::write(inner.join("settings.gradle"), "rootProject.name='i'")
+            .unwrap();
+        std::fs::write(app.join("build.gradle"), "plugins {}\n").unwrap();
+        // Outer project lock must NOT leak into the inner project.
+        std::fs::write(
+            root.join("gradle.lockfile"),
+            "com.outer:lib:1.0=compileClasspath\n",
+        )
+        .unwrap();
+        let locks =
+            find_java_lock_files(&app.join("build.gradle"), Some(root));
+        assert!(
+            locks.is_empty(),
+            "walk must stop at the inner Gradle root, not the outer lock"
+        );
+    }
+
+    #[test]
+    fn find_lock_files_finds_lock_at_gradle_root() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let inner = root.join("inner");
+        let app = inner.join("app");
+        std::fs::create_dir_all(&app).unwrap();
+        std::fs::write(inner.join("settings.gradle"), "rootProject.name='i'")
+            .unwrap();
+        std::fs::write(app.join("build.gradle"), "plugins {}\n").unwrap();
+        std::fs::write(
+            inner.join("gradle.lockfile"),
+            "com.inner:lib:1.0=compileClasspath\n",
+        )
+        .unwrap();
+        let locks =
+            find_java_lock_files(&app.join("build.gradle"), Some(root));
+        assert_eq!(locks.len(), 1);
+        assert_eq!(locks[0], inner.join("gradle.lockfile"));
+    }
+
+    #[test]
+    fn find_lock_files_falls_back_to_verification_metadata() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let inner = root.join("inner");
+        let app = inner.join("app");
+        std::fs::create_dir_all(&app).unwrap();
+        std::fs::write(inner.join("settings.gradle"), "rootProject.name='i'")
+            .unwrap();
+        std::fs::write(app.join("build.gradle"), "plugins {}\n").unwrap();
+        std::fs::create_dir_all(inner.join("gradle")).unwrap();
+        std::fs::write(
+            inner.join("gradle/verification-metadata.xml"),
+            r#"<verification-metadata><components>
+  <component group="com.example" name="foo" version="1.0"/>
+</components></verification-metadata>"#,
+        )
+        .unwrap();
+        let locks =
+            find_java_lock_files(&app.join("build.gradle"), Some(root));
+        assert_eq!(locks.len(), 1);
+        assert_eq!(locks[0], inner.join("gradle/verification-metadata.xml"));
+    }
+
+    #[test]
+    fn find_lock_files_prefers_gradle_lockfile_over_verification_metadata() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("settings.gradle"), "rootProject.name='r'")
+            .unwrap();
+        std::fs::write(root.join("build.gradle"), "plugins {}\n").unwrap();
+        std::fs::write(
+            root.join("gradle.lockfile"),
+            "com.lock:pkg:1.0=compileClasspath\n",
+        )
+        .unwrap();
+        std::fs::create_dir_all(root.join("gradle")).unwrap();
+        std::fs::write(
+            root.join("gradle/verification-metadata.xml"),
+            r#"<verification-metadata><components>
+  <component group="com.vm" name="vm" version="2.0"/>
+</components></verification-metadata>"#,
+        )
+        .unwrap();
+        let locks =
+            find_java_lock_files(&root.join("build.gradle"), Some(root));
+        assert_eq!(locks.len(), 1);
+        assert_eq!(locks[0], root.join("gradle.lockfile"));
     }
 
     #[test]

@@ -6,7 +6,7 @@
 //! TOML/JSON; hand-rolled XML is impractical; quick-xml does not enable DTD/XXE).
 
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use quick_xml::Reader;
 use quick_xml::events::Event;
@@ -97,6 +97,7 @@ pub fn parse_pom_xml_with_declarations(
     let props = parse_properties(content)?;
     let (project_group, project_artifact, project_version) =
         parse_project_coords(content, &props)?;
+    let parent_management = load_parent_dependency_management(content, path)?;
     let raw = parse_dependencies_block(content)?;
     let mut out = Vec::new();
     for dep in raw {
@@ -117,13 +118,19 @@ pub fn parse_pom_xml_with_declarations(
             project_artifact.as_deref(),
             project_version.as_deref(),
         );
-        let version = resolve_maven_property(
+        let mut version = resolve_maven_property(
             &dep.version,
             &props,
             project_group.as_deref(),
             project_artifact.as_deref(),
             project_version.as_deref(),
         );
+        if version.is_empty() {
+            let key = maven_package_name(&group, &artifact);
+            if let Some(managed) = parent_management.get(&key) {
+                version = managed.clone();
+            }
+        }
         if group.is_empty() || artifact.is_empty() {
             continue;
         }
@@ -141,6 +148,226 @@ pub fn parse_pom_xml_with_declarations(
         });
     }
     Ok(out)
+}
+
+/// Load `dependencyManagement` versions from an in-tree parent `pom.xml`.
+fn load_parent_dependency_management(
+    content: &str,
+    path: &Path,
+) -> Result<HashMap<String, String>, ParserError> {
+    let Some(parent_path) = resolve_in_tree_parent_pom(content, path) else {
+        return Ok(HashMap::new());
+    };
+    let parent_content =
+        std::fs::read_to_string(&parent_path).map_err(|e| {
+            ParserError::Parse(format!(
+                "parent pom read error ({}): {e}",
+                parent_path.display()
+            ))
+        })?;
+    check_pom_limits(&parent_content)?;
+    let parent_props = parse_properties(&parent_content)?;
+    let (parent_group, parent_artifact, parent_version) =
+        parse_project_coords(&parent_content, &parent_props)?;
+    let managed = parse_dependency_management_block(&parent_content)?;
+    let mut out = HashMap::new();
+    for dep in managed {
+        if should_skip_dependency(&dep) {
+            continue;
+        }
+        let group = resolve_maven_property(
+            &dep.group_id,
+            &parent_props,
+            parent_group.as_deref(),
+            parent_artifact.as_deref(),
+            parent_version.as_deref(),
+        );
+        let artifact = resolve_maven_property(
+            &dep.artifact_id,
+            &parent_props,
+            parent_group.as_deref(),
+            parent_artifact.as_deref(),
+            parent_version.as_deref(),
+        );
+        let version = resolve_maven_property(
+            &dep.version,
+            &parent_props,
+            parent_group.as_deref(),
+            parent_artifact.as_deref(),
+            parent_version.as_deref(),
+        );
+        if group.is_empty() || artifact.is_empty() || version.is_empty() {
+            continue;
+        }
+        out.insert(maven_package_name(&group, &artifact), version);
+    }
+    Ok(out)
+}
+
+/// Resolve a local parent `pom.xml` path when `<relativePath>` points in-tree.
+fn resolve_in_tree_parent_pom(content: &str, path: &Path) -> Option<PathBuf> {
+    let parent_dir = path.parent()?;
+    let relative = parse_parent_relative_path(content)?;
+    if relative.is_empty() {
+        return None;
+    }
+    let parent_path = parent_dir.join(relative);
+    if parent_path.is_file() {
+        Some(parent_path)
+    } else {
+        None
+    }
+}
+
+fn parse_parent_relative_path(content: &str) -> Option<String> {
+    let mut reader = Reader::from_str(content);
+    reader.config_mut().trim_text(true);
+    let mut buf = Vec::new();
+    let mut in_parent = false;
+    let mut has_parent = false;
+    let mut relative_path: Option<String> = None;
+    let mut current_field: Option<String> = None;
+    let mut field_buf = String::new();
+    let mut depth: u32 = 0;
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(e)) => {
+                depth += 1;
+                if depth > POM_MAX_DEPTH {
+                    return None;
+                }
+                let name = e.local_name().as_ref().to_string();
+                if name == "parent" {
+                    in_parent = true;
+                    has_parent = true;
+                } else if in_parent {
+                    current_field = Some(name);
+                    field_buf.clear();
+                }
+            }
+            Ok(Event::Text(e)) => {
+                if current_field.is_some() {
+                    field_buf.push_str(&text_content(&e));
+                }
+            }
+            Ok(Event::GeneralRef(e)) => {
+                if current_field.is_some() {
+                    append_general_ref(&mut field_buf, &e);
+                }
+            }
+            Ok(Event::End(e)) => {
+                let name = e.local_name().as_ref().to_string();
+                if in_parent
+                    && let Some(field) = current_field.as_ref()
+                    && name == field.as_str()
+                {
+                    if field == "relativePath" {
+                        relative_path = Some(field_buf.clone());
+                    }
+                    current_field = None;
+                    field_buf.clear();
+                }
+                if name == "parent" {
+                    in_parent = false;
+                }
+                depth = depth.saturating_sub(1);
+            }
+            Ok(Event::Eof) => break,
+            Err(_) => return None,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    if !has_parent {
+        return None;
+    }
+    Some(relative_path.unwrap_or_else(|| "../pom.xml".to_string()))
+}
+
+fn parse_dependency_management_block(
+    content: &str,
+) -> Result<Vec<RawDependency>, ParserError> {
+    let mut reader = Reader::from_str(content);
+    reader.config_mut().trim_text(true);
+    let mut buf = Vec::new();
+    let mut deps = Vec::new();
+    let mut in_dependency_management = false;
+    let mut in_dependencies = false;
+    let mut in_dependency = false;
+    let mut current_field: Option<String> = None;
+    let mut field_buf = String::new();
+    let mut current = RawDependency::default();
+    let mut depth: u32 = 0;
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(e)) => {
+                depth += 1;
+                if depth > POM_MAX_DEPTH {
+                    return Err(ParserError::Parse(
+                        "pom.xml exceeds maximum nesting depth".into(),
+                    ));
+                }
+                let name = e.local_name().as_ref().to_string();
+                if name == "dependencyManagement" {
+                    in_dependency_management = true;
+                } else if in_dependency_management && name == "dependencies" {
+                    in_dependencies = true;
+                } else if in_dependencies && name == "dependency" {
+                    in_dependency = true;
+                    current = RawDependency::default();
+                    current.line = line_number_at(
+                        content,
+                        reader.buffer_position() as usize,
+                    );
+                } else if in_dependency {
+                    current_field = Some(name);
+                    field_buf.clear();
+                }
+            }
+            Ok(Event::Text(e)) => {
+                if current_field.is_some() {
+                    field_buf.push_str(&text_content(&e));
+                }
+            }
+            Ok(Event::GeneralRef(e)) => {
+                if current_field.is_some() {
+                    append_general_ref(&mut field_buf, &e);
+                }
+            }
+            Ok(Event::End(e)) => {
+                let name = e.local_name().as_ref().to_string();
+                if in_dependency
+                    && let Some(field) = current_field.as_ref()
+                    && name == field.as_str()
+                {
+                    assign_dependency_field(&mut current, field, &field_buf);
+                    current_field = None;
+                    field_buf.clear();
+                }
+                if name == "dependency" && in_dependency {
+                    deps.push(current.clone());
+                    in_dependency = false;
+                } else if name == "dependencies" {
+                    in_dependencies = false;
+                } else if name == "dependencyManagement" {
+                    in_dependency_management = false;
+                }
+                depth = depth.saturating_sub(1);
+            }
+            Ok(Event::Eof) => break,
+            Err(e) => {
+                return Err(ParserError::Parse(format!(
+                    "pom.xml parse error: {e}"
+                )));
+            }
+            _ => {}
+        }
+        buf.clear();
+    }
+    Ok(deps)
 }
 
 fn check_pom_limits(content: &str) -> Result<(), ParserError> {
@@ -524,6 +751,85 @@ mod tests {
         assert_eq!(deps.len(), 1);
         assert_eq!(deps[0].name, "g:a");
         assert_eq!(deps[0].version, "1.0");
+    }
+
+    #[test]
+    fn inherits_version_from_in_tree_parent_pom() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(
+            root.join("parent-pom.xml"),
+            r#"<project>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.managed</groupId>
+        <artifactId>lib</artifactId>
+        <version>9.9.9</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+</project>"#,
+        )
+        .unwrap();
+        let child = root.join("module");
+        std::fs::create_dir_all(&child).unwrap();
+        std::fs::write(
+            child.join("pom.xml"),
+            r#"<project>
+  <parent>
+    <groupId>com.example</groupId>
+    <artifactId>parent</artifactId>
+    <version>1.0</version>
+    <relativePath>../parent-pom.xml</relativePath>
+  </parent>
+  <dependencies>
+    <dependency>
+      <groupId>com.managed</groupId>
+      <artifactId>lib</artifactId>
+    </dependency>
+  </dependencies>
+</project>"#,
+        )
+        .unwrap();
+        let child_pom = child.join("pom.xml");
+        let content = std::fs::read_to_string(&child_pom).unwrap();
+        let deps =
+            parse_pom_xml_with_declarations(&content, &child_pom).unwrap();
+        assert_eq!(deps.len(), 1);
+        assert_eq!(deps[0].package.name, "com.managed:lib");
+        assert_eq!(deps[0].package.version, "9.9.9");
+    }
+
+    #[test]
+    fn skips_parent_when_relative_path_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let pom_path = root.join("pom.xml");
+        std::fs::write(
+            &pom_path,
+            r#"<project>
+  <parent>
+    <groupId>com.example</groupId>
+    <artifactId>parent</artifactId>
+    <version>1.0</version>
+    <relativePath/>
+  </parent>
+  <dependencies>
+    <dependency>
+      <groupId>com.managed</groupId>
+      <artifactId>lib</artifactId>
+    </dependency>
+  </dependencies>
+</project>"#,
+        )
+        .unwrap();
+        let content = std::fs::read_to_string(&pom_path).unwrap();
+        let deps =
+            parse_pom_xml_with_declarations(&content, &pom_path).unwrap();
+        assert_eq!(deps.len(), 1);
+        assert!(deps[0].package.version.is_empty());
+        assert!(parse_pom_xml(&content).unwrap().is_empty());
     }
 
     #[test]

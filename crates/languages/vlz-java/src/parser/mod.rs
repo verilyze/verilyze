@@ -5,6 +5,7 @@
 mod gradle_build;
 mod gradle_lock;
 mod pom_xml;
+mod verification_metadata;
 mod version_catalog;
 
 use async_trait::async_trait;
@@ -16,6 +17,11 @@ pub use gradle_lock::{
     parse_gradle_lock, parse_gradle_lock_with_declarations,
 };
 pub use pom_xml::{parse_pom_xml, parse_pom_xml_with_declarations};
+pub use verification_metadata::{
+    VERIFICATION_METADATA_NAME, is_verification_metadata,
+    parse_verification_metadata,
+    parse_verification_metadata_with_declarations,
+};
 pub use version_catalog::{
     parse_version_catalog, parse_version_catalog_with_declarations,
 };

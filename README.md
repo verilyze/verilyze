@@ -53,6 +53,7 @@ Run scans with the built binary (adjust the path if you use `CARGO_TARGET_DIR`):
 # Prefer Gemfile.lock / gems.locked for Ruby (lock-less Gemfile exits 4 by default).
 # Prefer composer.lock for PHP (lock-less composer.json exits 4 by default).
 # Prefer packages.lock.json for .NET (opt-in RestorePackagesWithLockFile;
+# obj/project.assets.json or *.deps.json may supply pins after a local build;
 # lock-less project files exit 4 by default).
 ./target/release/vlz scan
 
