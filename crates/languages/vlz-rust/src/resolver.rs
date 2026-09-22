@@ -17,17 +17,26 @@ use vlz_manifest_parser::{
 };
 
 use crate::cargo_metadata::run_cargo_metadata;
-use crate::finder::{RUST_LOCK_FILE_NAME, RUST_MANIFEST_NAME};
+use crate::finder::RUST_LOCK_FILE_NAME;
 
-/// Find Cargo.lock next to the manifest or in parent dirs (workspace root).
-pub fn find_lock_file(manifest_path: &Path) -> Option<std::path::PathBuf> {
-    let dir = manifest_path.parent()?;
-    let lock_path = dir.join(RUST_LOCK_FILE_NAME);
-    if lock_path.exists() && lock_path.is_file() {
-        return Some(lock_path);
+/// Find Cargo.lock next to the manifest or in parent dirs up to `scan_root`.
+pub fn find_lock_file(
+    manifest_path: &Path,
+    scan_root: Option<&Path>,
+) -> Option<std::path::PathBuf> {
+    let mut dir = manifest_path.parent()?.to_path_buf();
+    loop {
+        if scan_root.is_some_and(|root| !dir.starts_with(root)) {
+            return None;
+        }
+        let lock_path = dir.join(RUST_LOCK_FILE_NAME);
+        if lock_path.is_file() {
+            return Some(lock_path);
+        }
+        if scan_root.is_some_and(|root| dir == root) || !dir.pop() {
+            return None;
+        }
     }
-    dir.parent()
-        .and_then(|p| find_lock_file(&p.join(RUST_MANIFEST_NAME)))
 }
 
 type LockParseOutput = (
@@ -169,7 +178,8 @@ impl Resolver for CargoResolver {
         ctx: &ResolveContext,
     ) -> Result<ResolveResult, ResolverError> {
         if let Some(ref manifest_path) = graph.manifest_path
-            && let Some(lock_path) = find_lock_file(manifest_path)
+            && let Some(lock_path) =
+                find_lock_file(manifest_path, ctx.scan_root.as_deref())
         {
             let cache_key = lock_path.to_string_lossy().to_string();
             let current_fingerprint = lock_fingerprint(&lock_path);
@@ -294,9 +304,9 @@ impl Resolver for CargoResolver {
     fn manifest_needs_package_manager(
         &self,
         manifest_path: &Path,
-        _ctx: &ResolveContext,
+        ctx: &ResolveContext,
     ) -> bool {
-        find_lock_file(manifest_path).is_none()
+        find_lock_file(manifest_path, ctx.scan_root.as_deref()).is_none()
     }
 
     fn language_name(&self) -> &'static str {
@@ -324,8 +334,23 @@ mod tests {
         std::fs::write(tmp.join("Cargo.toml"), "[package]\n").unwrap();
         std::fs::write(tmp.join("Cargo.lock"), "version = 3\n").unwrap();
 
-        let found = find_lock_file(tmp.join("Cargo.toml").as_path());
+        let found =
+            find_lock_file(tmp.join("Cargo.toml").as_path(), Some(tmp));
         assert_eq!(found.as_deref(), Some(tmp.join("Cargo.lock").as_path()));
+    }
+
+    #[test]
+    fn find_lock_file_stops_at_scan_root() {
+        let dir = isolated_tempdir();
+        let tmp = dir.path();
+        let scan = tmp.join("scan");
+        let nested = scan.join("crates/foo");
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::write(tmp.join("Cargo.lock"), "version = 3\n").unwrap();
+        std::fs::write(nested.join("Cargo.toml"), "[package]\n").unwrap();
+        assert!(
+            find_lock_file(&nested.join("Cargo.toml"), Some(&scan)).is_none()
+        );
     }
 
     #[test]
@@ -630,8 +655,10 @@ version = "0.1.0"
         std::fs::write(tmp.join("crates/foo/Cargo.toml"), "[package]\n")
             .unwrap();
 
-        let found =
-            find_lock_file(tmp.join("crates/foo/Cargo.toml").as_path());
+        let found = find_lock_file(
+            tmp.join("crates/foo/Cargo.toml").as_path(),
+            Some(tmp),
+        );
         assert_eq!(found.as_deref(), Some(tmp.join("Cargo.lock").as_path()));
     }
 
