@@ -14,13 +14,25 @@ use crate::lock_names::{
 use crate::parser::parse_lock_file_with_declarations;
 
 /// Basenames searched adjacent to manifests (Appendix A). `pylock.*.toml` via [`collect_pylock_variants`].
-const LOCK_CANDIDATE_BASENAMES: &[&str] =
-    &["pylock.toml", "poetry.lock", "uv.lock", "Pipfile.lock"];
+const LOCK_CANDIDATE_BASENAMES: &[&str] = &[
+    "pylock.toml",
+    "poetry.lock",
+    "uv.lock",
+    "pdm.lock",
+    "Pipfile.lock",
+];
 
-/// Find all applicable adjacent lock file paths for `manifest_path`.
+/// Find all applicable lock file paths for `manifest_path`.
+///
+/// When `scan_root` is `Some`, also walks parent directories up to (and
+/// including) `scan_root` and returns the locks from the first directory
+/// (adjacent or parent) that contains any. Locks are unioned within a single
+/// directory and never merged across directories. When `scan_root` is `None`,
+/// only the manifest's own directory is searched (backward-compatible).
 pub fn find_lock_files(
     manifest_path: &Path,
     lock_file_allowlist: &[String],
+    scan_root: Option<&Path>,
 ) -> Vec<PathBuf> {
     let dir = match manifest_path.parent() {
         Some(d) => d,
@@ -31,27 +43,60 @@ pub fn find_lock_files(
         None => return Vec::new(),
     };
 
-    let use_candidates = match name {
-        "pyproject.toml" | "setup.py" | "setup.cfg" | "requirements.txt" => {
-            true
-        }
-        "Pipfile" => false,
-        _ => false,
-    };
-
-    let mut found = Vec::new();
+    // Pipfile is paired only with an adjacent Pipfile.lock (no parent walk).
     if name == "Pipfile" {
         let pipfile_lock = dir.join("Pipfile.lock");
         if pipfile_lock.is_file() {
-            found.push(pipfile_lock);
+            return filter_lock_paths_by_allowlist(
+                &[pipfile_lock],
+                lock_file_allowlist,
+            );
         }
-        return found;
+        return Vec::new();
     }
 
+    let use_candidates = matches!(
+        name,
+        "pyproject.toml" | "setup.py" | "setup.cfg" | "requirements.txt"
+    );
     if !use_candidates {
-        return found;
+        return Vec::new();
     }
 
+    // Adjacent directory first.
+    let adjacent = collect_dir_locks(dir, lock_file_allowlist);
+    if !adjacent.is_empty() {
+        return adjacent;
+    }
+
+    // Parent walk up to scan_root (when provided).
+    if let Some(root) = scan_root {
+        let mut parent = dir.parent().map(Path::to_path_buf);
+        while let Some(p) = parent {
+            // Stop once we have climbed above the scan root.
+            if !p.starts_with(root) {
+                break;
+            }
+            let locks = collect_dir_locks(&p, lock_file_allowlist);
+            if !locks.is_empty() {
+                return locks;
+            }
+            if p == root {
+                break;
+            }
+            parent = p.parent().map(Path::to_path_buf);
+        }
+    }
+
+    Vec::new()
+}
+
+/// Collect and allowlist-filter lock file paths in a single directory.
+fn collect_dir_locks(
+    dir: &Path,
+    lock_file_allowlist: &[String],
+) -> Vec<PathBuf> {
+    let mut found = Vec::new();
     for candidate in LOCK_CANDIDATE_BASENAMES {
         let lock_path = dir.join(candidate);
         if lock_path.is_file() {
@@ -64,12 +109,13 @@ pub fn find_lock_files(
     filter_lock_paths_by_allowlist(&found, lock_file_allowlist)
 }
 
-/// Legacy helper: first adjacent lock file, if any.
+/// Legacy helper: first adjacent (or parent-walked) lock file, if any.
 pub fn find_lock_file(
     manifest_path: &Path,
     lock_file_allowlist: &[String],
+    scan_root: Option<&Path>,
 ) -> Option<PathBuf> {
-    find_lock_files(manifest_path, lock_file_allowlist)
+    find_lock_files(manifest_path, lock_file_allowlist, scan_root)
         .into_iter()
         .next()
 }
@@ -83,14 +129,17 @@ pub struct ResolvedLockFiles {
     pub lock_paths: Vec<PathBuf>,
 }
 
-/// Parse and union all adjacent lock files for `manifest_path`.
+/// Parse and union all applicable lock files for `manifest_path`.
 ///
 /// Returns `Ok(None)` when no locks exist, when the entry point is itself a
 /// lock file (handled by resolver short-circuit), or when every lock parsed
 /// successfully but yielded zero packages (fall through to pip / FR-022).
+/// When `scan_root` is `Some`, parent directories up to `scan_root` are
+/// searched when the manifest's own directory has no usable lock.
 pub fn resolve_lock_files(
     manifest_path: &Path,
     lock_file_allowlist: &[String],
+    scan_root: Option<&Path>,
 ) -> Result<Option<ResolvedLockFiles>, ParserError> {
     if manifest_is_lock_file(manifest_path) {
         return Ok(None);
@@ -99,7 +148,8 @@ pub fn resolve_lock_files(
         verify_lock_allowlist_for_dir(dir, lock_file_allowlist)
             .map_err(ParserError::Other)?;
     }
-    let lock_paths = find_lock_files(manifest_path, lock_file_allowlist);
+    let lock_paths =
+        find_lock_files(manifest_path, lock_file_allowlist, scan_root);
     if lock_paths.is_empty() {
         return Ok(None);
     }
@@ -209,7 +259,7 @@ mod tests {
             "[[package]]\nname = \"other\"\nversion = \"2.0\"\n",
         )
         .unwrap();
-        let found = find_lock_files(req.as_path(), &[]);
+        let found = find_lock_files(req.as_path(), &[], None);
         assert_eq!(found.len(), 2);
         assert!(found.contains(&pylock));
         assert!(found.contains(&poetry));
@@ -223,7 +273,7 @@ mod tests {
         let pipfile_lock = tmp.join("Pipfile.lock");
         std::fs::write(&pipfile, "").unwrap();
         std::fs::write(&pipfile_lock, "{}").unwrap();
-        let found = find_lock_files(pipfile.as_path(), &[]);
+        let found = find_lock_files(pipfile.as_path(), &[], None);
         assert_eq!(found, vec![pipfile_lock]);
     }
 
@@ -240,7 +290,7 @@ mod tests {
             "[[package]]\nname = \"a\"\nversion = \"1\"\n",
         )
         .unwrap();
-        let found = find_lock_files(setup_cfg.as_path(), &[]);
+        let found = find_lock_files(setup_cfg.as_path(), &[], None);
         assert_eq!(found, vec![poetry_lock]);
     }
 
@@ -256,7 +306,7 @@ mod tests {
             "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"pkg\"\nversion = \"1.0\"\n",
         )
         .unwrap();
-        let found = find_lock_files(req.as_path(), &[]);
+        let found = find_lock_files(req.as_path(), &[], None);
         assert_eq!(found, vec![variant]);
     }
 
@@ -277,7 +327,7 @@ mod tests {
         )
         .unwrap();
         let found =
-            find_lock_files(req.as_path(), &["poetry.lock".to_string()]);
+            find_lock_files(req.as_path(), &["poetry.lock".to_string()], None);
         assert_eq!(found, vec![tmp.join("poetry.lock")]);
     }
 
@@ -297,7 +347,101 @@ mod tests {
             "[[package]]\nname = \"b\"\nversion = \"1\"\n",
         )
         .unwrap();
-        let found = find_lock_file(req.as_path(), &[]);
+        let found = find_lock_file(req.as_path(), &[], None);
         assert!(found.is_some());
+    }
+
+    #[test]
+    fn find_lock_files_parent_walk_uses_root_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let member = root.join("member");
+        std::fs::create_dir_all(&member).unwrap();
+        let pyproject = member.join("pyproject.toml");
+        let uv_lock = root.join("uv.lock");
+        std::fs::write(&pyproject, "[project]\nname = \"x\"\n").unwrap();
+        std::fs::write(
+            &uv_lock,
+            "version = 1\n\n[[package]]\nname = \"pkg\"\nversion = \"1.0\"\n",
+        )
+        .unwrap();
+        let found = find_lock_files(pyproject.as_path(), &[], Some(root));
+        assert_eq!(found, vec![uv_lock]);
+    }
+
+    #[test]
+    fn find_lock_files_adjacent_lock_wins_over_parent() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let member = root.join("member");
+        std::fs::create_dir_all(&member).unwrap();
+        let pyproject = member.join("pyproject.toml");
+        let adjacent_poetry = member.join("poetry.lock");
+        let parent_uv = root.join("uv.lock");
+        std::fs::write(&pyproject, "[project]\nname = \"x\"\n").unwrap();
+        std::fs::write(
+            &adjacent_poetry,
+            "[[package]]\nname = \"adj\"\nversion = \"1.0\"\n",
+        )
+        .unwrap();
+        std::fs::write(
+            &parent_uv,
+            "version = 1\n\n[[package]]\nname = \"par\"\nversion = \"1.0\"\n",
+        )
+        .unwrap();
+        let found = find_lock_files(pyproject.as_path(), &[], Some(root));
+        assert_eq!(found, vec![adjacent_poetry]);
+    }
+
+    #[test]
+    fn find_lock_files_parent_walk_stops_at_scan_root() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let member = root.join("member");
+        std::fs::create_dir_all(&member).unwrap();
+        let pyproject = member.join("pyproject.toml");
+        let outside_lock = root.join("uv.lock");
+        std::fs::write(&pyproject, "[project]\nname = \"x\"\n").unwrap();
+        std::fs::write(
+            &outside_lock,
+            "version = 1\n\n[[package]]\nname = \"pkg\"\nversion = \"1.0\"\n",
+        )
+        .unwrap();
+        // scan_root is the member dir; the root lock is outside it.
+        let found = find_lock_files(pyproject.as_path(), &[], Some(&member));
+        assert!(found.is_empty());
+    }
+
+    #[test]
+    fn find_lock_files_pipfile_no_parent_walk() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let member = root.join("member");
+        std::fs::create_dir_all(&member).unwrap();
+        let pipfile = member.join("Pipfile");
+        let parent_pipfile_lock = root.join("Pipfile.lock");
+        std::fs::write(&pipfile, "").unwrap();
+        std::fs::write(&parent_pipfile_lock, "{}").unwrap();
+        let found = find_lock_files(pipfile.as_path(), &[], Some(root));
+        assert!(found.is_empty());
+    }
+
+    #[test]
+    fn find_lock_files_no_parent_walk_without_scan_root() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let member = root.join("member");
+        std::fs::create_dir_all(&member).unwrap();
+        let pyproject = member.join("pyproject.toml");
+        let parent_lock = root.join("uv.lock");
+        std::fs::write(&pyproject, "[project]\nname = \"x\"\n").unwrap();
+        std::fs::write(
+            &parent_lock,
+            "version = 1\n\n[[package]]\nname = \"pkg\"\nversion = \"1.0\"\n",
+        )
+        .unwrap();
+        // No scan_root: no parent walk (backward-compatible adjacent-only).
+        let found = find_lock_files(pyproject.as_path(), &[], None);
+        assert!(found.is_empty());
     }
 }

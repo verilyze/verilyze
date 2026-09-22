@@ -1,0 +1,5 @@
+lock-version = "4.1"
+
+[[package]]
+name = "requests"
+version = "2.31.0"

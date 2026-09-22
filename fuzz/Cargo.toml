@@ -80,6 +80,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "fuzz_pdm_lock"
+path = "fuzz_targets/fuzz_pdm_lock.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "fuzz_setup_cfg"
 path = "fuzz_targets/fuzz_setup_cfg.rs"
 test = false

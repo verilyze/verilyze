@@ -9,8 +9,13 @@ use std::path::{Path, PathBuf};
 pub const PYTHON_LOCK_FILES_ENV: &str = "VLZ_PYTHON_LOCK_FILES";
 
 /// Python lock file basenames (Appendix A). `pylock.*.toml` handled by [`is_pylock_variant`].
-pub const PYTHON_LOCK_FILE_NAMES: &[&str] =
-    &["pylock.toml", "poetry.lock", "Pipfile.lock", "uv.lock"];
+pub const PYTHON_LOCK_FILE_NAMES: &[&str] = &[
+    "pylock.toml",
+    "poetry.lock",
+    "Pipfile.lock",
+    "uv.lock",
+    "pdm.lock",
+];
 
 /// True when `name` is `pylock.toml` or `pylock.*.toml` (PEP 751).
 pub fn is_pylock_variant(name: &str) -> bool {
