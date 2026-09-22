@@ -3065,6 +3065,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror",
+ "toml",
  "vlz-db",
 ]
 

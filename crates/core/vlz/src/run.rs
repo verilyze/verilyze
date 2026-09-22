@@ -65,6 +65,24 @@ pub fn user_warning(line: &str) {
     eprintln!("{line}");
 }
 
+/// Format a remediator apply failure for stderr (FR-041).
+///
+/// Includes package-manager stderr when the error is [`RemediationError::CommandFailed`].
+pub fn format_remediation_apply_failure(
+    package_name: &str,
+    err: &vlz_remediate::RemediationError,
+) -> String {
+    format!("Remediation apply failed for {package_name}: {err}")
+}
+
+/// Log a remediator apply failure to stderr (CLI `vlz fix` and LSP Apply).
+pub fn log_remediation_apply_failure(
+    package_name: &str,
+    err: &vlz_remediate::RemediationError,
+) {
+    eprintln!("{}", format_remediation_apply_failure(package_name, err));
+}
+
 /// True if cache entry key matches pattern (exact substring or prefix when pattern ends with *).
 /// Used by `db set-ttl --pattern`.
 pub fn entry_key_matches_pattern(key: &str, pattern: &str) -> bool {
@@ -1935,7 +1953,9 @@ pub fn apply_upgrade_request(
         allow_dependency_code_execution,
         offline,
     };
-    rem.apply(&ctx)
+    rem.apply(&ctx).inspect_err(|err| {
+        log_remediation_apply_failure(&request.package_name, err);
+    })
 }
 
 /// Map the JSON report's declaration lines to LSP diagnostics.
@@ -3273,6 +3293,7 @@ async fn run_fix(
                 break;
             };
             if let Err(err) = rem.apply(&ctx) {
+                log_remediation_apply_failure(&e.package.name, &err);
                 early_exit = Some(map_remediation_err(err));
                 break;
             }
@@ -3698,6 +3719,23 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.to_string().contains("unavailable"));
+    }
+
+    #[test]
+    fn format_remediation_apply_failure_includes_package_and_error() {
+        let err = vlz_remediate::RemediationError::CommandFailed {
+            strategy: "cargo".to_string(),
+            message: "failed to select package".to_string(),
+        };
+        let line = format_remediation_apply_failure("rand", &err);
+        assert!(
+            line.contains("rand") && line.contains("failed to select package"),
+            "expected package and PM stderr in message: {line}"
+        );
+        assert!(
+            line.starts_with("Remediation apply failed for rand:"),
+            "expected stable prefix: {line}"
+        );
     }
 
     #[cfg(feature = "lsp")]
