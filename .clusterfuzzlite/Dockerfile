@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-FROM gcr.io/oss-fuzz-base/base-builder-rust@sha256:30133d6ddfd9d2649c2821e3ee928e399f17b17dd04697f553bcda403e4f58b2
+FROM gcr.io/oss-fuzz-base/base-builder-rust@sha256:4de23732b37444c5bfa324ae9f3f7e51d45a975d609edddaae01a87b10d5f615
 COPY . $SRC/verilyze
 WORKDIR $SRC/verilyze
 COPY .clusterfuzzlite/build.sh $SRC/
