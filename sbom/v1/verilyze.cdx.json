@@ -1549,39 +1549,39 @@
       "version": "1.1.1"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_python_ast@0.0.14",
+      "bom-ref": "pkg:cargo/ruff_python_ast@0.0.16",
       "name": "ruff_python_ast",
-      "purl": "pkg:cargo/ruff_python_ast@0.0.14",
+      "purl": "pkg:cargo/ruff_python_ast@0.0.16",
       "type": "library",
-      "version": "0.0.14"
+      "version": "0.0.16"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_python_parser@0.0.14",
+      "bom-ref": "pkg:cargo/ruff_python_parser@0.0.16",
       "name": "ruff_python_parser",
-      "purl": "pkg:cargo/ruff_python_parser@0.0.14",
+      "purl": "pkg:cargo/ruff_python_parser@0.0.16",
       "type": "library",
-      "version": "0.0.14"
+      "version": "0.0.16"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_python_trivia@0.0.14",
+      "bom-ref": "pkg:cargo/ruff_python_trivia@0.0.16",
       "name": "ruff_python_trivia",
-      "purl": "pkg:cargo/ruff_python_trivia@0.0.14",
+      "purl": "pkg:cargo/ruff_python_trivia@0.0.16",
       "type": "library",
-      "version": "0.0.14"
+      "version": "0.0.16"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_source_file@0.0.14",
+      "bom-ref": "pkg:cargo/ruff_source_file@0.0.16",
       "name": "ruff_source_file",
-      "purl": "pkg:cargo/ruff_source_file@0.0.14",
+      "purl": "pkg:cargo/ruff_source_file@0.0.16",
       "type": "library",
-      "version": "0.0.14"
+      "version": "0.0.16"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_text_size@0.0.14",
+      "bom-ref": "pkg:cargo/ruff_text_size@0.0.16",
       "name": "ruff_text_size",
-      "purl": "pkg:cargo/ruff_text_size@0.0.14",
+      "purl": "pkg:cargo/ruff_text_size@0.0.16",
       "type": "library",
-      "version": "0.0.14"
+      "version": "0.0.16"
     },
     {
       "bom-ref": "pkg:cargo/rustc-hash@2.1.3",
