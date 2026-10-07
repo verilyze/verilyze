@@ -1576,37 +1576,37 @@
     {
       "@type": "Package",
       "name": "ruff_python_ast",
-      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.14",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-14",
-      "versionInfo": "0.0.14"
+      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.16",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-16",
+      "versionInfo": "0.0.16"
     },
     {
       "@type": "Package",
       "name": "ruff_python_parser",
-      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.14",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-14",
-      "versionInfo": "0.0.14"
+      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.16",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-16",
+      "versionInfo": "0.0.16"
     },
     {
       "@type": "Package",
       "name": "ruff_python_trivia",
-      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.14",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-14",
-      "versionInfo": "0.0.14"
+      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.16",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-16",
+      "versionInfo": "0.0.16"
     },
     {
       "@type": "Package",
       "name": "ruff_source_file",
-      "packageUrl": "pkg:cargo/ruff_source_file@0.0.14",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-14",
-      "versionInfo": "0.0.14"
+      "packageUrl": "pkg:cargo/ruff_source_file@0.0.16",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-16",
+      "versionInfo": "0.0.16"
     },
     {
       "@type": "Package",
       "name": "ruff_text_size",
-      "packageUrl": "pkg:cargo/ruff_text_size@0.0.14",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-14",
-      "versionInfo": "0.0.14"
+      "packageUrl": "pkg:cargo/ruff_text_size@0.0.16",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-16",
+      "versionInfo": "0.0.16"
     },
     {
       "@type": "Package",
@@ -1961,16 +1961,16 @@
     {
       "@type": "Package",
       "name": "thiserror",
-      "packageUrl": "pkg:cargo/thiserror@2.0.20",
-      "spdxId": "urn:spdx.dev:pkg-cargo-thiserror-2-0-20",
-      "versionInfo": "2.0.20"
+      "packageUrl": "pkg:cargo/thiserror@2.0.21",
+      "spdxId": "urn:spdx.dev:pkg-cargo-thiserror-2-0-21",
+      "versionInfo": "2.0.21"
     },
     {
       "@type": "Package",
       "name": "thiserror-impl",
-      "packageUrl": "pkg:cargo/thiserror-impl@2.0.20",
-      "spdxId": "urn:spdx.dev:pkg-cargo-thiserror-impl-2-0-20",
-      "versionInfo": "2.0.20"
+      "packageUrl": "pkg:cargo/thiserror-impl@2.0.21",
+      "spdxId": "urn:spdx.dev:pkg-cargo-thiserror-impl-2-0-21",
+      "versionInfo": "2.0.21"
     },
     {
       "@type": "Package",
@@ -2010,9 +2010,9 @@
     {
       "@type": "Package",
       "name": "tokio",
-      "packageUrl": "pkg:cargo/tokio@1.53.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-1-53-1",
-      "versionInfo": "1.53.1"
+      "packageUrl": "pkg:cargo/tokio@1.53.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-1-53-2",
+      "versionInfo": "1.53.2"
     },
     {
       "@type": "Package",
@@ -2024,9 +2024,9 @@
     {
       "@type": "Package",
       "name": "tokio-rustls",
-      "packageUrl": "pkg:cargo/tokio-rustls@0.26.5",
-      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-rustls-0-26-5",
-      "versionInfo": "0.26.5"
+      "packageUrl": "pkg:cargo/tokio-rustls@0.26.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-rustls-0-26-6",
+      "versionInfo": "0.26.6"
     },
     {
       "@type": "Package",
