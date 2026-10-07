@@ -66,7 +66,7 @@ description = "verilyze -- fast, modular Software Composition Analysis tool"
 keywords = ["cve", "sbom", "sca", "security", "supply-chain"]
 categories = ["command-line-utilities", "development-tools"]
 readme = "README.md"
-rust-version = "1.98"
+rust-version = "1.99"
 
 # CVE provider HTTP client (OP-018); system-proxy enables macOS/Windows OS proxy when env unset.
 [workspace.dependencies]
