@@ -3,25 +3,25 @@ created-by = "pip"
 
 [[packages]]
 name = "ast-serialize"
-version = "0.8.0"
+version = "0.12.1"
 
 [[packages.wheels]]
-name = "ast_serialize-0.8.0-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
-url = "https://files.pythonhosted.org/packages/bf/32/7f77ea87fa0836daab706ed5cb7f903bb25fa26a77439011aee626af11d8/ast_serialize-0.8.0-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+name = "ast_serialize-0.12.1-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+url = "https://files.pythonhosted.org/packages/c0/60/58961e7fd129e226ce36788fe328d20034f3105f5d3380df690050517737/ast_serialize-0.12.1-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
 
 [packages.wheels.hashes]
-sha256 = "252f883290d1cdb728eb7fe1d9a7221b88af5a329aae0bc91ddee4dafb820331"
+sha256 = "50a9eaedf1db4857dad7cc47dd757ed70bfcc40b89d44d516c4a2f0d5033bd76"
 
 [[packages]]
 name = "astroid"
-version = "4.0.4"
+version = "4.3.3"
 
 [[packages.wheels]]
-name = "astroid-4.0.4-py3-none-any.whl"
-url = "https://files.pythonhosted.org/packages/b0/cf/1c5f42b110e57bc5502eb80dbc3b03d256926062519224835ef08134f1f9/astroid-4.0.4-py3-none-any.whl"
+name = "astroid-4.3.3-py3-none-any.whl"
+url = "https://files.pythonhosted.org/packages/23/be/54ffbdd679e2ea9f36f1923edd867c39fc1190b3810f111c8282a3f0b608/astroid-4.3.3-py3-none-any.whl"
 
 [packages.wheels.hashes]
-sha256 = "52f39653876c7dec3e3afd4c2696920e05c83832b9737afc21928f2d2eb7a753"
+sha256 = "366c99c2907b6407869b1bbfd8abb10f3aea5818309e9c93c9b9c93ecf14bc4f"
 
 [[packages]]
 name = "attrs"
@@ -47,14 +47,14 @@ sha256 = "f89ffa663767f5a0585ea075f01020207e966a9c0f2b9ef56a57c7963a3f6f8e"
 
 [[packages]]
 name = "black"
-version = "26.5.1"
+version = "26.10.0"
 
 [[packages.wheels]]
-name = "black-26.5.1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
-url = "https://files.pythonhosted.org/packages/81/6b/cfaf3d39f25132c156a068f6b805576c9103a84086019507c70e1911ee7d/black-26.5.1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
+name = "black-26.10.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
+url = "https://files.pythonhosted.org/packages/9d/97/66b41852338be14c760cc432ae7041c52111521cd11c12005c279f387713/black-26.10.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
 
 [packages.wheels.hashes]
-sha256 = "ea8d16dc41655aa113cd64665e7219446cd7e4ff2248d7178eaa905190c86b18"
+sha256 = "3584c121fc57d08e0f73510df1d206f2c0c8858d3c82fc0664af7647ee8d1b3f"
 
 [[packages]]
 name = "click"
@@ -80,14 +80,14 @@ sha256 = "af2505b335e8573dbd2d384d1c4ef498f4006f4ba2d6fceca01e55b91f52628a"
 
 [[packages]]
 name = "coverage"
-version = "7.16.0"
+version = "7.16.2"
 
 [[packages.wheels]]
-name = "coverage-7.16.0-cp314-cp314-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl"
-url = "https://files.pythonhosted.org/packages/a3/9c/a1bda6439c19c4783d50df896142b67b9e7d432db36675d339a32778669d/coverage-7.16.0-cp314-cp314-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl"
+name = "coverage-7.16.2-cp314-cp314-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl"
+url = "https://files.pythonhosted.org/packages/a8/d4/a306940c81c6ae759e82fff27d20b7fdc6896e422b821f51313cce212b6c/coverage-7.16.2-cp314-cp314-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl"
 
 [packages.wheels.hashes]
-sha256 = "f98d438add63546745e5e847192e3e9ab897ed6f2ca96f8281e2f5a15958ae62"
+sha256 = "35f37886699cb9abd29958247d718628d5bc6f39e623dff66a09e546c42a7e03"
 
 [[packages]]
 name = "dill"
@@ -102,25 +102,25 @@ sha256 = "1e1ce33e978ae97fcfcff5638477032b801c46c7c65cf717f95fbc2248f79a9d"
 
 [[packages]]
 name = "iniconfig"
-version = "2.3.0"
+version = "2.3.1"
 
 [[packages.wheels]]
-name = "iniconfig-2.3.0-py3-none-any.whl"
-url = "https://files.pythonhosted.org/packages/cb/b1/3846dd7f199d53cb17f49cba7e651e9ce294d8497c8c150530ed11865bb8/iniconfig-2.3.0-py3-none-any.whl"
+name = "iniconfig-2.3.1-py3-none-any.whl"
+url = "https://files.pythonhosted.org/packages/56/43/4ca9e49d27a1fcf6bece6f6aec0ea46bb9112489b93d4b688fb415457bdb/iniconfig-2.3.1-py3-none-any.whl"
 
 [packages.wheels.hashes]
-sha256 = "f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12"
+sha256 = "9121e2c1fdb355232495be3194c8dfe87ccc2d5dee45947b78e68f499790d7a7"
 
 [[packages]]
 name = "isort"
-version = "9.0.1"
+version = "9.0.2"
 
 [[packages.wheels]]
-name = "isort-9.0.1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
-url = "https://files.pythonhosted.org/packages/2b/b6/04d74c7c42b9af1c0d47f34a79722dbbcff71bae3765c9250376ebd44ec5/isort-9.0.1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
+name = "isort-9.0.2-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
+url = "https://files.pythonhosted.org/packages/7e/da/f97a4905cf8212c31d584f0222ae8b1deed391e42db910e8e908eb89002e/isort-9.0.2-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
 
 [packages.wheels.hashes]
-sha256 = "873cf1b6371d41e2a74d57d7c0176d311822f0415441abf8251ad074c9fe4a66"
+sha256 = "6eb3e714d64de6eba78ee29051f7fc80613c74e90c6f54f84082f59c429c0a0b"
 
 [[packages]]
 name = "jsonschema"
@@ -146,14 +146,14 @@ sha256 = "98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe"
 
 [[packages]]
 name = "librt"
-version = "0.15.0"
+version = "0.16.0"
 
 [[packages.wheels]]
-name = "librt-0.15.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
-url = "https://files.pythonhosted.org/packages/95/82/01940e40b83c43a546c4a3c896cf34ca272a9690899d55914e4827b3dcce/librt-0.15.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
+name = "librt-0.16.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
+url = "https://files.pythonhosted.org/packages/50/07/79007d2165f649ea93e08c0962d1d62c70af9cde77965255095bf9d96f9a/librt-0.16.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
 
 [packages.wheels.hashes]
-sha256 = "d4c7bacb70930f3d0a56f4ecf1be474a1f0d941b01dd73b756f3c256d42cb879"
+sha256 = "ca8052401c55d7511dda6760719fda7618067e83535d7d0010096d216c34b667"
 
 [[packages]]
 name = "markdown-it-py"
@@ -190,14 +190,14 @@ sha256 = "84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8"
 
 [[packages]]
 name = "mypy"
-version = "2.3.1"
+version = "2.4.0"
 
 [[packages.wheels]]
-name = "mypy-2.3.1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
-url = "https://files.pythonhosted.org/packages/78/f7/f4a34edab45667c5465855dc585a20e87978ffa8aee711445b7239d120c6/mypy-2.3.1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
+name = "mypy-2.4.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
+url = "https://files.pythonhosted.org/packages/bc/1c/26e16977e25ef2494a74f8ffc872a76ec2c3aa43c3156057cbdf88f352c5/mypy-2.4.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
 
 [packages.wheels.hashes]
-sha256 = "8e036f06b41630f4c8a1d48f9ac6aa26acc65f8be089973f5519da643318f03f"
+sha256 = "20e9a5cd875837520c43db98dea0b6d0c2197833d95c30127d8f570fb9b1f00b"
 
 [[packages]]
 name = "mypy-extensions"
@@ -234,14 +234,14 @@ sha256 = "a00ce642f577bf7f473932318056212bc4f8bfdf53128c78bbd5af0b9b20b189"
 
 [[packages]]
 name = "platformdirs"
-version = "4.11.5"
+version = "4.12.3"
 
 [[packages.wheels]]
-name = "platformdirs-4.11.5-py3-none-any.whl"
-url = "https://files.pythonhosted.org/packages/c7/12/6f3fcd5067a9cbf4f8664b32957973498da8b083455203c8d9cab83a725c/platformdirs-4.11.5-py3-none-any.whl"
+name = "platformdirs-4.12.3-py3-none-any.whl"
+url = "https://files.pythonhosted.org/packages/c5/9b/6ce1ead737fe496611bda600c263b9a11ae7bd8f41bb13f9bd7e0a2c37a4/platformdirs-4.12.3-py3-none-any.whl"
 
 [packages.wheels.hashes]
-sha256 = "89f8d42695853b89c7170bd49bc3dc593f98a71e695ede88e06a3b247bc4563b"
+sha256 = "080f3b39423b5abfca9a23d84c4e9795f54d395cd8459867a8ded44084fcd5f8"
 
 [[packages]]
 name = "pluggy"
@@ -267,14 +267,14 @@ sha256 = "2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9"
 
 [[packages]]
 name = "pylint"
-version = "4.0.8"
+version = "4.1.2"
 
 [[packages.wheels]]
-name = "pylint-4.0.8-py3-none-any.whl"
-url = "https://files.pythonhosted.org/packages/2b/ea/9b601859afa055afe659ffe55abdfed6e5f17e17a840d9cd61c54ac89c02/pylint-4.0.8-py3-none-any.whl"
+name = "pylint-4.1.2-py3-none-any.whl"
+url = "https://files.pythonhosted.org/packages/90/61/b76698429225f848921f4d620f5c7b16f616daf53f99cc25afd1c86496fc/pylint-4.1.2-py3-none-any.whl"
 
 [packages.wheels.hashes]
-sha256 = "3341c08c0aabaa4adc71516de0969f3ba5c692b56c75af4dcb4d242823fbe363"
+sha256 = "e34c8636edc7d60a2eaadca4ad6c18a49e202361987a26e81b2a17fa92be28e1"
 
 [[packages]]
 name = "pytest"
@@ -344,14 +344,14 @@ sha256 = "33bd4ef74232fb73fe9279a257718407f169c09b78a87ad3d296f548e27de0bb"
 
 [[packages]]
 name = "rpds-py"
-version = "2026.6.3"
+version = "2026.9.1"
 
 [[packages.wheels]]
-name = "rpds_py-2026.6.3-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
-url = "https://files.pythonhosted.org/packages/d1/9c/0d1fdc2e7aba23e290d603bc494e97bd205bae262ce33c6b32a69768ed5e/rpds_py-2026.6.3-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+name = "rpds_py-2026.9.1-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+url = "https://files.pythonhosted.org/packages/22/9d/d08a1128ab199b2f0cf25bfeb0639bd05119fff4b7c47bec24ef9a8ec23f/rpds_py-2026.9.1-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
 
 [packages.wheels.hashes]
-sha256 = "dc319e5a1de4b6913aac94bf6a2f9e847371e0a140a43dd4991db1a09bc2d504"
+sha256 = "eac2f5dbafd585dfe31f86a23ebf0d3ba480a9d49ebc87947267b5608d4ea0cd"
 
 [[packages]]
 name = "stevedore"
