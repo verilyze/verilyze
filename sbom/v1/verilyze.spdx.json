@@ -15,16 +15,16 @@
     {
       "@type": "Package",
       "name": "ast-serialize",
-      "packageUrl": "pkg:pypi/ast-serialize@0.8.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-ast-serialize-0-8-0",
-      "versionInfo": "0.8.0"
+      "packageUrl": "pkg:pypi/ast-serialize@0.12.1",
+      "spdxId": "urn:spdx.dev:pkg-pypi-ast-serialize-0-12-1",
+      "versionInfo": "0.12.1"
     },
     {
       "@type": "Package",
       "name": "astroid",
-      "packageUrl": "pkg:pypi/astroid@4.0.4",
-      "spdxId": "urn:spdx.dev:pkg-pypi-astroid-4-0-4",
-      "versionInfo": "4.0.4"
+      "packageUrl": "pkg:pypi/astroid@4.3.3",
+      "spdxId": "urn:spdx.dev:pkg-pypi-astroid-4-3-3",
+      "versionInfo": "4.3.3"
     },
     {
       "@type": "Package",
@@ -43,9 +43,9 @@
     {
       "@type": "Package",
       "name": "black",
-      "packageUrl": "pkg:pypi/black@26.5.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-black-26-5-1",
-      "versionInfo": "26.5.1"
+      "packageUrl": "pkg:pypi/black@26.10.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-black-26-10-0",
+      "versionInfo": "26.10.0"
     },
     {
       "@type": "Package",
@@ -64,9 +64,9 @@
     {
       "@type": "Package",
       "name": "coverage",
-      "packageUrl": "pkg:pypi/coverage@7.16.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-coverage-7-16-0",
-      "versionInfo": "7.16.0"
+      "packageUrl": "pkg:pypi/coverage@7.16.2",
+      "spdxId": "urn:spdx.dev:pkg-pypi-coverage-7-16-2",
+      "versionInfo": "7.16.2"
     },
     {
       "@type": "Package",
@@ -78,16 +78,16 @@
     {
       "@type": "Package",
       "name": "iniconfig",
-      "packageUrl": "pkg:pypi/iniconfig@2.3.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-iniconfig-2-3-0",
-      "versionInfo": "2.3.0"
+      "packageUrl": "pkg:pypi/iniconfig@2.3.1",
+      "spdxId": "urn:spdx.dev:pkg-pypi-iniconfig-2-3-1",
+      "versionInfo": "2.3.1"
     },
     {
       "@type": "Package",
       "name": "isort",
-      "packageUrl": "pkg:pypi/isort@9.0.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-isort-9-0-1",
-      "versionInfo": "9.0.1"
+      "packageUrl": "pkg:pypi/isort@9.0.2",
+      "spdxId": "urn:spdx.dev:pkg-pypi-isort-9-0-2",
+      "versionInfo": "9.0.2"
     },
     {
       "@type": "Package",
@@ -106,9 +106,9 @@
     {
       "@type": "Package",
       "name": "librt",
-      "packageUrl": "pkg:pypi/librt@0.15.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-librt-0-15-0",
-      "versionInfo": "0.15.0"
+      "packageUrl": "pkg:pypi/librt@0.16.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-librt-0-16-0",
+      "versionInfo": "0.16.0"
     },
     {
       "@type": "Package",
@@ -134,9 +134,9 @@
     {
       "@type": "Package",
       "name": "mypy",
-      "packageUrl": "pkg:pypi/mypy@2.3.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-mypy-2-3-1",
-      "versionInfo": "2.3.1"
+      "packageUrl": "pkg:pypi/mypy@2.4.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-mypy-2-4-0",
+      "versionInfo": "2.4.0"
     },
     {
       "@type": "Package",
@@ -162,9 +162,9 @@
     {
       "@type": "Package",
       "name": "platformdirs",
-      "packageUrl": "pkg:pypi/platformdirs@4.11.5",
-      "spdxId": "urn:spdx.dev:pkg-pypi-platformdirs-4-11-5",
-      "versionInfo": "4.11.5"
+      "packageUrl": "pkg:pypi/platformdirs@4.12.3",
+      "spdxId": "urn:spdx.dev:pkg-pypi-platformdirs-4-12-3",
+      "versionInfo": "4.12.3"
     },
     {
       "@type": "Package",
@@ -183,9 +183,9 @@
     {
       "@type": "Package",
       "name": "pylint",
-      "packageUrl": "pkg:pypi/pylint@4.0.8",
-      "spdxId": "urn:spdx.dev:pkg-pypi-pylint-4-0-8",
-      "versionInfo": "4.0.8"
+      "packageUrl": "pkg:pypi/pylint@4.1.2",
+      "spdxId": "urn:spdx.dev:pkg-pypi-pylint-4-1-2",
+      "versionInfo": "4.1.2"
     },
     {
       "@type": "Package",
@@ -232,9 +232,9 @@
     {
       "@type": "Package",
       "name": "rpds-py",
-      "packageUrl": "pkg:pypi/rpds-py@2026.6.3",
-      "spdxId": "urn:spdx.dev:pkg-pypi-rpds-py-2026-6-3",
-      "versionInfo": "2026.6.3"
+      "packageUrl": "pkg:pypi/rpds-py@2026.9.1",
+      "spdxId": "urn:spdx.dev:pkg-pypi-rpds-py-2026-9-1",
+      "versionInfo": "2026.9.1"
     },
     {
       "@type": "Package",
