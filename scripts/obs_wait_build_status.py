@@ -132,7 +132,7 @@ def evaluate_build_results(
         pending_targets.extend(delta[4])
 
     expected = matched
-    all_succeeded = expected > 0 and succeeded == expected and pending == 0
+    all_succeeded = 0 < expected == succeeded and pending == 0
     return BuildResultsSummary(
         all_succeeded=all_succeeded,
         any_failed=bool(failures),
