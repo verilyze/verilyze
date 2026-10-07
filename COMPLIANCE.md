@@ -69,4 +69,5 @@ It is **not** a certification or audit attestation.
 | Committed false-positive DB for CI CVE exceptions | Future -- use `vlz fp mark` workflow when needed |
 
 Cross-references: [SECURITY.md](SECURITY.md), [architecture/PRD.md](architecture/PRD.md)
-(sections 6--8, 10--11).
+(sections 6--8, 10--11), and the product backlog in
+[docs/ROADMAP.md](docs/ROADMAP.md).

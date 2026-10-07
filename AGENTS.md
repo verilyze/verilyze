@@ -161,6 +161,23 @@ Cloud Agents use [`.cursor/environment.json`](.cursor/environment.json):
   [environment builds](https://cursor.com/dashboard/cloud-agents/environments/e/a1d34e27-a381-11f1-a7d1-d6b4613131ce)
   rather than apt-installing Docker at runtime.
 
+## Roadmap and product boundaries
+
+- Product backlog and status live in [docs/ROADMAP.md](docs/ROADMAP.md). Do
+  not invent a parallel roadmap in the PRD, a GitHub Project, or a batch of
+  tracking issues.
+- Implement a roadmap item only when the user asks for that ID (or "the next
+  roadmap item"). In that PR, set the row status and update the FAQ,
+  [docs/capabilities.md](docs/capabilities.md), report schema, and CHANGELOG
+  when behavior changes.
+- Do not expand the product into ROADMAP non-goals (containers, IaC, secrets,
+  hosted dashboards, Dependabot-style app, Socket-style behavioral malware,
+  default package-manager execution, default reachability suppression).
+- README must keep the DOC-001 floor: Python quick start, config precedence,
+  compact CLI table, full exit-code table with FR-010 scan-phase precedence
+  (`4 > 5 > 6 > 86 > 0`), and a release-binary install path beside Cargo.
+  Ecosystem matrix: [docs/capabilities.md](docs/capabilities.md).
+
 ## Quick links
 
 | Topic                | Where to look                                            |
@@ -181,6 +198,8 @@ Cloud Agents use [`.cursor/environment.json`](.cursor/environment.json):
 | crates.io publish | CONTRIBUTING "crates.io" and "Adding a new production crate"; [scripts/crates_publish.py](scripts/crates_publish.py) auto-discovers publishable crates (no manual allowlist); `make check-crates-publish` |
 | CI gate quiet / verbose | This file "CI gate quietness"; CONTRIBUTING "CI check debug output"; [`scripts/lib/check-quiet-env.sh`](scripts/lib/check-quiet-env.sh); `benchmark-gate` reference |
 | AI learnings (`ai-learnings` / type `Learning`) | [ai-learnings.md](.cursor/skills/pre-merge-check/ai-learnings.md) |
+| Roadmap              | [docs/ROADMAP.md](docs/ROADMAP.md); this file "Roadmap and product boundaries" |
+| Capability matrix    | [docs/capabilities.md](docs/capabilities.md) |
 | Security             | PRD section 6 (SEC-*), section 11 (Risk & Threat Model); [SECURITY.md](SECURITY.md); [COMPLIANCE.md](COMPLIANCE.md) |
 | OpenSSF Best Practices | [bestpractices.dev](https://www.bestpractices.dev/en/projects/12361) |
 | Copyright duplicates | `make check-header-duplicates`; CONTRIBUTING "Copyright and licensing"; `.mailmap` |

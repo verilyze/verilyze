@@ -6,8 +6,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # verilyze (vlz)
 
-Fast, modular Software Composition Analysis (SCA) tool for dependency
-vulnerabilities. Written in Rust.
+Lock-first Software Composition Analysis for dependency vulnerabilities.
+A fast Rust CLI you run in CI and locally -- no SaaS desk required.
 
 [![CI](https://github.com/verilyze/verilyze/actions/workflows/ci.yml/badge.svg)](https://github.com/verilyze/verilyze/actions/workflows/ci.yml)
 [![Rust coverage](https://raw.githubusercontent.com/wiki/verilyze/verilyze/coverage-rust.svg)](https://github.com/verilyze/verilyze/actions/workflows/coverage-nightly.yml)
@@ -17,99 +17,72 @@ vulnerabilities. Written in Rust.
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12361/badge)](https://www.bestpractices.dev/projects/12361)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/verilyze/verilyze/badge)](https://scorecard.dev/viewer/?uri=github.com/verilyze/verilyze)
 
-## Prerequisites
+## Why verilyze
 
-- **Rust and Cargo** on your PATH ([rustup](https://rustup.rs/) recommended).
-- **GNU Make 4+** for the recommended build path below.
-- **Network access** for the default CVE provider (OSV.dev) unless you use
-  `--offline` with a warm local cache (see [docs/FAQ.md](docs/FAQ.md)).
-- **HTTP/HTTPS proxy** (optional): CVE fetches honor **HTTP_PROXY** /
-  **HTTPS_PROXY** / **NO_PROXY** (and lowercase forms); see
-  [INSTALL.md](INSTALL.md) (OP-018).
+Most SCA tools either bury you in noisy version matches or lock you into a
+hosted platform. verilyze is a small, scriptable CLI that fails closed when
+it cannot finish the analysis, prefers lock files over executing project
+code, and gives you SBOM and VEX without a SaaS subscription. You keep
+control of CI exit codes, offline caches, and which providers you trust.
+
+## Features
+
+- **Eight ecosystems plus SBOM input** -- Python, Rust, Go, JavaScript/TypeScript,
+  Java/Kotlin, Ruby, PHP, .NET, and CycloneDX/SPDX inventories
+- **Lock-first, fail-closed** -- missing locks for most languages exit 4 by
+  default instead of silently under-scanning
+- **Reachability and exploitability signals** -- heuristic reachability tiers
+  plus CISA KEV and FIRST EPSS; findings stay listed (not auto-suppressed)
+- **SBOM and VEX** -- emit CycloneDX 1.6, SPDX 3.0, and OpenVEX; consume VEX
+  suppressions and scan from an existing SBOM
+- **Local remediation and editor support** -- `vlz fix` (dry-run or apply) and
+  `vlz lsp` for diagnostics
+- **Airgap-ready cache** -- `vlz preload` and `vlz db import` for offline CI
+- **OSV by default** -- optional NVD, GitHub Advisory, and Sonatype providers
+  when you build or enable them
+
+## Install
+
+**Release binary** (no Rust toolchain required) -- download a platform archive
+from [GitHub Releases](https://github.com/verilyze/verilyze/releases), verify
+checksums / Cosign as documented in [INSTALL.md](INSTALL.md), and put `vlz` on
+your `PATH`.
+
+**Cargo:**
+
+```bash
+cargo install vlz --locked
+```
+
+Source builds (`make release`), packages (`.deb` / `.rpm`), Docker, shell
+completion, and optional providers: [INSTALL.md](INSTALL.md). Archive-only
+steps: [docs/install-archive.md](docs/install-archive.md).
+
+Default scans need network access to OSV.dev unless you use `--offline` with
+a warm cache (see [docs/FAQ.md](docs/FAQ.md)).
 
 ## Quick start
 
-From a clone of this repository:
+Prefer a lock file next to your manifests. Without a lock, Python,
+JavaScript, Java, Ruby, PHP, and .NET scans fail closed (exit 4) by default.
+Details: [docs/capabilities.md](docs/capabilities.md) and
+[docs/FAQ.md](docs/FAQ.md).
 
 ```bash
-make release
-# Binary: target/release/vlz
+# Python (example): pyproject.toml or requirements.txt plus an adjacent
+# pylock.toml / poetry.lock / uv.lock for transitive coverage
+vlz scan /path/to/python-project
+
+# Machine-readable report
+vlz scan --format json /path/to/python-project
+
+# Preview remediations without writing
+vlz fix --dry-run /path/to/python-project
 ```
 
-Run scans with the built binary (adjust the path if you use `CARGO_TARGET_DIR`):
-
-```bash
-# Scan current directory for manifests (Python: requirements.txt, pyproject.toml,
-# Pipfile, setup.cfg, setup.py; Rust: Cargo.toml; Go: go.mod; JavaScript/TypeScript:
-# package.json; Java/Kotlin: pom.xml, build.gradle, gradle/libs.versions.toml;
-# Ruby: Gemfile, gems.rb, *.gemspec; PHP: composer.json; .NET: *.csproj /
-# *.fsproj / *.vbproj)
-# and check for CVEs
-# Prefer an adjacent PEP 751 pylock.toml / pylock.<name>.toml for Python
-# transitive coverage (lock-less Python projects exit 4 by default).
-# Prefer an adjacent or parent lock (package-lock.json, yarn.lock, pnpm-lock.yaml,
-# or bun.lock) for JavaScript/TypeScript (lock-less package.json exits 4 by default).
-# Prefer gradle.lockfile for Java/Gradle (lock-less Maven/Gradle exits 4 by default).
-# Prefer Gemfile.lock / gems.locked for Ruby (lock-less Gemfile exits 4 by default).
-# Prefer composer.lock for PHP (lock-less composer.json exits 4 by default).
-# Prefer packages.lock.json for .NET (opt-in RestorePackagesWithLockFile;
-# obj/project.assets.json or *.deps.json may supply pins after a local build;
-# lock-less project files exit 4 by default).
-./target/release/vlz scan
-
-# Scan a specific path
-./target/release/vlz scan /path/to/project
-
-# Scan a Rust project
-./target/release/vlz scan /path/to/rust/crate
-
-# Scan a Go module
-./target/release/vlz scan /path/to/go/module
-
-# Scan a JavaScript or TypeScript project (language name: javascript)
-./target/release/vlz scan /path/to/js-or-ts/project
-
-# Scan a Java or Kotlin project (language name: java; Maven ecosystem)
-./target/release/vlz scan /path/to/java-or-kotlin/project
-
-# Preview lock upgrades without writing (FR-041)
-./target/release/vlz fix --dry-run /path/to/project
-
-# Apply supported remediations (npm / Cargo / poetry / uv / yarn / pnpm /
-# bun / go / bundler / gradle / Maven pom edits; bundler and gradle apply
-# require --allow-dependency-code-execution)
-./target/release/vlz fix /path/to/project
-
-# Language Server for editor diagnostics (FR-042); add --folder-trust for Apply
-./target/release/vlz lsp
-
-# Scan a Ruby project (language name: ruby; RubyGems ecosystem)
-./target/release/vlz scan /path/to/ruby/project
-
-# Scan a PHP project (language name: php; Packagist ecosystem)
-./target/release/vlz scan /path/to/php/project
-
-# Scan a .NET project (language name: dotnet; NuGet ecosystem)
-./target/release/vlz scan /path/to/dotnet/project
-
-# JSON output
-./target/release/vlz scan --format json
-
-# SBOM output (CycloneDX 1.6, SPDX 3.0)
-./target/release/vlz scan --format cyclonedx
-./target/release/vlz scan -s cyclonedx:sbom.cdx.json,spdx:sbom.spdx.json
-
-# Scan from an existing SBOM inventory (CycloneDX 1.x / SPDX 2.x or 3.0 JSON)
-./target/release/vlz scan --from-sbom sbom.cdx.json
-./target/release/vlz scan --from-sbom bom.json /path/to/project
-
-# List supported manifest languages (includes sbom)
-./target/release/vlz languages
-```
-
-After `make install` or `cargo install --path ...`, use `vlz` on your PATH
-instead of `./target/release/vlz`. Other install and packaging options:
-[INSTALL.md](INSTALL.md).
+CI samples: [examples/github-action-vlz-scan.yml](examples/github-action-vlz-scan.yml),
+[examples/gitlab-ci-vlz-scan.yml](examples/gitlab-ci-vlz-scan.yml), and the
+composite action under `.github/actions/vlz-scan`.
 
 ## How it works
 
@@ -122,209 +95,111 @@ flowchart LR
     CVE --> Report[Report results]
 ```
 
-Reports include the manifest file path(s) for each vulnerable package, so you can
-see which manifest(s) introduce each CVE when scanning directories with many
-nested manifests (e.g. monorepos).
+Reports list which manifest(s) introduced each finding. Reachability is a
+**heuristic signal** (`reachable: true`, `false`, or unknown) -- not
+exploitability proof and not a suppress. Default mode is `best-available`
+(Tier B import/reference checks plus Tier C advisory symbols where supported).
+Use `--reachability-mode tier-b` for cheaper package-level-only scans.
+Maintainer-level tier definitions: [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Reachability:** Structured reports include per-CVE `reachable` as `true`,
-`false`, or unknown (`null`/omitted). Default mode is **`best-available`**:
-**Tier B** import/reference checks plus **Tier C** advisory-symbol matching
-where the language analyzer supports it (including Java/Kotlin). Use
-`--reachability-mode tier-b` for cheaper package-level-only scans. Findings
-stay listed regardless of `reachable` -- `false` is a heuristic, not a
-suppress. This is a practical signal, not exploitability proof. If the tool
-cannot decide safely, it reports unknown. For maintainer-level tier
-definitions (Tier A-D) and decision rules, see [CONTRIBUTING.md](CONTRIBUTING.md).
+## Supported ecosystems
 
-## Installation
+| Language | Plugin name | Typical locks |
+|----------|-------------|---------------|
+| Python | `python` | `pylock.toml`, `poetry.lock`, `uv.lock`, ... |
+| Rust | `rust` | `Cargo.lock` |
+| Go | `go` | `go.sum` |
+| JavaScript / TypeScript | `javascript` | `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lock` |
+| Java / Kotlin | `java` | `gradle.lockfile` |
+| Ruby | `ruby` | `Gemfile.lock` |
+| PHP | `php` | `composer.lock` |
+| .NET | `dotnet` | `packages.lock.json` |
+| SBOM | `sbom` | CycloneDX / SPDX JSON (`--from-sbom` or discovered names) |
 
-Install from [crates.io](https://crates.io/crates/vlz) (recommended for end users):
-
-```bash
-cargo install vlz --locked
-```
-
-GitHub-hosted release assets are also available for tagged releases:
-- Platform archives: `vlz-<version>-linux-x86_64.tar.gz`,
-  `vlz-<version>-macos-aarch64.tar.gz`, `vlz-<version>-windows-x86_64.zip`
-  (executable is always `vlz` or `vlz.exe` inside the archive)
-- `.deb` and `.rpm` packages
-- Release integrity files: `SHA256SUMS`, Sigstore JSON bundles
-  (`*.sigstore.json`), and provenance bundles (`*.intoto.jsonl`)
-- GHCR container image tags: versioned tag and `latest`
-
-Other install paths (clone build, system install, packages):
-
-- **Local build:** `make release`, then run `target/release/vlz` (see Quick start).
-- **System install:** `make install` with optional `PREFIX` / `DESTDIR`.
-- **Local archive:** `make dist` builds a Linux platform archive under `dist/`.
-- **Packages:** build `.deb`, `.rpm`, AUR artifacts, or Alpine APKs via Makefile
-  targets; build a **local** OCI image with `make docker`.
-
-Full commands, archive install, Docker usage, optional providers, and shell
-completion: [INSTALL.md](INSTALL.md). Archive-only steps:
-[docs/install-archive.md](docs/install-archive.md).
-
-## Shell completion
-
-Completions are installed with **`make install`**, or generate them with
-`vlz generate-completions` (see [INSTALL.md](INSTALL.md#shell-completion)).
-
-## Configuration precedence
-
-Options are resolved in precedence order; each source overrides the ones below:
-
-1. **CLI flags** (e.g. `--parallel 20`, `--cache-ttl-secs 86400`, `--min-score 7.0`) -- highest precedence
-2. **Environment variables** `VLZ_*` (e.g. `VLZ_PARALLEL_QUERIES=20`,
-   `VLZ_CACHE_TTL_SECS=86400`)
-3. **User config file** (`-c/--config <path>` or default
-   `$XDG_CONFIG_HOME/verilyze/verilyze.conf`)
-4. **System config** (`/etc/verilyze.conf`) -- lowest precedence
-
-**Cache TTL:** Changing **cache_ttl_secs** (via config, env, or CLI) only affects
-**new** cache entries; existing entries keep their stored expiry until they
-expire or are purged. See [docs/configuration.md](docs/configuration.md) and
-`vlz db set-ttl` for adjusting existing entries.
-
-See [architecture/PRD.md](architecture/PRD.md) (CFG-001 - CFG-008) and the full
-key table in [docs/configuration.md](docs/configuration.md). Run
-`vlz config --list` for effective values.
-
-**Environment variables for optional CVE providers** (not stored in config):
-
-| Variable             | Provider   | Purpose                                          |
-|----------------------|------------|--------------------------------------------------|
-| GITHUB_TOKEN         | GitHub     | Optional; higher rate limits (Actions sets this) |
-| VLZ_GITHUB_TOKEN     | GitHub     | Override for GITHUB_TOKEN                        |
-| VLZ_SONATYPE_EMAIL   | Sonatype   | Required for Sonatype OSS Index                  |
-| VLZ_SONATYPE_TOKEN   | Sonatype   | Required for Sonatype OSS Index                  |
-
-## CLI reference (summary)
-
-**Help and manuals:** `vlz --help` prints a short usage summary from clap.
-**`vlz help`** opens the full manual by running `man` on the embedded **`vlz.1`**
-(when built with the default `docs` feature; otherwise it exits 2 with a hint).
-**`vlz help [SUBCOMMAND]`** accepts an optional subcommand name; today it shows
-the same main manual as `vlz help`. After **`make install`**, **`man vlz`**
-uses the installed man page. Source: [man/vlz.1](man/vlz.1).
-
-| Subcommand                   | Description                                                   |
-|------------------------------|---------------------------------------------------------------|
-| `vlz scan [PATH]`            | Scan for manifests and CVEs; optional path (default: cwd)     |
-| `vlz languages` (`list`)   | List supported manifest languages                             |
-| `vlz config` (`--list`)     | Show effective configuration                                  |
-| `vlz config --example`       | Output verilyze.conf.example with effective values for this environment |
-| `vlz config --set KEY=VALUE` | Set a config key (e.g. `python.regex="^requirements\\.txt$"`) |
-| `vlz db list-providers`      | List CVE providers (e.g. osv, nvd, github, sonatype when built with respective features) |
-| `vlz db stats`               | Cache statistics                                              |
-| `vlz db show [--format FORMAT] [--full]` | Display cache entries (key, TTL, added-at, CVE summary or full payload) |
-| `vlz db import PATH [--sha256 HEX]` | Import airgap CVE corpus JSON into the cache (FR-021a) |
-| `vlz db set-ttl SECS [--entry KEY] [--all] [--pattern PATTERN] [--entries KEYS]` | Update TTL for existing cache entries |
-| `vlz db verify`              | Verify database integrity (SHA-256)                           |
-| `vlz preload [path]`         | Pre-populate CVE cache without a scan report (FR-021)           |
-| `vlz db migrate`             | Run migrations                                                |
-| `vlz fp mark CVE-ID [--comment ...] [--project-id ID]` | Mark CVE as false positive (optional project scope) |
-| `vlz fp unmark CVE-ID`       | Remove false-positive marking                                 |
-| `vlz generate-completions SHELL` | Generate shell completion script (bash, zsh, fish)      |
-| `vlz help [SUBCOMMAND]`      | Show full manual (`vlz.1`) via `man`; subcommand optional   |
-| `vlz --version`              | Print version                                                 |
-
-**Scan options (examples):** `-f`/`--format plain|json|sarif|cyclonedx|spdx|openvex`,
-`-o`/`--output PATH` (write primary report to file; no stdout),
-`-s`/`--report TYPE:PATH` (alias `--summary-file`; additional typed files),
-`--from-sbom PATH` (repeatable; CycloneDX 1.x / SPDX 2.x or 3.0 JSON inventory),
-`--provider osv|nvd|github|sonatype`, `--providers LIST` (or `all`; default
-OSV only), `-j`/`--parallel N`, `--project-id ID`,
-`--cache-ttl-secs SECS`, `--offline`, `--benchmark`, `--min-score`, `--min-count`,
-`--exit-code` (alias `--exit-code-on-cve`), `--fp-exit-code`, `--cache-db`, `--ignore-db`,
-`--reachability-mode off|tier-b|best-available` (default `best-available`
-enables Tier C where supported; `tier-b` is package-level only). `VLZ_REACHABILITY_PERSIST_CACHE=1`
-persists reachability decisions under `.vlz/` in the scan root.
-VEX: `--no-vex`, `--vex-product-id`, `--vex-author-name`,
-`--vex-author-namespace`, `--vex-reachability-not-affected` (FR-044--FR-046).
-
-### Project-scoped false-positives
-
-For project-scoped false-positives: (1) run `vlz fp mark CVE-ID --project-id X` to
-add a scoped FP (optional `--justification` / `--status` for VEX triage); (2) run
-`vlz scan --project-id X` when scanning that project. Both commands must use the
-same project_id for the FP to apply. When scanning without `--project-id`, only
-global FPs (marked without `--project-id`) apply.
+Full lock and remediator coverage: [docs/capabilities.md](docs/capabilities.md).
+List plugins: `vlz languages`.
 
 ## Exit codes
 
-Exit 0 means the analysis completed successfully with full transitive coverage
-(or an explicit direct-only opt-in) and the result is known. Any failure
-(config, network, parsing, unresolved transitive deps, etc.) returns a
-non-zero code to prevent false-negatives in CI.
+Exit 0 means the analysis finished with full transitive coverage (or an
+explicit direct-only opt-in) and the result is known. Any incomplete analysis
+returns non-zero so CI does not get a false negative.
 
-Precedence when multiple conditions apply: `1 > 2 > 3 > 4 > 5 > 6 > 86 > 0`
-(or `fp-exit-code`).
+When multiple **scan-phase** signals apply: `4 > 5 > 6 > 86 > 0` (or
+`fp-exit-code` when only false positives remain). Panics are exit 1;
+misconfiguration is exit 2; missing package manager is exit 3.
 
-| Code | Meaning                                                                         |
-|------|---------------------------------------------------------------------------------|
-| 0    | Success: analysis completed; no CVEs (or only false-positives per fp-exit-code) |
-| 1    | Panic / internal error (including `vlz db verify` failure)                      |
-| 2    | Misconfiguration (invalid CLI, unknown provider, bad config)                    |
-| 3    | Missing required package manager                                                |
-| 4    | Manifest parse or resolution failure (required transitive resolution not met)   |
-| 5    | CVE provider fetch failed (network, API error, auth, etc.)                      |
-| 6    | CVE lookup needed but `--offline`                                               |
-| 86   | One or more CVEs meet threshold (overridable via `--exit-code`)                 |
+| Code | Meaning |
+|------|---------|
+| 0 | Success: analysis completed; no CVEs (or only false positives per `fp-exit-code`) |
+| 1 | Panic / internal error (including `vlz db verify` failure) |
+| 2 | Misconfiguration (invalid CLI, unknown provider, bad config) |
+| 3 | Missing required package manager |
+| 4 | Manifest parse or resolution failure (required transitive resolution not met) |
+| 5 | CVE provider fetch failed (network, API error, auth, etc.) |
+| 6 | CVE lookup needed but `--offline` |
+| 86 | One or more CVEs meet threshold (overridable via `--exit-code`) |
 
 Direct-only scans under `--offline`, `--benchmark`, or
-`--allow-direct-only-fallback` exit **0** when no CVEs meet threshold; FR-022a
-warnings report reduced coverage.
+`--allow-direct-only-fallback` exit **0** when no CVEs meet threshold, with
+coverage warnings. Automated scenarios:
+[`crates/core/vlz/tests/exit_code_matrix.rs`](crates/core/vlz/tests/exit_code_matrix.rs)
+and [`tests/scripts/test_exit_codes.py`](tests/scripts/test_exit_codes.py).
 
-Automated scenarios for each code: [`crates/core/vlz/tests/exit_code_matrix.rs`](crates/core/vlz/tests/exit_code_matrix.rs)
-(DOC-004) and subprocess smoke tests in [`tests/scripts/test_exit_codes.py`](tests/scripts/test_exit_codes.py).
+## Configuration
 
-Python lock guidance: commit an adjacent PEP 751 lock (`pylock.toml` or
-`pylock.<name>.toml`) for transitive scans. This repository dogfoods Python
-deps via committed [`pylock.dev.toml`](pylock.dev.toml) (see CONTRIBUTING).
-Without a lock, `requirements.txt` may still resolve via safe `pip lock -r`
-(pip >= 25.1); other Python project manifests fail closed (exit 4) unless
-`--allow-dependency-code-execution` or `--allow-direct-only-fallback` is set.
-See [docs/FAQ.md](docs/FAQ.md).
+Options resolve in this order (each overrides the ones below):
 
-## Bug reports and feedback
+1. **CLI flags** (for example `--parallel 20`, `--min-score 7.0`)
+2. **Environment variables** `VLZ_*` (for example `VLZ_PARALLEL_QUERIES=20`)
+3. **User config** (`-c/--config` or `$XDG_CONFIG_HOME/verilyze/verilyze.conf`)
+4. **System config** (`/etc/verilyze.conf`)
 
-Report bugs, regressions, or feature ideas via
-**[GitHub Issues](https://github.com/verilyze/verilyze/issues)** so they stay
-searchable and linkable. For **security vulnerabilities**, use the process in
-[SECURITY.md](SECURITY.md) (private report), not a public issue.
+Full key table: [docs/configuration.md](docs/configuration.md). Effective
+values: `vlz config --list`.
 
-## For contributors
+## CLI summary
 
-Run `make setup` first. It checks required system tools (`python3`, `cargo`,
-`shellcheck`) and bootstraps non-system developer tools (`cargo-deny`,
-`cargo-about`, `cargo-llvm-cov`, `cargo-afl`, plus Python lint/test venvs).
-If the first compile warns about a missing linker, install `gcc` + `ld.bfd`
-(typically via `binutils`) and retry. Defaults are overridable per invocation,
-for example `CC=clang RUSTFLAGS="-Clink-arg=-fuse-ld=lld" make debug`.
-On Linux, if coverage link behavior needs explicit GNU `ld.bfd`, use
-`VLZ_COVERAGE_USE_BFD=1` as documented in
-[CONTRIBUTING.md](CONTRIBUTING.md#running-tests-and-coverage).
-Then run `make check` for the standard pre-commit gate. For fuzz testing
-(smoke, changed-code-only, or extended), see [CONTRIBUTING.md](CONTRIBUTING.md)
-(Fuzz testing, NFR-020).
+`vlz --help` prints short usage. `vlz help` opens the embedded man page
+([man/vlz.1](man/vlz.1)). After `make install`, use `man vlz`.
 
-## Documentation
+| Subcommand | Description |
+|------------|-------------|
+| `vlz scan [PATH]` | Scan for manifests and CVEs (default path: cwd) |
+| `vlz languages` | List supported manifest languages |
+| `vlz config` | Show or set configuration |
+| `vlz db ...` | Cache stats, import, verify, migrate, providers |
+| `vlz preload [path]` | Warm the CVE cache without a full report |
+| `vlz fp mark` / `unmark` | False-positive triage |
+| `vlz fix [PATH]` | Remediate (use `--dry-run` to preview) |
+| `vlz lsp` | Language Server diagnostics |
+| `vlz generate-completions SHELL` | Shell completion script |
+| `vlz help [SUBCOMMAND]` | Full manual via `man` |
+| `vlz --version` | Print version |
 
-- **Installation and packaging:** [INSTALL.md](INSTALL.md)
-- **Configuration reference:** [docs/configuration.md](docs/configuration.md)
-- **Requirements and architecture:** [architecture/PRD.md](architecture/PRD.md)
-- **Execution flow:** [architecture/execution-flow.mmd](architecture/execution-flow.mmd)
-- **FAQ and troubleshooting:** [docs/FAQ.md](docs/FAQ.md)
-- **Contributing:** [CONTRIBUTING.md](CONTRIBUTING.md)
-- **Guidance for AI agents:** [AGENTS.md](AGENTS.md)
-- **Security:** [SECURITY.md](SECURITY.md)
-- **Compliance:** [COMPLIANCE.md](COMPLIANCE.md)
+## Dig deeper
+
+- **FAQ:** [docs/FAQ.md](docs/FAQ.md)
+- **Configuration:** [docs/configuration.md](docs/configuration.md)
+- **Ecosystem capabilities:** [docs/capabilities.md](docs/capabilities.md)
+- **Roadmap:** [docs/ROADMAP.md](docs/ROADMAP.md)
+- **Docs index:** [docs/README.md](docs/README.md)
+- **Requirements:** [architecture/PRD.md](architecture/PRD.md)
 - **JSON report schema:** [schemas/v1/report.json](schemas/v1/report.json)
-- **CI examples:** [examples/github-action-vlz-scan.yml](examples/github-action-vlz-scan.yml),
-  [examples/gitlab-ci-vlz-scan.yml](examples/gitlab-ci-vlz-scan.yml),
-  [examples/gitlab-ci-vlz-scan.yml](examples/gitlab-ci-vlz-scan.yml)
-- **Workspace SBOM:** [sbom/v1/](sbom/v1/) (SEC-019; `make generate-sbom`)
-- **Python dogfood lock:** [pylock.dev.toml](pylock.dev.toml) (PEP 751; SEC-015)
+- **CI examples:** [examples/](examples/)
+- **Security:** [SECURITY.md](SECURITY.md) (private vulnerability reports)
+- **Compliance:** [COMPLIANCE.md](COMPLIANCE.md)
 - **Changelog:** [CHANGELOG.md](CHANGELOG.md)
-- **OpenSSF Best Practices:** [bestpractices.dev project entry](https://www.bestpractices.dev/en/projects/12361)
+- **API reference:** `cargo doc --open` (NFR-011)
+- **Bugs and ideas:** [GitHub Issues](https://github.com/verilyze/verilyze/issues)
+
+## Contributing
+
+Run `make setup`, then `make check` before opening a PR. Architecture,
+plugins, tests, and fuzzing: [CONTRIBUTING.md](CONTRIBUTING.md). Agent
+guidance: [AGENTS.md](AGENTS.md).
+
+## License
+
+GPL-3.0-or-later. See [LICENSE](LICENSE), [LICENSES/](LICENSES/), and
+[docs/LICENSING.md](docs/LICENSING.md).
