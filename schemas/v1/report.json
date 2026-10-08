@@ -118,12 +118,7 @@
         "winner_provider": { "type": "string" },
         "winner_reason": {
           "type": "string",
-          "enum": [
-            "affected_ranges",
-            "cvss_version",
-            "provider_order",
-            "sole"
-          ]
+          "enum": ["affected_ranges", "cvss_version", "provider_order", "sole"]
         },
         "query": { "$ref": "#/$defs/match_query" },
         "aliases_collapsed": {
