@@ -7,8 +7,44 @@ SPDX-License-Identifier: GPL-3.0-or-later
 # FAQ and Troubleshooting (DOC-010)
 
 Common error messages and suggested remediation steps. See also
-[architecture/PRD.md](../architecture/PRD.md) for requirements, and
-[README.md](../README.md) for configuration and exit codes.
+[architecture/PRD.md](../architecture/PRD.md) for requirements,
+[README.md](../README.md) for configuration and exit codes, and
+[capabilities.md](capabilities.md) for the language × lock × remediator
+matrix.
+
+## Contents
+
+**CLI and CI**
+
+- [CLI contract (cross-OS)](#cli-contract-cross-os)
+- [Docker](#docker)
+- [Commit signing](#commit-signing)
+
+**Features**
+
+- [SBOM inventory input (FR-038)](#sbom-inventory-input-fr-038)
+- [VEX consume (FR-049)](#vex-consume-fr-049)
+- [Reachability evidence](#reachability-evidence)
+- [Advisory ranges (FR-039)](#advisory-ranges-fr-039)
+- [Exploitability ranking (FR-048)](#exploitability-ranking-fr-048)
+- [Editor diagnostics (FR-042)](#editor-diagnostics-fr-042)
+- [CVE providers](#cve-providers)
+- [Standalone Python lock files](#standalone-python-lock-files)
+- [Multi-manifest scans (FR-037)](#multi-manifest-scans-fr-037)
+
+**Exit codes and resolution**
+
+- [Exit code 2 (Misconfiguration)](#exit-code-2-misconfiguration)
+- [Exit code 3 (Missing package manager)](#exit-code-3-missing-package-manager)
+- [Exit code 5 (CVE provider fetch failed)](#exit-code-5-cve-provider-fetch-failed)
+- [Exit code 6 (Offline cache miss)](#exit-code-6-offline-cache-miss)
+- [Partial dependency resolution (FR-022, FR-022a, SEC-023)](#partial-dependency-resolution-fr-022-fr-022a-sec-023)
+
+**Ops**
+
+- [Network and TLS errors](#network-and-tls-errors)
+- [Database integrity](#database-integrity)
+- [Verbose output and sensitive data](#verbose-output-and-sensitive-data)
 
 ---
 

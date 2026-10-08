@@ -783,6 +783,9 @@ core startup, similar to finder/parser/resolver registration.
    and `crates/**/tests/**` using each finder's `is_sca_sensitive_basename`.
    The AFL package files `tests/fuzz/Cargo.toml` and `tests/fuzz/Cargo.lock`
    are exempt; fuzz corpus files are not.
+6. **Capability matrix:** Update [architecture/PRD.md](architecture/PRD.md)
+   Appendix A and [docs/capabilities.md](docs/capabilities.md) together so the
+   readable matrix stays aligned with lock formats and remediator coverage.
 
 See [architecture/PRD.md](architecture/PRD.md) MOD-002 and FR-020 for the
 formal trait contracts.
@@ -818,9 +821,10 @@ a Retry-After value (e.g. HTTP 429 with header).
 **Provider-specific notes:** NVD uses CPE for package lookup; map PyPI
 packages to `cpe:2.3:a:{package}:{package}:{version}:*:*:*:*:python:*:*`
 (package name as vendor; NVD's cpeName rejects wildcard vendor). NVD
-unauthenticated rate limit is 5 req/30s. Future multi-provider scans
-(`--providers osv,nvd` or `--providers all`) are planned as a roadmap
-enhancement; the cache design supports this.
+unauthenticated rate limit is 5 req/30s. Opt-in multi-provider merge
+(FR-019-EXT) is available via `--providers osv,nvd` (or `all`) /
+`VLZ_PROVIDERS` / config `providers`; default remains a single provider
+(`osv`). The cache keys entries per `(package, provider)`.
 
 **Auth and credential redaction:** Providers that accept credentials (e.g.
 GitHub via `GITHUB_TOKEN`/`VLZ_GITHUB_TOKEN`, Sonatype via
