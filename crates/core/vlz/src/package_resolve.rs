@@ -1535,6 +1535,7 @@ mod tests {
                     name: format!("pkg-{}", manifest.display()),
                     version: "1.0".to_string(),
                     ecosystem: None,
+                    ..Default::default()
                 }],
                 parsed_dependencies: Vec::new(),
                 manifest_path: Some(manifest.to_path_buf()),
@@ -2131,6 +2132,7 @@ mod tests {
                         name: format!("{}-pkg", self.language),
                         version: "1.0".to_string(),
                         ecosystem: None,
+                        ..Default::default()
                     }],
                     parsed_dependencies: Vec::new(),
                     manifest_path: Some(manifest.to_path_buf()),

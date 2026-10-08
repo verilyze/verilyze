@@ -82,6 +82,7 @@ mod tests {
             name: "foo".into(),
             version: "1.0".into(),
             ecosystem: None,
+            ..Default::default()
         };
         assert_eq!(pkg_cache_key(&pkg, "osv"), "foo::1.0::osv");
     }

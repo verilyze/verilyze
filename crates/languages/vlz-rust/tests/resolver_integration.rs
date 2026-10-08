@@ -34,6 +34,7 @@ serde = "1.0"
             name: "serde".to_string(),
             version: "1.0".to_string(),
             ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
+            ..Default::default()
         }],
         parsed_dependencies: Vec::new(),
         manifest_path: Some(tmp.join("Cargo.toml")),
@@ -77,6 +78,7 @@ serde = "1.0"
             name: "serde".to_string(),
             version: "1.0".to_string(),
             ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
+            ..Default::default()
         }],
         parsed_dependencies: Vec::new(),
         manifest_path: Some(tmp.join("Cargo.toml")),

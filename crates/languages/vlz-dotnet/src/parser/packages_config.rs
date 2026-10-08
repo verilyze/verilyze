@@ -64,6 +64,7 @@ pub fn parse_packages_config_with_declarations(
                         name,
                         version,
                         ecosystem: Some(NUGET_ECOSYSTEM.to_string()),
+                        ..Default::default()
                     };
                     packages.push(pkg.clone());
                     parsed.push(ParsedDependency {

@@ -17,9 +17,10 @@ use vlz_manifest_parser::{Parser, Resolver};
 use vlz_plugin_macro::vlz_register;
 use vlz_reachability_trait::ReachabilityAnalyzer;
 use vlz_remediate::{
-    ApplyStrategy, BunRemediator, CargoRemediator, GoRemediator,
-    GradleRemediator, MavenRemediator, NpmRemediator, PnpmRemediator,
-    PythonRemediator, Remediator, RubyGemsRemediator, YarnRemediator,
+    ApplyStrategy, BunRemediator, CargoRemediator, ComposerRemediator,
+    GoRemediator, GradleRemediator, MavenRemediator, NpmRemediator,
+    NugetRemediator, PnpmRemediator, PythonRemediator, Remediator,
+    RubyGemsRemediator, YarnRemediator,
 };
 use vlz_report::{DefaultReporter, Reporter};
 
@@ -498,6 +499,12 @@ pub fn ensure_default_remediator() {
     register_if_missing(ApplyStrategy::Maven, || {
         vlz_register!(Remediator, MavenRemediator);
     });
+    register_if_missing(ApplyStrategy::Composer, || {
+        vlz_register!(Remediator, ComposerRemediator);
+    });
+    register_if_missing(ApplyStrategy::Nuget, || {
+        vlz_register!(Remediator, NugetRemediator);
+    });
 }
 
 // ---------------------------------------------------------------------
@@ -883,6 +890,10 @@ mod tests {
             );
             assert!(rem.iter().any(|r| r.strategy() == ApplyStrategy::Gradle));
             assert!(rem.iter().any(|r| r.strategy() == ApplyStrategy::Maven));
+            assert!(
+                rem.iter().any(|r| r.strategy() == ApplyStrategy::Composer)
+            );
+            assert!(rem.iter().any(|r| r.strategy() == ApplyStrategy::Nuget));
             assert_eq!(rem.len(), 10);
         }
         ensure_default_remediator();

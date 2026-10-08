@@ -117,6 +117,7 @@ pub fn parse_go_sum(
             name: name.to_string(),
             version: version.to_string(),
             ecosystem: Some(GO_ECOSYSTEM.to_string()),
+            ..Default::default()
         });
     }
     Ok(packages)
@@ -148,6 +149,7 @@ fn parse_require_line(
         name: module_path.to_string(),
         version: version.to_string(),
         ecosystem: Some(GO_ECOSYSTEM.to_string()),
+        ..Default::default()
     })
 }
 

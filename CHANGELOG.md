@@ -10,6 +10,16 @@ Human-readable release notes for each version.
 
 ## [Unreleased]
 
+### Added
+
+- Matching transparency (W3-1): JSON/SARIF CVE objects include a `match`
+  explain payload (providers, winner reason, query identity, aliases, local
+  covering-range check).
+- FP expiry and path scope (W3-2): `vlz fp mark --expires-at` and repeatable
+  `--path`; expired marks are ignored at scan time.
+- SBOM PURL qualifier fidelity (W3-3): consume preserves `?qualifiers` and
+  `#subpath` for round-trip; OSV identity stays name/version/ecosystem.
+
 ### Fixed
 
 - FR-040 upgrade planner: `minimal_fixed_version` uses the fixed endpoint of

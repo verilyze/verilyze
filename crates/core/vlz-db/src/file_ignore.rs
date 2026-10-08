@@ -55,6 +55,13 @@ pub struct FpEntry {
     /// Free-form impact / triage detail for VEX statements.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
+    /// Unix timestamp when this suppression expires (W3-2). Absent = never.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at_secs: Option<u64>,
+    /// Manifest path prefixes this mark applies to (W3-2). Empty / absent =
+    /// all paths for the project scope.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub paths: Vec<String>,
 }
 
 impl FpEntry {
@@ -88,11 +95,64 @@ impl FpEntry {
                 .detail
                 .map(String::from)
                 .or_else(|| existing.and_then(|e| e.detail.clone())),
+            expires_at_secs: fields
+                .expires_at_secs
+                .or_else(|| existing.and_then(|e| e.expires_at_secs)),
+            paths: fields
+                .paths
+                .map(|p| p.iter().map(|s| (*s).to_string()).collect())
+                .unwrap_or_else(|| {
+                    existing.map(|e| e.paths.clone()).unwrap_or_default()
+                }),
         }
     }
 }
 
-/// Caller-supplied FP mark fields (comment / project / VEX triage).
+/// True when the FP entry is still active at `now_secs` (W3-2).
+pub fn fp_entry_is_active(entry: &FpEntry, now_secs: u64) -> bool {
+    match entry.expires_at_secs {
+        None => true,
+        Some(exp) => exp > now_secs,
+    }
+}
+
+/// True when the FP entry applies to the given finding manifest paths (W3-2).
+///
+/// Empty `entry.paths` means all paths. Otherwise the mark applies when any
+/// finding path equals or is under any configured path prefix.
+pub fn fp_entry_applies_to_paths(
+    entry: &FpEntry,
+    manifest_paths: &[impl AsRef<str>],
+) -> bool {
+    if entry.paths.is_empty() {
+        return true;
+    }
+    if manifest_paths.is_empty() {
+        return false;
+    }
+    for finding_path in manifest_paths {
+        let finding = finding_path.as_ref();
+        for scoped in &entry.paths {
+            if finding == scoped.as_str()
+                || finding.starts_with(&format!("{scoped}/"))
+                || finding.starts_with(scoped)
+                    && finding.as_bytes().get(scoped.len()) == Some(&b'/')
+            {
+                return true;
+            }
+            // Also allow exact basename matches when the scan stores relative paths.
+            if std::path::Path::new(finding).file_name()
+                == std::path::Path::new(scoped).file_name()
+                && finding.ends_with(scoped)
+            {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Caller-supplied FP mark fields (comment / project / VEX triage / W3-2).
 #[derive(Debug, Clone, Copy)]
 pub struct FpMarkFields<'a> {
     pub comment: &'a str,
@@ -100,6 +160,8 @@ pub struct FpMarkFields<'a> {
     pub justification: Option<&'a str>,
     pub status: Option<&'a str>,
     pub detail: Option<&'a str>,
+    pub expires_at_secs: Option<u64>,
+    pub paths: Option<&'a [&'a str]>,
 }
 
 /// Audit metadata written on each FP mark.
@@ -215,7 +277,9 @@ impl IgnoreDb for FileIgnoreDb {
         comment: &str,
         project_id: Option<&str>,
     ) -> Result<(), DatabaseError> {
-        self.mark_with_details(cve_id, comment, project_id, None, None, None)
+        self.mark_with_details(
+            cve_id, comment, project_id, None, None, None, None, None,
+        )
     }
 
     fn mark_with_details(
@@ -226,6 +290,8 @@ impl IgnoreDb for FileIgnoreDb {
         justification: Option<&str>,
         status: Option<&str>,
         detail: Option<&str>,
+        expires_at_secs: Option<u64>,
+        paths: Option<&[&str]>,
     ) -> Result<(), DatabaseError> {
         let now_secs = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -241,6 +307,8 @@ impl IgnoreDb for FileIgnoreDb {
                     justification,
                     status,
                     detail,
+                    expires_at_secs,
+                    paths,
                 },
                 FpMarkMeta {
                     timestamp_secs: now_secs,
@@ -281,6 +349,10 @@ impl IgnoreDb for FileIgnoreDb {
         let guard = self.state.read().map_err(|_| {
             DatabaseError::Other("ignore lock poisoned".into())
         })?;
+        let now_secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or(Duration::ZERO)
+            .as_secs();
         let map: HashMap<String, FpEntry> = guard
             .iter()
             .filter(|(_, entry)| match (&entry.project_id, project_id) {
@@ -288,6 +360,7 @@ impl IgnoreDb for FileIgnoreDb {
                 (Some(pid), Some(scan_pid)) => pid == scan_pid,
                 (Some(_), None) => false,
             })
+            .filter(|(_, entry)| fp_entry_is_active(entry, now_secs))
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
         Ok(map)
@@ -564,6 +637,8 @@ mod tests {
             justification: None,
             status: None,
             detail: None,
+            expires_at_secs: None,
+            paths: Vec::new(),
         };
         let json = serde_json::to_string(&e).unwrap();
         let back: FpEntry = serde_json::from_str(&json).unwrap();
@@ -598,6 +673,8 @@ mod tests {
             justification: Some("vulnerable_code_not_in_execute_path".into()),
             status: Some("not_affected".into()),
             detail: Some("not imported".into()),
+            expires_at_secs: None,
+            paths: Vec::new(),
         };
         let json = serde_json::to_string(&e).unwrap();
         assert!(json.contains("vulnerable_code_not_in_execute_path"));
@@ -615,11 +692,123 @@ mod tests {
             justification: None,
             status: None,
             detail: None,
+            expires_at_secs: None,
+            paths: Vec::new(),
         };
         let minimal_json = serde_json::to_string(&minimal).unwrap();
         assert!(!minimal_json.contains("justification"));
         assert!(!minimal_json.contains("\"status\""));
         assert!(!minimal_json.contains("detail"));
+    }
+
+    #[test]
+    fn fp_entry_is_active_respects_expires_at() {
+        let active = FpEntry {
+            comment: "c".into(),
+            timestamp_secs: 1,
+            user: None,
+            host: None,
+            project_id: None,
+            justification: None,
+            status: None,
+            detail: None,
+            expires_at_secs: Some(200),
+            paths: Vec::new(),
+        };
+        assert!(fp_entry_is_active(&active, 100));
+        assert!(!fp_entry_is_active(&active, 200));
+        assert!(!fp_entry_is_active(&active, 201));
+        let never = FpEntry {
+            expires_at_secs: None,
+            ..active.clone()
+        };
+        assert!(fp_entry_is_active(&never, u64::MAX));
+    }
+
+    #[test]
+    fn fp_entry_applies_to_paths_prefix_and_empty() {
+        let all_paths = FpEntry {
+            comment: "c".into(),
+            timestamp_secs: 1,
+            user: None,
+            host: None,
+            project_id: None,
+            justification: None,
+            status: None,
+            detail: None,
+            expires_at_secs: None,
+            paths: Vec::new(),
+        };
+        assert!(fp_entry_applies_to_paths(&all_paths, &["any/path"]));
+
+        let scoped = FpEntry {
+            paths: vec!["apps/api/composer.lock".into()],
+            ..all_paths
+        };
+        assert!(fp_entry_applies_to_paths(
+            &scoped,
+            &["apps/api/composer.lock"]
+        ));
+        assert!(!fp_entry_applies_to_paths(
+            &scoped,
+            &["apps/web/composer.lock"]
+        ));
+    }
+
+    #[test]
+    fn marked_entries_skips_expired_suppressions_w3_2() {
+        let (_dir, path) = temp_ignore_path("expiry");
+        let db = FileIgnoreDb::with_path(path).unwrap();
+        let past = 1_u64;
+        db.mark_with_details(
+            "CVE-EXPIRED",
+            "old",
+            None,
+            None,
+            None,
+            None,
+            Some(past),
+            None,
+        )
+        .unwrap();
+        db.mark_with_details(
+            "CVE-LIVE",
+            "live",
+            None,
+            None,
+            None,
+            None,
+            Some(u64::MAX),
+            None,
+        )
+        .unwrap();
+        let entries = db.marked_entries(None).unwrap();
+        assert!(!entries.contains_key("CVE-EXPIRED"));
+        assert!(entries.contains_key("CVE-LIVE"));
+    }
+
+    #[test]
+    fn mark_with_details_persists_expiry_and_paths_w3_2() {
+        let (_dir, path) = temp_ignore_path("paths");
+        let db = FileIgnoreDb::with_path(path).unwrap();
+        db.mark_with_details(
+            "CVE-PATH",
+            "scoped",
+            None,
+            None,
+            None,
+            None,
+            Some(9_999_999_999),
+            Some(&["apps/api/composer.lock"]),
+        )
+        .unwrap();
+        let entry = db
+            .marked_entries(None)
+            .unwrap()
+            .remove("CVE-PATH")
+            .expect("entry");
+        assert_eq!(entry.expires_at_secs, Some(9_999_999_999));
+        assert_eq!(entry.paths, vec!["apps/api/composer.lock".to_string()]);
     }
 
     #[test]
@@ -634,6 +823,8 @@ mod tests {
                 Some("vulnerable_code_not_present"),
                 Some("not_affected"),
                 Some("library unused"),
+                None,
+                None,
             )
             .unwrap();
         }
@@ -660,6 +851,8 @@ mod tests {
             Some("vulnerable_code_not_present"),
             Some("not_affected"),
             Some("detail"),
+            None,
+            None,
         )
         .unwrap();
         db.mark("CVE-KEEP", "updated comment", None).unwrap();
@@ -693,6 +886,8 @@ mod tests {
                 justification: None,
                 status: None,
                 detail: None,
+                expires_at_secs: None,
+                paths: Vec::new(),
             },
         );
         db.replace_entries(map).unwrap();

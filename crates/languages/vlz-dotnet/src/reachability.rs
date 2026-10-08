@@ -214,6 +214,7 @@ mod tests {
             name: "Newtonsoft.Json".into(),
             version: "13.0.3".into(),
             ecosystem: Some(NUGET_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let excludes = HashSet::new();
         let context = TierBContext {
@@ -239,6 +240,7 @@ mod tests {
             name: "Ab".into(),
             version: "1".into(),
             ecosystem: Some(NUGET_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let ctx_short = TierBContext {
             scan_root: dir.path(),
@@ -255,6 +257,7 @@ mod tests {
             name: "Unrelated.Package".into(),
             version: "1".into(),
             ecosystem: Some(NUGET_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let ctx_other = TierBContext {
             scan_root: dir.path(),
@@ -281,6 +284,7 @@ mod tests {
             name: "Newtonsoft.Json".into(),
             version: "13.0.3".into(),
             ecosystem: Some(NUGET_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let excludes = HashSet::new();
         let context = TierBContext {
@@ -311,6 +315,7 @@ mod tests {
             name: "Newtonsoft.Json".into(),
             version: "13.0.3".into(),
             ecosystem: Some(NUGET_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let excludes = HashSet::new();
         let manifest = nested.join("App.csproj");

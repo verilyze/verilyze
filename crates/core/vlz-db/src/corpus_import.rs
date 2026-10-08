@@ -113,6 +113,7 @@ pub fn parse_pkg_cache_key(
             name,
             version,
             ecosystem: None,
+            ..Default::default()
         },
         provider_id,
     ))
@@ -315,6 +316,7 @@ mod tests {
             name: "a::b".into(),
             version: "9".into(),
             ecosystem: None,
+            ..Default::default()
         };
         let key = pkg_cache_key(&pkg, "osv");
         let (parsed, provider) = parse_pkg_cache_key(&key).unwrap();

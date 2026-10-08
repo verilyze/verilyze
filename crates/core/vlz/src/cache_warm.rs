@@ -194,7 +194,12 @@ async fn warm_one_package(
                 if did_fetch {
                     fetched += 1;
                 }
-                merge_items.extend(pair_records(records, &raw, idx));
+                merge_items.extend(pair_records(
+                    records,
+                    &raw,
+                    idx,
+                    prov.name(),
+                ));
                 all_raw.extend(raw);
             }
             Err(e) => {
@@ -211,7 +216,18 @@ async fn warm_one_package(
     }
 
     if any_ok {
-        let records = vlz_cve_client::merge_provider_records(&merge_items);
+        let mut records = vlz_cve_client::merge_provider_records(&merge_items);
+        let query = vlz_db::match_query_for(
+            &pkg.name,
+            &pkg.version,
+            pkg.ecosystem.as_deref(),
+        );
+        for record in &mut records {
+            let explain =
+                record.match_explain.get_or_insert_with(Default::default);
+            explain.query = Some(query.clone());
+            vlz_remediate::attach_match_version_coverage(record, &pkg.version);
+        }
         return Ok(WarmPackageResult {
             pkg,
             records,
@@ -278,6 +294,7 @@ fn pair_records(
     records: Vec<CveRecord>,
     raw: &[serde_json::Value],
     provider_index: usize,
+    provider_id: &str,
 ) -> Vec<vlz_cve_client::ProviderRecord> {
     records
         .into_iter()
@@ -291,6 +308,7 @@ fn pair_records(
                 record,
                 raw: raw_one,
                 provider_index,
+                provider_id: provider_id.to_string(),
             }
         })
         .collect()
@@ -437,6 +455,7 @@ mod tests {
                     in_kev: None,
                     epss: None,
                     epss_percentile: None,
+                    match_explain: None,
                 }],
             })
         }
@@ -447,6 +466,7 @@ mod tests {
             name: "pkg".to_string(),
             version: "1.0".to_string(),
             ecosystem: Some("PyPI".to_string()),
+            ..Default::default()
         }
     }
 
@@ -906,6 +926,7 @@ mod tests {
                         in_kev: None,
                         epss: None,
                         epss_percentile: None,
+                        match_explain: None,
                     }],
                 })
             }
@@ -926,6 +947,7 @@ mod tests {
                 name: format!("pkg{i}"),
                 version: "1.0".to_string(),
                 ecosystem: Some("PyPI".to_string()),
+                ..Default::default()
             })
             .collect();
         let opts = CacheWarmOptions {
@@ -1055,6 +1077,7 @@ mod tests {
             in_kev: None,
             epss: None,
             epss_percentile: None,
+            match_explain: None,
         };
         let raw = vec![serde_json::json!({
             "ghsa_id": "GHSA-xxxx-yyyy-zzzz",

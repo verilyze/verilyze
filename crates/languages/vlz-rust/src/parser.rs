@@ -102,6 +102,7 @@ fn parse_dependency_entry(
             name: name.to_string(),
             version,
             ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
+            ..Default::default()
         });
     }
     if let Some(tbl) = val.as_table() {
@@ -110,6 +111,7 @@ fn parse_dependency_entry(
                 name: name.to_string(),
                 version: "any".to_string(),
                 ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
+                ..Default::default()
             });
         }
         let version = tbl
@@ -121,6 +123,7 @@ fn parse_dependency_entry(
             name: name.to_string(),
             version,
             ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
+            ..Default::default()
         });
     }
     None

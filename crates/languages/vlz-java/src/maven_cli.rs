@@ -81,6 +81,7 @@ pub fn parse_mvn_dependency_lines(content: &str) -> Vec<Package> {
                 name,
                 version: version.to_string(),
                 ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+                ..Default::default()
             });
         }
     }

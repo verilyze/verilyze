@@ -461,6 +461,7 @@ mod tests {
                 name: "demo".to_string(),
                 version: "1.0.0".to_string(),
                 ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.to_string()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(manifest),
@@ -550,6 +551,7 @@ mod tests {
                 name: "myproj".to_string(),
                 version: "0.1.0".to_string(),
                 ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.to_string()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(PathBuf::from("/tmp/testproj/setup.py")),
@@ -567,6 +569,7 @@ mod tests {
                 name: "a".to_string(),
                 version: "1".to_string(),
                 ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.to_string()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(PathBuf::from("/tmp/testproj/setup.py")),
@@ -623,6 +626,7 @@ mod tests {
                 name: "a".to_string(),
                 version: "1".to_string(),
                 ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.to_string()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: None,

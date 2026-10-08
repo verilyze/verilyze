@@ -317,6 +317,7 @@ mod tests {
                 name: "rack".into(),
                 version: "*".into(),
                 ecosystem: Some(crate::RUBYGEMS_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(gemfile),
@@ -345,6 +346,7 @@ mod tests {
                 name: "rack".into(),
                 version: "*".into(),
                 ecosystem: Some(crate::RUBYGEMS_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(gemfile),
@@ -371,6 +373,7 @@ mod tests {
                 name: "rack".into(),
                 version: "*".into(),
                 ecosystem: Some(crate::RUBYGEMS_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(gemfile),
@@ -395,6 +398,7 @@ mod tests {
                 name: "rack".into(),
                 version: "*".into(),
                 ecosystem: Some(crate::RUBYGEMS_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(gemfile),
@@ -478,6 +482,7 @@ mod tests {
                 name: "rack".into(),
                 version: "*".into(),
                 ecosystem: Some(crate::RUBYGEMS_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(gemfile),
@@ -505,6 +510,7 @@ mod tests {
                 name: "rack".into(),
                 version: "*".into(),
                 ecosystem: Some(crate::RUBYGEMS_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(gemfile),
@@ -561,6 +567,7 @@ mod tests {
                 name: "rack".into(),
                 version: "*".into(),
                 ecosystem: Some(crate::RUBYGEMS_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(gemfile),
@@ -608,6 +615,7 @@ mod tests {
                 name: "rack".into(),
                 version: "*".into(),
                 ecosystem: Some(crate::RUBYGEMS_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(gemspec),
@@ -642,6 +650,7 @@ mod tests {
                 name: "rack".into(),
                 version: "*".into(),
                 ecosystem: Some(crate::RUBYGEMS_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(gemfile),

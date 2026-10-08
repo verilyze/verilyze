@@ -1083,6 +1083,10 @@ impl Reporter for SarifReporter {
                         result["properties"]["affected_ranges"] =
                             serde_json::json!(cve.affected_ranges);
                     }
+                    if let Some(ref explain) = cve.match_explain {
+                        result["properties"]["match"] =
+                            serde_json::json!(explain);
+                    }
                     if !cve.advisory_symbols.is_empty() {
                         result["properties"]["advisory_symbols"] =
                             serde_json::json!(cve.advisory_symbols);
@@ -1701,6 +1705,7 @@ mod tests {
             in_kev: None,
             epss: None,
             epss_percentile: None,
+            match_explain: None,
         }
     }
 
@@ -1881,6 +1886,52 @@ mod tests {
             .as_array()
             .expect("affected_ranges in SARIF properties");
         assert_eq!(props[0]["type"], "ECOSYSTEM");
+    }
+
+    #[tokio::test]
+    async fn json_and_sarif_include_match_explain_w3_1() {
+        let mut data = sample_report_data_with_ranges();
+        data.findings[0].cves[0].0.match_explain =
+            Some(vlz_db::MatchExplain {
+                providers: vec!["osv".to_string()],
+                winner_provider: Some("osv".to_string()),
+                winner_reason: Some(vlz_db::WINNER_REASON_SOLE.to_string()),
+                query: Some(vlz_db::match_query_for(
+                    "foo",
+                    "1.0.0",
+                    Some("crates.io"),
+                )),
+                aliases_collapsed: vec!["CVE-RANGE-1".to_string()],
+                version_in_covering_range: Some(true),
+                covering_range_index: Some(0),
+                cpe: None,
+            });
+
+        let mut json_buf = Vec::new();
+        JsonReporter::new()
+            .render_to_writer(&data, &mut json_buf)
+            .await
+            .unwrap();
+        let json: serde_json::Value =
+            serde_json::from_str(String::from_utf8(json_buf).unwrap().trim())
+                .unwrap();
+        let matched = &json["findings"][0]["cves"][0]["match"];
+        assert_eq!(matched["winner_provider"], "osv");
+        assert_eq!(matched["winner_reason"], "sole");
+        assert_eq!(matched["version_in_covering_range"], true);
+        assert_eq!(matched["query"]["name"], "foo");
+
+        let mut sarif_buf = Vec::new();
+        SarifReporter::new()
+            .render_to_writer(&data, &mut sarif_buf)
+            .await
+            .unwrap();
+        let sarif: serde_json::Value =
+            serde_json::from_str(String::from_utf8(sarif_buf).unwrap().trim())
+                .unwrap();
+        let props = &sarif["runs"][0]["results"][0]["properties"]["match"];
+        assert_eq!(props["winner_provider"], "osv");
+        assert_eq!(props["covering_range_index"], 0);
     }
 
     #[tokio::test]
@@ -2166,6 +2217,7 @@ mod tests {
             in_kev: None,
             epss: None,
             epss_percentile: None,
+            match_explain: None,
         };
         ReportData {
             findings: vec![Finding {
@@ -2234,11 +2286,13 @@ mod tests {
             name: "foo".to_string(),
             version: "1.0".to_string(),
             ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let pkg_bar = Package {
             name: "bar".to_string(),
             version: "2.0".to_string(),
             ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let cve = CveRecord {
             id: "CVE-2023-1234".to_string(),
@@ -2253,6 +2307,7 @@ mod tests {
             in_kev: None,
             epss: None,
             epss_percentile: None,
+            match_explain: None,
         };
         ReportData {
             findings: vec![Finding {
@@ -2689,6 +2744,7 @@ mod tests {
             in_kev: None,
             epss: None,
             epss_percentile: None,
+            match_explain: None,
         };
         let data = ReportData {
             findings: vec![Finding {
@@ -2743,6 +2799,7 @@ mod tests {
             name: "requests".to_string(),
             version: "2.31.0".to_string(),
             ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let cve = CveRecord {
             id: "CVE-DECL".to_string(),
@@ -2757,6 +2814,7 @@ mod tests {
             in_kev: None,
             epss: None,
             epss_percentile: None,
+            match_explain: None,
         };
         let data = ReportData {
             findings: vec![Finding {
@@ -2821,6 +2879,7 @@ mod tests {
             name: "foo".to_string(),
             version: "1.0".to_string(),
             ecosystem: Some(GO_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let cve = CveRecord {
             id: "CVE-EVID".to_string(),
@@ -2840,6 +2899,7 @@ mod tests {
             in_kev: None,
             epss: None,
             epss_percentile: None,
+            match_explain: None,
         };
         let data = ReportData {
             findings: vec![Finding {
@@ -2909,6 +2969,7 @@ mod tests {
             name: "foo".to_string(),
             version: "1.0".to_string(),
             ecosystem: Some(GO_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let cve = CveRecord {
             id: "CVE-EVID".to_string(),
@@ -2928,6 +2989,7 @@ mod tests {
             in_kev: None,
             epss: None,
             epss_percentile: None,
+            match_explain: None,
         };
         let data = ReportData {
             findings: vec![Finding {
@@ -3143,6 +3205,7 @@ mod tests {
                 name: (*name).to_string(),
                 version: (*version).to_string(),
                 ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
+                ..Default::default()
             })
             .collect();
         let data = ReportData {
@@ -3186,6 +3249,7 @@ mod tests {
             name: "github.com/example/mod".to_string(),
             version: "v1.2.3".to_string(),
             ecosystem: Some(GO_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let data = ReportData {
             findings: vec![],
@@ -3230,6 +3294,7 @@ mod tests {
                 name: name.to_string(),
                 version: version.to_string(),
                 ecosystem: Some(ecosystem.to_string()),
+                ..Default::default()
             };
             let data = ReportData {
                 findings: vec![],
@@ -3290,6 +3355,7 @@ mod tests {
                 name: name.to_string(),
                 version: version.to_string(),
                 ecosystem: Some(ecosystem.to_string()),
+                ..Default::default()
             };
             let data = ReportData {
                 findings: vec![],
@@ -3492,6 +3558,8 @@ mod tests {
                 ),
                 status: Some("not_affected".into()),
                 detail: None,
+                expires_at_secs: None,
+                paths: Vec::new(),
             },
         );
         let mut buf = Vec::new();

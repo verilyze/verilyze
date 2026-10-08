@@ -410,6 +410,7 @@ mod tests {
                 name: "Newtonsoft.Json".into(),
                 version: "13.0.3".into(),
                 ecosystem: Some(NUGET_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("App.csproj")),
@@ -455,6 +456,7 @@ mod tests {
                 name: "Newtonsoft.Json".into(),
                 version: "13.0.3".into(),
                 ecosystem: Some(NUGET_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(manifest),
@@ -489,6 +491,7 @@ mod tests {
                 name: "Newtonsoft.Json".into(),
                 version: "13.0.3".into(),
                 ecosystem: Some(NUGET_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(manifest),
@@ -519,6 +522,7 @@ mod tests {
                 name: "Newtonsoft.Json".into(),
                 version: "13.0.3".into(),
                 ecosystem: Some(NUGET_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("App.csproj")),
@@ -543,6 +547,7 @@ mod tests {
                 name: "Newtonsoft.Json".into(),
                 version: "13.0.3".into(),
                 ecosystem: Some(NUGET_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(manifest),
@@ -568,6 +573,7 @@ mod tests {
                 name: "Newtonsoft.Json".into(),
                 version: "13.0.3".into(),
                 ecosystem: Some(NUGET_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(manifest),
@@ -612,6 +618,7 @@ mod tests {
                 name: "A.B".into(),
                 version: "1.0.0".into(),
                 ecosystem: Some(NUGET_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: None,
@@ -638,6 +645,7 @@ mod tests {
                 name: "Newtonsoft.Json".into(),
                 version: "13.0.3".into(),
                 ecosystem: Some(NUGET_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("App.csproj")),
@@ -705,6 +713,7 @@ mod tests {
                 name: "Newtonsoft.Json".into(),
                 version: "13.0.3".into(),
                 ecosystem: Some(NUGET_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(proj.path().join("App.csproj")),
@@ -736,6 +745,7 @@ mod tests {
                 name: "A.B".into(),
                 version: "1.0.0".into(),
                 ecosystem: Some(NUGET_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(proj.path().join("App.csproj")),
@@ -814,6 +824,7 @@ mod tests {
                 name: "Newtonsoft.Json".into(),
                 version: "13.0.3".into(),
                 ecosystem: Some(NUGET_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(root.join("App.csproj")),

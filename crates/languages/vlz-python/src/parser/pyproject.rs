@@ -65,6 +65,7 @@ pub fn parse_pyproject_toml(
                     name: name.clone(),
                     version,
                     ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
+                    ..Default::default()
                 });
             } else if let Some(tbl) = val.as_table() {
                 if let Some(version) =
@@ -74,12 +75,14 @@ pub fn parse_pyproject_toml(
                         name: name.clone(),
                         version: extract_version_from_constraint(version),
                         ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
+                        ..Default::default()
                     });
                 } else {
                     packages.push(vlz_db::Package {
                         name: name.clone(),
                         version: "any".to_string(),
                         ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
+                        ..Default::default()
                     });
                 }
             }

@@ -697,6 +697,14 @@ pub enum FpCommands {
             help_heading = HELP_VEX,
         )]
         status: Option<String>,
+
+        /// Unix timestamp (seconds) when this mark expires (W3-2)
+        #[arg(long, value_name = "EPOCH_SECS")]
+        expires_at: Option<u64>,
+
+        /// Manifest path this mark applies to (repeatable; W3-2)
+        #[arg(long = "path", value_name = "PATH")]
+        paths: Vec<String>,
     },
     /// Remove false-positive marking for a CVE
     Unmark {

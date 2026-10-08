@@ -126,6 +126,7 @@ fn handle_component(
         name: name.clone(),
         version: version.clone(),
         ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+        ..Default::default()
     };
     packages.push(pkg.clone());
     parsed.push(ParsedDependency {

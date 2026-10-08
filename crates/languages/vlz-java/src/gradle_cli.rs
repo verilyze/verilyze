@@ -69,6 +69,7 @@ pub fn parse_gradle_dependencies_output(content: &str) -> Vec<Package> {
                         name,
                         version: v,
                         ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+                        ..Default::default()
                     });
                 }
             }

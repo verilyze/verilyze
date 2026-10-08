@@ -452,6 +452,7 @@ mod tests {
             name: "com.other:common".into(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -472,6 +473,7 @@ mod tests {
             name: "com.google.guava:guava".into(),
             version: "33.0.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -491,6 +493,7 @@ mod tests {
             name: "org.junit.jupiter:junit-jupiter".into(),
             version: "5.10.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -506,6 +509,7 @@ mod tests {
             name: String::new(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(Vec::<PathBuf>::new()));
@@ -528,6 +532,7 @@ mod tests {
             name: "com.example:Util".into(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -558,6 +563,7 @@ mod tests {
             name: "com.google.guava:guava".into(),
             version: "33.0.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -580,6 +586,7 @@ mod tests {
             name: "com.example.widget:widget".into(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -602,6 +609,7 @@ mod tests {
             name: "com.example.widget:widget".into(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -620,6 +628,7 @@ mod tests {
             name: "com.example.widget:widget".into(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -638,6 +647,7 @@ mod tests {
             name: "junit:junit".into(),
             version: "4.13.2".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -660,6 +670,7 @@ mod tests {
             name: "org.junit.jupiter:junit-jupiter".into(),
             version: "5.10.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -682,6 +693,7 @@ mod tests {
             name: "com.google.guava:guava".into(),
             version: "33.0.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -704,6 +716,7 @@ mod tests {
             name: "com.example:lib".into(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -726,6 +739,7 @@ mod tests {
             name: "com.example.widget:widget".into(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -744,6 +758,7 @@ mod tests {
             name: "com.example:lib".into(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let empty = Box::leak(Box::new(HashSet::new()));
         let manifests = Box::leak(Box::new(Vec::<PathBuf>::new()));
@@ -765,6 +780,7 @@ mod tests {
             name: "com.example.widget:widget".into(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -787,6 +803,7 @@ mod tests {
             name: "org.junit:junit".into(),
             version: "4.13.2".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -812,6 +829,7 @@ mod tests {
             name: "com.example.widget:widget".into(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -834,6 +852,7 @@ mod tests {
             name: "com.example.widget:widget".into(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));

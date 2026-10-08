@@ -488,7 +488,9 @@ impl vlz_db::IgnoreDb for RedbIgnoreDb {
         comment: &str,
         project_id: Option<&str>,
     ) -> Result<(), DatabaseError> {
-        self.mark_with_details(cve_id, comment, project_id, None, None, None)
+        self.mark_with_details(
+            cve_id, comment, project_id, None, None, None, None, None,
+        )
     }
 
     fn mark_with_details(
@@ -499,6 +501,8 @@ impl vlz_db::IgnoreDb for RedbIgnoreDb {
         justification: Option<&str>,
         status: Option<&str>,
         detail: Option<&str>,
+        expires_at_secs: Option<u64>,
+        paths: Option<&[&str]>,
     ) -> Result<(), DatabaseError> {
         self.mark_with_details(
             cve_id,
@@ -507,6 +511,8 @@ impl vlz_db::IgnoreDb for RedbIgnoreDb {
             justification,
             status,
             detail,
+            expires_at_secs,
+            paths,
         )
     }
 
@@ -560,7 +566,9 @@ impl RedbIgnoreDb {
         comment: &str,
         project_id: Option<&str>,
     ) -> Result<(), DatabaseError> {
-        self.mark_with_details(cve_id, comment, project_id, None, None, None)
+        self.mark_with_details(
+            cve_id, comment, project_id, None, None, None, None, None,
+        )
     }
 
     /// Mark a CVE as false positive with optional VEX triage metadata (FR-044).
@@ -572,6 +580,8 @@ impl RedbIgnoreDb {
         justification: Option<&str>,
         status: Option<&str>,
         detail: Option<&str>,
+        expires_at_secs: Option<u64>,
+        paths: Option<&[&str]>,
     ) -> Result<(), DatabaseError> {
         let now_secs = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -611,6 +621,8 @@ impl RedbIgnoreDb {
                 justification,
                 status,
                 detail,
+                expires_at_secs,
+                paths,
             },
             FpMarkMeta {
                 timestamp_secs: now_secs,
@@ -685,7 +697,15 @@ impl RedbIgnoreDb {
                     (Some(pid), Some(scan_pid)) => pid == scan_pid,
                     (Some(_), None) => false, // Scoped FP does not apply when no project
                 };
-                if matches { Some((cve_id, entry)) } else { None }
+                let now_secs = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or(Duration::ZERO)
+                    .as_secs();
+                if matches && vlz_db::fp_entry_is_active(&entry, now_secs) {
+                    Some((cve_id, entry))
+                } else {
+                    None
+                }
             })
             .collect();
         Ok(map)
@@ -882,6 +902,7 @@ mod tests {
             name: "mem_pkg".to_string(),
             version: "1.0".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         backend
             .put(&pkg, "osv", &[sample_raw_vuln()], None)
@@ -1007,6 +1028,7 @@ mod tests {
             name: "foo".to_string(),
             version: "1.0".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         let raw = vec![sample_raw_vuln()];
         backend.put(&pkg, "osv", &raw, Some(60)).await.unwrap();
@@ -1034,6 +1056,7 @@ mod tests {
             name: "pkg".to_string(),
             version: "2.0".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         backend
             .put(&pkg, "osv", &[sample_raw_vuln()], Some(120))
@@ -1054,11 +1077,13 @@ mod tests {
             name: "a".to_string(),
             version: "1".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         let pkg2 = Package {
             name: "b".to_string(),
             version: "2".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         backend
             .put(&pkg1, "osv", &[sample_raw_vuln()], None)
@@ -1083,11 +1108,13 @@ mod tests {
             name: "a".to_string(),
             version: "1".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         let pkg2 = Package {
             name: "b".to_string(),
             version: "2".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         backend
             .put(&pkg1, "osv", &[sample_raw_vuln()], None)
@@ -1118,6 +1145,7 @@ mod tests {
             name: "expired_pkg".to_string(),
             version: "1".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         backend
             .put(&pkg, "osv", &[sample_raw_vuln()], Some(3))
@@ -1141,6 +1169,7 @@ mod tests {
             name: "full_pkg".to_string(),
             version: "1.0".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         backend
             .put(&pkg, "osv", &[sample_raw_vuln()], None)
@@ -1167,6 +1196,8 @@ mod tests {
             justification: None,
             status: None,
             detail: None,
+            expires_at_secs: None,
+            paths: Vec::new(),
         };
         let json = serde_json::to_string(&e).unwrap();
         let f: FpEntry = serde_json::from_str(&json).unwrap();
@@ -1189,6 +1220,8 @@ mod tests {
             justification: None,
             status: None,
             detail: None,
+            expires_at_secs: None,
+            paths: Vec::new(),
         };
         let json = serde_json::to_string(&e).unwrap();
         let f: FpEntry = serde_json::from_str(&json).unwrap();
@@ -1214,6 +1247,7 @@ mod tests {
                     name: "x".to_string(),
                     version: "1".to_string(),
                     ecosystem: None,
+                    ..Default::default()
                 },
                 "osv",
                 &[sample_raw_vuln()],
@@ -1255,6 +1289,7 @@ mod tests {
             name: "mixed".to_string(),
             version: "1".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         backend
             .put(&pkg, "osv", &[vuln_ok, vuln_no_id], None)
@@ -1279,6 +1314,7 @@ mod tests {
                     name: "real".to_string(),
                     version: "1".to_string(),
                     ecosystem: None,
+                    ..Default::default()
                 },
                 "osv",
                 &[sample_raw_vuln()],
@@ -1314,11 +1350,13 @@ mod tests {
             name: "p1".to_string(),
             version: "1".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         let pkg2 = Package {
             name: "p2".to_string(),
             version: "2".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         backend
             .put(&pkg1, "osv", &[sample_raw_vuln()], None)
@@ -1352,6 +1390,7 @@ mod tests {
             name: "mem".to_string(),
             version: "1".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         backend
             .put(&pkg, "osv", &[sample_raw_vuln()], None)
@@ -1374,6 +1413,7 @@ mod tests {
                     name: "foo".to_string(),
                     version: "1".to_string(),
                     ecosystem: None,
+                    ..Default::default()
                 },
                 "osv",
                 &[sample_raw_vuln()],
@@ -1401,6 +1441,7 @@ mod tests {
                     name: "real".to_string(),
                     version: "1".to_string(),
                     ecosystem: None,
+                    ..Default::default()
                 },
                 "osv",
                 &[sample_raw_vuln()],
@@ -1478,6 +1519,7 @@ mod tests {
             name: "z".to_string(),
             version: "1".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         backend
             .put(&pkg, "osv", &[sample_raw_vuln()], Some(0))
@@ -1508,6 +1550,7 @@ mod tests {
                 name: "corrupt".to_string(),
                 version: "1".to_string(),
                 ecosystem: None,
+                ..Default::default()
             };
             backend
                 .put(&pkg, "osv", &[sample_raw_vuln()], None)
@@ -1529,6 +1572,7 @@ mod tests {
             name: "corrupt".to_string(),
             version: "1".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         let got = backend.get(&pkg, "osv").await.unwrap();
         let stats = backend.stats().await.unwrap();
@@ -1570,6 +1614,7 @@ mod tests {
             name: "old".to_string(),
             version: "1".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         let got = backend.get(&pkg, "osv").await.unwrap();
         assert!(got.is_some());
@@ -1588,6 +1633,7 @@ mod tests {
                         name: "good".to_string(),
                         version: "1".to_string(),
                         ecosystem: None,
+                        ..Default::default()
                     },
                     "osv",
                     &[sample_raw_vuln()],
@@ -1626,6 +1672,7 @@ mod tests {
                         name: "valid".to_string(),
                         version: "1".to_string(),
                         ecosystem: None,
+                        ..Default::default()
                     },
                     "osv",
                     &[sample_raw_vuln()],
@@ -1668,6 +1715,7 @@ mod tests {
                         name: "valid".to_string(),
                         version: "1".to_string(),
                         ecosystem: None,
+                        ..Default::default()
                     },
                     "osv",
                     &[sample_raw_vuln()],
@@ -1890,6 +1938,7 @@ mod tests {
             name: "d".to_string(),
             version: "1".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         backend
             .put(&pkg, "osv", &[sample_raw_vuln()], None)
@@ -1918,6 +1967,7 @@ mod tests {
                 name: "p".to_string(),
                 version: "1".to_string(),
                 ecosystem: None,
+                ..Default::default()
             };
             backend
                 .put(&pkg, "osv", &[sample_raw_vuln()], None)
@@ -2029,6 +2079,7 @@ mod tests {
             name: "mixed".to_string(),
             version: "1".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         backend
             .put(&pkg, "osv", &[vuln_with_id, vuln_without_id], None)
@@ -2053,6 +2104,7 @@ mod tests {
             name: "mixed_id".to_string(),
             version: "1".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         backend
             .put(&pkg, "osv", &[vuln_ok, vuln_id_number], None)
@@ -2077,6 +2129,7 @@ mod tests {
             name: "no_conv".to_string(),
             version: "1".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         backend.put(&pkg, "osv", &vulns_no_id, None).await.unwrap();
         let got = backend.get(&pkg, "osv").await.unwrap();
@@ -2170,6 +2223,7 @@ mod tests {
             name: "shared".to_string(),
             version: "1".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         backend
             .put(&pkg, "osv", &[sample_raw_vuln()], None)
@@ -2191,6 +2245,7 @@ mod tests {
             name: "empty".to_string(),
             version: "1".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         backend.put(&pkg, "osv", &[], None).await.unwrap();
         let got = backend.get(&pkg, "osv").await.unwrap();
@@ -2225,6 +2280,7 @@ mod tests {
             name: "nonexist".to_string(),
             version: "0".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         let got = backend.get(&pkg, "osv").await.unwrap();
         assert!(got.is_none());
@@ -2284,6 +2340,7 @@ mod tests {
                 name: "pkg".to_string(),
                 version: "1".to_string(),
                 ecosystem: None,
+                ..Default::default()
             };
             if b.put(&pkg, "osv", &[sample_raw_vuln()], None)
                 .await
@@ -2331,6 +2388,7 @@ mod tests {
                 name: "pkg".to_string(),
                 version: "1".to_string(),
                 ecosystem: None,
+                ..Default::default()
             };
             if b.put(&pkg, "osv", &[sample_raw_vuln()], None)
                 .await
@@ -2370,6 +2428,7 @@ mod tests {
             name: "pkg".to_string(),
             version: "1".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         b.put(&pkg, "osv", &[sample_raw_vuln()], None)
             .await
@@ -2404,6 +2463,7 @@ mod tests {
                 name: "pkg".to_string(),
                 version: "1".to_string(),
                 ecosystem: None,
+                ..Default::default()
             };
             if b.put(&pkg, "osv", &[sample_raw_vuln()], None)
                 .await

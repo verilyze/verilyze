@@ -334,6 +334,7 @@ install_requires =
                 name: "pkg".into(),
                 version: "1.0".into(),
                 ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.into())
+                    ..Default::default()
             }
         );
         assert_eq!(
@@ -342,6 +343,7 @@ install_requires =
                 name: "a".into(),
                 version: "2.0".into(),
                 ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.into())
+                    ..Default::default()
             }
         );
         assert_eq!(
@@ -350,6 +352,7 @@ install_requires =
                 name: "b".into(),
                 version: "3.0".into(),
                 ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.into())
+                    ..Default::default()
             }
         );
         assert_eq!(
@@ -358,6 +361,7 @@ install_requires =
                 name: "c".into(),
                 version: "4.0".into(),
                 ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.into())
+                    ..Default::default()
             }
         );
         assert_eq!(
@@ -366,6 +370,7 @@ install_requires =
                 name: "d".into(),
                 version: "5.0".into(),
                 ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.into())
+                    ..Default::default()
             }
         );
         assert_eq!(
@@ -374,6 +379,7 @@ install_requires =
                 name: "e".into(),
                 version: "6.0".into(),
                 ecosystem: Some(vlz_db::PYPI_ECOSYSTEM.into())
+                    ..Default::default()
             }
         );
     }

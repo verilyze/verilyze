@@ -223,6 +223,7 @@ mod tests {
             name: "symfony/http-foundation".into(),
             version: "6.4.0".into(),
             ecosystem: Some(PACKAGIST_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let excludes = HashSet::new();
         let context = TierBContext {
@@ -248,6 +249,7 @@ mod tests {
             name: "a/b".into(),
             version: "1".into(),
             ecosystem: Some(PACKAGIST_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let ctx_short = TierBContext {
             scan_root: dir.path(),
@@ -264,6 +266,7 @@ mod tests {
             name: "unrelated/package".into(),
             version: "1".into(),
             ecosystem: Some(PACKAGIST_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let ctx_other = TierBContext {
             scan_root: dir.path(),
@@ -290,6 +293,7 @@ mod tests {
             name: "monolog/monolog".into(),
             version: "3.0.0".into(),
             ecosystem: Some(PACKAGIST_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let excludes = HashSet::new();
         let context = TierBContext {
@@ -323,6 +327,7 @@ mod tests {
             name: "symfony/http-foundation".into(),
             version: "6.4.0".into(),
             ecosystem: Some(PACKAGIST_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let excludes = HashSet::new();
         let manifest = nested.join("composer.json");

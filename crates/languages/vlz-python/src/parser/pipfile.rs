@@ -40,6 +40,7 @@ fn parse_pipfile_dep(
             name: name.to_string(),
             version,
             ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
+            ..Default::default()
         });
     }
     if let Some(tbl) = val.as_table() {
@@ -52,6 +53,7 @@ fn parse_pipfile_dep(
             name: name.to_string(),
             version,
             ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
+            ..Default::default()
         });
     }
     None

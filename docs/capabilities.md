@@ -25,14 +25,14 @@ default.
 
 | Ecosystem | Manifests (summary) | Preferred locks | Lock-less default | Reachability | `vlz fix` apply |
 |-----------|---------------------|-----------------|-------------------|--------------|-----------------|
-| Python | `requirements*.txt`, `pyproject.toml`, `Pipfile`, `setup.cfg`, `setup.py` | `pylock.toml` / `pylock.<name>.toml`, `poetry.lock`, `Pipfile.lock`, `uv.lock`, `pdm.lock` | Exit **4** (safe `pip lock -r` may help `requirements.txt` only) | Tier B/C; Tier D on by default | poetry / uv locks; **pylock apply unavailable** |
+| Python | `requirements*.txt`, `pyproject.toml`, `Pipfile`, `setup.cfg`, `setup.py` | `pylock.toml` / `pylock.<name>.toml`, `poetry.lock`, `Pipfile.lock`, `uv.lock`, `pdm.lock` | Exit **4** (safe `pip lock -r` may help `requirements.txt` only) | Tier B/C; Tier D on by default | poetry / uv locks; **pylock apply deferred** (no PEP 751 rewrite tool yet) |
 | Rust | `Cargo.toml` | `Cargo.lock` | May run `cargo metadata` when `cargo` is on PATH | Tier B/C; Tier D opt-in | Yes (`cargo`) |
 | Go | `go.mod` | `go.sum` | May run `go list` when `go` is on PATH | Tier B/C; Tier D on by default | Yes (`go`) |
 | JavaScript / TypeScript | `package.json` | `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lock` (text; `bun.lockb` out of scope) | Exit **4** | Tier B/C; Tier D on by default | npm / yarn / pnpm / bun |
 | Java / Kotlin | `pom.xml`, `build.gradle(.kts)`, version catalogs | `gradle.lockfile` (Maven has no standard lock) | Exit **4** | Tier B/C (`.java` / `.kt`); Tier D planned (W4-2) | gradle / maven (gradle apply needs SEC-023 gate) |
 | Ruby | `Gemfile`, `gems.rb`, `*.gemspec` | `Gemfile.lock`, `gems.locked` | Exit **4** | Tier B/C; Tier D planned (W4-2) | bundler (needs SEC-023 gate; no transitive apply) |
-| PHP | `composer.json` | `composer.lock` | Exit **4** | Tier B/C; Tier D planned (W4-2) | **No remediator** (scan only; W4-1) |
-| .NET | `*.csproj` / `*.fsproj` / `*.vbproj`, `packages.config` | `packages.lock.json`, then `project.assets.json` / `*.deps.json` | Exit **4** | Tier B/C (`.cs` / `.fs`); Tier D planned (W4-2) | **No remediator** (scan only; W4-1) |
+| PHP | `composer.json` | `composer.lock` | Exit **4** | Tier B/C; Tier D planned (W4-2) | composer (`require --no-install --no-scripts --no-plugins`; no transitive apply) |
+| .NET | `*.csproj` / `*.fsproj` / `*.vbproj`, `packages.config` | `packages.lock.json`, then `project.assets.json` / `*.deps.json` | Exit **4** | Tier B/C (`.cs` / `.fs`); Tier D planned (W4-2) | nuget (in-place `Version=` on `*.csproj` / `Directory.Packages.props`; no transitive / no-pin refuse) |
 | SBOM | CycloneDX 1.x / SPDX 2.2--3.0 JSON | n/a (pre-resolved) | n/a | n/a | Dry-run only; never apply |
 
 ## Notes

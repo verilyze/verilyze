@@ -140,6 +140,7 @@ pub fn parse_pom_xml_with_declarations(
                 name,
                 version,
                 ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+                ..Default::default()
             },
             path: path.to_path_buf(),
             start_line: dep.line,

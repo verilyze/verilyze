@@ -7,6 +7,7 @@
 mod cache_entry;
 mod corpus_import;
 mod file_ignore;
+mod match_explain;
 mod purl;
 
 pub use cache_entry::{
@@ -21,7 +22,12 @@ pub use corpus_import::{
 pub use file_ignore::{
     DEFAULT_IGNORE_FILE_NAME, FileIgnoreDb, FpEntry, FpMarkFields, FpMarkMeta,
     IGNORE_FILE_SCHEMA_VERSION, LEGACY_IGNORE_REDB_FILE_NAME,
-    legacy_redb_path_for_json,
+    fp_entry_applies_to_paths, fp_entry_is_active, legacy_redb_path_for_json,
+};
+pub use match_explain::{
+    MatchExplain, MatchQuery, WINNER_REASON_AFFECTED_RANGES,
+    WINNER_REASON_CVSS_VERSION, WINNER_REASON_PROVIDER_ORDER,
+    WINNER_REASON_SOLE, match_query_for,
 };
 pub use purl::{
     ecosystem_for_purl_type, package_from_purl, purl_for_package,
@@ -54,16 +60,11 @@ pub const PACKAGIST_ECOSYSTEM: &str = "Packagist";
 /// OSV / package ecosystem for NuGet (.NET).
 pub const NUGET_ECOSYSTEM: &str = "NuGet";
 
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
-    Default,
-)]
+/// Scanned package identity for CVE lookup and reporting.
+///
+/// Equality and hashing intentionally ignore optional PURL qualifiers and
+/// subpath (W3-3) so CVE cache keys and finding maps stay name@version based.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
 pub struct Package {
     pub name: String,
     pub version: String,
@@ -71,6 +72,30 @@ pub struct Package {
     /// Ecosystem for CVE lookup (e.g. "PyPI", "crates.io"). When None, providers default to PyPI.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ecosystem: Option<String>,
+    /// PURL qualifiers preserved from SBOM consume (W3-3). Not used in OSV queries.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub purl_qualifiers: Option<std::collections::BTreeMap<String, String>>,
+    /// PURL subpath preserved from SBOM consume (W3-3).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub purl_subpath: Option<String>,
+}
+
+impl PartialEq for Package {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+            && self.version == other.version
+            && self.ecosystem == other.ecosystem
+    }
+}
+
+impl Eq for Package {}
+
+impl std::hash::Hash for Package {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.version.hash(state);
+        self.ecosystem.hash(state);
+    }
 }
 
 /// True when `s` looks like a CVE ID (`CVE-YYYY-NNNN`, case-insensitive).
@@ -515,6 +540,13 @@ pub struct CveRecord {
     /// FIRST EPSS percentile 0.0-1.0 (FR-048). None means unknown.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub epss_percentile: Option<f32>,
+    /// Matching transparency / explain payload (roadmap W3-1).
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "match"
+    )]
+    pub match_explain: Option<MatchExplain>,
 }
 
 #[derive(Debug, Default)]
@@ -569,14 +601,19 @@ pub trait IgnoreDb: Send + Sync {
         comment: &str,
         project_id: Option<&str>,
     ) -> Result<(), DatabaseError> {
-        self.mark_with_details(cve_id, comment, project_id, None, None, None)
+        self.mark_with_details(
+            cve_id, comment, project_id, None, None, None, None, None,
+        )
     }
 
-    /// Mark a CVE as false positive with optional VEX triage metadata (FR-044).
+    /// Mark a CVE as false positive with optional VEX triage metadata (FR-044)
+    /// and optional expiry / path scope (W3-2).
     ///
     /// Implementers must persist `justification` / `status` / `detail` when
     /// provided and must not silently drop them. Re-mark with `None` for those
     /// fields should preserve prior triage values (see `FpEntry::from_mark`).
+    /// `expires_at_secs` / `paths` follow the same preserve-on-None rule.
+    #[allow(clippy::too_many_arguments)]
     fn mark_with_details(
         &self,
         cve_id: &str,
@@ -585,6 +622,8 @@ pub trait IgnoreDb: Send + Sync {
         justification: Option<&str>,
         status: Option<&str>,
         detail: Option<&str>,
+        expires_at_secs: Option<u64>,
+        paths: Option<&[&str]>,
     ) -> Result<(), DatabaseError>;
 
     /// Remove a false-positive marking.
@@ -852,6 +891,8 @@ mod tests {
                 justification: Some("vulnerable_code_not_present".into()),
                 status: Some("not_affected".into()),
                 detail: Some("unused dep".into()),
+                expires_at_secs: None,
+                paths: Vec::new(),
             },
         );
         let entry = matching_fp_entry("CVE-2024-1708", &raws, &fp);
@@ -866,6 +907,7 @@ mod tests {
             name: "foo".to_string(),
             version: "1.0.0".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         assert_eq!(p.name, "foo");
         assert_eq!(p.version, "1.0.0");
@@ -889,6 +931,7 @@ mod tests {
             in_kev: Some(true),
             epss: Some(0.7),
             epss_percentile: Some(0.9),
+            match_explain: None,
         };
         assert_eq!(c.id, "CVE-2023-1234");
         assert_eq!(c.cvss_score, Some(7.5));
@@ -972,6 +1015,7 @@ mod tests {
             name: "test-pkg".to_string(),
             version: "1.0.0".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
 
         backend.init().await.unwrap();
@@ -1037,7 +1081,7 @@ mod tests {
             project_id: Option<&str>,
         ) -> Result<(), DatabaseError> {
             self.mark_with_details(
-                cve_id, comment, project_id, None, None, None,
+                cve_id, comment, project_id, None, None, None, None, None,
             )
         }
 
@@ -1049,6 +1093,8 @@ mod tests {
             justification: Option<&str>,
             status: Option<&str>,
             detail: Option<&str>,
+            expires_at_secs: Option<u64>,
+            paths: Option<&[&str]>,
         ) -> Result<(), DatabaseError> {
             let mut guard = self.entries.write().unwrap();
             let existing = guard.get(cve_id).cloned();
@@ -1062,6 +1108,8 @@ mod tests {
                         justification,
                         status,
                         detail,
+                        expires_at_secs,
+                        paths,
                     },
                     crate::FpMarkMeta {
                         timestamp_secs: 0,
@@ -1184,6 +1232,7 @@ mod tests {
             name: "pkg".to_string(),
             version: "1.0.0".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         let raw = backend.get_raw_vulns(&pkg, "osv").await.unwrap();
         assert!(raw.is_none());

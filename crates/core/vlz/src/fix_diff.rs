@@ -152,6 +152,7 @@ mod tests {
             name: "lodash".into(),
             version: "4.17.20".into(),
             ecosystem: Some("npm".into()),
+            ..Default::default()
         };
         let upgrade = plan(ApplyStrategy::Npm);
         let preview = RemediationPreview {
@@ -195,6 +196,7 @@ mod tests {
             name: "lodash".into(),
             version: "4.17.20".into(),
             ecosystem: Some("npm".into()),
+            ..Default::default()
         };
         let upgrade = plan(ApplyStrategy::Npm);
         let entry = FixDiffEntry {
@@ -214,6 +216,7 @@ mod tests {
             name: "lodash".into(),
             version: "4.17.20".into(),
             ecosystem: Some("npm".into()),
+            ..Default::default()
         };
         let upgrade = plan(ApplyStrategy::Npm);
         let preview = RemediationPreview {

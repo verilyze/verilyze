@@ -202,6 +202,7 @@ mod tests {
             name: "my-gem".into(),
             version: "1.0.0".into(),
             ecosystem: Some(RUBYGEMS_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let excludes = HashSet::new();
         let context = TierBContext {
@@ -229,6 +230,7 @@ mod tests {
             name: "activesupport".into(),
             version: "7.0.0".into(),
             ecosystem: Some(RUBYGEMS_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let excludes = HashSet::new();
         let context = TierBContext {
@@ -253,6 +255,7 @@ mod tests {
             name: "a".into(),
             version: "1".into(),
             ecosystem: Some(RUBYGEMS_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let ctx_short = TierBContext {
             scan_root: dir.path(),
@@ -269,6 +272,7 @@ mod tests {
             name: "unrelated".into(),
             version: "1".into(),
             ecosystem: Some(RUBYGEMS_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let ctx_other = TierBContext {
             scan_root: dir.path(),
@@ -295,6 +299,7 @@ mod tests {
             name: "rack".into(),
             version: "2.2.8".into(),
             ecosystem: Some(RUBYGEMS_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let excludes = HashSet::new();
         let context = TierBContext {
@@ -320,6 +325,7 @@ mod tests {
             name: "rack".into(),
             version: "2.2.8".into(),
             ecosystem: Some(RUBYGEMS_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let excludes = HashSet::new();
         let context = TierBContext {
@@ -345,6 +351,7 @@ mod tests {
             name: "rack".into(),
             version: "1".into(),
             ecosystem: Some(RUBYGEMS_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let excludes = HashSet::new();
         let manifest = nested.join("Gemfile");

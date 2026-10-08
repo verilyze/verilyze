@@ -38,9 +38,9 @@ Status values: `done`, `in progress`, `planned`, `later`.
 
 | ID | Item | Status | Issue |
 |----|------|--------|-------|
-| W3-1 | Matching transparency report (structured matching/explain fields per finding) | planned | |
-| W3-2 | Suppression expiry (`expires_at`) and path-scoped false positives | planned | |
-| W3-3 | PURL qualifier fidelity on SBOM consume | planned | |
+| W3-1 | Matching transparency report (structured matching/explain fields per finding) | done | |
+| W3-2 | Suppression expiry (`expires_at`) and path-scoped false positives | done | |
+| W3-3 | PURL qualifier fidelity on SBOM consume | done | |
 | W4-1 | Guided remediation ROI; PHP and NuGet remediators; pylock apply if practical | planned | |
 | W4-2 | Polyglot Tier D (Java/Kotlin, Ruby, PHP, .NET); keep capabilities matrix accurate | planned | |
 | W4-3 | Airgap corpus authenticity (`vlz db import` signature / cosign-verify path) | planned | |

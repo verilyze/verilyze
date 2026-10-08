@@ -1498,12 +1498,21 @@ pub async fn run(args: Cli) -> Result<i32> {
                     project_id,
                     justification,
                     status,
+                    expires_at,
+                    paths,
                 } => {
                     let status = status.or_else(|| {
                         justification.as_ref().map(|_| {
                             vlz_report::DEFAULT_FP_VEX_STATUS.to_string()
                         })
                     });
+                    let path_refs: Vec<&str> =
+                        paths.iter().map(String::as_str).collect();
+                    let paths_arg = if path_refs.is_empty() {
+                        None
+                    } else {
+                        Some(path_refs.as_slice())
+                    };
                     fp_db
                         .mark_with_details(
                             &cve_id,
@@ -1512,6 +1521,8 @@ pub async fn run(args: Cli) -> Result<i32> {
                             justification.as_deref(),
                             status.as_deref(),
                             None,
+                            expires_at,
+                            paths_arg,
                         )
                         .map_err(|e| {
                             error!("Failed to mark false positive: {}", e);
@@ -1898,6 +1909,8 @@ pub fn apply_upgrade_request(
         "ruby_gems" => vlz_remediate::ApplyStrategy::RubyGems,
         "gradle" => vlz_remediate::ApplyStrategy::Gradle,
         "maven" => vlz_remediate::ApplyStrategy::Maven,
+        "composer" => vlz_remediate::ApplyStrategy::Composer,
+        "nuget" => vlz_remediate::ApplyStrategy::Nuget,
         _ => {
             return Err(
                 vlz_remediate::RemediationError::UnsupportedLockLayout(
@@ -2273,6 +2286,9 @@ async fn run_scan(
     let mut marked_fp: std::collections::HashSet<String> =
         fp_entries.keys().cloned().collect();
     // FR-049: merge ephemeral VEX ingest suppressions with ignore-db marks.
+    // VEX keys are path-unscoped (apply to all manifests for the vuln id).
+    let mut vex_only_keys: std::collections::HashSet<String> =
+        std::collections::HashSet::new();
     if !effective.from_vex.is_empty() {
         let policy = vlz_report::VexIngestPolicy {
             allow_unsigned: effective.vex.allow_unsigned_vex,
@@ -2300,6 +2316,8 @@ async fn run_scan(
         for w in &ingest_warnings {
             user_warning(w);
         }
+        vex_only_keys =
+            ingested_keys.difference(&marked_fp).cloned().collect();
         marked_fp = vlz_report::merge_suppress_keys(&marked_fp, ingested_keys);
     }
     let had_any_cves_before_fp_filter =
@@ -2314,10 +2332,42 @@ async fn run_scan(
                     .get(&pkg)
                     .map(|v| v.as_slice())
                     .unwrap_or(&[]);
+                let pkg_paths: Vec<String> = pkg_contexts
+                    .get(&pkg)
+                    .map(|ctx| {
+                        ctx.manifest_paths
+                            .iter()
+                            .map(|p| p.to_string_lossy().into_owned())
+                            .collect()
+                    })
+                    .unwrap_or_default();
                 let mut kept = Vec::new();
                 let mut suppressed = Vec::new();
                 for cve in recs {
-                    if vlz_db::record_is_fp_marked(&cve.id, raw, &marked_fp) {
+                    let marked =
+                        vlz_db::record_is_fp_marked(&cve.id, raw, &marked_fp);
+                    if !marked {
+                        kept.push(cve);
+                        continue;
+                    }
+                    // Path-scoped FP entries (W3-2): only suppress when the
+                    // matching ignore entry applies to this package's paths.
+                    // Pure VEX suppressions remain path-unscoped.
+                    let applies = if let Some(entry) =
+                        vlz_db::matching_fp_entry(&cve.id, raw, &fp_entries)
+                    {
+                        vlz_db::fp_entry_applies_to_paths(&entry, &pkg_paths)
+                    } else {
+                        // Marked via VEX ingest only (not in ignore DB).
+                        vex_only_keys.iter().any(|k| {
+                            vlz_db::record_is_fp_marked(
+                                &cve.id,
+                                raw,
+                                &std::collections::HashSet::from([k.clone()]),
+                            )
+                        }) || marked
+                    };
+                    if applies {
                         suppressed.push(cve);
                     } else {
                         kept.push(cve);
@@ -2831,10 +2881,11 @@ async fn scan_findings_for_fix(
         .ignore_db
         .clone()
         .unwrap_or_else(crate::config::default_ignore_path);
-    let mut marked_fp: std::collections::HashSet<String> =
+    let fp_entries: std::collections::HashMap<String, vlz_db::FpEntry> =
         match crate::registry::open_ignore_db(ignore_path) {
-            Ok(db) => match db.marked_ids(effective.project_id.as_deref()) {
-                Ok(ids) => ids,
+            Ok(db) => match db.marked_entries(effective.project_id.as_deref())
+            {
+                Ok(entries) => entries,
                 Err(e) => {
                     error!("Failed to read ignore database: {}", e);
                     return Ok(ScanFixOutcome {
@@ -2857,6 +2908,10 @@ async fn scan_findings_for_fix(
                 });
             }
         };
+    let mut marked_fp: std::collections::HashSet<String> =
+        fp_entries.keys().cloned().collect();
+    let mut vex_only_keys: std::collections::HashSet<String> =
+        std::collections::HashSet::new();
     if !effective.from_vex.is_empty() {
         let policy = vlz_report::VexIngestPolicy {
             allow_unsigned: effective.vex.allow_unsigned_vex,
@@ -2890,6 +2945,8 @@ async fn scan_findings_for_fix(
         for w in &ingest_warnings {
             user_warning(w);
         }
+        vex_only_keys =
+            ingested_keys.difference(&marked_fp).cloned().collect();
         marked_fp = vlz_report::merge_suppress_keys(&marked_fp, ingested_keys);
     }
     let had_any_cves_before_fp_filter =
@@ -2901,10 +2958,36 @@ async fn scan_findings_for_fix(
                 .get(&pkg)
                 .map(|v| v.as_slice())
                 .unwrap_or(&[]);
+            let pkg_paths: Vec<String> = pkg_contexts
+                .get(&pkg)
+                .map(|ctx| {
+                    ctx.manifest_paths
+                        .iter()
+                        .map(|p| p.to_string_lossy().into_owned())
+                        .collect()
+                })
+                .unwrap_or_default();
             let kept: Vec<_> = recs
                 .into_iter()
                 .filter(|cve| {
-                    !vlz_db::record_is_fp_marked(&cve.id, raw, &marked_fp)
+                    if !vlz_db::record_is_fp_marked(&cve.id, raw, &marked_fp) {
+                        return true;
+                    }
+                    if let Some(entry) =
+                        vlz_db::matching_fp_entry(&cve.id, raw, &fp_entries)
+                    {
+                        return !vlz_db::fp_entry_applies_to_paths(
+                            &entry, &pkg_paths,
+                        );
+                    }
+                    let vex_hit = vex_only_keys.iter().any(|k| {
+                        vlz_db::record_is_fp_marked(
+                            &cve.id,
+                            raw,
+                            &std::collections::HashSet::from([k.clone()]),
+                        )
+                    });
+                    !vex_hit
                 })
                 .collect();
             (pkg, kept)
@@ -3556,16 +3639,19 @@ mod tests {
             name: "left-pad".to_string(),
             version: "1.0.0".to_string(),
             ecosystem: Some(vlz_db::NPM_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let npm_pkg = vlz_db::Package {
             name: "right-pad".to_string(),
             version: "1.0.0".to_string(),
             ecosystem: Some(vlz_db::NPM_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let mixed = vlz_db::Package {
             name: "shared".to_string(),
             version: "1.0.0".to_string(),
             ecosystem: Some(vlz_db::NPM_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let rows = vec![
             (
@@ -3620,6 +3706,7 @@ mod tests {
             name: "mylib".to_string(),
             version: "1.2.3".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         let (out_pkg, cves) = benchmark_lookup_result(&pkg);
         assert_eq!(out_pkg.name, pkg.name);

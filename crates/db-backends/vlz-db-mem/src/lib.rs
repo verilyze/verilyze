@@ -258,6 +258,7 @@ mod tests {
             name: name.into(),
             version: version.into(),
             ecosystem: None,
+            ..Default::default()
         }
     }
 

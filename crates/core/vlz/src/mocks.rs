@@ -445,6 +445,7 @@ impl CveProvider for CveReturningProvider {
             in_kev: None,
             epss: None,
             epss_percentile: None,
+            match_explain: None,
         };
         Ok(FetchedCves {
             raw_vulns: vec![serde_json::json!({"id": record.id})],
@@ -490,6 +491,7 @@ impl CveProvider for LowScoreCveProvider {
             in_kev: None,
             epss: None,
             epss_percentile: None,
+            match_explain: None,
         };
         Ok(FetchedCves {
             raw_vulns: vec![serde_json::json!({"id": record.id})],
@@ -532,6 +534,7 @@ impl CveProvider for TierCReachabilityProvider {
             in_kev: None,
             epss: None,
             epss_percentile: None,
+            match_explain: None,
         };
         let record_b = CveRecord {
             id: "CVE-TIER-C-B".to_string(),
@@ -546,6 +549,7 @@ impl CveProvider for TierCReachabilityProvider {
             in_kev: None,
             epss: None,
             epss_percentile: None,
+            match_explain: None,
         };
         Ok(FetchedCves {
             raw_vulns: vec![
@@ -718,6 +722,7 @@ mod tests {
             name: "pkg".to_string(),
             version: "1.0".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         let result = p.fetch(&pkg).await;
         assert!(result.is_err());
@@ -749,6 +754,7 @@ mod tests {
             name: "pkg".to_string(),
             version: "1.0".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         let _ = p.fetch(&pkg).await;
     }
@@ -766,6 +772,7 @@ mod tests {
             name: "pkg".to_string(),
             version: "1.0".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         let result = db.get(&pkg, "osv").await;
         assert!(matches!(result, Ok(None)));
@@ -778,6 +785,7 @@ mod tests {
             name: "pkg".to_string(),
             version: "1.0".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         let raw = vec![serde_json::json!({"id": "CVE-X"})];
         assert!(db.put(&pkg, "osv", &raw, None).await.is_ok());

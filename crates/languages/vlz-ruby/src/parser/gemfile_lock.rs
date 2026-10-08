@@ -148,6 +148,7 @@ pub fn parse_gemfile_lock_with_declarations(
                 name,
                 version: chosen.version,
                 ecosystem: Some(RUBYGEMS_ECOSYSTEM.to_string()),
+                ..Default::default()
             },
             path: path.to_path_buf(),
             start_line: chosen.line,

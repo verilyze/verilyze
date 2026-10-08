@@ -138,6 +138,7 @@ fn library_to_dependency(
             name: maven_package_name(&group, &artifact),
             version,
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         },
         path: path.to_path_buf(),
         start_line: line,
@@ -212,6 +213,7 @@ fn plugin_to_dependency(
             name: maven_package_name(&group, &artifact),
             version: ver,
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         },
         path: path.to_path_buf(),
         start_line: line,

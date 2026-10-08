@@ -317,6 +317,7 @@ mod tests {
                 name: "symfony/http-foundation".into(),
                 version: "^6.4".into(),
                 ecosystem: Some(PACKAGIST_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("composer.json")),
@@ -345,6 +346,7 @@ mod tests {
                 name: "symfony/http-foundation".into(),
                 version: "^6.4".into(),
                 ecosystem: Some(PACKAGIST_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(manifest),
@@ -380,6 +382,7 @@ mod tests {
                 name: "symfony/http-foundation".into(),
                 version: "^6.4".into(),
                 ecosystem: Some(PACKAGIST_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(manifest),
@@ -411,6 +414,7 @@ mod tests {
                 name: "symfony/http-foundation".into(),
                 version: "^6.4".into(),
                 ecosystem: Some(PACKAGIST_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("composer.json")),
@@ -438,6 +442,7 @@ mod tests {
                 name: "symfony/http-foundation".into(),
                 version: "^6.4".into(),
                 ecosystem: Some(PACKAGIST_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(manifest),
@@ -466,6 +471,7 @@ mod tests {
                 name: "symfony/http-foundation".into(),
                 version: "^6.4".into(),
                 ecosystem: Some(PACKAGIST_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(manifest),
@@ -509,6 +515,7 @@ mod tests {
                 name: "a/b".into(),
                 version: "1.0.0".into(),
                 ecosystem: Some(PACKAGIST_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: None,
@@ -539,6 +546,7 @@ mod tests {
                 name: "symfony/http-foundation".into(),
                 version: "^6.4".into(),
                 ecosystem: Some(PACKAGIST_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("composer.json")),
@@ -610,6 +618,7 @@ mod tests {
                 name: "symfony/http-foundation".into(),
                 version: "^6.4".into(),
                 ecosystem: Some(PACKAGIST_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(proj.path().join("composer.json")),
@@ -650,6 +659,7 @@ mod tests {
                 name: "a/b".into(),
                 version: "1.0.0".into(),
                 ecosystem: Some(PACKAGIST_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(proj.path().join("composer.json")),

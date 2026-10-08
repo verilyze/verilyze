@@ -20,8 +20,12 @@ mod remediator;
 pub use remediator::{
     BUN_BIN_NAME, BUN_IGNORE_SCRIPTS_FLAG, BUN_LOCK_FILE_NAME,
     BUNDLE_BIN_NAME, BUNDLE_SKIP_INSTALL_FLAG, BunRemediator, CARGO_BIN_NAME,
-    CARGO_LOCK_FILE_NAME, CARGO_MANIFEST_FILE_NAME, CargoRemediator,
-    GO_BIN_NAME, GO_MANIFEST_FILE_NAME, GO_SUM_FILE_NAME, GRADLE_BIN_NAME,
+    CARGO_LOCK_FILE_NAME, CARGO_MANIFEST_FILE_NAME, COMPOSER_BIN_NAME,
+    COMPOSER_LOCK_FILE_NAME, COMPOSER_MANIFEST_FILE_NAME,
+    COMPOSER_NO_INSTALL_FLAG, COMPOSER_NO_INTERACTION_FLAG,
+    COMPOSER_NO_PLUGINS_FLAG, COMPOSER_NO_SCRIPTS_FLAG, CargoRemediator,
+    ComposerRemediator, DIRECTORY_PACKAGES_PROPS_FILE_NAME, GO_BIN_NAME,
+    GO_MANIFEST_FILE_NAME, GO_SUM_FILE_NAME, GRADLE_BIN_NAME,
     GRADLE_BUILDSCRIPT_LOCK_FILE_NAME, GRADLE_LOCK_FILE_NAME,
     GRADLE_MANIFEST_BUILD_FILE_NAME, GRADLE_MANIFEST_BUILD_KTS_FILE_NAME,
     GRADLE_SETTINGS_FILE_NAME, GRADLE_SETTINGS_KTS_FILE_NAME,
@@ -29,18 +33,19 @@ pub use remediator::{
     MAVEN_MANIFEST_FILE_NAME, MavenRemediator, NPM_BIN_NAME,
     NPM_IGNORE_SCRIPTS_FLAG, NPM_LOCKFILE_NPM_SHRINKWRAP_JSON,
     NPM_LOCKFILE_PACKAGE_LOCK_JSON, NPM_MANIFEST_FILE_NAME, NPM_NO_SAVE_FLAG,
-    NPM_PACKAGE_LOCK_ONLY_FLAG, NpmRemediator, PNPM_BIN_NAME,
-    PNPM_LOCK_FILE_NAME, PNPM_LOCKFILE_ONLY_FLAG, POETRY_BIN_NAME,
-    POETRY_LOCK_FILE_NAME, POETRY_LOCK_FLAG, PYLOCK_TOML_FILE_NAME,
-    PYTHON_MANIFEST_FILE_NAME, PnpmRemediator, PythonRemediator,
-    RUBY_LOCK_GEMFILE_LOCK_FILE_NAME, RUBY_LOCK_GEMS_LOCKED_FILE_NAME,
-    RUBY_MANIFEST_GEMFILE_FILE_NAME, RUBY_MANIFEST_GEMS_RB_FILE_NAME,
-    RemediationContext, RemediationError, RemediationPreview, Remediator,
-    RubyGemsRemediator, UV_BIN_NAME, UV_LOCK_FILE_NAME, UV_NO_SYNC_FLAG,
-    YARN_BERRY_SKIP_BUILD_FLAG, YARN_BERRY_UP_SUBCOMMAND, YARN_BIN_NAME,
-    YARN_CLASSIC_IGNORE_SCRIPTS_FLAG, YARN_CLASSIC_LOCKFILE_MARKER,
-    YARN_CLASSIC_UPGRADE_SUBCOMMAND, YARN_LOCK_FILE_NAME, YarnLockFlavor,
-    YarnRemediator, bun_update_argv, bundle_add_argv, cargo_update_argv,
+    NPM_PACKAGE_LOCK_ONLY_FLAG, NUGET_MANIFEST_MAX_BYTES, NpmRemediator,
+    NugetRemediator, PNPM_BIN_NAME, PNPM_LOCK_FILE_NAME,
+    PNPM_LOCKFILE_ONLY_FLAG, POETRY_BIN_NAME, POETRY_LOCK_FILE_NAME,
+    POETRY_LOCK_FLAG, PYLOCK_TOML_FILE_NAME, PYTHON_MANIFEST_FILE_NAME,
+    PnpmRemediator, PythonRemediator, RUBY_LOCK_GEMFILE_LOCK_FILE_NAME,
+    RUBY_LOCK_GEMS_LOCKED_FILE_NAME, RUBY_MANIFEST_GEMFILE_FILE_NAME,
+    RUBY_MANIFEST_GEMS_RB_FILE_NAME, RemediationContext, RemediationError,
+    RemediationPreview, Remediator, RubyGemsRemediator, UV_BIN_NAME,
+    UV_LOCK_FILE_NAME, UV_NO_SYNC_FLAG, YARN_BERRY_SKIP_BUILD_FLAG,
+    YARN_BERRY_UP_SUBCOMMAND, YARN_BIN_NAME, YARN_CLASSIC_IGNORE_SCRIPTS_FLAG,
+    YARN_CLASSIC_LOCKFILE_MARKER, YARN_CLASSIC_UPGRADE_SUBCOMMAND,
+    YARN_LOCK_FILE_NAME, YarnLockFlavor, YarnRemediator, bun_update_argv,
+    bundle_add_argv, cargo_update_argv, composer_require_argv,
     detect_yarn_lock_flavor, go_get_argv, gradle_update_argv,
     npm_install_argv, pnpm_update_argv, poetry_add_argv,
     remediation_apply_strategy_for_finding, uv_add_argv, yarn_remediate_argv,
@@ -83,6 +88,8 @@ pub enum ApplyStrategy {
     RubyGems,
     Gradle,
     Maven,
+    Composer,
+    Nuget,
 }
 
 impl ApplyStrategy {
@@ -100,6 +107,8 @@ impl ApplyStrategy {
             Self::RubyGems => "ruby_gems",
             Self::Gradle => "gradle",
             Self::Maven => "maven",
+            Self::Composer => "composer",
+            Self::Nuget => "nuget",
         }
     }
 }
@@ -234,6 +243,56 @@ fn fixed_version_for_installed(
     }
 }
 
+/// Attach W3-1 version-coverage fields on `match_explain` by locally
+/// re-evaluating FR-039 ranges against the installed package version.
+pub fn attach_match_version_coverage(
+    record: &mut CveRecord,
+    installed_version: &str,
+) {
+    let Some(installed) = parse_fixed_version(installed_version) else {
+        let explain =
+            record.match_explain.get_or_insert_with(Default::default);
+        explain.version_in_covering_range = None;
+        explain.covering_range_index = None;
+        return;
+    };
+
+    let mut covering_index: Option<usize> = None;
+    let mut any_evaluable = false;
+    for (idx, range) in record.affected_ranges.iter().enumerate() {
+        match range.range_type {
+            AffectedRangeType::Ecosystem | AffectedRangeType::Semver => {}
+            AffectedRangeType::Git => continue,
+        }
+        match covering_fixed_from_range(&installed, &range.events) {
+            Ok(Some(_)) => {
+                covering_index = Some(idx);
+                any_evaluable = true;
+                break;
+            }
+            Ok(None) => {
+                any_evaluable = true;
+            }
+            Err(()) => {
+                // Covering last_affected without a fix still means the
+                // installed version sits in an affected interval.
+                covering_index = Some(idx);
+                any_evaluable = true;
+                break;
+            }
+        }
+    }
+
+    let explain = record.match_explain.get_or_insert_with(Default::default);
+    if any_evaluable {
+        explain.version_in_covering_range = Some(covering_index.is_some());
+        explain.covering_range_index = covering_index;
+    } else {
+        explain.version_in_covering_range = None;
+        explain.covering_range_index = None;
+    }
+}
+
 /// Walk OSV events for one range. `Ok(Some(fixed))` when the installed
 /// version sits in a `[introduced, fixed)` interval. `Ok(None)` when no
 /// covering interval applies. `Err(())` for unparsable fixed/introduced or a
@@ -351,7 +410,32 @@ mod tests {
             in_kev: None,
             epss: None,
             epss_percentile: None,
+            match_explain: None,
         }
+    }
+
+    #[test]
+    fn attach_match_version_coverage_marks_in_and_out_of_range() {
+        // fixed-only events treat lower bound as 0.0.0.
+        let mut in_range = cve_with_fixed(
+            "CVE-IN",
+            AffectedRangeType::Ecosystem,
+            Some("2.0.0"),
+        );
+        attach_match_version_coverage(&mut in_range, "1.0.0");
+        let explain = in_range.match_explain.expect("explain");
+        assert_eq!(explain.version_in_covering_range, Some(true));
+        assert_eq!(explain.covering_range_index, Some(0));
+
+        let mut out = cve_with_fixed(
+            "CVE-OUT",
+            AffectedRangeType::Ecosystem,
+            Some("1.0.0"),
+        );
+        attach_match_version_coverage(&mut out, "1.0.0");
+        let explain = out.match_explain.expect("explain");
+        assert_eq!(explain.version_in_covering_range, Some(false));
+        assert_eq!(explain.covering_range_index, None);
     }
 
     #[test]
@@ -360,6 +444,7 @@ mod tests {
             name: "requests".to_string(),
             version: "2.31.0".to_string(),
             ecosystem: Some("npm".to_string()),
+            ..Default::default()
         };
         let decls = vec![empty_decl(DeclarationKind::Manifest)];
         let cves =
@@ -379,6 +464,7 @@ mod tests {
             name: "requests".to_string(),
             version: "0.5.0".to_string(),
             ecosystem: Some("npm".to_string()),
+            ..Default::default()
         };
         let decls = vec![empty_decl(DeclarationKind::Manifest)];
         let cves = vec![
@@ -421,6 +507,7 @@ mod tests {
             in_kev: None,
             epss: None,
             epss_percentile: None,
+            match_explain: None,
         }
     }
 
@@ -472,6 +559,7 @@ mod tests {
             name: "rand".to_string(),
             version: "0.9.2".to_string(),
             ecosystem: Some(vlz_db::CRATES_IO_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let plan = plan_upgrade_for_finding(&on_09, &decls, &cves);
         assert_eq!(plan.minimal_fixed_version, "0.9.3");
@@ -482,6 +570,7 @@ mod tests {
             name: "rand".to_string(),
             version: "0.8.5".to_string(),
             ecosystem: Some(vlz_db::CRATES_IO_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         assert_eq!(
             plan_upgrade_for_finding(&on_08, &decls, &cves)
@@ -493,6 +582,7 @@ mod tests {
             name: "rand".to_string(),
             version: "0.10.0".to_string(),
             ecosystem: Some(vlz_db::CRATES_IO_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         assert_eq!(
             plan_upgrade_for_finding(&on_10, &decls, &cves)
@@ -507,6 +597,7 @@ mod tests {
             name: "left-pad".to_string(),
             version: "0.9.2".to_string(),
             ecosystem: Some(vlz_db::NPM_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let decls = vec![PackageDeclarationLocation {
             path: "package-lock.json".to_string(),
@@ -526,6 +617,7 @@ mod tests {
             name: "foo".to_string(),
             version: "1.0.0".to_string(),
             ecosystem: Some("npm".to_string()),
+            ..Default::default()
         };
         let decls = vec![empty_decl(DeclarationKind::Manifest)];
         let cves = vec![cve_with_events(
@@ -553,6 +645,7 @@ mod tests {
             name: "foo".to_string(),
             version: "any".to_string(),
             ecosystem: Some("npm".to_string()),
+            ..Default::default()
         };
         let decls = vec![empty_decl(DeclarationKind::Manifest)];
         let cves = vec![cve_with_fixed(
@@ -571,6 +664,7 @@ mod tests {
             name: "com.example:lib".to_string(),
             version: "1.0".to_string(),
             ecosystem: Some(vlz_db::MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let decls = vec![PackageDeclarationLocation {
             path: "pom.xml".to_string(),
@@ -595,6 +689,7 @@ mod tests {
             name: "foo".to_string(),
             version: "1.0.0".to_string(),
             ecosystem: Some("pypi".to_string()),
+            ..Default::default()
         };
         let decls = vec![empty_decl(DeclarationKind::Manifest)];
         let cves = vec![
@@ -612,6 +707,7 @@ mod tests {
             name: "foo".to_string(),
             version: "1.0.0".to_string(),
             ecosystem: Some("npm".to_string()),
+            ..Default::default()
         };
         let decls = vec![empty_decl(DeclarationKind::Manifest)];
         let cves = vec![cve_with_fixed(
@@ -630,6 +726,7 @@ mod tests {
             name: "foo".to_string(),
             version: "1.0.0".to_string(),
             ecosystem: Some("npm".to_string()),
+            ..Default::default()
         };
         let decls = vec![empty_decl(DeclarationKind::Lockfile)];
         let cves = vec![cve_with_fixed(
@@ -649,6 +746,7 @@ mod tests {
             name: "foo".to_string(),
             version: "1.0.0".to_string(),
             ecosystem: Some("npm".to_string()),
+            ..Default::default()
         };
         let cves = vec![cve_with_fixed(
             "CVE-1",
@@ -667,6 +765,7 @@ mod tests {
             name: "foo".to_string(),
             version: "1.0.0".to_string(),
             ecosystem: Some("npm".to_string()),
+            ..Default::default()
         };
         let decls = vec![empty_decl(DeclarationKind::Manifest)];
         let cves = vec![cve_with_fixed(
@@ -694,6 +793,8 @@ mod tests {
         assert_eq!(ApplyStrategy::RubyGems.as_str(), "ruby_gems");
         assert_eq!(ApplyStrategy::Gradle.as_str(), "gradle");
         assert_eq!(ApplyStrategy::Maven.as_str(), "maven");
+        assert_eq!(ApplyStrategy::Composer.as_str(), "composer");
+        assert_eq!(ApplyStrategy::Nuget.as_str(), "nuget");
         assert_eq!(DependencyKind::Direct.as_str(), "direct");
         assert_eq!(DependencyKind::Transitive.as_str(), "transitive");
         assert_eq!(DependencyKind::Unknown.as_str(), "unknown");
@@ -707,6 +808,7 @@ mod tests {
             name: "left-pad".to_string(),
             version: "1.0.0".to_string(),
             ecosystem: Some(NPM_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let npm_decls = vec![PackageDeclarationLocation {
             path: "package-lock.json".to_string(),
@@ -731,6 +833,7 @@ mod tests {
             name: "serde".to_string(),
             version: "1.0.0".to_string(),
             ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let cargo_decls = vec![PackageDeclarationLocation {
             path: "Cargo.lock".to_string(),

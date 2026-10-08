@@ -430,8 +430,8 @@ Do not duplicate Must/Should lists here.
 
 Notes that remain true until the matching roadmap ID ships:
 
-- **Manifest-path scoping for false-positives (W3-2):** Path scoping is tracked
-  on the roadmap; `project_id` (FR-015) is the current scoping mechanism.
+- **Manifest-path scoping for false-positives (W3-2):** Shipped -- `vlz fp mark
+  --path` plus `--expires-at`; `project_id` (FR-015) remains available.
 - **Thin editor clients (HC-8):** Marketplace-specific clients such as
   `verilyze/vscode-vlz` stay out of this repository; PATH-first `vlz lsp` is
   the integration surface (DOC-014).

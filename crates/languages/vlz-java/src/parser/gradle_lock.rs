@@ -52,6 +52,7 @@ pub fn parse_gradle_lock_with_declarations(
             name: name.clone(),
             version: version.clone(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         packages.push(pkg.clone());
         parsed.push(ParsedDependency {

@@ -539,6 +539,7 @@ mod tests {
                 name: "lodash".into(),
                 version: "^4.17.0".into(),
                 ecosystem: Some(NPM_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("package.json")),
@@ -571,6 +572,7 @@ mod tests {
                 name: "lodash".into(),
                 version: "^4.17.0".into(),
                 ecosystem: Some(NPM_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("package.json")),
@@ -601,6 +603,7 @@ mod tests {
                 name: "lodash".into(),
                 version: "4.17.21".into(),
                 ecosystem: Some(NPM_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("package.json")),
@@ -643,6 +646,7 @@ mod tests {
                 name: "lodash".into(),
                 version: "^4.17.0".into(),
                 ecosystem: Some(NPM_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("package.json")),
@@ -688,6 +692,7 @@ mod tests {
                 name: "lodash".into(),
                 version: "^4.17.0".into(),
                 ecosystem: Some(NPM_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("package.json")),
@@ -722,6 +727,7 @@ mod tests {
                 name: "lodash".into(),
                 version: "4.17.21".into(),
                 ecosystem: Some(NPM_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("package.json")),
@@ -813,6 +819,7 @@ mod tests {
                 name: "lodash".into(),
                 version: "^4.17.0".into(),
                 ecosystem: Some(NPM_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("package.json")),
@@ -880,6 +887,7 @@ mod tests {
                 name: "lodash".into(),
                 version: "4.17.21".into(),
                 ecosystem: Some(NPM_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("package.json")),
@@ -899,6 +907,7 @@ mod tests {
                 name: "lodash".into(),
                 version: "1.0.0".into(),
                 ecosystem: Some(NPM_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: None,
@@ -995,6 +1004,7 @@ mod tests {
                 name: "x".into(),
                 version: "1.0.0".into(),
                 ecosystem: Some(NPM_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(proj.path().join("package.json")),
@@ -1086,6 +1096,7 @@ mod tests {
                 name: "lodash".into(),
                 version: "4.17.21".into(),
                 ecosystem: Some(NPM_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("package.json")),
@@ -1157,6 +1168,7 @@ mod tests {
                     name: "lodash".into(),
                     version: "4.17.21".into(),
                     ecosystem: Some(NPM_ECOSYSTEM.into()),
+                    ..Default::default()
                 }],
                 parsed_dependencies: Vec::new(),
                 manifest_path: Some(proj.path().join("package.json")),
@@ -1218,6 +1230,7 @@ mod tests {
                 name: "x".into(),
                 version: "1.0.0".into(),
                 ecosystem: Some(NPM_ECOSYSTEM.into()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(proj.path().join("package.json")),

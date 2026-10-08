@@ -547,6 +547,7 @@ mod tests {
             name: package_name.to_string(),
             version: "1.0.0".to_string(),
             ecosystem: Some("Go".to_string()),
+            ..Default::default()
         };
         TierBContext {
             scan_root: root,
@@ -729,6 +730,7 @@ mod tests {
             name: "github.com/foo/bar".to_string(),
             version: "1.0.0".to_string(),
             ecosystem: Some("Go".to_string()),
+            ..Default::default()
         };
         let ctx = TierBContext {
             scan_root: dir.path(),

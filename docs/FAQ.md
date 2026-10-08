@@ -342,6 +342,36 @@ declarations show where a dependency is declared, not where vulnerable code runs
 
 ---
 
+## Matching transparency (W3-1)
+
+### What is the `match` field on each CVE in the JSON report?
+
+Structured matching explain data: which CVE providers contributed, which
+provider won the multi-provider merge and why (`affected_ranges`,
+`cvss_version`, `provider_order`, or `sole`), the package query identity
+(name / version / ecosystem), collapsed aliases, and whether the installed
+version sits in a covering advisory range (`version_in_covering_range` /
+`covering_range_index`). SARIF includes the same object under
+`properties.match`. JSON and SARIF are the primary surfaces; plain/HTML stay
+compact.
+
+## False-positive expiry and path scope (W3-2)
+
+### How do I expire or path-scope an FP mark?
+
+`vlz fp mark CVE-… --expires-at EPOCH_SECS` stores an expiry; expired marks
+are ignored during scan. Repeat `--path PATH` to limit the mark to matching
+manifest paths (prefix / exact). Empty paths keep project-wide scope
+(FR-015 `project_id` still applies).
+
+## SBOM PURL qualifiers (W3-3)
+
+### Are PURL qualifiers preserved on SBOM consume?
+
+Yes. `package_from_purl` keeps `?qualifiers` and `#subpath` on the package
+for round-trip fidelity. OSV queries and CVE cache identity still use
+name / version / ecosystem only.
+
 ## Advisory ranges (FR-039)
 
 ### What is the Ranges column / `affected_ranges` field?

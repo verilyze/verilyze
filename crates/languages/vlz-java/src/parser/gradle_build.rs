@@ -69,6 +69,7 @@ pub(crate) fn parse_gradle_build_with_declarations(
                     name: maven_package_name(group, artifact),
                     version: version.to_string(),
                     ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+                    ..Default::default()
                 },
                 path: path.to_path_buf(),
                 start_line: (line_no + 1) as u32,
@@ -96,6 +97,7 @@ pub(crate) fn parse_gradle_build_with_declarations(
                         name: maven_package_name(group, artifact),
                         version: version.clone(),
                         ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+                        ..Default::default()
                     },
                     path: path.to_path_buf(),
                     start_line: (line_no + 1) as u32,

@@ -384,6 +384,7 @@ mod tests {
             name: "demo".into(),
             version: "1.0.0".into(),
             ecosystem: Some("PyPI".into()),
+            ..Default::default()
         }
     }
 
@@ -401,6 +402,7 @@ mod tests {
             in_kev: None,
             epss: None,
             epss_percentile: None,
+            match_explain: None,
         }
     }
 
@@ -483,6 +485,8 @@ mod tests {
                 justification: Some("vulnerable_code_not_present".into()),
                 status: Some("not_affected".into()),
                 detail: Some("never imported".into()),
+                expires_at_secs: None,
+                paths: Vec::new(),
             },
         );
         let stmts = derive_vex_statements(
@@ -516,6 +520,8 @@ mod tests {
                 justification: Some("vulnerable_code_not_present".into()),
                 status: Some("not_affected".into()),
                 detail: Some("alias mark".into()),
+                expires_at_secs: None,
+                paths: Vec::new(),
             },
         );
         let mut raw_vulns = HashMap::new();
@@ -558,6 +564,8 @@ mod tests {
                 justification: None,
                 status: None,
                 detail: None,
+                expires_at_secs: None,
+                paths: Vec::new(),
             },
         );
         let stmts = derive_vex_statements(
@@ -655,6 +663,8 @@ mod tests {
                 ),
                 status: Some("not_affected".into()),
                 detail: None,
+                expires_at_secs: None,
+                paths: Vec::new(),
             },
         );
         // Suppressed path (FP) must win; active findings list is empty after filter.

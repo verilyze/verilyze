@@ -81,6 +81,7 @@ pub fn parse_npm_lock_with_declarations(
                 name: name.to_string(),
                 version: version.to_string(),
                 ecosystem: Some(NPM_ECOSYSTEM.to_string()),
+                ..Default::default()
             };
             if seen.insert((pkg.name.clone(), pkg.version.clone())) {
                 packages.push(pkg);
@@ -148,6 +149,7 @@ fn collect_v1_deps(
                 name: name.clone(),
                 version: version.to_string(),
                 ecosystem: Some(NPM_ECOSYSTEM.to_string()),
+                ..Default::default()
             };
             if seen.insert((pkg.name.clone(), pkg.version.clone())) {
                 out.push(pkg);

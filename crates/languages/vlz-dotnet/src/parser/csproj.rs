@@ -96,6 +96,7 @@ pub fn parse_csproj_with_declarations(
                                 name,
                                 version,
                                 ecosystem: Some(NUGET_ECOSYSTEM.to_string()),
+                                ..Default::default()
                             },
                             path: path.to_path_buf(),
                             start_line: if line == 0 { 1 } else { line },

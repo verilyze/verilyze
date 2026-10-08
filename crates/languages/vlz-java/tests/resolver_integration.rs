@@ -22,6 +22,7 @@ fn pom_graph(root: &std::path::Path) -> vlz_manifest_parser::DependencyGraph {
             name: "com.google.guava:guava".into(),
             version: "33.0.0-jre".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         }],
         parsed_dependencies: Vec::new(),
         manifest_path: Some(root.join("pom.xml")),
@@ -48,6 +49,7 @@ guava = { module = "com.google.guava:guava", version.ref = "guava" }
             name: "com.google.guava:guava".into(),
             version: "33.0.0-jre".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         }],
         parsed_dependencies: Vec::new(),
         manifest_path: Some(root.join("gradle/libs.versions.toml")),
@@ -127,6 +129,7 @@ fn gradle_lock_resolves_transitive() {
             name: "org.springframework:spring-beans".into(),
             version: "5.0.5.RELEASE".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         }],
         parsed_dependencies: Vec::new(),
         manifest_path: Some(root.join("build.gradle")),
@@ -161,6 +164,7 @@ fn gradle_lock_as_manifest_entry_is_transitive() {
             name: "com.example:lib".into(),
             version: "1.0.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         }],
         parsed_dependencies: Vec::new(),
         manifest_path: Some(lock),

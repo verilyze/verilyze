@@ -100,6 +100,7 @@ fn parse_libraries_section(
             name,
             version,
             ecosystem: Some(NUGET_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         packages.push(pkg.clone());
         parsed.push(ParsedDependency {

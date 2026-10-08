@@ -24,6 +24,7 @@ pub fn parse_pep508_dependency(spec: &str) -> Option<vlz_db::Package> {
         name,
         version,
         ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
+        ..Default::default()
     })
 }
 
