@@ -191,4 +191,26 @@ mod tests {
             selector_match_lines(content, &["Spec".into()], "vulnerable");
         assert_eq!(lines, vec![2]);
     }
+
+    #[test]
+    fn java_tier_d_edge_cases() {
+        assert_eq!(trailing_java_ident("bad-name"), None);
+        assert!(selector_match_lines("x", &[], "vulnerable").is_empty());
+        assert!(selector_match_lines("x", &["Widget".into()], "").is_empty());
+        let empty_alias =
+            collect_java_import_bindings("import com.example.Widget as ;\n");
+        assert!(
+            empty_alias.is_empty()
+                || empty_alias
+                    .iter()
+                    .all(|b| !b.local.is_empty() && b.local != "*")
+        );
+        let star = collect_java_import_bindings("import com.example.*;\n");
+        assert!(!star.iter().any(|b| b.local == "*"));
+        let content = "xWidget.vulnerable\nWidget.vulnerable();\n";
+        assert_eq!(
+            selector_match_lines(content, &["Widget".into()], "vulnerable"),
+            vec![2]
+        );
+    }
 }

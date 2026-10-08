@@ -197,4 +197,36 @@ mod tests {
         assert_eq!(commented.len(), 1);
         assert_eq!(commented[0].fqcn, "Carbon\\Carbon");
     }
+
+    #[test]
+    fn php_tier_d_edge_cases() {
+        assert_eq!(trailing_php_ident("Foo\\"), None);
+        assert_eq!(trailing_php_ident("1bad"), None);
+        assert_eq!(trailing_php_ident("bad-name"), None);
+        assert!(!binding_matches_package(
+            &PhpUseBinding {
+                local: "X".into(),
+                fqcn: "X".into(),
+            },
+            "noslash"
+        ));
+        assert!(!binding_matches_package(
+            &PhpUseBinding {
+                local: "X".into(),
+                fqcn: "X".into(),
+            },
+            "a/b"
+        ));
+        assert!(selector_match_lines("x", &[], "warning").is_empty());
+        assert!(selector_match_lines("x", &["Log".into()], "").is_empty());
+        let content =
+            "<?php\n$xLog->warning\n$Log->warning('x');\nLog::warning('y');\n";
+        assert_eq!(
+            selector_match_lines(content, &["Log".into()], "warning"),
+            vec![3, 4]
+        );
+        let function_use =
+            collect_php_use_bindings("<?php\nuse function Foo\\bar;\n");
+        assert!(function_use.iter().any(|b| b.fqcn.contains("Foo")));
+    }
 }

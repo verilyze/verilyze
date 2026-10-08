@@ -129,4 +129,53 @@ mod tests {
             Some(other.as_path())
         );
     }
+
+    #[test]
+    fn from_maps_all_corpus_import_cosign_variants() {
+        assert!(matches!(
+            CosignVerifyError::from(vlz_db::CorpusImportError::CosignMissing),
+            CosignVerifyError::CosignMissing
+        ));
+        assert!(matches!(
+            CosignVerifyError::from(
+                vlz_db::CorpusImportError::CosignBundleMissing(
+                    "/missing.bundle".into()
+                )
+            ),
+            CosignVerifyError::BundleMissing(p) if p == "/missing.bundle"
+        ));
+        match CosignVerifyError::from(
+            vlz_db::CorpusImportError::CosignVerifyFailed("bad sig".into()),
+        ) {
+            CosignVerifyError::VerifyFailed { detail, .. } => {
+                assert_eq!(detail, "bad sig");
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+        match CosignVerifyError::from(vlz_db::CorpusImportError::Parse(
+            "oops".into(),
+        )) {
+            CosignVerifyError::VerifyFailed { detail, .. } => {
+                assert!(detail.contains("oops"));
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+
+    #[test]
+    fn try_verify_blob_skips_without_bundle_and_fails_with_bundle() {
+        let dir = tempfile::tempdir().unwrap();
+        let blob = dir.path().join("vex.json");
+        std::fs::write(&blob, b"{}").unwrap();
+        assert!(!try_verify_blob(&blob, None).unwrap());
+
+        let bundle = dir.path().join("forced.sigstore.json");
+        std::fs::write(&bundle, b"{}").unwrap();
+        let err = try_verify_blob(&blob, Some(&bundle)).unwrap_err();
+        match err {
+            CosignVerifyError::CosignMissing
+            | CosignVerifyError::VerifyFailed { .. }
+            | CosignVerifyError::BundleMissing(_) => {}
+        }
+    }
 }

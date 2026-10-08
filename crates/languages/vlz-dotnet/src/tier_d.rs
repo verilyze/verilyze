@@ -208,4 +208,29 @@ mod tests {
         };
         assert!(binding_matches_package(&text, "System.Text.Json"));
     }
+
+    #[test]
+    fn trailing_ident_and_selector_edge_cases() {
+        assert_eq!(trailing_dotnet_ident("Foo."), None);
+        assert_eq!(trailing_dotnet_ident("1bad"), None);
+        assert_eq!(trailing_dotnet_ident("bad-name"), None);
+        assert_eq!(symbol_receiver("nosplit"), None);
+        assert_eq!(symbol_receiver(".Serialize"), None);
+        assert_eq!(symbol_receiver("a/b.Serialize"), None);
+        assert!(selector_match_lines("x", &[], "Serialize").is_empty());
+        assert!(selector_match_lines("x", &["Json".into()], "").is_empty());
+        // Bounded match: overlapping false prefix then a real hit.
+        let content = "xJsonConvert.Serialize\nJsonConvert.Serialize(x);\n";
+        assert_eq!(
+            selector_match_lines(
+                content,
+                &["JsonConvert".into()],
+                "Serialize"
+            ),
+            vec![2]
+        );
+        let fsharp = "open Newtonsoft.Json\n";
+        let binds = collect_dotnet_using_bindings(fsharp);
+        assert!(binds.iter().any(|b| b.path == "Newtonsoft.Json"));
+    }
 }

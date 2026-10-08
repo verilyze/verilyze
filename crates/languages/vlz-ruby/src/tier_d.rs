@@ -165,4 +165,28 @@ mod tests {
         let lines = selector_match_lines(content, &["Rack".into()], "get");
         assert_eq!(lines, vec![2]);
     }
+
+    #[test]
+    fn ruby_tier_d_edge_cases() {
+        assert_eq!(trailing_ruby_ident("Foo#"), None);
+        assert_eq!(trailing_ruby_ident("1bad"), None);
+        assert_eq!(trailing_ruby_ident("bad-name"), None);
+        assert_eq!(camelize_feature(""), "");
+        assert_eq!(camelize_feature("__"), "");
+        assert_eq!(camelize_feature("open_ssl"), "OpenSsl");
+        assert!(selector_match_lines("x", &[], "get").is_empty());
+        assert!(selector_match_lines("x", &["Rack".into()], "").is_empty());
+        let content = "xRack.get\nRack.get('/')\nRack::get('/')\n";
+        assert_eq!(
+            selector_match_lines(content, &["Rack".into()], "get"),
+            vec![2, 3]
+        );
+        assert!(binding_matches_package(
+            &RubyRequireBinding {
+                local: "OpenSSL".into(),
+                feature: "open-ssl".into(),
+            },
+            "open_ssl"
+        ));
+    }
 }
