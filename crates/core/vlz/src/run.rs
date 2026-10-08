@@ -105,6 +105,34 @@ fn verify_vex_cosign_sidecar(
     }
 }
 
+/// Whether a marked FP/VEX key should suppress this finding (W3-2 / FR-049).
+///
+/// Ignore-DB entries honor path scope. VEX-only keys remain path-unscoped.
+/// Marked without an ignore entry and without a VEX-only key does not suppress
+/// (keeps scan and fix paths aligned).
+fn fp_mark_suppresses_finding(
+    cve_id: &str,
+    raw: &[serde_json::Value],
+    marked_fp: &std::collections::HashSet<String>,
+    fp_entries: &std::collections::HashMap<String, vlz_db::FpEntry>,
+    vex_only_keys: &std::collections::HashSet<String>,
+    pkg_paths: &[String],
+) -> bool {
+    if !vlz_db::record_is_fp_marked(cve_id, raw, marked_fp) {
+        return false;
+    }
+    if let Some(entry) = vlz_db::matching_fp_entry(cve_id, raw, fp_entries) {
+        return vlz_db::fp_entry_applies_to_paths(&entry, pkg_paths);
+    }
+    vex_only_keys.iter().any(|k| {
+        vlz_db::record_is_fp_marked(
+            cve_id,
+            raw,
+            &std::collections::HashSet::from([k.clone()]),
+        )
+    })
+}
+
 /// Format a remediator apply failure for stderr (FR-041).
 ///
 /// Includes package-manager stderr when the error is [`RemediationError::CommandFailed`].
@@ -1569,8 +1597,11 @@ pub async fn run(args: Cli) -> Result<i32> {
                             vlz_report::DEFAULT_FP_VEX_STATUS.to_string()
                         })
                     });
-                    let path_refs: Vec<&str> =
-                        paths.iter().map(String::as_str).collect();
+                    let path_refs: Vec<&str> = paths
+                        .iter()
+                        .map(String::as_str)
+                        .filter(|p| !p.is_empty())
+                        .collect();
                     let paths_arg = if path_refs.is_empty() {
                         None
                     } else {
@@ -2355,11 +2386,25 @@ async fn run_scan(
     if !effective.from_vex.is_empty() {
         let mut ingest_warnings = Vec::new();
         let mut ingested_keys = std::collections::HashSet::new();
+        // Explicit `--vex-cosign-bundle` applies only when a single VEX file
+        // is configured; multi-file ingest uses per-file sibling bundles.
+        let explicit_bundle = if effective.from_vex.len() == 1 {
+            effective.vex_cosign_bundle.as_deref()
+        } else {
+            if effective.vex_cosign_bundle.is_some() {
+                ingest_warnings.push(
+                    "--vex-cosign-bundle ignored for multi-file --from-vex; \
+                     using sibling *.sigstore.json per file"
+                        .to_string(),
+                );
+            }
+            None
+        };
         for path in &effective.from_vex {
             let signature_verified = verify_vex_cosign_sidecar(
                 path,
                 effective.vex.allow_unsigned_vex,
-                effective.vex_cosign_bundle.as_deref(),
+                explicit_bundle,
                 &mut ingest_warnings,
             );
             let policy = vlz_report::VexIngestPolicy {
@@ -2414,30 +2459,14 @@ async fn run_scan(
                 let mut kept = Vec::new();
                 let mut suppressed = Vec::new();
                 for cve in recs {
-                    let marked =
-                        vlz_db::record_is_fp_marked(&cve.id, raw, &marked_fp);
-                    if !marked {
-                        kept.push(cve);
-                        continue;
-                    }
-                    // Path-scoped FP entries (W3-2): only suppress when the
-                    // matching ignore entry applies to this package's paths.
-                    // Pure VEX suppressions remain path-unscoped.
-                    let applies = if let Some(entry) =
-                        vlz_db::matching_fp_entry(&cve.id, raw, &fp_entries)
-                    {
-                        vlz_db::fp_entry_applies_to_paths(&entry, &pkg_paths)
-                    } else {
-                        // Marked via VEX ingest only (not in ignore DB).
-                        vex_only_keys.iter().any(|k| {
-                            vlz_db::record_is_fp_marked(
-                                &cve.id,
-                                raw,
-                                &std::collections::HashSet::from([k.clone()]),
-                            )
-                        }) || marked
-                    };
-                    if applies {
+                    if fp_mark_suppresses_finding(
+                        &cve.id,
+                        raw,
+                        &marked_fp,
+                        &fp_entries,
+                        &vex_only_keys,
+                        &pkg_paths,
+                    ) {
                         suppressed.push(cve);
                     } else {
                         kept.push(cve);
@@ -2985,11 +3014,25 @@ async fn scan_findings_for_fix(
     if !effective.from_vex.is_empty() {
         let mut ingest_warnings = Vec::new();
         let mut ingested_keys = std::collections::HashSet::new();
+        // Explicit `--vex-cosign-bundle` applies only when a single VEX file
+        // is configured; multi-file ingest uses per-file sibling bundles.
+        let explicit_bundle = if effective.from_vex.len() == 1 {
+            effective.vex_cosign_bundle.as_deref()
+        } else {
+            if effective.vex_cosign_bundle.is_some() {
+                ingest_warnings.push(
+                    "--vex-cosign-bundle ignored for multi-file --from-vex; \
+                     using sibling *.sigstore.json per file"
+                        .to_string(),
+                );
+            }
+            None
+        };
         for path in &effective.from_vex {
             let signature_verified = verify_vex_cosign_sidecar(
                 path,
                 effective.vex.allow_unsigned_vex,
-                effective.vex_cosign_bundle.as_deref(),
+                explicit_bundle,
                 &mut ingest_warnings,
             );
             let policy = vlz_report::VexIngestPolicy {
@@ -3047,24 +3090,14 @@ async fn scan_findings_for_fix(
             let kept: Vec<_> = recs
                 .into_iter()
                 .filter(|cve| {
-                    if !vlz_db::record_is_fp_marked(&cve.id, raw, &marked_fp) {
-                        return true;
-                    }
-                    if let Some(entry) =
-                        vlz_db::matching_fp_entry(&cve.id, raw, &fp_entries)
-                    {
-                        return !vlz_db::fp_entry_applies_to_paths(
-                            &entry, &pkg_paths,
-                        );
-                    }
-                    let vex_hit = vex_only_keys.iter().any(|k| {
-                        vlz_db::record_is_fp_marked(
-                            &cve.id,
-                            raw,
-                            &std::collections::HashSet::from([k.clone()]),
-                        )
-                    });
-                    !vex_hit
+                    !fp_mark_suppresses_finding(
+                        &cve.id,
+                        raw,
+                        &marked_fp,
+                        &fp_entries,
+                        &vex_only_keys,
+                        &pkg_paths,
+                    )
                 })
                 .collect();
             (pkg, kept)

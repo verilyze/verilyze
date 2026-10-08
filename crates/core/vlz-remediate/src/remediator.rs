@@ -390,6 +390,13 @@ fn lock_basename_eq(path: &str, expected: &str) -> bool {
     Path::new(path).file_name().is_some_and(|n| n == expected)
 }
 
+fn lock_basename_eq_ignore_ascii_case(path: &str, expected: &str) -> bool {
+    Path::new(path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|n| n.eq_ignore_ascii_case(expected))
+}
+
 /// True for `pylock.toml` or `pylock.*.toml` (PEP 751).
 fn is_applyable_python_lockfile(path: &str) -> bool {
     lock_basename_eq(path, POETRY_LOCK_FILE_NAME)
@@ -3066,11 +3073,36 @@ fn select_nuget_edit_path(
     ctx: &RemediationContext<'_>,
 ) -> Result<std::path::PathBuf, RemediationError> {
     let props_dirs = distinct_decl_dirs(ctx, DeclarationKind::Manifest, |p| {
-        lock_basename_eq(p, DIRECTORY_PACKAGES_PROPS_FILE_NAME)
+        lock_basename_eq_ignore_ascii_case(
+            p,
+            DIRECTORY_PACKAGES_PROPS_FILE_NAME,
+        )
     });
     match props_dirs.as_slice() {
         [dir] => {
-            return Ok(dir.join(DIRECTORY_PACKAGES_PROPS_FILE_NAME));
+            let props_name = ctx
+                .declarations
+                .iter()
+                .find(|d| {
+                    d.kind == DeclarationKind::Manifest
+                        && lock_basename_eq_ignore_ascii_case(
+                            d.path.as_str(),
+                            DIRECTORY_PACKAGES_PROPS_FILE_NAME,
+                        )
+                        && resolve_lock_workdir_under_root(
+                            ctx.scan_root,
+                            d.path.as_str(),
+                        )
+                        .as_ref()
+                            == Some(dir)
+                })
+                .and_then(|d| {
+                    Path::new(d.path.as_str())
+                        .file_name()
+                        .map(|n| n.to_os_string())
+                })
+                .unwrap_or_else(|| DIRECTORY_PACKAGES_PROPS_FILE_NAME.into());
+            return Ok(dir.join(props_name));
         }
         [] => {}
         _ => {
@@ -3085,10 +3117,10 @@ fn select_nuget_edit_path(
     });
     match proj_dirs.as_slice() {
         [dir] => {
-            let name = ctx
+            let matches: Vec<_> = ctx
                 .declarations
                 .iter()
-                .find(|d| {
+                .filter(|d| {
                     d.kind == DeclarationKind::Manifest
                         && is_nuget_project_manifest(d.path.as_str())
                         && resolve_lock_workdir_under_root(
@@ -3098,18 +3130,29 @@ fn select_nuget_edit_path(
                         .as_ref()
                         == Some(dir)
                 })
-                .and_then(|d| {
-                    Path::new(d.path.as_str())
+                .collect();
+            match matches.as_slice() {
+                [d] => {
+                    let name = Path::new(d.path.as_str())
                         .file_name()
                         .map(|n| n.to_os_string())
-                })
-                .ok_or_else(|| {
-                    RemediationError::UnsupportedLockLayout(
-                        "NuGet project manifest not found under scan root"
-                            .to_string(),
-                    )
-                })?;
-            Ok(dir.join(name))
+                        .ok_or_else(|| {
+                            RemediationError::UnsupportedLockLayout(
+                                "NuGet project manifest not found under scan root"
+                                    .to_string(),
+                            )
+                        })?;
+                    Ok(dir.join(name))
+                }
+                [] => Err(RemediationError::UnsupportedLockLayout(
+                    "NuGet project manifest not found under scan root"
+                        .to_string(),
+                )),
+                _ => Err(RemediationError::UnsupportedLockLayout(
+                    "multiple NuGet project files in one directory declare this package; refusing ambiguous remediation"
+                        .to_string(),
+                )),
+            }
         }
         [] => Err(RemediationError::UnsupportedLockLayout(
             "no editable NuGet pin (*.csproj / Directory.Packages.props) under scan root"
@@ -6215,6 +6258,33 @@ Path("Cargo.lock").write_text(new)
             .preview(&RemediationContext {
                 scan_root: root,
                 declarations: &[manifest_decl("App.csproj")],
+                package_name: "Newtonsoft.Json",
+                target_version: "13.0.3",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+    }
+
+    #[test]
+    fn nuget_refuses_multiple_csproj_in_same_directory() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        let pin = r#"<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+  </ItemGroup>
+</Project>
+"#;
+        fs::write(root.join("App.csproj"), pin).unwrap();
+        fs::write(root.join("Lib.csproj"), pin).unwrap();
+        let decls = [manifest_decl("App.csproj"), manifest_decl("Lib.csproj")];
+        let err = NugetRemediator::new()
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &decls,
                 package_name: "Newtonsoft.Json",
                 target_version: "13.0.3",
                 dependency_kind: DependencyKind::Direct,

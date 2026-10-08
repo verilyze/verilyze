@@ -45,17 +45,42 @@ pub fn collect_java_import_bindings(content: &str) -> Vec<JavaImportBinding> {
             .strip_prefix("import static ")
             .or_else(|| code.strip_prefix("import "))
             .unwrap_or("");
-        let Some(path) = normalize_import_path(rest) else {
+        if rest.is_empty() {
+            continue;
+        }
+        // Kotlin `import foo.Bar as Alias` -- keep Alias as the local name.
+        let (path_src, alias) = if let Some(idx) = rest.find(" as ") {
+            let alias = rest[idx + 4..]
+                .trim()
+                .trim_end_matches(';')
+                .trim()
+                .trim_end_matches('.')
+                .trim();
+            let alias = if alias.is_empty() {
+                None
+            } else {
+                Some(alias.to_string())
+            };
+            (&rest[..idx], alias)
+        } else {
+            (rest, None)
+        };
+        let Some(path) = normalize_import_path(path_src) else {
             continue;
         };
-        let Some(local) = path.rsplit('.').next() else {
-            continue;
+        let local = if let Some(a) = alias {
+            a
+        } else {
+            let Some(seg) = path.rsplit('.').next() else {
+                continue;
+            };
+            seg.to_string()
         };
         if local.is_empty() || local == "*" {
             continue;
         }
         out.push(JavaImportBinding {
-            local: local.to_string(),
+            local,
             import_path: path,
         });
     }
@@ -151,6 +176,19 @@ mod tests {
         ));
         let lines =
             selector_match_lines(content, &["Widget".into()], "vulnerable");
+        assert_eq!(lines, vec![2]);
+    }
+
+    #[test]
+    fn collect_kotlin_import_as_alias() {
+        let content =
+            "import com.example.widget.Widget as Spec\nSpec.vulnerable()\n";
+        let binds = collect_java_import_bindings(content);
+        assert!(binds.iter().any(|b| {
+            b.local == "Spec" && b.import_path == "com.example.widget.Widget"
+        }));
+        let lines =
+            selector_match_lines(content, &["Spec".into()], "vulnerable");
         assert_eq!(lines, vec![2]);
     }
 }

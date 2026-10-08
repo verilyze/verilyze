@@ -223,17 +223,20 @@ fn fixed_version_for_installed(
                 AffectedRangeType::Ecosystem | AffectedRangeType::Semver => {}
                 AffectedRangeType::Git => continue,
             }
-            match covering_fixed_from_range(&installed_ver, &range.events) {
-                Ok(None) => {}
-                Ok(Some(fixed)) => {
+            match covering_result_from_range(&installed_ver, &range.events) {
+                CoveringResult::Unevaluable => {
+                    return (false, MIN_FIXED_VERSION_UNKNOWN.to_string());
+                }
+                CoveringResult::InRangeFixed(fixed) => {
                     max_fixed = Some(match max_fixed {
                         Some(existing) => existing.max(fixed),
                         None => fixed,
                     });
                 }
-                Err(()) => {
+                CoveringResult::InRangeNoFix | CoveringResult::InRangeOpen => {
                     return (false, MIN_FIXED_VERSION_UNKNOWN.to_string());
                 }
+                CoveringResult::NotInRange => {}
             }
         }
     }
@@ -264,21 +267,19 @@ pub fn attach_match_version_coverage(
             AffectedRangeType::Ecosystem | AffectedRangeType::Semver => {}
             AffectedRangeType::Git => continue,
         }
-        match covering_fixed_from_range(&installed, &range.events) {
-            Ok(Some(_)) => {
+        match covering_result_from_range(&installed, &range.events) {
+            CoveringResult::Unevaluable => {
+                // Skip malformed events; do not claim coverage.
+            }
+            CoveringResult::InRangeFixed(_)
+            | CoveringResult::InRangeNoFix
+            | CoveringResult::InRangeOpen => {
                 covering_index = Some(idx);
                 any_evaluable = true;
                 break;
             }
-            Ok(None) => {
+            CoveringResult::NotInRange => {
                 any_evaluable = true;
-            }
-            Err(()) => {
-                // Covering last_affected without a fix still means the
-                // installed version sits in an affected interval.
-                covering_index = Some(idx);
-                any_evaluable = true;
-                break;
             }
         }
     }
@@ -293,29 +294,48 @@ pub fn attach_match_version_coverage(
     }
 }
 
-/// Walk OSV events for one range. `Ok(Some(fixed))` when the installed
-/// version sits in a `[introduced, fixed)` interval. `Ok(None)` when no
-/// covering interval applies. `Err(())` for unparsable fixed/introduced or a
-/// covering `last_affected` with no fix.
-fn covering_fixed_from_range(
+/// Outcome of evaluating installed version against one OSV event list.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum CoveringResult {
+    /// Installed pin sits in `[introduced, fixed)`.
+    InRangeFixed(Version),
+    /// Installed pin sits in a `last_affected` interval (no fix).
+    InRangeNoFix,
+    /// Installed pin is at/above an open-ended `introduced` (no upper bound).
+    InRangeOpen,
+    /// Events were evaluable and the pin is outside all intervals.
+    NotInRange,
+    /// Unparsable introduced/fixed/last_affected/limit.
+    Unevaluable,
+}
+
+/// Walk OSV events for one range (fixed / last_affected / limit / open-ended).
+fn covering_result_from_range(
     installed: &Version,
     events: &[vlz_db::AffectedEvent],
-) -> Result<Option<Version>, ()> {
+) -> CoveringResult {
     let zero = Version::new(0, 0, 0);
     let mut lower: Option<Version> = None;
     let mut covering_fixed: Option<Version> = None;
+    let mut open_after_introduced = false;
 
     for ev in events {
         if let Some(introduced) = ev.introduced.as_deref() {
             let intro = if introduced.trim() == "0" {
                 zero.clone()
             } else {
-                parse_fixed_version(introduced).ok_or(())?
+                let Some(v) = parse_fixed_version(introduced) else {
+                    return CoveringResult::Unevaluable;
+                };
+                v
             };
             lower = Some(intro);
+            open_after_introduced = true;
         }
         if let Some(fixed_s) = ev.fixed.as_deref() {
-            let fixed = parse_fixed_version(fixed_s).ok_or(())?;
+            let Some(fixed) = parse_fixed_version(fixed_s) else {
+                return CoveringResult::Unevaluable;
+            };
             let intro = lower.clone().unwrap_or_else(|| zero.clone());
             if *installed >= intro && *installed < fixed {
                 covering_fixed = Some(match covering_fixed {
@@ -326,17 +346,44 @@ fn covering_fixed_from_range(
             // Next interval (if any) starts at this fixed endpoint until a
             // later `introduced` resets the lower bound.
             lower = Some(fixed);
+            open_after_introduced = false;
         } else if let Some(last_s) = ev.last_affected.as_deref() {
-            let last = parse_fixed_version(last_s).ok_or(())?;
+            let Some(last) = parse_fixed_version(last_s) else {
+                return CoveringResult::Unevaluable;
+            };
             let intro = lower.clone().unwrap_or_else(|| zero.clone());
             // Inclusive upper bound for last_affected intervals.
             if *installed >= intro && *installed <= last {
-                return Err(());
+                return CoveringResult::InRangeNoFix;
             }
             lower = Some(last);
+            open_after_introduced = false;
+        } else if let Some(limit_s) = ev.limit.as_deref() {
+            let Some(limit) = parse_fixed_version(limit_s) else {
+                return CoveringResult::Unevaluable;
+            };
+            let intro = lower.clone().unwrap_or_else(|| zero.clone());
+            // OSV `limit` is exclusive upper bound (like `fixed`).
+            if *installed >= intro && *installed < limit {
+                covering_fixed = Some(match covering_fixed {
+                    Some(existing) => existing.max(limit.clone()),
+                    None => limit.clone(),
+                });
+            }
+            lower = Some(limit);
+            open_after_introduced = false;
         }
     }
-    Ok(covering_fixed)
+    if let Some(fixed) = covering_fixed {
+        return CoveringResult::InRangeFixed(fixed);
+    }
+    if open_after_introduced
+        && let Some(intro) = lower.as_ref()
+        && *installed >= *intro
+    {
+        return CoveringResult::InRangeOpen;
+    }
+    CoveringResult::NotInRange
 }
 
 fn parse_fixed_version(s: &str) -> Option<Version> {
@@ -436,6 +483,92 @@ mod tests {
         let explain = out.match_explain.expect("explain");
         assert_eq!(explain.version_in_covering_range, Some(false));
         assert_eq!(explain.covering_range_index, None);
+    }
+
+    #[test]
+    fn attach_match_version_coverage_skips_unparsable_events() {
+        let mut rec = CveRecord {
+            id: "CVE-BAD".into(),
+            cvss_score: Some(7.0),
+            cvss_version: Some(CvssVersion::V3),
+            description: "desc".into(),
+            reachable: None,
+            advisory_symbols: vec![],
+            evidence: vec![],
+            symbol_usage: None,
+            affected_ranges: vec![AffectedRange {
+                range_type: AffectedRangeType::Ecosystem,
+                events: vec![AffectedEvent {
+                    introduced: Some("not-a-version".into()),
+                    fixed: Some("2.0.0".into()),
+                    ..Default::default()
+                }],
+                package_name: None,
+                ecosystem: None,
+            }],
+            in_kev: None,
+            epss: None,
+            epss_percentile: None,
+            match_explain: None,
+        };
+        attach_match_version_coverage(&mut rec, "1.0.0");
+        let explain = rec.match_explain.expect("explain");
+        assert_eq!(explain.version_in_covering_range, None);
+        assert_eq!(explain.covering_range_index, None);
+    }
+
+    #[test]
+    fn attach_match_version_coverage_limit_and_open_ended() {
+        let mut with_limit = CveRecord {
+            id: "CVE-LIMIT".into(),
+            cvss_score: Some(7.0),
+            cvss_version: Some(CvssVersion::V3),
+            description: "desc".into(),
+            reachable: None,
+            advisory_symbols: vec![],
+            evidence: vec![],
+            symbol_usage: None,
+            affected_ranges: vec![AffectedRange {
+                range_type: AffectedRangeType::Semver,
+                events: vec![
+                    AffectedEvent {
+                        introduced: Some("1.0.0".into()),
+                        ..Default::default()
+                    },
+                    AffectedEvent {
+                        limit: Some("2.0.0".into()),
+                        ..Default::default()
+                    },
+                ],
+                package_name: None,
+                ecosystem: None,
+            }],
+            in_kev: None,
+            epss: None,
+            epss_percentile: None,
+            match_explain: None,
+        };
+        attach_match_version_coverage(&mut with_limit, "1.5.0");
+        assert_eq!(
+            with_limit
+                .match_explain
+                .as_ref()
+                .and_then(|e| e.version_in_covering_range),
+            Some(true)
+        );
+
+        let mut open = with_limit.clone();
+        open.affected_ranges[0].events = vec![AffectedEvent {
+            introduced: Some("1.0.0".into()),
+            ..Default::default()
+        }];
+        attach_match_version_coverage(&mut open, "9.0.0");
+        assert_eq!(
+            open.match_explain
+                .as_ref()
+                .and_then(|e| e.version_in_covering_range),
+            Some(true)
+        );
     }
 
     #[test]

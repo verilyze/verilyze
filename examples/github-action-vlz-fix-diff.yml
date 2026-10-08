@@ -52,7 +52,7 @@ jobs:
 
       - name: Upload diff artifact
         if: steps.fix.outputs.no_diff != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v7.0.2
         with:
           name: vlz-fix-diff
           path: artifacts/vlz-fix.diff

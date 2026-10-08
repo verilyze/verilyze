@@ -41,28 +41,38 @@ pub fn collect_php_use_bindings(content: &str) -> Vec<PhpUseBinding> {
         r#"(?i)\buse\s+(?:function\s+|const\s+)?([A-Za-z_\\][A-Za-z0-9_\\]*)(?:\s+as\s+([A-Za-z_][A-Za-z0-9_]*))?\s*;"#,
     )
     .expect("php use binding regex");
-    for caps in re.captures_iter(content) {
-        let fqcn = caps.get(1).map(|m| m.as_str()).unwrap_or("");
-        if fqcn.is_empty() {
-            continue;
+    for line in content.lines() {
+        let code = vlz_reachability_trait::line_code_for_symbol_match(
+            line.trim(),
+            vlz_reachability_trait::LineCommentStyle::SlashSlash,
+        );
+        for caps in re.captures_iter(&code) {
+            let fqcn = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+            if fqcn.is_empty() {
+                continue;
+            }
+            let local = if let Some(alias) = caps.get(2) {
+                alias.as_str().to_string()
+            } else {
+                fqcn.rsplit('\\').next().unwrap_or(fqcn).to_string()
+            };
+            if local.is_empty() {
+                continue;
+            }
+            out.push(PhpUseBinding {
+                local,
+                fqcn: fqcn.to_string(),
+            });
         }
-        let local = if let Some(alias) = caps.get(2) {
-            alias.as_str().to_string()
-        } else {
-            fqcn.rsplit('\\').next().unwrap_or(fqcn).to_string()
-        };
-        if local.is_empty() {
-            continue;
-        }
-        out.push(PhpUseBinding {
-            local,
-            fqcn: fqcn.to_string(),
-        });
     }
     out
 }
 
 /// True when a use path matches Packagist `vendor/name`.
+///
+/// Matches full `vendor/name` compaction, vendor+name presence, or (when the
+/// package name is long enough) the name alone -- PSR-4 roots like
+/// `nesbot/carbon` -> `Carbon\Carbon` omit the vendor segment.
 pub fn binding_matches_package(
     binding: &PhpUseBinding,
     package: &str,
@@ -77,8 +87,17 @@ pub fn binding_matches_package(
     let fq = binding.fqcn.to_ascii_lowercase().replace('\\', "/");
     let compact_pkg = lower.replace(['/', '-', '_'], "");
     let compact_fq = fq.replace(['/', '-', '_'], "");
-    fq.contains(vendor)
-        && (fq.contains(name) || compact_fq.contains(&compact_pkg))
+    let name_compact = name.replace(['-', '_'], "");
+    if compact_fq.contains(&compact_pkg) {
+        return true;
+    }
+    if fq.contains(vendor)
+        && (fq.contains(name) || compact_fq.contains(&name_compact))
+    {
+        return true;
+    }
+    name_compact.len() >= 4
+        && (fq.contains(name) || compact_fq.contains(&name_compact))
 }
 
 /// 1-based lines where `$local->ident`, `local::ident`, or `local.ident` appear.
@@ -163,5 +182,19 @@ mod tests {
         assert!(binding_matches_package(&binds[0], "monolog/monolog"));
         let lines = selector_match_lines(content, &["Log".into()], "warning");
         assert_eq!(lines, vec![3]);
+    }
+
+    #[test]
+    fn binding_matches_package_without_vendor_in_fqcn() {
+        let carbon = PhpUseBinding {
+            local: "Carbon".into(),
+            fqcn: "Carbon\\Carbon".into(),
+        };
+        assert!(binding_matches_package(&carbon, "nesbot/carbon"));
+        let commented = collect_php_use_bindings(
+            "<?php\n// use Evil\\Pkg;\nuse Carbon\\Carbon;\n",
+        );
+        assert_eq!(commented.len(), 1);
+        assert_eq!(commented[0].fqcn, "Carbon\\Carbon");
     }
 }

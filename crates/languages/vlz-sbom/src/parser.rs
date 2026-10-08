@@ -182,20 +182,32 @@ fn package_from_spdx2_package(package: &serde_json::Value) -> Option<Package> {
 }
 
 fn dedupe_packages(mut packages: Vec<Package>) -> Vec<Package> {
+    // Keep distinct PURL qualifier / subpath variants (W3-3). Package Eq/Hash
+    // intentionally ignore those fields for OSV query identity, so dedupe by
+    // a full inventory key instead of PartialEq.
     packages.sort_by(|a, b| {
-        (
-            a.ecosystem.as_deref().unwrap_or(""),
-            a.name.as_str(),
-            a.version.as_str(),
-        )
-            .cmp(&(
-                b.ecosystem.as_deref().unwrap_or(""),
-                b.name.as_str(),
-                b.version.as_str(),
-            ))
+        package_inventory_key(a).cmp(&package_inventory_key(b))
     });
-    packages.dedup();
     packages
+        .dedup_by(|a, b| package_inventory_key(a) == package_inventory_key(b));
+    packages
+}
+
+fn package_inventory_key(
+    p: &Package,
+) -> (String, String, String, Vec<(String, String)>, String) {
+    let quals = p
+        .purl_qualifiers
+        .as_ref()
+        .map(|m| m.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+        .unwrap_or_default();
+    (
+        p.ecosystem.clone().unwrap_or_default(),
+        p.name.clone(),
+        p.version.clone(),
+        quals,
+        p.purl_subpath.clone().unwrap_or_default(),
+    )
 }
 
 /// Parser for CycloneDX / SPDX JSON SBOM entry points.
@@ -235,6 +247,44 @@ mod tests {
     use super::*;
     use std::io::Write;
     use vlz_db::{CRATES_IO_ECOSYSTEM, PYPI_ECOSYSTEM};
+
+    #[test]
+    fn dedupe_keeps_distinct_purl_qualifiers() {
+        let json = serde_json::json!({
+            "bomFormat": "CycloneDX",
+            "specVersion": "1.6",
+            "components": [
+                {
+                    "type": "library",
+                    "name": "commons-lang3",
+                    "version": "3.12.0",
+                    "purl": "pkg:maven/org.apache.commons/commons-lang3@3.12.0?type=jar"
+                },
+                {
+                    "type": "library",
+                    "name": "commons-lang3",
+                    "version": "3.12.0",
+                    "purl": "pkg:maven/org.apache.commons/commons-lang3@3.12.0?classifier=sources"
+                }
+            ]
+        });
+        let pkgs = parse_sbom_json(&json).unwrap();
+        assert_eq!(pkgs.len(), 2);
+        assert!(pkgs.iter().any(|p| {
+            p.purl_qualifiers
+                .as_ref()
+                .and_then(|m| m.get("type"))
+                .map(String::as_str)
+                == Some("jar")
+        }));
+        assert!(pkgs.iter().any(|p| {
+            p.purl_qualifiers
+                .as_ref()
+                .and_then(|m| m.get("classifier"))
+                .map(String::as_str)
+                == Some("sources")
+        }));
+    }
 
     #[test]
     fn parse_cyclonedx_1_6_with_purls() {

@@ -45,43 +45,54 @@ pub fn collect_dotnet_using_bindings(
         )"#,
     )
     .expect("dotnet using binding regex");
-    for caps in re.captures_iter(content) {
-        let path = caps
-            .get(1)
-            .or_else(|| caps.get(2))
-            .map(|m| m.as_str())
-            .unwrap_or("");
-        if path.is_empty() {
-            continue;
+    for line in content.lines() {
+        let code = vlz_reachability_trait::line_code_for_symbol_match(
+            line.trim(),
+            vlz_reachability_trait::LineCommentStyle::SlashSlash,
+        );
+        for caps in re.captures_iter(&code) {
+            let path = caps
+                .get(1)
+                .or_else(|| caps.get(2))
+                .map(|m| m.as_str())
+                .unwrap_or("");
+            if path.is_empty() {
+                continue;
+            }
+            let local = path.rsplit('.').next().unwrap_or(path);
+            if local.is_empty() {
+                continue;
+            }
+            out.push(DotnetUsingBinding {
+                local: local.to_string(),
+                path: path.to_string(),
+            });
         }
-        let local = path.rsplit('.').next().unwrap_or(path);
-        if local.is_empty() {
-            continue;
-        }
-        out.push(DotnetUsingBinding {
-            local: local.to_string(),
-            path: path.to_string(),
-        });
     }
     out
 }
 
 /// True when a using path matches a NuGet package name.
+///
+/// Requires equality, package-as-namespace-prefix, or a multi-segment namespace
+/// prefix of the package. Single-segment usings like `System` do not match
+/// `System.*` packages (avoids broad false Reachable).
 pub fn binding_matches_package(
     binding: &DotnetUsingBinding,
     package: &str,
 ) -> bool {
-    let pkg_lower = package.to_ascii_lowercase();
-    let path_lower = binding.path.to_ascii_lowercase();
-    let pkg_compact = pkg_lower.replace(['.', '-', '_'], "");
-    let path_compact = path_lower.replace(['.', '-', '_'], "");
-    path_lower.contains(&pkg_lower)
-        || pkg_lower.contains(&path_lower)
-        || path_compact.contains(&pkg_compact)
-        || (pkg_lower.len() >= 3
-            && path_lower
-                .split('.')
-                .any(|seg| pkg_lower.split('.').any(|p| p == seg)))
+    let pkg = package.to_ascii_lowercase();
+    let path = binding.path.to_ascii_lowercase();
+    if path == pkg || path.starts_with(&format!("{pkg}.")) {
+        return true;
+    }
+    let path_segs = path.split('.').filter(|s| !s.is_empty()).count();
+    if path_segs >= 2 && pkg.starts_with(&format!("{path}.")) {
+        return true;
+    }
+    let pkg_c = pkg.replace(['.', '-', '_'], "");
+    let path_c = path.replace(['.', '-', '_'], "");
+    path_c == pkg_c
 }
 
 /// Receiver prefix of an advisory symbol (`JsonConvert.Serialize` -> `JsonConvert`).
@@ -159,9 +170,15 @@ mod tests {
             Some("JsonConvert")
         );
         let content = "using Newtonsoft.Json;\nJsonConvert.SerializeObject(x);\n\
-             // JsonConvert.SerializeObject\n";
+             // using Newtonsoft.Json;\n// JsonConvert.SerializeObject\n";
         let binds = collect_dotnet_using_bindings(content);
-        assert!(binds.iter().any(|b| b.path.contains("Newtonsoft")));
+        assert_eq!(
+            binds
+                .iter()
+                .filter(|b| b.path.contains("Newtonsoft"))
+                .count(),
+            1
+        );
         assert!(binding_matches_package(
             binds
                 .iter()
@@ -175,5 +192,20 @@ mod tests {
             "SerializeObject",
         );
         assert_eq!(lines, vec![2]);
+    }
+
+    #[test]
+    fn binding_matches_package_rejects_single_segment_system() {
+        let system = DotnetUsingBinding {
+            local: "System".into(),
+            path: "System".into(),
+        };
+        assert!(!binding_matches_package(&system, "System.Text.Json"));
+        assert!(!binding_matches_package(&system, "Newtonsoft.Json"));
+        let text = DotnetUsingBinding {
+            local: "Text".into(),
+            path: "System.Text".into(),
+        };
+        assert!(binding_matches_package(&text, "System.Text.Json"));
     }
 }

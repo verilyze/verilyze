@@ -54,24 +54,32 @@ pub fn collect_ruby_require_bindings(
         r#"(?:\brequire(?:_relative)?\s*(?:\(\s*)?|\bautoload\s+[^,]+,\s*)['"]([^'"]+)['"]"#,
     )
     .expect("ruby require binding regex");
-    for caps in re.captures_iter(content) {
-        let feature = caps
-            .get(1)
-            .map(|m| m.as_str())
-            .unwrap_or("")
-            .trim_start_matches("./")
-            .split('/')
-            .next()
-            .unwrap_or("")
-            .to_string();
-        if feature.is_empty() {
+    for line in content.lines() {
+        // Do not strip quoted regions: the required feature lives inside quotes.
+        // Skip full-line `#` comments only.
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
             continue;
         }
-        let local = camelize_feature(&feature);
-        if local.is_empty() {
-            continue;
+        for caps in re.captures_iter(trimmed) {
+            let feature = caps
+                .get(1)
+                .map(|m| m.as_str())
+                .unwrap_or("")
+                .trim_start_matches("./")
+                .split('/')
+                .next()
+                .unwrap_or("")
+                .to_string();
+            if feature.is_empty() {
+                continue;
+            }
+            let local = camelize_feature(&feature);
+            if local.is_empty() {
+                continue;
+            }
+            out.push(RubyRequireBinding { local, feature });
         }
-        out.push(RubyRequireBinding { local, feature });
     }
     out
 }
@@ -144,16 +152,17 @@ mod tests {
     #[test]
     fn trailing_ruby_ident_and_require_bindings() {
         assert_eq!(trailing_ruby_ident("Rack::Request#get"), Some("get"));
-        let content =
-            "require 'rack'\nRack.get('/')".to_string() + "\n# Rack.get\n";
-        let binds = collect_ruby_require_bindings(&content);
-        assert!(
+        let content = "require 'rack'\nRack.get('/')\n# require 'rack'\n";
+        let binds = collect_ruby_require_bindings(content);
+        assert_eq!(
             binds
                 .iter()
-                .any(|b| b.feature == "rack" && b.local == "Rack")
+                .filter(|b| b.feature == "rack" && b.local == "Rack")
+                .count(),
+            1
         );
         assert!(binding_matches_package(&binds[0], "rack"));
-        let lines = selector_match_lines(&content, &["Rack".into()], "get");
+        let lines = selector_match_lines(content, &["Rack".into()], "get");
         assert_eq!(lines, vec![2]);
     }
 }

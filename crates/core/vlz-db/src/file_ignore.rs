@@ -119,35 +119,55 @@ pub fn fp_entry_is_active(entry: &FpEntry, now_secs: u64) -> bool {
 /// True when the FP entry applies to the given finding manifest paths (W3-2).
 ///
 /// Empty `entry.paths` means all paths. Otherwise the mark applies when any
-/// finding path equals or is under any configured path prefix.
+/// finding path equals or is under any configured path prefix (segment
+/// boundary). A scope with no directory separator matches the finding
+/// basename only (e.g. `--path composer.lock`). Empty scope strings are
+/// ignored.
 pub fn fp_entry_applies_to_paths(
     entry: &FpEntry,
     manifest_paths: &[impl AsRef<str>],
 ) -> bool {
-    if entry.paths.is_empty() {
-        return true;
+    let scopes: Vec<&str> = entry
+        .paths
+        .iter()
+        .map(String::as_str)
+        .filter(|s| !s.is_empty())
+        .collect();
+    if scopes.is_empty() {
+        // No non-empty scopes: treat like an unscoped mark when `paths` was
+        // empty; empty-string-only scopes never match (fail closed).
+        return entry.paths.is_empty();
     }
     if manifest_paths.is_empty() {
         return false;
     }
     for finding_path in manifest_paths {
         let finding = finding_path.as_ref();
-        for scoped in &entry.paths {
-            if finding == scoped.as_str()
-                || finding.starts_with(&format!("{scoped}/"))
-                || finding.starts_with(scoped)
-                    && finding.as_bytes().get(scoped.len()) == Some(&b'/')
-            {
-                return true;
-            }
-            // Also allow exact basename matches when the scan stores relative paths.
-            if std::path::Path::new(finding).file_name()
-                == std::path::Path::new(scoped).file_name()
-                && finding.ends_with(scoped)
-            {
+        for scoped in &scopes {
+            if path_scope_matches(finding, scoped) {
                 return true;
             }
         }
+    }
+    false
+}
+
+/// Path-prefix (with `/` or `\` boundary) or basename-only scope match.
+fn path_scope_matches(finding: &str, scoped: &str) -> bool {
+    if finding == scoped {
+        return true;
+    }
+    if let Some(rest) = finding.strip_prefix(scoped)
+        && (rest.starts_with('/') || rest.starts_with('\\'))
+    {
+        return true;
+    }
+    // Basename-only scopes (no directory separator).
+    if !scoped.contains('/') && !scoped.contains('\\') {
+        return std::path::Path::new(finding)
+            .file_name()
+            .and_then(|n| n.to_str())
+            == Some(scoped);
     }
     false
 }
@@ -752,6 +772,70 @@ mod tests {
         assert!(!fp_entry_applies_to_paths(
             &scoped,
             &["apps/web/composer.lock"]
+        ));
+    }
+
+    #[test]
+    fn fp_entry_applies_to_paths_rejects_suffix_and_empty_scope() {
+        let base = FpEntry {
+            comment: "c".into(),
+            timestamp_secs: 1,
+            user: None,
+            host: None,
+            project_id: None,
+            justification: None,
+            status: None,
+            detail: None,
+            expires_at_secs: None,
+            paths: vec!["pkg/Cargo.toml".into()],
+        };
+        assert!(fp_entry_applies_to_paths(&base, &["pkg/Cargo.toml"]));
+        assert!(!fp_entry_applies_to_paths(
+            &base,
+            &["/repo/other-pkg/Cargo.toml"]
+        ));
+        assert!(!fp_entry_applies_to_paths(
+            &base,
+            &["apps/web-api/composer.lock"]
+        ));
+
+        let api_lock = FpEntry {
+            paths: vec!["api/composer.lock".into()],
+            ..base.clone()
+        };
+        assert!(fp_entry_applies_to_paths(&api_lock, &["api/composer.lock"]));
+        assert!(!fp_entry_applies_to_paths(
+            &api_lock,
+            &["apps/web-api/composer.lock"]
+        ));
+        assert!(!fp_entry_applies_to_paths(
+            &api_lock,
+            &["apps/api/composer.lock"]
+        ));
+        assert!(fp_entry_applies_to_paths(
+            &FpEntry {
+                paths: vec!["apps/api".into()],
+                ..base.clone()
+            },
+            &["apps/api/composer.lock"]
+        ));
+
+        let basename = FpEntry {
+            paths: vec!["composer.lock".into()],
+            ..base.clone()
+        };
+        assert!(fp_entry_applies_to_paths(
+            &basename,
+            &["apps/api/composer.lock"]
+        ));
+
+        let empty_scope = FpEntry {
+            paths: vec!["".into()],
+            ..base
+        };
+        assert!(!fp_entry_applies_to_paths(
+            &empty_scope,
+            &["/abs/manifest.lock"]
         ));
     }
 

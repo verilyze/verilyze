@@ -148,6 +148,7 @@ pub fn verify_cosign_blob(
         .arg("verify-blob")
         .arg("--bundle")
         .arg(bundle)
+        .arg("--")
         .arg(path)
         .output()
         .map_err(|err| {
