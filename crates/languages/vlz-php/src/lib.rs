@@ -10,6 +10,9 @@ mod parser;
 mod reachability;
 mod resolver;
 
+#[cfg(feature = "tier-d")]
+mod tier_d;
+
 pub use finder::{PHP_MANIFEST_NAME, PhpManifestFinder, is_php_manifest_name};
 pub use lock_names::{PHP_LOCK_FILE_NAMES, is_php_lock_file};
 pub use parser::{

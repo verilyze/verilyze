@@ -19,6 +19,20 @@ Human-readable release notes for each version.
   `--path`; expired marks are ignored at scan time.
 - SBOM PURL qualifier fidelity (W3-3): consume preserves `?qualifiers` and
   `#subpath` for round-trip; OSV identity stays name/version/ecosystem.
+- Composer and NuGet remediators for `vlz fix` (W4-1 / FR-041). Composer
+  uses `composer require name:ver --no-install --no-scripts --no-plugins
+  --no-interaction` (no transitive apply). NuGet edits `Version=` on
+  `*.csproj` / `Directory.Packages.props`. pylock apply remains deferred.
+- Tier D reachability for Java, Ruby, PHP, and .NET (W4-2); on by default.
+- `vlz db import --cosign-bundle PATH` (alias `--signature`) runs
+  `cosign verify-blob --bundle` and fails closed (W4-3).
+- Signed VEX verification when `allow_unsigned_vex` is false: sibling
+  `{vex}.sigstore.json` or `--vex-cosign-bundle` (W4-4 / FR-049). Default
+  unsigned ingest remains allowed.
+- FAQ: add `github` to `--providers` when a token is set; OSV stays default
+  (W4-5).
+- Examples: `vlz fix --format diff` forge recipes for GitHub Actions and
+  GitLab CI without a GitHub App (W4-6).
 
 ### Fixed
 

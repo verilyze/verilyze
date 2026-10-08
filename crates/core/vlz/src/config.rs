@@ -144,6 +144,9 @@ pub struct EffectiveConfig {
     pub from_sbom: Vec<PathBuf>,
     /// Explicit VEX ingest paths from `--from-vex` / `[vex] from_vex` (FR-049).
     pub from_vex: Vec<PathBuf>,
+    /// Optional cosign bundle for VEX ingest verification (W4-4 / FR-049).
+    /// CLI `--vex-cosign-bundle` only; sibling `{vex}.sigstore.json` is also tried.
+    pub vex_cosign_bundle: Option<PathBuf>,
     /// Directory names to skip during manifest discovery.
     pub scan_exclude_dirs: Vec<String>,
     /// CVE providers to query (FR-019 / FR-019-EXT). Default `osv`.
@@ -211,6 +214,7 @@ impl Default for EffectiveConfig {
             python_lock_files: Vec::new(),
             from_sbom: Vec::new(),
             from_vex: Vec::new(),
+            vex_cosign_bundle: None,
             scan_exclude_dirs: DEFAULT_SCAN_EXCLUDE_DIRS
                 .iter()
                 .map(|v| (*v).to_string())

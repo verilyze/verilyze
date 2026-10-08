@@ -1083,7 +1083,7 @@ mod tests {
             "ghsa_id": "GHSA-xxxx-yyyy-zzzz",
             "cve_id": "cve-2024-1708",
         })];
-        let paired = pair_records(vec![record], &raw, 0);
+        let paired = pair_records(vec![record], &raw, 0, "osv");
         assert_eq!(paired.len(), 1);
         assert_eq!(
             paired[0].raw.get("ghsa_id").and_then(|v| v.as_str()),

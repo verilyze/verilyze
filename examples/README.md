@@ -12,6 +12,10 @@ Sample integrations for verilyze (`vlz`).
 |------|-------------|
 | [github-action-vlz-scan.yml](github-action-vlz-scan.yml) | GitHub Actions patterns: release binary, build from source, offline cache (NFR-014) |
 | [gitlab-ci-vlz-scan.yml](gitlab-ci-vlz-scan.yml) | GitLab CI job: release binary, SARIF/JSON artifacts, FR-010 exit (NFR-014) |
+| [github-action-vlz-fix-diff.yml](github-action-vlz-fix-diff.yml) | GitHub Actions: `vlz fix --format diff` artifact / PR (W4-6; no GitHub App) |
+| [gitlab-ci-vlz-fix-diff.yml](gitlab-ci-vlz-fix-diff.yml) | GitLab CI: `vlz fix --format diff` artifact (W4-6) |
+| [github-action-vlz-fix-diff.yml](github-action-vlz-fix-diff.yml) | GitHub Actions: `vlz fix --format diff` (no GitHub App; W4-6) |
+| [gitlab-ci-vlz-fix-diff.yml](gitlab-ci-vlz-fix-diff.yml) | GitLab CI: `vlz fix --format diff` artifact (W4-6) |
 
 See also:
 

@@ -77,13 +77,16 @@ pub struct VexIngestParseResult {
     pub kind: Option<VexIngestKind>,
 }
 
-/// Policy for applying ingested statements (FR-049).
+/// Policy for applying ingested statements (FR-049 / W4-4).
 #[derive(Debug, Clone)]
 pub struct VexIngestPolicy {
-    /// When false, unsigned documents never suppress.
+    /// When false, unsigned documents never suppress unless signature
+    /// verification succeeds (see [`VexIngestPolicy::signature_verified`]).
     pub allow_unsigned: bool,
     /// Optional product id filter (`[vex].product_id`).
     pub product_id: Option<String>,
+    /// Set by the caller after a successful cosign (or other) verify (W4-4).
+    pub signature_verified: bool,
 }
 
 impl Default for VexIngestPolicy {
@@ -91,6 +94,7 @@ impl Default for VexIngestPolicy {
         Self {
             allow_unsigned: true,
             product_id: None,
+            signature_verified: false,
         }
     }
 }
@@ -146,7 +150,9 @@ pub fn parse_vex_ingest_value(
     policy: &VexIngestPolicy,
 ) -> VexIngestParseResult {
     let mut out = VexIngestParseResult::default();
-    let trusted = policy.allow_unsigned;
+    // Trusted when unsigned ingest is allowed, or when the caller verified a
+    // signature for this document (W4-4 cosign / FR-049).
+    let trusted = policy.allow_unsigned || policy.signature_verified;
     if is_openvex_document(value) {
         out.kind = Some(VexIngestKind::OpenVex);
         parse_openvex_statements(value, path, trusted, &mut out);
@@ -609,16 +615,33 @@ mod tests {
         });
         let policy = VexIngestPolicy {
             allow_unsigned: false,
+            signature_verified: false,
             product_id: None,
         };
         let parsed =
             parse_vex_ingest_value(&doc, Path::new("u.openvex.json"), &policy);
-        assert!(!parsed.statements[0].trusted);
+        assert!(parsed.statements.iter().all(|s| !s.trusted));
+
+        let verified = VexIngestPolicy {
+            allow_unsigned: false,
+            signature_verified: true,
+            product_id: None,
+        };
+        let parsed_ok = parse_vex_ingest_value(
+            &doc,
+            Path::new("u.openvex.json"),
+            &verified,
+        );
+        assert!(parsed_ok.statements.iter().all(|s| s.trusted));
         let mut warnings = Vec::new();
         let keys =
             suppress_vuln_ids(&parsed.statements, &policy, &mut warnings);
         assert!(keys.is_empty());
         assert!(!warnings.is_empty());
+        let mut warn2 = Vec::new();
+        let keys_ok =
+            suppress_vuln_ids(&parsed_ok.statements, &verified, &mut warn2);
+        assert!(keys_ok.contains("CVE-2024-6"));
     }
 
     #[test]
@@ -633,6 +656,7 @@ mod tests {
         });
         let policy = VexIngestPolicy {
             allow_unsigned: true,
+            signature_verified: false,
             product_id: Some("pkg:generic/app@1".into()),
         };
         let parsed =

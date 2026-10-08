@@ -14,6 +14,9 @@ mod parser;
 mod reachability;
 mod resolver;
 
+#[cfg(feature = "tier-d")]
+mod tier_d;
+
 pub use finder::{
     JAVA_MANIFEST_NAMES, JavaManifestFinder, filter_orphan_locks,
 };

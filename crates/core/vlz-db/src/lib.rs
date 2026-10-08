@@ -15,9 +15,11 @@ pub use cache_entry::{
     normalize_stored_entry, pkg_cache_key, unix_now_secs,
 };
 pub use corpus_import::{
-    CORPUS_SCHEMA_VERSION, CorpusDocument, CorpusEntry, CorpusImportError,
-    ImportableEntry, hex_encode, importable_entries, parse_corpus_json,
-    parse_pkg_cache_key, sha256_hex, verify_sha256,
+    CORPUS_SCHEMA_VERSION, COSIGN_BIN_NAME, COSIGN_BUNDLE_SUFFIX,
+    CorpusDocument, CorpusEntry, CorpusImportError, ImportableEntry,
+    cosign_available, hex_encode, importable_entries, parse_corpus_json,
+    parse_pkg_cache_key, sha256_hex, sibling_cosign_bundle,
+    verify_cosign_blob, verify_sha256,
 };
 pub use file_ignore::{
     DEFAULT_IGNORE_FILE_NAME, FileIgnoreDb, FpEntry, FpMarkFields, FpMarkMeta,

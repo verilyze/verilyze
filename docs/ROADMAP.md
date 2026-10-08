@@ -41,12 +41,12 @@ Status values: `done`, `in progress`, `planned`, `later`.
 | W3-1 | Matching transparency report (structured matching/explain fields per finding) | done | |
 | W3-2 | Suppression expiry (`expires_at`) and path-scoped false positives | done | |
 | W3-3 | PURL qualifier fidelity on SBOM consume | done | |
-| W4-1 | Guided remediation ROI; PHP and NuGet remediators; pylock apply if practical | planned | |
-| W4-2 | Polyglot Tier D (Java/Kotlin, Ruby, PHP, .NET); keep capabilities matrix accurate | planned | |
-| W4-3 | Airgap corpus authenticity (`vlz db import` signature / cosign-verify path) | planned | |
-| W4-4 | Signed VEX verification scheme (FR-049) | planned | |
-| W4-5 | GHSA docs only: how to add `github` to `--providers` when a token is set; keep OSV default | planned | |
-| W4-6 | Forge recipes that apply `vlz fix --format diff` (no GitHub App) | planned | |
+| W4-1 | Guided remediation ROI; PHP and NuGet remediators; pylock apply if practical | done | Composer + NuGet remediators; pylock apply deferred |
+| W4-2 | Polyglot Tier D (Java/Kotlin, Ruby, PHP, .NET); keep capabilities matrix accurate | done | Tier D on by default (like JS) |
+| W4-3 | Airgap corpus authenticity (`vlz db import` signature / cosign-verify path) | done | `--cosign-bundle` / `--signature` + fail closed |
+| W4-4 | Signed VEX verification scheme (FR-049) | done | sibling / `--vex-cosign-bundle`; default unsigned still allowed |
+| W4-5 | GHSA docs only: how to add `github` to `--providers` when a token is set; keep OSV default | done | FAQ |
+| W4-6 | Forge recipes that apply `vlz fix --format diff` (no GitHub App) | done | examples/ GitHub + GitLab |
 | HC-1 | Opt-in license policy (needs PRD Purpose and Scope amendment first) | later | |
 | HC-2 | Dedicated `vlz export-sbom` (MOD-008) | later | |
 | HC-3 | KEV to OpenVEX `exploited` (FR-048) | later | |

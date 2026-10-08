@@ -10,6 +10,9 @@ mod parser;
 mod reachability;
 mod resolver;
 
+#[cfg(feature = "tier-d")]
+mod tier_d;
+
 pub use finder::{
     DOTNET_PROJECT_EXTENSIONS, DotnetManifestFinder, PACKAGES_CONFIG_NAME,
     is_dotnet_manifest_name, is_packages_config_name,

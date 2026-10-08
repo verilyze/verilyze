@@ -105,6 +105,10 @@ Pass `--from-vex PATH` (repeatable), `[vex] from_vex`, or `VLZ_FROM_VEX`
 shape emits a stderr warning and keeps the finding. Unreadable configured
 paths exit **2**. Unsigned documents suppress only when
 `allow_unsigned_vex` / `--allow-unsigned-vex` is true (default true).
+When `allow_unsigned_vex` is false, pass `--vex-cosign-bundle PATH` or place
+a sibling `{vex}.sigstore.json` beside each `--from-vex` file so
+`cosign verify-blob --bundle` can mark the document trusted (W4-4 / FR-049).
+Default `allow_unsigned_vex` stays true until signing is mandatory.
 
 ## Docker
 
@@ -498,6 +502,21 @@ supported integration surface.
 
 ## CVE providers
 
+### How do I enable the GitHub Advisory (`github`) provider?
+
+OSV stays the default. When `GITHUB_TOKEN` or `VLZ_GITHUB_TOKEN` is set (GitHub
+Actions provides `GITHUB_TOKEN` automatically), add `github` to the provider
+list without dropping OSV:
+
+```sh
+vlz scan --providers osv,github
+# or: VLZ_PROVIDERS=osv,github vlz scan
+```
+
+Build with the `github` feature if your binary does not list `github` under
+`vlz db list-providers`. Keep OSV first unless you intentionally want GitHub
+to win FR-019-EXT ties.
+
 ### Provider authentication
 
 - **GitHub Advisory:** Optional. Use `GITHUB_TOKEN` (or `VLZ_GITHUB_TOKEN` to
@@ -610,7 +629,9 @@ network calls and the cache has no entries for them (FR-031).
    `--offline`.
 2. Use `vlz preload` to pre-populate the cache before an offline scan.
 3. In airgap environments, use `vlz db import PATH` (FR-021a) with a corpus
-   produced elsewhere (optionally `--sha256 HEX`), then scan offline.
+   produced elsewhere (optionally `--sha256 HEX` and/or
+   `--cosign-bundle PATH` / `--signature PATH` for
+   `cosign verify-blob --bundle`), then scan offline.
 4. Remove `--offline` if network access is acceptable.
 
 ---

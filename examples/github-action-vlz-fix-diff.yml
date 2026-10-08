@@ -1,0 +1,76 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Example: open a PR with unified diffs from `vlz fix --format diff` (W4-6).
+# Copy into .github/workflows/ and enable the job. No GitHub App required.
+#
+# Prerequisites:
+# - Network access to OSV (or a warm cache)
+# - A release binary or cargo install of vlz
+# - contents: write so the workflow can open a PR with the patch
+
+name: vlz fix diff example
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  fix-diff:
+    if: false # enable when ready
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Install vlz
+        run: cargo install vlz --locked
+
+      - name: Produce remediation diffs
+        id: fix
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          # Dry-run unified diffs only (does not apply). Exit non-zero when
+          # findings exist is expected; keep the patch for review.
+          set +e
+          vlz fix --dry-run --format diff --output artifacts/vlz-fix.diff
+          code=$?
+          set -e
+          if [ ! -s artifacts/vlz-fix.diff ]; then
+            echo "no_diff=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "no_diff=false" >> "$GITHUB_OUTPUT"
+          # vlz fix exit codes follow scan policy; treat patch presence as success.
+          exit 0
+
+      - name: Upload diff artifact
+        if: steps.fix.outputs.no_diff != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: vlz-fix-diff
+          path: artifacts/vlz-fix.diff
+
+      - name: Open pull request with patch
+        if: steps.fix.outputs.no_diff != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          branch="vlz-fix/$(date -u +%Y%m%d)"
+          git checkout -b "$branch"
+          # Reviewers apply or reject; this only commits the diff file.
+          git add artifacts/vlz-fix.diff
+          git -c user.name=vlz-bot -c user.email=vlz-bot@users.noreply.github.com \
+            commit -m "chore: add vlz fix unified diff"
+          git push -u origin "$branch"
+          gh pr create \
+            --title "chore: vlz remediation diff" \
+            --body "Unified diff from \`vlz fix --format diff\` (review before apply)." \
+            --head "$branch"

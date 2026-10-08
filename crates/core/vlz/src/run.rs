@@ -65,6 +65,46 @@ pub fn user_warning(line: &str) {
     eprintln!("{line}");
 }
 
+/// Cosign sidecar basename suffix for VEX authenticity (W4-4).
+pub const VEX_COSIGN_BUNDLE_SUFFIX: &str = ".sigstore.json";
+
+/// Attempt cosign verify when unsigned VEX is disallowed (W4-4 / FR-049).
+///
+/// Uses `--vex-cosign-bundle` when set, otherwise a sibling
+/// `{vex}.sigstore.json`. Returns whether verification succeeded.
+fn verify_vex_cosign_sidecar(
+    vex_path: &std::path::Path,
+    allow_unsigned: bool,
+    explicit_bundle: Option<&std::path::Path>,
+    warnings: &mut Vec<String>,
+) -> bool {
+    if allow_unsigned {
+        return false;
+    }
+    let Some(bundle_path) =
+        crate::cosign_verify::resolve_cosign_bundle(vex_path, explicit_bundle)
+    else {
+        let expected = crate::cosign_verify::sibling_cosign_bundle(vex_path);
+        warnings.push(format!(
+            "VEX ingest {}: no cosign bundle at {} (allow_unsigned_vex is false)",
+            vex_path.display(),
+            expected.display()
+        ));
+        return false;
+    };
+    match crate::cosign_verify::verify_blob_with_bundle(vex_path, &bundle_path)
+    {
+        Ok(()) => true,
+        Err(e) => {
+            warnings.push(format!(
+                "VEX ingest {}: cosign verify failed: {e}",
+                vex_path.display()
+            ));
+            false
+        }
+    }
+}
+
 /// Format a remediator apply failure for stderr (FR-041).
 ///
 /// Includes package-manager stderr when the error is [`RemediationError::CommandFailed`].
@@ -293,7 +333,11 @@ fn apply_reachability_pipeline(
         feature = "python-tier-d",
         feature = "rust-tier-d",
         feature = "go-tier-d",
-        feature = "javascript-tier-d"
+        feature = "javascript-tier-d",
+        feature = "java-tier-d",
+        feature = "ruby-tier-d",
+        feature = "php-tier-d",
+        feature = "dotnet-tier-d"
     ))]
     if should_apply_tier_c(mode) {
         let reachability_analyzers = crate::registry::reachability_analyzers()
@@ -697,6 +741,7 @@ pub async fn run(args: Cli) -> Result<i32> {
             vex_author_namespace,
             vex_reachability_not_affected,
             allow_unsigned_vex,
+            vex_cosign_bundle,
             no_exploitability,
             min_epss,
             exit_on_kev,
@@ -824,6 +869,10 @@ pub async fn run(args: Cli) -> Result<i32> {
             }
             if let Some(v) = allow_unsigned_vex {
                 effective.vex.allow_unsigned_vex = v;
+            }
+            if let Some(bundle) = vex_cosign_bundle {
+                effective.vex_cosign_bundle =
+                    Some(std::path::PathBuf::from(bundle));
             }
             if let Err(message) = apply_scan_exploitability_flags(
                 &mut effective.exploitability,
@@ -1389,13 +1438,27 @@ pub async fn run(args: Cli) -> Result<i32> {
                 }
                 Ok(0)
             }
-            crate::cli::DbCommands::Import { path, sha256 } => {
+            crate::cli::DbCommands::Import {
+                path,
+                sha256,
+                cosign_bundle,
+            } => {
                 use std::path::Path;
                 use vlz_db::{
                     importable_entries, parse_corpus_json, verify_sha256,
                 };
 
                 let path = Path::new(&path);
+                if let Some(ref bundle) = cosign_bundle {
+                    crate::cosign_verify::verify_blob_with_bundle(
+                        path,
+                        Path::new(bundle),
+                    )
+                    .map_err(|e| {
+                        error!("{}", e);
+                        anyhow!(e)
+                    })?;
+                }
                 let bytes = std::fs::read(path).map_err(|e| {
                     error!("Failed to read corpus {}: {}", path.display(), e);
                     anyhow!("Failed to read corpus {}: {}", path.display(), e)
@@ -2290,13 +2353,20 @@ async fn run_scan(
     let mut vex_only_keys: std::collections::HashSet<String> =
         std::collections::HashSet::new();
     if !effective.from_vex.is_empty() {
-        let policy = vlz_report::VexIngestPolicy {
-            allow_unsigned: effective.vex.allow_unsigned_vex,
-            product_id: effective.vex.product_id.clone(),
-        };
         let mut ingest_warnings = Vec::new();
         let mut ingested_keys = std::collections::HashSet::new();
         for path in &effective.from_vex {
+            let signature_verified = verify_vex_cosign_sidecar(
+                path,
+                effective.vex.allow_unsigned_vex,
+                effective.vex_cosign_bundle.as_deref(),
+                &mut ingest_warnings,
+            );
+            let policy = vlz_report::VexIngestPolicy {
+                allow_unsigned: effective.vex.allow_unsigned_vex,
+                signature_verified,
+                product_id: effective.vex.product_id.clone(),
+            };
             match vlz_report::parse_vex_ingest_file(path, &policy) {
                 Ok(parsed) => {
                     ingest_warnings.extend(parsed.warnings);
@@ -2913,13 +2983,20 @@ async fn scan_findings_for_fix(
     let mut vex_only_keys: std::collections::HashSet<String> =
         std::collections::HashSet::new();
     if !effective.from_vex.is_empty() {
-        let policy = vlz_report::VexIngestPolicy {
-            allow_unsigned: effective.vex.allow_unsigned_vex,
-            product_id: effective.vex.product_id.clone(),
-        };
         let mut ingest_warnings = Vec::new();
         let mut ingested_keys = std::collections::HashSet::new();
         for path in &effective.from_vex {
+            let signature_verified = verify_vex_cosign_sidecar(
+                path,
+                effective.vex.allow_unsigned_vex,
+                effective.vex_cosign_bundle.as_deref(),
+                &mut ingest_warnings,
+            );
+            let policy = vlz_report::VexIngestPolicy {
+                allow_unsigned: effective.vex.allow_unsigned_vex,
+                signature_verified,
+                product_id: effective.vex.product_id.clone(),
+            };
             match vlz_report::parse_vex_ingest_file(path, &policy) {
                 Ok(parsed) => {
                     ingest_warnings.extend(parsed.warnings);

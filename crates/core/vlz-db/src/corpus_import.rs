@@ -5,9 +5,17 @@
 //! Airgap CVE corpus import (FR-021a): parse a versioned snapshot and
 //! map entries onto cache keys for `DatabaseBackend::put`.
 
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
 use crate::{Package, pkg_cache_key};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
+
+/// Allowlisted cosign binary name (SEC-025).
+pub const COSIGN_BIN_NAME: &str = "cosign";
+/// Sibling Sigstore bundle suffix (`file.json` -> `file.json.sigstore.json`).
+pub const COSIGN_BUNDLE_SUFFIX: &str = ".sigstore.json";
 
 /// Schema version for the vlz corpus JSON envelope.
 pub const CORPUS_SCHEMA_VERSION: u32 = 1;
@@ -50,6 +58,12 @@ pub enum CorpusImportError {
     Sha256Mismatch { expected: String, actual: String },
     #[error("SHA-256 digest must be 64 lowercase hex characters")]
     InvalidSha256Digest,
+    #[error("cosign is required but was not found on PATH")]
+    CosignMissing,
+    #[error("cosign bundle not found: {0}")]
+    CosignBundleMissing(String),
+    #[error("cosign verify-blob failed: {0}")]
+    CosignVerifyFailed(String),
 }
 
 /// Parsed entry ready for `DatabaseBackend::put`.
@@ -94,6 +108,65 @@ pub fn verify_sha256(
         return Err(CorpusImportError::Sha256Mismatch { expected, actual });
     }
     Ok(())
+}
+
+/// Default detached cosign bundle path beside `path` (`{path}.sigstore.json`).
+pub fn sibling_cosign_bundle(path: &Path) -> PathBuf {
+    let mut s = path.as_os_str().to_os_string();
+    s.push(COSIGN_BUNDLE_SUFFIX);
+    PathBuf::from(s)
+}
+
+/// True when `cosign` is executable on PATH.
+pub fn cosign_available() -> bool {
+    Command::new(COSIGN_BIN_NAME)
+        .arg("version")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+/// Run `cosign verify-blob --bundle BUNDLE PATH` (fail closed).
+///
+/// Requires `cosign` on PATH. Does not relax identity/OIDC flags so airgap
+/// operators can use keyful or offline-compatible bundles.
+pub fn verify_cosign_blob(
+    path: &Path,
+    bundle: &Path,
+) -> Result<(), CorpusImportError> {
+    if !bundle.is_file() {
+        return Err(CorpusImportError::CosignBundleMissing(
+            bundle.display().to_string(),
+        ));
+    }
+    if !cosign_available() {
+        return Err(CorpusImportError::CosignMissing);
+    }
+    let out = Command::new(COSIGN_BIN_NAME)
+        .arg("verify-blob")
+        .arg("--bundle")
+        .arg(bundle)
+        .arg(path)
+        .output()
+        .map_err(|err| {
+            CorpusImportError::CosignVerifyFailed(format!(
+                "failed to spawn cosign: {err}"
+            ))
+        })?;
+    if out.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        let msg = [stderr.trim(), stdout.trim()]
+            .into_iter()
+            .find(|s| !s.is_empty())
+            .unwrap_or("verify-blob failed")
+            .to_string();
+        Err(CorpusImportError::CosignVerifyFailed(msg))
+    }
 }
 
 /// Split `name::version::provider_id` (name may contain `::`).
@@ -356,5 +429,42 @@ mod tests {
             }
             other => panic!("expected Parse, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn sibling_cosign_bundle_appends_suffix() {
+        let path = Path::new("/tmp/corpus.json");
+        assert_eq!(
+            sibling_cosign_bundle(path),
+            PathBuf::from("/tmp/corpus.json.sigstore.json")
+        );
+    }
+
+    #[test]
+    fn verify_cosign_blob_rejects_missing_bundle() {
+        let err = verify_cosign_blob(
+            Path::new("/tmp/corpus.json"),
+            Path::new("/tmp/no-such-bundle.sigstore.json"),
+        )
+        .unwrap_err();
+        assert!(matches!(err, CorpusImportError::CosignBundleMissing(_)));
+    }
+
+    #[test]
+    fn verify_cosign_blob_fails_closed_when_cosign_missing_or_verify_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let corpus = dir.path().join("corpus.json");
+        let bundle = dir.path().join("corpus.json.sigstore.json");
+        std::fs::write(&corpus, b"{}").unwrap();
+        std::fs::write(&bundle, b"not-a-real-bundle").unwrap();
+        let err = verify_cosign_blob(&corpus, &bundle).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                CorpusImportError::CosignMissing
+                    | CorpusImportError::CosignVerifyFailed(_)
+            ),
+            "expected fail-closed cosign error, got {err:?}"
+        );
     }
 }

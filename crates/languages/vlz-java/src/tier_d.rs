@@ -6,8 +6,7 @@
 //!
 //! First-party only. Heuristic regex, not a full Java AST or call graph.
 
-use crate::coordinate::is_generic_artifact_id;
-use crate::reachability::{group_import_prefixes, normalize_import_path};
+use crate::reachability::{import_matches_package, normalize_import_path};
 
 /// One import binding of a package type into a local simple name.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -68,23 +67,7 @@ pub fn binding_matches_package(
     binding: &JavaImportBinding,
     name: &str,
 ) -> bool {
-    let Some((group, artifact)) = name.split_once(':') else {
-        return false;
-    };
-    for prefix in group_import_prefixes(group) {
-        if binding.import_path == prefix
-            || binding.import_path.starts_with(&format!("{prefix}."))
-        {
-            return true;
-        }
-    }
-    if !is_generic_artifact_id(artifact) {
-        let segs: Vec<&str> = binding.import_path.split('.').collect();
-        if segs.contains(&artifact) {
-            return true;
-        }
-    }
-    false
+    import_matches_package(&binding.import_path, name)
 }
 
 /// 1-based lines where `local.ident` appears outside line comments.

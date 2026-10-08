@@ -192,6 +192,80 @@ impl ReachabilityAnalyzer for PhpTierBAnalyzer {
         );
         TierCResult { decision, evidence }
     }
+
+    fn supports_tier_d(&self) -> bool {
+        cfg!(feature = "tier-d")
+    }
+
+    fn analyze_tier_d(
+        &self,
+        context: &TierBContext<'_>,
+        advisory_symbols: &[String],
+    ) -> TierCResult {
+        #[cfg(not(feature = "tier-d"))]
+        {
+            let _ = (context, advisory_symbols);
+            TierCResult::unknown()
+        }
+        #[cfg(feature = "tier-d")]
+        {
+            use crate::tier_d::{
+                binding_matches_package, collect_php_use_bindings,
+                selector_match_lines, trailing_php_ident,
+            };
+            use vlz_reachability_trait::{
+                MAX_TIER_D_SOURCE_FILE_BYTES, TierCDecision,
+                read_source_if_within_byte_limit,
+            };
+            let files = php_files(context);
+            if files.is_empty() || advisory_symbols.is_empty() {
+                return TierCResult::unknown();
+            }
+            let mut evidence = Vec::new();
+            'files: for path in files {
+                let Some(content) = read_source_if_within_byte_limit(
+                    &path,
+                    MAX_TIER_D_SOURCE_FILE_BYTES,
+                ) else {
+                    continue;
+                };
+                let bindings = collect_php_use_bindings(&content);
+                for sym in advisory_symbols {
+                    let Some(ident) = trailing_php_ident(sym) else {
+                        continue;
+                    };
+                    let locals: Vec<String> = bindings
+                        .iter()
+                        .filter(|b| {
+                            binding_matches_package(b, &context.package.name)
+                        })
+                        .map(|b| b.local.clone())
+                        .collect();
+                    if locals.is_empty() {
+                        continue;
+                    }
+                    for line in selector_match_lines(&content, &locals, ident)
+                    {
+                        push_reachability_evidence(
+                            &mut evidence,
+                            path.clone(),
+                            line,
+                            sym,
+                        );
+                        if reachability_evidence_at_cap(&evidence) {
+                            break 'files;
+                        }
+                    }
+                }
+            }
+            let decision = if evidence.is_empty() {
+                TierCDecision::Unknown
+            } else {
+                TierCDecision::Reachable
+            };
+            TierCResult { decision, evidence }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -344,5 +418,36 @@ mod tests {
             PhpTierBAnalyzer::new().analyze_tier_b(&context),
             TierBDecision::Reachable
         );
+    }
+
+    #[cfg(feature = "tier-d")]
+    #[test]
+    fn analyze_tier_d_reachable_for_use_selector() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("app.php"),
+            "<?php\nuse Monolog\\Logger as Log;\nLog::warning('x');\n",
+        )
+        .unwrap();
+        let package = Package {
+            name: "monolog/monolog".into(),
+            version: "3.0.0".into(),
+            ecosystem: Some(PACKAGIST_ECOSYSTEM.into()),
+            ..Default::default()
+        };
+        let excludes = HashSet::new();
+        let context = TierBContext {
+            scan_root: dir.path(),
+            exclude_dir_names: &excludes,
+            package: &package,
+            language: "php",
+            manifest_paths: &[],
+        };
+        let analyzer = PhpTierBAnalyzer::new();
+        assert!(analyzer.supports_tier_d());
+        let result = analyzer
+            .analyze_tier_d(&context, &["Monolog\\Logger::warning".into()]);
+        assert_eq!(result.decision, TierCDecision::Reachable);
+        assert!(!result.evidence.is_empty());
     }
 }
