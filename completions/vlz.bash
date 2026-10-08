@@ -224,7 +224,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__db__subcmd__import)
-            opts="-v -c -h --sha256 --verbose --config --help"
+            opts="-v -c -h --sha256 --signature --cosign-bundle --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -232,6 +232,36 @@ _vlz() {
             case "${prev}" in
                 --sha256)
                     COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --cosign-bundle)
+                    local oldifs
+                    if [ -n "${IFS+x}" ]; then
+                        oldifs="$IFS"
+                    fi
+                    IFS=$'\n'
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    if [ -n "${oldifs+x}" ]; then
+                        IFS="$oldifs"
+                    fi
+                    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+                        compopt -o filenames
+                    fi
+                    return 0
+                    ;;
+                --signature)
+                    local oldifs
+                    if [ -n "${IFS+x}" ]; then
+                        oldifs="$IFS"
+                    fi
+                    IFS=$'\n'
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    if [ -n "${oldifs+x}" ]; then
+                        IFS="$oldifs"
+                    fi
+                    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+                        compopt -o filenames
+                    fi
                     return 0
                     ;;
                 --config)
@@ -690,7 +720,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__fp__subcmd__mark)
-            opts="-v -c -h --comment --project-id --justification --status --verbose --config --help"
+            opts="-v -c -h --comment --project-id --justification --status --expires-at --path --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -710,6 +740,14 @@ _vlz() {
                     ;;
                 --status)
                     COMPREPLY=($(compgen -W "not_affected" -- "${cur}"))
+                    return 0
+                    ;;
+                --expires-at)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --path)
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --config)
@@ -1125,7 +1163,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__scan)
-            opts="-f -o -s -j -v -c -h --format --output --report --provider --providers --parallel --parallel-resolutions --cache-db --ignore-db --scan-exclude-dir --lock-file --from-sbom --from-vex --cache-ttl-secs --offline --benchmark --min-score --min-count --exit-code --fp-exit-code --project-id --package-manager-required --keep-ephemeral-venv --allow-dependency-code-execution --allow-direct-only-fallback --fail-fast --backoff-base --backoff-max --max-retries --provider-http-connect-timeout-secs --provider-http-request-timeout-secs --tls-crl-bundle --reachability-mode --exit-on-reachable --severity-v2-critical-min --severity-v2-high-min --severity-v2-medium-min --severity-v2-low-min --severity-v3-critical-min --severity-v3-high-min --severity-v3-medium-min --severity-v3-low-min --severity-v4-critical-min --severity-v4-high-min --severity-v4-medium-min --severity-v4-low-min --no-vex --vex-product-id --vex-author-name --vex-author-namespace --vex-reachability-not-affected --allow-unsigned-vex --no-exploitability --min-epss --exit-on-kev --kev-file --epss-file --refresh-exploitability --verbose --config --help"
+            opts="-f -o -s -j -v -c -h --format --output --report --provider --providers --parallel --parallel-resolutions --cache-db --ignore-db --scan-exclude-dir --lock-file --from-sbom --from-vex --cache-ttl-secs --offline --benchmark --min-score --min-count --exit-code --fp-exit-code --project-id --package-manager-required --keep-ephemeral-venv --allow-dependency-code-execution --allow-direct-only-fallback --fail-fast --backoff-base --backoff-max --max-retries --provider-http-connect-timeout-secs --provider-http-request-timeout-secs --tls-crl-bundle --reachability-mode --exit-on-reachable --severity-v2-critical-min --severity-v2-high-min --severity-v2-medium-min --severity-v2-low-min --severity-v3-critical-min --severity-v3-high-min --severity-v3-medium-min --severity-v3-low-min --severity-v4-critical-min --severity-v4-high-min --severity-v4-medium-min --severity-v4-low-min --no-vex --vex-product-id --vex-author-name --vex-author-namespace --vex-reachability-not-affected --allow-unsigned-vex --vex-cosign-bundle --no-exploitability --min-epss --exit-on-kev --kev-file --epss-file --refresh-exploitability --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1408,6 +1446,21 @@ _vlz() {
                     ;;
                 --allow-unsigned-vex)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
+                --vex-cosign-bundle)
+                    local oldifs
+                    if [ -n "${IFS+x}" ]; then
+                        oldifs="$IFS"
+                    fi
+                    IFS=$'\n'
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    if [ -n "${oldifs+x}" ]; then
+                        IFS="$oldifs"
+                    fi
+                    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+                        compopt -o filenames
+                    fi
                     return 0
                     ;;
                 --min-epss)

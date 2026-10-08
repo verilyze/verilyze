@@ -894,10 +894,10 @@ mod tests {
                 rem.iter().any(|r| r.strategy() == ApplyStrategy::Composer)
             );
             assert!(rem.iter().any(|r| r.strategy() == ApplyStrategy::Nuget));
-            assert_eq!(rem.len(), 10);
+            assert_eq!(rem.len(), 12);
         }
         ensure_default_remediator();
-        assert_eq!(remediators().lock().unwrap().len(), 10);
+        assert_eq!(remediators().lock().unwrap().len(), 12);
 
         // 3) ensure_default_db_backend_with_path (redb) when empty adds one
         #[cfg(feature = "redb")]

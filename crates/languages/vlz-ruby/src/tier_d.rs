@@ -33,7 +33,7 @@ pub fn trailing_ruby_ident(symbol: &str) -> Option<&str> {
 
 fn camelize_feature(feature: &str) -> String {
     feature
-        .split(|c| c == '_' || c == '-' || c == '/')
+        .split(['_', '-', '/'])
         .filter(|p| !p.is_empty())
         .map(|part| {
             let mut chars = part.chars();

@@ -3177,10 +3177,10 @@ fn compute_nuget_version_edit(
             cursor = tag_end + 1;
             continue;
         }
-        if let Some((vs, ve)) = nuget_attr_value_span(&tag_lower, "version") {
-            if vs < ve {
-                matches.push((tag_start + vs, tag_start + ve));
-            }
+        if let Some((vs, ve)) = nuget_attr_value_span(&tag_lower, "version")
+            && vs < ve
+        {
+            matches.push((tag_start + vs, tag_start + ve));
         }
         cursor = tag_end + 1;
     }

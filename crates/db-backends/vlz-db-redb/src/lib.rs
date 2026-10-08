@@ -572,6 +572,7 @@ impl RedbIgnoreDb {
     }
 
     /// Mark a CVE as false positive with optional VEX triage metadata (FR-044).
+    #[allow(clippy::too_many_arguments)]
     pub fn mark_with_details(
         &self,
         cve_id: &str,
