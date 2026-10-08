@@ -93,10 +93,10 @@ _run_rust_coverage() {
   # Exclude vlz-fuzz: it requires cargo afl build (AFL linker symbols).
   # Match --features on test and binary probes so llvm-cov profiles
   # are not merged from differently cfg'd builds (CI: "N functions have mismatched data").
-  # vlz/rust-tier-d is opt-in on the vlz binary. Crate-level vlz-go/tier-d
-  # and vlz-rust/tier-d are required so workspace tests of those crates
-  # compile cfg-gated tier_d.rs for coverage-new-rust-check.
-  VLZ_LLVM_COV_FEATURES='vlz/testing,vlz/rust-tier-d,vlz-go/tier-d,vlz-rust/tier-d'
+  # vlz/rust-tier-d is opt-in on the vlz binary. Crate-level */tier-d
+  # features are required so workspace tests of those crates compile
+  # cfg-gated tier_d.rs for coverage-new-rust-check.
+  VLZ_LLVM_COV_FEATURES='vlz/testing,vlz/rust-tier-d,vlz-go/tier-d,vlz-rust/tier-d,vlz-java/tier-d,vlz-ruby/tier-d,vlz-php/tier-d,vlz-dotnet/tier-d'
   _vlz_cov_phase "instrumented cargo build --workspace"
   cargo build --workspace --exclude vlz-fuzz --features "${VLZ_LLVM_COV_FEATURES}"
 

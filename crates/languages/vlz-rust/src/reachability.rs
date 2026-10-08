@@ -539,6 +539,7 @@ mod tests {
             name: package_name.to_string(),
             version: "1.0.0".to_string(),
             ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(HashSet::new()));
         TierBContext {
@@ -718,6 +719,7 @@ mod tests {
             name: "serde".to_string(),
             version: "1.0.0".to_string(),
             ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let ctx = TierBContext {
             scan_root: dir.path(),

@@ -30,6 +30,7 @@ pub fn parse_cargo_metadata_packages(
                     name: name.to_string(),
                     version: version.to_string(),
                     ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
+                    ..Default::default()
                 });
             }
         }

@@ -24,6 +24,7 @@ fn go_mod_without_go_exits_fr022_error() {
             name: "github.com/gin-gonic/gin".to_string(),
             version: "v1.9.0".to_string(),
             ecosystem: Some(GO_ECOSYSTEM.to_string()),
+            ..Default::default()
         }],
         parsed_dependencies: Vec::new(),
         manifest_path: Some(tmp.join("go.mod")),
@@ -58,6 +59,7 @@ fn go_mod_without_go_fallback_direct_only() {
             name: "github.com/gin-gonic/gin".to_string(),
             version: "v1.9.0".to_string(),
             ecosystem: Some(GO_ECOSYSTEM.to_string()),
+            ..Default::default()
         }],
         parsed_dependencies: Vec::new(),
         manifest_path: Some(tmp.join("go.mod")),
@@ -96,6 +98,7 @@ async fn go_mod_offline_direct_only() {
             name: "github.com/gin-gonic/gin".to_string(),
             version: "v1.9.0".to_string(),
             ecosystem: Some(GO_ECOSYSTEM.to_string()),
+            ..Default::default()
         }],
         parsed_dependencies: Vec::new(),
         manifest_path: Some(tmp.join("go.mod")),

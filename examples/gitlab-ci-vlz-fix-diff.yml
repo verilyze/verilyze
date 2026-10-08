@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Example GitLab CI job: produce `vlz fix --format diff` artifacts (W4-6).
+# Copy the job into .gitlab-ci.yml. No GitHub App / forge bot required.
+
+stages:
+  - remediation
+
+vlz-fix-diff:
+  stage: remediation
+  image: rust:1.85
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: manual
+    - when: never
+  script:
+    - cargo install vlz --locked
+    - mkdir -p artifacts
+    - |
+      set +e
+      vlz fix --dry-run --format diff --output artifacts/vlz-fix.diff
+      set -e
+      if [ ! -s artifacts/vlz-fix.diff ]; then
+        echo "No remediation diff produced"
+      else
+        echo "Wrote artifacts/vlz-fix.diff for review"
+      fi
+  artifacts:
+    when: always
+    paths:
+      - artifacts/vlz-fix.diff
+    expire_in: 1 week

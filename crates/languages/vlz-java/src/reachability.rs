@@ -67,7 +67,7 @@ fn merged_excludes(context: &TierBContext<'_>) -> HashSet<String> {
     excludes
 }
 
-fn list_java_kt_files(
+pub(crate) fn list_java_kt_files(
     context: &TierBContext<'_>,
     excludes: &HashSet<String>,
 ) -> Vec<PathBuf> {
@@ -116,7 +116,7 @@ fn cache_key(context: &TierBContext<'_>) -> String {
 /// parent (e.g. Gson vs Guava) can share that prefix; prefer Unknown over a
 /// false NotReachable when that ambiguity matters, but keep Reachable on
 /// parent matches so Guava-style packages remain detectable.
-fn group_import_prefixes(group: &str) -> Vec<String> {
+pub(crate) fn group_import_prefixes(group: &str) -> Vec<String> {
     let mut out = vec![group.to_string()];
     if let Some(idx) = group.rfind('.') {
         let parent = &group[..idx];
@@ -184,7 +184,7 @@ fn qualified_segment_in_code(code: &str, segment: &str) -> bool {
     false
 }
 
-fn normalize_import_path(rest: &str) -> Option<String> {
+pub(crate) fn normalize_import_path(rest: &str) -> Option<String> {
     let mut path = rest.trim().trim_end_matches(';').trim().to_string();
     if path.is_empty() {
         return None;
@@ -207,7 +207,7 @@ fn extract_import_path(line: &str) -> Option<String> {
     normalize_import_path(rest)
 }
 
-fn import_matches_package(import_path: &str, name: &str) -> bool {
+pub(crate) fn import_matches_package(import_path: &str, name: &str) -> bool {
     let Some((group, artifact)) = name.split_once(':') else {
         return false;
     };
@@ -417,6 +417,81 @@ impl ReachabilityAnalyzer for JavaTierBAnalyzer {
         let index = cached_source_index(context);
         tier_c_result_for(&index, &context.package.name, advisory_symbols)
     }
+
+    fn supports_tier_d(&self) -> bool {
+        cfg!(feature = "tier-d")
+    }
+
+    fn analyze_tier_d(
+        &self,
+        context: &TierBContext<'_>,
+        advisory_symbols: &[String],
+    ) -> TierCResult {
+        #[cfg(not(feature = "tier-d"))]
+        {
+            let _ = (context, advisory_symbols);
+            TierCResult::unknown()
+        }
+        #[cfg(feature = "tier-d")]
+        {
+            use crate::tier_d::{
+                binding_matches_package, collect_java_import_bindings,
+                selector_match_lines, trailing_java_ident,
+            };
+            use vlz_reachability_trait::{
+                MAX_TIER_D_SOURCE_FILE_BYTES, TierCDecision,
+                read_source_if_within_byte_limit,
+            };
+            let excludes = merged_excludes(context);
+            let files = list_java_kt_files(context, &excludes);
+            if files.is_empty() || advisory_symbols.is_empty() {
+                return TierCResult::unknown();
+            }
+            let mut evidence = Vec::new();
+            'files: for path in files {
+                let Some(content) = read_source_if_within_byte_limit(
+                    &path,
+                    MAX_TIER_D_SOURCE_FILE_BYTES,
+                ) else {
+                    continue;
+                };
+                let bindings = collect_java_import_bindings(&content);
+                for sym in advisory_symbols {
+                    let Some(ident) = trailing_java_ident(sym) else {
+                        continue;
+                    };
+                    let locals: Vec<String> = bindings
+                        .iter()
+                        .filter(|b| {
+                            binding_matches_package(b, &context.package.name)
+                        })
+                        .map(|b| b.local.clone())
+                        .collect();
+                    if locals.is_empty() {
+                        continue;
+                    }
+                    for line in selector_match_lines(&content, &locals, ident)
+                    {
+                        push_reachability_evidence(
+                            &mut evidence,
+                            path.clone(),
+                            line,
+                            sym,
+                        );
+                        if reachability_evidence_at_cap(&evidence) {
+                            break 'files;
+                        }
+                    }
+                }
+            }
+            let decision = if evidence.is_empty() {
+                TierCDecision::Unknown
+            } else {
+                TierCDecision::Reachable
+            };
+            TierCResult { decision, evidence }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -452,6 +527,7 @@ mod tests {
             name: "com.other:common".into(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -472,6 +548,7 @@ mod tests {
             name: "com.google.guava:guava".into(),
             version: "33.0.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -491,6 +568,7 @@ mod tests {
             name: "org.junit.jupiter:junit-jupiter".into(),
             version: "5.10.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -506,6 +584,7 @@ mod tests {
             name: String::new(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(Vec::<PathBuf>::new()));
@@ -528,6 +607,7 @@ mod tests {
             name: "com.example:Util".into(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -558,6 +638,7 @@ mod tests {
             name: "com.google.guava:guava".into(),
             version: "33.0.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -580,6 +661,7 @@ mod tests {
             name: "com.example.widget:widget".into(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -602,6 +684,7 @@ mod tests {
             name: "com.example.widget:widget".into(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -620,6 +703,7 @@ mod tests {
             name: "com.example.widget:widget".into(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -638,6 +722,7 @@ mod tests {
             name: "junit:junit".into(),
             version: "4.13.2".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -660,6 +745,7 @@ mod tests {
             name: "org.junit.jupiter:junit-jupiter".into(),
             version: "5.10.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -682,6 +768,7 @@ mod tests {
             name: "com.google.guava:guava".into(),
             version: "33.0.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -704,6 +791,7 @@ mod tests {
             name: "com.example:lib".into(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -726,6 +814,7 @@ mod tests {
             name: "com.example.widget:widget".into(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -744,6 +833,7 @@ mod tests {
             name: "com.example:lib".into(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let empty = Box::leak(Box::new(HashSet::new()));
         let manifests = Box::leak(Box::new(Vec::<PathBuf>::new()));
@@ -765,6 +855,7 @@ mod tests {
             name: "com.example.widget:widget".into(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -787,6 +878,7 @@ mod tests {
             name: "org.junit:junit".into(),
             version: "4.13.2".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -812,6 +904,7 @@ mod tests {
             name: "com.example.widget:widget".into(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -834,6 +927,7 @@ mod tests {
             name: "com.example.widget:widget".into(),
             version: "1.0".into(),
             ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
         let manifests = Box::leak(Box::new(vec![manifest.clone()]));
@@ -851,5 +945,36 @@ mod tests {
         );
         assert_eq!(miss.decision, TierCDecision::NotReachable);
         assert!(miss.evidence.is_empty());
+    }
+
+    #[cfg(feature = "tier-d")]
+    #[test]
+    fn analyze_tier_d_reachable_for_import_selector() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("App.java"),
+            "import com.example.widget.Widget;\n\
+             class App { void m() { Widget.vulnerable(); } }\n",
+        )
+        .unwrap();
+        let manifest = dir.path().join("pom.xml");
+        std::fs::write(&manifest, "<project/>").unwrap();
+        let pkg = Package {
+            name: "com.example.widget:widget".into(),
+            version: "1.0".into(),
+            ecosystem: Some(MAVEN_ECOSYSTEM.to_string()),
+            ..Default::default()
+        };
+        let exclude = Box::leak(Box::new(std::collections::HashSet::new()));
+        let manifests = Box::leak(Box::new(vec![manifest.clone()]));
+        let analyzer = JavaTierBAnalyzer::new();
+        let c = ctx(dir.path(), &pkg, manifests, exclude);
+        assert!(analyzer.supports_tier_d());
+        let result = analyzer.analyze_tier_d(
+            &c,
+            &["com.example.widget.Widget.vulnerable".into()],
+        );
+        assert_eq!(result.decision, TierCDecision::Reachable);
+        assert!(!result.evidence.is_empty());
     }
 }

@@ -40,6 +40,7 @@ pub fn parse_go_list_m_all(
                 name: parts[0].to_string(),
                 version: parts[1].to_string(),
                 ecosystem: Some(GO_ECOSYSTEM.to_string()),
+                ..Default::default()
             });
         }
     }
@@ -285,6 +286,7 @@ github.com/stretchr/testify v1.8.0
                 name: "github.com/foo/bar".to_string(),
                 version: "v1.0.0".to_string(),
                 ecosystem: Some(GO_ECOSYSTEM.to_string()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: None,
@@ -316,6 +318,7 @@ github.com/stretchr/testify v1.8.0
                 name: "github.com/gin-gonic/gin".to_string(),
                 version: "v1.9.0".to_string(),
                 ecosystem: Some(GO_ECOSYSTEM.to_string()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("go.mod")),
@@ -355,6 +358,7 @@ github.com/stretchr/testify v1.8.0
                 name: "example.com/pkg".to_string(),
                 version: "v1.0.0".to_string(),
                 ecosystem: Some(GO_ECOSYSTEM.to_string()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("go.mod")),
@@ -387,6 +391,7 @@ github.com/stretchr/testify v1.8.0
                 name: "github.com/gin-gonic/gin".to_string(),
                 version: "v1.9.0".to_string(),
                 ecosystem: Some(GO_ECOSYSTEM.to_string()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("go.mod")),
@@ -417,6 +422,7 @@ github.com/stretchr/testify v1.8.0
                 name: "github.com/gin-gonic/gin".to_string(),
                 version: "v1.9.0".to_string(),
                 ecosystem: Some(GO_ECOSYSTEM.to_string()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("go.mod")),
@@ -483,6 +489,7 @@ github.com/stretchr/testify v1.8.0
                 name: "example.com/pkg".to_string(),
                 version: "v1.0.0".to_string(),
                 ecosystem: Some(GO_ECOSYSTEM.to_string()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("go.mod")),

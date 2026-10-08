@@ -81,6 +81,10 @@
           "description": "OSV advisory version ranges for the scanned package (FR-039).",
           "items": { "$ref": "#/$defs/affected_range" }
         },
+        "match": {
+          "$ref": "#/$defs/match_explain",
+          "description": "Matching transparency: providers, winner reason, query identity, and local range coverage (W3-1)."
+        },
         "severity": {
           "type": "string",
           "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"]
@@ -90,6 +94,43 @@
           "enum": ["vulnerability", "malicious"],
           "description": "OSV MAL-* malicious-package records vs ordinary advisories (FR-011)."
         }
+      }
+    },
+    "match_query": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "ecosystem": { "type": "string" }
+      }
+    },
+    "match_explain": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "providers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Provider ids that contributed records to this finding."
+        },
+        "winner_provider": { "type": "string" },
+        "winner_reason": {
+          "type": "string",
+          "enum": ["affected_ranges", "cvss_version", "provider_order", "sole"]
+        },
+        "query": { "$ref": "#/$defs/match_query" },
+        "aliases_collapsed": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "version_in_covering_range": { "type": "boolean" },
+        "covering_range_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cpe": { "type": "string" }
       }
     },
     "affected_event": {
@@ -172,7 +213,9 @@
             "go",
             "ruby_gems",
             "gradle",
-            "maven"
+            "maven",
+            "composer",
+            "nuget"
           ]
         },
         "confidence": {

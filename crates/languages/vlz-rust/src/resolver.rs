@@ -91,6 +91,7 @@ pub fn parse_cargo_lock(
                     name: name.to_string(),
                     version,
                     ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
+                    ..Default::default()
                 });
             }
         }
@@ -424,6 +425,7 @@ version = "1.0"
                 name: "serde".to_string(),
                 version: "1.0".to_string(),
                 ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: None,
@@ -459,6 +461,7 @@ serde = "1.0"
                 name: "serde".to_string(),
                 version: "1.0".to_string(),
                 ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("Cargo.toml")),
@@ -499,6 +502,7 @@ version = "1.0.2"
                 name: "serde".to_string(),
                 version: "1.0".to_string(),
                 ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("Cargo.toml")),
@@ -529,6 +533,7 @@ version = "1.0.2"
                 name: "serde".to_string(),
                 version: "1.0".to_string(),
                 ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("Cargo.toml")),
@@ -582,6 +587,7 @@ version = "1.0.2"
                 name: "serde".to_string(),
                 version: "1.0".to_string(),
                 ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("Cargo.toml")),
@@ -624,6 +630,7 @@ version = "0.1.0"
                 name: "serde".to_string(),
                 version: "1.0".to_string(),
                 ecosystem: Some(CRATES_IO_ECOSYSTEM.to_string()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: Some(tmp.join("Cargo.toml")),

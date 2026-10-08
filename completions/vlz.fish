@@ -91,6 +91,7 @@ complete -c vlz -n "__fish_vlz_using_subcommand scan" -l vex-reachability-not-af
 false\t''"
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l allow-unsigned-vex -d 'Allow unsigned VEX ingest documents to suppress findings (FR-049). Omit to leave config/env unchanged; pass `true`/`false` to override. A bare flag (no value) means true. Default is true until signing is mandatory' -r -f -a "true\t''
 false\t''"
+complete -c vlz -n "__fish_vlz_using_subcommand scan" -l vex-cosign-bundle -d 'Cosign Sigstore bundle for `--from-vex` documents (W4-4 / FR-049). When `allow_unsigned_vex` is false, verification must succeed (explicit path or sibling `{vex}.sigstore.json`)' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l min-epss -d 'Minimum EPSS score (0.0-1.0) to trigger the CVE exit code (FR-048)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l kev-file -d 'KEV snapshot file (JSON or CSV) instead of cache/network (FR-048)' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -l epss-file -d 'EPSS snapshot file (uncompressed JSON or CSV) (FR-048)' -r -F
@@ -162,6 +163,7 @@ complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_f
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from show" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from show" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from import" -l sha256 -d 'Optional lowercase hex SHA-256 of the corpus file (SEC-016)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from import" -l cosign-bundle -l signature -d 'Optional cosign sigstore bundle; runs `cosign verify-blob` (W4-3). Alias: `--signature`. Fail closed (exit 2) when verify fails or cosign is missing' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from import" -s c -l config -d 'Override configuration file location' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from import" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and __fish_seen_subcommand_from import" -s h -l help -d 'Print help'
@@ -185,6 +187,8 @@ vulnerable_code_not_in_execute_path\t''
 vulnerable_code_cannot_be_controlled_by_adversary\t''
 inline_mitigations_already_exist\t''"
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from mark" -l status -d 'VEX status (default not_affected when justification is set)' -r -f -a "not_affected\t''"
+complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from mark" -l expires-at -d 'Unix timestamp (seconds) when this mark expires (W3-2)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from mark" -l path -d 'Manifest path this mark applies to (repeatable; W3-2)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from mark" -s c -l config -d 'Override configuration file location' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from mark" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
 complete -c vlz -n "__fish_vlz_using_subcommand fp; and __fish_seen_subcommand_from mark" -s h -l help -d 'Print help'

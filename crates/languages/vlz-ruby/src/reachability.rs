@@ -173,6 +173,80 @@ impl ReachabilityAnalyzer for RubyTierBAnalyzer {
         );
         TierCResult { decision, evidence }
     }
+
+    fn supports_tier_d(&self) -> bool {
+        cfg!(feature = "tier-d")
+    }
+
+    fn analyze_tier_d(
+        &self,
+        context: &TierBContext<'_>,
+        advisory_symbols: &[String],
+    ) -> TierCResult {
+        #[cfg(not(feature = "tier-d"))]
+        {
+            let _ = (context, advisory_symbols);
+            TierCResult::unknown()
+        }
+        #[cfg(feature = "tier-d")]
+        {
+            use crate::tier_d::{
+                binding_matches_package, collect_ruby_require_bindings,
+                selector_match_lines, trailing_ruby_ident,
+            };
+            use vlz_reachability_trait::{
+                MAX_TIER_D_SOURCE_FILE_BYTES, TierCDecision,
+                read_source_if_within_byte_limit,
+            };
+            let files = ruby_files(context);
+            if files.is_empty() || advisory_symbols.is_empty() {
+                return TierCResult::unknown();
+            }
+            let mut evidence = Vec::new();
+            'files: for path in files {
+                let Some(content) = read_source_if_within_byte_limit(
+                    &path,
+                    MAX_TIER_D_SOURCE_FILE_BYTES,
+                ) else {
+                    continue;
+                };
+                let bindings = collect_ruby_require_bindings(&content);
+                for sym in advisory_symbols {
+                    let Some(ident) = trailing_ruby_ident(sym) else {
+                        continue;
+                    };
+                    let locals: Vec<String> = bindings
+                        .iter()
+                        .filter(|b| {
+                            binding_matches_package(b, &context.package.name)
+                        })
+                        .map(|b| b.local.clone())
+                        .collect();
+                    if locals.is_empty() {
+                        continue;
+                    }
+                    for line in selector_match_lines(&content, &locals, ident)
+                    {
+                        push_reachability_evidence(
+                            &mut evidence,
+                            path.clone(),
+                            line,
+                            sym,
+                        );
+                        if reachability_evidence_at_cap(&evidence) {
+                            break 'files;
+                        }
+                    }
+                }
+            }
+            let decision = if evidence.is_empty() {
+                TierCDecision::Unknown
+            } else {
+                TierCDecision::Reachable
+            };
+            TierCResult { decision, evidence }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -202,6 +276,7 @@ mod tests {
             name: "my-gem".into(),
             version: "1.0.0".into(),
             ecosystem: Some(RUBYGEMS_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let excludes = HashSet::new();
         let context = TierBContext {
@@ -229,6 +304,7 @@ mod tests {
             name: "activesupport".into(),
             version: "7.0.0".into(),
             ecosystem: Some(RUBYGEMS_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let excludes = HashSet::new();
         let context = TierBContext {
@@ -253,6 +329,7 @@ mod tests {
             name: "a".into(),
             version: "1".into(),
             ecosystem: Some(RUBYGEMS_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let ctx_short = TierBContext {
             scan_root: dir.path(),
@@ -269,6 +346,7 @@ mod tests {
             name: "unrelated".into(),
             version: "1".into(),
             ecosystem: Some(RUBYGEMS_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let ctx_other = TierBContext {
             scan_root: dir.path(),
@@ -295,6 +373,7 @@ mod tests {
             name: "rack".into(),
             version: "2.2.8".into(),
             ecosystem: Some(RUBYGEMS_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let excludes = HashSet::new();
         let context = TierBContext {
@@ -320,6 +399,7 @@ mod tests {
             name: "rack".into(),
             version: "2.2.8".into(),
             ecosystem: Some(RUBYGEMS_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let excludes = HashSet::new();
         let context = TierBContext {
@@ -345,6 +425,7 @@ mod tests {
             name: "rack".into(),
             version: "1".into(),
             ecosystem: Some(RUBYGEMS_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let excludes = HashSet::new();
         let manifest = nested.join("Gemfile");
@@ -361,5 +442,35 @@ mod tests {
             RubyTierBAnalyzer::new().analyze_tier_b(&context),
             TierBDecision::Reachable
         );
+    }
+
+    #[cfg(feature = "tier-d")]
+    #[test]
+    fn analyze_tier_d_reachable_for_require_selector() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("app.rb"),
+            "require 'rack'\nRack.get('/')\n",
+        )
+        .unwrap();
+        let package = Package {
+            name: "rack".into(),
+            version: "1".into(),
+            ecosystem: Some(RUBYGEMS_ECOSYSTEM.into()),
+            ..Default::default()
+        };
+        let excludes = HashSet::new();
+        let context = TierBContext {
+            scan_root: dir.path(),
+            exclude_dir_names: &excludes,
+            package: &package,
+            language: "ruby",
+            manifest_paths: &[],
+        };
+        let analyzer = RubyTierBAnalyzer::new();
+        assert!(analyzer.supports_tier_d());
+        let result = analyzer.analyze_tier_d(&context, &["Rack.get".into()]);
+        assert_eq!(result.decision, TierCDecision::Reachable);
+        assert!(!result.evidence.is_empty());
     }
 }

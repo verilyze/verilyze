@@ -435,6 +435,7 @@ mod tests {
             name: "lodash".into(),
             version: "4.17.21".into(),
             ecosystem: Some(NPM_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(HashSet::new()));
         let manifests = Box::leak(Box::new(vec![tmp.join("package.json")]));
@@ -462,6 +463,7 @@ mod tests {
             name: "lodash".into(),
             version: "4.17.21".into(),
             ecosystem: Some(NPM_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(HashSet::new()));
         let manifests = Box::leak(Box::new(Vec::<PathBuf>::new()));
@@ -489,6 +491,7 @@ mod tests {
             name: "lodash".into(),
             version: "4.17.21".into(),
             ecosystem: Some(NPM_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(HashSet::new()));
         let manifests = Box::leak(Box::new(Vec::<PathBuf>::new()));
@@ -511,6 +514,7 @@ mod tests {
             name: "lodash".into(),
             version: "4.17.21".into(),
             ecosystem: Some(NPM_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let empty = Box::leak(Box::new(HashSet::new()));
         let with_exclude =
@@ -542,6 +546,7 @@ mod tests {
             name: "lodash".into(),
             version: "4.17.21".into(),
             ecosystem: Some(NPM_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(HashSet::new()));
         let manifests = Box::leak(Box::new(Vec::<PathBuf>::new()));
@@ -570,6 +575,7 @@ mod tests {
             name: "a".into(),
             version: "1.0.0".into(),
             ecosystem: Some(NPM_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(HashSet::new()));
         let manifests = Box::leak(Box::new(Vec::<PathBuf>::new()));
@@ -611,6 +617,7 @@ mod tests {
                 name: name.into(),
                 version: "1.0.0".into(),
                 ecosystem: Some(NPM_ECOSYSTEM.into()),
+                ..Default::default()
             };
             let ctx = TierBContext {
                 package: &pkg,
@@ -640,6 +647,7 @@ mod tests {
             name: "lodash".into(),
             version: "4.17.21".into(),
             ecosystem: Some(NPM_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(HashSet::new()));
         let manifests = Box::leak(Box::new(Vec::<PathBuf>::new()));
@@ -663,6 +671,7 @@ mod tests {
             name: "x".into(),
             version: "1.0.0".into(),
             ecosystem: Some(NPM_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let ctx_short = TierBContext {
             package: &short,
@@ -683,6 +692,7 @@ mod tests {
             name: "lodash".into(),
             version: "4.17.21".into(),
             ecosystem: Some(NPM_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(HashSet::new()));
         let manifests = Box::leak(Box::new(Vec::<PathBuf>::new()));
@@ -707,6 +717,7 @@ mod tests {
             name: "lodash".into(),
             version: "4.17.21".into(),
             ecosystem: Some(NPM_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(HashSet::new()));
         // Empty path has no parent on some platforms; use scan_root fallback via
@@ -741,6 +752,7 @@ mod tests {
             name: "lodash".into(),
             version: "4.17.21".into(),
             ecosystem: Some(NPM_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(HashSet::new()));
         let manifests = Box::leak(Box::new(Vec::<PathBuf>::new()));
@@ -779,6 +791,7 @@ mod tests {
             name: "lodash".into(),
             version: "4.17.21".into(),
             ecosystem: Some(NPM_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(HashSet::new()));
         let manifests = Box::leak(Box::new(Vec::<PathBuf>::new()));
@@ -811,6 +824,7 @@ mod tests {
             name: "lodash".into(),
             version: "4.17.21".into(),
             ecosystem: Some(NPM_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let exclude = Box::leak(Box::new(HashSet::new()));
         let manifests = Box::leak(Box::new(Vec::<PathBuf>::new()));

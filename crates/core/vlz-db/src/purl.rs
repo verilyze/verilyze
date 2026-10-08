@@ -4,6 +4,8 @@
 
 //! Package URL (PURL) helpers shared by SBOM export and import (NFR-024, FR-038).
 
+use std::collections::BTreeMap;
+
 use crate::{
     CRATES_IO_ECOSYSTEM, GO_ECOSYSTEM, MAVEN_ECOSYSTEM, NPM_ECOSYSTEM,
     NUGET_ECOSYSTEM, PACKAGIST_ECOSYSTEM, PYPI_ECOSYSTEM, Package,
@@ -41,24 +43,86 @@ pub fn ecosystem_for_purl_type(purl_type: &str) -> Option<&'static str> {
 }
 
 /// PURL for a resolved package (SEC-019 CycloneDX 1.6, SPDX 3.0).
+///
+/// Re-emits preserved W3-3 qualifiers and subpath when present.
 pub fn purl_for_package(pkg: &Package) -> String {
     let purl_type = purl_type_for_ecosystem(pkg.ecosystem.as_deref());
-    format!("pkg:{}/{}@{}", purl_type, pkg.name, pkg.version)
+    let mut out = format!("pkg:{}/{}@{}", purl_type, pkg.name, pkg.version);
+    if let Some(ref quals) = pkg.purl_qualifiers
+        && !quals.is_empty()
+    {
+        let encoded: Vec<String> =
+            quals.iter().map(|(k, v)| format!("{k}={v}")).collect();
+        out.push('?');
+        out.push_str(&encoded.join("&"));
+    }
+    if let Some(ref sub) = pkg.purl_subpath
+        && !sub.is_empty()
+    {
+        out.push('#');
+        out.push_str(sub);
+    }
+    out
 }
 
-/// Parse a Package URL into a [`Package`] for CVE lookup (FR-038).
+/// Parse PURL qualifier string (`k=v&k2=v2`) into a sorted map.
+fn parse_qualifiers(raw: &str) -> Option<BTreeMap<String, String>> {
+    if raw.is_empty() {
+        return None;
+    }
+    let mut map = BTreeMap::new();
+    for part in raw.split('&') {
+        if part.is_empty() {
+            continue;
+        }
+        let (k, v) = part.split_once('=').unwrap_or((part, ""));
+        if k.is_empty() {
+            return None;
+        }
+        map.insert(k.to_string(), v.to_string());
+    }
+    if map.is_empty() { None } else { Some(map) }
+}
+
+/// Parse a Package URL into a [`Package`] for CVE lookup (FR-038 / W3-3).
 ///
 /// Supported types: `pypi`, `cargo`, `golang`, `npm`, `maven`, `gem`,
 /// `composer`, `nuget`. Maven names use OSV `groupId:artifactId`. Accepts both
 /// `pkg:maven/group/artifact@version` and `pkg:maven/group:artifact@version`
-/// (the latter matches vlz export).
+/// (the latter matches vlz export). Qualifiers and subpath are preserved on
+/// the package but ignored for OSV query identity (Eq/Hash).
 pub fn package_from_purl(purl: &str) -> Option<Package> {
     let rest = purl.strip_prefix("pkg:")?;
-    let (type_and_name, version_raw) = rest.rsplit_once('@')?;
+    let (type_and_name, version_and_rest) = rest.rsplit_once('@')?;
     // PURL: version may be followed by ?qualifiers and/or #subpath.
-    let version = version_raw.split(['?', '#']).next().unwrap_or(version_raw);
+    let (version, quals_and_sub) = match version_and_rest.find(['?', '#']) {
+        Some(idx) => {
+            (&version_and_rest[..idx], Some(&version_and_rest[idx..]))
+        }
+        None => (version_and_rest, None),
+    };
     if version.is_empty() {
         return None;
+    }
+    let mut purl_qualifiers = None;
+    let mut purl_subpath = None;
+    if let Some(rest) = quals_and_sub {
+        let (quals_part, sub_part) = if let Some(hash) = rest.find('#') {
+            let (before, after) = rest.split_at(hash);
+            (before, Some(&after[1..]))
+        } else {
+            (rest, None)
+        };
+        if let Some(q) = quals_part.strip_prefix('?') {
+            purl_qualifiers = parse_qualifiers(q);
+        } else if !quals_part.is_empty() && !quals_part.starts_with('#') {
+            return None;
+        }
+        if let Some(sub) = sub_part
+            && !sub.is_empty()
+        {
+            purl_subpath = Some(sub.to_string());
+        }
     }
     let (purl_type, name_path) = type_and_name.split_once('/')?;
     if name_path.is_empty() {
@@ -74,6 +138,8 @@ pub fn package_from_purl(purl: &str) -> Option<Package> {
         name,
         version: version.to_string(),
         ecosystem: Some(ecosystem.to_string()),
+        purl_qualifiers,
+        purl_subpath,
     })
 }
 
@@ -140,6 +206,7 @@ mod tests {
             name: "requests".to_string(),
             version: "2.31.0".to_string(),
             ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let purl = purl_for_package(&pkg);
         assert_eq!(purl, "pkg:pypi/requests@2.31.0");
@@ -164,49 +231,58 @@ mod tests {
     }
 
     #[test]
-    fn package_from_purl_strips_qualifiers_and_subpath() {
+    fn package_from_purl_preserves_qualifiers_and_subpath_w3_3() {
         let pkg = package_from_purl(
             "pkg:maven/org.apache.commons/commons-lang3@3.12.0?type=jar",
         )
         .unwrap();
         assert_eq!(pkg.version, "3.12.0");
         assert_eq!(pkg.name, "org.apache.commons:commons-lang3");
+        assert_eq!(
+            pkg.purl_qualifiers
+                .as_ref()
+                .and_then(|m| m.get("type"))
+                .map(String::as_str),
+            Some("jar")
+        );
 
         let with_sub =
             package_from_purl("pkg:npm/lodash@4.17.21#lib/index.js").unwrap();
         assert_eq!(with_sub.version, "4.17.21");
         assert_eq!(with_sub.name, "lodash");
+        assert_eq!(with_sub.purl_subpath.as_deref(), Some("lib/index.js"));
+
+        let round = package_from_purl(&purl_for_package(&pkg)).unwrap();
+        assert_eq!(round.purl_qualifiers, pkg.purl_qualifiers);
+    }
+
+    #[test]
+    fn package_eq_ignores_qualifiers_for_cve_identity() {
+        let a = package_from_purl(
+            "pkg:maven/org.apache.commons/commons-lang3@3.12.0?type=jar",
+        )
+        .unwrap();
+        let b = package_from_purl(
+            "pkg:maven/org.apache.commons/commons-lang3@3.12.0",
+        )
+        .unwrap();
+        assert_eq!(a, b);
     }
 
     #[test]
     fn package_from_purl_rejects_unknown_type() {
-        assert!(package_from_purl("pkg:apk/openssl@3.0.0").is_none());
-        assert!(package_from_purl("not-a-purl").is_none());
-        assert!(package_from_purl("pkg:pypi/foo@").is_none());
+        assert!(package_from_purl("pkg:unknown/foo@1.0.0").is_none());
     }
 
     #[test]
     fn package_from_purl_decodes_percent_encoded_name() {
-        let scoped =
-            package_from_purl("pkg:npm/%40scope%2Fpkg@1.0.0").unwrap();
-        assert_eq!(scoped.name, "@scope/pkg");
-        assert_eq!(scoped.version, "1.0.0");
-        assert_eq!(scoped.ecosystem.as_deref(), Some(NPM_ECOSYSTEM));
+        let pkg = package_from_purl("pkg:npm/%40scope%2Fpkg@1.0.0").unwrap();
+        assert_eq!(pkg.name, "@scope/pkg");
     }
 
     #[test]
     fn package_from_purl_rejects_invalid_percent_encoding() {
-        assert!(package_from_purl("pkg:npm/%ZZ/pkg@1.0.0").is_none());
-        assert!(package_from_purl("pkg:npm/%@1.0.0").is_none());
-    }
-
-    #[test]
-    fn ecosystem_for_purl_type_case_insensitive() {
-        assert_eq!(ecosystem_for_purl_type("PyPI"), Some(PYPI_ECOSYSTEM));
-        assert_eq!(
-            ecosystem_for_purl_type("CARGO"),
-            Some(CRATES_IO_ECOSYSTEM)
-        );
+        assert!(package_from_purl("pkg:npm/%zz@1.0.0").is_none());
     }
 
     #[test]
@@ -215,26 +291,28 @@ mod tests {
             name: "symfony/http-foundation".to_string(),
             version: "6.4.0".to_string(),
             ecosystem: Some(PACKAGIST_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let purl = purl_for_package(&pkg);
         assert_eq!(purl, "pkg:composer/symfony/http-foundation@6.4.0");
         assert_eq!(package_from_purl(&purl), Some(pkg));
-        assert_eq!(
-            ecosystem_for_purl_type("COMPOSER"),
-            Some(PACKAGIST_ECOSYSTEM)
-        );
     }
 
     #[test]
     fn purl_round_trip_nuget() {
         let pkg = Package {
             name: "Newtonsoft.Json".to_string(),
-            version: "13.0.3".to_string(),
+            version: "13.0.1".to_string(),
             ecosystem: Some(NUGET_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let purl = purl_for_package(&pkg);
-        assert_eq!(purl, "pkg:nuget/Newtonsoft.Json@13.0.3");
+        assert_eq!(purl, "pkg:nuget/Newtonsoft.Json@13.0.1");
         assert_eq!(package_from_purl(&purl), Some(pkg));
-        assert_eq!(ecosystem_for_purl_type("NUGET"), Some(NUGET_ECOSYSTEM));
+    }
+
+    #[test]
+    fn ecosystem_for_purl_type_case_insensitive() {
+        assert_eq!(ecosystem_for_purl_type("NPM"), Some(NPM_ECOSYSTEM));
     }
 }

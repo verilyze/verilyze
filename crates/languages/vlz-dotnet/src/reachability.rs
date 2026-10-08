@@ -185,6 +185,82 @@ impl ReachabilityAnalyzer for DotnetTierBAnalyzer {
         );
         TierCResult { decision, evidence }
     }
+
+    fn supports_tier_d(&self) -> bool {
+        cfg!(feature = "tier-d")
+    }
+
+    fn analyze_tier_d(
+        &self,
+        context: &TierBContext<'_>,
+        advisory_symbols: &[String],
+    ) -> TierCResult {
+        #[cfg(not(feature = "tier-d"))]
+        {
+            let _ = (context, advisory_symbols);
+            TierCResult::unknown()
+        }
+        #[cfg(feature = "tier-d")]
+        {
+            use crate::tier_d::{
+                binding_matches_package, collect_dotnet_using_bindings,
+                selector_match_lines, symbol_receiver, trailing_dotnet_ident,
+            };
+            use vlz_reachability_trait::{
+                MAX_TIER_D_SOURCE_FILE_BYTES, TierCDecision,
+                read_source_if_within_byte_limit,
+            };
+            let files = source_files(context);
+            if files.is_empty() || advisory_symbols.is_empty() {
+                return TierCResult::unknown();
+            }
+            let mut evidence = Vec::new();
+            'files: for path in files {
+                let Some(content) = read_source_if_within_byte_limit(
+                    &path,
+                    MAX_TIER_D_SOURCE_FILE_BYTES,
+                ) else {
+                    continue;
+                };
+                let bindings = collect_dotnet_using_bindings(&content);
+                let package_matched = bindings.iter().any(|b| {
+                    binding_matches_package(b, &context.package.name)
+                });
+                if !package_matched {
+                    continue;
+                }
+                for sym in advisory_symbols {
+                    let Some(ident) = trailing_dotnet_ident(sym) else {
+                        continue;
+                    };
+                    let Some(recv) = symbol_receiver(sym) else {
+                        continue;
+                    };
+                    for line in selector_match_lines(
+                        &content,
+                        &[recv.to_string()],
+                        ident,
+                    ) {
+                        push_reachability_evidence(
+                            &mut evidence,
+                            path.clone(),
+                            line,
+                            sym,
+                        );
+                        if reachability_evidence_at_cap(&evidence) {
+                            break 'files;
+                        }
+                    }
+                }
+            }
+            let decision = if evidence.is_empty() {
+                TierCDecision::Unknown
+            } else {
+                TierCDecision::Reachable
+            };
+            TierCResult { decision, evidence }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -214,6 +290,7 @@ mod tests {
             name: "Newtonsoft.Json".into(),
             version: "13.0.3".into(),
             ecosystem: Some(NUGET_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let excludes = HashSet::new();
         let context = TierBContext {
@@ -239,6 +316,7 @@ mod tests {
             name: "Ab".into(),
             version: "1".into(),
             ecosystem: Some(NUGET_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let ctx_short = TierBContext {
             scan_root: dir.path(),
@@ -255,6 +333,7 @@ mod tests {
             name: "Unrelated.Package".into(),
             version: "1".into(),
             ecosystem: Some(NUGET_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let ctx_other = TierBContext {
             scan_root: dir.path(),
@@ -281,6 +360,7 @@ mod tests {
             name: "Newtonsoft.Json".into(),
             version: "13.0.3".into(),
             ecosystem: Some(NUGET_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let excludes = HashSet::new();
         let context = TierBContext {
@@ -311,6 +391,7 @@ mod tests {
             name: "Newtonsoft.Json".into(),
             version: "13.0.3".into(),
             ecosystem: Some(NUGET_ECOSYSTEM.into()),
+            ..Default::default()
         };
         let excludes = HashSet::new();
         let manifest = nested.join("App.csproj");
@@ -327,5 +408,36 @@ mod tests {
             DotnetTierBAnalyzer::new().analyze_tier_b(&context),
             TierBDecision::Reachable
         );
+    }
+
+    #[cfg(feature = "tier-d")]
+    #[test]
+    fn analyze_tier_d_reachable_for_using_selector() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("Program.cs"),
+            "using Newtonsoft.Json;\nJsonConvert.SerializeObject(x);\n",
+        )
+        .unwrap();
+        let package = Package {
+            name: "Newtonsoft.Json".into(),
+            version: "13.0.3".into(),
+            ecosystem: Some(NUGET_ECOSYSTEM.into()),
+            ..Default::default()
+        };
+        let excludes = HashSet::new();
+        let context = TierBContext {
+            scan_root: dir.path(),
+            exclude_dir_names: &excludes,
+            package: &package,
+            language: "dotnet",
+            manifest_paths: &[],
+        };
+        let analyzer = DotnetTierBAnalyzer::new();
+        assert!(analyzer.supports_tier_d());
+        let result = analyzer
+            .analyze_tier_d(&context, &["JsonConvert.SerializeObject".into()]);
+        assert_eq!(result.decision, TierCDecision::Reachable);
+        assert!(!result.evidence.is_empty());
     }
 }

@@ -31,6 +31,7 @@ vlz-reachability-trait.workspace = true
 
 [features]
 perf-instrumentation = ["vlz-reachability-trait/perf-instrumentation"]
+tier-d = []
 
 [dev-dependencies]
 temp-env.workspace = true

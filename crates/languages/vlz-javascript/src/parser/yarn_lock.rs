@@ -62,6 +62,7 @@ fn parse_yarn_classic(
                 name: name.to_string(),
                 version: ver.clone(),
                 ecosystem: Some(NPM_ECOSYSTEM.to_string()),
+                ..Default::default()
             };
             if seen.insert((pkg.name.clone(), pkg.version.clone())) {
                 parsed.push(ParsedDependency {
@@ -286,6 +287,7 @@ fn push_berry_pkg(
         name: name.to_string(),
         version: version.to_string(),
         ecosystem: Some(NPM_ECOSYSTEM.to_string()),
+        ..Default::default()
     };
     if seen.insert((pkg.name.clone(), pkg.version.clone())) {
         parsed.push(ParsedDependency {
@@ -359,6 +361,7 @@ fn parse_yarn_berry_lines(
                 name: name.to_string(),
                 version: ver.to_string(),
                 ecosystem: Some(NPM_ECOSYSTEM.to_string()),
+                ..Default::default()
             };
             if seen.insert((pkg.name.clone(), pkg.version.clone())) {
                 parsed.push(ParsedDependency {

@@ -198,6 +198,7 @@ mod tests {
             name: name.to_string(),
             version: version.to_string(),
             ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
+            ..Default::default()
         }
     }
 

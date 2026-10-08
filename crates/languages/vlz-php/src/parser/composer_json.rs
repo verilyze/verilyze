@@ -81,6 +81,7 @@ pub fn parse_composer_json_with_declarations(
                     // Ranges are not OSV-ready; resolver prefers lock pins.
                     version: spec.clone(),
                     ecosystem: Some(PACKAGIST_ECOSYSTEM.to_string()),
+                    ..Default::default()
                 },
                 path: path.to_path_buf(),
                 start_line,

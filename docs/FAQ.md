@@ -105,6 +105,10 @@ Pass `--from-vex PATH` (repeatable), `[vex] from_vex`, or `VLZ_FROM_VEX`
 shape emits a stderr warning and keeps the finding. Unreadable configured
 paths exit **2**. Unsigned documents suppress only when
 `allow_unsigned_vex` / `--allow-unsigned-vex` is true (default true).
+When `allow_unsigned_vex` is false, pass `--vex-cosign-bundle PATH` or place
+a sibling `{vex}.sigstore.json` beside each `--from-vex` file so
+`cosign verify-blob --bundle` can mark the document trusted (W4-4 / FR-049).
+Default `allow_unsigned_vex` stays true until signing is mandatory.
 
 ## Docker
 
@@ -342,6 +346,36 @@ declarations show where a dependency is declared, not where vulnerable code runs
 
 ---
 
+## Matching transparency (W3-1)
+
+### What is the `match` field on each CVE in the JSON report?
+
+Structured matching explain data: which CVE providers contributed, which
+provider won the multi-provider merge and why (`affected_ranges`,
+`cvss_version`, `provider_order`, or `sole`), the package query identity
+(name / version / ecosystem), collapsed aliases, and whether the installed
+version sits in a covering advisory range (`version_in_covering_range` /
+`covering_range_index`). SARIF includes the same object under
+`properties.match`. JSON and SARIF are the primary surfaces; plain/HTML stay
+compact.
+
+## False-positive expiry and path scope (W3-2)
+
+### How do I expire or path-scope an FP mark?
+
+`vlz fp mark CVE-… --expires-at EPOCH_SECS` stores an expiry; expired marks
+are ignored during scan. Repeat `--path PATH` to limit the mark to matching
+manifest paths (prefix / exact). Empty paths keep project-wide scope
+(FR-015 `project_id` still applies).
+
+## SBOM PURL qualifiers (W3-3)
+
+### Are PURL qualifiers preserved on SBOM consume?
+
+Yes. `package_from_purl` keeps `?qualifiers` and `#subpath` on the package
+for round-trip fidelity. OSV queries and CVE cache identity still use
+name / version / ecosystem only.
+
 ## Advisory ranges (FR-039)
 
 ### What is the Ranges column / `affected_ranges` field?
@@ -468,6 +502,21 @@ supported integration surface.
 
 ## CVE providers
 
+### How do I enable the GitHub Advisory (`github`) provider?
+
+OSV stays the default. When `GITHUB_TOKEN` or `VLZ_GITHUB_TOKEN` is set (GitHub
+Actions provides `GITHUB_TOKEN` automatically), add `github` to the provider
+list without dropping OSV:
+
+```sh
+vlz scan --providers osv,github
+# or: VLZ_PROVIDERS=osv,github vlz scan
+```
+
+Build with the `github` feature if your binary does not list `github` under
+`vlz db list-providers`. Keep OSV first unless you intentionally want GitHub
+to win FR-019-EXT ties.
+
 ### Provider authentication
 
 - **GitHub Advisory:** Optional. Use `GITHUB_TOKEN` (or `VLZ_GITHUB_TOKEN` to
@@ -580,7 +629,9 @@ network calls and the cache has no entries for them (FR-031).
    `--offline`.
 2. Use `vlz preload` to pre-populate the cache before an offline scan.
 3. In airgap environments, use `vlz db import PATH` (FR-021a) with a corpus
-   produced elsewhere (optionally `--sha256 HEX`), then scan offline.
+   produced elsewhere (optionally `--sha256 HEX` and/or
+   `--cosign-bundle PATH` / `--signature PATH` for
+   `cosign verify-blob --bundle`), then scan offline.
 4. Remove `--offline` if network access is acceptable.
 
 ---

@@ -376,6 +376,17 @@ pub enum Commands {
         )]
         allow_unsigned_vex: Option<bool>,
 
+        /// Cosign Sigstore bundle for `--from-vex` documents (W4-4 / FR-049).
+        /// When `allow_unsigned_vex` is false, verification must succeed
+        /// (explicit path or sibling `{vex}.sigstore.json`).
+        #[arg(
+            long = "vex-cosign-bundle",
+            value_name = "PATH",
+            value_hint = ValueHint::FilePath,
+            help_heading = HELP_VEX
+        )]
+        vex_cosign_bundle: Option<String>,
+
         /// Skip CISA KEV / FIRST EPSS ranking entirely (FR-048)
         #[arg(long, help_heading = HELP_EXPLOITABILITY)]
         no_exploitability: bool,
@@ -697,6 +708,14 @@ pub enum FpCommands {
             help_heading = HELP_VEX,
         )]
         status: Option<String>,
+
+        /// Unix timestamp (seconds) when this mark expires (W3-2)
+        #[arg(long, value_name = "EPOCH_SECS")]
+        expires_at: Option<u64>,
+
+        /// Manifest path this mark applies to (repeatable; W3-2)
+        #[arg(long = "path", value_name = "PATH")]
+        paths: Vec<String>,
     },
     /// Remove false-positive marking for a CVE
     Unmark {
@@ -737,6 +756,16 @@ pub enum DbCommands {
         /// Optional lowercase hex SHA-256 of the corpus file (SEC-016)
         #[arg(long = "sha256", value_name = "HEX")]
         sha256: Option<String>,
+        /// Optional cosign sigstore bundle; runs `cosign verify-blob` (W4-3).
+        /// Alias: `--signature`. Fail closed (exit 2) when verify fails or
+        /// cosign is missing.
+        #[arg(
+            long = "cosign-bundle",
+            visible_alias = "signature",
+            value_name = "PATH",
+            value_hint = ValueHint::FilePath
+        )]
+        cosign_bundle: Option<String>,
     },
     /// Update TTL for existing cache entries
     SetTtl {
@@ -1217,15 +1246,26 @@ mod tests {
             "/tmp/corpus.json",
             "--sha256",
             &"ab".repeat(32),
+            "--cosign-bundle",
+            "/tmp/corpus.sigstore.json",
         ]);
         let Commands::Db { sub, .. } = &cli.cmd else {
             panic!("expected db")
         };
-        let DbCommands::Import { path, sha256 } = sub else {
+        let DbCommands::Import {
+            path,
+            sha256,
+            cosign_bundle,
+        } = sub
+        else {
             panic!("expected import")
         };
         assert_eq!(path, "/tmp/corpus.json");
         assert_eq!(sha256.as_deref(), Some(&*"ab".repeat(32)));
+        assert_eq!(
+            cosign_bundle.as_deref(),
+            Some("/tmp/corpus.sigstore.json")
+        );
     }
 
     #[test]
@@ -1291,6 +1331,8 @@ mod tests {
             "b.cdx.json",
             "--allow-unsigned-vex",
             "false",
+            "--vex-cosign-bundle",
+            "/tmp/vex.sigstore.json",
         ]);
         let Commands::Scan {
             no_vex,
@@ -1299,6 +1341,7 @@ mod tests {
             vex_reachability_not_affected,
             from_vex,
             allow_unsigned_vex,
+            vex_cosign_bundle,
             ..
         } = &cli.cmd
         else {
@@ -1310,6 +1353,37 @@ mod tests {
         assert_eq!(*vex_reachability_not_affected, Some(true));
         assert_eq!(from_vex.as_slice(), ["a.openvex.json", "b.cdx.json"]);
         assert_eq!(*allow_unsigned_vex, Some(false));
+        assert_eq!(
+            vex_cosign_bundle.as_deref(),
+            Some("/tmp/vex.sigstore.json")
+        );
+    }
+
+    #[test]
+    fn parse_db_import_signature_alias() {
+        let cli = parse(&[
+            "db",
+            "import",
+            "/tmp/corpus.json",
+            "--signature",
+            "/tmp/corpus.sigstore.json",
+        ]);
+        let Commands::Db { sub, .. } = &cli.cmd else {
+            panic!("expected db")
+        };
+        let DbCommands::Import {
+            path,
+            cosign_bundle,
+            ..
+        } = sub
+        else {
+            panic!("expected import")
+        };
+        assert_eq!(path, "/tmp/corpus.json");
+        assert_eq!(
+            cosign_bundle.as_deref(),
+            Some("/tmp/corpus.sigstore.json")
+        );
     }
 
     #[test]

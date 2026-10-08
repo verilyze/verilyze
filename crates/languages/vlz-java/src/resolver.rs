@@ -592,6 +592,7 @@ mod tests {
                 name: "g:a".into(),
                 version: "1.0".into(),
                 ecosystem: Some("Maven".into()),
+                ..Default::default()
             }],
             parsed_dependencies: vec![],
             manifest_path: Some(root.join("pom.xml")),
@@ -639,6 +640,7 @@ mod tests {
                 name: "com.local:app".into(),
                 version: "1.0".into(),
                 ecosystem: Some("Maven".into()),
+                ..Default::default()
             }],
             parsed_dependencies: vec![],
             manifest_path: Some(root.join("build.gradle")),
@@ -692,6 +694,7 @@ mod tests {
                 name: "g:a".into(),
                 version: "1.0".into(),
                 ecosystem: Some("Maven".into()),
+                ..Default::default()
             }],
             parsed_dependencies: vec![],
             manifest_path: None,
@@ -714,6 +717,7 @@ mod tests {
                 name: "com.a:b".into(),
                 version: "1.0".into(),
                 ecosystem: Some("Maven".into()),
+                ..Default::default()
             }],
             parsed_dependencies: vec![],
             manifest_path: Some(lock.clone()),
@@ -741,6 +745,7 @@ mod tests {
                 name: "g:a".into(),
                 version: "1.0".into(),
                 ecosystem: Some("Maven".into()),
+                ..Default::default()
             }],
             parsed_dependencies: vec![],
             manifest_path: Some(pom),
@@ -769,6 +774,7 @@ mod tests {
                 name: "com.a:b".into(),
                 version: "1.0".into(),
                 ecosystem: Some("Maven".into()),
+                ..Default::default()
             }],
             parsed_dependencies: vec![],
             manifest_path: Some(root.join("build.gradle")),
@@ -800,6 +806,7 @@ mod tests {
                 name: "com.a:b".into(),
                 version: "1.0".into(),
                 ecosystem: Some("Maven".into()),
+                ..Default::default()
             }],
             parsed_dependencies: vec![],
             manifest_path: Some(root.join("build.gradle")),
@@ -827,6 +834,7 @@ mod tests {
                 name: "com.a:b".into(),
                 version: "1.0".into(),
                 ecosystem: Some("Maven".into()),
+                ..Default::default()
             }],
             parsed_dependencies: vec![],
             manifest_path: Some(root.join("build.gradle")),
@@ -889,6 +897,7 @@ mod tests {
                 name: "com.a:b".into(),
                 version: "1.0".into(),
                 ecosystem: Some("Maven".into()),
+                ..Default::default()
             }],
             parsed_dependencies: vec![],
             manifest_path: Some(root.join("build.gradle")),
@@ -918,6 +927,7 @@ mod tests {
                 name: "g:a".into(),
                 version: "1.0".into(),
                 ecosystem: Some("Maven".into()),
+                ..Default::default()
             }],
             parsed_dependencies: vec![],
             manifest_path: Some(pom),

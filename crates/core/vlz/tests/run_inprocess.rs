@@ -611,6 +611,7 @@ impl vlz_cve_client::CveProvider for PackageSymbolCveProvider {
             in_kev: None,
             epss: None,
             epss_percentile: None,
+            match_explain: None,
         };
         Ok(vlz_cve_client::FetchedCves {
             raw_vulns: vec![serde_json::json!({
@@ -3481,6 +3482,7 @@ impl vlz_cve_client::CveProvider for VersionAwareOsvProvider {
             in_kev: None,
             epss: None,
             epss_percentile: None,
+            match_explain: None,
         };
 
         Ok(vlz_cve_client::FetchedCves {
@@ -3586,6 +3588,7 @@ impl vlz_cve_client::CveProvider for MultiIntervalOsvProvider {
             in_kev: None,
             epss: None,
             epss_percentile: None,
+            match_explain: None,
         };
 
         Ok(vlz_cve_client::FetchedCves {
@@ -5130,6 +5133,7 @@ impl vlz_cve_client::CveProvider for MultiVersionAwareOsvProvider {
                 in_kev: None,
                 epss: None,
                 epss_percentile: None,
+                match_explain: None,
             };
             return Ok(vlz_cve_client::FetchedCves {
                 raw_vulns: raw.as_array().cloned().unwrap_or_default(),

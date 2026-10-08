@@ -264,11 +264,13 @@ mod tests {
                     name: "Scoped.Pkg".into(),
                     version: String::new(),
                     ecosystem: Some("NuGet".into()),
+                    ..Default::default()
                 },
                 Package {
                     name: "Outside.Pkg".into(),
                     version: String::new(),
                     ecosystem: Some("NuGet".into()),
+                    ..Default::default()
                 },
             ],
             parsed_dependencies: Vec::new(),

@@ -181,6 +181,7 @@ pub fn parse_pylock_toml(
             name: name.to_string(),
             version: version.to_string(),
             ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
+            ..Default::default()
         });
     }
     Ok(packages)
@@ -209,6 +210,7 @@ pub fn parse_poetry_lock(
                     name: name.to_string(),
                     version,
                     ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
+                    ..Default::default()
                 });
             }
         }
@@ -240,6 +242,7 @@ pub fn parse_pipfile_lock(
                         name: name.clone(),
                         version,
                         ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
+                        ..Default::default()
                     });
                 }
             }
@@ -271,6 +274,7 @@ pub fn parse_uv_lock(
                     name: name.to_string(),
                     version,
                     ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
+                    ..Default::default()
                 });
             }
         }
@@ -305,6 +309,7 @@ pub fn parse_pdm_lock(
                 name: name.to_string(),
                 version: version.to_string(),
                 ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
+                ..Default::default()
             });
         }
     }

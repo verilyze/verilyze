@@ -89,6 +89,7 @@ pub fn parse_composer_lock_with_declarations(
             name: name.to_string(),
             version,
             ecosystem: Some(PACKAGIST_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         if seen.insert((pkg.name.clone(), pkg.version.clone())) {
             packages.push(pkg);

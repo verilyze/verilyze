@@ -111,6 +111,7 @@ fn push_pkg(
         name: name.to_string(),
         version: version.to_string(),
         ecosystem: Some(NPM_ECOSYSTEM.to_string()),
+        ..Default::default()
     };
     if seen.insert((pkg.name.clone(), pkg.version.clone())) {
         parsed.push(ParsedDependency {

@@ -61,6 +61,19 @@
               "ecosystem": "PyPI"
             }
           ],
+          "match": {
+            "providers": ["osv"],
+            "winner_provider": "osv",
+            "winner_reason": "sole",
+            "query": {
+              "name": "requests",
+              "version": "2.31.0",
+              "ecosystem": "PyPI"
+            },
+            "aliases_collapsed": ["CVE-2024-0001"],
+            "version_in_covering_range": true,
+            "covering_range_index": 0
+          },
           "severity": "HIGH"
         },
         {

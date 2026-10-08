@@ -437,6 +437,7 @@ mod tests {
             name: "pkg".to_string(),
             version: "1.0".to_string(),
             ecosystem: Some("PyPI".to_string()),
+            ..Default::default()
         };
         let exclude = HashSet::new();
         let ctx = TierBContext {

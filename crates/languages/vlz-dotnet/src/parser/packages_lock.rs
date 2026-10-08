@@ -73,6 +73,7 @@ pub fn parse_packages_lock_with_declarations(
                 name: name.to_string(),
                 version,
                 ecosystem: Some(NUGET_ECOSYSTEM.to_string()),
+                ..Default::default()
             };
             if seen.insert((pkg.name.clone(), pkg.version.clone())) {
                 packages.push(pkg);

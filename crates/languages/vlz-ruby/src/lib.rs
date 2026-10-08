@@ -10,6 +10,9 @@ mod parser;
 mod reachability;
 mod resolver;
 
+#[cfg(feature = "tier-d")]
+mod tier_d;
+
 pub use finder::{
     RUBY_MANIFEST_NAMES, RubyManifestFinder, is_ruby_manifest_name,
 };

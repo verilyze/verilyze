@@ -73,6 +73,7 @@ mod tests {
                 name: "requests".to_string(),
                 version: "2.31.0".to_string(),
                 ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: None,

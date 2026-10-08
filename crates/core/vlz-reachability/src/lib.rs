@@ -588,6 +588,7 @@ mod tests {
             name: name.to_string(),
             version: "1.0".to_string(),
             ecosystem: ecosystem.map(ToOwned::to_owned),
+            ..Default::default()
         }
     }
 
@@ -597,6 +598,7 @@ mod tests {
             name: "serde".to_string(),
             version: "1.0".to_string(),
             ecosystem: Some("crates.io".to_string()),
+            ..Default::default()
         };
         let mut findings = vec![(
             pkg.clone(),
@@ -613,6 +615,7 @@ mod tests {
                 in_kev: None,
                 epss: None,
                 epss_percentile: None,
+                match_explain: None,
             }],
         )];
         apply_tier_b_to_findings(
@@ -631,6 +634,7 @@ mod tests {
             name: "serde".to_string(),
             version: "1.0".to_string(),
             ecosystem: Some("crates.io".to_string()),
+            ..Default::default()
         };
         let mut contexts = HashMap::new();
         contexts.insert(
@@ -661,6 +665,7 @@ mod tests {
                 in_kev: None,
                 epss: None,
                 epss_percentile: None,
+                match_explain: None,
             }],
         )];
         apply_tier_b_to_findings(
@@ -679,6 +684,7 @@ mod tests {
             name: "serde".to_string(),
             version: "1.0".to_string(),
             ecosystem: Some("crates.io".to_string()),
+            ..Default::default()
         };
         let mut contexts = HashMap::new();
         contexts.insert(
@@ -712,6 +718,7 @@ mod tests {
                 in_kev: None,
                 epss: None,
                 epss_percentile: None,
+                match_explain: None,
             }],
         )];
         apply_tier_b_to_findings(
@@ -919,6 +926,7 @@ mod tests {
                     in_kev: None,
                     epss: None,
                     epss_percentile: None,
+                    match_explain: None,
                 }],
             ),
             (
@@ -936,6 +944,7 @@ mod tests {
                     in_kev: None,
                     epss: None,
                     epss_percentile: None,
+                    match_explain: None,
                 }],
             ),
         ];
@@ -1000,6 +1009,7 @@ mod tests {
             name: "http".to_string(),
             version: "1.0".to_string(),
             ecosystem: Some("PyPI".to_string()),
+            ..Default::default()
         };
         let mut contexts = HashMap::new();
         contexts.insert(
@@ -1029,6 +1039,7 @@ mod tests {
                     in_kev: None,
                     epss: None,
                     epss_percentile: None,
+                    match_explain: None,
                 },
                 CveRecord {
                     id: "CVE-B".to_string(),
@@ -1043,6 +1054,7 @@ mod tests {
                     in_kev: None,
                     epss: None,
                     epss_percentile: None,
+                    match_explain: None,
                 },
             ],
         )];
@@ -1127,6 +1139,7 @@ mod tests {
                 in_kev: None,
                 epss: None,
                 epss_percentile: None,
+                match_explain: None,
             }],
         )];
         let raw_vulns = HashMap::from([(
@@ -1210,6 +1223,7 @@ mod tests {
                 in_kev: None,
                 epss: None,
                 epss_percentile: None,
+                match_explain: None,
             }],
         )];
         let raw_vulns = HashMap::from([(
@@ -1312,6 +1326,7 @@ mod tests {
                 in_kev: None,
                 epss: None,
                 epss_percentile: None,
+                match_explain: None,
             }],
         )];
         let raw_vulns = HashMap::from([(
@@ -1365,6 +1380,7 @@ mod tests {
                 in_kev: None,
                 epss: None,
                 epss_percentile: None,
+                match_explain: None,
             }],
         )];
         let raw_vulns = HashMap::from([(
@@ -1418,6 +1434,7 @@ mod tests {
                 in_kev: None,
                 epss: None,
                 epss_percentile: None,
+                match_explain: None,
             }],
         )];
         let raw_vulns = HashMap::from([(
@@ -1474,6 +1491,7 @@ mod tests {
                 in_kev: None,
                 epss: None,
                 epss_percentile: None,
+                match_explain: None,
             }],
         )];
         temp_env::with_var(
@@ -1551,6 +1569,7 @@ mod tests {
                 in_kev: None,
                 epss: None,
                 epss_percentile: None,
+                match_explain: None,
             }],
         )];
         let raw_vulns = HashMap::from([(

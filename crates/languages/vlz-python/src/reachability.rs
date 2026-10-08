@@ -451,6 +451,7 @@ mod tests {
             name: package_name.to_string(),
             version: "1.0.0".to_string(),
             ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         TierBContext {
             scan_root: root,
@@ -591,6 +592,7 @@ mod tests {
             name: "requests".to_string(),
             version: "1.0.0".to_string(),
             ecosystem: Some(PYPI_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         let ctx = TierBContext {
             scan_root: dir.path(),

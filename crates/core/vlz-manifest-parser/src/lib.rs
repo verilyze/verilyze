@@ -449,6 +449,7 @@ mod tests {
             name: "foo".to_string(),
             version: "1.0".to_string(),
             ecosystem: None,
+            ..Default::default()
         }];
         let result =
             direct_only_result(packages.clone(), DIRECT_ONLY_REASON_OFFLINE);
@@ -466,6 +467,7 @@ mod tests {
                 name: "foo".to_string(),
                 version: "1.0".to_string(),
                 ecosystem: None,
+                ..Default::default()
             }],
             parsed_dependencies: Vec::new(),
             manifest_path: None,

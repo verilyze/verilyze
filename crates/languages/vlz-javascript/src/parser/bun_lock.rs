@@ -142,6 +142,7 @@ pub fn parse_bun_lock_with_declarations(
             name: name.to_string(),
             version: version.to_string(),
             ecosystem: Some(NPM_ECOSYSTEM.to_string()),
+            ..Default::default()
         };
         if seen.insert((pkg.name.clone(), pkg.version.clone())) {
             parsed.push(ParsedDependency {

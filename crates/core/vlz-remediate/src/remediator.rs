@@ -17,35 +17,45 @@
 //! - Gradle via `gradle.lockfile` / `buildscript-gradle.lockfile`
 //!   (`gradle dependencies --write-locks --update-locks <group:artifact>`)
 //! - Maven via in-place `pom.xml` version bump (no subprocess; empty argv)
+//! - Composer (Packagist) via `composer.lock` + sibling `composer.json`
+//!   (`composer require name:ver --no-install --no-scripts --no-plugins
+//!   --no-interaction`)
+//! - NuGet via in-place `Version=` edit on `*.csproj` /
+//!   `Directory.Packages.props` (no subprocess; empty argv)
 //!
 //! Strategy selection for the npm ecosystem prefers npm locks, then yarn,
 //! pnpm, then bun. PyPI apply strategies require `poetry.lock` or `uv.lock`;
-//! `pylock.toml` / `pylock.*.toml` stay plan-only (`unavailable`) until an
-//! apply path exists. Go findings select on `go.mod` manifest declarations
-//! (Go emits no lockfile-kind declarations). Maven-ecosystem findings prefer a
-//! Gradle lock (`Gradle` strategy) over a bare `pom.xml` (`Maven` strategy).
+//! `pylock.toml` / `pylock.*.toml` stay plan-only (`unavailable`) -- pylock
+//! apply is deferred (Wave 4; no PEP 751 rewrite tool yet). Go findings select
+//! on `go.mod` manifest declarations (Go emits no lockfile-kind declarations).
+//! Maven-ecosystem findings prefer a Gradle lock (`Gradle` strategy) over a
+//! bare `pom.xml` (`Maven` strategy). Packagist findings select on
+//! `composer.lock`. NuGet findings select on a direct editable pin in
+//! `*.csproj` / `*.fsproj` / `*.vbproj` or `Directory.Packages.props`.
 //!
 //! SEC-023 for argv that can run lifecycle scripts: npm and bun default to
 //! `--ignore-scripts` unless `allow_dependency_code_execution` is set. Yarn
 //! Berry defaults to `--mode=skip-build`; Yarn Classic defaults to
 //! `--ignore-scripts`. Cargo `update`, pnpm `--lockfile-only`, poetry
-//! `--lock`, and uv `--no-sync` do not run dependency lifecycle installs.
-//! RubyGems (`bundle`) and Gradle evaluate project code (`Gemfile` Ruby,
-//! build scripts), so their previews fail closed without
+//! `--lock`, uv `--no-sync`, and Composer `--no-scripts --no-plugins
+//! --no-install` do not run dependency lifecycle installs. RubyGems
+//! (`bundle`) and Gradle evaluate project code (`Gemfile` Ruby, build
+//! scripts), so their previews fail closed without
 //! `allow_dependency_code_execution` and apply stays `unavailable` with the
-//! FR-041 stderr warning. Maven performs a local file edit only, so it needs
-//! no gate and works offline. `go get` does not run dependency lifecycle
-//! scripts, so the gate does not change Go argv.
+//! FR-041 stderr warning. Maven and NuGet perform a local file edit only, so
+//! they need no gate and work offline. `go get` does not run dependency
+//! lifecycle scripts, so the gate does not change Go argv.
 //!
 //! Transitive findings: npm uses `--no-save`; Cargo `update --precise` is
 //! lock-safe (and may edit `Cargo.toml` only for Direct requirements that
 //! block the target); Gradle `--update-locks` regenerates the lock entry without
-//! touching manifests. Yarn / pnpm / bun / poetry / uv refuse transitive apply so
-//! they do not promote a transitive pin into a direct manifest dependency.
-//! RubyGems `bundle add` edits the `Gemfile`, so it also refuses transitive
-//! apply. Go `go get` records an explicit `require` directive, so transitive
-//! apply is allowed and documented as promoting the module to a direct
-//! requirement (the idiomatic `go get` behavior).
+//! touching manifests. Yarn / pnpm / bun / poetry / uv / Composer refuse
+//! transitive apply so they do not promote a transitive pin into a direct
+//! manifest dependency. RubyGems `bundle add` edits the `Gemfile`, so it also
+//! refuses transitive apply. NuGet refuses when there is no direct editable
+//! `Version=` pin. Go `go get` records an explicit `require` directive, so
+//! transitive apply is allowed and documented as promoting the module to a
+//! direct requirement (the idiomatic `go get` behavior).
 //!
 //! Apply is fail-fast (first remediator error stops the batch). Earlier
 //! successful writes are not rolled back.
@@ -56,16 +66,16 @@ use std::process::Command;
 use thiserror::Error;
 use vlz_db::{
     CRATES_IO_ECOSYSTEM, DeclarationKind, GO_ECOSYSTEM, MAVEN_ECOSYSTEM,
-    NPM_ECOSYSTEM, PYPI_ECOSYSTEM, Package, PackageDeclarationLocation,
-    RUBYGEMS_ECOSYSTEM,
+    NPM_ECOSYSTEM, NUGET_ECOSYSTEM, PACKAGIST_ECOSYSTEM, PYPI_ECOSYSTEM,
+    Package, PackageDeclarationLocation, RUBYGEMS_ECOSYSTEM,
 };
 
 use crate::{
     ApplyStrategy, ApplyStrategy::Bun, ApplyStrategy::Cargo,
-    ApplyStrategy::Go, ApplyStrategy::Gradle, ApplyStrategy::Maven,
-    ApplyStrategy::Npm, ApplyStrategy::Pnpm, ApplyStrategy::Python,
-    ApplyStrategy::RubyGems, ApplyStrategy::Yarn, DependencyKind,
-    MIN_FIXED_VERSION_UNKNOWN,
+    ApplyStrategy::Composer, ApplyStrategy::Go, ApplyStrategy::Gradle,
+    ApplyStrategy::Maven, ApplyStrategy::Npm, ApplyStrategy::Nuget,
+    ApplyStrategy::Pnpm, ApplyStrategy::Python, ApplyStrategy::RubyGems,
+    ApplyStrategy::Yarn, DependencyKind, MIN_FIXED_VERSION_UNKNOWN,
 };
 
 /// npm lockfile basename (`package-lock.json`).
@@ -168,6 +178,25 @@ pub const GRADLE_BIN_NAME: &str = "gradle";
 pub const MAVEN_MANIFEST_FILE_NAME: &str = "pom.xml";
 /// Maximum `pom.xml` size read for in-place edits (1 MiB, SEC-017).
 pub const MAVEN_POM_MAX_BYTES: usize = 1024 * 1024;
+/// Composer lockfile basename.
+pub const COMPOSER_LOCK_FILE_NAME: &str = "composer.lock";
+/// Sibling Composer manifest required next to the lockfile (SEC-025).
+pub const COMPOSER_MANIFEST_FILE_NAME: &str = "composer.json";
+/// Allowlisted composer binary name (SEC-025).
+pub const COMPOSER_BIN_NAME: &str = "composer";
+/// Composer flag that updates the lock/manifest without installing.
+pub const COMPOSER_NO_INSTALL_FLAG: &str = "--no-install";
+/// Composer flag that skips package scripts (SEC-023).
+pub const COMPOSER_NO_SCRIPTS_FLAG: &str = "--no-scripts";
+/// Composer flag that skips plugins (SEC-023).
+pub const COMPOSER_NO_PLUGINS_FLAG: &str = "--no-plugins";
+/// Composer non-interactive flag.
+pub const COMPOSER_NO_INTERACTION_FLAG: &str = "--no-interaction";
+/// Central package management props basename (NuGet CPM).
+pub const DIRECTORY_PACKAGES_PROPS_FILE_NAME: &str =
+    "Directory.Packages.props";
+/// Maximum NuGet project / props size read for in-place edits (1 MiB).
+pub const NUGET_MANIFEST_MAX_BYTES: usize = 1024 * 1024;
 
 /// Yarn lockfile dialect (Classic v1 vs Berry).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -361,6 +390,13 @@ fn lock_basename_eq(path: &str, expected: &str) -> bool {
     Path::new(path).file_name().is_some_and(|n| n == expected)
 }
 
+fn lock_basename_eq_ignore_ascii_case(path: &str, expected: &str) -> bool {
+    Path::new(path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|n| n.eq_ignore_ascii_case(expected))
+}
+
 /// True for `pylock.toml` or `pylock.*.toml` (PEP 751).
 fn is_applyable_python_lockfile(path: &str) -> bool {
     lock_basename_eq(path, POETRY_LOCK_FILE_NAME)
@@ -474,8 +510,38 @@ pub fn remediation_apply_strategy_for_finding(
                 ApplyStrategy::Unavailable
             }
         }
+        Some(e) if e.eq_ignore_ascii_case(PACKAGIST_ECOSYSTEM) => {
+            if declaration_has_lock(declarations, |p| {
+                lock_basename_eq(p, COMPOSER_LOCK_FILE_NAME)
+            }) {
+                Composer
+            } else {
+                ApplyStrategy::Unavailable
+            }
+        }
+        Some(e) if e.eq_ignore_ascii_case(NUGET_ECOSYSTEM) => {
+            if declarations.iter().any(|d| {
+                d.kind == DeclarationKind::Manifest
+                    && is_nuget_editable_manifest(d.path.as_str())
+            }) {
+                Nuget
+            } else {
+                ApplyStrategy::Unavailable
+            }
+        }
         _ => ApplyStrategy::Unavailable,
     }
+}
+
+fn is_nuget_editable_manifest(path: &str) -> bool {
+    let Some(name) = Path::new(path).file_name().and_then(|n| n.to_str())
+    else {
+        return false;
+    };
+    name.eq_ignore_ascii_case(DIRECTORY_PACKAGES_PROPS_FILE_NAME)
+        || name.ends_with(".csproj")
+        || name.ends_with(".fsproj")
+        || name.ends_with(".vbproj")
 }
 
 fn is_supported_npm_lockfile(path: &str) -> bool {
@@ -2748,6 +2814,475 @@ impl Remediator for MavenRemediator {
     }
 }
 
+/// Build allowlisted `composer require` argv shared by preview and apply.
+pub fn composer_require_argv(
+    bin: &str,
+    package_name: &str,
+    version: &str,
+) -> Vec<String> {
+    vec![
+        bin.to_string(),
+        "require".to_string(),
+        format!("{package_name}:{version}"),
+        COMPOSER_NO_INSTALL_FLAG.to_string(),
+        COMPOSER_NO_SCRIPTS_FLAG.to_string(),
+        COMPOSER_NO_PLUGINS_FLAG.to_string(),
+        COMPOSER_NO_INTERACTION_FLAG.to_string(),
+    ]
+}
+
+fn is_allowlisted_packagist_package_name(name: &str) -> bool {
+    if name.is_empty() || name.len() > 214 {
+        return false;
+    }
+    let Some((vendor, pkg)) = name.split_once('/') else {
+        return false;
+    };
+    if vendor.is_empty()
+        || pkg.is_empty()
+        || pkg.contains('/')
+        || vendor.starts_with('.')
+        || pkg.starts_with('.')
+    {
+        return false;
+    }
+    let ok = |s: &str| {
+        s.chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+    };
+    ok(vendor) && ok(pkg)
+}
+
+fn require_allowlisted_packagist_operands(
+    package_name: &str,
+    target_version: &str,
+) -> Result<(), RemediationError> {
+    if is_allowlisted_packagist_package_name(package_name)
+        && is_allowlisted_version_operand(target_version)
+    {
+        Ok(())
+    } else {
+        Err(RemediationError::InvalidOperand(format!(
+            "Packagist package/version not allowlisted: {package_name}@{target_version}"
+        )))
+    }
+}
+
+fn is_allowlisted_nuget_package_name(name: &str) -> bool {
+    if name.is_empty() || name.len() > 128 || name.starts_with('.') {
+        return false;
+    }
+    name.chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'))
+}
+
+fn require_allowlisted_nuget_operands(
+    package_name: &str,
+    target_version: &str,
+) -> Result<(), RemediationError> {
+    if is_allowlisted_nuget_package_name(package_name)
+        && is_allowlisted_version_operand(target_version)
+    {
+        Ok(())
+    } else {
+        Err(RemediationError::InvalidOperand(format!(
+            "NuGet package/version not allowlisted: {package_name}@{target_version}"
+        )))
+    }
+}
+
+/// Apply Composer remediation by invoking:
+/// `composer require <name>:<version> --no-install --no-scripts --no-plugins
+/// --no-interaction`.
+#[derive(Debug, Clone)]
+pub struct ComposerRemediator {
+    pub(crate) bin: String,
+}
+
+impl Default for ComposerRemediator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ComposerRemediator {
+    pub fn new() -> Self {
+        Self {
+            bin: COMPOSER_BIN_NAME.to_string(),
+        }
+    }
+
+    /// Override the composer executable path (tests inject a stub binary).
+    pub fn with_bin(bin: impl Into<String>) -> Self {
+        Self { bin: bin.into() }
+    }
+}
+
+impl Remediator for ComposerRemediator {
+    fn strategy(&self) -> ApplyStrategy {
+        Composer
+    }
+
+    fn preview(
+        &self,
+        ctx: &RemediationContext<'_>,
+    ) -> Result<RemediationPreview, RemediationError> {
+        if ctx.target_version == MIN_FIXED_VERSION_UNKNOWN {
+            return Err(RemediationError::TargetVersionUnknown);
+        }
+        require_allowlisted_packagist_operands(
+            ctx.package_name,
+            ctx.target_version,
+        )?;
+        refuse_transitive_manifest_mutation(ctx, "composer")?;
+        let lock_dir = require_single_decl_dir(
+            ctx,
+            DeclarationKind::Lockfile,
+            |p| lock_basename_eq(p, COMPOSER_LOCK_FILE_NAME),
+            "composer.lock not found under scan root",
+            "multiple composer.lock directories declare this package; refusing ambiguous remediation (fix each tree separately)",
+        )?;
+        require_sibling_manifest(&lock_dir, COMPOSER_MANIFEST_FILE_NAME)?;
+        Ok(RemediationPreview {
+            strategy: Composer,
+            workdir: lock_dir.clone(),
+            files: vec![
+                lock_dir.join(COMPOSER_LOCK_FILE_NAME),
+                lock_dir.join(COMPOSER_MANIFEST_FILE_NAME),
+            ],
+            argv: composer_require_argv(
+                &self.bin,
+                ctx.package_name,
+                ctx.target_version,
+            ),
+        })
+    }
+
+    fn apply(
+        &self,
+        ctx: &RemediationContext<'_>,
+    ) -> Result<(), RemediationError> {
+        if ctx.offline {
+            return Err(RemediationError::OfflineBlocked);
+        }
+        if !bin_available(&self.bin) {
+            return Err(RemediationError::MissingPackageManager(
+                COMPOSER_BIN_NAME.to_string(),
+            ));
+        }
+        let preview = self.preview(ctx)?;
+        run_allowlisted_argv(
+            &preview.argv,
+            &preview.workdir,
+            COMPOSER_BIN_NAME,
+        )
+    }
+}
+
+/// Apply NuGet remediation with a no-exec in-place `Version=` bump on
+/// `*.csproj` / `Directory.Packages.props`.
+///
+/// Preview carries an empty `argv` (no subprocess). Refuses when no direct
+/// editable pin exists for the package.
+#[derive(Debug, Clone, Default)]
+pub struct NugetRemediator;
+
+impl NugetRemediator {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Remediator for NugetRemediator {
+    fn strategy(&self) -> ApplyStrategy {
+        Nuget
+    }
+
+    fn preview(
+        &self,
+        ctx: &RemediationContext<'_>,
+    ) -> Result<RemediationPreview, RemediationError> {
+        if ctx.target_version == MIN_FIXED_VERSION_UNKNOWN {
+            return Err(RemediationError::TargetVersionUnknown);
+        }
+        require_allowlisted_nuget_operands(
+            ctx.package_name,
+            ctx.target_version,
+        )?;
+        refuse_transitive_manifest_mutation(ctx, "nuget")?;
+        let edit_path = select_nuget_edit_path(ctx)?;
+        let text = std::fs::read_to_string(&edit_path).map_err(|err| {
+            RemediationError::UnsupportedLockLayout(format!(
+                "unable to read {} for edit preview: {err}",
+                edit_path.display()
+            ))
+        })?;
+        if text.len() > NUGET_MANIFEST_MAX_BYTES {
+            return Err(RemediationError::UnsupportedLockLayout(format!(
+                "{} exceeds {NUGET_MANIFEST_MAX_BYTES} byte limit",
+                edit_path.display()
+            )));
+        }
+        compute_nuget_version_edit(
+            &text,
+            ctx.package_name,
+            ctx.target_version,
+        )?;
+        let workdir = edit_path
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| ctx.scan_root.to_path_buf());
+        Ok(RemediationPreview {
+            strategy: Nuget,
+            workdir,
+            files: vec![edit_path],
+            argv: Vec::new(),
+        })
+    }
+
+    fn apply(
+        &self,
+        ctx: &RemediationContext<'_>,
+    ) -> Result<(), RemediationError> {
+        let preview = self.preview(ctx)?;
+        let [edit_path] = preview.files.as_slice() else {
+            return Err(RemediationError::UnsupportedLockLayout(
+                "NuGet preview must reference exactly one project/props file"
+                    .to_string(),
+            ));
+        };
+        let text = std::fs::read_to_string(edit_path).map_err(|err| {
+            RemediationError::UnsupportedLockLayout(format!(
+                "unable to read {} for edit: {err}",
+                edit_path.display()
+            ))
+        })?;
+        let edited = compute_nuget_version_edit(
+            &text,
+            ctx.package_name,
+            ctx.target_version,
+        )?;
+        std::fs::write(edit_path, edited)?;
+        Ok(())
+    }
+}
+
+/// Prefer `Directory.Packages.props` when declared, else a single project
+/// file with an editable `PackageReference` Version attribute.
+fn select_nuget_edit_path(
+    ctx: &RemediationContext<'_>,
+) -> Result<std::path::PathBuf, RemediationError> {
+    let props_dirs = distinct_decl_dirs(ctx, DeclarationKind::Manifest, |p| {
+        lock_basename_eq_ignore_ascii_case(
+            p,
+            DIRECTORY_PACKAGES_PROPS_FILE_NAME,
+        )
+    });
+    match props_dirs.as_slice() {
+        [dir] => {
+            let props_name = ctx
+                .declarations
+                .iter()
+                .find(|d| {
+                    d.kind == DeclarationKind::Manifest
+                        && lock_basename_eq_ignore_ascii_case(
+                            d.path.as_str(),
+                            DIRECTORY_PACKAGES_PROPS_FILE_NAME,
+                        )
+                        && resolve_lock_workdir_under_root(
+                            ctx.scan_root,
+                            d.path.as_str(),
+                        )
+                        .as_ref()
+                            == Some(dir)
+                })
+                .and_then(|d| {
+                    Path::new(d.path.as_str())
+                        .file_name()
+                        .map(|n| n.to_os_string())
+                })
+                .unwrap_or_else(|| DIRECTORY_PACKAGES_PROPS_FILE_NAME.into());
+            return Ok(dir.join(props_name));
+        }
+        [] => {}
+        _ => {
+            return Err(RemediationError::UnsupportedLockLayout(
+                "multiple Directory.Packages.props declare this package; refusing ambiguous remediation"
+                    .to_string(),
+            ));
+        }
+    }
+    let proj_dirs = distinct_decl_dirs(ctx, DeclarationKind::Manifest, |p| {
+        is_nuget_project_manifest(p)
+    });
+    match proj_dirs.as_slice() {
+        [dir] => {
+            let matches: Vec<_> = ctx
+                .declarations
+                .iter()
+                .filter(|d| {
+                    d.kind == DeclarationKind::Manifest
+                        && is_nuget_project_manifest(d.path.as_str())
+                        && resolve_lock_workdir_under_root(
+                            ctx.scan_root,
+                            d.path.as_str(),
+                        )
+                        .as_ref()
+                        == Some(dir)
+                })
+                .collect();
+            match matches.as_slice() {
+                [d] => {
+                    let name = Path::new(d.path.as_str())
+                        .file_name()
+                        .map(|n| n.to_os_string())
+                        .ok_or_else(|| {
+                            RemediationError::UnsupportedLockLayout(
+                                "NuGet project manifest not found under scan root"
+                                    .to_string(),
+                            )
+                        })?;
+                    Ok(dir.join(name))
+                }
+                [] => Err(RemediationError::UnsupportedLockLayout(
+                    "NuGet project manifest not found under scan root"
+                        .to_string(),
+                )),
+                _ => Err(RemediationError::UnsupportedLockLayout(
+                    "multiple NuGet project files in one directory declare this package; refusing ambiguous remediation"
+                        .to_string(),
+                )),
+            }
+        }
+        [] => Err(RemediationError::UnsupportedLockLayout(
+            "no editable NuGet pin (*.csproj / Directory.Packages.props) under scan root"
+                .to_string(),
+        )),
+        _ => Err(RemediationError::UnsupportedLockLayout(
+            "multiple NuGet project directories declare this package; refusing ambiguous remediation"
+                .to_string(),
+        )),
+    }
+}
+
+fn is_nuget_project_manifest(path: &str) -> bool {
+    Path::new(path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|name| {
+            name.ends_with(".csproj")
+                || name.ends_with(".fsproj")
+                || name.ends_with(".vbproj")
+        })
+}
+
+/// Rewrite a single `Version="..."` pin for `package` in NuGet XML.
+///
+/// Matches `PackageVersion Include="pkg"` (CPM) or
+/// `PackageReference Include="pkg"` with a Version attribute. Refuses zero
+/// or multiple editable pins. Scans self-closing / single-line tags only
+/// (SDK-style projects); nested child `<Version>` elements stay manual.
+fn compute_nuget_version_edit(
+    text: &str,
+    package: &str,
+    new_version: &str,
+) -> Result<String, RemediationError> {
+    let refuse = |why: String| {
+        RemediationError::UnsupportedLockLayout(format!(
+            "NuGet pin for {package}: {why}"
+        ))
+    };
+    let mut matches: Vec<(usize, usize)> = Vec::new();
+    let lower = text.to_ascii_lowercase();
+    let mut cursor = 0usize;
+    while cursor < text.len() {
+        let Some(rel) = lower[cursor..].find('<') else {
+            break;
+        };
+        let tag_start = cursor + rel;
+        let after = &lower[tag_start + 1..];
+        let is_pkg_version = after.starts_with("packageversion");
+        let is_pkg_ref = after.starts_with("packagereference");
+        if !is_pkg_version && !is_pkg_ref {
+            cursor = tag_start + 1;
+            continue;
+        }
+        let Some(rel_end) = text[tag_start..].find('>') else {
+            break;
+        };
+        let tag_end = tag_start + rel_end;
+        let tag = &text[tag_start..=tag_end];
+        let tag_lower = tag.to_ascii_lowercase();
+        let include_ok = nuget_attr_value(&tag_lower, tag, "include")
+            .or_else(|| nuget_attr_value(&tag_lower, tag, "update"))
+            .is_some_and(|v| v.eq_ignore_ascii_case(package));
+        if !include_ok {
+            cursor = tag_end + 1;
+            continue;
+        }
+        if let Some((vs, ve)) = nuget_attr_value_span(&tag_lower, "version")
+            && vs < ve
+        {
+            matches.push((tag_start + vs, tag_start + ve));
+        }
+        cursor = tag_end + 1;
+    }
+    match matches.as_slice() {
+        [] => Err(refuse(
+            "no direct editable Version= pin found; refusing apply".into(),
+        )),
+        [(start, end)] => {
+            let mut edited = text.to_string();
+            edited.replace_range(*start..*end, new_version);
+            Ok(edited)
+        }
+        _ => Err(refuse(
+            "multiple Version= pins found; refusing ambiguous edit".into(),
+        )),
+    }
+}
+
+fn nuget_attr_value<'a>(
+    tag_lower: &str,
+    tag: &'a str,
+    attr: &str,
+) -> Option<&'a str> {
+    let (start, end) = nuget_attr_value_span(tag_lower, attr)?;
+    Some(&tag[start..end])
+}
+
+/// Byte offsets of an attribute value relative to `tag_lower` / `tag`.
+fn nuget_attr_value_span(
+    tag_lower: &str,
+    attr: &str,
+) -> Option<(usize, usize)> {
+    let needle = format!("{attr}=");
+    let mut search = 0usize;
+    while let Some(rel) = tag_lower[search..].find(&needle) {
+        let eq = search + rel + needle.len();
+        let bytes = tag_lower.as_bytes();
+        // Require word boundary before the attribute name.
+        let name_start = search + rel;
+        if name_start > 0 {
+            let prev = bytes[name_start - 1];
+            if prev.is_ascii_alphanumeric() || prev == b'_' || prev == b'-' {
+                search = eq;
+                continue;
+            }
+        }
+        let quote = *bytes.get(eq)?;
+        if quote != b'"' && quote != b'\'' {
+            search = eq;
+            continue;
+        }
+        let value_start = eq + 1;
+        let rest = &tag_lower[value_start..];
+        let end_rel = rest.find(quote as char)?;
+        return Some((value_start, value_start + end_rel));
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2779,6 +3314,7 @@ mod tests {
             name: name.to_string(),
             version: "1.0.0".to_string(),
             ecosystem: Some(ecosystem.to_string()),
+            ..Default::default()
         }
     }
 
@@ -5547,5 +6083,248 @@ Path("Cargo.lock").write_text(new)
             })
             .unwrap_err();
         assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+    }
+
+    fn write_composer_tree(root: &Path) {
+        fs::create_dir_all(root).unwrap();
+        fs::write(root.join(COMPOSER_LOCK_FILE_NAME), "{}\n").unwrap();
+        fs::write(
+            root.join(COMPOSER_MANIFEST_FILE_NAME),
+            "{\"name\":\"app/app\",\"require\":{}}\n",
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn strategy_selects_composer_for_composer_lock() {
+        let package = pkg(PACKAGIST_ECOSYSTEM, "symfony/http-foundation");
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &package,
+                "6.4.1",
+                &[lock_decl(COMPOSER_LOCK_FILE_NAME)],
+            ),
+            ApplyStrategy::Composer
+        );
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &package,
+                "6.4.1",
+                &[manifest_decl(COMPOSER_MANIFEST_FILE_NAME)],
+            ),
+            ApplyStrategy::Unavailable
+        );
+    }
+
+    #[test]
+    fn strategy_selects_nuget_for_csproj_and_props() {
+        let package = pkg(NUGET_ECOSYSTEM, "Newtonsoft.Json");
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &package,
+                "13.0.3",
+                &[manifest_decl("App.csproj")],
+            ),
+            ApplyStrategy::Nuget
+        );
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &package,
+                "13.0.3",
+                &[manifest_decl(DIRECTORY_PACKAGES_PROPS_FILE_NAME)],
+            ),
+            ApplyStrategy::Nuget
+        );
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &package,
+                "13.0.3",
+                &[lock_decl("packages.lock.json")],
+            ),
+            ApplyStrategy::Unavailable
+        );
+    }
+
+    #[test]
+    fn composer_preview_argv_and_refuses_transitive() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_composer_tree(root);
+        let rem = ComposerRemediator::new();
+        assert_eq!(rem.strategy(), ApplyStrategy::Composer);
+        let preview = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl(COMPOSER_LOCK_FILE_NAME)],
+                package_name: "symfony/http-foundation",
+                target_version: "6.4.1",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .expect("composer preview");
+        assert_eq!(preview.strategy, ApplyStrategy::Composer);
+        assert_eq!(
+            preview.argv,
+            composer_require_argv(
+                COMPOSER_BIN_NAME,
+                "symfony/http-foundation",
+                "6.4.1",
+            )
+        );
+        assert!(preview.argv.iter().any(|a| a == COMPOSER_NO_INSTALL_FLAG));
+        assert!(preview.argv.iter().any(|a| a == COMPOSER_NO_SCRIPTS_FLAG));
+        assert!(preview.argv.iter().any(|a| a == COMPOSER_NO_PLUGINS_FLAG));
+        assert!(
+            preview
+                .argv
+                .iter()
+                .any(|a| a == COMPOSER_NO_INTERACTION_FLAG)
+        );
+
+        let err = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl(COMPOSER_LOCK_FILE_NAME)],
+                package_name: "symfony/http-foundation",
+                target_version: "6.4.1",
+                dependency_kind: DependencyKind::Transitive,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+    }
+
+    #[test]
+    fn nuget_preview_edits_csproj_version_empty_argv() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        fs::write(
+            root.join("App.csproj"),
+            r#"<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+  </ItemGroup>
+</Project>
+"#,
+        )
+        .unwrap();
+        let rem = NugetRemediator::new();
+        assert_eq!(rem.strategy(), ApplyStrategy::Nuget);
+        let preview = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &[manifest_decl("App.csproj")],
+                package_name: "Newtonsoft.Json",
+                target_version: "13.0.3",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .expect("nuget preview");
+        assert_eq!(preview.strategy, ApplyStrategy::Nuget);
+        assert!(preview.argv.is_empty());
+        rem.apply(&RemediationContext {
+            scan_root: root,
+            declarations: &[manifest_decl("App.csproj")],
+            package_name: "Newtonsoft.Json",
+            target_version: "13.0.3",
+            dependency_kind: DependencyKind::Direct,
+            allow_dependency_code_execution: false,
+            offline: true,
+        })
+        .expect("nuget apply offline");
+        let edited = fs::read_to_string(root.join("App.csproj")).unwrap();
+        assert!(edited.contains(r#"Version="13.0.3""#));
+        assert!(!edited.contains(r#"Version="13.0.1""#));
+    }
+
+    #[test]
+    fn nuget_refuses_when_no_direct_editable_pin() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        fs::write(
+            root.join("App.csproj"),
+            r#"<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" />
+  </ItemGroup>
+</Project>
+"#,
+        )
+        .unwrap();
+        let err = NugetRemediator::new()
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &[manifest_decl("App.csproj")],
+                package_name: "Newtonsoft.Json",
+                target_version: "13.0.3",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+    }
+
+    #[test]
+    fn nuget_refuses_multiple_csproj_in_same_directory() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        let pin = r#"<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+  </ItemGroup>
+</Project>
+"#;
+        fs::write(root.join("App.csproj"), pin).unwrap();
+        fs::write(root.join("Lib.csproj"), pin).unwrap();
+        let decls = [manifest_decl("App.csproj"), manifest_decl("Lib.csproj")];
+        let err = NugetRemediator::new()
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &decls,
+                package_name: "Newtonsoft.Json",
+                target_version: "13.0.3",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+    }
+
+    #[test]
+    fn nuget_edits_directory_packages_props() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        fs::write(
+            root.join(DIRECTORY_PACKAGES_PROPS_FILE_NAME),
+            r#"<Project>
+  <ItemGroup>
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.1" />
+  </ItemGroup>
+</Project>
+"#,
+        )
+        .unwrap();
+        NugetRemediator::new()
+            .apply(&RemediationContext {
+                scan_root: root,
+                declarations: &[manifest_decl(
+                    DIRECTORY_PACKAGES_PROPS_FILE_NAME,
+                )],
+                package_name: "Newtonsoft.Json",
+                target_version: "13.0.3",
+                dependency_kind: DependencyKind::Direct,
+                allow_dependency_code_execution: false,
+                offline: false,
+            })
+            .expect("props apply");
+        let edited =
+            fs::read_to_string(root.join(DIRECTORY_PACKAGES_PROPS_FILE_NAME))
+                .unwrap();
+        assert!(edited.contains(r#"Version="13.0.3""#));
     }
 }

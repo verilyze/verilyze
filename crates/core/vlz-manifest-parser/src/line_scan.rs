@@ -33,6 +33,7 @@ pub fn scan_toml_lock_stanzas(
                     name,
                     version: version.unwrap_or_else(|| "any".to_string()),
                     ecosystem: Some(ecosystem.to_string()),
+                    ..Default::default()
                 },
                 start_line: line,
             });

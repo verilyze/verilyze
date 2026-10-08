@@ -82,6 +82,7 @@ _arguments "${_arguments_options[@]}" : \
 '--vex-author-namespace=[Author namespace / role for OpenVEX documents]:NS:_default' \
 '--vex-reachability-not-affected=[Map reachability false to VEX not_affected (default\: in_triage). Omit to leave config/env unchanged; pass \`true\`/\`false\` to override. A bare flag (no value) means true]::BOOL:(true false)' \
 '--allow-unsigned-vex=[Allow unsigned VEX ingest documents to suppress findings (FR-049). Omit to leave config/env unchanged; pass \`true\`/\`false\` to override. A bare flag (no value) means true. Default is true until signing is mandatory]::BOOL:(true false)' \
+'--vex-cosign-bundle=[Cosign Sigstore bundle for \`--from-vex\` documents (W4-4 / FR-049). When \`allow_unsigned_vex\` is false, verification must succeed (explicit path or sibling \`{vex}.sigstore.json\`)]:PATH:_files' \
 '--min-epss=[Minimum EPSS score (0.0-1.0) to trigger the CVE exit code (FR-048)]:SCORE:_default' \
 '--kev-file=[KEV snapshot file (JSON or CSV) instead of cache/network (FR-048)]:PATH:_files' \
 '--epss-file=[EPSS snapshot file (uncompressed JSON or CSV) (FR-048)]:PATH:_files' \
@@ -234,6 +235,8 @@ _arguments "${_arguments_options[@]}" : \
 (import)
 _arguments "${_arguments_options[@]}" : \
 '--sha256=[Optional lowercase hex SHA-256 of the corpus file (SEC-016)]:HEX:_default' \
+'--cosign-bundle=[Optional cosign sigstore bundle; runs \`cosign verify-blob\` (W4-3). Alias\: \`--signature\`. Fail closed (exit 2) when verify fails or cosign is missing]:PATH:_files' \
+'--signature=[Optional cosign sigstore bundle; runs \`cosign verify-blob\` (W4-3). Alias\: \`--signature\`. Fail closed (exit 2) when verify fails or cosign is missing]:PATH:_files' \
 '-c+[Override configuration file location]:PATH:_files' \
 '--config=[Override configuration file location]:PATH:_files' \
 '*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \
@@ -286,6 +289,8 @@ _arguments "${_arguments_options[@]}" : \
 '--project-id=[Optional project scope]:ID:_default' \
 '--justification=[CISA VEX justification for not_affected]:JUSTIFICATION:(component_not_present vulnerable_code_not_present vulnerable_code_not_in_execute_path vulnerable_code_cannot_be_controlled_by_adversary inline_mitigations_already_exist)' \
 '--status=[VEX status (default not_affected when justification is set)]:STATUS:(not_affected)' \
+'--expires-at=[Unix timestamp (seconds) when this mark expires (W3-2)]:EPOCH_SECS:_default' \
+'*--path=[Manifest path this mark applies to (repeatable; W3-2)]:PATH:_default' \
 '-c+[Override configuration file location]:PATH:_files' \
 '--config=[Override configuration file location]:PATH:_files' \
 '*-v[Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)]' \

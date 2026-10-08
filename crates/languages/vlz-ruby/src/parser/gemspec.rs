@@ -53,6 +53,7 @@ pub fn parse_gemspec_with_declarations(
                     .map(|value| value.as_str().to_string())
                     .unwrap_or_else(|| "*".to_string()),
                 ecosystem: Some(RUBYGEMS_ECOSYSTEM.to_string()),
+                ..Default::default()
             },
             path: path.to_path_buf(),
             start_line: (index + 1) as u32,

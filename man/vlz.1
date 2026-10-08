@@ -333,6 +333,7 @@ Run database migrations.
 Display cache entries (key, TTL, added-at, CVE summary or full payload).
 .It Nm import Ar path
 .Op Fl -sha256 Ar hex
+.Op Fl -cosign-bundle Ar path | Fl -signature Ar path
 Import an airgap CVE corpus JSON into the local cache (FR-021a). Accepts a
 versioned envelope or
 .Nm db show Fl -full Fl -format Ar json
@@ -341,6 +342,14 @@ output that includes
 Optional
 .Fl -sha256
 verifies the file digest before import.
+Optional
+.Fl -cosign-bundle
+(or
+.Fl -signature )
+runs
+.Nm cosign verify-blob Fl -bundle
+before import and fails closed (exit 2) when cosign is missing or verify
+fails.
 .It Nm set-ttl Ar secs
 .Op Fl -entry Ar key
 .Op Fl -all

@@ -24,6 +24,7 @@ fn sample_graph(
             name: "lodash".to_string(),
             version: "^4.17.21".to_string(),
             ecosystem: Some(NPM_ECOSYSTEM.to_string()),
+            ..Default::default()
         }],
         parsed_dependencies: Vec::new(),
         manifest_path: Some(root.join("package.json")),
@@ -114,6 +115,7 @@ fn package_json_with_lock_resolves_transitive() {
             name: "lodash".to_string(),
             version: "^4.17.21".to_string(),
             ecosystem: Some(NPM_ECOSYSTEM.to_string()),
+            ..Default::default()
         }],
         parsed_dependencies: Vec::new(),
         manifest_path: Some(root.join("package.json")),

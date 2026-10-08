@@ -13,6 +13,7 @@ pub mod cli_values;
 pub mod completion;
 pub mod config;
 pub mod config_example;
+pub mod cosign_verify;
 pub mod exit_code;
 pub mod exploitability;
 pub mod fix_diff;

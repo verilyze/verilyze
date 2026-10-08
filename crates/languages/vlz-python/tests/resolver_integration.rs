@@ -20,6 +20,7 @@ fn requirements_txt_without_pip_exits_fr022_error() {
             name: "requests".to_string(),
             version: "*".to_string(),
             ecosystem: Some("PyPI".to_string()),
+            ..Default::default()
         }],
         parsed_dependencies: Vec::new(),
         manifest_path: Some(req),
@@ -54,6 +55,7 @@ async fn setup_py_secure_default_exits_fr022() {
             name: "x".to_string(),
             version: "0.0.0".to_string(),
             ecosystem: Some("PyPI".to_string()),
+            ..Default::default()
         }],
         parsed_dependencies: Vec::new(),
         manifest_path: Some(setup),
@@ -83,6 +85,7 @@ async fn pyproject_toml_secure_default_exits_fr022() {
             name: "requests".to_string(),
             version: "*".to_string(),
             ecosystem: Some("PyPI".to_string()),
+            ..Default::default()
         }],
         parsed_dependencies: Vec::new(),
         manifest_path: Some(manifest),
@@ -112,6 +115,7 @@ async fn pipfile_secure_default_exits_fr022() {
             name: "requests".to_string(),
             version: "*".to_string(),
             ecosystem: Some("PyPI".to_string()),
+            ..Default::default()
         }],
         parsed_dependencies: Vec::new(),
         manifest_path: Some(manifest),
@@ -141,6 +145,7 @@ async fn offline_mode_direct_only_for_pyproject() {
             name: "requests".to_string(),
             version: "*".to_string(),
             ecosystem: Some("PyPI".to_string()),
+            ..Default::default()
         }],
         parsed_dependencies: Vec::new(),
         manifest_path: Some(manifest),
@@ -170,6 +175,7 @@ async fn live_pip_lock_requirements_only_binary() {
             name: "certifi".to_string(),
             version: "2024.7.4".to_string(),
             ecosystem: Some("PyPI".to_string()),
+            ..Default::default()
         }],
         parsed_dependencies: Vec::new(),
         manifest_path: Some(req),
@@ -193,6 +199,7 @@ fn requirements_txt_without_pip_fallback_direct_only() {
             name: "requests".to_string(),
             version: "*".to_string(),
             ecosystem: Some("PyPI".to_string()),
+            ..Default::default()
         }],
         parsed_dependencies: Vec::new(),
         manifest_path: Some(req),

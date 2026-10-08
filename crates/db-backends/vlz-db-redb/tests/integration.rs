@@ -43,6 +43,7 @@ async fn redb_backend_put_then_get() {
         name: "foo".to_string(),
         version: "1.0".to_string(),
         ecosystem: None,
+        ..Default::default()
     };
     let raw = vec![sample_raw_vuln()];
     backend.put(&pkg, "osv", &raw, None).await.unwrap();
@@ -63,6 +64,7 @@ async fn redb_backend_get_unknown_returns_none_increments_misses() {
         name: "nonexistent".to_string(),
         version: "0".to_string(),
         ecosystem: None,
+        ..Default::default()
     };
     let r1 = backend.get(&pkg, "osv").await.unwrap();
     let r2 = backend.get(&pkg, "osv").await.unwrap();
@@ -81,6 +83,7 @@ async fn redb_backend_stats() {
         name: "p".to_string(),
         version: "1".to_string(),
         ecosystem: None,
+        ..Default::default()
     };
     backend
         .put(&pkg, "osv", &[sample_raw_vuln()], None)
@@ -102,6 +105,7 @@ async fn stats_reflect_hits_after_get() {
         name: "pkg".to_string(),
         version: "1.0".to_string(),
         ecosystem: None,
+        ..Default::default()
     };
     backend
         .put(&pkg, "osv", &[sample_raw_vuln()], None)
@@ -124,6 +128,7 @@ async fn stats_persisted_across_backend_instances() {
             name: "foo".to_string(),
             version: "2.0".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         backend
             .put(&pkg, "osv", &[sample_raw_vuln()], None)
@@ -152,6 +157,7 @@ async fn stats_persisted_misses_across_backend_instances() {
             name: "nonexistent".to_string(),
             version: "0".to_string(),
             ecosystem: None,
+            ..Default::default()
         };
         let _ = backend.get(&pkg, "osv").await.unwrap();
         let _ = backend.get(&pkg, "osv").await.unwrap();
