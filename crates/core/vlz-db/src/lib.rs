@@ -24,7 +24,8 @@ pub use corpus_import::{
 pub use file_ignore::{
     DEFAULT_IGNORE_FILE_NAME, FileIgnoreDb, FpEntry, FpMarkFields, FpMarkMeta,
     IGNORE_FILE_SCHEMA_VERSION, LEGACY_IGNORE_REDB_FILE_NAME,
-    fp_entry_applies_to_paths, fp_entry_is_active, legacy_redb_path_for_json,
+    fp_entry_applies_to_paths, fp_entry_applies_to_paths_under_root,
+    fp_entry_is_active, legacy_redb_path_for_json,
 };
 pub use match_explain::{
     MatchExplain, MatchQuery, WINNER_REASON_AFFECTED_RANGES,

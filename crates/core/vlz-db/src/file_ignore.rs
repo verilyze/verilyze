@@ -154,22 +154,55 @@ pub fn fp_entry_applies_to_paths(
 
 /// Path-prefix (with `/` or `\` boundary) or basename-only scope match.
 fn path_scope_matches(finding: &str, scoped: &str) -> bool {
+    let finding = finding.replace('\\', "/");
+    let scoped = scoped.replace('\\', "/");
+    let scoped = scoped.trim_end_matches('/');
+    if scoped.is_empty() {
+        return false;
+    }
     if finding == scoped {
         return true;
     }
     if let Some(rest) = finding.strip_prefix(scoped)
-        && (rest.starts_with('/') || rest.starts_with('\\'))
+        && rest.starts_with('/')
     {
         return true;
     }
     // Basename-only scopes (no directory separator).
-    if !scoped.contains('/') && !scoped.contains('\\') {
-        return std::path::Path::new(finding)
+    if !scoped.contains('/') {
+        return std::path::Path::new(finding.as_str())
             .file_name()
             .and_then(|n| n.to_str())
             == Some(scoped);
     }
     false
+}
+
+/// Like [`fp_entry_applies_to_paths`], also matching repo-relative scopes
+/// against absolute manifests under `scan_root` (W3-2).
+///
+/// Discovery stores canonical absolute paths; CLI `--path` is typically
+/// relative to the scan root. Each manifest is compared as-is and, when it
+/// lies under `scan_root`, as the stripped relative form.
+pub fn fp_entry_applies_to_paths_under_root(
+    entry: &FpEntry,
+    manifest_paths: &[impl AsRef<std::path::Path>],
+    scan_root: Option<&std::path::Path>,
+) -> bool {
+    let mut candidates: Vec<String> = Vec::new();
+    for path in manifest_paths {
+        let path = path.as_ref();
+        candidates.push(path.to_string_lossy().into_owned());
+        if let Some(root) = scan_root
+            && let Ok(rel) = path.strip_prefix(root)
+        {
+            let rel_s = rel.to_string_lossy();
+            if !rel_s.is_empty() {
+                candidates.push(rel_s.into_owned());
+            }
+        }
+    }
+    fp_entry_applies_to_paths(entry, &candidates)
 }
 
 /// Caller-supplied FP mark fields (comment / project / VEX triage / W3-2).
@@ -836,6 +869,56 @@ mod tests {
         assert!(!fp_entry_applies_to_paths(
             &empty_scope,
             &["/abs/manifest.lock"]
+        ));
+    }
+
+    #[test]
+    fn fp_entry_applies_to_paths_under_root_relative_scope() {
+        use std::path::Path;
+        let root = Path::new("/workspace");
+        let scoped = FpEntry {
+            comment: "c".into(),
+            timestamp_secs: 1,
+            user: None,
+            host: None,
+            project_id: None,
+            justification: None,
+            status: None,
+            detail: None,
+            expires_at_secs: None,
+            paths: vec!["apps/api/composer.lock".into()],
+        };
+        assert!(fp_entry_applies_to_paths_under_root(
+            &scoped,
+            &[Path::new("/workspace/apps/api/composer.lock")],
+            Some(root),
+        ));
+        assert!(fp_entry_applies_to_paths_under_root(
+            &FpEntry {
+                paths: vec!["apps/api".into()],
+                ..scoped.clone()
+            },
+            &[Path::new("/workspace/apps/api/composer.lock")],
+            Some(root),
+        ));
+        assert!(!fp_entry_applies_to_paths_under_root(
+            &scoped,
+            &[Path::new("/workspace/apps/web/composer.lock")],
+            Some(root),
+        ));
+        // Without root stripping, absolute finding does not match relative scope.
+        assert!(!fp_entry_applies_to_paths(
+            &scoped,
+            &["/workspace/apps/api/composer.lock"]
+        ));
+        // other-pkg must not match scope pkg/Cargo.toml even under a root.
+        assert!(!fp_entry_applies_to_paths_under_root(
+            &FpEntry {
+                paths: vec!["pkg/Cargo.toml".into()],
+                ..scoped
+            },
+            &[Path::new("/workspace/other-pkg/Cargo.toml")],
+            Some(root),
         ));
     }
 

@@ -116,13 +116,18 @@ fn fp_mark_suppresses_finding(
     marked_fp: &std::collections::HashSet<String>,
     fp_entries: &std::collections::HashMap<String, vlz_db::FpEntry>,
     vex_only_keys: &std::collections::HashSet<String>,
-    pkg_paths: &[String],
+    pkg_paths: &[std::path::PathBuf],
+    scan_root: &std::path::Path,
 ) -> bool {
     if !vlz_db::record_is_fp_marked(cve_id, raw, marked_fp) {
         return false;
     }
     if let Some(entry) = vlz_db::matching_fp_entry(cve_id, raw, fp_entries) {
-        return vlz_db::fp_entry_applies_to_paths(&entry, pkg_paths);
+        return vlz_db::fp_entry_applies_to_paths_under_root(
+            &entry,
+            pkg_paths,
+            Some(scan_root),
+        );
     }
     vex_only_keys.iter().any(|k| {
         vlz_db::record_is_fp_marked(
@@ -2447,14 +2452,9 @@ async fn run_scan(
                     .get(&pkg)
                     .map(|v| v.as_slice())
                     .unwrap_or(&[]);
-                let pkg_paths: Vec<String> = pkg_contexts
+                let pkg_paths: Vec<std::path::PathBuf> = pkg_contexts
                     .get(&pkg)
-                    .map(|ctx| {
-                        ctx.manifest_paths
-                            .iter()
-                            .map(|p| p.to_string_lossy().into_owned())
-                            .collect()
-                    })
+                    .map(|ctx| ctx.manifest_paths.clone())
                     .unwrap_or_default();
                 let mut kept = Vec::new();
                 let mut suppressed = Vec::new();
@@ -2466,6 +2466,7 @@ async fn run_scan(
                         &fp_entries,
                         &vex_only_keys,
                         &pkg_paths,
+                        &root_path,
                     ) {
                         suppressed.push(cve);
                     } else {
@@ -3078,14 +3079,9 @@ async fn scan_findings_for_fix(
                 .get(&pkg)
                 .map(|v| v.as_slice())
                 .unwrap_or(&[]);
-            let pkg_paths: Vec<String> = pkg_contexts
+            let pkg_paths: Vec<std::path::PathBuf> = pkg_contexts
                 .get(&pkg)
-                .map(|ctx| {
-                    ctx.manifest_paths
-                        .iter()
-                        .map(|p| p.to_string_lossy().into_owned())
-                        .collect()
-                })
+                .map(|ctx| ctx.manifest_paths.clone())
                 .unwrap_or_default();
             let kept: Vec<_> = recs
                 .into_iter()
@@ -3097,6 +3093,7 @@ async fn scan_findings_for_fix(
                         &fp_entries,
                         &vex_only_keys,
                         &pkg_paths,
+                        &root_path,
                     )
                 })
                 .collect();
