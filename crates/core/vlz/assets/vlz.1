@@ -420,7 +420,9 @@ Resolution flags match
 .Nm scan
 /
 .Nm preload
-(lock-file, from-sbom, fail-fast, and related options) but provider and
+(including
+.Fl -offline ,
+lock-file, from-sbom, fail-fast, and related options) but provider and
 cache warm flags are omitted. Exit
 .Sy 4
 when blocking manifest failures remain after emit; never exits 5/6/86 from

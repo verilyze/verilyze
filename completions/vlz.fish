@@ -229,6 +229,7 @@ complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -l lock-file -d 'On
 complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -l from-sbom -d 'Scan SBOM inventory file (CycloneDX 1.x / SPDX 2.x or 3.0 JSON; repeatable)' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -l project-id -d 'Project ID for report metadata (FR-015a)' -r
 complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -s c -l config -d 'Override configuration file location' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -l offline -d 'Disable network access (fail closed without usable locks)'
 complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -l package-manager-required -d 'Require package manager on PATH per language when manifests need it'
 complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -l keep-ephemeral-venv -d 'Do not remove ephemeral Python venv after resolution (FR-023 debug)'
 complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -l allow-dependency-code-execution -d 'Allow package managers to execute dependency build/lifecycle code (SEC-023)'

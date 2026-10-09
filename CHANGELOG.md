@@ -25,6 +25,7 @@ Human-readable release notes for each version.
   (HC-2 / MOD-008).
 - NuGet orphan `packages.lock.json` entry points and ephemeral restore
   `Directory.Packages.props` copy (HC-10).
+- `vlz export-sbom --offline` for air-gapped inventory resolution.
 - Matching transparency (W3-1): JSON/SARIF CVE objects include a `match`
   explain payload (providers, winner reason, query identity, aliases, local
   covering-range check).
@@ -38,7 +39,7 @@ Human-readable release notes for each version.
   `*.csproj` / `Directory.Packages.props`.
 - Pylock apply for `vlz fix` (W4-1 leftover): in-place PEP 751
   `pylock.toml` / `pylock.*.toml` version edit (empty argv, offline-safe,
-  strips `wheels` / `sdists` on the bumped package).
+  strips `wheels` / `sdist` / `archive` on the bumped package).
 - Tier D reachability for Java, Ruby, PHP, and .NET (W4-2); on by default.
 - `vlz db import --cosign-bundle PATH` (alias `--signature`) runs
   `cosign verify-blob --bundle` and fails closed (W4-3).

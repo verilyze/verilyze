@@ -716,6 +716,10 @@ pub enum Commands {
         )]
         from_sbom: Vec<String>,
 
+        /// Disable network access (fail closed without usable locks)
+        #[arg(long, help_heading = HELP_RESOLUTION)]
+        offline: bool,
+
         /// Require package manager on PATH per language when manifests need it
         #[arg(long, help_heading = HELP_RESOLUTION)]
         package_manager_required: bool,
@@ -1661,6 +1665,7 @@ mod tests {
             format,
             output,
             fail_fast,
+            offline,
             ..
         } = &cli.cmd
         else {
@@ -1670,6 +1675,7 @@ mod tests {
         assert_eq!(format, "cyclonedx");
         assert!(output.is_none());
         assert!(!*fail_fast);
+        assert!(!*offline);
     }
 
     #[test]
@@ -1682,6 +1688,7 @@ mod tests {
             "--output",
             "/tmp/out.spdx.json",
             "--fail-fast",
+            "--offline",
             "--project-id",
             "acme",
         ]);
@@ -1690,6 +1697,7 @@ mod tests {
             format,
             output,
             fail_fast,
+            offline,
             project_id,
             ..
         } = &cli.cmd
@@ -1700,6 +1708,7 @@ mod tests {
         assert_eq!(format, "spdx");
         assert_eq!(output.as_deref(), Some("/tmp/out.spdx.json"));
         assert!(*fail_fast);
+        assert!(*offline);
         assert_eq!(project_id.as_deref(), Some("acme"));
     }
 

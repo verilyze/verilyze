@@ -107,9 +107,11 @@ fn walk_dir(
             };
             if matches_manifest {
                 manifests.push(entry.path());
-            } else if patterns.is_none() && is_packages_lock_json(name) {
-                // Orphan promotion only for committed packages.lock.json
-                // (HC-10); assets/deps stay ladder-only.
+            }
+            // Orphan promotion for committed packages.lock.json (HC-10),
+            // including FR-006 custom regex discovery. assets/deps stay
+            // ladder-only (not collected here).
+            if is_packages_lock_json(name) {
                 locks.push(entry.path());
             }
         } else if file_type.is_dir() {
@@ -192,6 +194,27 @@ mod tests {
         std::fs::write(tmp.join("App.csproj"), "<Project />").unwrap();
 
         let finder = DotnetManifestFinder::new();
+        let mut got = finder.find(tmp).await.unwrap();
+        got.sort();
+        let mut want =
+            vec![tmp.join("App.csproj"), orphan.join("packages.lock.json")];
+        want.sort();
+        assert_eq!(got, want);
+    }
+
+    #[tokio::test]
+    async fn orphan_packages_lock_discovered_with_patterns() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        let orphan = tmp.join("vendor");
+        std::fs::create_dir_all(&orphan).unwrap();
+        std::fs::write(orphan.join("packages.lock.json"), "{}").unwrap();
+        std::fs::write(tmp.join("App.csproj"), "<Project />").unwrap();
+
+        let finder = DotnetManifestFinder::with_patterns(vec![
+            r".*\.csproj$".to_string(),
+        ])
+        .unwrap();
         let mut got = finder.find(tmp).await.unwrap();
         got.sort();
         let mut want =

@@ -361,6 +361,7 @@ _arguments "${_arguments_options[@]}" : \
 '--project-id=[Project ID for report metadata (FR-015a)]:ID:_default' \
 '-c+[Override configuration file location]:PATH:_files' \
 '--config=[Override configuration file location]:PATH:_files' \
+'--offline[Disable network access (fail closed without usable locks)]' \
 '--package-manager-required[Require package manager on PATH per language when manifests need it]' \
 '--keep-ephemeral-venv[Do not remove ephemeral Python venv after resolution (FR-023 debug)]' \
 '--allow-dependency-code-execution[Allow package managers to execute dependency build/lifecycle code (SEC-023)]' \

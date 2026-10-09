@@ -117,6 +117,35 @@ def test_release_workflow_container_slsa_uses_generator() -> None:
     ]
 
 
+def test_release_workflow_docker_publish_gated_to_push() -> None:
+    """Dispatch dry-runs must not push GHCR without container SLSA."""
+    workflow = _release_workflow_text()
+    build_docker = re.search(
+        r"build-docker:.*?(?=\n  container-slsa-provenance:)",
+        workflow,
+        re.DOTALL,
+    )
+    assert build_docker is not None
+    body = build_docker.group(0)
+    assert "Push Docker image" in body
+    # Login / push / sign are push-only; Build Docker image stays for smoke.
+    for step in (
+        "Log in to GHCR",
+        "Push Docker image",
+        "Install cosign",
+        "Sign container image (keyless)",
+    ):
+        step_idx = body.index(f"- name: {step}")
+        # `if:` is on the next lines of the same step.
+        window = body[step_idx : step_idx + 200]
+        assert "if: github.event_name == 'push'" in window, step
+    assert "if: github.event_name == 'push'" in re.search(
+        r"container-slsa-provenance:.*?(?=\n  \S)",
+        workflow,
+        re.DOTALL,
+    ).group(0)
+
+
 def test_release_workflow_macos_hash_uses_portable_base64() -> None:
     workflow = _release_workflow_text()
     build_job = re.search(

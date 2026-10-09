@@ -98,6 +98,10 @@ pub const POETRY_LOCK_FILE_NAME: &str = "poetry.lock";
 pub const UV_LOCK_FILE_NAME: &str = "uv.lock";
 /// PEP 751 pylock basename (`pylock.toml`).
 pub const PYLOCK_TOML_FILE_NAME: &str = "pylock.toml";
+
+/// PEP 751 package artifact keys cleared when bumping a pylock pin so stale
+/// URLs/hashes cannot outlive the new version.
+const PYLOCK_ARTIFACT_KEYS: &[&str] = &["wheels", "sdist", "archive"];
 /// Sibling npm / Yarn / pnpm / bun manifest required next to the lockfile (SEC-025).
 pub const NPM_MANIFEST_FILE_NAME: &str = "package.json";
 /// Sibling Cargo manifest required next to the lockfile (SEC-025).
@@ -1639,8 +1643,9 @@ impl Remediator for PythonRemediator {
 /// Rewrite a unique `[[packages]]` version pin in a PEP 751 pylock document.
 ///
 /// Matches package `name` case-insensitively. Refuses zero or multiple
-/// matches. Drops `wheels` / `sdists` on the bumped package so stale artifact
-/// URLs and hashes do not remain after the version change.
+/// matches. Drops PEP 751 artifact keys (`wheels`, `sdist`, `archive`) on the
+/// bumped package so stale URLs and hashes do not remain after the version
+/// change.
 fn compute_pylock_version_edit(
     text: &str,
     package: &str,
@@ -1688,8 +1693,9 @@ fn compute_pylock_version_edit(
                 "version".to_string(),
                 toml::Value::String(new_version.to_string()),
             );
-            entry.remove("wheels");
-            entry.remove("sdists");
+            for key in PYLOCK_ARTIFACT_KEYS {
+                entry.remove(*key);
+            }
             toml::to_string(&value).map_err(|err| {
                 refuse(format!("unable to serialize pylock TOML: {err}"))
             })
@@ -3747,6 +3753,43 @@ url = "https://example.invalid/requests-2.31.0-py3-none-any.whl"
         assert!(edited.contains("version = \"2.32.0\""));
         assert!(!edited.contains("wheels"));
         assert!(!edited.contains("2.31.0"));
+    }
+
+    #[test]
+    fn compute_pylock_version_edit_strips_sdist_and_archive() {
+        let text = r#"lock-version = "1.0"
+created-by = "test"
+
+[[packages]]
+name = "requests"
+version = "2.31.0"
+[packages.sdist]
+url = "https://example.invalid/requests-2.31.0.tar.gz"
+hash = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+[packages.archive]
+url = "https://example.invalid/requests-2.31.0.zip"
+
+[[packages]]
+name = "urllib3"
+version = "2.0.0"
+"#;
+        let edited =
+            compute_pylock_version_edit(text, "requests", "2.32.0").unwrap();
+        assert!(edited.contains("version = \"2.32.0\""));
+        assert!(
+            !edited.contains("2.31.0"),
+            "stale sdist/archive URLs must not remain: {edited}"
+        );
+        assert!(
+            !edited.contains("sdist"),
+            "PEP 751 sdist table must be stripped: {edited}"
+        );
+        assert!(
+            !edited.contains("archive"),
+            "PEP 751 archive table must be stripped: {edited}"
+        );
+        assert!(edited.contains("urllib3"));
+        assert!(edited.contains("version = \"2.0.0\""));
     }
 
     #[test]

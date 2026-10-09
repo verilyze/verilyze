@@ -589,7 +589,7 @@ _vlz() {
             return 0
             ;;
         vlz__subcmd__export__subcmd__sbom)
-            opts="-f -o -v -c -h --format --output --parallel-resolutions --scan-exclude-dir --lock-file --from-sbom --package-manager-required --keep-ephemeral-venv --allow-dependency-code-execution --allow-direct-only-fallback --fail-fast --project-id --verbose --config --help"
+            opts="-f -o -v -c -h --format --output --parallel-resolutions --scan-exclude-dir --lock-file --from-sbom --offline --package-manager-required --keep-ephemeral-venv --allow-dependency-code-execution --allow-direct-only-fallback --fail-fast --project-id --verbose --config --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
