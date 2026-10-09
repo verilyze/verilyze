@@ -10,8 +10,9 @@ use clap::{Parser as ClapParser, Subcommand, ValueHint};
 use clap_complete::Shell;
 
 use crate::cli_values::{
-    db_show_format_parser, fix_format_parser, help_subcommand_parser,
-    parse_providers_list_arg, provider_parser, scan_format_parser,
+    db_show_format_parser, export_sbom_format_parser, fix_format_parser,
+    help_subcommand_parser, parse_providers_list_arg, provider_parser,
+    scan_format_parser,
 };
 
 /// Parse KEY=VALUE for `config --set`. Returns None if key is empty or no `=` present.
@@ -654,6 +655,90 @@ pub enum Commands {
             help_heading = HELP_ADVANCED,
         )]
         tls_crl_bundle: Option<String>,
+    },
+
+    /// Export inventory SBOM without CVE matching (MOD-008)
+    #[command(name = "export-sbom")]
+    ExportSbom {
+        /// Root directory (defaults to current working dir)
+        #[arg(value_name = "PATH", value_hint = ValueHint::DirPath)]
+        root: Option<String>,
+
+        /// SBOM format (cyclonedx or spdx)
+        #[arg(
+            short,
+            long,
+            default_value = "cyclonedx",
+            value_parser = export_sbom_format_parser(),
+            ignore_case = true,
+            help_heading = HELP_OUTPUT,
+        )]
+        format: String,
+
+        /// Write SBOM to file instead of stdout
+        #[arg(
+            short,
+            long,
+            value_name = "PATH",
+            value_hint = ValueHint::FilePath,
+            help_heading = HELP_OUTPUT,
+        )]
+        output: Option<String>,
+
+        /// Parallel dependency resolution limit (default: CPU count, max 32)
+        #[arg(long, value_name = "N", help_heading = HELP_RESOLUTION)]
+        parallel_resolutions: Option<usize>,
+
+        /// Exclude directory name from manifest discovery (repeatable)
+        #[arg(
+            long,
+            value_name = "DIR",
+            value_hint = ValueHint::DirPath,
+            help_heading = HELP_RESOLUTION,
+        )]
+        scan_exclude_dir: Vec<String>,
+
+        /// Only discover/merge listed Python lock file basenames (repeatable)
+        #[arg(
+            long = "lock-file",
+            value_name = "PATH",
+            value_hint = ValueHint::FilePath,
+            help_heading = HELP_RESOLUTION,
+        )]
+        lock_file: Vec<String>,
+
+        /// Scan SBOM inventory file (CycloneDX 1.x / SPDX 2.x or 3.0 JSON; repeatable)
+        #[arg(
+            long = "from-sbom",
+            value_name = "PATH",
+            value_hint = ValueHint::FilePath,
+            help_heading = HELP_RESOLUTION,
+        )]
+        from_sbom: Vec<String>,
+
+        /// Require package manager on PATH per language when manifests need it
+        #[arg(long, help_heading = HELP_RESOLUTION)]
+        package_manager_required: bool,
+
+        /// Do not remove ephemeral Python venv after resolution (FR-023 debug)
+        #[arg(long, help_heading = HELP_RESOLUTION)]
+        keep_ephemeral_venv: bool,
+
+        /// Allow package managers to execute dependency build/lifecycle code (SEC-023)
+        #[arg(long, help_heading = HELP_RESOLUTION)]
+        allow_dependency_code_execution: bool,
+
+        /// Fall back to direct-only resolution with warning when transitive resolution fails
+        #[arg(long, help_heading = HELP_RESOLUTION)]
+        allow_direct_only_fallback: bool,
+
+        /// Stop on first manifest parse/resolution failure (FR-037)
+        #[arg(long, help_heading = HELP_RESOLUTION)]
+        fail_fast: bool,
+
+        /// Project ID for report metadata (FR-015a)
+        #[arg(long, value_name = "ID", help_heading = HELP_OUTPUT)]
+        project_id: Option<String>,
     },
 
     /// Open the full manual page
@@ -1566,6 +1651,56 @@ mod tests {
         };
         assert!(root.is_none());
         assert!(!*offline);
+    }
+
+    #[test]
+    fn parse_export_sbom_defaults() {
+        let cli = parse(&["export-sbom"]);
+        let Commands::ExportSbom {
+            root,
+            format,
+            output,
+            fail_fast,
+            ..
+        } = &cli.cmd
+        else {
+            panic!("expected export-sbom")
+        };
+        assert!(root.is_none());
+        assert_eq!(format, "cyclonedx");
+        assert!(output.is_none());
+        assert!(!*fail_fast);
+    }
+
+    #[test]
+    fn parse_export_sbom_with_format_output_and_path() {
+        let cli = parse(&[
+            "export-sbom",
+            "/tmp/proj",
+            "--format",
+            "spdx",
+            "--output",
+            "/tmp/out.spdx.json",
+            "--fail-fast",
+            "--project-id",
+            "acme",
+        ]);
+        let Commands::ExportSbom {
+            root,
+            format,
+            output,
+            fail_fast,
+            project_id,
+            ..
+        } = &cli.cmd
+        else {
+            panic!("expected export-sbom")
+        };
+        assert_eq!(root.as_deref(), Some("/tmp/proj"));
+        assert_eq!(format, "spdx");
+        assert_eq!(output.as_deref(), Some("/tmp/out.spdx.json"));
+        assert!(*fail_fast);
+        assert_eq!(project_id.as_deref(), Some("acme"));
     }
 
     #[test]

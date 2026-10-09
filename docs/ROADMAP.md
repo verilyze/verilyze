@@ -48,7 +48,7 @@ Status values: `done`, `in progress`, `planned`, `later`.
 | W4-5 | GHSA docs only: how to add `github` to `--providers` when a token is set; keep OSV default | done | FAQ |
 | W4-6 | Forge recipes that apply `vlz fix --format diff` (no GitHub App) | done | examples/ GitHub + GitLab |
 | HC-1 | Opt-in license policy (needs PRD Purpose and Scope amendment first) | later | |
-| HC-2 | Dedicated `vlz export-sbom` (MOD-008) | later | |
+| HC-2 | Dedicated `vlz export-sbom` (MOD-008) | done | |
 | HC-3 | KEV to OpenVEX `exploited` (FR-048) | done | |
 | HC-4 | SQLite DB backend | later | |
 | HC-5 | Container image SLSA only (SEC-021); still no image CVE scan | done | |

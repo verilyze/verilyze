@@ -86,12 +86,16 @@ unsupported components are skipped with a warning. Empty but valid SBOMs
 complete as transitive coverage with zero packages (exit 0 when no CVEs).
 Malformed or unrecognized JSON exits **4** (`failed_parse`). Embedded BOM
 vulnerability sections are ignored; CVE lookup uses the configured provider.
-Scan **output** SBOMs remain CycloneDX 1.6 and SPDX 3.0 (FR-017).
+Scan **output** SBOMs remain CycloneDX 1.6 and SPDX 3.0 (FR-017). For
+inventory-only export without CVE matching, use `vlz export-sbom`
+(CycloneDX or SPDX).
 
 ```sh
 vlz scan --from-sbom sbom.cdx.json
 vlz scan --from-sbom inventory.spdx.json /path/to/project
 vlz preload --from-sbom bom.json
+vlz export-sbom --format cyclonedx -o inventory.cdx.json
+vlz export-sbom --format spdx -o inventory.spdx.json
 ```
 
 ## VEX consume (FR-049)

@@ -41,7 +41,8 @@ never suppresses findings by default.
   an explicit opt-in such as `--allow-direct-only-fallback` /
   `--allow-dependency-code-execution`) before expecting CI green.
 - **SBOM / VEX:** Scan export supports CycloneDX 1.6, SPDX 3.0, and OpenVEX.
-  Import via `--from-sbom` or discovered allowlisted names. VEX consume uses
-  `--from-vex` (see FAQ).
+  Inventory-only export (no CVE matching) uses `vlz export-sbom`. Import via
+  `--from-sbom` or discovered allowlisted names. VEX consume uses `--from-vex`
+  (see FAQ).
 - **Roadmap:** Matching transparency, suppression expiry, and remediator
   gaps are tracked in [ROADMAP.md](ROADMAP.md).

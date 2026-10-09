@@ -13,6 +13,9 @@ pub const SCAN_OUTPUT_FORMATS: &[&str] =
 /// Output formats for `vlz fix --dry-run --format`.
 pub const FIX_OUTPUT_FORMATS: &[&str] = &["plain", "json", "diff"];
 
+/// Output formats for `vlz export-sbom --format` (inventory only).
+pub const EXPORT_SBOM_FORMATS: &[&str] = &["cyclonedx", "spdx"];
+
 /// Output formats for `vlz db show --format`.
 pub const DB_SHOW_FORMATS: &[&str] = &["json"];
 
@@ -34,6 +37,7 @@ const HELP_SUBCOMMANDS_BASE: &[&str] = &[
     "db",
     "fp",
     "preload",
+    "export-sbom",
     "help",
 ];
 
@@ -83,6 +87,7 @@ pub fn help_subcommand_names() -> &'static [&'static str] {
             "db",
             "fp",
             "preload",
+            "export-sbom",
             "help",
             "generate-completions",
         ];
@@ -102,6 +107,11 @@ pub fn scan_format_parser() -> PossibleValuesParser {
 /// `value_parser` for `fix --dry-run --format`.
 pub fn fix_format_parser() -> PossibleValuesParser {
     PossibleValuesParser::new(FIX_OUTPUT_FORMATS)
+}
+
+/// `value_parser` for `export-sbom --format`.
+pub fn export_sbom_format_parser() -> PossibleValuesParser {
+    PossibleValuesParser::new(EXPORT_SBOM_FORMATS)
 }
 
 /// `value_parser` for `db show --format`.
@@ -222,6 +232,12 @@ mod tests {
     fn help_subcommand_names_include_scan() {
         assert!(help_subcommand_names().contains(&"scan"));
         assert!(help_subcommand_names().contains(&"help"));
+        assert!(help_subcommand_names().contains(&"export-sbom"));
+    }
+
+    #[test]
+    fn export_sbom_formats_are_cyclonedx_and_spdx() {
+        assert_eq!(EXPORT_SBOM_FORMATS, &["cyclonedx", "spdx"]);
     }
 
     #[cfg(feature = "completions")]

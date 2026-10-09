@@ -405,6 +405,26 @@ when
 is set and a package is not already cached; exit
 .Sy 5
 on provider fetch failure.
+.It Nm export-sbom
+.Op Ar path
+Resolve dependency inventory under
+.Ar path
+and emit a CycloneDX or SPDX SBOM without CVE matching or VEX packaging
+(MOD-008). Use
+.Fl -format Cm cyclonedx | spdx
+(default
+.Cm cyclonedx )
+and optional
+.Fl -output Ar file .
+Resolution flags match
+.Nm scan
+/
+.Nm preload
+(lock-file, from-sbom, fail-fast, and related options) but provider and
+cache warm flags are omitted. Exit
+.Sy 4
+when blocking manifest failures remain after emit; never exits 5/6/86 from
+CVE results.
 .El
 .Sh EXIT CODES
 .Bl -tag -width Ds

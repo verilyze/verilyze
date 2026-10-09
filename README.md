@@ -170,6 +170,7 @@ values: `vlz config --list`.
 | `vlz config` | Show or set configuration |
 | `vlz db ...` | Cache stats, import, verify, migrate, providers |
 | `vlz preload [path]` | Warm the CVE cache without a full report |
+| `vlz export-sbom [path]` | Inventory CycloneDX/SPDX SBOM (no CVE match) |
 | `vlz fp mark` / `unmark` | False-positive triage |
 | `vlz fix [PATH]` | Remediate (use `--dry-run` to preview) |
 | `vlz lsp` | Language Server diagnostics |

@@ -56,6 +56,61 @@ fn run_preload_exits_0() {
     with_temp_xdg(|| assert_eq!(run_async(&["preload"]), 0));
 }
 
+#[test]
+fn run_export_sbom_exits_0() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let out = dir.path().join("empty.cdx.json");
+        let code = run_async(&[
+            "export-sbom",
+            dir.path().to_str().unwrap(),
+            "--output",
+            out.to_str().unwrap(),
+        ]);
+        assert_eq!(code, 0);
+        assert!(out.is_file());
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_export_sbom_cyclonedx_lists_packages_without_vulns() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
+        let root = dir.path().to_str().unwrap();
+        let out = dir.path().join("bom.json");
+        let code = run_async(&[
+            "export-sbom",
+            root,
+            "--format",
+            "cyclonedx",
+            "--output",
+            out.to_str().unwrap(),
+        ]);
+        assert_eq!(code, 0);
+        let body = std::fs::read_to_string(&out).expect("read bom");
+        let json: serde_json::Value =
+            serde_json::from_str(&body).expect("bom json");
+        let components =
+            json["components"].as_array().expect("components array");
+        assert!(
+            components.iter().any(|c| c["name"] == "pkg"),
+            "expected pkg component in {body}"
+        );
+        let vulns = json.get("vulnerabilities");
+        assert!(
+            vulns.is_none()
+                || vulns
+                    .and_then(|v| v.as_array())
+                    .is_some_and(|a| a.is_empty()),
+            "inventory export must not include CVE vulnerabilities: {vulns:?}"
+        );
+    });
+}
+
 #[cfg(feature = "python")]
 #[test]
 fn run_preload_populates_cache_for_fixture() {
