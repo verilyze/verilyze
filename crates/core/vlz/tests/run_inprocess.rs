@@ -1700,6 +1700,59 @@ fn run_scan_json_includes_manifest_paths() {
     });
 }
 
+#[cfg(feature = "dotnet")]
+#[test]
+fn run_scan_orphan_packages_lock_only() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("packages.lock.json"),
+            r#"{
+  "version": 1,
+  "dependencies": {
+    "net8.0": {
+      "pkg": {
+        "type": "Direct",
+        "resolved": "1.0.0"
+      }
+    }
+  }
+}"#,
+        )
+        .expect("write packages.lock.json");
+        let out_path = dir.path().join("report.json");
+        let root = dir.path().to_str().unwrap();
+
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            CveReturningProvider::new(),
+        )));
+
+        let code = run_async(&[
+            "scan",
+            root,
+            "--format",
+            "json",
+            "--summary-file",
+            &format!("json:{}", out_path.display()),
+            "--provider",
+            "cve_returning",
+        ]);
+        assert_eq!(code, 86);
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&out_path).unwrap())
+                .unwrap();
+        let findings = parsed["findings"].as_array().unwrap();
+        assert_eq!(findings[0]["manifest_paths"][0], "packages.lock.json");
+        let coverage = parsed["manifest_coverage"].as_array().unwrap();
+        assert_eq!(coverage.len(), 1);
+        assert_eq!(coverage[0]["path"], "packages.lock.json");
+        assert_eq!(coverage[0]["status"], "scanned_transitive");
+    });
+}
+
 #[cfg(feature = "python")]
 #[test]
 fn run_scan_orphan_pylock_only() {

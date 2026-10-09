@@ -32,7 +32,7 @@ never suppresses findings by default.
 | Java / Kotlin | `pom.xml`, `build.gradle(.kts)`, version catalogs | `gradle.lockfile` (Maven has no standard lock) | Exit **4** | Tier B/C (`.java` / `.kt`); Tier D on by default | gradle / maven (gradle apply needs SEC-023 gate) |
 | Ruby | `Gemfile`, `gems.rb`, `*.gemspec` | `Gemfile.lock`, `gems.locked` | Exit **4** | Tier B/C; Tier D on by default | bundler (needs SEC-023 gate; no transitive apply) |
 | PHP | `composer.json` | `composer.lock` | Exit **4** | Tier B/C; Tier D on by default | composer (`require --no-install --no-scripts --no-plugins`; no transitive apply) |
-| .NET | `*.csproj` / `*.fsproj` / `*.vbproj`, `packages.config` | `packages.lock.json`, then `project.assets.json` / `*.deps.json` | Exit **4** | Tier B/C (`.cs` / `.fs`); Tier D on by default | nuget (in-place `Version=` on `*.csproj` / `Directory.Packages.props`; no transitive / no-pin refuse) |
+| .NET | `*.csproj` / `*.fsproj` / `*.vbproj`, `packages.config` | `packages.lock.json` (incl. orphan lock-only dirs), then `project.assets.json` / `*.deps.json` | Exit **4** | Tier B/C (`.cs` / `.fs`); Tier D on by default | nuget (in-place `Version=` on `*.csproj` / `Directory.Packages.props`; no transitive / no-pin refuse) |
 | SBOM | CycloneDX 1.x / SPDX 2.2--3.0 JSON | n/a (pre-resolved) | n/a | n/a | Dry-run only; never apply |
 
 ## Notes

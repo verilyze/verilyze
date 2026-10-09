@@ -187,6 +187,9 @@ async fn ephemeral_packages_lock(
     })?;
     let destination = temp.path().join(file_name);
     std::fs::copy(manifest_path, &destination).map_err(ResolverError::Io)?;
+    // HC-10: copy adjacent or parent Directory.Packages.props so CPM restores
+    // resolve Version-less PackageReferences in the ephemeral tree.
+    copy_directory_packages_props_for_restore(manifest_path, temp.path())?;
 
     let dest_str = destination.to_str().ok_or_else(|| {
         ResolverError::Resolve("dotnet project path is not UTF-8".into())
@@ -224,6 +227,28 @@ async fn ephemeral_packages_lock(
         ));
     }
     parse_lock_path(&lock)
+}
+
+/// Copy `Directory.Packages.props` from the project dir or parents into
+/// `temp_dir` when present (Central Package Management restore support).
+fn copy_directory_packages_props_for_restore(
+    manifest_path: &Path,
+    temp_dir: &Path,
+) -> Result<(), ResolverError> {
+    let Some(mut dir) = manifest_path.parent().map(Path::to_path_buf) else {
+        return Ok(());
+    };
+    loop {
+        let props = dir.join("Directory.Packages.props");
+        if props.is_file() {
+            std::fs::copy(&props, temp_dir.join("Directory.Packages.props"))
+                .map_err(ResolverError::Io)?;
+            return Ok(());
+        }
+        if !dir.pop() {
+            return Ok(());
+        }
+    }
 }
 
 /// Resolver: adjacent/parent lock preferred; `dotnet restore` only with
@@ -866,5 +891,39 @@ mod tests {
         std::fs::write(&lock, "{").unwrap();
         let err = parse_lock_path(&lock).unwrap_err();
         assert!(err.to_string().contains("packages.lock.json"));
+    }
+
+    #[test]
+    fn copy_directory_packages_props_from_parent() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let nested = root.join("src");
+        std::fs::create_dir_all(&nested).unwrap();
+        let props_body = r#"<Project>
+  <ItemGroup>
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+</Project>"#;
+        std::fs::write(root.join("Directory.Packages.props"), props_body)
+            .unwrap();
+        let manifest = nested.join("App.csproj");
+        std::fs::write(&manifest, "<Project />").unwrap();
+        let dest = tempfile::tempdir().unwrap();
+        copy_directory_packages_props_for_restore(&manifest, dest.path())
+            .unwrap();
+        let copied = dest.path().join("Directory.Packages.props");
+        assert!(copied.is_file());
+        assert_eq!(std::fs::read_to_string(copied).unwrap(), props_body);
+    }
+
+    #[test]
+    fn copy_directory_packages_props_noop_when_absent() {
+        let dir = tempfile::tempdir().unwrap();
+        let manifest = dir.path().join("App.csproj");
+        std::fs::write(&manifest, "<Project />").unwrap();
+        let dest = tempfile::tempdir().unwrap();
+        copy_directory_packages_props_for_restore(&manifest, dest.path())
+            .unwrap();
+        assert!(!dest.path().join("Directory.Packages.props").exists());
     }
 }

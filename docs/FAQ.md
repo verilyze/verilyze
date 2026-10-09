@@ -30,6 +30,7 @@ matrix.
 - [Editor diagnostics (FR-042)](#editor-diagnostics-fr-042)
 - [CVE providers](#cve-providers)
 - [Standalone Python lock files](#standalone-python-lock-files)
+- [Standalone NuGet lock files](#standalone-nuget-lock-files)
 - [Multi-manifest scans (FR-037)](#multi-manifest-scans-fr-037)
 
 **Exit codes and resolution**
@@ -771,7 +772,9 @@ and commit `packages.lock.json` after `dotnet restore`. Without a usable lock,
 the scan exits **4** by default (SEC-023 does not run `dotnet restore`; MSBuild
 may execute project targets). Use `--allow-dependency-code-execution` for
 ephemeral restore with lock generation, or `--allow-direct-only-fallback` for
-direct-only coverage.
+direct-only coverage. Orphan `packages.lock.json` directories (no project file
+beside the lock) are scanned as entry points; see
+[Standalone NuGet lock files](#standalone-nuget-lock-files).
 
 ### Unable to detect transitive dependencies (exit 4)
 
@@ -829,6 +832,25 @@ resolution failed after
 See also `man vlz` for configuration keys `keep_ephemeral_venv`,
 `allow_dependency_code_execution`, `allow_direct_only_fallback`, and
 `fail_fast`.
+
+---
+
+## Standalone NuGet lock files
+
+### Scanning a directory with only `packages.lock.json`
+
+**Cause:** NuGet lock files were previously used only when adjacent to a
+project or `packages.config`. A directory that contained only
+`packages.lock.json` was not an entry point.
+
+**Behavior:** `packages.lock.json` in a directory with no `*.csproj` /
+`*.fsproj` / `*.vbproj` / `packages.config` is discovered and scanned
+directly (HC-10). A valid empty lock completes with `scanned_transitive` and
+exit 0 when no CVEs are found. Local `project.assets.json` / `*.deps.json`
+remain ladder-only (not orphan entry points). When
+`--allow-dependency-code-execution` runs ephemeral `dotnet restore`, an
+adjacent or parent `Directory.Packages.props` is copied into the temp tree so
+Central Package Management projects can resolve versionless references.
 
 ---
 

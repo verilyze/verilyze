@@ -7,7 +7,9 @@ use std::path::{Path, PathBuf};
 
 use vlz_manifest_finder::{FinderError, ManifestFinder};
 
-use crate::lock_names::is_dotnet_lock_file;
+use crate::lock_names::{
+    filter_orphan_locks, is_dotnet_lock_file, is_packages_lock_json,
+};
 
 /// Built-in .NET project file extensions (FR-005).
 pub const DOTNET_PROJECT_EXTENSIONS: &[&str] =
@@ -71,8 +73,12 @@ impl ManifestFinder for DotnetManifestFinder {
 
     async fn find(&self, root: &Path) -> Result<Vec<PathBuf>, FinderError> {
         let mut manifests = Vec::new();
-        walk_dir(root, self.patterns.as_deref(), &mut manifests)?;
+        let mut locks = Vec::new();
+        walk_dir(root, self.patterns.as_deref(), &mut manifests, &mut locks)?;
+        let orphans = filter_orphan_locks(&manifests, &locks);
+        manifests.extend(orphans);
         manifests.sort();
+        manifests.dedup();
         Ok(manifests)
     }
 }
@@ -80,7 +86,8 @@ impl ManifestFinder for DotnetManifestFinder {
 fn walk_dir(
     dir: &Path,
     patterns: Option<&[regex::Regex]>,
-    out: &mut Vec<PathBuf>,
+    manifests: &mut Vec<PathBuf>,
+    locks: &mut Vec<PathBuf>,
 ) -> Result<(), FinderError> {
     let entries = std::fs::read_dir(dir)?;
     for entry in entries {
@@ -91,18 +98,22 @@ fn walk_dir(
         };
         let file_type = entry.file_type()?;
         if file_type.is_file() {
-            let matches = match patterns {
+            let matches_manifest = match patterns {
                 Some(regexes) => regexes.iter().any(|r| r.is_match(name)),
                 None => {
                     is_dotnet_manifest_name(name)
                         || is_packages_config_name(name)
                 }
             };
-            if matches {
-                out.push(entry.path());
+            if matches_manifest {
+                manifests.push(entry.path());
+            } else if patterns.is_none() && is_packages_lock_json(name) {
+                // Orphan promotion only for committed packages.lock.json
+                // (HC-10); assets/deps stay ladder-only.
+                locks.push(entry.path());
             }
         } else if file_type.is_dir() {
-            walk_dir(&entry.path(), patterns, out)?;
+            walk_dir(&entry.path(), patterns, manifests, locks)?;
         }
     }
     Ok(())
@@ -156,7 +167,7 @@ mod tests {
         std::fs::write(tmp.join("src/Lib/Lib.fsproj"), "<Project />").unwrap();
         std::fs::write(tmp.join("Ui.vbproj"), "<Project />").unwrap();
         std::fs::write(tmp.join("other.txt"), "x").unwrap();
-        // Lock alone is not an orphan entry point in v1.
+        // Same-dir lock stays non-orphan (resolved via project ladder).
         std::fs::write(tmp.join("packages.lock.json"), "{}").unwrap();
 
         let finder = DotnetManifestFinder::new();
@@ -167,6 +178,24 @@ mod tests {
             tmp.join("src/Lib/Lib.fsproj"),
             tmp.join("Ui.vbproj"),
         ];
+        want.sort();
+        assert_eq!(got, want);
+    }
+
+    #[tokio::test]
+    async fn orphan_packages_lock_discovered() {
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path();
+        let orphan = tmp.join("vendor");
+        std::fs::create_dir_all(&orphan).unwrap();
+        std::fs::write(orphan.join("packages.lock.json"), "{}").unwrap();
+        std::fs::write(tmp.join("App.csproj"), "<Project />").unwrap();
+
+        let finder = DotnetManifestFinder::new();
+        let mut got = finder.find(tmp).await.unwrap();
+        got.sort();
+        let mut want =
+            vec![tmp.join("App.csproj"), orphan.join("packages.lock.json")];
         want.sort();
         assert_eq!(got, want);
     }

@@ -23,6 +23,8 @@ Human-readable release notes for each version.
   ingest of `exploited` never suppresses).
 - `vlz export-sbom` inventory CycloneDX/SPDX export without CVE matching
   (HC-2 / MOD-008).
+- NuGet orphan `packages.lock.json` entry points and ephemeral restore
+  `Directory.Packages.props` copy (HC-10).
 - Matching transparency (W3-1): JSON/SARIF CVE objects include a `match`
   explain payload (providers, winner reason, query identity, aliases, local
   covering-range check).

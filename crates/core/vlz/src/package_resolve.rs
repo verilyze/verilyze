@@ -84,6 +84,10 @@ fn discover_manifests_one_pass(
     let mut python_locks: Vec<PathBuf> = Vec::new();
     #[cfg(feature = "python")]
     let mut python_lock_dirs: HashSet<PathBuf> = HashSet::new();
+    #[cfg(feature = "dotnet")]
+    let mut dotnet_manifests: Vec<PathBuf> = Vec::new();
+    #[cfg(feature = "dotnet")]
+    let mut dotnet_locks: Vec<PathBuf> = Vec::new();
     let mut stack = vec![root.to_path_buf()];
     while let Some(dir) = stack.pop() {
         for entry in std::fs::read_dir(&dir)? {
@@ -158,11 +162,17 @@ fn discover_manifests_one_pass(
                 continue;
             }
             #[cfg(feature = "dotnet")]
-            if vlz_dotnet::is_dotnet_manifest_name(name) {
-                out.entry("dotnet".to_string())
-                    .or_default()
-                    .push(entry.path());
-                continue;
+            {
+                if vlz_dotnet::is_dotnet_manifest_name(name)
+                    || vlz_dotnet::is_packages_config_name(name)
+                {
+                    dotnet_manifests.push(entry.path());
+                    continue;
+                }
+                if vlz_dotnet::is_packages_lock_json(name) {
+                    dotnet_locks.push(entry.path());
+                    continue;
+                }
             }
             #[cfg(feature = "sbom")]
             if vlz_sbom::is_sbom_basename(name) {
@@ -225,6 +235,15 @@ fn discover_manifests_one_pass(
         java_manifests.sort();
         java_manifests.dedup();
         out.insert("java".to_string(), java_manifests);
+    }
+    #[cfg(feature = "dotnet")]
+    {
+        let orphans =
+            vlz_dotnet::filter_orphan_locks(&dotnet_manifests, &dotnet_locks);
+        dotnet_manifests.extend(orphans);
+        dotnet_manifests.sort();
+        dotnet_manifests.dedup();
+        out.insert("dotnet".to_string(), dotnet_manifests);
     }
     for manifests in out.values_mut() {
         manifests.sort();
@@ -1444,6 +1463,37 @@ mod tests {
             .unwrap();
         let manifests = got.0.get("python").cloned().unwrap_or_default();
         assert_eq!(manifests, vec![pylock]);
+    }
+
+    #[cfg(feature = "dotnet")]
+    #[test]
+    fn discover_manifests_one_pass_finds_orphan_packages_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let lock = root.join("packages.lock.json");
+        std::fs::write(
+            &lock,
+            r#"{
+  "version": 1,
+  "dependencies": {
+    "net8.0": {
+      "Newtonsoft.Json": {
+        "type": "Direct",
+        "resolved": "13.0.3"
+      }
+    }
+  }
+}"#,
+        )
+        .unwrap();
+        #[cfg(feature = "python")]
+        let got = discover_manifests_one_pass(root, &Default::default(), &[])
+            .unwrap();
+        #[cfg(not(feature = "python"))]
+        let got =
+            discover_manifests_one_pass(root, &Default::default()).unwrap();
+        let manifests = got.0.get("dotnet").cloned().unwrap_or_default();
+        assert_eq!(manifests, vec![lock]);
     }
 
     #[cfg(feature = "python")]

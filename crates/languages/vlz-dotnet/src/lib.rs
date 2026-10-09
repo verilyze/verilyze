@@ -17,7 +17,10 @@ pub use finder::{
     DOTNET_PROJECT_EXTENSIONS, DotnetManifestFinder, PACKAGES_CONFIG_NAME,
     is_dotnet_manifest_name, is_packages_config_name,
 };
-pub use lock_names::{DOTNET_LOCK_FILE_NAMES, is_dotnet_lock_file};
+pub use lock_names::{
+    DOTNET_LOCK_FILE_NAMES, filter_orphan_locks, is_dotnet_lock_file,
+    is_packages_lock_json,
+};
 pub use parser::{
     DOTNET_LOCK_MAX_BYTES, DOTNET_MANIFEST_MAX_BYTES, DotnetManifestParser,
     graph_with_central_package_versions, is_nuget_package_name,
