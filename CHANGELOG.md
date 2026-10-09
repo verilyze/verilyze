@@ -15,6 +15,9 @@ Human-readable release notes for each version.
 - Container image SLSA Build L3 provenance via
   `generator_container_slsa3.yml` (HC-5 / SEC-021); replaces the hand-written
   Cosign predicate in the release workflow.
+- Reproducible release binaries (HC-6 / NFR-006): `SOURCE_DATE_EPOCH` and
+  path remapping in release builds; `make check-reproducible-build` plus a
+  nightly CI gate compare two clean release digests.
 - Matching transparency (W3-1): JSON/SARIF CVE objects include a `match`
   explain payload (providers, winner reason, query identity, aliases, local
   covering-range check).

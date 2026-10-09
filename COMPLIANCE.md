@@ -64,7 +64,7 @@ It is **not** a certification or audit attestation.
 | Item | Status |
 |------|--------|
 | SLSA provenance for container image | Done -- `generator_container_slsa3.yml` v2.1.0 (HC-5) |
-| Reproducible release binaries (NFR-006) | Not validated in CI |
+| Reproducible release binaries (NFR-006) | Done -- `make check-reproducible-build` + nightly workflow (HC-6) |
 | Formal SOC 2 / ISO 27001 / CMMC certification | Out of scope for open-source project; matrix is self-assessment |
 | Committed false-positive DB for CI CVE exceptions | Future -- use `vlz fp mark` workflow when needed |
 

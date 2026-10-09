@@ -97,6 +97,26 @@ def test_release_workflow_binary_slsa_job_has_contents_write() -> None:
     assert "contents: write" in job_match.group(0)
 
 
+def test_release_workflow_container_slsa_uses_generator() -> None:
+    """HC-5 / SEC-021: container provenance via hardened generator."""
+    workflow = _release_workflow_text()
+    assert "generator_container_slsa3.yml@" in workflow
+    assert _SLSA_PIN_SHA in workflow
+    assert "container-provenance.json" not in workflow
+    job_match = re.search(
+        r"container-slsa-provenance:.*?(?=\n  \S)",
+        workflow,
+        re.DOTALL,
+    )
+    assert job_match is not None
+    assert "packages: write" in job_match.group(0)
+    assert "needs.build-docker.outputs.image" in job_match.group(0)
+    assert "needs.build-docker.outputs.digest" in job_match.group(0)
+    assert "container-slsa-provenance" in workflow[
+        workflow.index("create-draft:") :
+    ]
+
+
 def test_release_workflow_macos_hash_uses_portable_base64() -> None:
     workflow = _release_workflow_text()
     build_job = re.search(

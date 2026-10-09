@@ -225,6 +225,9 @@ for remediation when scans warn about partial (direct-only) resolution.
 - GHCR release images are keyless-signed and include SLSA Build L3 provenance
   from `slsa-github-generator` (`generator_container_slsa3.yml`), not a
   hand-written Cosign predicate.
+- Release binaries are built with `SOURCE_DATE_EPOCH` and path remapping
+  (NFR-006). CI validates two clean release digests via
+  `make check-reproducible-build`.
 - Use `vlz db verify` to check integrity of cached data (SHA-256 by default).
 - Keep the tool and dependencies updated; run `vlz scan` on this repository
   (dogfooding, SEC-015) as part of your workflow.

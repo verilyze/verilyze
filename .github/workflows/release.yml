@@ -111,7 +111,12 @@ jobs:
       - name: Build release binary
         env:
           RUSTFLAGS: -Dwarnings
-        run: cargo build --release --locked -p vlz
+        run: |
+          set -euo pipefail
+          # shellcheck source=scripts/lib/reproducible-build-env.sh
+          source ./scripts/lib/reproducible-build-env.sh
+          vlz_apply_reproducible_build_env "$(pwd)"
+          cargo build --release --locked -p vlz
 
       - name: Setup Python (Windows zip archives)
         if: runner.os == 'Windows'

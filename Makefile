@@ -67,6 +67,7 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: cli-contract
 
 .PHONY: benchmark-gate
+.PHONY: check-reproducible-build
 .PHONY: check-report-schema
 .PHONY: deb rpm aur apk docker
 .PHONY: install clean distclean dist
@@ -137,6 +138,7 @@ help:
 	@echo "    make check-pylock-dev  - Offline validate committed pylock.dev.toml"
 
 	@echo "    make check-report-schema - Validate JSON report schema (DOC-005)"
+	@echo "    make check-reproducible-build - Two clean release builds; SHA-256 match (NFR-006)"
 	@echo "    make fmt-check      - Verify Rust formatting (cargo fmt --check)"
 	@echo "    make fmt           - Auto-format Rust code (cargo fmt)"
 	@echo "    make clippy        - Run Clippy lints (all-targets, all-features)"
@@ -278,7 +280,10 @@ debug: check-headers
 release: check-headers
 	@$(MAKE) -C "$(MKFILE_DIR)" -f "$(MKFILE_DIR)/Makefile" generate-manpages
 	@$(MAKE_RUN_LEAF) release-cargo -- bash -c \
-	  'cd "$(MKFILE_DIR)" && RUSTFLAGS="$(RUSTFLAGS) -Dwarnings" cargo build --release'
+	  'cd "$(MKFILE_DIR)" && source "$(SCRIPTS_DIR)/lib/reproducible-build-env.sh" && \
+	  export RUSTFLAGS="$(RUSTFLAGS) -Dwarnings" && \
+	  vlz_apply_reproducible_build_env "$(MKFILE_DIR)" && \
+	  cargo build --release --locked'
 
 # ---- Shell completions (FR-028) ----
 # Incremental: regenerate when the debug binary is newer than the stamp.
@@ -596,6 +601,13 @@ check-report-schema: debug venv-test-ready
 # Quiet stderr (FR-022a path dump) inside the script; MAKE_RUN_LEAF for brief CI.
 benchmark-gate: release setup
 	@$(MAKE_RUN_LEAF) benchmark-gate -- "$(SCRIPTS_DIR)/benchmark-gate.sh"
+
+# check-reproducible-build: NFR-006 / HC-6 -- two clean release builds must match.
+# Not in check-fast/check-parallel (two full release compiles). Nightly + release CI.
+check-reproducible-build: setup
+	@$(MAKE_RUN_LEAF) check-reproducible-build -- bash -c \
+	  'cd "$(MKFILE_DIR)" && RUSTFLAGS="$(RUSTFLAGS) -Dwarnings" \
+	  "$(SCRIPTS_DIR)/check-reproducible-build.sh"'
 
 # check-dco: verify commits have Signed-off-by (DCO); for local use before push
 check-dco:

@@ -52,7 +52,7 @@ Status values: `done`, `in progress`, `planned`, `later`.
 | HC-3 | KEV to OpenVEX `exploited` (FR-048) | later | |
 | HC-4 | SQLite DB backend | later | |
 | HC-5 | Container image SLSA only (SEC-021); still no image CVE scan | done | |
-| HC-6 | Reproducible release binaries (NFR-006) | later | |
+| HC-6 | Reproducible release binaries (NFR-006) | done | |
 | HC-7 | Optional FIPS-204 cache signatures (SEC-005) | later | |
 | HC-8 | Marketplace editor clients (sibling repo) | later | |
 | HC-9 | More ecosystems only with lock-first + OSV coverage | later | |
