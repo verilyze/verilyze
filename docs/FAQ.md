@@ -419,11 +419,13 @@ HTML add compact `KEV` / `EPSS=` markers. Lookup uses the vuln `id` when
 it is CVE-shaped plus OSV `aliases`; `related` is ignored.
 
 **Limits:** Ranking is report and optional exit-policy **signal**, not
-proof of exploitation in your tree and not an OpenVEX `exploited`
-status (that mapping is not shipped). Default exit codes follow CVSS
-thresholds (FR-014) unless you set `exit_on_kev` and/or `min_epss`. Use
-`--no-exploitability` to omit ranking. See [configuration.md](configuration.md)
-for `[exploitability]` keys and `--refresh-exploitability`.
+proof that the vulnerable code path runs in your tree. When OpenVEX is
+generated, KEV-listed active findings (`in_kev`) emit status `exploited`
+(FP marks still win). Ingested OpenVEX `exploited` never suppresses
+findings. Default exit codes follow CVSS thresholds (FR-014) unless you
+set `exit_on_kev` and/or `min_epss`. Use `--no-exploitability` to omit
+ranking. See [configuration.md](configuration.md) for `[exploitability]`
+keys and `--refresh-exploitability`.
 
 ## Editor diagnostics (FR-042)
 

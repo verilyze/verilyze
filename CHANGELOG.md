@@ -18,6 +18,9 @@ Human-readable release notes for each version.
 - Reproducible release binaries (HC-6 / NFR-006): `SOURCE_DATE_EPOCH` and
   path remapping in release builds; `make check-reproducible-build` plus a
   nightly CI gate compare two clean release digests.
+- KEV to OpenVEX `exploited` on VEX generate (HC-3 / FR-048): active
+  findings with `in_kev` emit status `exploited` (FP marks still win;
+  ingest of `exploited` never suppresses).
 - Matching transparency (W3-1): JSON/SARIF CVE objects include a `match`
   explain payload (providers, winner reason, query identity, aliases, local
   covering-range check).

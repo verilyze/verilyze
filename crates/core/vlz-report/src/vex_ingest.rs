@@ -43,6 +43,8 @@ pub enum IngestStatus {
     Fixed,
     Affected,
     UnderInvestigation,
+    /// OpenVEX `exploited` (KEV / known exploitation). Never suppresses.
+    Exploited,
     /// Present in the document but not a suppressible / known status.
     Unknown,
 }
@@ -361,6 +363,7 @@ fn map_openvex_status(raw: &str) -> IngestStatus {
         "fixed" => IngestStatus::Fixed,
         "affected" => IngestStatus::Affected,
         "under_investigation" => IngestStatus::UnderInvestigation,
+        "exploited" => IngestStatus::Exploited,
         _ => IngestStatus::Unknown,
     }
 }
@@ -487,6 +490,7 @@ pub fn ingest_status_as_vex(status: IngestStatus) -> Option<VexStatus> {
         IngestStatus::UnderInvestigation => {
             Some(VexStatus::UnderInvestigation)
         }
+        IngestStatus::Exploited => Some(VexStatus::Exploited),
         IngestStatus::Unknown => None,
     }
 }
@@ -542,6 +546,33 @@ mod tests {
             suppress_vuln_ids(&parsed.statements, &policy, &mut warnings);
         assert!(keys.is_empty());
         assert!(!warnings.is_empty());
+    }
+
+    #[test]
+    fn openvex_exploited_does_not_suppress() {
+        let doc = serde_json::json!({
+            "@context": OPENVEX_CONTEXT,
+            "statements": [{
+                "vulnerability": { "name": "CVE-2024-KEV" },
+                "status": "exploited"
+            }]
+        });
+        let policy = VexIngestPolicy::default();
+        let parsed = parse_vex_ingest_value(
+            &doc,
+            Path::new("kev.openvex.json"),
+            &policy,
+        );
+        assert_eq!(parsed.statements.len(), 1);
+        assert_eq!(parsed.statements[0].status, IngestStatus::Exploited);
+        let mut warnings = Vec::new();
+        let keys =
+            suppress_vuln_ids(&parsed.statements, &policy, &mut warnings);
+        assert!(keys.is_empty());
+        assert!(
+            warnings.iter().all(|w| !w.contains("unknown status")),
+            "exploited must be a known non-suppress status: {warnings:?}"
+        );
     }
 
     #[test]
@@ -904,8 +935,13 @@ mod tests {
             ingest_status_as_vex(IngestStatus::UnderInvestigation),
             Some(VexStatus::UnderInvestigation)
         );
+        assert_eq!(
+            ingest_status_as_vex(IngestStatus::Exploited),
+            Some(VexStatus::Exploited)
+        );
         assert_eq!(ingest_status_as_vex(IngestStatus::Unknown), None);
         assert!(!IngestStatus::Unknown.may_suppress());
+        assert!(!IngestStatus::Exploited.may_suppress());
         assert!(IngestStatus::Fixed.may_suppress());
 
         assert_eq!(

@@ -39,6 +39,8 @@ pub const DEFAULT_FP_JUSTIFICATION: &str = "inline_mitigations_already_exist";
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VexStatus {
     NotAffected,
+    /// CISA KEV-listed active finding (FR-048 / HC-3).
+    Exploited,
     Affected,
     UnderInvestigation,
 }
@@ -48,6 +50,7 @@ impl VexStatus {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::NotAffected => "not_affected",
+            Self::Exploited => "exploited",
             Self::Affected => "affected",
             Self::UnderInvestigation => "under_investigation",
         }
@@ -57,7 +60,9 @@ impl VexStatus {
     pub fn as_cyclonedx_state(self) -> &'static str {
         match self {
             Self::NotAffected => "not_affected",
-            Self::Affected => "exploitable",
+            // CycloneDX has no distinct `exploited` state; keep exploitable
+            // and continue to emit `vlz:kev` on the vulnerability object.
+            Self::Exploited | Self::Affected => "exploitable",
             Self::UnderInvestigation => "in_triage",
         }
     }
@@ -66,6 +71,7 @@ impl VexStatus {
     pub fn parse(s: &str) -> Option<Self> {
         match s {
             "not_affected" => Some(Self::NotAffected),
+            "exploited" => Some(Self::Exploited),
             "affected" => Some(Self::Affected),
             "under_investigation" => Some(Self::UnderInvestigation),
             _ => None,
@@ -219,8 +225,9 @@ pub struct VexStatement {
 
 /// Derive VEX statements from active findings, suppressed FP findings, and config.
 ///
-/// Precedence: FP mark > reachability > affected/in_triage.
-/// Does not infer `fixed` from upgrade plans (prospective remediations).
+/// Precedence: FP mark > KEV `exploited` (`in_kev`) > reachability >
+/// affected/in_triage. Does not infer `fixed` from upgrade plans
+/// (prospective remediations).
 pub fn derive_vex_statements(
     findings: &[Finding],
     suppressed_findings: &[Finding],
@@ -293,6 +300,17 @@ fn statement_for_active(
 ) -> VexStatement {
     let purl = purl_for_package(package);
     let detail = evidence_detail(cve);
+    // FR-048 / HC-3: KEV listing maps to OpenVEX `exploited` on active
+    // findings, after FP suppress and before the reachability cascade.
+    if cve.in_kev == Some(true) {
+        return VexStatement {
+            cve_id: cve.id.clone(),
+            purl,
+            status: VexStatus::Exploited,
+            justification: None,
+            detail,
+        };
+    }
     match cve.reachable {
         Some(false) if config.reachability_not_affected => VexStatement {
             cve_id: cve.id.clone(),
@@ -681,6 +699,104 @@ mod tests {
             stmts[0].justification,
             Some(VexJustification::VulnerableCodeNotInExecutePath)
         );
+    }
+
+    #[test]
+    fn in_kev_true_is_exploited() {
+        let mut record = cve("CVE-KEV-1", None);
+        record.in_kev = Some(true);
+        let stmts = derive_vex_statements(
+            &[finding(record)],
+            &[],
+            &HashMap::new(),
+            &VexConfig::default(),
+            &HashMap::new(),
+        );
+        assert_eq!(stmts[0].status, VexStatus::Exploited);
+        assert_eq!(stmts[0].status.as_str(), "exploited");
+        assert_eq!(stmts[0].status.as_cyclonedx_state(), "exploitable");
+        assert_eq!(VexStatus::parse("exploited"), Some(VexStatus::Exploited));
+    }
+
+    #[test]
+    fn in_kev_beats_reachable_true_and_under_investigation() {
+        let mut reachable = cve("CVE-KEV-2", Some(true));
+        reachable.in_kev = Some(true);
+        let mut unknown = cve("CVE-KEV-3", None);
+        unknown.in_kev = Some(true);
+        let stmts = derive_vex_statements(
+            &[finding(reachable), finding(unknown)],
+            &[],
+            &HashMap::new(),
+            &VexConfig::default(),
+            &HashMap::new(),
+        );
+        assert_eq!(stmts[0].status, VexStatus::Exploited);
+        assert_eq!(stmts[1].status, VexStatus::Exploited);
+    }
+
+    #[test]
+    fn in_kev_beats_reachability_opt_in_not_affected() {
+        let mut record = cve("CVE-KEV-4", Some(false));
+        record.in_kev = Some(true);
+        let cfg = VexConfig {
+            reachability_not_affected: true,
+            ..VexConfig::default()
+        };
+        let stmts = derive_vex_statements(
+            &[finding(record)],
+            &[],
+            &HashMap::new(),
+            &cfg,
+            &HashMap::new(),
+        );
+        assert_eq!(stmts[0].status, VexStatus::Exploited);
+    }
+
+    #[test]
+    fn fp_mark_takes_precedence_over_in_kev() {
+        let mut record = cve("CVE-KEV-FP", Some(true));
+        record.in_kev = Some(true);
+        let suppressed = vec![finding(record)];
+        let mut fp = HashMap::new();
+        fp.insert(
+            "CVE-KEV-FP".into(),
+            FpEntry {
+                comment: "accepted".into(),
+                timestamp_secs: 1,
+                user: None,
+                host: None,
+                project_id: None,
+                justification: Some("vulnerable_code_not_present".into()),
+                status: Some("not_affected".into()),
+                detail: None,
+                expires_at_secs: None,
+                paths: Vec::new(),
+            },
+        );
+        let stmts = derive_vex_statements(
+            &[],
+            &suppressed,
+            &fp,
+            &VexConfig::default(),
+            &HashMap::new(),
+        );
+        assert_eq!(stmts[0].status, VexStatus::NotAffected);
+    }
+
+    #[test]
+    fn in_kev_false_or_none_does_not_force_exploited() {
+        let mut false_kev = cve("CVE-KEV-5", Some(true));
+        false_kev.in_kev = Some(false);
+        let stmts = derive_vex_statements(
+            &[finding(false_kev), finding(cve("CVE-KEV-6", Some(true)))],
+            &[],
+            &HashMap::new(),
+            &VexConfig::default(),
+            &HashMap::new(),
+        );
+        assert_eq!(stmts[0].status, VexStatus::Affected);
+        assert_eq!(stmts[1].status, VexStatus::Affected);
     }
 
     #[test]
