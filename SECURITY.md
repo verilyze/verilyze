@@ -222,8 +222,9 @@ for remediation when scans warn about partial (direct-only) resolution.
   (`*.sigstore.json`), and provenance bundles (`*.intoto.jsonl`) for
   published archive/package files. CI runs the same verification commands
   (checksum and Cosign) before the release leaves draft state.
-- GHCR release images are keyless-signed and include provenance attestation
-  generated in the release workflow.
+- GHCR release images are keyless-signed and include SLSA Build L3 provenance
+  from `slsa-github-generator` (`generator_container_slsa3.yml`), not a
+  hand-written Cosign predicate.
 - Use `vlz db verify` to check integrity of cached data (SHA-256 by default).
 - Keep the tool and dependencies updated; run `vlz scan` on this repository
   (dogfooding, SEC-015) as part of your workflow.

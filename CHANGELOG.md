@@ -12,6 +12,9 @@ Human-readable release notes for each version.
 
 ### Added
 
+- Container image SLSA Build L3 provenance via
+  `generator_container_slsa3.yml` (HC-5 / SEC-021); replaces the hand-written
+  Cosign predicate in the release workflow.
 - Matching transparency (W3-1): JSON/SARIF CVE objects include a `match`
   explain payload (providers, winner reason, query identity, aliases, local
   covering-range check).
