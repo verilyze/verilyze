@@ -41,7 +41,7 @@ Status values: `done`, `in progress`, `planned`, `later`.
 | W3-1 | Matching transparency report (structured matching/explain fields per finding) | done | |
 | W3-2 | Suppression expiry (`expires_at`) and path-scoped false positives | done | |
 | W3-3 | PURL qualifier fidelity on SBOM consume | done | |
-| W4-1 | Guided remediation ROI; PHP and NuGet remediators; pylock apply if practical | done | Composer + NuGet remediators; pylock apply deferred |
+| W4-1 | Guided remediation ROI; PHP and NuGet remediators; pylock apply if practical | done | Composer + NuGet + pylock in-place apply |
 | W4-2 | Polyglot Tier D (Java/Kotlin, Ruby, PHP, .NET); keep capabilities matrix accurate | done | Tier D on by default (like JS) |
 | W4-3 | Airgap corpus authenticity (`vlz db import` signature / cosign-verify path) | done | `--cosign-bundle` / `--signature` + fail closed |
 | W4-4 | Signed VEX verification scheme (FR-049) | done | sibling / `--vex-cosign-bundle`; default unsigned still allowed |

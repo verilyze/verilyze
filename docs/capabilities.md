@@ -25,7 +25,7 @@ never suppresses findings by default.
 
 | Ecosystem | Manifests (summary) | Preferred locks | Lock-less default | Reachability | `vlz fix` apply |
 |-----------|---------------------|-----------------|-------------------|--------------|-----------------|
-| Python | `requirements*.txt`, `pyproject.toml`, `Pipfile`, `setup.cfg`, `setup.py` | `pylock.toml` / `pylock.<name>.toml`, `poetry.lock`, `Pipfile.lock`, `uv.lock`, `pdm.lock` | Exit **4** (safe `pip lock -r` may help `requirements.txt` only) | Tier B/C; Tier D on by default | poetry / uv locks; **pylock apply deferred** (no PEP 751 rewrite tool yet) |
+| Python | `requirements*.txt`, `pyproject.toml`, `Pipfile`, `setup.cfg`, `setup.py` | `pylock.toml` / `pylock.<name>.toml`, `poetry.lock`, `Pipfile.lock`, `uv.lock`, `pdm.lock` | Exit **4** (safe `pip lock -r` may help `requirements.txt` only) | Tier B/C; Tier D on by default | poetry / uv locks; pylock in-place version edit (strips wheels/sdists on bump) |
 | Rust | `Cargo.toml` | `Cargo.lock` | May run `cargo metadata` when `cargo` is on PATH | Tier B/C; Tier D opt-in | Yes (`cargo`) |
 | Go | `go.mod` | `go.sum` | May run `go list` when `go` is on PATH | Tier B/C; Tier D on by default | Yes (`go`) |
 | JavaScript / TypeScript | `package.json` | `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lock` (text; `bun.lockb` out of scope) | Exit **4** | Tier B/C; Tier D on by default | npm / yarn / pnpm / bun |

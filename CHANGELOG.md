@@ -28,7 +28,10 @@ Human-readable release notes for each version.
 - Composer and NuGet remediators for `vlz fix` (W4-1 / FR-041). Composer
   uses `composer require name:ver --no-install --no-scripts --no-plugins
   --no-interaction` (no transitive apply). NuGet edits `Version=` on
-  `*.csproj` / `Directory.Packages.props`. pylock apply remains deferred.
+  `*.csproj` / `Directory.Packages.props`.
+- Pylock apply for `vlz fix` (W4-1 leftover): in-place PEP 751
+  `pylock.toml` / `pylock.*.toml` version edit (empty argv, offline-safe,
+  strips `wheels` / `sdists` on the bumped package).
 - Tier D reachability for Java, Ruby, PHP, and .NET (W4-2); on by default.
 - `vlz db import --cosign-bundle PATH` (alias `--signature`) runs
   `cosign verify-blob --bundle` and fails closed (W4-3).
