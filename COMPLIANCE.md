@@ -29,7 +29,7 @@ It is **not** a certification or audit attestation.
 | Data protection (local cache) | SOC 2 CC6, CMMC MP | SEC-014, OP-003 | XDG cache paths, restrictive DB permissions, `vlz db verify` |
 | Auditability | SOC 2 CC7 | SEC-009, NFR-013, FR-010 | Deterministic exit codes; stderr diagnostics; verilyze scan JSON/SARIF artifacts |
 | Least privilege | CMMC AC, SEC-003 | OP-001 | No set-UID; runs as invoking user |
-| Release integrity | Supply chain best practice | SEC-021 | [release.yml](.github/workflows/release.yml) SLSA L3 binary provenance via `slsa-github-generator` v2.1.0; Cosign signing for all assets |
+| Release integrity | Supply chain best practice | SEC-021 | [release.yml](.github/workflows/release.yml) SLSA L3 binary + container provenance via `slsa-github-generator` v2.1.0; Cosign signing for all assets |
 | Input validation | CMMC SI, SEC-017 | NFR-020 | AFL fuzz targets (`make fuzz`), strict config parsing (SEC-006) |
 | JSON report contract | Interoperability | DOC-005, NFR-014 | [schemas/v1/report.json](schemas/v1/report.json), `make check-report-schema` |
 
@@ -63,8 +63,8 @@ It is **not** a certification or audit attestation.
 
 | Item | Status |
 |------|--------|
-| SLSA provenance for container image | Partial -- hand-written Cosign predicate; migrate to container generator |
-| Reproducible release binaries (NFR-006) | Not validated in CI |
+| SLSA provenance for container image | Done -- `generator_container_slsa3.yml` v2.1.0 (HC-5) |
+| Reproducible release binaries (NFR-006) | Done -- `make check-reproducible-build` + nightly workflow (HC-6) |
 | Formal SOC 2 / ISO 27001 / CMMC certification | Out of scope for open-source project; matrix is self-assessment |
 | Committed false-positive DB for CI CVE exceptions | Future -- use `vlz fp mark` workflow when needed |
 

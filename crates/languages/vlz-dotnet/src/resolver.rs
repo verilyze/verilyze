@@ -162,6 +162,7 @@ pub fn dotnet_package_manager_hint() -> &'static str {
 
 async fn ephemeral_packages_lock(
     manifest_path: &Path,
+    scan_root: Option<&Path>,
 ) -> Result<CachedResolution, ResolverError> {
     if !dotnet_package_manager_available() {
         return Err(ResolverError::Resolve(
@@ -187,6 +188,13 @@ async fn ephemeral_packages_lock(
     })?;
     let destination = temp.path().join(file_name);
     std::fs::copy(manifest_path, &destination).map_err(ResolverError::Io)?;
+    // HC-10: copy adjacent or parent Directory.Packages.props so CPM restores
+    // resolve Version-less PackageReferences in the ephemeral tree.
+    copy_directory_packages_props_for_restore(
+        manifest_path,
+        temp.path(),
+        scan_root,
+    )?;
 
     let dest_str = destination.to_str().ok_or_else(|| {
         ResolverError::Resolve("dotnet project path is not UTF-8".into())
@@ -224,6 +232,39 @@ async fn ephemeral_packages_lock(
         ));
     }
     parse_lock_path(&lock)
+}
+
+/// Copy nearest `Directory.Packages.props` from the project dir or parents
+/// into `temp_dir` when present (Central Package Management restore support).
+///
+/// Parent walk stops at `scan_root` when set (same bound as CPM fill). When
+/// `scan_root` is `None`, only the project directory is checked.
+fn copy_directory_packages_props_for_restore(
+    manifest_path: &Path,
+    temp_dir: &Path,
+    scan_root: Option<&Path>,
+) -> Result<(), ResolverError> {
+    let Some(mut dir) = manifest_path.parent().map(Path::to_path_buf) else {
+        return Ok(());
+    };
+    loop {
+        if scan_root.is_some_and(|root| !dir.starts_with(root)) {
+            return Ok(());
+        }
+        let props = dir.join("Directory.Packages.props");
+        if props.is_file() {
+            std::fs::copy(&props, temp_dir.join("Directory.Packages.props"))
+                .map_err(ResolverError::Io)?;
+            return Ok(());
+        }
+        if scan_root.is_none() {
+            // No scan root: match CPM fill -- adjacent project dir only.
+            return Ok(());
+        }
+        if scan_root.is_some_and(|root| dir == root) || !dir.pop() {
+            return Ok(());
+        }
+    }
 }
 
 /// Resolver: adjacent/parent lock preferred; `dotnet restore` only with
@@ -309,7 +350,8 @@ impl Resolver for DotnetResolver {
         if !ctx.allow_dependency_code_execution {
             return require_transitive_or_fallback(&graph, ctx, None);
         }
-        match ephemeral_packages_lock(manifest).await {
+        match ephemeral_packages_lock(manifest, ctx.scan_root.as_deref()).await
+        {
             Ok(resolution) => Ok(ResolveResult {
                 package_declarations: resolve_declarations_for_packages(
                     &resolution.packages,
@@ -866,5 +908,94 @@ mod tests {
         std::fs::write(&lock, "{").unwrap();
         let err = parse_lock_path(&lock).unwrap_err();
         assert!(err.to_string().contains("packages.lock.json"));
+    }
+
+    #[test]
+    fn copy_directory_packages_props_from_parent() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let nested = root.join("src");
+        std::fs::create_dir_all(&nested).unwrap();
+        let props_body = r#"<Project>
+  <ItemGroup>
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+</Project>"#;
+        std::fs::write(root.join("Directory.Packages.props"), props_body)
+            .unwrap();
+        let manifest = nested.join("App.csproj");
+        std::fs::write(&manifest, "<Project />").unwrap();
+        let dest = tempfile::tempdir().unwrap();
+        copy_directory_packages_props_for_restore(
+            &manifest,
+            dest.path(),
+            Some(root),
+        )
+        .unwrap();
+        let copied = dest.path().join("Directory.Packages.props");
+        assert!(copied.is_file());
+        assert_eq!(std::fs::read_to_string(copied).unwrap(), props_body);
+    }
+
+    #[test]
+    fn copy_directory_packages_props_noop_when_absent() {
+        let dir = tempfile::tempdir().unwrap();
+        let manifest = dir.path().join("App.csproj");
+        std::fs::write(&manifest, "<Project />").unwrap();
+        let dest = tempfile::tempdir().unwrap();
+        copy_directory_packages_props_for_restore(
+            &manifest,
+            dest.path(),
+            Some(dir.path()),
+        )
+        .unwrap();
+        assert!(!dest.path().join("Directory.Packages.props").exists());
+    }
+
+    #[test]
+    fn copy_directory_packages_props_stops_outside_scan_root() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = dir.path().join("outside");
+        let scan = dir.path().join("scan");
+        let nested = scan.join("src");
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::create_dir_all(&outside).unwrap();
+        std::fs::write(
+            outside.join("Directory.Packages.props"),
+            r#"<Project><ItemGroup>
+  <PackageVersion Include="Evil" Version="9.9.9" />
+</ItemGroup></Project>"#,
+        )
+        .unwrap();
+        let manifest = nested.join("App.csproj");
+        std::fs::write(&manifest, "<Project />").unwrap();
+        let dest = tempfile::tempdir().unwrap();
+        copy_directory_packages_props_for_restore(
+            &manifest,
+            dest.path(),
+            Some(&scan),
+        )
+        .unwrap();
+        assert!(!dest.path().join("Directory.Packages.props").exists());
+    }
+
+    #[test]
+    fn copy_directory_packages_props_without_scan_root_is_adjacent_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let nested = root.join("src");
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::write(root.join("Directory.Packages.props"), "<Project />")
+            .unwrap();
+        let manifest = nested.join("App.csproj");
+        std::fs::write(&manifest, "<Project />").unwrap();
+        let dest = tempfile::tempdir().unwrap();
+        copy_directory_packages_props_for_restore(
+            &manifest,
+            dest.path(),
+            None,
+        )
+        .unwrap();
+        assert!(!dest.path().join("Directory.Packages.props").exists());
     }
 }

@@ -1759,6 +1759,104 @@ pub async fn run(args: Cli) -> Result<i32> {
             .await
         }
 
+        Commands::ExportSbom {
+            root,
+            format,
+            output,
+            parallel_resolutions: cli_parallel_resolutions,
+            scan_exclude_dir: cli_scan_exclude_dir,
+            lock_file: cli_lock_files,
+            from_sbom: cli_from_sbom,
+            offline,
+            package_manager_required,
+            keep_ephemeral_venv,
+            allow_dependency_code_execution,
+            allow_direct_only_fallback,
+            fail_fast,
+            project_id: cli_project_id,
+        } => {
+            let mut effective =
+                crate::config::load_with_reachability_overrides(
+                    args.config.as_deref(),
+                    crate::config::env_parallel(),
+                    crate::config::env_parallel_resolutions(),
+                    crate::config::env_cache_db(),
+                    None,
+                    crate::config::env_cache_ttl_secs(),
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    crate::config::env_backoff_base_ms(),
+                    crate::config::env_backoff_max_ms(),
+                    crate::config::env_max_retries(),
+                    crate::config::env_provider_http_connect_timeout_secs(),
+                    crate::config::env_provider_http_request_timeout_secs(),
+                    crate::config::env_tls_crl_bundle(),
+                    None,
+                    cli_parallel_resolutions,
+                    None,
+                    None,
+                    None,
+                    offline,
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    cli_project_id,
+                    package_manager_required,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    keep_ephemeral_venv,
+                    allow_dependency_code_execution,
+                    allow_direct_only_fallback,
+                    fail_fast,
+                    crate::config::env_severity_overrides(),
+                    crate::config::SeverityOverrides::default(),
+                )
+                .map_err(|e| {
+                    error!("{}", e);
+                    anyhow!(e)
+                })?;
+            if !cli_scan_exclude_dir.is_empty() {
+                effective.scan_exclude_dirs = cli_scan_exclude_dir;
+            }
+            #[cfg(feature = "python")]
+            if !cli_lock_files.is_empty() {
+                effective.python_lock_files =
+                    vlz_python::normalize_lock_file_allowlist(&cli_lock_files)
+                        .map_err(|message| {
+                            error!("{}", message);
+                            anyhow!(message)
+                        })?;
+            }
+            #[cfg(feature = "sbom")]
+            if !cli_from_sbom.is_empty() {
+                effective.from_sbom = cli_from_sbom
+                    .into_iter()
+                    .map(std::path::PathBuf::from)
+                    .collect();
+            }
+            #[cfg(not(feature = "sbom"))]
+            if !cli_from_sbom.is_empty() {
+                error!(
+                    "--from-sbom requires a build with the sbom feature enabled"
+                );
+                return Ok(2);
+            }
+            let _ = db_backend;
+            run_export_sbom(root, format, output, effective, args.verbose)
+                .await
+        }
+
         #[cfg(feature = "lsp")]
         Commands::Lsp { folder_trust } => {
             let mut cfg = early_cfg;
@@ -1788,6 +1886,72 @@ pub async fn run(args: Cli) -> Result<i32> {
             unreachable!("generate-completions returns early")
         }
     }
+}
+
+/// MOD-008 / HC-2: resolve inventory and emit CycloneDX/SPDX without CVE matching.
+async fn run_export_sbom(
+    root: Option<String>,
+    format: String,
+    output: Option<String>,
+    effective: crate::config::EffectiveConfig,
+    verbosity: u8,
+) -> Result<i32> {
+    let resolved = resolve_packages_for_path(root, &effective).await?;
+    if resolved.package_manager_missing {
+        return Ok(EXIT_MISSING_PACKAGE_MANAGER);
+    }
+
+    let reporter: Box<dyn vlz_report::Reporter> =
+        if format.eq_ignore_ascii_case("spdx") {
+            Box::new(vlz_report::SpdxReporter::new())
+        } else {
+            Box::new(vlz_report::CycloneDxReporter::new())
+        };
+
+    let report_data = vlz_report::ReportData {
+        findings: Vec::new(),
+        suppressed_findings: Vec::new(),
+        fp_entries: std::collections::HashMap::new(),
+        vex_config: vlz_report::VexConfig::default(),
+        emit_vex: false,
+        all_packages: Some(resolved.packages_to_check),
+        project_id: effective.project_id.clone(),
+        root_path: Some(resolved.root_path.clone()),
+        manifest_coverage: resolved.manifest_coverage.clone(),
+        offline_cache_miss: false,
+        provider_fetch_failed: false,
+        raw_vulns_by_package: std::collections::HashMap::new(),
+    };
+
+    if let Some(path) = output.as_deref() {
+        reporter
+            .render_to_path(&report_data, std::path::Path::new(path))
+            .await
+            .context("Failed while writing the SBOM")?;
+    } else {
+        reporter
+            .render(&report_data)
+            .await
+            .context("Failed while rendering the SBOM")?;
+    }
+
+    crate::scan::emit_direct_only_diagnostics(
+        &resolved.manifest_coverage,
+        Some(resolved.root_path.as_path()),
+        verbosity,
+    );
+    crate::scan::emit_manifest_failure_diagnostics(
+        &resolved.manifest_coverage,
+        Some(resolved.root_path.as_path()),
+        verbosity,
+    );
+
+    let blocking = crate::scan::count_blocking_manifest_failures(
+        &resolved.manifest_coverage,
+    );
+    Ok(exit_code::pick_exit_code(&ExitSignals::resolution_only(
+        blocking,
+    )))
 }
 
 /// FR-021: resolve manifests and warm the CVE cache without reporting.

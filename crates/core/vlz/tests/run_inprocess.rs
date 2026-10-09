@@ -56,6 +56,61 @@ fn run_preload_exits_0() {
     with_temp_xdg(|| assert_eq!(run_async(&["preload"]), 0));
 }
 
+#[test]
+fn run_export_sbom_exits_0() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let out = dir.path().join("empty.cdx.json");
+        let code = run_async(&[
+            "export-sbom",
+            dir.path().to_str().unwrap(),
+            "--output",
+            out.to_str().unwrap(),
+        ]);
+        assert_eq!(code, 0);
+        assert!(out.is_file());
+    });
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn run_export_sbom_cyclonedx_lists_packages_without_vulns() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_requirements_with_pylock(dir.path(), "pkg", "1.0");
+        let root = dir.path().to_str().unwrap();
+        let out = dir.path().join("bom.json");
+        let code = run_async(&[
+            "export-sbom",
+            root,
+            "--format",
+            "cyclonedx",
+            "--output",
+            out.to_str().unwrap(),
+        ]);
+        assert_eq!(code, 0);
+        let body = std::fs::read_to_string(&out).expect("read bom");
+        let json: serde_json::Value =
+            serde_json::from_str(&body).expect("bom json");
+        let components =
+            json["components"].as_array().expect("components array");
+        assert!(
+            components.iter().any(|c| c["name"] == "pkg"),
+            "expected pkg component in {body}"
+        );
+        let vulns = json.get("vulnerabilities");
+        assert!(
+            vulns.is_none()
+                || vulns
+                    .and_then(|v| v.as_array())
+                    .is_some_and(|a| a.is_empty()),
+            "inventory export must not include CVE vulnerabilities: {vulns:?}"
+        );
+    });
+}
+
 #[cfg(feature = "python")]
 #[test]
 fn run_preload_populates_cache_for_fixture() {
@@ -1642,6 +1697,59 @@ fn run_scan_json_includes_manifest_paths() {
                 "manifest path should be pylock.toml when lock provides resolved packages"
             );
         }
+    });
+}
+
+#[cfg(feature = "dotnet")]
+#[test]
+fn run_scan_orphan_packages_lock_only() {
+    let _ = env_logger::try_init();
+    with_temp_xdg(|| {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("packages.lock.json"),
+            r#"{
+  "version": 1,
+  "dependencies": {
+    "net8.0": {
+      "pkg": {
+        "type": "Direct",
+        "resolved": "1.0.0"
+      }
+    }
+  }
+}"#,
+        )
+        .expect("write packages.lock.json");
+        let out_path = dir.path().join("report.json");
+        let root = dir.path().to_str().unwrap();
+
+        vlz::registry::clear_providers();
+        vlz::registry::register(vlz::registry::Plugin::CveProvider(Box::new(
+            CveReturningProvider::new(),
+        )));
+
+        let code = run_async(&[
+            "scan",
+            root,
+            "--format",
+            "json",
+            "--summary-file",
+            &format!("json:{}", out_path.display()),
+            "--provider",
+            "cve_returning",
+        ]);
+        assert_eq!(code, 86);
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&out_path).unwrap())
+                .unwrap();
+        let findings = parsed["findings"].as_array().unwrap();
+        assert_eq!(findings[0]["manifest_paths"][0], "packages.lock.json");
+        let coverage = parsed["manifest_coverage"].as_array().unwrap();
+        assert_eq!(coverage.len(), 1);
+        assert_eq!(coverage[0]["path"], "packages.lock.json");
+        assert_eq!(coverage[0]["status"], "scanned_transitive");
     });
 }
 

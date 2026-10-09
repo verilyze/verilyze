@@ -12,6 +12,20 @@ Human-readable release notes for each version.
 
 ### Added
 
+- Container image SLSA Build L3 provenance via
+  `generator_container_slsa3.yml` (HC-5 / SEC-021); replaces the hand-written
+  Cosign predicate in the release workflow.
+- Reproducible release binaries (HC-6 / NFR-006): `SOURCE_DATE_EPOCH` and
+  path remapping in release builds; `make check-reproducible-build` plus a
+  nightly CI gate compare two clean release digests.
+- KEV to OpenVEX `exploited` on VEX generate (HC-3 / FR-048): active
+  findings with `in_kev` emit status `exploited` (FP marks still win;
+  ingest of `exploited` never suppresses).
+- `vlz export-sbom` inventory CycloneDX/SPDX export without CVE matching
+  (HC-2 / MOD-008).
+- NuGet orphan `packages.lock.json` entry points and ephemeral restore
+  `Directory.Packages.props` copy (HC-10).
+- `vlz export-sbom --offline` for air-gapped inventory resolution.
 - Matching transparency (W3-1): JSON/SARIF CVE objects include a `match`
   explain payload (providers, winner reason, query identity, aliases, local
   covering-range check).
@@ -22,7 +36,10 @@ Human-readable release notes for each version.
 - Composer and NuGet remediators for `vlz fix` (W4-1 / FR-041). Composer
   uses `composer require name:ver --no-install --no-scripts --no-plugins
   --no-interaction` (no transitive apply). NuGet edits `Version=` on
-  `*.csproj` / `Directory.Packages.props`. pylock apply remains deferred.
+  `*.csproj` / `Directory.Packages.props`.
+- Pylock apply for `vlz fix` (W4-1 leftover): in-place PEP 751
+  `pylock.toml` / `pylock.*.toml` version edit (empty argv, offline-safe,
+  strips `wheels` / `sdist` / `archive` on the bumped package).
 - Tier D reachability for Java, Ruby, PHP, and .NET (W4-2); on by default.
 - `vlz db import --cosign-bundle PATH` (alias `--signature`) runs
   `cosign verify-blob --bundle` and fails closed (W4-3).

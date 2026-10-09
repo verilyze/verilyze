@@ -37,6 +37,7 @@ complete -c vlz -n "__fish_vlz_needs_command" -f -a "config" -d 'Show or set con
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "db" -d 'Inspect and maintain the vulnerability cache'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "fp" -d 'Manage false-positive vulnerability markings'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "preload" -d 'Resolve dependencies and warm the vulnerability cache (FR-021)'
+complete -c vlz -n "__fish_vlz_needs_command" -f -a "export-sbom" -d 'Export inventory SBOM without CVE matching (MOD-008)'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "help" -d 'Open the full manual page'
 complete -c vlz -n "__fish_vlz_needs_command" -f -a "generate-completions" -d 'Generate shell completion scripts'
 complete -c vlz -n "__fish_vlz_using_subcommand scan" -s f -l format -d 'Output format (plain, json, sarif, cyclonedx, spdx, openvex)' -r -f -a "plain\t''
@@ -219,6 +220,23 @@ complete -c vlz -n "__fish_vlz_using_subcommand preload" -l allow-direct-only-fa
 complete -c vlz -n "__fish_vlz_using_subcommand preload" -l fail-fast -d 'Stop on first manifest parse/resolution failure (FR-037)'
 complete -c vlz -n "__fish_vlz_using_subcommand preload" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
 complete -c vlz -n "__fish_vlz_using_subcommand preload" -s h -l help -d 'Print help'
+complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -s f -l format -d 'SBOM format (cyclonedx or spdx)' -r -f -a "cyclonedx\t''
+spdx\t''"
+complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -s o -l output -d 'Write SBOM to file instead of stdout' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -l parallel-resolutions -d 'Parallel dependency resolution limit (default: CPU count, max 32)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -l scan-exclude-dir -d 'Exclude directory name from manifest discovery (repeatable)' -r -f -a "(__fish_complete_directories)"
+complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -l lock-file -d 'Only discover/merge listed Python lock file basenames (repeatable)' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -l from-sbom -d 'Scan SBOM inventory file (CycloneDX 1.x / SPDX 2.x or 3.0 JSON; repeatable)' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -l project-id -d 'Project ID for report metadata (FR-015a)' -r
+complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -s c -l config -d 'Override configuration file location' -r -F
+complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -l offline -d 'Disable network access (fail closed without usable locks)'
+complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -l package-manager-required -d 'Require package manager on PATH per language when manifests need it'
+complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -l keep-ephemeral-venv -d 'Do not remove ephemeral Python venv after resolution (FR-023 debug)'
+complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -l allow-dependency-code-execution -d 'Allow package managers to execute dependency build/lifecycle code (SEC-023)'
+complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -l allow-direct-only-fallback -d 'Fall back to direct-only resolution with warning when transitive resolution fails'
+complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -l fail-fast -d 'Stop on first manifest parse/resolution failure (FR-037)'
+complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
+complete -c vlz -n "__fish_vlz_using_subcommand export-sbom" -s h -l help -d 'Print help'
 complete -c vlz -n "__fish_vlz_using_subcommand help" -s c -l config -d 'Override configuration file location' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand help" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
 complete -c vlz -n "__fish_vlz_using_subcommand help" -s h -l help -d 'Print help'

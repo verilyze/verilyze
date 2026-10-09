@@ -25,14 +25,14 @@ never suppresses findings by default.
 
 | Ecosystem | Manifests (summary) | Preferred locks | Lock-less default | Reachability | `vlz fix` apply |
 |-----------|---------------------|-----------------|-------------------|--------------|-----------------|
-| Python | `requirements*.txt`, `pyproject.toml`, `Pipfile`, `setup.cfg`, `setup.py` | `pylock.toml` / `pylock.<name>.toml`, `poetry.lock`, `Pipfile.lock`, `uv.lock`, `pdm.lock` | Exit **4** (safe `pip lock -r` may help `requirements.txt` only) | Tier B/C; Tier D on by default | poetry / uv locks; **pylock apply deferred** (no PEP 751 rewrite tool yet) |
+| Python | `requirements*.txt`, `pyproject.toml`, `Pipfile`, `setup.cfg`, `setup.py` | `pylock.toml` / `pylock.<name>.toml`, `poetry.lock`, `Pipfile.lock`, `uv.lock`, `pdm.lock` | Exit **4** (safe `pip lock -r` may help `requirements.txt` only) | Tier B/C; Tier D on by default | poetry / uv locks; pylock in-place version edit (strips wheels/sdist/archive on bump) |
 | Rust | `Cargo.toml` | `Cargo.lock` | May run `cargo metadata` when `cargo` is on PATH | Tier B/C; Tier D opt-in | Yes (`cargo`) |
 | Go | `go.mod` | `go.sum` | May run `go list` when `go` is on PATH | Tier B/C; Tier D on by default | Yes (`go`) |
 | JavaScript / TypeScript | `package.json` | `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lock` (text; `bun.lockb` out of scope) | Exit **4** | Tier B/C; Tier D on by default | npm / yarn / pnpm / bun |
 | Java / Kotlin | `pom.xml`, `build.gradle(.kts)`, version catalogs | `gradle.lockfile` (Maven has no standard lock) | Exit **4** | Tier B/C (`.java` / `.kt`); Tier D on by default | gradle / maven (gradle apply needs SEC-023 gate) |
 | Ruby | `Gemfile`, `gems.rb`, `*.gemspec` | `Gemfile.lock`, `gems.locked` | Exit **4** | Tier B/C; Tier D on by default | bundler (needs SEC-023 gate; no transitive apply) |
 | PHP | `composer.json` | `composer.lock` | Exit **4** | Tier B/C; Tier D on by default | composer (`require --no-install --no-scripts --no-plugins`; no transitive apply) |
-| .NET | `*.csproj` / `*.fsproj` / `*.vbproj`, `packages.config` | `packages.lock.json`, then `project.assets.json` / `*.deps.json` | Exit **4** | Tier B/C (`.cs` / `.fs`); Tier D on by default | nuget (in-place `Version=` on `*.csproj` / `Directory.Packages.props`; no transitive / no-pin refuse) |
+| .NET | `*.csproj` / `*.fsproj` / `*.vbproj`, `packages.config` | `packages.lock.json` (incl. orphan lock-only dirs), then `project.assets.json` / `*.deps.json` | Exit **4** | Tier B/C (`.cs` / `.fs`); Tier D on by default | nuget (in-place `Version=` on `*.csproj` / `Directory.Packages.props`; no transitive / no-pin refuse) |
 | SBOM | CycloneDX 1.x / SPDX 2.2--3.0 JSON | n/a (pre-resolved) | n/a | n/a | Dry-run only; never apply |
 
 ## Notes
@@ -41,7 +41,8 @@ never suppresses findings by default.
   an explicit opt-in such as `--allow-direct-only-fallback` /
   `--allow-dependency-code-execution`) before expecting CI green.
 - **SBOM / VEX:** Scan export supports CycloneDX 1.6, SPDX 3.0, and OpenVEX.
-  Import via `--from-sbom` or discovered allowlisted names. VEX consume uses
-  `--from-vex` (see FAQ).
+  Inventory-only export (no CVE matching) uses `vlz export-sbom`. Import via
+  `--from-sbom` or discovered allowlisted names. VEX consume uses `--from-vex`
+  (see FAQ).
 - **Roadmap:** Matching transparency, suppression expiry, and remediator
   gaps are tracked in [ROADMAP.md](ROADMAP.md).

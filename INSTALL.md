@@ -83,9 +83,26 @@ cosign verify-blob-attestation \
 `SHA256SUMS` lists **flat basenames** (the same names shown on the release
 page), so `sha256sum -c` works immediately after `gh release download` with
 no layout restore step. Use matching `*.sigstore.json` and `*.intoto.jsonl`
-bundles for each asset (archive, `.deb`, `.rpm`, or `SHA256SUMS`). For GHCR
-images, verify signatures and attestations with Cosign against the pushed
-digest.
+bundles for each asset (archive, `.deb`, `.rpm`, or `SHA256SUMS`).
+
+For GHCR images, verify the keyless signature and SLSA provenance
+attestation (produced by `generator_container_slsa3.yml`) against the
+pushed digest:
+
+```bash
+VERSION=0.8.0
+IMAGE="ghcr.io/verilyze/verilyze"
+DIGEST="$(crane digest "${IMAGE}:${VERSION}")"
+cosign verify \
+  --certificate-identity-regexp 'https://github.com/.*/.github/workflows/release.yml@.*' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  "${IMAGE}@${DIGEST}"
+cosign verify-attestation \
+  --type slsaprovenance \
+  --certificate-identity-regexp 'https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@.*' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  "${IMAGE}@${DIGEST}"
+```
 
 After verification, extract and install the archive as described in
 [docs/install-archive.md](docs/install-archive.md).

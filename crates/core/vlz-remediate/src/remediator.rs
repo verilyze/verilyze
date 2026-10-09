@@ -11,7 +11,8 @@
 //! - bun via `bun.lock`
 //! - Cargo via `Cargo.lock` (`cargo update --precise`; may also rewrite a
 //!   direct `Cargo.toml` requirement when it excludes the target)
-//! - Python (PyPI) via `poetry.lock` (`poetry`) or `uv.lock` (`uv`)
+//! - Python (PyPI) via `poetry.lock` (`poetry`), `uv.lock` (`uv`), or
+//!   in-place `pylock.toml` / `pylock.*.toml` version edit (empty argv)
 //! - Go via `go.mod` (`go get`; `go.sum` is co-modified, not a selector)
 //! - RubyGems via `Gemfile.lock` / `gems.locked` (`bundle add --skip-install`)
 //! - Gradle via `gradle.lockfile` / `buildscript-gradle.lockfile`
@@ -24,14 +25,14 @@
 //!   `Directory.Packages.props` (no subprocess; empty argv)
 //!
 //! Strategy selection for the npm ecosystem prefers npm locks, then yarn,
-//! pnpm, then bun. PyPI apply strategies require `poetry.lock` or `uv.lock`;
-//! `pylock.toml` / `pylock.*.toml` stay plan-only (`unavailable`) -- pylock
-//! apply is deferred (Wave 4; no PEP 751 rewrite tool yet). Go findings select
-//! on `go.mod` manifest declarations (Go emits no lockfile-kind declarations).
-//! Maven-ecosystem findings prefer a Gradle lock (`Gradle` strategy) over a
-//! bare `pom.xml` (`Maven` strategy). Packagist findings select on
-//! `composer.lock`. NuGet findings select on a direct editable pin in
-//! `*.csproj` / `*.fsproj` / `*.vbproj` or `Directory.Packages.props`.
+//! pnpm, then bun. PyPI apply strategies accept `poetry.lock`, `uv.lock`, or
+//! `pylock.toml` / `pylock.*.toml` (poetry/uv preferred when both are present).
+//! Go findings select on `go.mod` manifest declarations (Go emits no
+//! lockfile-kind declarations). Maven-ecosystem findings prefer a Gradle lock
+//! (`Gradle` strategy) over a bare `pom.xml` (`Maven` strategy). Packagist
+//! findings select on `composer.lock`. NuGet findings select on a direct
+//! editable pin in `*.csproj` / `*.fsproj` / `*.vbproj` or
+//! `Directory.Packages.props`.
 //!
 //! SEC-023 for argv that can run lifecycle scripts: npm and bun default to
 //! `--ignore-scripts` unless `allow_dependency_code_execution` is set. Yarn
@@ -42,9 +43,9 @@
 //! (`bundle`) and Gradle evaluate project code (`Gemfile` Ruby, build
 //! scripts), so their previews fail closed without
 //! `allow_dependency_code_execution` and apply stays `unavailable` with the
-//! FR-041 stderr warning. Maven and NuGet perform a local file edit only, so
-//! they need no gate and work offline. `go get` does not run dependency
-//! lifecycle scripts, so the gate does not change Go argv.
+//! FR-041 stderr warning. Maven, NuGet, and pylock perform a local file edit
+//! only, so they need no gate and work offline. `go get` does not run
+//! dependency lifecycle scripts, so the gate does not change Go argv.
 //!
 //! Transitive findings: npm uses `--no-save`; Cargo `update --precise` is
 //! lock-safe (and may edit `Cargo.toml` only for Direct requirements that
@@ -53,9 +54,10 @@
 //! transitive apply so they do not promote a transitive pin into a direct
 //! manifest dependency. RubyGems `bundle add` edits the `Gemfile`, so it also
 //! refuses transitive apply. NuGet refuses when there is no direct editable
-//! `Version=` pin. Go `go get` records an explicit `require` directive, so
-//! transitive apply is allowed and documented as promoting the module to a
-//! direct requirement (the idiomatic `go get` behavior).
+//! `Version=` pin. Pylock in-place edits allow transitive apply (lock-only).
+//! Go `go get` records an explicit `require` directive, so transitive apply
+//! is allowed and documented as promoting the module to a direct requirement
+//! (the idiomatic `go get` behavior).
 //!
 //! Apply is fail-fast (first remediator error stops the batch). Earlier
 //! successful writes are not rolled back.
@@ -96,6 +98,10 @@ pub const POETRY_LOCK_FILE_NAME: &str = "poetry.lock";
 pub const UV_LOCK_FILE_NAME: &str = "uv.lock";
 /// PEP 751 pylock basename (`pylock.toml`).
 pub const PYLOCK_TOML_FILE_NAME: &str = "pylock.toml";
+
+/// PEP 751 package artifact keys cleared when bumping a pylock pin so stale
+/// URLs/hashes cannot outlive the new version.
+const PYLOCK_ARTIFACT_KEYS: &[&str] = &["wheels", "sdist", "archive"];
 /// Sibling npm / Yarn / pnpm / bun manifest required next to the lockfile (SEC-025).
 pub const NPM_MANIFEST_FILE_NAME: &str = "package.json";
 /// Sibling Cargo manifest required next to the lockfile (SEC-025).
@@ -397,10 +403,26 @@ fn lock_basename_eq_ignore_ascii_case(path: &str, expected: &str) -> bool {
         .is_some_and(|n| n.eq_ignore_ascii_case(expected))
 }
 
-/// True for `pylock.toml` or `pylock.*.toml` (PEP 751).
-fn is_applyable_python_lockfile(path: &str) -> bool {
+/// True for `poetry.lock` or `uv.lock` (subprocess apply tools).
+fn is_poetry_or_uv_lockfile(path: &str) -> bool {
     lock_basename_eq(path, POETRY_LOCK_FILE_NAME)
         || lock_basename_eq(path, UV_LOCK_FILE_NAME)
+}
+
+/// True for `pylock.toml` or `pylock.*.toml` (PEP 751 in-place apply).
+fn is_pylock_lockfile(path: &str) -> bool {
+    Path::new(path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|name| {
+            name == PYLOCK_TOML_FILE_NAME
+                || (name.starts_with("pylock.") && name.ends_with(".toml"))
+        })
+}
+
+/// True for a Python lockfile that can be applied (poetry, uv, or pylock).
+fn is_applyable_python_lockfile(path: &str) -> bool {
+    is_poetry_or_uv_lockfile(path) || is_pylock_lockfile(path)
 }
 
 fn declaration_has_lock(
@@ -419,8 +441,7 @@ fn declaration_has_lock(
 /// - which lock file was used for resolution (declarations).
 ///
 /// npm-ecosystem preference: supported npm locks, else yarn.lock, else
-/// pnpm-lock.yaml, else bun.lock. PyPI: poetry.lock / uv.lock only
-/// (pylock remains `unavailable` for apply until supported).
+/// pnpm-lock.yaml, else bun.lock. PyPI: poetry.lock / uv.lock / pylock.
 pub fn remediation_apply_strategy_for_finding(
     package: &Package,
     minimal_fixed_version: &str,
@@ -1408,7 +1429,8 @@ fn js_lock_preview_files(
     files
 }
 
-/// Apply Python remediation via poetry (`poetry.lock`) or uv (`uv.lock`).
+/// Apply Python remediation via poetry (`poetry.lock`), uv (`uv.lock`), or
+/// in-place PEP 751 pylock version edit.
 #[derive(Debug, Clone)]
 pub struct PythonRemediator {
     pub(crate) poetry_bin: String,
@@ -1425,6 +1447,7 @@ impl Default for PythonRemediator {
 enum PythonLockTool {
     Poetry,
     Uv,
+    Pylock,
 }
 
 impl PythonRemediator {
@@ -1454,10 +1477,11 @@ impl PythonRemediator {
     fn select_python_lock(
         &self,
         ctx: &RemediationContext<'_>,
-    ) -> Option<(PythonLockTool, std::path::PathBuf, &'static str)> {
-        ctx.declarations.iter().find_map(|d| {
+    ) -> Option<(PythonLockTool, std::path::PathBuf, String)> {
+        // Prefer poetry/uv (tool-managed) over pylock when both are declared.
+        let poetry_or_uv = ctx.declarations.iter().find_map(|d| {
             if d.kind != DeclarationKind::Lockfile
-                || !is_applyable_python_lockfile(d.path.as_str())
+                || !is_poetry_or_uv_lockfile(d.path.as_str())
             {
                 return None;
             }
@@ -1466,10 +1490,33 @@ impl PythonRemediator {
                 d.path.as_str(),
             )?;
             if lock_basename_eq(d.path.as_str(), POETRY_LOCK_FILE_NAME) {
-                Some((PythonLockTool::Poetry, dir, POETRY_LOCK_FILE_NAME))
+                Some((
+                    PythonLockTool::Poetry,
+                    dir,
+                    POETRY_LOCK_FILE_NAME.to_string(),
+                ))
             } else {
-                Some((PythonLockTool::Uv, dir, UV_LOCK_FILE_NAME))
+                Some((PythonLockTool::Uv, dir, UV_LOCK_FILE_NAME.to_string()))
             }
+        });
+        if poetry_or_uv.is_some() {
+            return poetry_or_uv;
+        }
+        ctx.declarations.iter().find_map(|d| {
+            if d.kind != DeclarationKind::Lockfile
+                || !is_pylock_lockfile(d.path.as_str())
+            {
+                return None;
+            }
+            let dir = resolve_lock_workdir_under_root(
+                ctx.scan_root,
+                d.path.as_str(),
+            )?;
+            let name = Path::new(d.path.as_str())
+                .file_name()
+                .and_then(|n| n.to_str())
+                .map(str::to_string)?;
+            Some((PythonLockTool::Pylock, dir, name))
         })
     }
 }
@@ -1490,15 +1537,36 @@ impl Remediator for PythonRemediator {
             ctx.package_name,
             ctx.target_version,
         )?;
-        refuse_transitive_manifest_mutation(ctx, "python")?;
         let (tool, lock_dir, lock_name) =
             self.select_python_lock(ctx).ok_or_else(|| {
                 RemediationError::UnsupportedLockLayout(
-                    "supported Python lockfile not found under scan root (need poetry.lock or uv.lock)".to_string(),
+                    "supported Python lockfile not found under scan root (need poetry.lock, uv.lock, or pylock.toml)".to_string(),
                 )
             })?;
+        if matches!(tool, PythonLockTool::Pylock) {
+            // Validate the edit is possible during preview (empty argv).
+            let path = lock_dir.join(&lock_name);
+            let text = std::fs::read_to_string(&path).map_err(|err| {
+                RemediationError::UnsupportedLockLayout(format!(
+                    "unable to read {}: {err}",
+                    path.display()
+                ))
+            })?;
+            let _ = compute_pylock_version_edit(
+                &text,
+                ctx.package_name,
+                ctx.target_version,
+            )?;
+            return Ok(RemediationPreview {
+                strategy: Python,
+                workdir: lock_dir,
+                files: vec![path],
+                argv: Vec::new(),
+            });
+        }
+        refuse_transitive_manifest_mutation(ctx, "python")?;
         require_sibling_manifest(&lock_dir, PYTHON_MANIFEST_FILE_NAME)?;
-        let mut files = vec![lock_dir.join(lock_name)];
+        let mut files = vec![lock_dir.join(&lock_name)];
         if matches!(ctx.dependency_kind, DependencyKind::Direct) {
             files.push(lock_dir.join(PYTHON_MANIFEST_FILE_NAME));
         }
@@ -1511,6 +1579,7 @@ impl Remediator for PythonRemediator {
             PythonLockTool::Uv => {
                 uv_add_argv(&self.uv_bin, ctx.package_name, ctx.target_version)
             }
+            PythonLockTool::Pylock => unreachable!("handled above"),
         };
         Ok(RemediationPreview {
             strategy: Python,
@@ -1524,20 +1593,42 @@ impl Remediator for PythonRemediator {
         &self,
         ctx: &RemediationContext<'_>,
     ) -> Result<(), RemediationError> {
+        let (tool, lock_dir, lock_name) =
+            self.select_python_lock(ctx).ok_or_else(|| {
+                RemediationError::UnsupportedLockLayout(
+                    "supported Python lockfile not found under scan root (need poetry.lock, uv.lock, or pylock.toml)".to_string(),
+                )
+            })?;
+        if matches!(tool, PythonLockTool::Pylock) {
+            let path = lock_dir.join(&lock_name);
+            let text = std::fs::read_to_string(&path).map_err(|err| {
+                RemediationError::UnsupportedLockLayout(format!(
+                    "unable to read {}: {err}",
+                    path.display()
+                ))
+            })?;
+            let edited = compute_pylock_version_edit(
+                &text,
+                ctx.package_name,
+                ctx.target_version,
+            )?;
+            std::fs::write(&path, edited).map_err(|err| {
+                RemediationError::UnsupportedLockLayout(format!(
+                    "unable to write {}: {err}",
+                    path.display()
+                ))
+            })?;
+            return Ok(());
+        }
         if ctx.offline {
             return Err(RemediationError::OfflineBlocked);
         }
-        let (tool, _, _) =
-            self.select_python_lock(ctx).ok_or_else(|| {
-                RemediationError::UnsupportedLockLayout(
-                    "supported Python lockfile not found under scan root (need poetry.lock or uv.lock)".to_string(),
-                )
-            })?;
         let (bin_path, bin_name) = match tool {
             PythonLockTool::Poetry => {
                 (self.poetry_bin.as_str(), POETRY_BIN_NAME)
             }
             PythonLockTool::Uv => (self.uv_bin.as_str(), UV_BIN_NAME),
+            PythonLockTool::Pylock => unreachable!("handled above"),
         };
         if !bin_available(bin_path) {
             return Err(RemediationError::MissingPackageManager(
@@ -1546,6 +1637,73 @@ impl Remediator for PythonRemediator {
         }
         let preview = self.preview(ctx)?;
         run_allowlisted_argv(&preview.argv, &preview.workdir, bin_name)
+    }
+}
+
+/// Rewrite a unique `[[packages]]` version pin in a PEP 751 pylock document.
+///
+/// Matches package `name` case-insensitively. Refuses zero or multiple
+/// matches. Drops PEP 751 artifact keys (`wheels`, `sdist`, `archive`) on the
+/// bumped package so stale URLs and hashes do not remain after the version
+/// change.
+fn compute_pylock_version_edit(
+    text: &str,
+    package: &str,
+    new_version: &str,
+) -> Result<String, RemediationError> {
+    let refuse = |why: String| {
+        RemediationError::UnsupportedLockLayout(format!(
+            "pylock pin for {package}: {why}"
+        ))
+    };
+    let mut value: toml::Value = toml::from_str(text).map_err(|err| {
+        refuse(format!("unable to parse pylock TOML: {err}"))
+    })?;
+    let packages = value
+        .get_mut("packages")
+        .and_then(|p| p.as_array_mut())
+        .ok_or_else(|| refuse("missing [[packages]] array".into()))?;
+    let mut match_idxs = Vec::new();
+    for (idx, entry) in packages.iter().enumerate() {
+        let Some(tbl) = entry.as_table() else {
+            continue;
+        };
+        let Some(name) = tbl.get("name").and_then(|n| n.as_str()) else {
+            continue;
+        };
+        if name.eq_ignore_ascii_case(package) {
+            match_idxs.push(idx);
+        }
+    }
+    match match_idxs.as_slice() {
+        [] => Err(refuse("no matching [[packages]] entry".into())),
+        [idx] => {
+            let entry = packages
+                .get_mut(*idx)
+                .and_then(|e| e.as_table_mut())
+                .ok_or_else(|| {
+                    refuse("matching package entry is not a table".into())
+                })?;
+            if !entry.contains_key("version") {
+                return Err(refuse(
+                    "matching package has no version field".into(),
+                ));
+            }
+            entry.insert(
+                "version".to_string(),
+                toml::Value::String(new_version.to_string()),
+            );
+            for key in PYLOCK_ARTIFACT_KEYS {
+                entry.remove(*key);
+            }
+            toml::to_string(&value).map_err(|err| {
+                refuse(format!("unable to serialize pylock TOML: {err}"))
+            })
+        }
+        _ => Err(refuse(
+            "multiple matching [[packages]] entries; refusing ambiguous edit"
+                .into(),
+        )),
     }
 }
 
@@ -3507,7 +3665,7 @@ mod tests {
     }
 
     #[test]
-    fn strategy_selects_python_for_poetry_uv_pylock_unavailable() {
+    fn strategy_selects_python_for_poetry_uv_and_pylock() {
         let package = pkg(PYPI_ECOSYSTEM, "requests");
         assert_eq!(
             remediation_apply_strategy_for_finding(
@@ -3531,7 +3689,7 @@ mod tests {
                 "2.32.0",
                 &[lock_decl(PYLOCK_TOML_FILE_NAME)],
             ),
-            ApplyStrategy::Unavailable
+            ApplyStrategy::Python
         );
         assert_eq!(
             remediation_apply_strategy_for_finding(
@@ -3539,8 +3697,203 @@ mod tests {
                 "2.32.0",
                 &[lock_decl("pylock.dev.toml")],
             ),
-            ApplyStrategy::Unavailable
+            ApplyStrategy::Python
         );
+        // poetry/uv preferred over pylock when both are declared.
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &package,
+                "2.32.0",
+                &[
+                    lock_decl(PYLOCK_TOML_FILE_NAME),
+                    lock_decl(POETRY_LOCK_FILE_NAME),
+                ],
+            ),
+            ApplyStrategy::Python
+        );
+    }
+
+    #[test]
+    fn compute_pylock_version_edit_bumps_unique_package() {
+        let text = r#"lock-version = "1.0"
+created-by = "test"
+
+[[packages]]
+name = "requests"
+version = "2.31.0"
+
+[[packages]]
+name = "urllib3"
+version = "2.0.0"
+"#;
+        let edited =
+            compute_pylock_version_edit(text, "requests", "2.32.0").unwrap();
+        assert!(edited.contains("name = \"requests\""));
+        assert!(edited.contains("version = \"2.32.0\""));
+        assert!(edited.contains("name = \"urllib3\""));
+        assert!(edited.contains("version = \"2.0.0\""));
+        assert!(!edited.contains("version = \"2.31.0\""));
+    }
+
+    #[test]
+    fn compute_pylock_version_edit_strips_wheels_for_bumped_package() {
+        let text = r#"lock-version = "1.0"
+created-by = "test"
+
+[[packages]]
+name = "requests"
+version = "2.31.0"
+
+[[packages.wheels]]
+name = "requests-2.31.0-py3-none-any.whl"
+url = "https://example.invalid/requests-2.31.0-py3-none-any.whl"
+"#;
+        let edited =
+            compute_pylock_version_edit(text, "requests", "2.32.0").unwrap();
+        assert!(edited.contains("version = \"2.32.0\""));
+        assert!(!edited.contains("wheels"));
+        assert!(!edited.contains("2.31.0"));
+    }
+
+    #[test]
+    fn compute_pylock_version_edit_strips_sdist_and_archive() {
+        let text = r#"lock-version = "1.0"
+created-by = "test"
+
+[[packages]]
+name = "requests"
+version = "2.31.0"
+[packages.sdist]
+url = "https://example.invalid/requests-2.31.0.tar.gz"
+hash = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+[packages.archive]
+url = "https://example.invalid/requests-2.31.0.zip"
+
+[[packages]]
+name = "urllib3"
+version = "2.0.0"
+"#;
+        let edited =
+            compute_pylock_version_edit(text, "requests", "2.32.0").unwrap();
+        assert!(edited.contains("version = \"2.32.0\""));
+        assert!(
+            !edited.contains("2.31.0"),
+            "stale sdist/archive URLs must not remain: {edited}"
+        );
+        assert!(
+            !edited.contains("sdist"),
+            "PEP 751 sdist table must be stripped: {edited}"
+        );
+        assert!(
+            !edited.contains("archive"),
+            "PEP 751 archive table must be stripped: {edited}"
+        );
+        assert!(edited.contains("urllib3"));
+        assert!(edited.contains("version = \"2.0.0\""));
+    }
+
+    #[test]
+    fn compute_pylock_version_edit_refuses_missing_or_ambiguous() {
+        let text = r#"lock-version = "1.0"
+created-by = "test"
+
+[[packages]]
+name = "requests"
+version = "2.31.0"
+
+[[packages]]
+name = "Requests"
+version = "2.30.0"
+"#;
+        let missing =
+            compute_pylock_version_edit(text, "urllib3", "2.1.0").unwrap_err();
+        assert!(matches!(
+            missing,
+            RemediationError::UnsupportedLockLayout(_)
+        ));
+        let ambiguous =
+            compute_pylock_version_edit(text, "requests", "2.32.0")
+                .unwrap_err();
+        assert!(matches!(
+            ambiguous,
+            RemediationError::UnsupportedLockLayout(_)
+        ));
+    }
+
+    #[test]
+    fn pylock_preview_apply_empty_argv_offline_and_transitive() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        fs::write(
+            root.join(PYLOCK_TOML_FILE_NAME),
+            r#"lock-version = "1.0"
+created-by = "test"
+
+[[packages]]
+name = "requests"
+version = "2.31.0"
+"#,
+        )
+        .unwrap();
+        let rem = PythonRemediator::new();
+        let preview = rem
+            .preview(&RemediationContext {
+                scan_root: root,
+                declarations: &[lock_decl(PYLOCK_TOML_FILE_NAME)],
+                package_name: "requests",
+                target_version: "2.32.0",
+                dependency_kind: DependencyKind::Transitive,
+                allow_dependency_code_execution: false,
+                offline: true,
+            })
+            .expect("pylock preview");
+        assert_eq!(preview.strategy, ApplyStrategy::Python);
+        assert!(preview.argv.is_empty());
+        assert_eq!(preview.files, vec![root.join(PYLOCK_TOML_FILE_NAME)]);
+        rem.apply(&RemediationContext {
+            scan_root: root,
+            declarations: &[lock_decl(PYLOCK_TOML_FILE_NAME)],
+            package_name: "requests",
+            target_version: "2.32.0",
+            dependency_kind: DependencyKind::Transitive,
+            allow_dependency_code_execution: false,
+            offline: true,
+        })
+        .expect("pylock apply offline");
+        let edited =
+            fs::read_to_string(root.join(PYLOCK_TOML_FILE_NAME)).unwrap();
+        assert!(edited.contains("version = \"2.32.0\""));
+        assert!(!edited.contains("version = \"2.31.0\""));
+    }
+
+    #[test]
+    fn pylock_dev_toml_apply_works() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        fs::write(
+            root.join("pylock.dev.toml"),
+            r#"lock-version = "1.0"
+created-by = "test"
+
+[[packages]]
+name = "ruff"
+version = "0.1.0"
+"#,
+        )
+        .unwrap();
+        let rem = PythonRemediator::new();
+        rem.apply(&RemediationContext {
+            scan_root: root,
+            declarations: &[lock_decl("pylock.dev.toml")],
+            package_name: "ruff",
+            target_version: "0.2.0",
+            dependency_kind: DependencyKind::Direct,
+            allow_dependency_code_execution: false,
+            offline: true,
+        })
+        .expect("pylock.dev.toml apply");
+        let edited = fs::read_to_string(root.join("pylock.dev.toml")).unwrap();
+        assert!(edited.contains("version = \"0.2.0\""));
     }
 
     #[test]
