@@ -71,7 +71,7 @@ move.
 
 Known limits: Linux musl is not a GitHub archive; Windows has no first-class
 Bash/Zsh/Fish install (generation plus zip layout only). Default lock-less
-Python, JavaScript, Java, Ruby, PHP, and .NET scans exit 4. Lock-less `--offline` is
+Python, JavaScript, Java, Ruby, PHP, .NET, and Dart scans exit 4. Lock-less `--offline` is
 FR-022a DirectOnly (never unqualified `No vulnerabilities found.`).
 
 ## SBOM inventory input (FR-038)
@@ -764,6 +764,15 @@ Composer executes PHP). Use `--allow-dependency-code-execution` for ephemeral
 `composer update --no-install`, or `--allow-direct-only-fallback` for
 direct-only coverage.
 
+**Dart / Flutter (Pub):** The `dart` language covers `pubspec.yaml`. Prefer an
+adjacent or parent `pubspec.lock` (Dart workspaces keep one lock at the
+workspace root; the walk stops at the scan root). Without a usable lock, the
+scan exits **4** by default and never runs `dart` or `flutter`. Use
+`--allow-direct-only-fallback` for direct-only coverage. Only packages hosted
+on pub.dev are matched against OSV `Pub`; `git`, `path`, `sdk`, and custom
+hosted packages are skipped with a warning so a private package can never be
+confused with a public one of the same name.
+
 **.NET / NuGet:** The `dotnet` language covers `*.csproj`, `*.fsproj`, and
 `*.vbproj`. Prefer an adjacent or parent `packages.lock.json` (walk up to the
 scan root). NuGet lock files are **opt-in** in SDK-style projects: set
@@ -792,7 +801,7 @@ manager execution is disabled; lock-less Java Maven/Gradle manifests without
 `gradle.lockfile` when PM execution is disabled; lock-less Ruby Gemfile/gems.rb
 or gemspec without Gemfile.lock/gems.locked when Bundler execution is disabled;
 lock-less PHP `composer.json` without `composer.lock` when Composer execution
-is disabled; lock-less .NET `*.csproj` / `*.fsproj` / `*.vbproj` without
+is disabled; lock-less Dart `pubspec.yaml` without `pubspec.lock`; lock-less .NET `*.csproj` / `*.fsproj` / `*.vbproj` without
 `packages.lock.json` when `dotnet` execution is disabled; explicit pip
 resolution failed after
 `--allow-dependency-code-execution`; or the parser found no dependencies.

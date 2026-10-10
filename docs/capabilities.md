@@ -20,7 +20,7 @@ When you add a language plugin, update **both** Appendix A and this matrix
 
 Default `reachability_mode` is `best-available` (Tier B + Tier C where
 supported). Tier D is on by default for Python, Go, JavaScript, Java/Kotlin,
-Ruby, PHP, and .NET; Rust Tier D is opt-in (`rust-tier-d`). Reachability
+Ruby, PHP, .NET, and Dart; Rust Tier D is opt-in (`rust-tier-d`). Reachability
 never suppresses findings by default.
 
 | Ecosystem | Manifests (summary) | Preferred locks | Lock-less default | Reachability | `vlz fix` apply |
@@ -33,6 +33,7 @@ never suppresses findings by default.
 | Ruby | `Gemfile`, `gems.rb`, `*.gemspec` | `Gemfile.lock`, `gems.locked` | Exit **4** | Tier B/C; Tier D on by default | bundler (needs SEC-023 gate; no transitive apply) |
 | PHP | `composer.json` | `composer.lock` | Exit **4** | Tier B/C; Tier D on by default | composer (`require --no-install --no-scripts --no-plugins`; no transitive apply) |
 | .NET | `*.csproj` / `*.fsproj` / `*.vbproj`, `packages.config` | `packages.lock.json` (incl. orphan lock-only dirs), then `project.assets.json` / `*.deps.json` | Exit **4** | Tier B/C (`.cs` / `.fs`); Tier D on by default | nuget (in-place `Version=` on `*.csproj` / `Directory.Packages.props`; no transitive / no-pin refuse) |
+| Dart / Flutter | `pubspec.yaml` | `pubspec.lock` (incl. orphan lock-only dirs; Dart workspaces walk to the scan root) | Exit **4** | Tier B/C (`.dart`); Tier D on by default | dart / flutter (`pub add --no-precompile`; needs SEC-023 gate; no transitive apply) |
 | SBOM | CycloneDX 1.x / SPDX 2.2--3.0 JSON | n/a (pre-resolved) | n/a | n/a | Dry-run only; never apply |
 
 ## Notes

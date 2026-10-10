@@ -627,6 +627,14 @@ flowchart LR
     Packages --> CVE[CVE lookup]
 ```
 
+### Reachability and remediator coverage (must)
+
+Every language plugin except SBOM ships both a `ReachabilityAnalyzer` (Tier
+B/C, plus a `<lang>-tier-d` feature) and a `Remediator` (`ApplyStrategy`
+variant, `vlz fix` registration, `report.json` `apply_strategy` enum entry).
+SBOM inventories are pre-resolved, so they are exempt. Update
+[docs/capabilities.md](docs/capabilities.md) in the same change.
+
 ### Lock-first resolver contract (must)
 
 Language plugins must not give a false sense of coverage. Follow this order
@@ -874,16 +882,16 @@ architecture/PRD.md DOC-003 and design notes on single source of truth).
 
 The `vlz` binary supports optional capabilities via Cargo features:
 
-- **runtime** = `["redb", "python", "rust", "go", "javascript", "java", "ruby", "php", "dotnet", "sbom"]`
+- **runtime** = `["redb", "python", "rust", "go", "javascript", "java", "ruby", "php", "dotnet", "dart", "sbom"]`
   -- desktop scan capabilities with on-disk RedB **CVE cache**. When adding a
   new language, add it here **and** to `runtime-mem` so Docker stays in sync.
-- **runtime-mem** = `["mem", "python", "rust", "go", "javascript", "java", "ruby", "php", "dotnet", "sbom"]`
+- **runtime-mem** = `["mem", "python", "rust", "go", "javascript", "java", "ruby", "php", "dotnet", "dart", "sbom"]`
   -- same languages with an in-memory CVE cache (no `redb`; for ephemeral /
   Docker).
-- **default** = `["runtime", "completions", "docs", "lsp", "python-tier-d", "go-tier-d", "javascript-tier-d"]` -- full build with
+- **default** = `["runtime", "completions", "docs", "lsp", "python-tier-d", "go-tier-d", "javascript-tier-d", "java-tier-d", "ruby-tier-d", "php-tier-d", "dotnet-tier-d", "dart-tier-d"]` -- full build with
   runtime capabilities, shell completion generation, man page via `vlz help`,
   the Language Server (`vlz lsp`), and default Tier D reachability for Python,
-  Go, and JavaScript. Release builds omit the `testing` feature for a smaller
+  Go, JavaScript, Java, Ruby, PHP, .NET, and Dart. Release builds omit the `testing` feature for a smaller
   binary.
 - **completions** -- `vlz generate-completions` subcommand (bash, zsh, fish);
   pulls in `clap_complete`. Omitted from Docker image to reduce binary size.
@@ -914,6 +922,9 @@ The `vlz` binary supports optional capabilities via Cargo features:
   and gemspec manifests with Gemfile.lock / gems.locked (OSV `RubyGems`).
 - **php** -- PHP language plugin (`vlz-php` crate); Composer `composer.json`
   with `composer.lock` (OSV `Packagist`).
+- **dart** -- Dart / Flutter language plugin (`vlz-dart` crate); `pubspec.yaml`
+  with `pubspec.lock` (OSV `Pub`; pub.dev hosted only). `dart-tier-d` enables
+  Tier D reachability.
 - **dotnet** -- .NET / NuGet language plugin (`vlz-dotnet` crate); `*.csproj` /
   `*.fsproj` / `*.vbproj` with `packages.lock.json` (OSV `NuGet`).
 - **sbom** -- SBOM inventory plugin (`vlz-sbom` crate); CycloneDX 1.x and

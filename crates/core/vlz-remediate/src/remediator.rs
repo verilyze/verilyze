@@ -33,7 +33,8 @@
 //! Go findings select on `go.mod` manifest declarations (Go emits no
 //! lockfile-kind declarations). Maven-ecosystem findings prefer a Gradle lock
 //! (`Gradle` strategy) over a bare `pom.xml` (`Maven` strategy). Packagist
-//! findings select on `composer.lock`. NuGet findings select on a direct
+//! findings select on `composer.lock`. Pub findings select on `pubspec.lock`.
+//! NuGet findings select on a direct
 //! editable pin in `*.csproj` / `*.fsproj` / `*.vbproj` or
 //! `Directory.Packages.props`.
 //!
@@ -44,7 +45,8 @@
 //! `--lock`, uv `--no-sync`, and Composer `--no-scripts --no-plugins
 //! --no-install` do not run dependency lifecycle installs. RubyGems
 //! (`bundle`) and Gradle evaluate project code (`Gemfile` Ruby, build
-//! scripts), so their previews fail closed without
+//! scripts), and Dart (`pub add` may run package build hooks) behaves the
+//! same way, so their previews fail closed without
 //! `allow_dependency_code_execution` and apply stays `unavailable` with the
 //! FR-041 stderr warning. Maven, NuGet, and pylock perform a local file edit
 //! only, so they need no gate and work offline. `go get` does not run
@@ -7081,9 +7083,9 @@ dependency_overrides:\n  over: 1.0.0\n";
         let ok = |text: &str| {
             check_pubspec_allows_pub_add(text, "http").map(|f| f.dev)
         };
-        assert_eq!(ok("dependencies:\n  http: ^1.0.0\n").unwrap(), false);
-        assert_eq!(ok("dependencies:\n  http:\n").unwrap(), false);
-        assert_eq!(ok("dev_dependencies:\n  http: ^1.0.0\n").unwrap(), true);
+        assert!(!ok("dependencies:\n  http: ^1.0.0\n").unwrap());
+        assert!(!ok("dependencies:\n  http:\n").unwrap());
+        assert!(ok("dev_dependencies:\n  http: ^1.0.0\n").unwrap());
         for bad in [
             "dependencies:\n  http:\n    git: https://x/y.git\n",
             "dependencies:\n  http:\n    path: ../http\n",

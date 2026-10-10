@@ -55,7 +55,7 @@ Status values: `done`, `in progress`, `planned`, `later`.
 | HC-6 | Reproducible release binaries (NFR-006) | done | |
 | HC-7 | Optional FIPS-204 cache signatures (SEC-005) | later | |
 | HC-8 | Marketplace editor clients (sibling repo) | later | |
-| HC-9 | More ecosystems only with lock-first + OSV coverage | in progress | Dart/Pub (`vlz-dart`) |
+| HC-9 | More ecosystems only with lock-first + OSV coverage | done | Dart/Pub (`vlz-dart`) |
 | HC-10 | NuGet residual depth (orphan locks, restore edge cases); `Directory.Packages.props` version fill already ships | done | orphan packages.lock.json; ephemeral restore copies Directory.Packages.props |
 | HC-11 | Optional CONTRIBUTING split if TOC/matrix still leave it unusable | later | |
 
