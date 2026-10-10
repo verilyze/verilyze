@@ -59,6 +59,14 @@ Status values: `done`, `in progress`, `planned`, `later`.
 | HC-10 | NuGet residual depth (orphan locks, restore edge cases); `Directory.Packages.props` version fill already ships | done | orphan packages.lock.json; ephemeral restore copies Directory.Packages.props |
 | HC-11 | Optional CONTRIBUTING split if TOC/matrix still leave it unusable | later | |
 | HC-12 | Install the real Dart/Flutter SDK in the Cursor Cloud Agent image (`.cursor/Dockerfile`) and document it as a general dev prerequisite, so `DartRemediator` (`pub add`) and Dart scans can be tested against real binaries | planned | HC-9 remediator was only tested with stub binaries |
+| HC-13 | Restore openSUSE Tumbleweed RPM builds: lower MSRV to the Rust that enabled distro targets ship (1.98 if the workspace builds and tests on 1.98.x), re-enable the target, ship a patch release. Never move a published tag | in progress | v0.14.0 regression: MSRV tracked the toolchain bump to 1.99 |
+| HC-14 | MSRV policy: `rust-toolchain.toml` (dev/CI toolchain) is decoupled from `rust-version` (MSRV); the toolchain may lead the MSRV but never trail it; MSRV rises only for a code or dependency reason after the distro gate passes | in progress | `scripts/crates_publish.py`; CONTRIBUTING "Rust toolchain and MSRV policy" |
+| HC-15 | Single-source packaging: `packaging/obs/distro-rust.toml` lists per-distro Rust floors; RPM spec `BuildRequires` are derived from `rust-version` instead of hand-edited literals | in progress | `scripts/distro_rust.py`; `sync_rpm_specs.py` |
+| HC-16 | Distro Rust availability gate (`make check-distro-rust`) in `check-fast` and `release-preflight.sh`, so an unbuildable target blocks before the tag, not after | in progress | offline data check plus optional live container probe |
+| HC-17 | CI MSRV job (check with exactly `rust-version`) and MSRV-aware resolver v3 so dependency updates cannot raise the floor silently | in progress | |
+| HC-18 | Distro container build matrix (PR path filter plus nightly) building with distro-packaged `rust`/`cargo` and `--locked` | in progress | `.github/workflows/distro-build.yml` |
+| HC-19 | Renovate: toolchain bumps never edit `rust-version`; MSRV changes need a deliberate PR and never automerge | in progress | `renovate.json` |
+| HC-20 | Docs and agent guidance for the MSRV / distro policy (README, INSTALL, CONTRIBUTING, PRD, AGENTS, rules, skills) and an `ai-learnings` entry | in progress | |
 
 ## Non-goals
 
