@@ -58,6 +58,7 @@ Status values: `done`, `in progress`, `planned`, `later`.
 | HC-9 | More ecosystems only with lock-first + OSV coverage | done | Dart/Pub (`vlz-dart`) |
 | HC-10 | NuGet residual depth (orphan locks, restore edge cases); `Directory.Packages.props` version fill already ships | done | orphan packages.lock.json; ephemeral restore copies Directory.Packages.props |
 | HC-11 | Optional CONTRIBUTING split if TOC/matrix still leave it unusable | later | |
+| HC-12 | Install the real Dart/Flutter SDK in the Cursor Cloud Agent image (`.cursor/Dockerfile`) and document it as a general dev prerequisite, so `DartRemediator` (`pub add`) and Dart scans can be tested against real binaries | planned | HC-9 remediator was only tested with stub binaries |
 
 ## Non-goals
 
