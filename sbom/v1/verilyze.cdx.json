@@ -2200,6 +2200,13 @@
       "version": "0.13.0"
     },
     {
+      "bom-ref": "pkg:cargo/vlz-dart@0.13.0",
+      "name": "vlz-dart",
+      "purl": "pkg:cargo/vlz-dart@0.13.0",
+      "type": "library",
+      "version": "0.13.0"
+    },
+    {
       "bom-ref": "pkg:cargo/vlz-db@0.13.0",
       "name": "vlz-db",
       "purl": "pkg:cargo/vlz-db@0.13.0",

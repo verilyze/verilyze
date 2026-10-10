@@ -2212,6 +2212,13 @@
     },
     {
       "@type": "Package",
+      "name": "vlz-dart",
+      "packageUrl": "pkg:cargo/vlz-dart@0.13.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-vlz-dart-0-13-0",
+      "versionInfo": "0.13.0"
+    },
+    {
+      "@type": "Package",
       "name": "vlz-db",
       "packageUrl": "pkg:cargo/vlz-db@0.13.0",
       "spdxId": "urn:spdx.dev:pkg-cargo-vlz-db-0-13-0",
