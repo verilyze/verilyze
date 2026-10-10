@@ -2685,6 +2685,7 @@ dependencies = [
  "vlz-cve-provider-github",
  "vlz-cve-provider-nvd",
  "vlz-cve-provider-sonatype",
+ "vlz-dart",
  "vlz-db",
  "vlz-db-mem",
  "vlz-db-redb",

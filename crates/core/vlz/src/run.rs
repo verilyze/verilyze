@@ -370,7 +370,8 @@ fn apply_reachability_pipeline(
         feature = "java-tier-d",
         feature = "ruby-tier-d",
         feature = "php-tier-d",
-        feature = "dotnet-tier-d"
+        feature = "dotnet-tier-d",
+        feature = "dart-tier-d"
     ))]
     if should_apply_tier_c(mode) {
         let reachability_analyzers = crate::registry::reachability_analyzers()

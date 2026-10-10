@@ -219,6 +219,10 @@ pub fn ensure_default_manifest_finder() {
     if !f.iter().any(|x| x.language_name() == "dotnet") {
         f.push(Box::new(vlz_dotnet::DotnetManifestFinder::new()));
     }
+    #[cfg(feature = "dart")]
+    if !f.iter().any(|x| x.language_name() == "dart") {
+        f.push(Box::new(vlz_dart::DartManifestFinder::new()));
+    }
     #[cfg(feature = "sbom")]
     if !f.iter().any(|x| x.language_name() == "sbom") {
         f.push(Box::new(vlz_sbom::SbomManifestFinder::new()));
@@ -261,6 +265,10 @@ pub fn ensure_default_parser() {
     if !p.iter().any(|x| x.language_name() == "dotnet") {
         p.push(Box::new(vlz_dotnet::DotnetManifestParser::new()));
     }
+    #[cfg(feature = "dart")]
+    if !p.iter().any(|x| x.language_name() == "dart") {
+        p.push(Box::new(vlz_dart::DartManifestParser::new()));
+    }
     #[cfg(feature = "sbom")]
     if !p.iter().any(|x| x.language_name() == "sbom") {
         p.push(Box::new(vlz_sbom::SbomParser::new()));
@@ -302,6 +310,10 @@ pub fn ensure_default_resolver() {
     if !r.iter().any(|x| x.language_name() == "dotnet") {
         r.push(Box::new(vlz_dotnet::DotnetResolver::new()));
     }
+    #[cfg(feature = "dart")]
+    if !r.iter().any(|x| x.language_name() == "dart") {
+        r.push(Box::new(vlz_dart::DartResolver::new()));
+    }
     #[cfg(feature = "sbom")]
     if !r.iter().any(|x| x.language_name() == "sbom") {
         r.push(Box::new(vlz_sbom::SbomResolver::new()));
@@ -338,6 +350,10 @@ pub fn ensure_default_reachability_analyzer() {
     #[cfg(feature = "php")]
     if !analyzers.iter().any(|x| x.language_name() == "php") {
         analyzers.push(Box::new(vlz_php::PhpTierBAnalyzer::new()));
+    }
+    #[cfg(feature = "dart")]
+    if !analyzers.iter().any(|x| x.language_name() == "dart") {
+        analyzers.push(Box::new(vlz_dart::DartTierBAnalyzer::new()));
     }
     #[cfg(feature = "dotnet")]
     if !analyzers.iter().any(|x| x.language_name() == "dotnet") {
@@ -787,6 +803,7 @@ mod tests {
             feature = "ruby",
             feature = "php",
             feature = "dotnet",
+            feature = "dart",
             feature = "sbom"
         ))]
         {
@@ -799,6 +816,7 @@ mod tests {
                 cfg!(feature = "ruby"),
                 cfg!(feature = "php"),
                 cfg!(feature = "dotnet"),
+                cfg!(feature = "dart"),
                 cfg!(feature = "sbom"),
             ]
             .into_iter()

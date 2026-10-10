@@ -7,7 +7,10 @@
 mod finder;
 mod lock_names;
 mod parser;
+mod reachability;
 mod resolver;
+#[cfg(feature = "tier-d")]
+mod tier_d;
 
 pub use finder::{DartManifestFinder, is_dart_manifest_name};
 pub use lock_names::{
@@ -19,6 +22,7 @@ pub use parser::{
     parse_pubspec_lock_with_declarations, parse_pubspec_yaml,
     parse_pubspec_yaml_with_declarations,
 };
+pub use reachability::DartTierBAnalyzer;
 pub use resolver::{DartResolver, find_dart_lock_file};
 pub use vlz_db::PUB_ECOSYSTEM;
 

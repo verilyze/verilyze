@@ -19,7 +19,7 @@
 # Comma-separated directory names to skip during manifest discovery (default:
 # .git, .venv, venv, node_modules, target, __pycache__, .tox, .eggs, dist,
 # build, site-packages)
-# scan_exclude_dirs = .git,.venv,venv,node_modules,target,__pycache__,.tox,.eggs,dist,build,site-packages,vendor,.bundle
+# scan_exclude_dirs = .git,.venv,venv,node_modules,target,__pycache__,.tox,.eggs,dist,build,site-packages,vendor,.bundle,.dart_tool
 
 # CVE providers to query (default: osv). Comma-separated names or a TOML array.
 # Opt in to multi-provider merge with more than one name, or `all` for

@@ -88,6 +88,10 @@ fn discover_manifests_one_pass(
     let mut dotnet_manifests: Vec<PathBuf> = Vec::new();
     #[cfg(feature = "dotnet")]
     let mut dotnet_locks: Vec<PathBuf> = Vec::new();
+    #[cfg(feature = "dart")]
+    let mut dart_manifests: Vec<PathBuf> = Vec::new();
+    #[cfg(feature = "dart")]
+    let mut dart_locks: Vec<PathBuf> = Vec::new();
     let mut stack = vec![root.to_path_buf()];
     while let Some(dir) = stack.pop() {
         for entry in std::fs::read_dir(&dir)? {
@@ -174,6 +178,17 @@ fn discover_manifests_one_pass(
                     continue;
                 }
             }
+            #[cfg(feature = "dart")]
+            {
+                if vlz_dart::is_dart_manifest_name(name) {
+                    dart_manifests.push(entry.path());
+                    continue;
+                }
+                if vlz_dart::is_dart_lock_file(name) {
+                    dart_locks.push(entry.path());
+                    continue;
+                }
+            }
             #[cfg(feature = "sbom")]
             if vlz_sbom::is_sbom_basename(name) {
                 out.entry("sbom".to_string())
@@ -244,6 +259,15 @@ fn discover_manifests_one_pass(
         dotnet_manifests.sort();
         dotnet_manifests.dedup();
         out.insert("dotnet".to_string(), dotnet_manifests);
+    }
+    #[cfg(feature = "dart")]
+    {
+        let orphans =
+            vlz_dart::filter_orphan_locks(&dart_manifests, &dart_locks);
+        dart_manifests.extend(orphans);
+        dart_manifests.sort();
+        dart_manifests.dedup();
+        out.insert("dart".to_string(), dart_manifests);
     }
     for manifests in out.values_mut() {
         manifests.sort();
@@ -793,6 +817,7 @@ pub async fn resolve_packages_for_path(
             && first_lang != Some("ruby")
             && first_lang != Some("php")
             && first_lang != Some("dotnet")
+            && first_lang != Some("dart")
             && first_lang != Some("sbom")
         {
             match vlz_python::PythonManifestFinder::with_patterns(
@@ -819,6 +844,7 @@ pub async fn resolve_packages_for_path(
                 && first_lang != Some("ruby")
                 && first_lang != Some("php")
                 && first_lang != Some("dotnet")
+                && first_lang != Some("dart")
                 && first_lang != Some("sbom"))
         {
             match vlz_rust::RustManifestFinder::with_patterns(patterns.clone())
@@ -841,6 +867,7 @@ pub async fn resolve_packages_for_path(
                 && first_lang != Some("ruby")
                 && first_lang != Some("php")
                 && first_lang != Some("dotnet")
+                && first_lang != Some("dart")
                 && first_lang != Some("sbom"))
         {
             match vlz_go::GoManifestFinder::with_patterns(patterns.clone()) {
@@ -861,6 +888,7 @@ pub async fn resolve_packages_for_path(
                 && first_lang != Some("ruby")
                 && first_lang != Some("php")
                 && first_lang != Some("dotnet")
+                && first_lang != Some("dart")
                 && first_lang != Some("sbom"))
         {
             match vlz_javascript::JsManifestFinder::with_patterns(
@@ -882,6 +910,7 @@ pub async fn resolve_packages_for_path(
                 && first_lang != Some("ruby")
                 && first_lang != Some("php")
                 && first_lang != Some("dotnet")
+                && first_lang != Some("dart")
                 && first_lang != Some("sbom"))
         {
             match vlz_java::JavaManifestFinder::with_patterns(patterns.clone())
@@ -901,6 +930,7 @@ pub async fn resolve_packages_for_path(
             || (finders.is_empty()
                 && first_lang != Some("php")
                 && first_lang != Some("dotnet")
+                && first_lang != Some("dart")
                 && first_lang != Some("sbom"))
         {
             match vlz_ruby::RubyManifestFinder::with_patterns(patterns.clone())
@@ -919,6 +949,7 @@ pub async fn resolve_packages_for_path(
         if first_lang == Some("php")
             || (finders.is_empty()
                 && first_lang != Some("dotnet")
+                && first_lang != Some("dart")
                 && first_lang != Some("sbom"))
         {
             match vlz_php::PhpManifestFinder::with_patterns(patterns.clone()) {
@@ -934,11 +965,29 @@ pub async fn resolve_packages_for_path(
         }
         #[cfg(feature = "dotnet")]
         if first_lang == Some("dotnet")
-            || (finders.is_empty() && first_lang != Some("sbom"))
+            || (finders.is_empty()
+                && first_lang != Some("dart")
+                && first_lang != Some("sbom"))
         {
             match vlz_dotnet::DotnetManifestFinder::with_patterns(
                 patterns.clone(),
             ) {
+                Ok(f) => finders.push(Box::new(f)),
+                Err(e) => {
+                    error!("Invalid language regex in config: {}", e);
+                    return Err(anyhow!(
+                        "Invalid language regex in config: {}",
+                        e
+                    ));
+                }
+            }
+        }
+        #[cfg(feature = "dart")]
+        if first_lang == Some("dart")
+            || (finders.is_empty() && first_lang != Some("sbom"))
+        {
+            match vlz_dart::DartManifestFinder::with_patterns(patterns.clone())
+            {
                 Ok(f) => finders.push(Box::new(f)),
                 Err(e) => {
                     error!("Invalid language regex in config: {}", e);
@@ -971,11 +1020,12 @@ pub async fn resolve_packages_for_path(
             feature = "ruby",
             feature = "php",
             feature = "dotnet",
+            feature = "dart",
             feature = "sbom"
         )))]
         {
             error!(
-                "Custom language regexes require a language plugin (e.g. python, rust, go, javascript, java, ruby, php, or sbom feature)"
+                "Custom language regexes require a language plugin (e.g. python, rust, go, javascript, java, ruby, php, dotnet, dart, or sbom feature)"
             );
             return Err(anyhow!(
                 "Custom language regexes require a language plugin"
@@ -1138,6 +1188,7 @@ pub(crate) async fn resolve_packages_with_plugins(
                     | "ruby"
                     | "php"
                     | "dotnet"
+                    | "dart"
                     | "sbom"
             )
         });
@@ -1494,6 +1545,31 @@ mod tests {
             discover_manifests_one_pass(root, &Default::default()).unwrap();
         let manifests = got.0.get("dotnet").cloned().unwrap_or_default();
         assert_eq!(manifests, vec![lock]);
+    }
+
+    #[cfg(feature = "dart")]
+    #[test]
+    fn discover_manifests_one_pass_finds_dart_manifest_and_orphan_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let app = root.join("app");
+        let vendor = root.join("vendor");
+        std::fs::create_dir_all(&app).unwrap();
+        std::fs::create_dir_all(&vendor).unwrap();
+        std::fs::write(app.join("pubspec.yaml"), "name: app\n").unwrap();
+        std::fs::write(app.join("pubspec.lock"), "packages: {}\n").unwrap();
+        std::fs::write(vendor.join("pubspec.lock"), "packages: {}\n").unwrap();
+        #[cfg(feature = "python")]
+        let got = discover_manifests_one_pass(root, &Default::default(), &[])
+            .unwrap();
+        #[cfg(not(feature = "python"))]
+        let got =
+            discover_manifests_one_pass(root, &Default::default()).unwrap();
+        let manifests = got.0.get("dart").cloned().unwrap_or_default();
+        assert_eq!(
+            manifests,
+            vec![app.join("pubspec.yaml"), vendor.join("pubspec.lock")]
+        );
     }
 
     #[cfg(feature = "python")]
