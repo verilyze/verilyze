@@ -1,7 +1,7 @@
 %% Workspace layout: crates/core/ (vlz, vlz-db, vlz-manifest-finder, vlz-manifest-parser,
 %% vlz-cve-client, vlz-report, vlz-integrity, vlz-plugin-macro, vlz-reachability,
 %% vlz-reachability-trait, vlz-remediate, vlz-lsp), crates/languages/
-%% (vlz-python, vlz-rust, vlz-go, vlz-javascript, vlz-java, vlz-ruby, vlz-php, vlz-dotnet, vlz-sbom), crates/providers/ (vlz-cve-provider-nvd, vlz-cve-provider-github,
+%% (vlz-python, vlz-rust, vlz-go, vlz-javascript, vlz-java, vlz-ruby, vlz-php, vlz-dotnet, vlz-dart, vlz-sbom), crates/providers/ (vlz-cve-provider-nvd, vlz-cve-provider-github,
 %% vlz-cve-provider-sonatype), crates/db-backends/ (vlz-db-redb, vlz-db-mem), tests/fuzz
 graph TD
     %% Core binary
@@ -30,6 +30,7 @@ graph TD
     RB["vlz-ruby (optional, ruby feature)"]
     PHP["vlz-php (optional, php feature)"]
     DN["vlz-dotnet (optional, dotnet feature)"]
+    DT["vlz-dart (optional, dart feature)"]
     SB["vlz-sbom (optional, sbom feature)"]
     %% Concrete implementations (plug‑ins)
     H["vlz-db-redb (default CVE cache)"]
@@ -57,6 +58,7 @@ graph TD
     A --> RB
     A --> PHP
     A --> DN
+    A --> DT
     A --> SB
     A --> M
     %% Edges from libraries to the traits they expose (collapsed for brevity)
@@ -85,3 +87,4 @@ graph TD
     RB -.->|implements| ReachabilityAnalyzer
     PHP -.->|implements| ReachabilityAnalyzer
     DN -.->|implements| ReachabilityAnalyzer
+    DT -.->|implements| ReachabilityAnalyzer

@@ -24,8 +24,9 @@ pub use remediator::{
     COMPOSER_LOCK_FILE_NAME, COMPOSER_MANIFEST_FILE_NAME,
     COMPOSER_NO_INSTALL_FLAG, COMPOSER_NO_INTERACTION_FLAG,
     COMPOSER_NO_PLUGINS_FLAG, COMPOSER_NO_SCRIPTS_FLAG, CargoRemediator,
-    ComposerRemediator, DIRECTORY_PACKAGES_PROPS_FILE_NAME, GO_BIN_NAME,
-    GO_MANIFEST_FILE_NAME, GO_SUM_FILE_NAME, GRADLE_BIN_NAME,
+    ComposerRemediator, DART_BIN_NAME, DART_DEV_FLAG, DART_NO_PRECOMPILE_FLAG,
+    DIRECTORY_PACKAGES_PROPS_FILE_NAME, DartRemediator, FLUTTER_BIN_NAME,
+    GO_BIN_NAME, GO_MANIFEST_FILE_NAME, GO_SUM_FILE_NAME, GRADLE_BIN_NAME,
     GRADLE_BUILDSCRIPT_LOCK_FILE_NAME, GRADLE_LOCK_FILE_NAME,
     GRADLE_MANIFEST_BUILD_FILE_NAME, GRADLE_MANIFEST_BUILD_KTS_FILE_NAME,
     GRADLE_SETTINGS_FILE_NAME, GRADLE_SETTINGS_KTS_FILE_NAME,
@@ -36,20 +37,20 @@ pub use remediator::{
     NPM_PACKAGE_LOCK_ONLY_FLAG, NUGET_MANIFEST_MAX_BYTES, NpmRemediator,
     NugetRemediator, PNPM_BIN_NAME, PNPM_LOCK_FILE_NAME,
     PNPM_LOCKFILE_ONLY_FLAG, POETRY_BIN_NAME, POETRY_LOCK_FILE_NAME,
-    POETRY_LOCK_FLAG, PYLOCK_TOML_FILE_NAME, PYTHON_MANIFEST_FILE_NAME,
-    PnpmRemediator, PythonRemediator, RUBY_LOCK_GEMFILE_LOCK_FILE_NAME,
-    RUBY_LOCK_GEMS_LOCKED_FILE_NAME, RUBY_MANIFEST_GEMFILE_FILE_NAME,
-    RUBY_MANIFEST_GEMS_RB_FILE_NAME, RemediationContext, RemediationError,
-    RemediationPreview, Remediator, RubyGemsRemediator, UV_BIN_NAME,
-    UV_LOCK_FILE_NAME, UV_NO_SYNC_FLAG, YARN_BERRY_SKIP_BUILD_FLAG,
-    YARN_BERRY_UP_SUBCOMMAND, YARN_BIN_NAME, YARN_CLASSIC_IGNORE_SCRIPTS_FLAG,
-    YARN_CLASSIC_LOCKFILE_MARKER, YARN_CLASSIC_UPGRADE_SUBCOMMAND,
-    YARN_LOCK_FILE_NAME, YarnLockFlavor, YarnRemediator, bun_update_argv,
-    bundle_add_argv, cargo_update_argv, composer_require_argv,
-    detect_yarn_lock_flavor, go_get_argv, gradle_update_argv,
-    npm_install_argv, pnpm_update_argv, poetry_add_argv,
-    remediation_apply_strategy_for_finding, uv_add_argv, yarn_remediate_argv,
-    yarn_up_argv,
+    POETRY_LOCK_FLAG, PUBSPEC_MANIFEST_MAX_BYTES, PYLOCK_TOML_FILE_NAME,
+    PYTHON_MANIFEST_FILE_NAME, PnpmRemediator, PythonRemediator,
+    RUBY_LOCK_GEMFILE_LOCK_FILE_NAME, RUBY_LOCK_GEMS_LOCKED_FILE_NAME,
+    RUBY_MANIFEST_GEMFILE_FILE_NAME, RUBY_MANIFEST_GEMS_RB_FILE_NAME,
+    RemediationContext, RemediationError, RemediationPreview, Remediator,
+    RubyGemsRemediator, UV_BIN_NAME, UV_LOCK_FILE_NAME, UV_NO_SYNC_FLAG,
+    YARN_BERRY_SKIP_BUILD_FLAG, YARN_BERRY_UP_SUBCOMMAND, YARN_BIN_NAME,
+    YARN_CLASSIC_IGNORE_SCRIPTS_FLAG, YARN_CLASSIC_LOCKFILE_MARKER,
+    YARN_CLASSIC_UPGRADE_SUBCOMMAND, YARN_LOCK_FILE_NAME, YarnLockFlavor,
+    YarnRemediator, bun_update_argv, bundle_add_argv, cargo_update_argv,
+    composer_require_argv, dart_pub_add_argv, detect_yarn_lock_flavor,
+    go_get_argv, gradle_update_argv, npm_install_argv, pnpm_update_argv,
+    poetry_add_argv, remediation_apply_strategy_for_finding, uv_add_argv,
+    yarn_remediate_argv, yarn_up_argv,
 };
 
 /// Upgrade plan confidence for a planned remediation.
@@ -90,6 +91,7 @@ pub enum ApplyStrategy {
     Maven,
     Composer,
     Nuget,
+    Dart,
 }
 
 impl ApplyStrategy {
@@ -109,6 +111,7 @@ impl ApplyStrategy {
             Self::Maven => "maven",
             Self::Composer => "composer",
             Self::Nuget => "nuget",
+            Self::Dart => "dart",
         }
     }
 }
@@ -928,6 +931,7 @@ mod tests {
         assert_eq!(ApplyStrategy::Maven.as_str(), "maven");
         assert_eq!(ApplyStrategy::Composer.as_str(), "composer");
         assert_eq!(ApplyStrategy::Nuget.as_str(), "nuget");
+        assert_eq!(ApplyStrategy::Dart.as_str(), "dart");
         assert_eq!(DependencyKind::Direct.as_str(), "direct");
         assert_eq!(DependencyKind::Transitive.as_str(), "transitive");
         assert_eq!(DependencyKind::Unknown.as_str(), "unknown");

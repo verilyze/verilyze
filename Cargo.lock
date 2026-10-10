@@ -2685,6 +2685,7 @@ dependencies = [
  "vlz-cve-provider-github",
  "vlz-cve-provider-nvd",
  "vlz-cve-provider-sonatype",
+ "vlz-dart",
  "vlz-db",
  "vlz-db-mem",
  "vlz-db-redb",
@@ -2779,6 +2780,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "vlz-dart"
+version = "0.13.0"
+dependencies = [
+ "async-trait",
+ "regex",
+ "serde",
+ "serde_norway",
+ "tempfile",
+ "tokio",
+ "vlz-db",
+ "vlz-manifest-finder",
+ "vlz-manifest-parser",
+ "vlz-reachability-trait",
+]
+
+[[package]]
 name = "vlz-db"
 version = "0.13.0"
 dependencies = [
@@ -2856,6 +2873,7 @@ version = "0.13.0"
 dependencies = [
  "afl",
  "vlz",
+ "vlz-dart",
  "vlz-dotnet",
  "vlz-exploitability",
  "vlz-go",
@@ -2960,6 +2978,7 @@ name = "vlz-manifest-parser"
 version = "0.13.0"
 dependencies = [
  "async-trait",
+ "tempfile",
  "thiserror",
  "tokio",
  "vlz-db",

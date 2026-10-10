@@ -63,6 +63,18 @@ pub const PACKAGIST_ECOSYSTEM: &str = "Packagist";
 /// OSV / package ecosystem for NuGet (.NET).
 pub const NUGET_ECOSYSTEM: &str = "NuGet";
 
+/// OSV / package ecosystem for Pub (Dart / Flutter).
+pub const PUB_ECOSYSTEM: &str = "Pub";
+
+/// PURL type for Pub packages (`pkg:pub/<name>@<version>`).
+pub const PUB_PURL_TYPE: &str = "pub";
+
+/// Dart / Flutter manifest basename (FR-005).
+pub const PUBSPEC_MANIFEST_FILE_NAME: &str = "pubspec.yaml";
+
+/// Dart / Flutter lock basename (Appendix A).
+pub const PUBSPEC_LOCK_FILE_NAME: &str = "pubspec.lock";
+
 /// Scanned package identity for CVE lookup and reporting.
 ///
 /// Equality and hashing intentionally ignore optional PURL qualifiers and

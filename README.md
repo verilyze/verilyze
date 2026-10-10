@@ -27,8 +27,8 @@ control of CI exit codes, offline caches, and which providers you trust.
 
 ## Features
 
-- **Eight ecosystems plus SBOM input** -- Python, Rust, Go, JavaScript/TypeScript,
-  Java/Kotlin, Ruby, PHP, .NET, and CycloneDX/SPDX inventories
+- **Nine ecosystems plus SBOM input** -- Python, Rust, Go, JavaScript/TypeScript,
+  Java/Kotlin, Ruby, PHP, .NET, Dart/Flutter, and CycloneDX/SPDX inventories
 - **Lock-first, fail-closed** -- missing locks for most languages exit 4 by
   default instead of silently under-scanning
 - **Reachability and exploitability signals** -- heuristic reachability tiers
@@ -64,7 +64,7 @@ a warm cache (see [docs/FAQ.md](docs/FAQ.md)).
 ## Quick start
 
 Prefer a lock file next to your manifests. Without a lock, Python,
-JavaScript, Java, Ruby, PHP, and .NET scans fail closed (exit 4) by default.
+JavaScript, Java, Ruby, PHP, .NET, and Dart scans fail closed (exit 4) by default.
 Details: [docs/capabilities.md](docs/capabilities.md) and
 [docs/FAQ.md](docs/FAQ.md).
 
@@ -114,6 +114,7 @@ Maintainer-level tier definitions: [CONTRIBUTING.md](CONTRIBUTING.md).
 | Ruby | `ruby` | `Gemfile.lock` |
 | PHP | `php` | `composer.lock` |
 | .NET | `dotnet` | `packages.lock.json` |
+| Dart / Flutter | `dart` | `pubspec.lock` |
 | SBOM | `sbom` | CycloneDX / SPDX JSON (`--from-sbom` or discovered names) |
 
 Full lock and remediator coverage: [docs/capabilities.md](docs/capabilities.md).

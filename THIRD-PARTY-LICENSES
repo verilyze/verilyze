@@ -207,6 +207,7 @@ COMPONENTS
 - vlz-remediate v0.13.0 (GPL-3.0-or-later)
 - vlz-report v0.13.0 (GPL-3.0-or-later)
 - vlz-db-redb v0.13.0 (GPL-3.0-or-later)
+- vlz-dart v0.13.0 (GPL-3.0-or-later)
 - vlz-dotnet v0.13.0 (GPL-3.0-or-later)
 - vlz-go v0.13.0 (GPL-3.0-or-later)
 - vlz-java v0.13.0 (GPL-3.0-or-later)

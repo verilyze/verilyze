@@ -12,6 +12,12 @@ Human-readable release notes for each version.
 
 ### Added
 
+- Dart / Flutter language plugin (`vlz-dart`, feature `dart`, HC-9): discover
+  `pubspec.yaml` and orphan `pubspec.lock`, lock-first resolution from
+  `pubspec.lock`, OSV `Pub` pins (pub.dev hosted only), fail-closed lock-less
+  exit 4. Tier B/C/D reachability scans `.dart` `package:` imports. `vlz fix`
+  applies direct upgrades with `dart|flutter pub add --no-precompile` behind
+  the SEC-023 gate. `.dart_tool` is excluded from discovery by default.
 - Container image SLSA Build L3 provenance via
   `generator_container_slsa3.yml` (HC-5 / SEC-021); replaces the hand-written
   Cosign predicate in the release workflow.

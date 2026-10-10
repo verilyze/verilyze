@@ -60,6 +60,22 @@ pub enum ResolverError {
     Other(String),
 }
 
+/// Read a manifest or lock file as UTF-8, refusing files above `max_bytes`.
+///
+/// `label` names the file family in the error (for example `"Dart pubspec"`).
+pub async fn read_capped(
+    path: &Path,
+    max_bytes: u64,
+    label: &str,
+) -> Result<String, ParserError> {
+    if tokio::fs::metadata(path).await?.len() > max_bytes {
+        return Err(ParserError::Parse(format!(
+            "{label} file exceeds {max_bytes} byte limit"
+        )));
+    }
+    Ok(tokio::fs::read_to_string(path).await?)
+}
+
 /// Scan-time context passed to resolvers (FR-022, FR-023, SEC-023).
 #[derive(Debug, Clone, Default)]
 pub struct ResolveContext {
@@ -510,6 +526,34 @@ mod tests {
             result.direct_only_reason,
             Some(DIRECT_ONLY_REASON_FALLBACK_ON_FAILURE)
         );
+    }
+
+    #[tokio::test]
+    async fn read_capped_returns_content_within_limit() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ok.txt");
+        std::fs::write(&path, "hello").unwrap();
+        let text = read_capped(&path, 5, "Example").await.unwrap();
+        assert_eq!(text, "hello");
+    }
+
+    #[tokio::test]
+    async fn read_capped_rejects_oversized_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("big.txt");
+        std::fs::write(&path, "hello!").unwrap();
+        let err = read_capped(&path, 5, "Example").await.unwrap_err();
+        assert!(matches!(err, ParserError::Parse(_)));
+        assert!(err.to_string().contains("Example"));
+        assert!(err.to_string().contains("5 byte limit"));
+    }
+
+    #[tokio::test]
+    async fn read_capped_missing_file_is_io_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("none");
+        let err = read_capped(&path, 5, "Example").await.unwrap_err();
+        assert!(matches!(err, ParserError::Io(_)));
     }
 
     #[test]

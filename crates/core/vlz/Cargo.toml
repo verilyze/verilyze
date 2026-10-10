@@ -67,6 +67,7 @@ vlz-java = { workspace = true, optional = true }
 vlz-ruby = { workspace = true, optional = true }
 vlz-php = { workspace = true, optional = true }
 vlz-dotnet = { workspace = true, optional = true }
+vlz-dart = { workspace = true, optional = true }
 vlz-sbom = { workspace = true, optional = true }
 
 # CVE providers (optional)
@@ -115,9 +116,9 @@ required-features = ["testing", "mem", "python"]
 
 # Feature gating – matches MOD‑003, MOD‑009
 [features]
-runtime = ["redb", "python", "rust", "go", "javascript", "java", "ruby", "php", "dotnet", "sbom"]
-runtime-mem = ["mem", "python", "rust", "go", "javascript", "java", "ruby", "php", "dotnet", "sbom"]
-default = ["runtime", "completions", "docs", "lsp", "python-tier-d", "go-tier-d", "javascript-tier-d", "java-tier-d", "ruby-tier-d", "php-tier-d", "dotnet-tier-d"]
+runtime = ["redb", "python", "rust", "go", "javascript", "java", "ruby", "php", "dotnet", "dart", "sbom"]
+runtime-mem = ["mem", "python", "rust", "go", "javascript", "java", "ruby", "php", "dotnet", "dart", "sbom"]
+default = ["runtime", "completions", "docs", "lsp", "python-tier-d", "go-tier-d", "javascript-tier-d", "java-tier-d", "ruby-tier-d", "php-tier-d", "dotnet-tier-d", "dart-tier-d"]
 docs = []           # Man page via vlz help; omit for minimal binary
 lsp = ["dep:vlz-lsp"]
 manpage-gen = []    # Maintainer-only vlz-manpage-gen binary (not installed by default)
@@ -141,6 +142,8 @@ php = ["vlz-php"]
 php-tier-d = ["php", "vlz-php/tier-d"]
 dotnet = ["vlz-dotnet"]
 dotnet-tier-d = ["dotnet", "vlz-dotnet/tier-d"]
+dart = ["vlz-dart"]
+dart-tier-d = ["dart", "vlz-dart/tier-d"]
 sbom = ["vlz-sbom"]
 nvd = ["dep:vlz-cve-provider-nvd"]
 github = ["dep:vlz-cve-provider-github"]
@@ -159,6 +162,7 @@ perf-instrumentation = [
     "vlz-ruby?/perf-instrumentation",
     "vlz-php?/perf-instrumentation",
     "vlz-dotnet?/perf-instrumentation",
+    "vlz-dart?/perf-instrumentation",
 ]
 sqlite = []      # placeholder for a future SQLite backend
 vlz-lsp = ["dep:vlz-lsp"]

@@ -21,6 +21,7 @@ vlz-java = { path = "../../crates/languages/vlz-java" }
 vlz-ruby = { path = "../../crates/languages/vlz-ruby" }
 vlz-php = { path = "../../crates/languages/vlz-php" }
 vlz-dotnet = { path = "../../crates/languages/vlz-dotnet" }
+vlz-dart = { path = "../../crates/languages/vlz-dart" }
 vlz-sbom = { path = "../../crates/languages/vlz-sbom" }
 
 [[bin]]
@@ -166,3 +167,11 @@ path = "fuzz_targets/kev.rs"
 [[bin]]
 name = "fuzz_epss"
 path = "fuzz_targets/epss.rs"
+
+[[bin]]
+name = "fuzz_pubspec_yaml"
+path = "fuzz_targets/pubspec_yaml.rs"
+
+[[bin]]
+name = "fuzz_pubspec_lock"
+path = "fuzz_targets/pubspec_lock.rs"

@@ -24,6 +24,7 @@ vlz-java = { path = "../crates/languages/vlz-java" }
 vlz-ruby = { path = "../crates/languages/vlz-ruby" }
 vlz-php = { path = "../crates/languages/vlz-php" }
 vlz-dotnet = { path = "../crates/languages/vlz-dotnet" }
+vlz-dart = { path = "../crates/languages/vlz-dart" }
 vlz-sbom = { path = "../crates/languages/vlz-sbom" }
 
 # Independent workspace so root cargo / clippy / deny do not build these.
@@ -278,6 +279,20 @@ bench = false
 [[bin]]
 name = "fuzz_epss"
 path = "fuzz_targets/fuzz_epss.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_pubspec_yaml"
+path = "fuzz_targets/fuzz_pubspec_yaml.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_pubspec_lock"
+path = "fuzz_targets/fuzz_pubspec_lock.rs"
 test = false
 doc = false
 bench = false

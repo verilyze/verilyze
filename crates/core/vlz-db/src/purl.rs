@@ -8,8 +8,8 @@ use std::collections::BTreeMap;
 
 use crate::{
     CRATES_IO_ECOSYSTEM, GO_ECOSYSTEM, MAVEN_ECOSYSTEM, NPM_ECOSYSTEM,
-    NUGET_ECOSYSTEM, PACKAGIST_ECOSYSTEM, PYPI_ECOSYSTEM, Package,
-    RUBYGEMS_ECOSYSTEM,
+    NUGET_ECOSYSTEM, PACKAGIST_ECOSYSTEM, PUB_ECOSYSTEM, PUB_PURL_TYPE,
+    PYPI_ECOSYSTEM, Package, RUBYGEMS_ECOSYSTEM,
 };
 
 /// PURL type string for SBOM output from a package ecosystem (SEC-019).
@@ -22,6 +22,7 @@ pub fn purl_type_for_ecosystem(ecosystem: Option<&str>) -> &'static str {
         Some(RUBYGEMS_ECOSYSTEM) => "gem",
         Some(PACKAGIST_ECOSYSTEM) => "composer",
         Some(NUGET_ECOSYSTEM) => "nuget",
+        Some(PUB_ECOSYSTEM) => PUB_PURL_TYPE,
         Some(PYPI_ECOSYSTEM) | None => "pypi",
         _ => "pypi",
     }
@@ -37,6 +38,7 @@ pub fn ecosystem_for_purl_type(purl_type: &str) -> Option<&'static str> {
         "gem" => Some(RUBYGEMS_ECOSYSTEM),
         "composer" => Some(PACKAGIST_ECOSYSTEM),
         "nuget" => Some(NUGET_ECOSYSTEM),
+        PUB_PURL_TYPE => Some(PUB_ECOSYSTEM),
         "pypi" => Some(PYPI_ECOSYSTEM),
         _ => None,
     }
@@ -309,6 +311,28 @@ mod tests {
         let purl = purl_for_package(&pkg);
         assert_eq!(purl, "pkg:nuget/Newtonsoft.Json@13.0.1");
         assert_eq!(package_from_purl(&purl), Some(pkg));
+    }
+
+    #[test]
+    fn purl_round_trip_pub() {
+        let pkg = Package {
+            name: "http".to_string(),
+            version: "1.2.2".to_string(),
+            ecosystem: Some(PUB_ECOSYSTEM.to_string()),
+            ..Default::default()
+        };
+        let purl = purl_for_package(&pkg);
+        assert_eq!(purl, format!("pkg:{PUB_PURL_TYPE}/http@1.2.2"));
+        assert_eq!(package_from_purl(&purl), Some(pkg));
+    }
+
+    #[test]
+    fn pub_purl_type_maps_both_ways() {
+        assert_eq!(
+            purl_type_for_ecosystem(Some(PUB_ECOSYSTEM)),
+            PUB_PURL_TYPE
+        );
+        assert_eq!(ecosystem_for_purl_type("PUB"), Some(PUB_ECOSYSTEM));
     }
 
     #[test]

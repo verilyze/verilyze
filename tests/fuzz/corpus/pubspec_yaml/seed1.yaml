@@ -1,0 +1,10 @@
+name: app
+environment:
+  sdk: ^3.0.0
+dependencies:
+  http: ^0.13.0
+  meta:
+  local:
+    path: ../local
+dev_dependencies:
+  test: any

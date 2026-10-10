@@ -96,6 +96,7 @@ pub const DEFAULT_SCAN_EXCLUDE_DIRS: &[&str] = &[
     "site-packages",
     "vendor",
     ".bundle",
+    ".dart_tool",
 ];
 
 /// Default CVE provider when no CLI/env/file list is set (FR-019).

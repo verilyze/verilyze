@@ -169,7 +169,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6bb31b46c14244e20ee9984b11bf5c992b91fb6939fea616e3512c8baecdbe5f"
 dependencies = [
  "memchr",
- "regex-automata",
  "serde_core",
 ]
 
@@ -1557,9 +1556,9 @@ checksum = "323c417e1d9665a65b263ec744ba09030cfb277e9daa0b018a4ab62e57bc8189"
 
 [[package]]
 name = "ruff_python_ast"
-version = "0.0.14"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6aa1de604c478a790cfbcc9c1fef3060e619ed87dd776c6614862ed7e59dc461"
+checksum = "1905f652aebcaef5b1f23f3d9532a7f918e1ce3d040e9db4cbfb449e5d2e7b81"
 dependencies = [
  "aho-corasick",
  "arrayvec",
@@ -1579,9 +1578,9 @@ dependencies = [
 
 [[package]]
 name = "ruff_python_parser"
-version = "0.0.14"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b44b423a842d5d2f10807189a260ba677d4eacdc98c5d0459b66bef67fb78d97"
+checksum = "4ac3eb6ee548249d0e93bd59f5d6bf5eb4b853c9c146c02a11d43764d3b9f6d0"
 dependencies = [
  "bitflags 2.13.2",
  "bstr",
@@ -1603,22 +1602,24 @@ dependencies = [
 
 [[package]]
 name = "ruff_python_trivia"
-version = "0.0.14"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "990dadfad3aa3fd63040d98056112e5a377af8ada0c9c7659e8907a4b3c7cb34"
+checksum = "31f79842073f6f7e15af3df17f89fd2245ec9ad7e2cdd422bc9c2401c56d1e97"
 dependencies = [
  "itertools",
+ "memchr",
  "ruff_source_file",
  "ruff_text_size",
  "rustc-hash",
  "unicode-ident",
+ "unicode-normalization",
 ]
 
 [[package]]
 name = "ruff_source_file"
-version = "0.0.14"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed11e9366de40e79707c0e575afd8beffad58ec94c253577d516b8679cf98308"
+checksum = "b707810cd894c375c1b1b347b755b6447d9361a6ffacf4681eb823793671cfc1"
 dependencies = [
  "memchr",
  "ruff_text_size",
@@ -1626,9 +1627,9 @@ dependencies = [
 
 [[package]]
 name = "ruff_text_size"
-version = "0.0.14"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a4edc941f215495170a1bda0beeeb31db2fdcd67beecfe7f29d94b2663e1965"
+checksum = "3f06d3a8bd66b1f54d84e8ed4303117adf1c1c1484d5ccb8dfc482013d144d65"
 dependencies = [
  "get-size2",
 ]
@@ -2364,6 +2365,7 @@ dependencies = [
  "tokio",
  "toml",
  "vlz-cve-client",
+ "vlz-dart",
  "vlz-db",
  "vlz-db-redb",
  "vlz-dotnet",
@@ -2401,6 +2403,20 @@ dependencies = [
  "thiserror",
  "tokio",
  "vlz-db",
+ "vlz-reachability-trait",
+]
+
+[[package]]
+name = "vlz-dart"
+version = "0.13.0"
+dependencies = [
+ "async-trait",
+ "regex",
+ "serde",
+ "serde_norway",
+ "vlz-db",
+ "vlz-manifest-finder",
+ "vlz-manifest-parser",
  "vlz-reachability-trait",
 ]
 
@@ -2463,6 +2479,7 @@ version = "0.0.0"
 dependencies = [
  "libfuzzer-sys",
  "vlz",
+ "vlz-dart",
  "vlz-dotnet",
  "vlz-exploitability",
  "vlz-go",
@@ -2560,6 +2577,7 @@ version = "0.13.0"
 dependencies = [
  "async-trait",
  "thiserror",
+ "tokio",
  "vlz-db",
 ]
 

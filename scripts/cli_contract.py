@@ -33,6 +33,7 @@ DEFAULT_LANGUAGES = (
     "ruby",
     "php",
     "dotnet",
+    "dart",
     "sbom",
 )
 VALID_MODES = ("smoke", "full")

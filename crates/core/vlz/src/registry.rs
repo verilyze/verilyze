@@ -18,9 +18,9 @@ use vlz_plugin_macro::vlz_register;
 use vlz_reachability_trait::ReachabilityAnalyzer;
 use vlz_remediate::{
     ApplyStrategy, BunRemediator, CargoRemediator, ComposerRemediator,
-    GoRemediator, GradleRemediator, MavenRemediator, NpmRemediator,
-    NugetRemediator, PnpmRemediator, PythonRemediator, Remediator,
-    RubyGemsRemediator, YarnRemediator,
+    DartRemediator, GoRemediator, GradleRemediator, MavenRemediator,
+    NpmRemediator, NugetRemediator, PnpmRemediator, PythonRemediator,
+    Remediator, RubyGemsRemediator, YarnRemediator,
 };
 use vlz_report::{DefaultReporter, Reporter};
 
@@ -219,6 +219,10 @@ pub fn ensure_default_manifest_finder() {
     if !f.iter().any(|x| x.language_name() == "dotnet") {
         f.push(Box::new(vlz_dotnet::DotnetManifestFinder::new()));
     }
+    #[cfg(feature = "dart")]
+    if !f.iter().any(|x| x.language_name() == "dart") {
+        f.push(Box::new(vlz_dart::DartManifestFinder::new()));
+    }
     #[cfg(feature = "sbom")]
     if !f.iter().any(|x| x.language_name() == "sbom") {
         f.push(Box::new(vlz_sbom::SbomManifestFinder::new()));
@@ -261,6 +265,10 @@ pub fn ensure_default_parser() {
     if !p.iter().any(|x| x.language_name() == "dotnet") {
         p.push(Box::new(vlz_dotnet::DotnetManifestParser::new()));
     }
+    #[cfg(feature = "dart")]
+    if !p.iter().any(|x| x.language_name() == "dart") {
+        p.push(Box::new(vlz_dart::DartManifestParser::new()));
+    }
     #[cfg(feature = "sbom")]
     if !p.iter().any(|x| x.language_name() == "sbom") {
         p.push(Box::new(vlz_sbom::SbomParser::new()));
@@ -302,6 +310,10 @@ pub fn ensure_default_resolver() {
     if !r.iter().any(|x| x.language_name() == "dotnet") {
         r.push(Box::new(vlz_dotnet::DotnetResolver::new()));
     }
+    #[cfg(feature = "dart")]
+    if !r.iter().any(|x| x.language_name() == "dart") {
+        r.push(Box::new(vlz_dart::DartResolver::new()));
+    }
     #[cfg(feature = "sbom")]
     if !r.iter().any(|x| x.language_name() == "sbom") {
         r.push(Box::new(vlz_sbom::SbomResolver::new()));
@@ -338,6 +350,10 @@ pub fn ensure_default_reachability_analyzer() {
     #[cfg(feature = "php")]
     if !analyzers.iter().any(|x| x.language_name() == "php") {
         analyzers.push(Box::new(vlz_php::PhpTierBAnalyzer::new()));
+    }
+    #[cfg(feature = "dart")]
+    if !analyzers.iter().any(|x| x.language_name() == "dart") {
+        analyzers.push(Box::new(vlz_dart::DartTierBAnalyzer::new()));
     }
     #[cfg(feature = "dotnet")]
     if !analyzers.iter().any(|x| x.language_name() == "dotnet") {
@@ -504,6 +520,9 @@ pub fn ensure_default_remediator() {
     });
     register_if_missing(ApplyStrategy::Nuget, || {
         vlz_register!(Remediator, NugetRemediator);
+    });
+    register_if_missing(ApplyStrategy::Dart, || {
+        vlz_register!(Remediator, DartRemediator);
     });
 }
 
@@ -787,6 +806,7 @@ mod tests {
             feature = "ruby",
             feature = "php",
             feature = "dotnet",
+            feature = "dart",
             feature = "sbom"
         ))]
         {
@@ -799,6 +819,7 @@ mod tests {
                 cfg!(feature = "ruby"),
                 cfg!(feature = "php"),
                 cfg!(feature = "dotnet"),
+                cfg!(feature = "dart"),
                 cfg!(feature = "sbom"),
             ]
             .into_iter()
@@ -894,10 +915,11 @@ mod tests {
                 rem.iter().any(|r| r.strategy() == ApplyStrategy::Composer)
             );
             assert!(rem.iter().any(|r| r.strategy() == ApplyStrategy::Nuget));
-            assert_eq!(rem.len(), 12);
+            assert!(rem.iter().any(|r| r.strategy() == ApplyStrategy::Dart));
+            assert_eq!(rem.len(), 13);
         }
         ensure_default_remediator();
-        assert_eq!(remediators().lock().unwrap().len(), 12);
+        assert_eq!(remediators().lock().unwrap().len(), 13);
 
         // 3) ensure_default_db_backend_with_path (redb) when empty adds one
         #[cfg(feature = "redb")]
