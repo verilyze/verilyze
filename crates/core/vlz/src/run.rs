@@ -4132,6 +4132,37 @@ mod tests {
 
     #[cfg(feature = "lsp")]
     #[test]
+    fn apply_upgrade_request_routes_dart() {
+        crate::registry::ensure_default_remediator();
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("pubspec.lock"), "packages: {}\n")
+            .unwrap();
+        std::fs::write(dir.path().join("pubspec.yaml"), "name: app\n")
+            .unwrap();
+        let err = apply_upgrade_request(
+            dir.path(),
+            &vlz_lsp::ApplyUpgradeRequest {
+                package_name: "http".to_string(),
+                target_version: "1.2.2".to_string(),
+                apply_strategy: "dart".to_string(),
+                dependency_kind: "direct".to_string(),
+                declarations: vec![vlz_lsp::ApplyDeclaration {
+                    path: "pubspec.lock".to_string(),
+                    start_line: 1,
+                    kind: "lockfile".to_string(),
+                }],
+            },
+            true,
+            true,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            err,
+            vlz_remediate::RemediationError::OfflineBlocked
+        ));
+    }
+
+    #[test]
     fn apply_upgrade_request_routes_go_gradle_rubygems_maven() {
         crate::registry::ensure_default_remediator();
         let decl = |path: &str, kind: &str| vlz_lsp::ApplyDeclaration {

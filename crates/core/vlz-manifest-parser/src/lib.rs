@@ -530,9 +530,8 @@ mod tests {
 
     #[tokio::test]
     async fn read_capped_returns_content_within_limit() {
-        let dir = std::env::temp_dir().join("vlz-read-capped-ok");
-        std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("ok.txt");
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ok.txt");
         std::fs::write(&path, "hello").unwrap();
         let text = read_capped(&path, 5, "Example").await.unwrap();
         assert_eq!(text, "hello");
@@ -540,9 +539,8 @@ mod tests {
 
     #[tokio::test]
     async fn read_capped_rejects_oversized_file() {
-        let dir = std::env::temp_dir().join("vlz-read-capped-big");
-        std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("big.txt");
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("big.txt");
         std::fs::write(&path, "hello!").unwrap();
         let err = read_capped(&path, 5, "Example").await.unwrap_err();
         assert!(matches!(err, ParserError::Parse(_)));
@@ -552,7 +550,8 @@ mod tests {
 
     #[tokio::test]
     async fn read_capped_missing_file_is_io_error() {
-        let path = std::env::temp_dir().join("vlz-read-capped-missing/none");
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("none");
         let err = read_capped(&path, 5, "Example").await.unwrap_err();
         assert!(matches!(err, ParserError::Io(_)));
     }

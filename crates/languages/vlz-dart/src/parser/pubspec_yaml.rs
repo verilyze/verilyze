@@ -92,14 +92,22 @@ fn registry_dependency(key: &str, spec: &Value) -> Option<(String, String)> {
             }
             let mut name = key.to_string();
             if let Some(hosted) = spec.get("hosted") {
-                let url = hosted
-                    .as_str()
-                    .or_else(|| hosted.get("url").and_then(Value::as_str))?;
-                if !is_pub_dev_hosted_url(url) {
+                let (url, real_name) = match hosted {
+                    Value::String(text) if text.contains("://") => {
+                        (Some(text.as_str()), None)
+                    }
+                    // Pre-2.15 shorthand: the string is the package name on
+                    // the default server.
+                    Value::String(text) => (None, Some(text.as_str())),
+                    _ => (
+                        hosted.get("url").and_then(Value::as_str),
+                        hosted.get("name").and_then(Value::as_str),
+                    ),
+                };
+                if url.is_some_and(|u| !is_pub_dev_hosted_url(u)) {
                     return None;
                 }
-                if let Some(real) = hosted.get("name").and_then(Value::as_str)
-                {
+                if let Some(real) = real_name {
                     name = real.to_string();
                 }
             }
@@ -250,5 +258,12 @@ dependency_overrides:
     fn unexpected_value_types_are_skipped() {
         let content = "dependencies:\n  weird: [1, 2]\n  num: 5\n";
         assert!(parse_pubspec_yaml(content).unwrap().is_empty());
+    }
+
+    #[test]
+    fn hosted_without_url_defaults_to_pub_dev() {
+        let yaml = "dependencies:\n  legacy:\n    hosted: legacy_real\n    version: ^1.0.0\n  nameonly:\n    hosted:\n      name: name_real\n    version: ^2.0.0\n  private:\n    hosted:\n      url: https://pub.internal.example\n";
+        let pkgs = parse_pubspec_yaml(yaml).unwrap();
+        assert_eq!(names(&pkgs), vec!["legacy_real", "name_real"]);
     }
 }

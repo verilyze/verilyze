@@ -44,6 +44,9 @@ never suppresses findings by default.
   identifiers. `vlz fix` runs `pub add name:^fixed`, which replaces the
   existing version constraint, and refuses packages declared only in a Dart
   workspace member (the lock lives at the workspace root).
+  Tier B reports `not_reachable` for packages never imported by name
+  (federated plugin implementations such as `*_android`, and tooling such as
+  `build_runner`); findings stay listed.
 - **Fail closed:** For ecosystems marked exit 4, commit a usable lock (or use
   an explicit opt-in such as `--allow-direct-only-fallback` /
   `--allow-dependency-code-execution`) before expecting CI green.

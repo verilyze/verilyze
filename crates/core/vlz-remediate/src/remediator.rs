@@ -7299,4 +7299,17 @@ dependency_overrides:\n  over: 1.0.0\n";
                 .unwrap();
         assert!(edited.contains(r#"Version="13.0.3""#));
     }
+
+    #[test]
+    fn unsupported_ecosystem_is_unavailable() {
+        let package = pkg("Hex", "phoenix");
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &package,
+                "1.7.0",
+                &[lock_decl("mix.lock")],
+            ),
+            ApplyStrategy::Unavailable
+        );
+    }
 }
