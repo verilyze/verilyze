@@ -359,18 +359,18 @@
       "version": "1.1.2"
     },
     {
-      "bom-ref": "pkg:cargo/attribute-derive@0.10.5",
+      "bom-ref": "pkg:cargo/attribute-derive@0.11.0",
       "name": "attribute-derive",
-      "purl": "pkg:cargo/attribute-derive@0.10.5",
+      "purl": "pkg:cargo/attribute-derive@0.11.0",
       "type": "library",
-      "version": "0.10.5"
+      "version": "0.11.0"
     },
     {
-      "bom-ref": "pkg:cargo/attribute-derive-macro@0.10.5",
+      "bom-ref": "pkg:cargo/attribute-derive-macro@0.11.0",
       "name": "attribute-derive-macro",
-      "purl": "pkg:cargo/attribute-derive-macro@0.10.5",
+      "purl": "pkg:cargo/attribute-derive-macro@0.11.0",
       "type": "library",
-      "version": "0.10.5"
+      "version": "0.11.0"
     },
     {
       "bom-ref": "pkg:cargo/autocfg@1.5.1",
@@ -450,11 +450,11 @@
       "version": "0.2.4"
     },
     {
-      "bom-ref": "pkg:cargo/cc@1.6.0",
+      "bom-ref": "pkg:cargo/cc@1.7.0",
       "name": "cc",
-      "purl": "pkg:cargo/cc@1.6.0",
+      "purl": "pkg:cargo/cc@1.7.0",
       "type": "library",
-      "version": "1.6.0"
+      "version": "1.7.0"
     },
     {
       "bom-ref": "pkg:cargo/cfg-if@1.0.5",
@@ -667,13 +667,6 @@
       "version": "0.5.8"
     },
     {
-      "bom-ref": "pkg:cargo/derive-where@1.7.0",
-      "name": "derive-where",
-      "purl": "pkg:cargo/derive-where@1.7.0",
-      "type": "library",
-      "version": "1.7.0"
-    },
-    {
       "bom-ref": "pkg:cargo/digest@0.11.3",
       "name": "digest",
       "purl": "pkg:cargo/digest@0.11.3",
@@ -835,18 +828,18 @@
       "version": "0.3.34"
     },
     {
-      "bom-ref": "pkg:cargo/get-size-derive2@0.11.0",
+      "bom-ref": "pkg:cargo/get-size-derive2@0.11.1",
       "name": "get-size-derive2",
-      "purl": "pkg:cargo/get-size-derive2@0.11.0",
+      "purl": "pkg:cargo/get-size-derive2@0.11.1",
       "type": "library",
-      "version": "0.11.0"
+      "version": "0.11.1"
     },
     {
-      "bom-ref": "pkg:cargo/get-size2@0.11.0",
+      "bom-ref": "pkg:cargo/get-size2@0.11.1",
       "name": "get-size2",
-      "purl": "pkg:cargo/get-size2@0.11.0",
+      "purl": "pkg:cargo/get-size2@0.11.1",
       "type": "library",
-      "version": "0.11.0"
+      "version": "0.11.1"
     },
     {
       "bom-ref": "pkg:cargo/getrandom@0.2.17",
@@ -1185,18 +1178,18 @@
       "version": "0.97.0"
     },
     {
-      "bom-ref": "pkg:cargo/manyhow@0.11.4",
+      "bom-ref": "pkg:cargo/manyhow@0.14.0",
       "name": "manyhow",
-      "purl": "pkg:cargo/manyhow@0.11.4",
+      "purl": "pkg:cargo/manyhow@0.14.0",
       "type": "library",
-      "version": "0.11.4"
+      "version": "0.14.0"
     },
     {
-      "bom-ref": "pkg:cargo/manyhow-macros@0.11.4",
+      "bom-ref": "pkg:cargo/manyhow-macros@0.14.0",
       "name": "manyhow-macros",
-      "purl": "pkg:cargo/manyhow-macros@0.11.4",
+      "purl": "pkg:cargo/manyhow-macros@0.14.0",
       "type": "library",
-      "version": "0.11.4"
+      "version": "0.14.0"
     },
     {
       "bom-ref": "pkg:cargo/memchr@2.8.3",
@@ -1437,18 +1430,18 @@
       "version": "1.0.47"
     },
     {
-      "bom-ref": "pkg:cargo/quote-use@0.8.4",
+      "bom-ref": "pkg:cargo/quote-use@0.9.0",
       "name": "quote-use",
-      "purl": "pkg:cargo/quote-use@0.8.4",
+      "purl": "pkg:cargo/quote-use@0.9.0",
       "type": "library",
-      "version": "0.8.4"
+      "version": "0.9.0"
     },
     {
-      "bom-ref": "pkg:cargo/quote-use-macros@0.8.4",
+      "bom-ref": "pkg:cargo/quote-use-macros@0.9.0",
       "name": "quote-use-macros",
-      "purl": "pkg:cargo/quote-use-macros@0.8.4",
+      "purl": "pkg:cargo/quote-use-macros@0.9.0",
       "type": "library",
-      "version": "0.8.4"
+      "version": "0.9.0"
     },
     {
       "bom-ref": "pkg:cargo/r-efi@6.0.0",
@@ -1822,11 +1815,11 @@
       "version": "0.4.12"
     },
     {
-      "bom-ref": "pkg:cargo/smallvec@1.16.2",
+      "bom-ref": "pkg:cargo/smallvec@1.16.3",
       "name": "smallvec",
-      "purl": "pkg:cargo/smallvec@1.16.2",
+      "purl": "pkg:cargo/smallvec@1.16.3",
       "type": "library",
-      "version": "1.16.2"
+      "version": "1.16.3"
     },
     {
       "bom-ref": "pkg:cargo/socket2@0.6.5",
@@ -1934,11 +1927,11 @@
       "version": "3.27.0"
     },
     {
-      "bom-ref": "pkg:cargo/thin-vec@0.2.20",
+      "bom-ref": "pkg:cargo/thin-vec@0.2.21",
       "name": "thin-vec",
-      "purl": "pkg:cargo/thin-vec@0.2.20",
+      "purl": "pkg:cargo/thin-vec@0.2.21",
       "type": "library",
-      "version": "0.2.20"
+      "version": "0.2.21"
     },
     {
       "bom-ref": "pkg:cargo/thiserror@2.0.21",
@@ -2011,11 +2004,11 @@
       "version": "0.26.6"
     },
     {
-      "bom-ref": "pkg:cargo/tokio-util@0.7.19",
+      "bom-ref": "pkg:cargo/tokio-util@0.7.20",
       "name": "tokio-util",
-      "purl": "pkg:cargo/tokio-util@0.7.19",
+      "purl": "pkg:cargo/tokio-util@0.7.20",
       "type": "library",
-      "version": "0.7.19"
+      "version": "0.7.20"
     },
     {
       "bom-ref": "pkg:cargo/toml@1.1.8+spec-1.1.0",
@@ -2592,18 +2585,18 @@
       "version": "0.8.4"
     },
     {
-      "bom-ref": "pkg:cargo/zerocopy@0.8.60",
+      "bom-ref": "pkg:cargo/zerocopy@0.8.62",
       "name": "zerocopy",
-      "purl": "pkg:cargo/zerocopy@0.8.60",
+      "purl": "pkg:cargo/zerocopy@0.8.62",
       "type": "library",
-      "version": "0.8.60"
+      "version": "0.8.62"
     },
     {
-      "bom-ref": "pkg:cargo/zerocopy-derive@0.8.60",
+      "bom-ref": "pkg:cargo/zerocopy-derive@0.8.62",
       "name": "zerocopy-derive",
-      "purl": "pkg:cargo/zerocopy-derive@0.8.60",
+      "purl": "pkg:cargo/zerocopy-derive@0.8.62",
       "type": "library",
-      "version": "0.8.60"
+      "version": "0.8.62"
     },
     {
       "bom-ref": "pkg:cargo/zerofrom@0.1.8",
