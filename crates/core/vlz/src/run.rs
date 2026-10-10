@@ -2175,6 +2175,7 @@ pub fn apply_upgrade_request(
         "maven" => vlz_remediate::ApplyStrategy::Maven,
         "composer" => vlz_remediate::ApplyStrategy::Composer,
         "nuget" => vlz_remediate::ApplyStrategy::Nuget,
+        "dart" => vlz_remediate::ApplyStrategy::Dart,
         _ => {
             return Err(
                 vlz_remediate::RemediationError::UnsupportedLockLayout(

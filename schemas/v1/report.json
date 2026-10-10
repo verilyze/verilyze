@@ -215,7 +215,8 @@
             "gradle",
             "maven",
             "composer",
-            "nuget"
+            "nuget",
+            "dart"
           ]
         },
         "confidence": {

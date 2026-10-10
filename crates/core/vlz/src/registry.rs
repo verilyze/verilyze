@@ -18,9 +18,9 @@ use vlz_plugin_macro::vlz_register;
 use vlz_reachability_trait::ReachabilityAnalyzer;
 use vlz_remediate::{
     ApplyStrategy, BunRemediator, CargoRemediator, ComposerRemediator,
-    GoRemediator, GradleRemediator, MavenRemediator, NpmRemediator,
-    NugetRemediator, PnpmRemediator, PythonRemediator, Remediator,
-    RubyGemsRemediator, YarnRemediator,
+    DartRemediator, GoRemediator, GradleRemediator, MavenRemediator,
+    NpmRemediator, NugetRemediator, PnpmRemediator, PythonRemediator,
+    Remediator, RubyGemsRemediator, YarnRemediator,
 };
 use vlz_report::{DefaultReporter, Reporter};
 
@@ -521,6 +521,9 @@ pub fn ensure_default_remediator() {
     register_if_missing(ApplyStrategy::Nuget, || {
         vlz_register!(Remediator, NugetRemediator);
     });
+    register_if_missing(ApplyStrategy::Dart, || {
+        vlz_register!(Remediator, DartRemediator);
+    });
 }
 
 // ---------------------------------------------------------------------
@@ -912,10 +915,11 @@ mod tests {
                 rem.iter().any(|r| r.strategy() == ApplyStrategy::Composer)
             );
             assert!(rem.iter().any(|r| r.strategy() == ApplyStrategy::Nuget));
-            assert_eq!(rem.len(), 12);
+            assert!(rem.iter().any(|r| r.strategy() == ApplyStrategy::Dart));
+            assert_eq!(rem.len(), 13);
         }
         ensure_default_remediator();
-        assert_eq!(remediators().lock().unwrap().len(), 12);
+        assert_eq!(remediators().lock().unwrap().len(), 13);
 
         // 3) ensure_default_db_backend_with_path (redb) when empty adds one
         #[cfg(feature = "redb")]

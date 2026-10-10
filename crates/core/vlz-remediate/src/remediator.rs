@@ -21,6 +21,9 @@
 //! - Composer (Packagist) via `composer.lock` + sibling `composer.json`
 //!   (`composer require name:ver --no-install --no-scripts --no-plugins
 //!   --no-interaction`)
+//! - Dart / Flutter (Pub) via `pubspec.lock` + sibling `pubspec.yaml`
+//!   (`dart|flutter pub add [--dev] name:^ver --no-precompile`; gated by
+//!   `allow_dependency_code_execution`, direct dependencies only)
 //! - NuGet via in-place `Version=` edit on `*.csproj` /
 //!   `Directory.Packages.props` (no subprocess; empty argv)
 //!
@@ -68,16 +71,18 @@ use std::process::Command;
 use thiserror::Error;
 use vlz_db::{
     CRATES_IO_ECOSYSTEM, DeclarationKind, GO_ECOSYSTEM, MAVEN_ECOSYSTEM,
-    NPM_ECOSYSTEM, NUGET_ECOSYSTEM, PACKAGIST_ECOSYSTEM, PYPI_ECOSYSTEM,
+    NPM_ECOSYSTEM, NUGET_ECOSYSTEM, PACKAGIST_ECOSYSTEM, PUB_ECOSYSTEM,
+    PUBSPEC_LOCK_FILE_NAME, PUBSPEC_MANIFEST_FILE_NAME, PYPI_ECOSYSTEM,
     Package, PackageDeclarationLocation, RUBYGEMS_ECOSYSTEM,
 };
 
 use crate::{
     ApplyStrategy, ApplyStrategy::Bun, ApplyStrategy::Cargo,
-    ApplyStrategy::Composer, ApplyStrategy::Go, ApplyStrategy::Gradle,
-    ApplyStrategy::Maven, ApplyStrategy::Npm, ApplyStrategy::Nuget,
-    ApplyStrategy::Pnpm, ApplyStrategy::Python, ApplyStrategy::RubyGems,
-    ApplyStrategy::Yarn, DependencyKind, MIN_FIXED_VERSION_UNKNOWN,
+    ApplyStrategy::Composer, ApplyStrategy::Dart, ApplyStrategy::Go,
+    ApplyStrategy::Gradle, ApplyStrategy::Maven, ApplyStrategy::Npm,
+    ApplyStrategy::Nuget, ApplyStrategy::Pnpm, ApplyStrategy::Python,
+    ApplyStrategy::RubyGems, ApplyStrategy::Yarn, DependencyKind,
+    MIN_FIXED_VERSION_UNKNOWN,
 };
 
 /// npm lockfile basename (`package-lock.json`).
@@ -198,6 +203,16 @@ pub const COMPOSER_NO_SCRIPTS_FLAG: &str = "--no-scripts";
 pub const COMPOSER_NO_PLUGINS_FLAG: &str = "--no-plugins";
 /// Composer non-interactive flag.
 pub const COMPOSER_NO_INTERACTION_FLAG: &str = "--no-interaction";
+/// Allowlisted Dart SDK binary name (SEC-025).
+pub const DART_BIN_NAME: &str = "dart";
+/// Allowlisted Flutter SDK binary name (SEC-025).
+pub const FLUTTER_BIN_NAME: &str = "flutter";
+/// `pub add` flag that skips precompiling executables (SEC-023).
+pub const DART_NO_PRECOMPILE_FLAG: &str = "--no-precompile";
+/// `pub add` flag that targets `dev_dependencies`.
+pub const DART_DEV_FLAG: &str = "--dev";
+/// Maximum `pubspec.yaml` size read for the remediation guard.
+pub const PUBSPEC_MANIFEST_MAX_BYTES: u64 = 1024 * 1024;
 /// Central package management props basename (NuGet CPM).
 pub const DIRECTORY_PACKAGES_PROPS_FILE_NAME: &str =
     "Directory.Packages.props";
@@ -536,6 +551,15 @@ pub fn remediation_apply_strategy_for_finding(
                 lock_basename_eq(p, COMPOSER_LOCK_FILE_NAME)
             }) {
                 Composer
+            } else {
+                ApplyStrategy::Unavailable
+            }
+        }
+        Some(e) if e.eq_ignore_ascii_case(PUB_ECOSYSTEM) => {
+            if declaration_has_lock(declarations, |p| {
+                lock_basename_eq(p, PUBSPEC_LOCK_FILE_NAME)
+            }) {
+                Dart
             } else {
                 ApplyStrategy::Unavailable
             }
@@ -3134,6 +3158,295 @@ impl Remediator for ComposerRemediator {
             &preview.workdir,
             COMPOSER_BIN_NAME,
         )
+    }
+}
+
+/// Build allowlisted `pub add` argv shared by preview and apply (NFR-024).
+///
+/// The caret constraint keeps the manifest range open to later fixes while
+/// raising the floor to the fixed version; `--no-precompile` skips building
+/// package executables.
+pub fn dart_pub_add_argv(
+    bin: &str,
+    package_name: &str,
+    version: &str,
+    dev: bool,
+) -> Vec<String> {
+    let mut argv = vec![bin.to_string(), "pub".to_string(), "add".to_string()];
+    if dev {
+        argv.push(DART_DEV_FLAG.to_string());
+    }
+    argv.push(format!("{package_name}:^{version}"));
+    argv.push(DART_NO_PRECOMPILE_FLAG.to_string());
+    argv
+}
+
+fn is_allowlisted_pub_package_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    name.len() <= 128
+        && (first.is_ascii_lowercase() || first == '_')
+        && chars
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+}
+
+fn require_allowlisted_pub_operands(
+    package_name: &str,
+    target_version: &str,
+) -> Result<(), RemediationError> {
+    if is_allowlisted_pub_package_name(package_name)
+        && is_allowlisted_version_operand(target_version)
+    {
+        Ok(())
+    } else {
+        Err(RemediationError::InvalidOperand(format!(
+            "Pub package/version not allowlisted: {package_name}@{target_version}"
+        )))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PubspecSection {
+    Dependencies,
+    DevDependencies,
+    Overrides,
+    Other,
+}
+
+/// Facts the `pub add` guard extracts from `pubspec.yaml`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct PubspecFacts {
+    /// The package is declared under `dev_dependencies`.
+    dev: bool,
+    /// The project depends on the Flutter SDK (use `flutter pub`).
+    flutter: bool,
+}
+
+fn pubspec_refusal(message: &str) -> RemediationError {
+    RemediationError::UnsupportedLockLayout(format!(
+        "{PUBSPEC_MANIFEST_FILE_NAME}: {message}; refusing `pub add` (edit manually)"
+    ))
+}
+
+/// Whether `pub add` may own the `package` requirement in `pubspec.yaml`.
+///
+/// Allows exactly one top-level declaration under `dependencies` or
+/// `dev_dependencies` with a plain or empty constraint. Refuses source
+/// maps (`git`, `path`, `hosted`, `sdk`), flow-style values, duplicates,
+/// missing declarations, and `dependency_overrides` entries, because `pub
+/// add` semantics for those are unverified and could rewrite the manifest
+/// in surprising ways. Line-based so no YAML parser is needed here.
+fn check_pubspec_allows_pub_add(
+    text: &str,
+    package: &str,
+) -> Result<PubspecFacts, RemediationError> {
+    let mut section = PubspecSection::Other;
+    let mut entry_indent: Option<usize> = None;
+    let mut in_target = false;
+    let mut declared_dev: Vec<bool> = Vec::new();
+    let mut overridden = false;
+    let mut flutter = false;
+    for raw in text.lines() {
+        let body_with_comment = raw.trim_start();
+        if body_with_comment.is_empty() || body_with_comment.starts_with('#') {
+            continue;
+        }
+        let indent = raw.len() - body_with_comment.len();
+        let body = body_with_comment
+            .split(" #")
+            .next()
+            .unwrap_or(body_with_comment)
+            .trim_end();
+        if indent == 0 {
+            section = match body.split(':').next().unwrap_or("").trim() {
+                "dependencies" => PubspecSection::Dependencies,
+                "dev_dependencies" => PubspecSection::DevDependencies,
+                "dependency_overrides" => PubspecSection::Overrides,
+                _ => PubspecSection::Other,
+            };
+            entry_indent = None;
+            in_target = false;
+            continue;
+        }
+        if section == PubspecSection::Other {
+            continue;
+        }
+        let entry = *entry_indent.get_or_insert(indent);
+        if indent > entry {
+            if in_target {
+                return Err(pubspec_refusal(
+                    "package uses a source or options mapping",
+                ));
+            }
+            if body == "sdk: flutter" {
+                flutter = true;
+            }
+            continue;
+        }
+        in_target = false;
+        let Some((name, rest)) = body.split_once(':') else {
+            continue;
+        };
+        if name.trim().trim_matches(['"', '\'']) != package {
+            continue;
+        }
+        if section == PubspecSection::Overrides {
+            overridden = true;
+            continue;
+        }
+        let rest = rest.trim();
+        if rest.starts_with('{') || rest.starts_with('[') {
+            return Err(pubspec_refusal(
+                "package uses a flow-style source mapping",
+            ));
+        }
+        in_target = true;
+        declared_dev.push(section == PubspecSection::DevDependencies);
+    }
+    if overridden {
+        return Err(pubspec_refusal(
+            "package is pinned by dependency_overrides",
+        ));
+    }
+    match declared_dev.as_slice() {
+        [dev] => Ok(PubspecFacts { dev: *dev, flutter }),
+        [] => Err(pubspec_refusal(
+            "package is not declared directly in dependencies or dev_dependencies",
+        )),
+        _ => Err(pubspec_refusal("package is declared more than once")),
+    }
+}
+
+/// Apply Dart / Flutter remediation by invoking:
+/// `dart pub add [--dev] <name>:^<version> --no-precompile` (or
+/// `flutter pub add ...` for projects that depend on the Flutter SDK).
+///
+/// `pubspec.lock` carries `sha256` hashes, so the lock is regenerated by
+/// the SDK rather than edited in place. `pub` may run package build hooks,
+/// so preview fails closed without `allow_dependency_code_execution`
+/// (SEC-023). Transitive findings are refused so a transitive pin is not
+/// promoted into a direct dependency.
+#[derive(Debug, Clone)]
+pub struct DartRemediator {
+    pub(crate) dart_bin: String,
+    pub(crate) flutter_bin: String,
+}
+
+impl Default for DartRemediator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl DartRemediator {
+    pub fn new() -> Self {
+        Self {
+            dart_bin: DART_BIN_NAME.to_string(),
+            flutter_bin: FLUTTER_BIN_NAME.to_string(),
+        }
+    }
+
+    /// Override both SDK executables (tests inject a stub binary).
+    pub fn with_bin(bin: impl Into<String>) -> Self {
+        let bin = bin.into();
+        Self {
+            dart_bin: bin.clone(),
+            flutter_bin: bin,
+        }
+    }
+
+    fn plan(
+        &self,
+        ctx: &RemediationContext<'_>,
+    ) -> Result<(RemediationPreview, &'static str), RemediationError> {
+        if ctx.target_version == MIN_FIXED_VERSION_UNKNOWN {
+            return Err(RemediationError::TargetVersionUnknown);
+        }
+        require_allowlisted_pub_operands(
+            ctx.package_name,
+            ctx.target_version,
+        )?;
+        refuse_transitive_manifest_mutation(ctx, "dart")?;
+        if !ctx.allow_dependency_code_execution {
+            return Err(RemediationError::UnsupportedLockLayout(
+                "Dart remediation requires allow_dependency_code_execution (pub may run package build hooks)"
+                    .to_string(),
+            ));
+        }
+        let lock_dir = require_single_decl_dir(
+            ctx,
+            DeclarationKind::Lockfile,
+            |p| lock_basename_eq(p, PUBSPEC_LOCK_FILE_NAME),
+            "pubspec.lock not found under scan root",
+            "multiple pubspec.lock directories declare this package; refusing ambiguous remediation (fix each tree separately)",
+        )?;
+        require_sibling_manifest(&lock_dir, PUBSPEC_MANIFEST_FILE_NAME)?;
+        let manifest_path = lock_dir.join(PUBSPEC_MANIFEST_FILE_NAME);
+        let too_large = std::fs::metadata(&manifest_path)
+            .is_ok_and(|m| m.len() > PUBSPEC_MANIFEST_MAX_BYTES);
+        if too_large {
+            return Err(pubspec_refusal("manifest exceeds the size limit"));
+        }
+        let text = std::fs::read_to_string(&manifest_path).map_err(|err| {
+            RemediationError::UnsupportedLockLayout(format!(
+                "unable to read {PUBSPEC_MANIFEST_FILE_NAME} for pub add guard: {err}"
+            ))
+        })?;
+        let facts = check_pubspec_allows_pub_add(&text, ctx.package_name)?;
+        let (bin, name) = if facts.flutter {
+            (&self.flutter_bin, FLUTTER_BIN_NAME)
+        } else {
+            (&self.dart_bin, DART_BIN_NAME)
+        };
+        Ok((
+            RemediationPreview {
+                strategy: Dart,
+                workdir: lock_dir.clone(),
+                files: vec![
+                    lock_dir.join(PUBSPEC_LOCK_FILE_NAME),
+                    manifest_path,
+                ],
+                argv: dart_pub_add_argv(
+                    bin,
+                    ctx.package_name,
+                    ctx.target_version,
+                    facts.dev,
+                ),
+            },
+            name,
+        ))
+    }
+}
+
+impl Remediator for DartRemediator {
+    fn strategy(&self) -> ApplyStrategy {
+        Dart
+    }
+
+    fn preview(
+        &self,
+        ctx: &RemediationContext<'_>,
+    ) -> Result<RemediationPreview, RemediationError> {
+        self.plan(ctx).map(|(preview, _)| preview)
+    }
+
+    fn apply(
+        &self,
+        ctx: &RemediationContext<'_>,
+    ) -> Result<(), RemediationError> {
+        if ctx.offline {
+            return Err(RemediationError::OfflineBlocked);
+        }
+        let (preview, name) = self.plan(ctx)?;
+        let bin = preview.argv.first().map_or("", String::as_str);
+        if !bin_available(bin) {
+            return Err(RemediationError::MissingPackageManager(
+                name.to_string(),
+            ));
+        }
+        run_allowlisted_argv(&preview.argv, &preview.workdir, name)
     }
 }
 
@@ -6547,6 +6860,310 @@ Path("Cargo.lock").write_text(new)
             })
             .unwrap_err();
         assert!(matches!(err, RemediationError::UnsupportedLockLayout(_)));
+    }
+
+    const DART_TEST_MANIFEST: &str = "name: app\n\
+environment:\n  sdk: ^3.0.0\n\
+dependencies:\n  http: ^0.13.0\n  meta: any\n  # note\n\
+dev_dependencies:\n  test: '>=1.0.0 <2.0.0'\n\
+dependency_overrides:\n  over: 1.0.0\n";
+
+    fn write_dart_tree(root: &Path, manifest: &str) {
+        fs::create_dir_all(root).unwrap();
+        fs::write(root.join(PUBSPEC_LOCK_FILE_NAME), "packages: {}\n")
+            .unwrap();
+        fs::write(root.join(PUBSPEC_MANIFEST_FILE_NAME), manifest).unwrap();
+    }
+
+    fn dart_ctx<'a>(
+        root: &'a Path,
+        decls: &'a [PackageDeclarationLocation],
+        name: &'a str,
+        kind: DependencyKind,
+        allow: bool,
+    ) -> RemediationContext<'a> {
+        RemediationContext {
+            scan_root: root,
+            declarations: decls,
+            package_name: name,
+            target_version: "0.13.6",
+            dependency_kind: kind,
+            allow_dependency_code_execution: allow,
+            offline: false,
+        }
+    }
+
+    #[test]
+    fn strategy_selects_dart_for_pubspec_lock() {
+        let package = pkg(PUB_ECOSYSTEM, "http");
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &package,
+                "0.13.6",
+                &[lock_decl(PUBSPEC_LOCK_FILE_NAME)],
+            ),
+            ApplyStrategy::Dart
+        );
+        assert_eq!(
+            remediation_apply_strategy_for_finding(
+                &package,
+                "0.13.6",
+                &[manifest_decl(PUBSPEC_MANIFEST_FILE_NAME)],
+            ),
+            ApplyStrategy::Unavailable
+        );
+    }
+
+    #[test]
+    fn dart_pub_add_argv_builder_is_stable() {
+        assert_eq!(
+            dart_pub_add_argv(DART_BIN_NAME, "http", "0.13.6", false),
+            vec![
+                DART_BIN_NAME.to_string(),
+                "pub".to_string(),
+                "add".to_string(),
+                "http:^0.13.6".to_string(),
+                DART_NO_PRECOMPILE_FLAG.to_string(),
+            ]
+        );
+        let dev = dart_pub_add_argv(FLUTTER_BIN_NAME, "test", "1.2.3", true);
+        assert_eq!(dev[3], DART_DEV_FLAG);
+        assert_eq!(dev[4], "test:^1.2.3");
+    }
+
+    #[test]
+    fn dart_preview_selects_section_and_toolchain() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_dart_tree(root, DART_TEST_MANIFEST);
+        let rem = DartRemediator::new();
+        assert_eq!(rem.strategy(), ApplyStrategy::Dart);
+        let decls = [lock_decl(PUBSPEC_LOCK_FILE_NAME)];
+        let preview = rem
+            .preview(&dart_ctx(
+                root,
+                &decls,
+                "http",
+                DependencyKind::Direct,
+                true,
+            ))
+            .expect("dart preview");
+        assert_eq!(preview.strategy, ApplyStrategy::Dart);
+        assert_eq!(
+            preview.argv,
+            dart_pub_add_argv(DART_BIN_NAME, "http", "0.13.6", false)
+        );
+        assert_eq!(preview.files.len(), 2);
+        let dev = rem
+            .preview(&dart_ctx(
+                root,
+                &decls,
+                "test",
+                DependencyKind::Direct,
+                true,
+            ))
+            .unwrap();
+        assert!(dev.argv.iter().any(|a| a == DART_DEV_FLAG));
+
+        let flutter_dir = test_tempdir();
+        write_dart_tree(
+            flutter_dir.path(),
+            "name: app\ndependencies:\n  flutter:\n    sdk: flutter\n  http: ^0.13.0\n",
+        );
+        let flutter = rem
+            .preview(&dart_ctx(
+                flutter_dir.path(),
+                &decls,
+                "http",
+                DependencyKind::Direct,
+                true,
+            ))
+            .unwrap();
+        assert_eq!(flutter.argv[0], FLUTTER_BIN_NAME);
+    }
+
+    #[test]
+    fn dart_preview_refusals() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_dart_tree(root, DART_TEST_MANIFEST);
+        let rem = DartRemediator::new();
+        let decls = [lock_decl(PUBSPEC_LOCK_FILE_NAME)];
+        let refused = |name: &str, kind, allow| {
+            rem.preview(&dart_ctx(root, &decls, name, kind, allow))
+                .unwrap_err()
+        };
+        assert!(matches!(
+            refused("http", DependencyKind::Transitive, true),
+            RemediationError::UnsupportedLockLayout(_)
+        ));
+        assert!(matches!(
+            refused("http", DependencyKind::Direct, false),
+            RemediationError::UnsupportedLockLayout(_)
+        ));
+        assert!(matches!(
+            refused("-evil", DependencyKind::Direct, true),
+            RemediationError::InvalidOperand(_)
+        ));
+        assert!(matches!(
+            refused("Bad-Name", DependencyKind::Direct, true),
+            RemediationError::InvalidOperand(_)
+        ));
+        for absent in ["nothere", "over"] {
+            assert!(matches!(
+                refused(absent, DependencyKind::Direct, true),
+                RemediationError::UnsupportedLockLayout(_)
+            ));
+        }
+        let unknown = RemediationContext {
+            target_version: MIN_FIXED_VERSION_UNKNOWN,
+            ..dart_ctx(root, &decls, "http", DependencyKind::Direct, true)
+        };
+        assert!(matches!(
+            rem.preview(&unknown).unwrap_err(),
+            RemediationError::TargetVersionUnknown
+        ));
+        let bad_version = RemediationContext {
+            target_version: "1.0 && rm",
+            ..dart_ctx(root, &decls, "http", DependencyKind::Direct, true)
+        };
+        assert!(matches!(
+            rem.preview(&bad_version).unwrap_err(),
+            RemediationError::InvalidOperand(_)
+        ));
+
+        let no_manifest = test_tempdir();
+        fs::write(no_manifest.path().join(PUBSPEC_LOCK_FILE_NAME), "")
+            .unwrap();
+        assert!(matches!(
+            rem.preview(&dart_ctx(
+                no_manifest.path(),
+                &decls,
+                "http",
+                DependencyKind::Direct,
+                true,
+            ))
+            .unwrap_err(),
+            RemediationError::UnsupportedLockLayout(_)
+        ));
+        assert!(matches!(
+            rem.preview(&dart_ctx(
+                root,
+                &[],
+                "http",
+                DependencyKind::Direct,
+                true,
+            ))
+            .unwrap_err(),
+            RemediationError::UnsupportedLockLayout(_)
+        ));
+
+        let a = root.join("a");
+        let b = root.join("b");
+        write_dart_tree(&a, DART_TEST_MANIFEST);
+        write_dart_tree(&b, DART_TEST_MANIFEST);
+        let two = [lock_decl("a/pubspec.lock"), lock_decl("b/pubspec.lock")];
+        assert!(matches!(
+            rem.preview(&dart_ctx(
+                root,
+                &two,
+                "http",
+                DependencyKind::Direct,
+                true,
+            ))
+            .unwrap_err(),
+            RemediationError::UnsupportedLockLayout(_)
+        ));
+    }
+
+    #[test]
+    fn dart_manifest_guard_rejects_exotic_declarations() {
+        let ok = |text: &str| {
+            check_pubspec_allows_pub_add(text, "http").map(|f| f.dev)
+        };
+        assert_eq!(ok("dependencies:\n  http: ^1.0.0\n").unwrap(), false);
+        assert_eq!(ok("dependencies:\n  http:\n").unwrap(), false);
+        assert_eq!(ok("dev_dependencies:\n  http: ^1.0.0\n").unwrap(), true);
+        for bad in [
+            "dependencies:\n  http:\n    git: https://x/y.git\n",
+            "dependencies:\n  http:\n    path: ../http\n",
+            "dependencies:\n  http: {path: ../http}\n",
+            "dependencies:\n  http: ^1.0.0\ndev_dependencies:\n  http: ^1.0.0\n",
+            "dependencies:\n  http: ^1.0.0\n  http: ^2.0.0\n",
+            "dependencies:\n  other: ^1.0.0\n",
+            "dependency_overrides:\n  http: 1.0.0\n",
+            "dependencies:\n  http: ^1.0.0\ndependency_overrides:\n  http: 1.0.0\n",
+            "",
+        ] {
+            assert!(
+                matches!(
+                    ok(bad),
+                    Err(RemediationError::UnsupportedLockLayout(_))
+                ),
+                "{bad:?}"
+            );
+        }
+        assert!(
+            check_pubspec_allows_pub_add(
+                "dependencies:\n  flutter:\n    sdk: flutter\n  http: ^1.0.0\n",
+                "http"
+            )
+            .unwrap()
+            .flutter
+        );
+        assert!(
+            !check_pubspec_allows_pub_add(
+                "dependencies:\n  http: ^1.0.0\n",
+                "http"
+            )
+            .unwrap()
+            .flutter
+        );
+    }
+
+    #[test]
+    fn dart_apply_rejects_bad_state_and_runs_stub() {
+        let dir = test_tempdir();
+        let root = dir.path();
+        write_dart_tree(root, DART_TEST_MANIFEST);
+        let decls = [lock_decl(PUBSPEC_LOCK_FILE_NAME)];
+        let ok_bin = root.join("dart-ok");
+        write_exec(&ok_bin, "#!/bin/sh\nexit 0\n");
+        let rem = DartRemediator::with_bin(ok_bin.to_string_lossy());
+        let ctx = dart_ctx(root, &decls, "http", DependencyKind::Direct, true);
+
+        let offline = RemediationContext {
+            offline: true,
+            ..dart_ctx(root, &decls, "http", DependencyKind::Direct, true)
+        };
+        assert!(matches!(
+            rem.apply(&offline).unwrap_err(),
+            RemediationError::OfflineBlocked
+        ));
+        let missing = DartRemediator::with_bin(
+            root.join("no-such-dart").to_string_lossy(),
+        );
+        assert!(matches!(
+            missing.apply(&ctx).unwrap_err(),
+            RemediationError::MissingPackageManager(_)
+        ));
+        let ungated =
+            dart_ctx(root, &decls, "http", DependencyKind::Direct, false);
+        assert!(matches!(
+            rem.apply(&ungated).unwrap_err(),
+            RemediationError::UnsupportedLockLayout(_)
+        ));
+        rem.apply(&ctx).unwrap();
+
+        let fail_bin = root.join("dart-fail");
+        write_exec(
+            &fail_bin,
+            "#!/bin/sh\n[ \"$1\" = \"--version\" ] && exit 0\necho boom >&2\nexit 1\n",
+        );
+        let err = DartRemediator::with_bin(fail_bin.to_string_lossy())
+            .apply(&ctx)
+            .unwrap_err();
+        assert!(matches!(err, RemediationError::CommandFailed { .. }));
     }
 
     #[test]
