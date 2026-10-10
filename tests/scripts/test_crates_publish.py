@@ -4,6 +4,7 @@
 
 """Tests for scripts/crates_publish.py."""
 
+import os
 import subprocess
 import sys
 import tomllib
@@ -38,7 +39,6 @@ from scripts.crates_publish import (
     publish_order,
     publish_release_crates,
     run_cargo_package,
-    rust_version_from_toolchain_channel,
     validate_all_workspace_crates_published,
     validate_crate_descriptions,
     validate_manifest_publish_flags,
@@ -240,28 +240,53 @@ def test_validate_registry_metadata_reports_missing_inheritance(
     assert any("rust-version" in err for err in errors)
 
 
-def test_rust_version_from_toolchain_channel() -> None:
-    assert rust_version_from_toolchain_channel("1.98.0") == "1.98"
-    assert rust_version_from_toolchain_channel("nightly") == "nightly"
-
-
-def test_validate_registry_metadata_rejects_rust_version_mismatch(
-    tmp_path: Path,
-) -> None:
+def _write_workspace_with_msrv(tmp_path: Path, msrv: str, channel: str) -> None:
     (tmp_path / "Cargo.toml").write_text(
         "[workspace.package]\n"
         'keywords = ["cve"]\n'
         'categories = ["development-tools"]\n'
         'readme = "README.md"\n'
-        'rust-version = "1.85"\n',
+        f'rust-version = "{msrv}"\n',
         encoding="utf-8",
     )
     (tmp_path / "rust-toolchain.toml").write_text(
-        '[toolchain]\nchannel = "1.98.0"\n',
+        f'[toolchain]\nchannel = "{channel}"\n',
         encoding="utf-8",
     )
+
+
+def test_validate_registry_metadata_rejects_msrv_above_toolchain(
+    tmp_path: Path,
+) -> None:
+    _write_workspace_with_msrv(tmp_path, "1.99", "1.98.0")
     errors = validate_registry_metadata(tmp_path, {})
-    assert any("expected '1.98'" in err for err in errors)
+    assert any(
+        "rust-version" in err and "newer than toolchain" in err
+        for err in errors
+    )
+
+
+def test_validate_registry_metadata_allows_toolchain_ahead_of_msrv(
+    tmp_path: Path,
+) -> None:
+    """Dev toolchain may track latest stable while MSRV stays at distro floor."""
+    _write_workspace_with_msrv(tmp_path, "1.98", "1.99.0")
+    assert validate_registry_metadata(tmp_path, {}) == []
+
+
+def test_validate_registry_metadata_allows_msrv_equal_to_toolchain(
+    tmp_path: Path,
+) -> None:
+    _write_workspace_with_msrv(tmp_path, "1.98", "1.98.1")
+    assert validate_registry_metadata(tmp_path, {}) == []
+
+
+def test_validate_registry_metadata_rejects_unparseable_msrv(
+    tmp_path: Path,
+) -> None:
+    _write_workspace_with_msrv(tmp_path, "latest", "1.98.0")
+    errors = validate_registry_metadata(tmp_path, {})
+    assert any("rust-version" in err for err in errors)
 
 
 def test_validate_crate_descriptions_requires_verilyze(
@@ -953,6 +978,7 @@ def test_script_main_entry_point(repo_root: Path) -> None:
         check=False,
         capture_output=True,
         text=True,
+        env={**os.environ, "PYTHONPATH": str(repo_root)},
     )
     assert result.returncode == 2
     assert "crates.io publish helpers" in result.stdout
@@ -1016,6 +1042,34 @@ def test_validate_workspace_rust_version_skips_without_channel(
         validate_workspace_rust_version(tmp_path, {"rust-version": "1.98"})
         == []
     )
+
+
+def test_validate_workspace_rust_version_skips_non_numeric_channel(
+    tmp_path: Path,
+) -> None:
+    from scripts.crates_publish import validate_workspace_rust_version
+
+    (tmp_path / "rust-toolchain.toml").write_text(
+        '[toolchain]\nchannel = "nightly"\n',
+        encoding="utf-8",
+    )
+    assert (
+        validate_workspace_rust_version(tmp_path, {"rust-version": "1.98"})
+        == []
+    )
+
+
+def test_validate_workspace_rust_version_reports_missing_msrv(
+    tmp_path: Path,
+) -> None:
+    from scripts.crates_publish import validate_workspace_rust_version
+
+    (tmp_path / "rust-toolchain.toml").write_text(
+        '[toolchain]\nchannel = "1.98.0"\n',
+        encoding="utf-8",
+    )
+    errors = validate_workspace_rust_version(tmp_path, {})
+    assert any("rust-version" in err for err in errors)
 
 
 def test_run_cargo_registry_search_and_publish_invoked(
