@@ -19,6 +19,7 @@ description = "Manifest parsing trait for the verilyze SCA tool"
 [dependencies]
 async-trait.workspace = true
 thiserror.workspace = true
+tokio = { workspace = true, features = ["fs"] }
 vlz-db.workspace = true
 
 [dev-dependencies]
