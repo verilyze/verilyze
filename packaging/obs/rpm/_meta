@@ -5,5 +5,6 @@
   <build>
     <disable repository="Fedora_43"/>
     <disable repository="16.0"/>
+    <disable repository="openSUSE_Tumbleweed"/>
   </build>
 </package>

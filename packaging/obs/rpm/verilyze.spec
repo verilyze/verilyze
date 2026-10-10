@@ -21,12 +21,12 @@ BuildRequires:  make
 BuildRequires:  zstd
 
 %if 0%{?suse_version}
-BuildRequires:  cargo1.98
-BuildRequires:  rust1.98
+BuildRequires:  cargo1.99
+BuildRequires:  rust1.99
 BuildRequires:  libopenssl-devel
 %else
-BuildRequires:  cargo >= 1.98.0
-BuildRequires:  rust >= 1.98.0
+BuildRequires:  cargo >= 1.99.0
+BuildRequires:  rust >= 1.99.0
 %endif
 %if 0%{?fedora} || 0%{?rhel}
 BuildRequires:  openssl-devel

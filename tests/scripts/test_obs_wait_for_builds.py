@@ -45,11 +45,11 @@ _SUCCEEDED_XML = """\
 
 _BUILDING_XML = """\
 <resultlist>
-  <result repository="openSUSE_Tumbleweed" arch="x86_64" code="building">
-    <status package="verilyze" code="building"/>
-  </result>
-  <result repository="Fedora_44" arch="x86_64" code="published">
+  <result repository="openSUSE_Tumbleweed" arch="x86_64" code="published">
     <status package="verilyze" code="succeeded"/>
+  </result>
+  <result repository="Fedora_44" arch="x86_64" code="building">
+    <status package="verilyze" code="building"/>
   </result>
 </resultlist>
 """
@@ -57,6 +57,9 @@ _BUILDING_XML = """\
 _FAILED_XML = """\
 <resultlist>
   <result repository="openSUSE_Tumbleweed" arch="x86_64" code="published">
+    <status package="verilyze" code="succeeded"/>
+  </result>
+  <result repository="Fedora_44" arch="x86_64" code="published">
     <status package="verilyze" code="failed"/>
   </result>
 </resultlist>
