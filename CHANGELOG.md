@@ -12,6 +12,12 @@ Human-readable release notes for each version.
 
 ## [0.14.0] - 2026-10-10
 
+### Changed
+
+- OBS / RPM BuildRequires track MSRV 1.99 (`cargo1.99` / `rust1.99` on
+  openSUSE; `cargo` / `rust` >= 1.99.0 elsewhere). `openSUSE_Tumbleweed`
+  package builds stay disabled until OBS provides those packages (#577).
+
 ### Added
 
 - Dart / Flutter language plugin (`vlz-dart`, feature `dart`, HC-9): discover
