@@ -10,6 +10,8 @@ Human-readable release notes for each version.
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-10
+
 ### Added
 
 - Dart / Flutter language plugin (`vlz-dart`, feature `dart`, HC-9): discover
