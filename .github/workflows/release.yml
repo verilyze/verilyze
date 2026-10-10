@@ -65,6 +65,13 @@ jobs:
           ./scripts/check-obs-signing.sh \
             --config packaging/obs/obs-project.env
 
+      # Fail before any build or OBS upload when MSRV exceeds Rust on an
+      # enabled distro target (packaging/obs/distro-rust.toml).
+      - name: Verify MSRV fits enabled distro targets
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$(pwd)" python3 scripts/distro_rust.py
+
   build-binary:
     needs: preflight-release
     strategy:

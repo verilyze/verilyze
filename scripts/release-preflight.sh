@@ -27,6 +27,13 @@ fi
 
 make check-obs-packaging
 make check-packaging
+make check-distro-rust
+
+# Optional container probe of each enabled distro's Rust (needs Docker and
+# network). Set VLZ_DISTRO_RUST_LIVE=1 before tagging a release.
+if [[ "${VLZ_DISTRO_RUST_LIVE:-0}" == "1" ]]; then
+  PYTHONPATH="${root}" python3 "${script_dir}/distro_rust.py" --live
+fi
 
 ./scripts/check-crates-publish.sh --manifest-only
 

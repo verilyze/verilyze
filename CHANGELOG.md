@@ -10,6 +10,19 @@ Human-readable release notes for each version.
 
 ## [Unreleased]
 
+### Changed
+
+- MSRV is `rust-version = "1.98"` again (v0.14.0 raised it to 1.99 only
+  because the CI toolchain moved). The MSRV now follows the Rust shipped by
+  enabled distro targets, not the latest stable toolchain; see CONTRIBUTING
+  "Rust toolchain and MSRV policy". OBS/RPM `BuildRequires` are generated
+  from `rust-version` (`make generate-packaging`).
+
+### Fixed
+
+- openSUSE Tumbleweed RPM builds are enabled again (v0.14.0 required Rust
+  1.99, which Tumbleweed does not ship).
+
 ## [0.14.0] - 2026-10-10
 
 ### Changed

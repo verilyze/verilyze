@@ -85,12 +85,22 @@ if ! grep -qE '^OBS_CHANGES_FILENAME=.+$' "${OBS_ENV}"; then
 fi
 
 UPLOAD_SCRIPT="${ROOT_DIR}/scripts/obs-upload-release-sources.sh"
+DISTRO_RUST_DATA="${ROOT_DIR}/packaging/obs/distro-rust.toml"
+if [[ ! -f "${DISTRO_RUST_DATA}" ]]; then
+  echo "ERROR: missing distro Rust data: ${DISTRO_RUST_DATA}" >&2
+  exit 1
+fi
+
 if [[ ! -x "${UPLOAD_SCRIPT}" ]]; then
   echo "ERROR: missing OBS upload script: ${UPLOAD_SCRIPT}" >&2
   exit 1
 fi
 
 RELEASE_WORKFLOW="${ROOT_DIR}/.github/workflows/release.yml"
+if ! grep -q 'scripts/distro_rust.py' "${RELEASE_WORKFLOW}"; then
+  echo "ERROR: release workflow must verify MSRV via scripts/distro_rust.py" >&2
+  exit 1
+fi
 if ! grep -q 'obs-upload-release-sources.sh' "${RELEASE_WORKFLOW}"; then
   echo "ERROR: release workflow must invoke obs-upload-release-sources.sh" >&2
   exit 1
