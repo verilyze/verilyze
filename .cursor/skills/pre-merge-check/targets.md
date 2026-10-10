@@ -24,6 +24,8 @@ See [agent-workflow.mdc](../../rules/agent-workflow.mdc).
 | config / `verilyze.conf.example` | `make check-config-docs` |
 | `man/**` | `make check-manpages` |
 | `packaging/**` | `make check-packaging` |
+| `packaging/obs/**`, `scripts/distro_rust.py`, `scripts/rust_version.py` | `make check-distro-rust check-obs-packaging`, `make lint-python test-scripts` |
+| `rust-version` in root `Cargo.toml`, `rust-toolchain.toml`, `.github/workflows/distro-build.yml` | `make check-distro-rust check-packaging check-crates-publish`; never raise `rust-version` unless every enabled distro ships it (CONTRIBUTING "Rust toolchain and MSRV policy") |
 | Root `Cargo.toml`, `Cargo.lock`, `deny.toml` (not `fuzz/Cargo.toml`) | `make cargo-check-locked`, `make deny-check`, `make check-third-party-licenses`, `make check-sbom` |
 | `pyproject.toml` | `make check-sbom`, `make check-pylock-dev` |
 | `.github/workflows/**` (upload-sarif) | `make check-upload-sarif-example` |

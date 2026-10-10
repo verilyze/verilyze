@@ -139,6 +139,34 @@ Maintainer workflow when adding or removing a build target:
 
 Do not edit project repositories in the OBS web UI as the primary workflow.
 
+## Distro Rust availability (MSRV gate)
+
+OBS builds are offline and use the distro's own `rust`/`cargo` (versioned
+`rust1.NN` / `cargo1.NN` on openSUSE). A release is therefore only buildable on
+a target if that distro ships at least the workspace MSRV
+(`[workspace.package].rust-version`).
+
+- [`distro-rust.toml`](distro-rust.toml) -- per OBS repository: Rust
+  (`rust_available`, `verified_at`), a container probe, and the container
+  build-deps command used by
+  [`.github/workflows/distro-build.yml`](../../.github/workflows/distro-build.yml).
+- `make check-distro-rust` -- fails when the MSRV exceeds `rust_available` for
+  any enabled repository, when an enabled repository has no entry, or when an
+  entry names a repository that is not in `project/_meta`. Run it through
+  `make check-fast`, `make release-preflight`, and the release workflow
+  `preflight-release` job (before any build or OBS upload).
+- `PYTHONPATH=. python3 scripts/distro_rust.py --live` (or
+  `VLZ_DISTRO_RUST_LIVE=1 make release-preflight`) probes the distro
+  containers and fails when a live Rust is below the MSRV. Update
+  `rust_available` and `verified_at` after a successful probe.
+- `make generate-packaging` regenerates the `cargo`/`rust` `BuildRequires` in
+  `rpm/verilyze.spec` (and the local spec) from `rust-version`; do not edit them
+  by hand.
+
+When a distro cannot ship the needed Rust, disable it in `rpm/_meta` with a
+`disabled_reason` in `distro-rust.toml` and a CHANGELOG note, in a PR before the
+tag. Policy: CONTRIBUTING "Rust toolchain and MSRV policy".
+
 ## Layout
 
 - `packaging/obs/_service` -- legacy source-service definition for private OBS
@@ -149,6 +177,8 @@ Do not edit project repositories in the OBS web UI as the primary workflow.
   - `verilyze.spec` for RPM targets (Fedora, RHEL, Rocky, openSUSE, SLE)
   - `verilyze.changes` seed history for first upload when OBS has no
     `.changes` file yet
+- `packaging/obs/distro-rust.toml` -- Rust available per OBS repository
+  (MSRV gate data)
 
 ## Vendor archive layout
 
@@ -257,6 +287,8 @@ build path; metadata lives in `[package.metadata.deb]` in
   SHA-256 checksums after `osc commit`
 - Committed `packaging/obs/project/_meta` exists and yields a non-empty enabled
   repository list
+- `packaging/obs/distro-rust.toml` exists and the release workflow runs
+  `scripts/distro_rust.py` before any build or OBS upload
 - OBS signing key metadata is published for the configured project
 - `obs-project.env` defines `OBS_CHANGES_FILENAME`, `OBS_LEGACY_CHANGES_FILENAME`,
   and `OBS_MAINTAINER` for automation

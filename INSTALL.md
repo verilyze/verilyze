@@ -35,8 +35,12 @@ Minimal builds:
 cargo install vlz --locked --no-default-features --features runtime,completions,docs
 ```
 
-Requires a [Rust toolchain](https://rustup.rs/) compatible with the crate
-edition. Tagged releases publish all workspace crates to crates.io in dependency
+Requires a [Rust toolchain](https://rustup.rs/) at least as new as the
+workspace minimum supported Rust version (`rust-version` in the root
+`Cargo.toml`; Cargo stops with a clear error on older compilers). The MSRV is
+kept at or below the Rust shipped by the enabled distro build targets, not at
+the latest stable release; see
+[CONTRIBUTING.md](CONTRIBUTING.md#rust-toolchain-and-msrv-policy). Tagged releases publish all workspace crates to crates.io in dependency
 order via `.github/workflows/release.yml`.
 
 ## GitHub Release assets
@@ -288,6 +292,14 @@ Release tags (`v*`) trigger GitHub release automation, which uploads prepared
 sources to OBS and triggers a rebuild for the configured project/package.
 Set repository secrets `OBS_USER`, `OBS_PASSWORD`, and `OBS_TOKEN_REBUILD`.
 See `packaging/obs/README.md` for details.
+
+Which distributions get RPMs is defined in git: enabled targets are the
+repositories in `packaging/obs/project/_meta` minus the package-level disables
+in `packaging/obs/rpm/_meta`. `packaging/obs/distro-rust.toml` records the Rust
+version each target ships, and `make check-distro-rust` fails if the workspace
+MSRV is newer than any enabled target, so a release is not tagged for a distro
+that cannot build it. Cargo, Fedora, and openSUSE package names for Rust are
+derived from `rust-version` (`make generate-packaging`).
 
 `cargo-deb` (`make deb`) remains available as a local build path and is what
 release automation uses for `.deb` artifacts.
