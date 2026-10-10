@@ -2873,6 +2873,7 @@ version = "0.13.0"
 dependencies = [
  "afl",
  "vlz",
+ "vlz-dart",
  "vlz-dotnet",
  "vlz-exploitability",
  "vlz-go",

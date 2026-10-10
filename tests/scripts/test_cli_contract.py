@@ -104,6 +104,7 @@ def test_lock_offline_pin_cases_use_cyclonedx_full_only() -> None:
         "ruby-lock-offline-pin": "cli_contract_demo",
         "php-lock-offline-pin": "cli/contract_demo",
         "dotnet-lock-offline-pin": "Cli.Contract",
+        "dart-lock-offline-pin": "cli_contract_demo",
         "sbom-lock-offline-pin": "cli-contract-pkg",
     }
     assert {c["id"] for c in pins} == set(expected)
@@ -133,6 +134,7 @@ def test_default_lockless_cases_expect_exit_4() -> None:
         "ruby-lockless",
         "php-lockless",
         "dotnet-lockless",
+        "dart-lockless",
         "sbom-lockless",
     }
     for case in default_lockless:

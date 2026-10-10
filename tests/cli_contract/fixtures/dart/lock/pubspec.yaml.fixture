@@ -1,0 +1,5 @@
+name: cli_contract
+environment:
+  sdk: ^3.0.0
+dependencies:
+  cli_contract_demo: 1.0.0
