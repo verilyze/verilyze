@@ -13,7 +13,7 @@ use vlz_manifest_parser::{DependencyGraph, Parser, ParserError, read_capped};
 
 pub use pubspec_lock::{
     is_pub_dev_hosted_url, is_pub_package_name, parse_pubspec_lock,
-    parse_pubspec_lock_with_declarations,
+    parse_pubspec_lock_detailed, parse_pubspec_lock_with_declarations,
 };
 pub use pubspec_yaml::{
     parse_pubspec_yaml, parse_pubspec_yaml_with_declarations,

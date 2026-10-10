@@ -42,9 +42,25 @@ fn is_ident_char(c: char) -> bool {
 
 fn import_regex() -> regex::Regex {
     regex::Regex::new(
-        r#"^\s*(?:import|export)\s+['"]package:([a-z_][a-z0-9_]*)/[^'"]*['"]\s*(.*?);"#,
+        r#"(?m)^[ \t]*(?:import|export)\s+['"]package:([a-z_][a-z0-9_]*)/[^'"]*['"]([^;]*);"#,
     )
     .expect("valid Dart import regex")
+}
+
+fn directive_regex() -> regex::Regex {
+    regex::Regex::new(r#"(?m)^[ \t]*(?:import|export|part)\b[^;]*;"#)
+        .expect("valid Dart directive regex")
+}
+
+/// 1-based line numbers covered by `import` / `export` / `part` statements.
+fn directive_lines(scrubbed: &str) -> std::collections::HashSet<u32> {
+    let mut lines = std::collections::HashSet::new();
+    for m in directive_regex().find_iter(scrubbed) {
+        let first = scrubbed[..m.start()].matches('\n').count() as u32 + 1;
+        let last = first + m.as_str().matches('\n').count() as u32;
+        lines.extend(first..=last);
+    }
+    lines
 }
 
 fn clause_idents(rest: &str, keyword: &str) -> Vec<String> {
@@ -71,23 +87,22 @@ fn alias_of(rest: &str) -> Option<String> {
 }
 
 /// Collect `package:` import bindings from Dart source text.
+///
+/// Statements may span lines (`dart format` wraps long directives).
 pub fn collect_dart_import_bindings(content: &str) -> Vec<DartImportBinding> {
     let re = import_regex();
-    let mut out = Vec::new();
-    for line in scrub_c_style_comments(content).lines() {
-        let code = line.trim();
-        let Some(caps) = re.captures(code) else {
-            continue;
-        };
-        let rest = caps.get(2).map_or("", |m| m.as_str());
-        out.push(DartImportBinding {
-            package: caps[1].to_string(),
-            alias: alias_of(rest),
-            shown: clause_idents(rest, "show"),
-            hidden: clause_idents(rest, "hide"),
-        });
-    }
-    out
+    let scrubbed = scrub_c_style_comments(content);
+    re.captures_iter(&scrubbed)
+        .map(|caps| {
+            let rest = caps.get(2).map_or("", |m| m.as_str());
+            DartImportBinding {
+                package: caps[1].to_string(),
+                alias: alias_of(rest),
+                shown: clause_idents(rest, "show"),
+                hidden: clause_idents(rest, "hide"),
+            }
+        })
+        .collect()
 }
 
 fn contains_bounded(line: &str, needle: &str) -> bool {
@@ -132,19 +147,19 @@ pub fn selector_match_lines(
         None if ident_visible(binding, ident) => ident.to_string(),
         None => return Vec::new(),
     };
-    let directive = regex::Regex::new(r"^(?:import|export|part)\b")
-        .expect("valid Dart directive regex");
+    let skipped = directive_lines(&scrub_c_style_comments(content));
     let mut lines = Vec::new();
     for (idx, line) in content.lines().enumerate() {
+        let number = (idx + 1) as u32;
+        if skipped.contains(&number) {
+            continue;
+        }
         let code = line_code_for_symbol_match(
             line.trim(),
             LineCommentStyle::SlashSlash,
         );
-        if directive.is_match(&code) {
-            continue;
-        }
         if contains_bounded(&code, &needle) {
-            lines.push((idx + 1) as u32);
+            lines.push(number);
         }
     }
     lines
@@ -215,5 +230,18 @@ mod tests {
         let b = &collect_dart_import_bindings(src)[0];
         assert!(selector_match_lines(src, b, "Foo").is_empty());
         assert!(selector_match_lines("x", b, "").is_empty());
+    }
+
+    #[test]
+    fn wrapped_import_directives_are_bound_and_not_counted_as_usage() {
+        let src = "import 'package:http/http.dart'\n    as h;\n\
+                   import 'package:collection/collection.dart'\n    show\n        Foo;\n\
+                   void f() {\n  h.get(u);\n  Foo();\n}\n";
+        let b = collect_dart_import_bindings(src);
+        assert_eq!(b.len(), 2);
+        assert_eq!(b[0].alias.as_deref(), Some("h"));
+        assert_eq!(b[1].shown, ["Foo"]);
+        assert_eq!(selector_match_lines(src, &b[0], "get"), vec![7]);
+        assert_eq!(selector_match_lines(src, &b[1], "Foo"), vec![8]);
     }
 }

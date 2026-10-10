@@ -38,6 +38,12 @@ never suppresses findings by default.
 
 ## Notes
 
+- **Dart / Flutter:** Tier D matches `alias.symbol` through an `as` prefix, or
+  a bare symbol name when the import has no prefix (narrowed by `show` /
+  `hide`); bare names are a heuristic and can over-report for common
+  identifiers. `vlz fix` runs `pub add name:^fixed`, which replaces the
+  existing version constraint, and refuses packages declared only in a Dart
+  workspace member (the lock lives at the workspace root).
 - **Fail closed:** For ecosystems marked exit 4, commit a usable lock (or use
   an explicit opt-in such as `--allow-direct-only-fallback` /
   `--allow-dependency-code-execution`) before expecting CI green.

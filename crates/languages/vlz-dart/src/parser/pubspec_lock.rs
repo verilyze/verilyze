@@ -84,6 +84,18 @@ pub fn parse_pubspec_lock(content: &str) -> Result<Vec<Package>, ParserError> {
     .0)
 }
 
+/// Result of parsing a `pubspec.lock`, including entries that were skipped.
+#[derive(Debug)]
+pub struct PubspecLockParse {
+    /// Pinned pub.dev packages.
+    pub packages: Vec<Package>,
+    /// Lockfile-kind declarations (FR-036a).
+    pub parsed: Vec<ParsedDependency>,
+    /// Total `packages:` entries, including skipped non-pub.dev sources.
+    /// Non-zero means the lock is usable even when no package maps to OSV.
+    pub entry_count: usize,
+}
+
 /// Parse with declaration metadata (FR-036a).
 ///
 /// Only `source: hosted` entries on the default pub.dev host are returned;
@@ -93,6 +105,16 @@ pub fn parse_pubspec_lock_with_declarations(
     content: &str,
     path: &Path,
 ) -> Result<(Vec<Package>, Vec<ParsedDependency>), ParserError> {
+    let detail = parse_pubspec_lock_detailed(content, path)?;
+    Ok((detail.packages, detail.parsed))
+}
+
+/// Like [`parse_pubspec_lock_with_declarations`] but also reports how many
+/// lock entries existed.
+pub fn parse_pubspec_lock_detailed(
+    content: &str,
+    path: &Path,
+) -> Result<PubspecLockParse, ParserError> {
     let lock: Option<PubspecLockFile> = serde_norway::from_str(content)
         .map_err(|e| {
             ParserError::Parse(format!("pubspec.lock parse error: {e}"))
@@ -105,14 +127,14 @@ pub fn parse_pubspec_lock_with_declarations(
     let mut packages = Vec::new();
     let mut parsed = Vec::new();
     let mut seen = HashSet::new();
-    for (name, entry) in &lock.packages {
-        if !is_pub_package_name(name) {
+    for (key, entry) in &lock.packages {
+        if !is_pub_package_name(key) {
             continue;
         }
         if !hosted_on_pub_dev(entry) {
             if entry.source.as_deref() != Some("sdk") {
                 eprintln!(
-                    "vlz warning: skipping {name} in {}: source is not the default pub.dev host (no OSV Pub identity)",
+                    "vlz warning: skipping {key} in {}: source is not the default pub.dev host (no OSV Pub identity)",
                     path.display()
                 );
             }
@@ -125,8 +147,11 @@ pub fn parse_pubspec_lock_with_declarations(
         if version.trim().is_empty() {
             continue;
         }
+        let name = hosted_package_name(entry)
+            .filter(|n| is_pub_package_name(n))
+            .unwrap_or_else(|| key.clone());
         let pkg = Package {
-            name: name.clone(),
+            name,
             version,
             ecosystem: Some(PUB_ECOSYSTEM.to_string()),
             ..Default::default()
@@ -137,13 +162,28 @@ pub fn parse_pubspec_lock_with_declarations(
         parsed.push(ParsedDependency {
             package: pkg.clone(),
             path: path.to_path_buf(),
-            start_line: lines.get(name.as_str()).copied().unwrap_or(1),
+            start_line: lines.get(key.as_str()).copied().unwrap_or(1),
             end_line: None,
             kind: DeclarationKind::Lockfile,
         });
         packages.push(pkg);
     }
-    Ok((packages, parsed))
+    Ok(PubspecLockParse {
+        packages,
+        parsed,
+        entry_count: lock.packages.len(),
+    })
+}
+
+/// Real package name for a hosted entry (`description.name`); the lock key is
+/// the dependency name, which differs when `hosted: { name: ... }` is used.
+fn hosted_package_name(entry: &LockEntry) -> Option<String> {
+    entry
+        .description
+        .as_ref()
+        .and_then(|d| d.get("name"))
+        .and_then(Value::as_str)
+        .map(str::to_string)
 }
 
 /// Map of package key -> 1-based line within the top-level `packages:` map.
@@ -331,5 +371,29 @@ sdks:
         assert!(!is_pub_package_name("Http"));
         assert!(!is_pub_package_name("a-b"));
         assert!(!is_pub_package_name("1abc"));
+    }
+
+    #[test]
+    fn hosted_description_name_is_the_package_identity() {
+        let lock = "packages:\n  alias_key:\n    description:\n      name: real_name\n      url: \"https://pub.dev\"\n    source: hosted\n    version: \"1.0.0\"\n";
+        let pkgs = parse_pubspec_lock(lock).unwrap();
+        assert_eq!(pkgs.len(), 1);
+        assert_eq!(pkgs[0].name, "real_name");
+    }
+
+    #[test]
+    fn detailed_parse_counts_entries_including_skipped() {
+        let lock = "packages:\n  local:\n    description:\n      path: ../x\n    source: path\n    version: \"1.0.0\"\n";
+        let detail =
+            parse_pubspec_lock_detailed(lock, Path::new("pubspec.lock"))
+                .unwrap();
+        assert!(detail.packages.is_empty());
+        assert_eq!(detail.entry_count, 1);
+        let empty = parse_pubspec_lock_detailed(
+            "packages: {}\n",
+            Path::new("pubspec.lock"),
+        )
+        .unwrap();
+        assert_eq!(empty.entry_count, 0);
     }
 }

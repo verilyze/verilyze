@@ -16,9 +16,7 @@ use vlz_manifest_parser::{
 };
 
 use crate::lock_names::DART_LOCK_FILE_NAMES;
-use crate::parser::{
-    DART_LOCK_MAX_BYTES, parse_pubspec_lock_with_declarations,
-};
+use crate::parser::{DART_LOCK_MAX_BYTES, parse_pubspec_lock_detailed};
 
 /// Find `pubspec.lock` next to the manifest or in parent directories up to
 /// the scan root (Dart workspaces keep one root lock for all members).
@@ -43,7 +41,9 @@ pub fn find_dart_lock_file(
     }
 }
 
-fn parse_lock_path(path: &Path) -> Result<CachedResolution, ResolverError> {
+fn parse_lock_path(
+    path: &Path,
+) -> Result<(CachedResolution, usize), ResolverError> {
     let metadata = std::fs::metadata(path).map_err(ResolverError::Io)?;
     if metadata.len() > DART_LOCK_MAX_BYTES {
         return Err(ResolverError::Resolve(format!(
@@ -51,14 +51,18 @@ fn parse_lock_path(path: &Path) -> Result<CachedResolution, ResolverError> {
         )));
     }
     let content = std::fs::read_to_string(path).map_err(ResolverError::Io)?;
-    let (packages, parsed) =
-        parse_pubspec_lock_with_declarations(&content, path)
-            .map_err(|error| ResolverError::Resolve(error.to_string()))?;
-    Ok(CachedResolution {
-        packages,
-        package_declarations: lock_declarations_from_parsed(&parsed),
-        package_source_paths: HashMap::new(),
-    })
+    let detail = parse_pubspec_lock_detailed(&content, path)
+        .map_err(|error| ResolverError::Resolve(error.to_string()))?;
+    Ok((
+        CachedResolution {
+            packages: detail.packages,
+            package_declarations: lock_declarations_from_parsed(
+                &detail.parsed,
+            ),
+            package_source_paths: HashMap::new(),
+        },
+        detail.entry_count,
+    ))
 }
 
 /// Hint text (FR-024); Dart resolution never invokes a package manager, so
@@ -93,8 +97,10 @@ impl DartResolver {
         if cached.is_some() {
             return Ok(cached);
         }
-        let parsed = parse_lock_path(lock_path)?;
-        if parsed.packages.is_empty() {
+        let (parsed, entry_count) = parse_lock_path(lock_path)?;
+        // A lock whose entries are all non-pub.dev sources is still a usable
+        // lock; only a truly empty lock falls through to FR-022.
+        if parsed.packages.is_empty() && entry_count == 0 {
             return Ok(None);
         }
         if let Ok(mut cache) = self.lock_cache.lock() {
@@ -387,5 +393,20 @@ mod tests {
         ));
         assert!(!resolver.package_manager_hint().is_empty());
         assert_eq!(resolver.language_name(), "dart");
+    }
+
+    #[tokio::test]
+    async fn lock_with_only_skipped_sources_is_still_a_usable_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let lock = "packages:\n  local:\n    description:\n      path: ../x\n    source: path\n    version: \"1.0.0\"\n";
+        std::fs::write(dir.path().join("pubspec.lock"), lock).unwrap();
+        let manifest = dir.path().join("pubspec.yaml");
+        std::fs::write(&manifest, "name: app\n").unwrap();
+        let result = DartResolver::new()
+            .resolve(&graph_for(manifest), &ctx_for(dir.path()))
+            .await
+            .unwrap();
+        assert_eq!(result.depth, ResolutionDepth::Transitive);
+        assert!(result.packages.is_empty());
     }
 }
