@@ -3,9 +3,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # Rust (major.minor) that each OBS build repository's stable distro repo is
-# known to ship, plus how to probe it in a container. Read by
-# scripts/distro_rust.py (make check-distro-rust) and by the distro-build
-# workflow matrix.
+# known to ship, plus how to probe it. Read by scripts/distro_rust.py
+# (make check-distro-rust) and by the distro-build workflow matrix.
 #
 # Policy (CONTRIBUTING "Rust toolchain and MSRV policy"): the workspace MSRV
 # ([workspace.package].rust-version) must be <= rust_available of every
@@ -17,15 +16,29 @@
 # disabled_reason so the history stays visible; rust_available is optional
 # there.
 #
-# probe_command runs via `sh -c` inside probe_image and must print the distro
-# `rust` package version (the first X.Y found is used). build_deps_command
-# installs distro rust/cargo and build tools in that image for the
-# distro-build workflow (`distro_rust.py --matrix-json`).
+# probe_kind:
+#   container (default) -- probe_command via `sh -c` inside probe_image
+#   obs -- OBS public build API for versioned rustX.Y / cargoX.Y packages
+#     (SUSE). Project/repository default from project/_meta <path>; set
+#     obs_project when the published path project does not host the packages
+#     (Tumbleweed Rust lives in openSUSE:Factory).
+#
+# build_deps_command installs distro rust/cargo and build tools in probe_image
+# for the distro-build workflow (`distro_rust.py --matrix-json`).
+#
+# [canaries.*] rows are non-OBS nightly advisory builds (Alpine, Arch). They
+# are not checked against project/_meta. Disabled OBS targets are also included
+# in the canary matrix automatically.
 
 [targets.openSUSE_Tumbleweed]
 distro = "openSUSE Tumbleweed"
 rust_available = "1.98"
-verified_at = "2026-10-10"
+verified_at = "2026-10-11"
+probe_kind = "obs"
+# project/_meta path is openSUSE:Tumbleweed; rust/cargo packages are built in
+# openSUSE:Factory (public binarylist). Verified 2026-10-11: rust 1.98.1 and
+# rust1.98 / cargo1.98 RPMs on Factory standard x86_64.
+obs_project = "openSUSE:Factory"
 probe_image = "registry.opensuse.org/opensuse/tumbleweed:latest"
 probe_command = "zypper -n refresh >/dev/null 2>&1; zypper -n info rust | sed -n 's/^Version *: *//p' | head -1"
 build_deps_command = "zypper -n install rust cargo gcc make git libopenssl-devel"
@@ -49,7 +62,19 @@ disabled_reason = "OBS worker Rust 1.90 is below the MSRV"
 [targets."16.0"]
 distro = "openSUSE Leap 16.0"
 verified_at = "2026-10-10"
+probe_kind = "obs"
+obs_project = "openSUSE:Leap:16.0"
 probe_image = "registry.opensuse.org/opensuse/leap:16.0"
 probe_command = "zypper -n refresh >/dev/null 2>&1; zypper -n info rust | sed -n 's/^Version *: *//p' | head -1"
 build_deps_command = "zypper -n install rust cargo gcc make git libopenssl-devel"
 disabled_reason = "rust1.98 and cargo1.98 are not published for Leap 16.0"
+
+[canaries.Alpine]
+distro = "Alpine Linux"
+probe_image = "docker.io/library/alpine:latest"
+build_deps_command = "apk add --no-cache rust cargo gcc make git openssl-dev"
+
+[canaries.Arch]
+distro = "Arch Linux"
+probe_image = "docker.io/library/archlinux:latest"
+build_deps_command = "pacman -Sy --noconfirm rust cargo base-devel git openssl"
