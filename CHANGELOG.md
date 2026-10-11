@@ -10,6 +10,8 @@ Human-readable release notes for each version.
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-10-11
+
 ### Changed
 
 - MSRV is `rust-version = "1.98"` again (v0.14.0 raised it to 1.99 only
@@ -29,7 +31,9 @@ Human-readable release notes for each version.
 ### Fixed
 
 - openSUSE Tumbleweed RPM builds are enabled again (v0.14.0 required Rust
-  1.99, which Tumbleweed does not ship).
+  1.99, which Tumbleweed did not ship). OBS package `_meta` no longer
+  disables `openSUSE_Tumbleweed`; BuildRequires use `rust1.98` /
+  `cargo1.98`.
 
 ## [0.14.0] - 2026-10-10
 
