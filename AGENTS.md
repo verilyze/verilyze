@@ -75,7 +75,9 @@ changed. Full path-to-target matrix:
    PR-ready
 4. Super-linter paths touched: `make super-linter` must exit 0 (Docker)
 5. Dependency manifests (`Cargo.toml`, `Cargo.lock`, `pyproject.toml`): targeted
-   deny, locked Cargo check, license, and SBOM gates from the matrix
+   deny, locked Cargo check, license, and SBOM gates from the matrix; for
+   `rust-version`, `rust-toolchain.toml`, or `packaging/obs/**` also
+   `make check-distro-rust`
 6. Human-only: signed commits + DCO (`make setup-hooks` recommended)
 
 `make check-pr` runs `check-fast` then `coverage-quick` sequentially
@@ -129,6 +131,14 @@ suppress tool stderr (including `eprintln!` such as FR-022a), not only
   values), configuration (for user-overridable values), or programmatic
   derivation. Tests must use the same constants as production. See PRD NFR-024,
   CONTRIBUTING "DRY (Don't Repeat Yourself)".
+- **Rust toolchain vs MSRV:** `rust-toolchain.toml` is the dev/CI toolchain
+ (Renovate tracks latest stable); `rust-version` in the root `Cargo.toml` is the
+ MSRV. Never raise `rust-version`, or require a newer `rust`/`cargo` in
+ packaging, just because the toolchain moved. Raise it only for a code or
+ dependency need, after `make check-distro-rust` passes against every enabled
+ distro target (`packaging/obs/distro-rust.toml`), then `make generate-packaging`.
+ Do not edit RPM `BuildRequires` Rust versions by hand. See CONTRIBUTING
+ "Rust toolchain and MSRV policy".
 - **Python modern style:** Follow CONTRIBUTING Python style (3.11+ typing; no
   `__future__` imports or legacy `typing` aliases).
 
@@ -198,6 +208,7 @@ Cloud Agents use [`.cursor/environment.json`](.cursor/environment.json):
 | crates.io publish | CONTRIBUTING "crates.io" and "Adding a new production crate"; [scripts/crates_publish.py](scripts/crates_publish.py) auto-discovers publishable crates (no manual allowlist); `make check-crates-publish` |
 | CI gate quiet / verbose | This file "CI gate quietness"; CONTRIBUTING "CI check debug output"; [`scripts/lib/check-quiet-env.sh`](scripts/lib/check-quiet-env.sh); `benchmark-gate` reference |
 | AI learnings (`ai-learnings` / type `Learning`) | [ai-learnings.md](.cursor/skills/pre-merge-check/ai-learnings.md) |
+| Rust toolchain / MSRV | CONTRIBUTING "Rust toolchain and MSRV policy"; PRD NFR-027; [`packaging/obs/distro-rust.toml`](packaging/obs/distro-rust.toml); `make check-distro-rust` |
 | Roadmap              | [docs/ROADMAP.md](docs/ROADMAP.md); this file "Roadmap and product boundaries" |
 | Capability matrix    | [docs/capabilities.md](docs/capabilities.md) |
 | Security             | PRD section 6 (SEC-*), section 11 (Risk & Threat Model); [SECURITY.md](SECURITY.md); [COMPLIANCE.md](COMPLIANCE.md) |

@@ -12,11 +12,13 @@ import pytest
 from scripts.obs_repositories import (
     DEFAULT_PACKAGE_META_REL,
     DEFAULT_PROJECT_META_REL,
+    ObsRepositoryPath,
     enabled_build_repositories,
     format_repository_list,
     load_enabled_build_repositories,
     parse_package_disabled_repositories,
     parse_project_repository_names,
+    parse_project_repository_paths,
     validate_obs_meta_files,
 )
 
@@ -103,6 +105,73 @@ _EXPECTED_ALL_REPOS = (
 def test_parse_project_repository_names_returns_sorted_unique_names() -> None:
     names = parse_project_repository_names(_PROJECT_META)
     assert names == _EXPECTED_ALL_REPOS
+
+
+def test_parse_project_repository_paths_reads_path_and_arches() -> None:
+    paths = parse_project_repository_paths(_PROJECT_META)
+    assert paths["openSUSE_Tumbleweed"] == ObsRepositoryPath(
+        project="openSUSE:Tumbleweed",
+        repository="standard",
+        arches=("aarch64", "x86_64"),
+    )
+    assert paths["Fedora_44"].project == "Fedora:Rawhide"
+    assert paths["Fedora_44"].arches == ("x86_64",)
+
+
+def test_parse_project_repository_paths_requires_path_and_arch() -> None:
+    bare = """\
+<project name="p">
+  <repository name="X"/>
+</project>
+"""
+    with pytest.raises(ValueError, match="path"):
+        parse_project_repository_paths(bare)
+
+
+def test_parse_project_repository_paths_requires_path_attrs() -> None:
+    xml = """\
+<project name="p">
+  <repository name="X">
+    <path project="" repository="standard"/>
+    <arch>x86_64</arch>
+  </repository>
+</project>
+"""
+    with pytest.raises(ValueError, match="needs project and repository"):
+        parse_project_repository_paths(xml)
+
+
+def test_parse_project_repository_paths_requires_arch() -> None:
+    xml = """\
+<project name="p">
+  <repository name="X">
+    <path project="openSUSE:Factory" repository="standard"/>
+  </repository>
+</project>
+"""
+    with pytest.raises(ValueError, match="no <arch>"):
+        parse_project_repository_paths(xml)
+
+
+def test_parse_project_repository_paths_skips_nameless_repo() -> None:
+    xml = """\
+<project name="p">
+  <repository>
+    <path project="openSUSE:Factory" repository="standard"/>
+    <arch>x86_64</arch>
+  </repository>
+  <repository name="Y">
+    <path project="openSUSE:Factory" repository="standard"/>
+    <arch>x86_64</arch>
+  </repository>
+</project>
+"""
+    assert set(parse_project_repository_paths(xml)) == {"Y"}
+
+
+def test_parse_project_repository_paths_empty_project() -> None:
+    with pytest.raises(ValueError, match="no repository definitions"):
+        parse_project_repository_paths('<project name="p"/>')
 
 
 def test_parse_package_disabled_repositories_empty_when_no_build_flags() -> None:

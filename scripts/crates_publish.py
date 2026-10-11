@@ -25,6 +25,8 @@ from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 
+from scripts.rust_version import parse_rust_version, read_toolchain_channel
+
 VLZ_INSTALL_BINARIES = frozenset({"vlz"})
 REGISTRY_INHERIT_FIELDS = ("keywords", "categories", "readme", "rust-version")
 VERILYZE_CRATE_NAME_RE = re.compile(r"^vlz(?:-|$)")
@@ -204,14 +206,6 @@ def inherits_workspace_field(package: dict[str, object], field: str) -> bool:
     return isinstance(value, dict) and value.get("workspace") is True
 
 
-def rust_version_from_toolchain_channel(channel: str) -> str:
-    """Map rust-toolchain.toml channel to Cargo rust-version (major.minor)."""
-    parts = channel.split(".")
-    if len(parts) >= 2 and parts[0].isdigit() and parts[1].isdigit():
-        return f"{parts[0]}.{parts[1]}"
-    return channel
-
-
 def read_workspace_package_table(cargo_toml: Path) -> dict[str, object]:
     """Return [workspace.package] from the root Cargo.toml."""
     data = tomllib.loads(cargo_toml.read_text(encoding="utf-8"))
@@ -224,21 +218,34 @@ def read_workspace_package_table(cargo_toml: Path) -> dict[str, object]:
 def validate_workspace_rust_version(
     repo_root: Path, workspace_package: dict[str, object]
 ) -> list[str]:
-    """Keep workspace rust-version aligned with rust-toolchain.toml."""
-    toolchain_path = repo_root / "rust-toolchain.toml"
-    if not toolchain_path.is_file():
+    """Require the dev toolchain to be at least the workspace MSRV.
+
+    The toolchain may lead the MSRV (Renovate tracks latest stable); the MSRV
+    is held at the lowest Rust shipped by enabled distro targets (see
+    CONTRIBUTING "Rust toolchain and MSRV policy").
+    """
+    channel = read_toolchain_channel(repo_root)
+    if channel is None:
         return []
-    toolchain = tomllib.loads(toolchain_path.read_text(encoding="utf-8"))
-    channel = toolchain.get("toolchain", {}).get("channel")
-    if not isinstance(channel, str):
+    try:
+        toolchain = parse_rust_version(channel)
+    except ValueError:
         return []
-    expected = rust_version_from_toolchain_channel(channel)
     actual = workspace_package.get("rust-version")
-    if actual == expected:
+    try:
+        msrv = parse_rust_version(actual) if isinstance(actual, str) else None
+    except ValueError:
+        msrv = None
+    if msrv is None:
+        return [
+            f"workspace.package.rust-version is {actual!r}, "
+            "expected a numeric version such as '1.98'"
+        ]
+    if msrv <= toolchain:
         return []
     return [
-        "workspace.package.rust-version is "
-        f"{actual!r}, expected {expected!r} from toolchain {channel!r}"
+        f"workspace.package.rust-version {actual!r} is newer than "
+        f"toolchain channel {channel!r}"
     ]
 
 

@@ -432,6 +432,10 @@ with `RUSTFLAGS=-Dwarnings` so rustc warnings fail the build.
      OBS with `scripts/sync-obs-project-meta.sh --push` before source upload.
    - Run `make check-obs-packaging` and confirm OBS signing key metadata is
      present for the configured OBS project.
+   - Run `make check-distro-rust` (and `VLZ_DISTRO_RUST_LIVE=1 make
+     release-preflight` when Docker is available) so the MSRV is buildable on
+     every enabled distro before the tag is pushed (see "Rust toolchain and
+     MSRV policy").
    - OBS upload automation also renders `verilyze.changes` from the same
      `CHANGELOG.md` section as the GitHub Release body (no extra manual step
      beyond updating `CHANGELOG.md`).
@@ -549,8 +553,9 @@ When drafting or stabilizing `## [X.Y.Z]` **before** `gh release edit
 2. **Fixed** -- only defects a user of that previous tag could observe.
 3. **Added** -- new capabilities; include polish on features that never
    shipped in any earlier tag.
-4. **Changed / Removed** -- packaging matrix, MSRV BuildRequires, OBS target
-   enablement, or breaking behavior vs the previous tag.
+4. **Changed / Removed** -- packaging matrix, MSRV (`rust-version`) and its
+   BuildRequires, OBS target enablement, or breaking behavior vs the previous
+   tag.
 5. **Omit** -- `release.yml`, CI, secrets, registry account, and other
    maintainer-only workflow changes. File or bump `ai-learnings` when systemic
    (see release-prepare skill).
@@ -573,6 +578,77 @@ canonical publish for SemVer artifacts and GitHub Releases.
 **Verify locally (optional):** `./scripts/extract-changelog-for-release.sh X.Y.Z > /tmp/notes.md`
    The argument must be **SemVer without a `v` prefix** (Cargo-style, aligned
    with `[workspace.package].version`); invalid strings exit **2** (PRD OP-019).
+
+## Rust toolchain and MSRV policy
+
+Two pins exist on purpose, and they have different jobs:
+
+| Pin | File | Job | Who moves it |
+|-----|------|-----|--------------|
+| Dev/CI toolchain | [`rust-toolchain.toml`](rust-toolchain.toml) `channel` | Compiler for CI, release binaries, `.deb`, and local builds | Renovate (latest stable) |
+| MSRV | root `Cargo.toml` `[workspace.package].rust-version` | Oldest Rust we promise to build with; source for RPM `BuildRequires`, crates.io metadata, and docs | A maintainer, deliberately |
+
+**Rules**
+
+1. The toolchain may lead the MSRV but must never trail it
+   (`make check-crates-publish` enforces `toolchain >= rust-version`). A
+   Renovate toolchain bump never edits `rust-version`.
+2. The MSRV must be at most the Rust version shipped by every **enabled**
+   distro target: the repositories in
+   [`packaging/obs/project/_meta`](packaging/obs/project/_meta) minus the
+   package-level disables in [`packaging/obs/rpm/_meta`](packaging/obs/rpm/_meta).
+   The per-distro facts live in
+   [`packaging/obs/distro-rust.toml`](packaging/obs/distro-rust.toml); run
+   `make check-distro-rust` (part of `make check-fast`).
+3. Raise `rust-version` only when code or a dependency needs a newer compiler,
+   and only after `make check-distro-rust` (ideally with
+   `PYTHONPATH=. python3 scripts/distro_rust.py --live`) shows every enabled
+   target ships it. Do it in its own PR with a CHANGELOG **Changed** entry, and
+   cut a minor release (Cargo treats an MSRV change as a minor incompatibility).
+   Then run `make generate-packaging` so the OBS and local RPM specs follow.
+4. If a stable distro cannot ship the Rust we need, drop that target in a PR
+   (`<disable repository="..."/>` in `packaging/obs/rpm/_meta`, record
+   `disabled_reason` in `distro-rust.toml`, add a CHANGELOG **Changed**
+   note). Never discover this after the tag: published tags are immutable.
+5. New dependency versions must not silently raise the floor. The workspace
+   uses the MSRV-aware resolver (`resolver = "3"`), and the CI `msrv` job runs
+   `cargo check --workspace --all-targets --locked` with exactly
+   `rust-version`.
+
+**Gates (shift left)**
+
+| Stage | Gate |
+|-------|------|
+| Local / PR | `make check-distro-rust` and `make check-packaging` (specs match `rust-version`) in `make check-fast` |
+| PR | `msrv` job in [`ci.yml`](.github/workflows/ci.yml); [`distro-build.yml`](.github/workflows/distro-build.yml) builds with distro `rust`/`cargo` in containers when `Cargo.*`, `rust-toolchain.toml`, or `packaging/**` change |
+| Nightly | `distro-build.yml` schedule: live OBS/container probe (fails on overclaim), enabled-target builds, and non-blocking canaries for disabled OBS targets plus Alpine/Arch |
+| Pre-tag | `make release-preflight` (set `VLZ_DISTRO_RUST_LIVE=1` to probe OBS/containers); `release.yml` `preflight-release` fails before any build or OBS upload |
+| Post-tag | `wait-obs-builds` remains the backstop, not the first line of defense |
+
+**Required checks (branch ruleset):** add the `msrv` check context to the
+`default` ruleset on `main` (human admin action in GitHub settings). Keep
+`distro-build` / `build-*` advisory: that workflow has no `merge_group`
+trigger and uses a path filter, so requiring those contexts would pend on
+unrelated PRs. The offline `make check-distro-rust` gate already runs inside
+the required `check` job via `check-fast`.
+
+**Adding or changing a distro target:** edit `packaging/obs/project/_meta`,
+add a matching `[targets.<repository>]` table in `distro-rust.toml` (image,
+probe command, build-deps command, `rust_available`, `verified_at`; for SUSE
+set `probe_kind = "obs"` and `obs_project` when the `_meta` path project is
+not where packages are built), then run
+`make check-distro-rust check-obs-packaging`. Non-OBS advisory canaries go in
+`[canaries.*]`. Update the supported-distro table in [INSTALL.md](INSTALL.md)
+in the same PR.
+
+**Rationale:** Cargo's
+[Rust version guide](https://doc.rust-lang.org/cargo/reference/rust-version.html)
+recommends a stated policy, CI verification with the MSRV compiler, and MSRV-aware
+dependency resolution. Libraries such as Tokio keep a rolling MSRV and bump it
+only in minor releases. Distro packagers build offline with distro Rust, so
+that is the floor that matters for RPM targets. Debian/Ubuntu `.deb` files and
+release binaries use rustup and are covered by the CI toolchain and the `msrv`
+job.
 
 ## Adding a new language plugin
 
@@ -1324,7 +1400,9 @@ PR create, issue intake) use `GH_TOKEN` when set.
   `cargo-afl`, and `cargo-about` with [taiki-e/install-action](https://github.com/taiki-e/install-action)
   at a pinned action SHA and tool versions listed there (`cargo-deny` matches
   the Quick setup pin below). Rust for `check` is pinned in
-  [`rust-toolchain.toml`](rust-toolchain.toml); CI and release workflows use the
+  [`rust-toolchain.toml`](rust-toolchain.toml) (dev/CI toolchain; the MSRV is
+  `rust-version` in `Cargo.toml`, see "Rust toolchain and MSRV policy"); CI and
+  release workflows use the
   host `rustup` (no `dtolnay/rust-toolchain` action) so the first `rustc` / `cargo`
   in the repo root provisions that channel and its components. Cargo
   cache keys stay stable. [Swatinem/rust-cache](https://github.com/Swatinem/rust-cache) restores
@@ -1433,7 +1511,9 @@ PR create, issue intake) use `GH_TOKEN` when set.
   Renovate bumps both in one PR (`cargo-deny-workflow-pins`). A **regex** rule tracks the stable
   **channel** in [`rust-toolchain.toml`](rust-toolchain.toml) using the
   **github-tags** datasource for `rust-lang/rust` (**minor** and **patch**
-  bumps are grouped into one PR; **major** upgrades stay separate). It also manages
+  bumps are grouped into one PR; **major** upgrades stay separate). That bump
+  moves the dev/CI toolchain only; it never edits `rust-version` (MSRV), which
+  is gated by `make check-distro-rust` (see "Rust toolchain and MSRV policy"). It also manages
   **GitHub Actions** under `.github/workflows/`: `uses:` lines are pinned to
   immutable commit SHAs with the **exact** release tag in a trailing YAML
   comment (`helpers:pinGitHubActionDigests`), for example `# v2.9.2` -- not a

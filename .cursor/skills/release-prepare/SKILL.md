@@ -105,6 +105,11 @@ SemVer is genuinely ambiguous (e.g. conflicting major vs minor signals).
 - `make -j check` green (or run it now)
 - `make release-preflight` passes (includes local publish layout round-trip via
   `scripts/release-verify-upload-roundtrip.sh`)
+- `make check-distro-rust` passes (MSRV does not exceed Rust on any enabled
+  distro target); with Docker, also `VLZ_DISTRO_RUST_LIVE=1 make
+  release-preflight`. Never raise `rust-version` for a release without it (see
+  CONTRIBUTING "Rust toolchain and MSRV policy"); do not fix a distro Rust gap
+  after the tag
 - New production crates under `crates/` are picked up automatically by
   `scripts/crates_publish.py`; run `make check-crates-publish` before release
   (see CONTRIBUTING "Adding a new production crate")
@@ -137,8 +142,10 @@ publish and bypasses project review policy.
    bullets only; do not edit the CHANGELOG header or add maintainer workflow
    text there (see CONTRIBUTING release checklist step 1).
 2. **Version bump** -- `[workspace.package].version` in root `Cargo.toml` only
-3. **`make generate-packaging`**
-4. **`make release-preflight`** (CHANGELOG, OBS/packaging, upload round-trip)
+3. **`make generate-packaging`** (also derives RPM `BuildRequires` from
+   `rust-version`)
+4. **`make release-preflight`** (CHANGELOG, OBS/packaging, distro Rust gate,
+   upload round-trip)
 5. **Full gate** -- `make -j check` (use shell subagent in background if helpful)
 6. **Branch and commit** -- create `release/vX.Y.Z` from `main`; signed commit
    (`chore: prepare vX.Y.Z release`)
@@ -205,6 +212,9 @@ second chat prompt.
 ## Optional deeper checks
 
 - OBS packaging changed: `make obs-upload-dry-run`
+- `rust-version`, `rust-toolchain.toml`, or `packaging/obs/**` changed:
+  `VLZ_DISTRO_RUST_LIVE=1 make release-preflight` and confirm the latest
+  `distro-build.yml` run is green
 - After Renovate super-linter digest bump: `make super-linter-full` (Docker)
 
 ## Failure recovery

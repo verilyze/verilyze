@@ -117,6 +117,59 @@ class TestUpdateWorkspaceInternalDepVersions:
         assert 'async-trait = "0.1"' in result
 
 
+_OBS_SPEC = (
+    "%if 0%{{?suse_version}}\n"
+    "BuildRequires:  cargo{msrv}\n"
+    "BuildRequires:  rust{msrv}\n"
+    "%else\n"
+    "BuildRequires:  cargo >= {msrv}.0\n"
+    "BuildRequires:  rust >= {msrv}.0\n"
+    "%endif\n"
+)
+
+
+class TestUpdateObsSpecMsrv:
+    """Tests for update_obs_spec_msrv."""
+
+    def test_rewrites_versioned_and_minimum_requires(self) -> None:
+        content = _OBS_SPEC.format(msrv="1.99")
+        result = generate_packaging_versions.update_obs_spec_msrv(
+            content, "1.98"
+        )
+        assert result == _OBS_SPEC.format(msrv="1.98")
+
+    def test_idempotent(self) -> None:
+        content = _OBS_SPEC.format(msrv="1.98")
+        assert (
+            generate_packaging_versions.update_obs_spec_msrv(content, "1.98")
+            == content
+        )
+
+    def test_leaves_unrelated_requires(self) -> None:
+        content = "BuildRequires:  make\nBuildRequires:  libopenssl-devel\n"
+        assert (
+            generate_packaging_versions.update_obs_spec_msrv(content, "1.98")
+            == content
+        )
+
+
+class TestGetRustVersion:
+    """Tests for get_rust_version."""
+
+    def test_reads_workspace_rust_version(self, tmp_path: Path) -> None:
+        cargo = tmp_path / "Cargo.toml"
+        cargo.write_text(
+            '[workspace.package]\nrust-version = "1.98"\n', encoding="utf-8"
+        )
+        assert generate_packaging_versions.get_rust_version(cargo) == "1.98"
+
+    def test_missing_rust_version_exits(self, tmp_path: Path) -> None:
+        cargo = tmp_path / "Cargo.toml"
+        cargo.write_text("[workspace.package]\n", encoding="utf-8")
+        with pytest.raises(SystemExit):
+            generate_packaging_versions.get_rust_version(cargo)
+
+
 class TestMain:
     """Tests for main."""
 
@@ -126,18 +179,27 @@ class TestMain:
         version: str = "0.5.0",
         apk_ver: str | None = None,
         pkg_ver: str | None = None,
+        msrv: str = "1.98",
+        spec_msrv: str | None = None,
     ) -> None:
         """Create Cargo.toml and packaging files."""
         if apk_ver is None:
             apk_ver = version
         if pkg_ver is None:
             pkg_ver = version
+        if spec_msrv is None:
+            spec_msrv = msrv
         (tmp_path / "Cargo.toml").write_text(
-            f'[workspace.package]\nversion = "{version}"\n',
+            f'[workspace.package]\nversion = "{version}"\n'
+            f'rust-version = "{msrv}"\n',
             encoding="utf-8",
         )
         (tmp_path / "packaging" / "alpine").mkdir(parents=True)
         (tmp_path / "packaging" / "arch").mkdir(parents=True)
+        (tmp_path / "packaging" / "obs" / "rpm").mkdir(parents=True)
+        (tmp_path / "packaging" / "obs" / "rpm" / "verilyze.spec").write_text(
+            _OBS_SPEC.format(msrv=spec_msrv), encoding="utf-8"
+        )
         (tmp_path / "packaging" / "alpine" / "APKBUILD").write_text(
             f"pkgname=verilyze\npkgver={apk_ver}\npkgrel=0\n",
             encoding="utf-8",
@@ -230,6 +292,47 @@ class TestMain:
         assert exit_code == 1
         captured = capsys.readouterr()
         assert "out of sync" in captured.err
+
+    def test_check_mode_obs_spec_msrv_out_of_sync_returns_1(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        self._setup_fixture(tmp_path, msrv="1.98", spec_msrv="1.99")
+        with patch.object(
+            generate_packaging_versions,
+            "get_repo_root",
+            return_value=tmp_path,
+        ):
+            with patch("sys.argv", ["gen.py", "--check"]):
+                exit_code = generate_packaging_versions.main()
+        assert exit_code == 1
+        assert "out of sync" in capsys.readouterr().err
+
+    def test_default_mode_writes_obs_spec_msrv(self, tmp_path: Path) -> None:
+        self._setup_fixture(tmp_path, msrv="1.98", spec_msrv="1.99")
+        with patch.object(
+            generate_packaging_versions,
+            "get_repo_root",
+            return_value=tmp_path,
+        ):
+            with patch("sys.argv", ["gen.py"]):
+                exit_code = generate_packaging_versions.main()
+        assert exit_code == 0
+        spec = (
+            tmp_path / "packaging" / "obs" / "rpm" / "verilyze.spec"
+        ).read_text()
+        assert spec == _OBS_SPEC.format(msrv="1.98")
+
+    def test_obs_spec_not_found_returns_1(self, tmp_path: Path) -> None:
+        self._setup_fixture(tmp_path)
+        (tmp_path / "packaging" / "obs" / "rpm" / "verilyze.spec").unlink()
+        with patch.object(
+            generate_packaging_versions,
+            "get_repo_root",
+            return_value=tmp_path,
+        ):
+            with patch("sys.argv", ["gen.py"]):
+                exit_code = generate_packaging_versions.main()
+        assert exit_code == 1
 
     def test_default_mode_writes_updated_files(self, tmp_path: Path) -> None:
         self._setup_fixture(tmp_path, version="2.3.4", apk_ver="0.1.0", pkg_ver="0.1.0")

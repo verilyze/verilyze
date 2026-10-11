@@ -59,6 +59,17 @@ Status values: `done`, `in progress`, `planned`, `later`.
 | HC-10 | NuGet residual depth (orphan locks, restore edge cases); `Directory.Packages.props` version fill already ships | done | orphan packages.lock.json; ephemeral restore copies Directory.Packages.props |
 | HC-11 | Optional CONTRIBUTING split if TOC/matrix still leave it unusable | later | |
 | HC-12 | Install the real Dart/Flutter SDK in the Cursor Cloud Agent image (`.cursor/Dockerfile`) and document it as a general dev prerequisite, so `DartRemediator` (`pub add`) and Dart scans can be tested against real binaries | planned | HC-9 remediator was only tested with stub binaries |
+| HC-13 | Restore openSUSE Tumbleweed RPM builds: lower MSRV to the Rust that enabled distro targets ship (1.98 if the workspace builds and tests on 1.98.x), re-enable the target, ship a patch release. Never move a published tag | in progress | MSRV 1.98 and Tumbleweed re-enabled on this branch; done after the patch release ships |
+| HC-14 | MSRV policy: `rust-toolchain.toml` (dev/CI toolchain) is decoupled from `rust-version` (MSRV); the toolchain may lead the MSRV but never trail it; MSRV rises only for a code or dependency reason after the distro gate passes | done | `scripts/crates_publish.py`; CONTRIBUTING "Rust toolchain and MSRV policy" |
+| HC-15 | Single-source packaging: `packaging/obs/distro-rust.toml` lists per-distro Rust floors; RPM spec `BuildRequires` are derived from `rust-version` instead of hand-edited literals | done | `scripts/distro_rust.py`; `sync_rpm_specs.py` |
+| HC-16 | Distro Rust availability gate (`make check-distro-rust`) in `check-fast` and `release-preflight.sh`, so an unbuildable target blocks before the tag, not after | done | offline data check plus optional live container probe |
+| HC-17 | CI MSRV job (check with exactly `rust-version`) and MSRV-aware resolver v3 so dependency updates cannot raise the floor silently | done | |
+| HC-18 | Distro container build matrix (PR path filter plus nightly) building with distro-packaged `rust`/`cargo` and `--locked` | done | `.github/workflows/distro-build.yml` |
+| HC-19 | Renovate: toolchain bumps never edit `rust-version`; MSRV changes need a deliberate PR and never automerge | done | `renovate.json` |
+| HC-20 | Docs and agent guidance for the MSRV / distro policy (INSTALL, CONTRIBUTING, PRD, AGENTS, rules, skills) | done | README pointer moves to HC-23; `ai-learnings` entry deferred until a human approves posting |
+| HC-21 | Live distro Rust probe: query the OBS public API (no auth) for the exact `rust<MSRV>` and `cargo<MSRV>` packages each SUSE target needs, keep the container probe for Fedora, and add a nightly drift check that fails when live Rust is below `rust_available` or the MSRV | done | `scripts/distro_rust.py --live`; Tumbleweed probes `openSUSE:Factory` via `obs_project`; nightly `live-probe` job in `distro-build.yml` |
+| HC-22 | Non-blocking nightly canary builds for disabled OBS targets (Fedora 43, Leap 16.0) plus Alpine and Arch; a green canary signals that a target can be re-enabled in a PR | done | `[canaries.*]` in `distro-rust.toml`; `canary-*` jobs use `continue-on-error` |
+| HC-23 | Require the `msrv` check in the `default` ruleset (human action; keep `distro-build` advisory because it has no `merge_group` trigger and a path filter) and add a one-line MSRV policy pointer to the README install section | in progress | README pointer and CONTRIBUTING ruleset note landed; ruleset edit remains a human admin action |
 
 ## Non-goals
 

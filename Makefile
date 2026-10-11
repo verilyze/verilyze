@@ -55,7 +55,7 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: generate-completions completions completions-release check-completions
 .PHONY: generate-packaging check-packaging check-obs-signing
 .PHONY: release-preflight release-verify-upload release-tag-push release-tag-move
-.PHONY: sync-vlz-crate-assets check-crates-publish
+.PHONY: sync-vlz-crate-assets check-crates-publish check-distro-rust
 .PHONY: sync-rpm-specs check-rpm-spec-sync
 .PHONY: check-obs-packaging check-super-linter-native obs-upload-dry-run
 .PHONY: sync-license-config check-license-config sync-deny-skips check-deny-skips deny-check
@@ -113,6 +113,7 @@ help:
 	@echo "    make generate-packaging  - Update packaging specs with version from Cargo.toml"
 	@echo "    make release-preflight  - CHANGELOG, OBS, packaging, upload round-trip"
 	@echo "    make check-crates-publish - crates.io manifest/package validation"
+	@echo "    make check-distro-rust   - Verify MSRV fits Rust on enabled distro targets"
 	@echo "    make sync-vlz-crate-assets - Sync vlz crate assets for crates.io"
 	@echo "    make release-tag-push TAG=vX.Y.Z - Signed tag + push tag only"
 	@echo "    make release-tag-move TAG=vX.Y.Z - Retarget signed tag (draft only)"
@@ -488,14 +489,16 @@ check-manpages: generate-manpages
 check-config-docs: debug $(VENV_TEST)/bin/pytest
 	@$(MAKE_RUN_LEAF) check-config-docs -- bash -c '$(SCRIPTS_DIR)/sync-vlz-crate-assets.sh --check && "$(VENV_TEST)/bin/python" "$(SCRIPTS_DIR)/generate_config_example.py" --check'
 
-# generate-packaging: Update APKBUILD and PKGBUILD with version from Cargo.toml.
-# Run after bumping version; required before make apk.
+# generate-packaging: Update APKBUILD, PKGBUILD, and the OBS RPM spec (version
+# and MSRV BuildRequires from Cargo.toml), then sync the local RPM spec.
+# Run after bumping version or rust-version; required before make apk.
 generate-packaging:
-	python3 $(SCRIPTS_DIR)/generate_packaging_versions.py
+	PYTHONPATH="$(MKFILE_DIR)" python3 $(SCRIPTS_DIR)/generate_packaging_versions.py
+	python3 $(SCRIPTS_DIR)/sync_rpm_specs.py
 
 # check-packaging: Verify packaging spec versions match Cargo.toml.
 check-packaging: check-rpm-spec-sync
-	@$(MAKE_RUN_LEAF) check-packaging -- python3 "$(SCRIPTS_DIR)/generate_packaging_versions.py" --check
+	@$(MAKE_RUN_LEAF) check-packaging -- bash -c 'cd "$(MKFILE_DIR)" && PYTHONPATH="$(MKFILE_DIR)" python3 "$(SCRIPTS_DIR)/generate_packaging_versions.py" --check'
 
 # sync-rpm-specs: Regenerate local RPM spec from OBS RPM spec source of truth.
 sync-rpm-specs:
@@ -628,6 +631,12 @@ sync-vlz-crate-assets:
 check-crates-publish:
 	@$(MAKE_RUN_LEAF) check-crates-publish -- "$(SCRIPTS_DIR)/check-crates-publish.sh"
 
+# check-distro-rust: workspace MSRV must not exceed Rust on any enabled OBS
+# distro target (packaging/obs/distro-rust.toml). Offline; use
+# `PYTHONPATH=. python3 scripts/distro_rust.py --live` to probe containers.
+check-distro-rust:
+	@$(MAKE_RUN_LEAF) check-distro-rust -- bash -c 'cd "$(MKFILE_DIR)" && PYTHONPATH="$(MKFILE_DIR)" python3 "$(SCRIPTS_DIR)/distro_rust.py"'
+
 # Signed tag push/move: agents use these so Cursor can allowlist one command.
 # TAG must be vX.Y.Z. Never pushes main.
 release-tag-push:
@@ -682,6 +691,7 @@ check-fast-parallel: check-doc-diagrams \
             check-manpages \
             check-packaging \
             check-obs-packaging \
+            check-distro-rust \
             check-super-linter-native \
             check-completions \
             check-license-config \
@@ -708,6 +718,7 @@ check-parallel: check-doc-diagrams \
        check-manpages \
        check-packaging \
        check-obs-packaging \
+       check-distro-rust \
        check-completions \
        check-license-config \
        check-fuzz-target-parity \

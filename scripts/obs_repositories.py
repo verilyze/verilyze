@@ -6,12 +6,22 @@
 """Derive OBS enabled build repositories from committed _meta files."""
 
 import argparse
+from dataclasses import dataclass
 from pathlib import Path
 import sys
 import xml.etree.ElementTree as ET  # nosec B405
 
 DEFAULT_PROJECT_META_REL = Path("packaging/obs/project/_meta")
 DEFAULT_PACKAGE_META_REL = Path("packaging/obs/rpm/_meta")
+
+
+@dataclass(frozen=True)
+class ObsRepositoryPath:
+    """Path project/repository and arches for one OBS build repository."""
+
+    project: str
+    repository: str
+    arches: tuple[str, ...]
 
 
 def parse_project_repository_names(project_meta_xml: str) -> tuple[str, ...]:
@@ -26,6 +36,48 @@ def parse_project_repository_names(project_meta_xml: str) -> tuple[str, ...]:
         msg = "OBS project _meta contains no repository definitions"
         raise ValueError(msg)
     return tuple(sorted(names))
+
+
+def parse_project_repository_paths(
+    project_meta_xml: str,
+) -> dict[str, ObsRepositoryPath]:
+    """Return path project/repository and arches keyed by repository name."""
+    root = ET.fromstring(project_meta_xml)  # nosec B314
+    paths: dict[str, ObsRepositoryPath] = {}
+    for repository in root.findall("repository"):
+        name = (repository.get("name") or "").strip()
+        if not name:
+            continue
+        path_el = repository.find("path")
+        if path_el is None:
+            msg = f"OBS repository {name!r} has no <path> element"
+            raise ValueError(msg)
+        project = (path_el.get("project") or "").strip()
+        path_repo = (path_el.get("repository") or "").strip()
+        if not project or not path_repo:
+            msg = (
+                f"OBS repository {name!r} <path> needs project and repository"
+            )
+            raise ValueError(msg)
+        arches = tuple(
+            sorted(
+                {
+                    (arch.text or "").strip()
+                    for arch in repository.findall("arch")
+                    if (arch.text or "").strip()
+                }
+            )
+        )
+        if not arches:
+            msg = f"OBS repository {name!r} has no <arch> elements"
+            raise ValueError(msg)
+        paths[name] = ObsRepositoryPath(
+            project=project, repository=path_repo, arches=arches
+        )
+    if not paths:
+        msg = "OBS project _meta contains no repository definitions"
+        raise ValueError(msg)
+    return paths
 
 
 def parse_package_disabled_repositories(

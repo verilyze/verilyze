@@ -41,8 +41,10 @@ default-members = [
     "crates/core/vlz-exploitability",
 ]
 
-# Enforce a single Rust edition for all members
-resolver = "2"
+# MSRV-aware resolver (edition 2024 default): new dependency versions that need
+# a newer rustc than rust-version are skipped. MSRV policy: CONTRIBUTING.md
+# "Rust toolchain and MSRV policy".
+resolver = "3"
 
 # panic=unwind for dev: required by fuzz targets so thread panics are isolated (SEC-017).
 # Non-root packages inherit workspace profile; fuzz script builds with profile.dev.
@@ -67,7 +69,7 @@ description = "verilyze -- fast, modular Software Composition Analysis tool"
 keywords = ["cve", "sbom", "sca", "security", "supply-chain"]
 categories = ["command-line-utilities", "development-tools"]
 readme = "README.md"
-rust-version = "1.99"
+rust-version = "1.98"
 
 # CVE provider HTTP client (OP-018); system-proxy enables macOS/Windows OS proxy when env unset.
 [workspace.dependencies]

@@ -1,0 +1,163 @@
+# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+---
+# Build vlz with the distro-packaged rust/cargo of every enabled OBS target
+# (packaging/obs/distro-rust.toml), so an MSRV or dependency bump that a stable
+# distro cannot build fails on the pull request or the nightly run instead of
+# after a release tag (HC-18; CONTRIBUTING "Rust toolchain and MSRV policy").
+#
+# Nightly / workflow_dispatch also:
+# - live-probe: OBS public API + container probes; fails on overclaim (HC-21)
+# - canary: non-blocking builds for disabled OBS targets plus Alpine/Arch (HC-22)
+
+name: Distro build
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - rust-toolchain.toml
+      - crates/**/Cargo.toml
+      - packaging/obs/**
+      - packaging/rpm/**
+      - scripts/distro_rust.py
+      - scripts/rust_version.py
+      - .github/workflows/distro-build.yml
+  schedule:
+    - cron: "45 5 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Gate MSRV against committed distro data
+        run: PYTHONPATH="$(pwd)" python3 scripts/distro_rust.py
+
+      - name: List enabled distro targets
+        id: targets
+        run: |
+          set -euo pipefail
+          matrix="$(PYTHONPATH="$(pwd)" python3 scripts/distro_rust.py --matrix-json)"
+          echo "matrix=${matrix}" >> "${GITHUB_OUTPUT}"
+
+  build:
+    name: build-${{ matrix.repository }}
+    needs: matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    container:
+      image: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.matrix) }}
+    steps:
+      - name: Install distro Rust and build tools
+        env:
+          DEPS_COMMAND: ${{ matrix.deps_command }}
+        run: |
+          set -eu
+          sh -c "${DEPS_COMMAND}"
+          rustc -vV
+          cargo -V
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Trust workspace for git
+        run: git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+
+      - name: Build vlz with distro cargo
+        run: cargo build --release --locked -p vlz
+
+      - name: Smoke test
+        run: ./target/release/vlz --version
+
+  live-probe:
+    name: live-probe
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Live probe OBS API and distro containers
+        run: PYTHONPATH="$(pwd)" python3 scripts/distro_rust.py --live
+
+  canary-matrix:
+    name: canary-matrix
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: List canary targets
+        id: targets
+        run: |
+          set -euo pipefail
+          matrix="$(PYTHONPATH="$(pwd)" python3 scripts/distro_rust.py --canary-matrix-json)"
+          echo "matrix=${matrix}" >> "${GITHUB_OUTPUT}"
+
+  canary:
+    name: canary-${{ matrix.name }}
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    needs: canary-matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    continue-on-error: true
+    permissions:
+      contents: read
+    container:
+      image: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.canary-matrix.outputs.matrix) }}
+    steps:
+      - name: Install distro Rust and build tools
+        env:
+          DEPS_COMMAND: ${{ matrix.deps_command }}
+        run: |
+          set -eu
+          sh -c "${DEPS_COMMAND}"
+          rustc -vV
+          cargo -V
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Trust workspace for git
+        run: git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+
+      - name: Canary build vlz with distro cargo
+        run: cargo build --release --locked -p vlz
+
+      - name: Smoke test
+        run: ./target/release/vlz --version

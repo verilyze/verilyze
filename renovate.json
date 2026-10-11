@@ -158,13 +158,14 @@
       "groupName": "cargo-deny-workflow-pins"
     },
     {
-      "description": "rust-toolchain.toml: stable channel minor/patch in one PR",
+      "description": "rust-toolchain.toml: dev/CI toolchain tracks latest stable (minor/patch in one PR); never edits rust-version (MSRV), which is gated by make check-distro-rust",
       "matchManagers": ["custom.regex"],
       "matchDatasources": ["github-tags"],
       "matchFileNames": ["rust-toolchain.toml"],
       "matchPackageNames": ["rust-lang/rust"],
       "matchUpdateTypes": ["minor", "patch"],
-      "groupName": "rust-toolchain-channel-minor-patch"
+      "groupName": "rust-toolchain-channel-minor-patch",
+      "addLabels": ["rust-toolchain"]
     },
     {
       "description": "Cloud Agent rustup-init: minor/patch + refresh SHA-256 ARGs",
