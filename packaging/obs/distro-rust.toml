@@ -32,12 +32,13 @@
 
 [targets.openSUSE_Tumbleweed]
 distro = "openSUSE Tumbleweed"
-rust_available = "1.98"
+rust_available = "1.99"
 verified_at = "2026-10-11"
 probe_kind = "obs"
 # project/_meta path is openSUSE:Tumbleweed; rust/cargo packages are built in
-# openSUSE:Factory (public binarylist). Verified 2026-10-11: rust 1.98.1 and
-# rust1.98 / cargo1.98 RPMs on Factory standard x86_64.
+# openSUSE:Factory (public binarylist). Verified 2026-10-11: highest rust1.99
+# with rust1.98/cargo1.98 and rust1.99/cargo1.99 RPMs on Factory standard x86_64.
+# MSRV stays 1.98 so BuildRequires remain rust1.98/cargo1.98.
 obs_project = "openSUSE:Factory"
 probe_image = "registry.opensuse.org/opensuse/tumbleweed:latest"
 probe_command = "zypper -n refresh >/dev/null 2>&1; zypper -n info rust | sed -n 's/^Version *: *//p' | head -1"
