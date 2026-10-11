@@ -318,7 +318,9 @@ def parse_versioned_rust_package_name(name: str) -> RustVersion | None:
     return (int(match.group(1)), int(match.group(2)))
 
 
-def highest_versioned_rust_package(entries: tuple[str, ...]) -> RustVersion | None:
+def highest_versioned_rust_package(
+    entries: tuple[str, ...],
+) -> RustVersion | None:
     """Return the highest rustX.Y package name from a directory listing."""
     versions = [
         parsed
@@ -397,12 +399,15 @@ def default_http_fetcher(url: str) -> str:
         headers={"User-Agent": _HTTP_USER_AGENT},
     )
     try:
-        with urllib.request.urlopen(request, timeout=60) as response:  # nosec B310
+        with urllib.request.urlopen(
+            request, timeout=60
+        ) as response:  # nosec B310
             charset = response.headers.get_content_charset() or "utf-8"
-            return response.read().decode(charset)
+            body = response.read().decode(charset)
+            return str(body)
     except urllib.error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace")
-        msg = f"HTTP {exc.code} for {url}: {body.strip() or exc.reason}"
+        err_body = exc.read().decode("utf-8", errors="replace")
+        msg = f"HTTP {exc.code} for {url}: {err_body.strip() or exc.reason}"
         raise RuntimeError(msg) from exc
     except urllib.error.URLError as exc:
         msg = f"HTTP error for {url}: {exc.reason}"
@@ -417,6 +422,48 @@ def _obs_build_base(
     return f"{OBS_PUBLIC_BUILD_API}/{project}/{repository}"
 
 
+@dataclass(frozen=True)
+class _ObsArchProbe:
+    """Inputs for probing one OBS architecture."""
+
+    repository: str
+    base: str
+    arch: str
+    package: str
+    msrv: RustVersion
+
+
+def _obs_probe_arch(spec: _ObsArchProbe, fetcher: HttpFetcher) -> RustVersion:
+    """Probe one architecture; return highest rustX.Y after MSRV checks."""
+    arch_url = f"{spec.base}/{spec.arch}"
+    listing = parse_directory_entry_names(fetcher(arch_url))
+    highest = highest_versioned_rust_package(listing)
+    if highest is None:
+        msg = (
+            f"OBS probe for {spec.repository} ({spec.arch}): no rustX.Y "
+            f"packages under {arch_url}"
+        )
+        raise ValueError(msg)
+    try:
+        filenames = parse_binarylist_filenames(
+            fetcher(f"{arch_url}/{spec.package}")
+        )
+    except ValueError as exc:
+        msg = (
+            f"OBS probe for {spec.repository} ({spec.arch}): "
+            f"{spec.package} missing or empty ({exc})"
+        )
+        raise ValueError(msg) from exc
+    if not obs_binarylist_has_msrv_packages(filenames, spec.msrv):
+        major, minor = spec.msrv
+        msg = (
+            f"OBS probe for {spec.repository} ({spec.arch}): {spec.package} "
+            f"lacks rust{major}.{minor} and cargo{major}.{minor} RPMs"
+        )
+        raise ValueError(msg)
+    return highest
+
+
 def obs_probe_target(
     repo_root: Path,
     target: DistroTarget,
@@ -429,39 +476,23 @@ def obs_probe_target(
     paths = parse_project_repository_paths(meta)
     path = paths.get(target.repository)
     if path is None:
-        msg = (
-            f"OBS path for {target.repository!r} missing from project _meta"
-        )
+        msg = f"OBS path for {target.repository!r} missing from project _meta"
         raise ValueError(msg)
     base = _obs_build_base(target, path.project, path.repository)
     package = versioned_rust_package_name(msrv)
-    per_arch: list[RustVersion] = []
-    for arch in path.arches:
-        listing = parse_directory_entry_names(fetcher(f"{base}/{arch}"))
-        highest = highest_versioned_rust_package(listing)
-        if highest is None:
-            msg = (
-                f"OBS probe for {target.repository} ({arch}): no rustX.Y "
-                f"packages under {base}/{arch}"
-            )
-            raise ValueError(msg)
-        binary_xml = fetcher(f"{base}/{arch}/{package}")
-        try:
-            filenames = parse_binarylist_filenames(binary_xml)
-        except ValueError as exc:
-            msg = (
-                f"OBS probe for {target.repository} ({arch}): "
-                f"{package} missing or empty ({exc})"
-            )
-            raise ValueError(msg) from exc
-        if not obs_binarylist_has_msrv_packages(filenames, msrv):
-            msg = (
-                f"OBS probe for {target.repository} ({arch}): {package} "
-                f"lacks rust{msrv[0]}.{msrv[1]} and cargo{msrv[0]}.{msrv[1]} "
-                "RPMs"
-            )
-            raise ValueError(msg)
-        per_arch.append(highest)
+    per_arch = [
+        _obs_probe_arch(
+            _ObsArchProbe(
+                repository=target.repository,
+                base=base,
+                arch=arch,
+                package=package,
+                msrv=msrv,
+            ),
+            fetcher,
+        )
+        for arch in path.arches
+    ]
     if len(set(per_arch)) != 1:
         formatted = ", ".join(
             f"{arch}={format_rust_version(ver)}"
@@ -544,7 +575,7 @@ def check_live(
     *,
     http_fetcher: HttpFetcher | None = None,
 ) -> tuple[list[str], list[str]]:
-    """Probe each enabled target; return (errors, raise-rust_available notes)."""
+    """Probe enabled targets; return (errors, rust_available raise notes)."""
     msrv = read_msrv(repo_root)
     targets = load_distro_targets(repo_root)
     fetcher = http_fetcher or default_http_fetcher
