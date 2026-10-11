@@ -621,15 +621,25 @@ Two pins exist on purpose, and they have different jobs:
 |-------|------|
 | Local / PR | `make check-distro-rust` and `make check-packaging` (specs match `rust-version`) in `make check-fast` |
 | PR | `msrv` job in [`ci.yml`](.github/workflows/ci.yml); [`distro-build.yml`](.github/workflows/distro-build.yml) builds with distro `rust`/`cargo` in containers when `Cargo.*`, `rust-toolchain.toml`, or `packaging/**` change |
-| Nightly | `distro-build.yml` schedule catches a distro or dependency moving between releases |
-| Pre-tag | `make release-preflight` (set `VLZ_DISTRO_RUST_LIVE=1` to probe distro containers); `release.yml` `preflight-release` fails before any build or OBS upload |
+| Nightly | `distro-build.yml` schedule: live OBS/container probe (fails on overclaim), enabled-target builds, and non-blocking canaries for disabled OBS targets plus Alpine/Arch |
+| Pre-tag | `make release-preflight` (set `VLZ_DISTRO_RUST_LIVE=1` to probe OBS/containers); `release.yml` `preflight-release` fails before any build or OBS upload |
 | Post-tag | `wait-obs-builds` remains the backstop, not the first line of defense |
+
+**Required checks (branch ruleset):** add the `msrv` check context to the
+`default` ruleset on `main` (human admin action in GitHub settings). Keep
+`distro-build` / `build-*` advisory: that workflow has no `merge_group`
+trigger and uses a path filter, so requiring those contexts would pend on
+unrelated PRs. The offline `make check-distro-rust` gate already runs inside
+the required `check` job via `check-fast`.
 
 **Adding or changing a distro target:** edit `packaging/obs/project/_meta`,
 add a matching `[targets.<repository>]` table in `distro-rust.toml` (image,
-probe command, build-deps command, `rust_available`, `verified_at`), then run
-`make check-distro-rust check-obs-packaging`. Update the supported-distro table
-in [INSTALL.md](INSTALL.md) in the same PR.
+probe command, build-deps command, `rust_available`, `verified_at`; for SUSE
+set `probe_kind = "obs"` and `obs_project` when the `_meta` path project is
+not where packages are built), then run
+`make check-distro-rust check-obs-packaging`. Non-OBS advisory canaries go in
+`[canaries.*]`. Update the supported-distro table in [INSTALL.md](INSTALL.md)
+in the same PR.
 
 **Rationale:** Cargo's
 [Rust version guide](https://doc.rust-lang.org/cargo/reference/rust-version.html)

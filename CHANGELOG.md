@@ -18,6 +18,14 @@ Human-readable release notes for each version.
   "Rust toolchain and MSRV policy". OBS/RPM `BuildRequires` are generated
   from `rust-version` (`make generate-packaging`).
 
+### Added
+
+- Live distro Rust probe via the OBS public build API for SUSE targets
+  (`probe_kind = "obs"`) plus a nightly `live-probe` job that fails when live
+  Rust drops below `rust_available` or the MSRV (HC-21).
+- Non-blocking nightly canary builds for disabled OBS targets and Alpine/Arch
+  (`[canaries.*]` in `packaging/obs/distro-rust.toml`; HC-22).
+
 ### Fixed
 
 - openSUSE Tumbleweed RPM builds are enabled again (v0.14.0 required Rust

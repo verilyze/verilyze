@@ -56,7 +56,9 @@ cargo install vlz --locked
 
 Source builds (`make release`), packages (`.deb` / `.rpm`), Docker, shell
 completion, and optional providers: [INSTALL.md](INSTALL.md). Archive-only
-steps: [docs/install-archive.md](docs/install-archive.md).
+steps: [docs/install-archive.md](docs/install-archive.md). The workspace MSRV
+(`rust-version` in `Cargo.toml`) tracks Rust on enabled distro targets; see
+CONTRIBUTING "Rust toolchain and MSRV policy".
 
 Default scans need network access to OSV.dev unless you use `--offline` with
 a warm cache (see [docs/FAQ.md](docs/FAQ.md)).

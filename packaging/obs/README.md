@@ -147,18 +147,23 @@ a target if that distro ships at least the workspace MSRV
 (`[workspace.package].rust-version`).
 
 - [`distro-rust.toml`](distro-rust.toml) -- per OBS repository: Rust
-  (`rust_available`, `verified_at`), a container probe, and the container
-  build-deps command used by
+  (`rust_available`, `verified_at`), probe kind (`container` or `obs`), and the
+  container build-deps command used by
   [`.github/workflows/distro-build.yml`](../../.github/workflows/distro-build.yml).
+  Non-OBS canaries live under `[canaries.*]`.
 - `make check-distro-rust` -- fails when the MSRV exceeds `rust_available` for
   any enabled repository, when an enabled repository has no entry, or when an
   entry names a repository that is not in `project/_meta`. Run it through
   `make check-fast`, `make release-preflight`, and the release workflow
   `preflight-release` job (before any build or OBS upload).
 - `PYTHONPATH=. python3 scripts/distro_rust.py --live` (or
-  `VLZ_DISTRO_RUST_LIVE=1 make release-preflight`) probes the distro
-  containers and fails when a live Rust is below the MSRV. Update
-  `rust_available` and `verified_at` after a successful probe.
+  `VLZ_DISTRO_RUST_LIVE=1 make release-preflight`) probes SUSE targets via the
+  OBS public build API (`rustX.Y` / `cargoX.Y` RPMs) and Fedora via containers.
+  It fails when live Rust is below the MSRV or committed `rust_available`, and
+  prints a NOTE when live Rust is ahead (raise `rust_available`). Update
+  `rust_available` and `verified_at` after a successful probe. Tumbleweed sets
+  `obs_project = "openSUSE:Factory"` because packages are not listed under the
+  `_meta` path project `openSUSE:Tumbleweed`.
 - `make generate-packaging` regenerates the `cargo`/`rust` `BuildRequires` in
   `rpm/verilyze.spec` (and the local spec) from `rust-version`; do not edit them
   by hand.
