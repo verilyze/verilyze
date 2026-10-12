@@ -237,7 +237,7 @@ jobs:
         id: python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.14"
+          python-version: "3.15"
 
       # Pip packages: Makefile / ensure-reuse. Exact key miss is normal when
       # inputs change; PRs can still restore from default-branch caches per
@@ -341,7 +341,7 @@ jobs:
           cache-on-failure: true
 
       - name: Install cargo tooling (llvm-cov, about)
-        uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2.87.26
+        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
         with:
           tool: cargo-llvm-cov@0.9.0,cargo-about@0.9.0
 
@@ -362,7 +362,7 @@ jobs:
 
       - name: Install cargo-deny
         if: steps.cargo_deny.outputs.present != 'true'
-        uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2.87.26
+        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
         with:
           tool: cargo-deny@${{ env.CARGO_DENY_VERSION }}
 
@@ -391,7 +391,7 @@ jobs:
 
       - name: Install cargo-afl
         if: steps.fuzz_preflight.outputs.fuzz_needed == 'true'
-        uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2.87.26
+        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
         with:
           tool: cargo-afl@0.18.0
 
