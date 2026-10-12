@@ -14,14 +14,14 @@ sha256 = "50a9eaedf1db4857dad7cc47dd757ed70bfcc40b89d44d516c4a2f0d5033bd76"
 
 [[packages]]
 name = "astroid"
-version = "4.3.3"
+version = "4.3.4"
 
 [[packages.wheels]]
-name = "astroid-4.3.3-py3-none-any.whl"
-url = "https://files.pythonhosted.org/packages/23/be/54ffbdd679e2ea9f36f1923edd867c39fc1190b3810f111c8282a3f0b608/astroid-4.3.3-py3-none-any.whl"
+name = "astroid-4.3.4-py3-none-any.whl"
+url = "https://files.pythonhosted.org/packages/16/d4/f23c0ac6e6de33ba5686cb21c672c95e0c2d3d4c9351f16d3b5fed818652/astroid-4.3.4-py3-none-any.whl"
 
 [packages.wheels.hashes]
-sha256 = "366c99c2907b6407869b1bbfd8abb10f3aea5818309e9c93c9b9c93ecf14bc4f"
+sha256 = "2bcd0d02648a443a4b818c952c3550091989daefac3c12d3b83b2289482e0818"
 
 [[packages]]
 name = "attrs"
@@ -47,14 +47,14 @@ sha256 = "f89ffa663767f5a0585ea075f01020207e966a9c0f2b9ef56a57c7963a3f6f8e"
 
 [[packages]]
 name = "black"
-version = "26.10.0"
+version = "26.10.1"
 
 [[packages.wheels]]
-name = "black-26.10.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
-url = "https://files.pythonhosted.org/packages/9d/97/66b41852338be14c760cc432ae7041c52111521cd11c12005c279f387713/black-26.10.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
+name = "black-26.10.1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
+url = "https://files.pythonhosted.org/packages/89/2f/e12ca76edfcd037fe9e7e7635d9468d1d51255cf25a01b2f8f97a38f147d/black-26.10.1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
 
 [packages.wheels.hashes]
-sha256 = "3584c121fc57d08e0f73510df1d206f2c0c8858d3c82fc0664af7647ee8d1b3f"
+sha256 = "289282aa2e09d3162312a3be1788ff21b08e9ea9cc4a81e656024728b32428fb"
 
 [[packages]]
 name = "click"
@@ -234,14 +234,14 @@ sha256 = "a00ce642f577bf7f473932318056212bc4f8bfdf53128c78bbd5af0b9b20b189"
 
 [[packages]]
 name = "platformdirs"
-version = "4.12.3"
+version = "4.13.0"
 
 [[packages.wheels]]
-name = "platformdirs-4.12.3-py3-none-any.whl"
-url = "https://files.pythonhosted.org/packages/c5/9b/6ce1ead737fe496611bda600c263b9a11ae7bd8f41bb13f9bd7e0a2c37a4/platformdirs-4.12.3-py3-none-any.whl"
+name = "platformdirs-4.13.0-py3-none-any.whl"
+url = "https://files.pythonhosted.org/packages/8d/15/1633010b26e88e872c93b67c0b6c5e174fb74cb6fb5c1472b4d51d4a8f22/platformdirs-4.13.0-py3-none-any.whl"
 
 [packages.wheels.hashes]
-sha256 = "080f3b39423b5abfca9a23d84c4e9795f54d395cd8459867a8ded44084fcd5f8"
+sha256 = "3dbcf4cd708f21cf876c4eaa90e58412bc4f033d87143f41b1493ff77c25b7e1"
 
 [[packages]]
 name = "pluggy"
@@ -267,14 +267,14 @@ sha256 = "2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9"
 
 [[packages]]
 name = "pylint"
-version = "4.1.2"
+version = "4.1.3"
 
 [[packages.wheels]]
-name = "pylint-4.1.2-py3-none-any.whl"
-url = "https://files.pythonhosted.org/packages/90/61/b76698429225f848921f4d620f5c7b16f616daf53f99cc25afd1c86496fc/pylint-4.1.2-py3-none-any.whl"
+name = "pylint-4.1.3-py3-none-any.whl"
+url = "https://files.pythonhosted.org/packages/3f/ba/62b18e2e157d05f976bd490b349b55d8850c2a454a5c313c91af9d2e0baf/pylint-4.1.3-py3-none-any.whl"
 
 [packages.wheels.hashes]
-sha256 = "e34c8636edc7d60a2eaadca4ad6c18a49e202361987a26e81b2a17fa92be28e1"
+sha256 = "a85357cae24f33ad8d86c8f3daaa92c600ae4012b54a57299cee76000e9364cf"
 
 [[packages]]
 name = "pytest"
