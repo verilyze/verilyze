@@ -463,9 +463,9 @@
     {
       "@type": "Package",
       "name": "cc",
-      "packageUrl": "pkg:cargo/cc@1.7.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-cc-1-7-0",
-      "versionInfo": "1.7.0"
+      "packageUrl": "pkg:cargo/cc@1.8.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-cc-1-8-0",
+      "versionInfo": "1.8.0"
     },
     {
       "@type": "Package",
@@ -540,9 +540,9 @@
     {
       "@type": "Package",
       "name": "combine",
-      "packageUrl": "pkg:cargo/combine@4.6.8",
-      "spdxId": "urn:spdx.dev:pkg-cargo-combine-4-6-8",
-      "versionInfo": "4.6.8"
+      "packageUrl": "pkg:cargo/combine@4.6.9",
+      "spdxId": "urn:spdx.dev:pkg-cargo-combine-4-6-9",
+      "versionInfo": "4.6.9"
     },
     {
       "@type": "Package",
@@ -673,9 +673,9 @@
     {
       "@type": "Package",
       "name": "deranged",
-      "packageUrl": "pkg:cargo/deranged@0.5.8",
-      "spdxId": "urn:spdx.dev:pkg-cargo-deranged-0-5-8",
-      "versionInfo": "0.5.8"
+      "packageUrl": "pkg:cargo/deranged@0.5.9",
+      "spdxId": "urn:spdx.dev:pkg-cargo-deranged-0-5-9",
+      "versionInfo": "0.5.9"
     },
     {
       "@type": "Package",
@@ -729,9 +729,9 @@
     {
       "@type": "Package",
       "name": "equivalent",
-      "packageUrl": "pkg:cargo/equivalent@1.0.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-equivalent-1-0-2",
-      "versionInfo": "1.0.2"
+      "packageUrl": "pkg:cargo/equivalent@1.0.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-equivalent-1-0-3",
+      "versionInfo": "1.0.3"
     },
     {
       "@type": "Package",
@@ -1191,16 +1191,16 @@
     {
       "@type": "Package",
       "name": "manyhow",
-      "packageUrl": "pkg:cargo/manyhow@0.14.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-manyhow-0-14-0",
-      "versionInfo": "0.14.0"
+      "packageUrl": "pkg:cargo/manyhow@0.14.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-manyhow-0-14-1",
+      "versionInfo": "0.14.1"
     },
     {
       "@type": "Package",
       "name": "manyhow-macros",
-      "packageUrl": "pkg:cargo/manyhow-macros@0.14.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-manyhow-macros-0-14-0",
-      "versionInfo": "0.14.0"
+      "packageUrl": "pkg:cargo/manyhow-macros@0.14.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-manyhow-macros-0-14-1",
+      "versionInfo": "0.14.1"
     },
     {
       "@type": "Package",
@@ -1492,9 +1492,9 @@
     {
       "@type": "Package",
       "name": "redb",
-      "packageUrl": "pkg:cargo/redb@4.3.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-redb-4-3-0",
-      "versionInfo": "4.3.0"
+      "packageUrl": "pkg:cargo/redb@4.4.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-redb-4-4-0",
+      "versionInfo": "4.4.0"
     },
     {
       "@type": "Package",
@@ -1632,9 +1632,9 @@
     {
       "@type": "Package",
       "name": "rustls-native-certs",
-      "packageUrl": "pkg:cargo/rustls-native-certs@0.8.4",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-native-certs-0-8-4",
-      "versionInfo": "0.8.4"
+      "packageUrl": "pkg:cargo/rustls-native-certs@0.8.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-native-certs-0-8-5",
+      "versionInfo": "0.8.5"
     },
     {
       "@type": "Package",
@@ -1744,9 +1744,9 @@
     {
       "@type": "Package",
       "name": "serde_json",
-      "packageUrl": "pkg:cargo/serde_json@1.0.151",
-      "spdxId": "urn:spdx.dev:pkg-cargo-serde-json-1-0-151",
-      "versionInfo": "1.0.151"
+      "packageUrl": "pkg:cargo/serde_json@1.0.154",
+      "spdxId": "urn:spdx.dev:pkg-cargo-serde-json-1-0-154",
+      "versionInfo": "1.0.154"
     },
     {
       "@type": "Package",
@@ -1779,9 +1779,9 @@
     {
       "@type": "Package",
       "name": "sha2",
-      "packageUrl": "pkg:cargo/sha2@0.11.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-sha2-0-11-0",
-      "versionInfo": "0.11.0"
+      "packageUrl": "pkg:cargo/sha2@0.11.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-sha2-0-11-1",
+      "versionInfo": "0.11.1"
     },
     {
       "@type": "Package",
@@ -1996,9 +1996,9 @@
     {
       "@type": "Package",
       "name": "tokio",
-      "packageUrl": "pkg:cargo/tokio@1.53.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-1-53-2",
-      "versionInfo": "1.53.2"
+      "packageUrl": "pkg:cargo/tokio@1.53.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-1-53-3",
+      "versionInfo": "1.53.3"
     },
     {
       "@type": "Package",
@@ -2108,9 +2108,9 @@
     {
       "@type": "Package",
       "name": "unicode-ident",
-      "packageUrl": "pkg:cargo/unicode-ident@1.0.26",
-      "spdxId": "urn:spdx.dev:pkg-cargo-unicode-ident-1-0-26",
-      "versionInfo": "1.0.26"
+      "packageUrl": "pkg:cargo/unicode-ident@1.0.27",
+      "spdxId": "urn:spdx.dev:pkg-cargo-unicode-ident-1-0-27",
+      "versionInfo": "1.0.27"
     },
     {
       "@type": "Package",
@@ -2598,16 +2598,16 @@
     {
       "@type": "Package",
       "name": "zerocopy",
-      "packageUrl": "pkg:cargo/zerocopy@0.8.62",
-      "spdxId": "urn:spdx.dev:pkg-cargo-zerocopy-0-8-62",
-      "versionInfo": "0.8.62"
+      "packageUrl": "pkg:cargo/zerocopy@0.8.63",
+      "spdxId": "urn:spdx.dev:pkg-cargo-zerocopy-0-8-63",
+      "versionInfo": "0.8.63"
     },
     {
       "@type": "Package",
       "name": "zerocopy-derive",
-      "packageUrl": "pkg:cargo/zerocopy-derive@0.8.62",
-      "spdxId": "urn:spdx.dev:pkg-cargo-zerocopy-derive-0-8-62",
-      "versionInfo": "0.8.62"
+      "packageUrl": "pkg:cargo/zerocopy-derive@0.8.63",
+      "spdxId": "urn:spdx.dev:pkg-cargo-zerocopy-derive-0-8-63",
+      "versionInfo": "0.8.63"
     },
     {
       "@type": "Package",
