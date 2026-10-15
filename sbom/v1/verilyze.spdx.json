@@ -1625,9 +1625,9 @@
     {
       "@type": "Package",
       "name": "rustls",
-      "packageUrl": "pkg:cargo/rustls@0.23.45",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-0-23-45",
-      "versionInfo": "0.23.45"
+      "packageUrl": "pkg:cargo/rustls@0.23.46",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-0-23-46",
+      "versionInfo": "0.23.46"
     },
     {
       "@type": "Package",
