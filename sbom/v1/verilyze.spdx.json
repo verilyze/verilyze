@@ -1492,9 +1492,9 @@
     {
       "@type": "Package",
       "name": "redb",
-      "packageUrl": "pkg:cargo/redb@4.3.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-redb-4-3-0",
-      "versionInfo": "4.3.0"
+      "packageUrl": "pkg:cargo/redb@4.4.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-redb-4-4-0",
+      "versionInfo": "4.4.0"
     },
     {
       "@type": "Package",
@@ -1632,9 +1632,9 @@
     {
       "@type": "Package",
       "name": "rustls-native-certs",
-      "packageUrl": "pkg:cargo/rustls-native-certs@0.8.4",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-native-certs-0-8-4",
-      "versionInfo": "0.8.4"
+      "packageUrl": "pkg:cargo/rustls-native-certs@0.8.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-native-certs-0-8-5",
+      "versionInfo": "0.8.5"
     },
     {
       "@type": "Package",
@@ -1744,9 +1744,9 @@
     {
       "@type": "Package",
       "name": "serde_json",
-      "packageUrl": "pkg:cargo/serde_json@1.0.151",
-      "spdxId": "urn:spdx.dev:pkg-cargo-serde-json-1-0-151",
-      "versionInfo": "1.0.151"
+      "packageUrl": "pkg:cargo/serde_json@1.0.154",
+      "spdxId": "urn:spdx.dev:pkg-cargo-serde-json-1-0-154",
+      "versionInfo": "1.0.154"
     },
     {
       "@type": "Package",
@@ -1779,9 +1779,9 @@
     {
       "@type": "Package",
       "name": "sha2",
-      "packageUrl": "pkg:cargo/sha2@0.11.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-sha2-0-11-0",
-      "versionInfo": "0.11.0"
+      "packageUrl": "pkg:cargo/sha2@0.11.1",
+      "spdxId": "urn:spdx.dev:pkg-cargo-sha2-0-11-1",
+      "versionInfo": "0.11.1"
     },
     {
       "@type": "Package",
@@ -1884,9 +1884,9 @@
     {
       "@type": "Package",
       "name": "syn",
-      "packageUrl": "pkg:cargo/syn@3.0.7",
-      "spdxId": "urn:spdx.dev:pkg-cargo-syn-3-0-7",
-      "versionInfo": "3.0.7"
+      "packageUrl": "pkg:cargo/syn@3.0.9",
+      "spdxId": "urn:spdx.dev:pkg-cargo-syn-3-0-9",
+      "versionInfo": "3.0.9"
     },
     {
       "@type": "Package",
@@ -1996,9 +1996,9 @@
     {
       "@type": "Package",
       "name": "tokio",
-      "packageUrl": "pkg:cargo/tokio@1.53.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-1-53-2",
-      "versionInfo": "1.53.2"
+      "packageUrl": "pkg:cargo/tokio@1.53.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-tokio-1-53-3",
+      "versionInfo": "1.53.3"
     },
     {
       "@type": "Package",

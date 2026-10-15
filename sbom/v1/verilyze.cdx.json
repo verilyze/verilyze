@@ -1479,11 +1479,11 @@
       "version": "0.14.10"
     },
     {
-      "bom-ref": "pkg:cargo/redb@4.3.0",
+      "bom-ref": "pkg:cargo/redb@4.4.0",
       "name": "redb",
-      "purl": "pkg:cargo/redb@4.3.0",
+      "purl": "pkg:cargo/redb@4.4.0",
       "type": "library",
-      "version": "4.3.0"
+      "version": "4.4.0"
     },
     {
       "bom-ref": "pkg:cargo/redox_syscall@0.5.18",
@@ -1619,11 +1619,11 @@
       "version": "0.23.46"
     },
     {
-      "bom-ref": "pkg:cargo/rustls-native-certs@0.8.4",
+      "bom-ref": "pkg:cargo/rustls-native-certs@0.8.5",
       "name": "rustls-native-certs",
-      "purl": "pkg:cargo/rustls-native-certs@0.8.4",
+      "purl": "pkg:cargo/rustls-native-certs@0.8.5",
       "type": "library",
-      "version": "0.8.4"
+      "version": "0.8.5"
     },
     {
       "bom-ref": "pkg:cargo/rustls-pki-types@1.15.1",
@@ -1731,11 +1731,11 @@
       "version": "1.0.229"
     },
     {
-      "bom-ref": "pkg:cargo/serde_json@1.0.151",
+      "bom-ref": "pkg:cargo/serde_json@1.0.154",
       "name": "serde_json",
-      "purl": "pkg:cargo/serde_json@1.0.151",
+      "purl": "pkg:cargo/serde_json@1.0.154",
       "type": "library",
-      "version": "1.0.151"
+      "version": "1.0.154"
     },
     {
       "bom-ref": "pkg:cargo/serde_norway@0.9.42",
@@ -1766,11 +1766,11 @@
       "version": "0.7.1"
     },
     {
-      "bom-ref": "pkg:cargo/sha2@0.11.0",
+      "bom-ref": "pkg:cargo/sha2@0.11.1",
       "name": "sha2",
-      "purl": "pkg:cargo/sha2@0.11.0",
+      "purl": "pkg:cargo/sha2@0.11.1",
       "type": "library",
-      "version": "0.11.0"
+      "version": "0.11.1"
     },
     {
       "bom-ref": "pkg:cargo/shlex@2.0.1",
@@ -1871,11 +1871,11 @@
       "version": "2.0.119"
     },
     {
-      "bom-ref": "pkg:cargo/syn@3.0.7",
+      "bom-ref": "pkg:cargo/syn@3.0.9",
       "name": "syn",
-      "purl": "pkg:cargo/syn@3.0.7",
+      "purl": "pkg:cargo/syn@3.0.9",
       "type": "library",
-      "version": "3.0.7"
+      "version": "3.0.9"
     },
     {
       "bom-ref": "pkg:cargo/sync_wrapper@1.0.2",
@@ -1983,11 +1983,11 @@
       "version": "1.13.3"
     },
     {
-      "bom-ref": "pkg:cargo/tokio@1.53.2",
+      "bom-ref": "pkg:cargo/tokio@1.53.3",
       "name": "tokio",
-      "purl": "pkg:cargo/tokio@1.53.2",
+      "purl": "pkg:cargo/tokio@1.53.3",
       "type": "library",
-      "version": "1.53.2"
+      "version": "1.53.3"
     },
     {
       "bom-ref": "pkg:cargo/tokio-macros@2.7.2",
