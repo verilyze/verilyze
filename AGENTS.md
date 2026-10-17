@@ -147,10 +147,13 @@ suppress tool stderr (including `eprintln!` such as FR-022a), not only
 Cloud Agents use [`.cursor/environment.json`](.cursor/environment.json):
 
 - **Base image:** [`.cursor/Dockerfile`](.cursor/Dockerfile) installs Docker CE
-  (fuse-overlayfs) and the Rust channel from `rust-toolchain.toml` so
-  `install.sh` can build `vlz`. Build context is the repo root. `cargo` /
-  `rustc` / `rustup` are also symlinked into `/usr/local/bin` so build
-  `install` finds them even when Dockerfile `ENV PATH` is not applied.
+ (fuse-overlayfs), the Rust channel from `rust-toolchain.toml` so
+ `install.sh` can build `vlz`, and a pinned Flutter Linux SDK on amd64
+ (Dart SDK fallback on arm64) so `DartRemediator` / `vlz fix` can be
+ tested against real `dart` / `flutter` binaries (HC-12). Build context is
+ the repo root. `cargo` / `rustc` / `rustup` are also symlinked into
+ `/usr/local/bin` so build `install` finds them even when Dockerfile
+ `ENV PATH` is not applied.
 - **Per boot:** `start` runs `sign-setup.sh` then
  `/usr/local/lib/vlz/docker-start.sh` (baked into the image so warm-fork
  start does not depend on checkout). That script starts `dockerd` and
