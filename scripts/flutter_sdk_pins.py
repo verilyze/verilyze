@@ -7,10 +7,11 @@
 """Refresh Cloud Agent Dockerfile Flutter / Dart SDK pins from upstream.
 
 Renovate bumps ARG FLUTTER_VERSION in .cursor/Dockerfile via a regex manager.
-This helper fetches the matching Linux stable archive SHA-256 and bundled
-Dart SDK version from releases_linux.json, plus the Dart linux-arm64
+This helper fetches the matching Linux stable archive path + SHA-256 and
+bundled Dart SDK version from releases_linux.json, plus the Dart linux-arm64
 checksum (Flutter does not publish a Linux arm64 archive), and updates
-ARG FLUTTER_SHA256_AMD64, ARG DART_SDK_VERSION, and ARG DART_SHA256_ARM64.
+ARG FLUTTER_ARCHIVE_PATH, ARG FLUTTER_SHA256_AMD64, ARG DART_SDK_VERSION,
+and ARG DART_SHA256_ARM64.
 """
 
 import argparse
@@ -29,10 +30,18 @@ _VERSION_RE = re.compile(
     r"^ARG FLUTTER_VERSION=(?P<version>\d+\.\d+\.\d+)\s*$",
     re.MULTILINE,
 )
+_DART_VERSION_TOKEN_RE = re.compile(r"\d+\.\d+\.\d+")
 _DART_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+_ARCHIVE_PATH_RE = re.compile(
+    r"^(?!.*\.\.)(?!/)[A-Za-z0-9._+-]+(?:/[A-Za-z0-9._+-]+)+$"
+)
 _FLUTTER_SHA_ARG_RE = re.compile(
     r"^(ARG FLUTTER_SHA256_AMD64=)[0-9a-f]{64}",
+    re.MULTILINE,
+)
+_ARCHIVE_PATH_ARG_RE = re.compile(
+    r"^(ARG FLUTTER_ARCHIVE_PATH=)\S+",
     re.MULTILINE,
 )
 _DART_VERSION_ARG_RE = re.compile(
@@ -42,6 +51,9 @@ _DART_VERSION_ARG_RE = re.compile(
 _DART_SHA_ARG_RE = re.compile(
     r"^(ARG DART_SHA256_ARM64=)[0-9a-f]{64}",
     re.MULTILINE,
+)
+_ARCHIVE_PATH_URL_RE = re.compile(
+    r"flutter_infra_release/releases/\$\{FLUTTER_ARCHIVE_PATH\}"
 )
 
 _FLUTTER_RELEASES_URL = (
@@ -83,6 +95,28 @@ def parse_flutter_version(dockerfile_text: str) -> str:
     return match.group("version")
 
 
+def normalize_dart_sdk_version(raw: str) -> str:
+    """Return the leading x.y.z token from a Flutter dart_sdk_version field."""
+    match = _DART_VERSION_TOKEN_RE.search(raw.strip())
+    if match is None:
+        raise SystemExit(f"invalid dart_sdk_version: {raw!r}")
+    return match.group(0)
+
+
+def assert_dockerfile_uses_archive_path_arg(dockerfile_text: str) -> None:
+    """Fail when the Flutter download URL hardcodes an archive path."""
+    if _ARCHIVE_PATH_URL_RE.search(dockerfile_text) is None:
+        raise SystemExit(
+            f"{DOCKERFILE_REL}: Flutter download URL must use "
+            "${FLUTTER_ARCHIVE_PATH} (not a hardcoded archive path)"
+        )
+
+
+def _validate_archive_path(archive_path: str) -> None:
+    if not _ARCHIVE_PATH_RE.fullmatch(archive_path):
+        raise SystemExit(f"invalid Flutter archive path: {archive_path!r}")
+
+
 def replace_sdk_pin_args(
     dockerfile_text: str, pins: FlutterReleasePins
 ) -> str:
@@ -101,10 +135,15 @@ def replace_sdk_pin_args(
         raise SystemExit(
             f"invalid dart_sdk_version: {pins.dart_sdk_version!r}"
         )
+    _validate_archive_path(pins.archive_path)
 
     if _FLUTTER_SHA_ARG_RE.search(dockerfile_text) is None:
         raise SystemExit(
             f"{DOCKERFILE_REL}: missing ARG FLUTTER_SHA256_AMD64 pin"
+        )
+    if _ARCHIVE_PATH_ARG_RE.search(dockerfile_text) is None:
+        raise SystemExit(
+            f"{DOCKERFILE_REL}: missing ARG FLUTTER_ARCHIVE_PATH pin"
         )
     if _DART_VERSION_ARG_RE.search(dockerfile_text) is None:
         raise SystemExit(f"{DOCKERFILE_REL}: missing ARG DART_SDK_VERSION pin")
@@ -116,6 +155,11 @@ def replace_sdk_pin_args(
     updated = _FLUTTER_SHA_ARG_RE.sub(
         rf"\g<1>{pins.flutter_sha256_amd64}",
         dockerfile_text,
+        count=1,
+    )
+    updated = _ARCHIVE_PATH_ARG_RE.sub(
+        rf"\g<1>{pins.archive_path}",
+        updated,
         count=1,
     )
     updated = _DART_VERSION_ARG_RE.sub(
@@ -130,13 +174,33 @@ def replace_sdk_pin_args(
     )
 
 
+def _pins_from_release_entry(
+    entry: dict[str, Any], version: str
+) -> FlutterReleasePins:
+    """Validate one releases_linux.json entry and return pins."""
+    sha256 = str(entry.get("sha256") or "")
+    dart_raw = str(entry.get("dart_sdk_version") or "")
+    archive = str(entry.get("archive") or "")
+    if not _SHA256_RE.fullmatch(sha256):
+        raise SystemExit(f"malformed Flutter sha256 for {version}: {sha256!r}")
+    if not archive:
+        raise SystemExit(f"missing Flutter archive path for {version}")
+    _validate_archive_path(archive)
+    dart_ver = normalize_dart_sdk_version(dart_raw)
+    return FlutterReleasePins(
+        flutter_sha256_amd64=sha256,
+        dart_sdk_version=dart_ver,
+        archive_path=archive,
+    )
+
+
 def fetch_flutter_linux_pins(
     version: str,
     *,
     opener: Callable[..., Any] | None = None,
     timeout: float = 30,
 ) -> FlutterReleasePins:
-    """Fetch Flutter Linux stable archive SHA-256 and bundled Dart version."""
+    """Fetch Flutter Linux stable archive path, SHA-256, and bundled Dart."""
     open_url = opener or urllib.request.urlopen
     with open_url(_FLUTTER_RELEASES_URL, timeout=timeout) as response:
         payload = json.loads(response.read().decode("utf-8"))
@@ -145,6 +209,7 @@ def fetch_flutter_linux_pins(
         raise SystemExit(
             "malformed Flutter releases index: missing releases list"
         )
+    matches: list[tuple[str, dict[str, Any]]] = []
     for entry in releases:
         if not isinstance(entry, dict):
             continue
@@ -152,28 +217,13 @@ def fetch_flutter_linux_pins(
             continue
         if entry.get("version") != version:
             continue
-        sha256 = str(entry.get("sha256") or "")
-        dart_ver = str(entry.get("dart_sdk_version") or "")
-        archive = str(entry.get("archive") or "")
-        if not _SHA256_RE.fullmatch(sha256):
-            raise SystemExit(
-                f"malformed Flutter sha256 for {version}: {sha256!r}"
-            )
-        if not _DART_VERSION_RE.fullmatch(dart_ver):
-            raise SystemExit(
-                f"malformed Flutter dart_sdk_version for {version}: "
-                f"{dart_ver!r}"
-            )
-        if not archive:
-            raise SystemExit(f"missing Flutter archive path for {version}")
-        return FlutterReleasePins(
-            flutter_sha256_amd64=sha256,
-            dart_sdk_version=dart_ver,
-            archive_path=archive,
+        matches.append((str(entry.get("release_date") or ""), entry))
+    if not matches:
+        raise SystemExit(
+            f"Flutter stable Linux release not found for version {version}"
         )
-    raise SystemExit(
-        f"Flutter stable Linux release not found for version {version}"
-    )
+    matches.sort(key=lambda item: item[0], reverse=True)
+    return _pins_from_release_entry(matches[0][1], version)
 
 
 def fetch_dart_arm64_sha256(
@@ -212,6 +262,7 @@ def sync_dockerfile_pins(
     fetch_flutter_fn = fetch_flutter or fetch_flutter_linux_pins
     fetch_dart_fn = fetch_dart_arm64 or fetch_dart_arm64_sha256
     text = path.read_text(encoding="utf-8")
+    assert_dockerfile_uses_archive_path_arg(text)
     version = parse_flutter_version(text)
     flutter_pins = fetch_flutter_fn(version)
     dart_arm64 = fetch_dart_fn(flutter_pins.dart_sdk_version)

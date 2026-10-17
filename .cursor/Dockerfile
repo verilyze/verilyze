@@ -30,8 +30,10 @@ ARG RUSTUP_INIT_SHA256_ARM64=15f6e4ce9f583b929c996c91562bad6d4454f3281de858b02cd
 # Flutter Linux stable pin (amd64). Upstream publishes no Linux arm64 Flutter
 # archive; arm64 images install the matching Dart SDK instead (dart only).
 # Renovate bumps FLUTTER_VERSION and runs
-# scripts/renovate-post-upgrade-flutter-sdk.sh to refresh SHA / Dart pins.
+# scripts/renovate-post-upgrade-flutter-sdk.sh to refresh archive path / SHA /
+# Dart pins from releases_linux.json (FLUTTER_ARCHIVE_PATH is the URL suffix).
 ARG FLUTTER_VERSION=3.47.7
+ARG FLUTTER_ARCHIVE_PATH=stable/linux/flutter_linux_3.47.7-stable.tar.xz
 ARG FLUTTER_SHA256_AMD64=af7455f540df951184c7953fbe3cf884766e7541dacf8571f9f582db03dd6230
 ARG DART_SDK_VERSION=3.13.5
 ARG DART_SHA256_ARM64=19a731647c3ed55058ee46dde00330150e6a8729bb6121b4a31e86084c8a3e6d
@@ -72,6 +74,7 @@ FROM ubuntu:26.04@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ARG FLUTTER_VERSION
+ARG FLUTTER_ARCHIVE_PATH
 ARG FLUTTER_SHA256_AMD64
 ARG DART_SDK_VERSION
 ARG DART_SHA256_ARM64
@@ -87,8 +90,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && mkdir -p /sdk \
     && case "${arch}" in \
          amd64) \
-           archive="flutter_linux_${FLUTTER_VERSION}-stable.tar.xz"; \
-           url="https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/${archive}"; \
+           test -n "${FLUTTER_VERSION}"; \
+           archive="$(basename "${FLUTTER_ARCHIVE_PATH}")"; \
+           url="https://storage.googleapis.com/flutter_infra_release/releases/${FLUTTER_ARCHIVE_PATH}"; \
            curl --proto '=https' --tlsv1.2 --retry 3 --retry-delay 5 -sSfL \
              "${url}" -o "/tmp/${archive}"; \
            echo "${FLUTTER_SHA256_AMD64}  /tmp/${archive}" | sha256sum -c -; \

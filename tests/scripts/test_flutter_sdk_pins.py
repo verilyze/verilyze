@@ -7,8 +7,11 @@
 import json
 import re
 import runpy
+import shutil
+import stat
 import sys
 import urllib.request
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -17,10 +20,12 @@ from scripts import flutter_sdk_pins
 from scripts.flutter_sdk_pins import (
     DOCKERFILE_REL,
     FlutterReleasePins,
+    assert_dockerfile_uses_archive_path_arg,
     fetch_dart_arm64_sha256,
     fetch_flutter_linux_pins,
     get_repo_root,
     main,
+    normalize_dart_sdk_version,
     parse_flutter_version,
     replace_sdk_pin_args,
     sync_dockerfile_pins,
@@ -32,15 +37,21 @@ _ROOT = repo_root()
 _DOCKERFILE_FIXTURE = """\
 # header
 ARG FLUTTER_VERSION=3.47.7
+ARG FLUTTER_ARCHIVE_PATH=stable/linux/flutter_linux_3.47.7-stable.tar.xz
 ARG FLUTTER_SHA256_AMD64=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 ARG DART_SDK_VERSION=3.0.0
 ARG DART_SHA256_ARM64=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 
 FROM ubuntu:26.04@sha256:deadbeef
 ARG FLUTTER_VERSION
+ARG FLUTTER_ARCHIVE_PATH
 ARG FLUTTER_SHA256_AMD64
 ARG DART_SDK_VERSION
 ARG DART_SHA256_ARM64
+RUN url="https://storage.googleapis.com/flutter_infra_release/releases/${FLUTTER_ARCHIVE_PATH}" \\
+ && echo "${DART_SDK_VERSION}" \\
+ && unzip -q /tmp/x.zip -d /tmp/dart-extract \\
+ && mv /tmp/dart-extract/dart-sdk/* /sdk/
 """
 
 
@@ -53,6 +64,21 @@ class TestParseFlutterVersion:
             parse_flutter_version("FROM scratch\n")
 
 
+class TestNormalizeDartSdkVersion:
+    def test_normalize_dart_sdk_version_plain(self) -> None:
+        assert normalize_dart_sdk_version("3.13.5") == "3.13.5"
+
+    def test_normalize_dart_sdk_version_strips_build_suffix(self) -> None:
+        assert (
+            normalize_dart_sdk_version("3.10.0 (build 3.10.0-290.4.beta)")
+            == "3.10.0"
+        )
+
+    def test_normalize_dart_sdk_version_rejects_garbage(self) -> None:
+        with pytest.raises(SystemExit, match="dart_sdk_version"):
+            normalize_dart_sdk_version("nope")
+
+
 class TestReplaceSdkPinArgs:
     def test_replace_sdk_pin_args_updates_all_pins(self) -> None:
         updated = replace_sdk_pin_args(
@@ -61,47 +87,62 @@ class TestReplaceSdkPinArgs:
                 flutter_sha256_amd64="1" * 64,
                 dart_sdk_version="3.13.5",
                 dart_sha256_arm64="2" * 64,
+                archive_path="stable/linux/flutter_linux_9.9.9-stable.tar.xz",
             ),
         )
         assert f"ARG FLUTTER_SHA256_AMD64={'1' * 64}" in updated
         assert "ARG DART_SDK_VERSION=3.13.5" in updated
         assert f"ARG DART_SHA256_ARM64={'2' * 64}" in updated
         assert (
+            "ARG FLUTTER_ARCHIVE_PATH="
+            "stable/linux/flutter_linux_9.9.9-stable.tar.xz"
+        ) in updated
+        assert (
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
             not in updated
+        )
+
+    def _pins(
+        self,
+        *,
+        flutter_sha: str = "c" * 64,
+        dart_ver: str = "3.13.5",
+        dart_sha: str = "d" * 64,
+        archive: str = "stable/linux/flutter_linux_3.47.7-stable.tar.xz",
+    ) -> FlutterReleasePins:
+        return FlutterReleasePins(
+            flutter_sha256_amd64=flutter_sha,
+            dart_sdk_version=dart_ver,
+            dart_sha256_arm64=dart_sha,
+            archive_path=archive,
         )
 
     def test_replace_sdk_pin_args_rejects_non_hex_flutter(self) -> None:
         with pytest.raises(SystemExit, match="SHA-256"):
             replace_sdk_pin_args(
                 _DOCKERFILE_FIXTURE,
-                FlutterReleasePins(
-                    flutter_sha256_amd64="not-a-hash",
-                    dart_sdk_version="3.13.5",
-                    dart_sha256_arm64="x" * 64,
-                ),
+                self._pins(flutter_sha="not-a-hash"),
             )
 
     def test_replace_sdk_pin_args_rejects_non_hex_dart(self) -> None:
         with pytest.raises(SystemExit, match="SHA-256"):
             replace_sdk_pin_args(
                 _DOCKERFILE_FIXTURE,
-                FlutterReleasePins(
-                    flutter_sha256_amd64="c" * 64,
-                    dart_sdk_version="3.13.5",
-                    dart_sha256_arm64="not-a-hash",
-                ),
+                self._pins(dart_sha="not-a-hash"),
             )
 
     def test_replace_sdk_pin_args_rejects_bad_dart_version(self) -> None:
         with pytest.raises(SystemExit, match="dart_sdk_version"):
             replace_sdk_pin_args(
                 _DOCKERFILE_FIXTURE,
-                FlutterReleasePins(
-                    flutter_sha256_amd64="c" * 64,
-                    dart_sdk_version="not-semver",
-                    dart_sha256_arm64="d" * 64,
-                ),
+                self._pins(dart_ver="not-semver"),
+            )
+
+    def test_replace_sdk_pin_args_rejects_bad_archive_path(self) -> None:
+        with pytest.raises(SystemExit, match="archive"):
+            replace_sdk_pin_args(
+                _DOCKERFILE_FIXTURE,
+                self._pins(archive="../escape.tar.xz"),
             )
 
     def test_replace_sdk_pin_args_missing_flutter_sha_raises(self) -> None:
@@ -111,14 +152,16 @@ class TestReplaceSdkPinArgs:
             if "FLUTTER_SHA256_AMD64=" not in line
         )
         with pytest.raises(SystemExit, match="FLUTTER_SHA256_AMD64"):
-            replace_sdk_pin_args(
-                text,
-                FlutterReleasePins(
-                    flutter_sha256_amd64="c" * 64,
-                    dart_sdk_version="3.13.5",
-                    dart_sha256_arm64="d" * 64,
-                ),
-            )
+            replace_sdk_pin_args(text, self._pins())
+
+    def test_replace_sdk_pin_args_missing_archive_path_raises(self) -> None:
+        text = "\n".join(
+            line
+            for line in _DOCKERFILE_FIXTURE.splitlines()
+            if "FLUTTER_ARCHIVE_PATH=" not in line
+        )
+        with pytest.raises(SystemExit, match="FLUTTER_ARCHIVE_PATH"):
+            replace_sdk_pin_args(text, self._pins())
 
     def test_replace_sdk_pin_args_missing_dart_version_raises(self) -> None:
         text = "\n".join(
@@ -127,14 +170,7 @@ class TestReplaceSdkPinArgs:
             if "DART_SDK_VERSION=" not in line
         )
         with pytest.raises(SystemExit, match="DART_SDK_VERSION"):
-            replace_sdk_pin_args(
-                text,
-                FlutterReleasePins(
-                    flutter_sha256_amd64="c" * 64,
-                    dart_sdk_version="3.13.5",
-                    dart_sha256_arm64="d" * 64,
-                ),
-            )
+            replace_sdk_pin_args(text, self._pins())
 
     def test_replace_sdk_pin_args_missing_dart_sha_raises(self) -> None:
         text = "\n".join(
@@ -143,14 +179,7 @@ class TestReplaceSdkPinArgs:
             if "DART_SHA256_ARM64=" not in line
         )
         with pytest.raises(SystemExit, match="DART_SHA256_ARM64"):
-            replace_sdk_pin_args(
-                text,
-                FlutterReleasePins(
-                    flutter_sha256_amd64="c" * 64,
-                    dart_sdk_version="3.13.5",
-                    dart_sha256_arm64="d" * 64,
-                ),
-            )
+            replace_sdk_pin_args(text, self._pins())
 
 
 class TestFetchFlutterLinuxPins:
@@ -264,7 +293,7 @@ class TestFetchFlutterLinuxPins:
                     "version": "3.47.7",
                     "sha256": "a" * 64,
                     "dart_sdk_version": "nope",
-                    "archive": "x.tar.xz",
+                    "archive": "stable/linux/x.tar.xz",
                 }
             ]
         }
@@ -284,6 +313,79 @@ class TestFetchFlutterLinuxPins:
                 "3.47.7",
                 opener=lambda _url, timeout=30: _Resp(),
             )
+
+    def test_fetch_flutter_linux_pins_normalizes_dart_build_suffix(
+        self,
+    ) -> None:
+        payload = {
+            "releases": [
+                {
+                    "channel": "stable",
+                    "version": "3.47.7",
+                    "sha256": "a" * 64,
+                    "dart_sdk_version": "3.10.0 (build 3.10.0-290.4.beta)",
+                    "archive": "stable/linux/flutter_linux_3.47.7-stable.tar.xz",
+                    "release_date": "2026-01-01T00:00:00.000000Z",
+                }
+            ]
+        }
+
+        class _Resp:
+            def __enter__(self) -> "_Resp":
+                return self
+
+            def __exit__(self, *_args: object) -> None:
+                return None
+
+            def read(self) -> bytes:
+                return json.dumps(payload).encode("utf-8")
+
+        pins = fetch_flutter_linux_pins(
+            "3.47.7",
+            opener=lambda _url, timeout=30: _Resp(),
+        )
+        assert pins.dart_sdk_version == "3.10.0"
+
+    def test_fetch_flutter_linux_pins_prefers_newest_release_date(
+        self,
+    ) -> None:
+        payload = {
+            "releases": [
+                {
+                    "channel": "stable",
+                    "version": "3.13.3",
+                    "sha256": "a" * 64,
+                    "dart_sdk_version": "3.1.0",
+                    "archive": "stable/linux/flutter_linux_3.13.3-stable.tar.xz",
+                    "release_date": "2023-09-07T17:19:53.810427Z",
+                },
+                {
+                    "channel": "stable",
+                    "version": "3.13.3",
+                    "sha256": "b" * 64,
+                    "dart_sdk_version": "3.1.1",
+                    "archive": "stable/linux/flutter_linux_3.13.3-stable.tar.xz",
+                    "release_date": "2023-09-13T19:53:41.927127Z",
+                },
+            ]
+        }
+
+        class _Resp:
+            def __enter__(self) -> "_Resp":
+                return self
+
+            def __exit__(self, *_args: object) -> None:
+                return None
+
+            def read(self) -> bytes:
+                return json.dumps(payload).encode("utf-8")
+
+        pins = fetch_flutter_linux_pins(
+            "3.13.3",
+            opener=lambda _url, timeout=30: _Resp(),
+        )
+        assert pins.flutter_sha256_amd64 == "b" * 64
+        assert pins.dart_sdk_version == "3.1.1"
 
     def test_fetch_flutter_linux_pins_rejects_missing_archive(self) -> None:
         payload = {
@@ -357,6 +459,21 @@ class TestGetRepoRoot:
         assert (root / "scripts" / "flutter_sdk_pins.py").is_file()
 
 
+class TestAssertDockerfileUsesArchivePathArg:
+    def test_assert_dockerfile_uses_archive_path_arg_ok(self) -> None:
+        assert_dockerfile_uses_archive_path_arg(_DOCKERFILE_FIXTURE)
+
+    def test_assert_dockerfile_uses_archive_path_arg_rejects_hardcoded(
+        self,
+    ) -> None:
+        bad = _DOCKERFILE_FIXTURE.replace(
+            "${FLUTTER_ARCHIVE_PATH}",
+            "stable/linux/flutter_linux_3.47.7-stable.tar.xz",
+        )
+        with pytest.raises(SystemExit, match="FLUTTER_ARCHIVE_PATH"):
+            assert_dockerfile_uses_archive_path_arg(bad)
+
+
 class TestSyncDockerfilePins:
     def test_sync_updates_stale_pins(self, tmp_path: Path) -> None:
         dockerfile = tmp_path / DOCKERFILE_REL
@@ -371,7 +488,7 @@ class TestSyncDockerfilePins:
                 flutter_sha256_amd64="c" * 64,
                 dart_sdk_version="3.13.5",
                 dart_sha256_arm64="",
-                archive_path="stable/linux/flutter_linux_3.47.7-stable.tar.xz",
+                archive_path="stable/linux/flutter_linux_9.9.9-stable.tar.xz",
             )
 
         def fake_dart(version: str, **_kwargs: object) -> str:
@@ -388,16 +505,22 @@ class TestSyncDockerfilePins:
         assert f"ARG FLUTTER_SHA256_AMD64={'c' * 64}" in text
         assert "ARG DART_SDK_VERSION=3.13.5" in text
         assert f"ARG DART_SHA256_ARM64={'d' * 64}" in text
+        assert (
+            "ARG FLUTTER_ARCHIVE_PATH="
+            "stable/linux/flutter_linux_9.9.9-stable.tar.xz"
+        ) in text
 
     def test_sync_noop_when_already_current(self, tmp_path: Path) -> None:
         dockerfile = tmp_path / DOCKERFILE_REL
         dockerfile.parent.mkdir(parents=True)
+        archive = "stable/linux/flutter_linux_3.47.7-stable.tar.xz"
         current = replace_sdk_pin_args(
             _DOCKERFILE_FIXTURE,
             FlutterReleasePins(
                 flutter_sha256_amd64="c" * 64,
                 dart_sdk_version="3.13.5",
                 dart_sha256_arm64="d" * 64,
+                archive_path=archive,
             ),
         )
         dockerfile.write_text(current, encoding="utf-8")
@@ -408,6 +531,7 @@ class TestSyncDockerfilePins:
                 flutter_sha256_amd64="c" * 64,
                 dart_sdk_version="3.13.5",
                 dart_sha256_arm64="",
+                archive_path=archive,
             ),
             fetch_dart_arm64=lambda *_a, **_k: "d" * 64,
         )
@@ -421,9 +545,15 @@ class TestSyncDockerfilePins:
                     flutter_sha256_amd64="c" * 64,
                     dart_sdk_version="3.13.5",
                     dart_sha256_arm64="",
+                    archive_path=(
+                        "stable/linux/flutter_linux_3.47.7-stable.tar.xz"
+                    ),
                 ),
                 fetch_dart_arm64=lambda *_a, **_k: "d" * 64,
             )
+
+
+_ARCHIVE = "stable/linux/flutter_linux_3.47.7-stable.tar.xz"
 
 
 class TestMain:
@@ -443,6 +573,7 @@ class TestMain:
                 flutter_sha256_amd64="c" * 64,
                 dart_sdk_version="3.13.5",
                 dart_sha256_arm64="",
+                archive_path=_ARCHIVE,
             ),
         )
         monkeypatch.setattr(
@@ -469,6 +600,7 @@ class TestMain:
                 flutter_sha256_amd64="c" * 64,
                 dart_sdk_version="3.13.5",
                 dart_sha256_arm64="",
+                archive_path=_ARCHIVE,
             ),
         )
         monkeypatch.setattr(
@@ -487,6 +619,37 @@ class TestCommittedDockerfile:
     def test_committed_dockerfile_pins_match_upstream(self) -> None:
         """Live check: committed pins must match Flutter / Dart archives."""
         assert sync_dockerfile_pins(_ROOT, check=True) is False
+
+    def test_committed_dockerfile_uses_archive_path_arg(self) -> None:
+        text = (_ROOT / DOCKERFILE_REL).read_text(encoding="utf-8")
+        assert_dockerfile_uses_archive_path_arg(text)
+        assert "dartsdk-linux-arm64-release.zip" in text
+        assert "dart-extract/dart-sdk/*" in text
+
+    def test_arm64_zip_layout_matches_dockerfile_extract(
+        self, tmp_path: Path
+    ) -> None:
+        """Mimic Dockerfile arm64 extract (dart-sdk/* -> /sdk) on any host."""
+        zip_path = tmp_path / "dartsdk-linux-arm64-release.zip"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            info = zipfile.ZipInfo("dart-sdk/bin/dart")
+            info.external_attr = 0o755 << 16
+            zf.writestr(info, b"#!/bin/sh\necho dart-stub\n")
+        extract = tmp_path / "dart-extract"
+        extract.mkdir()
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            zf.extractall(extract)
+        dart_sdk_root = extract / "dart-sdk"
+        assert dart_sdk_root.is_dir()
+        sdk = tmp_path / "sdk"
+        sdk.mkdir()
+        # Same layout move the Dockerfile arm64 branch performs after unzip.
+        for child in dart_sdk_root.iterdir():
+            shutil.move(str(child), str(sdk / child.name))
+        dart_bin = sdk / "bin" / "dart"
+        dart_bin.chmod(dart_bin.stat().st_mode | stat.S_IXUSR)
+        assert dart_bin.is_file()
+        assert dart_bin.stat().st_mode & stat.S_IXUSR
 
 
 class TestModuleMain:
@@ -517,10 +680,16 @@ class TestModuleMain:
             dockerfile,
             re.MULTILINE,
         )
+        archive = re.search(
+            r"^ARG FLUTTER_ARCHIVE_PATH=(\S+)\s*$",
+            dockerfile,
+            re.MULTILINE,
+        )
         assert flutter_sha is not None
         assert dart_ver is not None
         assert dart_sha is not None
         assert flutter_ver is not None
+        assert archive is not None
 
         class _Resp:
             def __init__(self, body: str) -> None:
@@ -545,11 +714,9 @@ class TestModuleMain:
                             "channel": "stable",
                             "version": flutter_ver.group(1),
                             "dart_sdk_version": dart_ver.group(1),
-                            "archive": (
-                                f"stable/linux/flutter_linux_"
-                                f"{flutter_ver.group(1)}-stable.tar.xz"
-                            ),
+                            "archive": archive.group(1),
                             "sha256": flutter_sha.group(1),
+                            "release_date": "2026-10-08T23:42:24.132074Z",
                         }
                     ]
                 }
