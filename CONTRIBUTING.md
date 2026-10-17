@@ -130,6 +130,7 @@ graph TD
 | Dependency | Purpose                                | Install                                             |
 | ---------- | -------------------------------------- | --------------------------------------------------- |
 | AFL++      | Fuzzing (`make fuzz`, `make coverage`) | [AFL++](https://github.com/AFLplusplus/AFLplusplus) |
+| Dart SDK and/or Flutter SDK | Exercise `vlz fix` / `DartRemediator` (`pub add`) against real binaries; lock-first Dart scans do not need either SDK | [Dart](https://dart.dev/get-dart) / [Flutter](https://docs.flutter.dev/get-started/install) |
 
 **Preferred linker policy**
 

@@ -10,6 +10,13 @@ Human-readable release notes for each version.
 
 ## [Unreleased]
 
+### Added
+
+- Cursor Cloud Agent image installs a pinned Flutter Linux SDK (amd64) or
+  Dart SDK (arm64 fallback) so `DartRemediator` / `vlz fix` can be tested
+  against real binaries; CONTRIBUTING lists Dart/Flutter as recommended
+  remediator prerequisites (HC-12).
+
 ## [0.14.1] - 2026-10-11
 
 ### Changed

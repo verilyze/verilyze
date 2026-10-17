@@ -109,6 +109,18 @@
       "packageNameTemplate": "rust-lang/rustup",
       "depNameTemplate": "rust-lang/rustup",
       "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
+      "description": "Cloud Agent Dockerfile: Flutter Linux stable version",
+      "managerFilePatterns": ["/^\\.cursor\\/Dockerfile$/"],
+      "matchStrings": [
+        "ARG FLUTTER_VERSION=(?<currentValue>\\d+\\.\\d+\\.\\d+)"
+      ],
+      "datasourceTemplate": "github-tags",
+      "packageNameTemplate": "flutter/flutter",
+      "depNameTemplate": "flutter/flutter",
+      "versioningTemplate": "semver"
     }
   ],
   "packageRules": [
@@ -177,6 +189,23 @@
       "groupName": "cursor-dockerfile-rustup-init",
       "postUpgradeTasks": {
         "commands": ["bash scripts/renovate-post-upgrade-rustup-init.sh"],
+        "executionMode": "branch",
+        "fileFilters": [".cursor/Dockerfile"],
+        "installTools": {
+          "python": {}
+        }
+      }
+    },
+    {
+      "description": "Cloud Agent Flutter SDK: minor/patch + refresh SHA / Dart pins",
+      "matchManagers": ["custom.regex"],
+      "matchDatasources": ["github-tags"],
+      "matchFileNames": [".cursor/Dockerfile"],
+      "matchPackageNames": ["flutter/flutter"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "cursor-dockerfile-flutter-sdk",
+      "postUpgradeTasks": {
+        "commands": ["bash scripts/renovate-post-upgrade-flutter-sdk.sh"],
         "executionMode": "branch",
         "fileFilters": [".cursor/Dockerfile"],
         "installTools": {
