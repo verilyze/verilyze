@@ -48,7 +48,9 @@ all-features = false
 no-default-features = false
 # If set, these feature will be enabled when collecting metadata. If `--features`
 # is specified on the cmd line they will take precedence over this option.
-#features = []
+# Optional SEC-005 signing adds crates to the default graph, so check the
+# superset: default features plus integrity-fips204.
+features = ["vlz/integrity-fips204"]
 
 # The output table provides options for how/if diagnostics are outputted
 [output]
@@ -217,6 +219,7 @@ skip = [
     { crate = "syn@3.0.9", reason = "async-trait 0.1.91+ proc-macro migration while workspace proc-macros remain on syn 2.x" },
     { crate = "bitflags@1.3.2", reason = "lsp-types 0.97 protocol compatibility dependency while workspace uses bitflags 2.x" },
     { crate = "windows-sys@0.52.0", reason = "transitive windows ABI dependency from crypto/tooling stack" },
+    { crate = "rand_core@0.6.4", reason = "build-only via ruff_unicode_names2 phf_generator (rand 0.8) while ml-dsa (SEC-005 integrity-fips204) enables rand_core 0.10 in crypto-common" },
 ]
 # Similarly to `skip` allows you to skip certain crates during duplicate
 # detection. Unlike skip, it also includes the entire tree of transitive
