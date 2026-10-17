@@ -394,6 +394,13 @@
       "version": "0.23.1"
     },
     {
+      "bom-ref": "pkg:cargo/base64ct@1.8.3",
+      "name": "base64ct",
+      "purl": "pkg:cargo/base64ct@1.8.3",
+      "type": "library",
+      "version": "1.8.3"
+    },
+    {
       "bom-ref": "pkg:cargo/bit-vec@0.9.1",
       "name": "bit-vec",
       "purl": "pkg:cargo/bit-vec@0.9.1",
@@ -513,6 +520,13 @@
       "version": "0.3.3"
     },
     {
+      "bom-ref": "pkg:cargo/cmov@0.5.4",
+      "name": "cmov",
+      "purl": "pkg:cargo/cmov@0.5.4",
+      "type": "library",
+      "version": "0.5.4"
+    },
+    {
       "bom-ref": "pkg:cargo/collection_literals@1.0.3",
       "name": "collection_literals",
       "purl": "pkg:cargo/collection_literals@1.0.3",
@@ -604,6 +618,13 @@
       "version": "0.2.2"
     },
     {
+      "bom-ref": "pkg:cargo/ctutils@0.4.3",
+      "name": "ctutils",
+      "purl": "pkg:cargo/ctutils@0.4.3",
+      "type": "library",
+      "version": "0.4.3"
+    },
+    {
       "bom-ref": "pkg:cargo/cvssrust@1.1.0",
       "name": "cvssrust",
       "purl": "pkg:cargo/cvssrust@1.1.0",
@@ -651,6 +672,13 @@
       "purl": "pkg:cargo/defmt-parser@1.0.0",
       "type": "library",
       "version": "1.0.0"
+    },
+    {
+      "bom-ref": "pkg:cargo/der@0.8.2",
+      "name": "der",
+      "purl": "pkg:cargo/der@0.8.2",
+      "type": "library",
+      "version": "0.8.2"
     },
     {
       "bom-ref": "pkg:cargo/der-parser@10.0.0",
@@ -1122,6 +1150,13 @@
       "version": "0.3.106"
     },
     {
+      "bom-ref": "pkg:cargo/keccak@0.2.2",
+      "name": "keccak",
+      "purl": "pkg:cargo/keccak@0.2.2",
+      "type": "library",
+      "version": "0.2.2"
+    },
+    {
       "bom-ref": "pkg:cargo/lazy_static@1.5.1",
       "name": "lazy_static",
       "purl": "pkg:cargo/lazy_static@1.5.1",
@@ -1211,6 +1246,20 @@
       "purl": "pkg:cargo/mio@1.2.4",
       "type": "library",
       "version": "1.2.4"
+    },
+    {
+      "bom-ref": "pkg:cargo/ml-dsa@0.1.1",
+      "name": "ml-dsa",
+      "purl": "pkg:cargo/ml-dsa@0.1.1",
+      "type": "library",
+      "version": "0.1.1"
+    },
+    {
+      "bom-ref": "pkg:cargo/module-lattice@0.2.3",
+      "name": "module-lattice",
+      "purl": "pkg:cargo/module-lattice@0.2.3",
+      "type": "library",
+      "version": "0.2.3"
     },
     {
       "bom-ref": "pkg:cargo/multiversion_no_op@1.0.0",
@@ -1360,6 +1409,13 @@
       "version": "0.2.17"
     },
     {
+      "bom-ref": "pkg:cargo/pkcs8@0.11.0",
+      "name": "pkcs8",
+      "purl": "pkg:cargo/pkcs8@0.11.0",
+      "type": "library",
+      "version": "0.11.0"
+    },
+    {
       "bom-ref": "pkg:cargo/portable-atomic@1.15.0",
       "name": "portable-atomic",
       "purl": "pkg:cargo/portable-atomic@1.15.0",
@@ -1470,6 +1526,13 @@
       "purl": "pkg:cargo/rand_core@0.6.4",
       "type": "library",
       "version": "0.6.4"
+    },
+    {
+      "bom-ref": "pkg:cargo/rand_core@0.10.1",
+      "name": "rand_core",
+      "purl": "pkg:cargo/rand_core@0.10.1",
+      "type": "library",
+      "version": "0.10.1"
     },
     {
       "bom-ref": "pkg:cargo/rcgen@0.14.10",
@@ -1773,6 +1836,13 @@
       "version": "0.11.1"
     },
     {
+      "bom-ref": "pkg:cargo/shake@0.1.0",
+      "name": "shake",
+      "purl": "pkg:cargo/shake@0.1.0",
+      "type": "library",
+      "version": "0.1.0"
+    },
+    {
       "bom-ref": "pkg:cargo/shlex@2.0.1",
       "name": "shlex",
       "purl": "pkg:cargo/shlex@2.0.1",
@@ -1785,6 +1855,13 @@
       "purl": "pkg:cargo/signal-hook-registry@1.4.8",
       "type": "library",
       "version": "1.4.8"
+    },
+    {
+      "bom-ref": "pkg:cargo/signature@3.0.0",
+      "name": "signature",
+      "purl": "pkg:cargo/signature@3.0.0",
+      "type": "library",
+      "version": "3.0.0"
     },
     {
       "bom-ref": "pkg:cargo/simd_cesu8@1.2.0",
@@ -1827,6 +1904,20 @@
       "purl": "pkg:cargo/socket2@0.6.5",
       "type": "library",
       "version": "0.6.5"
+    },
+    {
+      "bom-ref": "pkg:cargo/spki@0.8.1",
+      "name": "spki",
+      "purl": "pkg:cargo/spki@0.8.1",
+      "type": "library",
+      "version": "0.8.1"
+    },
+    {
+      "bom-ref": "pkg:cargo/sponge-cursor@0.1.0",
+      "name": "sponge-cursor",
+      "purl": "pkg:cargo/sponge-cursor@0.1.0",
+      "type": "library",
+      "version": "0.1.0"
     },
     {
       "bom-ref": "pkg:cargo/stable_deref_trait@1.2.1",
