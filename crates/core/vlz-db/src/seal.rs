@@ -12,6 +12,9 @@ pub const SEAL_TABLE_NAME: &str = "cve_cache_seal";
 /// Label reported by backends that keep nothing on disk to verify.
 pub const INTEGRITY_LABEL_NOT_PERSISTED: &str = "in-memory, not persisted";
 
+/// Default label for backends that do not override `integrity_label`.
+pub const INTEGRITY_LABEL_UNCHECKED: &str = "no seals checked";
+
 /// Label reported by an on-disk backend built without a seal algorithm.
 pub const INTEGRITY_LABEL_DISABLED: &str = "disabled";
 
@@ -24,6 +27,10 @@ pub const INTEGRITY_DISABLED_MESSAGE: &str = "Cache integrity sealing is not \
 pub trait EntrySealer: Send + Sync {
     /// Algorithm name shown by `vlz db verify` (e.g. `SHA-256`).
     fn label(&self) -> &'static str;
+
+    /// Prefix every seal from this algorithm starts with (e.g. `sha256:`),
+    /// so seals from another algorithm are told apart from forgeries.
+    fn seal_prefix(&self) -> &'static str;
 
     /// Seal the stored value for `key`.
     fn seal(&self, key: &str, value: &str) -> Result<String, DatabaseError>;

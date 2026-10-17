@@ -35,8 +35,43 @@ const SEAL_TABLE: TableDefinition<&str, &str> =
 pub const MIGRATE_HINT: &str = "Run `vlz db migrate` to seal entries \
      written before integrity sealing was enabled.";
 
+/// Appended to a verify failure when seals use another algorithm.
+pub const OTHER_ALGORITHM_HINT: &str = "Entries sealed by another \
+     algorithm were written by a vlz build with a different integrity \
+     feature; verify them with that build, or remove the cache to rebuild it.";
+
 /// Affected keys listed in a verify failure message.
 pub const MAX_REPORTED_KEYS: usize = 5;
+
+/// Outcome of checking one cache entry against its stored seal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SealStatus {
+    Valid,
+    Unsealed,
+    Mismatched,
+    OtherAlgorithm,
+}
+
+/// Classify `value` under `key` against `seal`; a seal without this
+/// sealer's prefix came from another algorithm and is never checked.
+fn classify_seal(
+    sealer: &dyn EntrySealer,
+    key: &str,
+    value: &str,
+    seal: Option<&str>,
+) -> Result<SealStatus, DatabaseError> {
+    let Some(seal) = seal else {
+        return Ok(SealStatus::Unsealed);
+    };
+    if !seal.starts_with(sealer.seal_prefix()) {
+        return Ok(SealStatus::OtherAlgorithm);
+    }
+    Ok(if sealer.check(key, value, seal)? {
+        SealStatus::Valid
+    } else {
+        SealStatus::Mismatched
+    })
+}
 
 /// Keys that failed `verify_integrity`, by failure kind.
 #[derive(Debug, Default)]
@@ -44,13 +79,26 @@ struct SealReport {
     checked: usize,
     mismatched: Vec<String>,
     unsealed: Vec<String>,
+    other_algorithm: Vec<String>,
     orphans: Vec<String>,
 }
 
 impl SealReport {
+    fn record(&mut self, key: &str, status: SealStatus) {
+        self.checked += 1;
+        let bucket = match status {
+            SealStatus::Valid => return,
+            SealStatus::Unsealed => &mut self.unsealed,
+            SealStatus::Mismatched => &mut self.mismatched,
+            SealStatus::OtherAlgorithm => &mut self.other_algorithm,
+        };
+        bucket.push(key.to_string());
+    }
+
     fn is_clean(&self) -> bool {
         self.mismatched.is_empty()
             && self.unsealed.is_empty()
+            && self.other_algorithm.is_empty()
             && self.orphans.is_empty()
     }
 
@@ -59,6 +107,7 @@ impl SealReport {
             .mismatched
             .iter()
             .chain(&self.unsealed)
+            .chain(&self.other_algorithm)
             .chain(&self.orphans)
             .map(String::as_str)
             .collect();
@@ -73,15 +122,21 @@ impl SealReport {
         }
         let mut msg = format!(
             "{label} seals: {} entries checked; \
-             {} mismatched, {} unsealed, {} orphan seals. Affected keys: {keys}.",
+             {} mismatched, {} unsealed, {} sealed by another algorithm, \
+             {} orphan seals. Affected keys: {keys}.",
             self.checked,
             self.mismatched.len(),
             self.unsealed.len(),
+            self.other_algorithm.len(),
             self.orphans.len(),
         );
         if !self.unsealed.is_empty() {
             msg.push(' ');
             msg.push_str(MIGRATE_HINT);
+        }
+        if !self.other_algorithm.is_empty() {
+            msg.push(' ');
+            msg.push_str(OTHER_ALGORITHM_HINT);
         }
         msg
     }
@@ -202,7 +257,9 @@ impl RedbBackend {
         self
     }
 
-    /// Insert `value` under `key` and, when sealing, its seal (same txn).
+    /// Insert `value` under `key` with its seal (same txn). Without a
+    /// sealer any previous seal is dropped, so verify reports the entry as
+    /// unsealed rather than as tampered.
     fn write_entry(
         &self,
         cache: &mut Table<&str, &str>,
@@ -215,11 +272,11 @@ impl RedbBackend {
             None => None,
         };
         cache.insert(key, value).map_err(DatabaseError::wrap)?;
-        if let Some(seal) = seal {
-            seals
-                .insert(key, seal.as_str())
-                .map_err(DatabaseError::wrap)?;
+        match seal {
+            Some(seal) => seals.insert(key, seal.as_str()),
+            None => seals.remove(key),
         }
+        .map_err(DatabaseError::wrap)?;
         Ok(())
     }
 
@@ -531,12 +588,29 @@ impl DatabaseBackend for RedbBackend {
         let mut seals = write_txn
             .open_table(SEAL_TABLE)
             .map_err(DatabaseError::wrap)?;
+        let mut report = SealReport::default();
         for key in keys {
             let val_str: String =
                 match table.get(key.as_str()).map_err(DatabaseError::wrap)? {
                     Some(g) => g.value().to_string(),
                     None => continue,
                 };
+            if let Some(sealer) = &self.sealer {
+                let seal = seals
+                    .get(key.as_str())
+                    .map_err(DatabaseError::wrap)?
+                    .map(|g| g.value().to_string());
+                let status = classify_seal(
+                    sealer.as_ref(),
+                    &key,
+                    &val_str,
+                    seal.as_deref(),
+                )?;
+                report.record(&key, status);
+                if status != SealStatus::Valid {
+                    continue;
+                }
+            }
             let mut stored: StoredEntry = match serde_json::from_str(&val_str)
             {
                 Ok(s) => s,
@@ -553,6 +627,12 @@ impl DatabaseBackend for RedbBackend {
         }
         drop(table);
         drop(seals);
+        if let (Some(sealer), false) = (&self.sealer, report.is_clean()) {
+            write_txn.abort().map_err(DatabaseError::wrap)?;
+            return Err(DatabaseError::IntegrityViolation(
+                report.summary(sealer.label()),
+            ));
+        }
         write_txn.commit().map_err(DatabaseError::wrap)?;
         Ok(())
     }
@@ -571,21 +651,19 @@ impl DatabaseBackend for RedbBackend {
         if let Some(cache) = &cache {
             for entry in cache.iter().map_err(DatabaseError::wrap)? {
                 let (k, v) = entry.map_err(DatabaseError::wrap)?;
-                report.checked += 1;
                 let seal = match &seals {
                     Some(s) => {
                         s.get(k.value()).map_err(DatabaseError::wrap)?
                     }
                     None => None,
                 };
-                match seal {
-                    None => report.unsealed.push(k.value().to_string()),
-                    Some(seal) => {
-                        if !sealer.check(k.value(), v.value(), seal.value())? {
-                            report.mismatched.push(k.value().to_string());
-                        }
-                    }
-                }
+                let status = classify_seal(
+                    sealer.as_ref(),
+                    k.value(),
+                    v.value(),
+                    seal.as_ref().map(|g| g.value()),
+                )?;
+                report.record(k.value(), status);
             }
         }
         if let Some(seals) = &seals {
@@ -2730,6 +2808,9 @@ mod tests {
         fn label(&self) -> &'static str {
             TEST_SEAL_LABEL
         }
+        fn seal_prefix(&self) -> &'static str {
+            TEST_SEAL_PREFIX
+        }
         fn seal(
             &self,
             key: &str,
@@ -2756,6 +2837,9 @@ mod tests {
     impl EntrySealer for FailingSealSealer {
         fn label(&self) -> &'static str {
             TEST_SEAL_LABEL
+        }
+        fn seal_prefix(&self) -> &'static str {
+            TEST_SEAL_PREFIX
         }
         fn seal(&self, _: &str, _: &str) -> Result<String, DatabaseError> {
             Err(DatabaseError::Other(INJECTED_SEAL_FAILURE.into()))
@@ -2939,6 +3023,108 @@ mod tests {
         let after = raw_get(&backend, SealTable::Seal, "a::1::osv").unwrap();
         assert_ne!(before, after);
         backend.verify_integrity().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn sealed_set_ttl_refuses_to_reseal_tampered_entry() {
+        let backend = sealed_in_memory_backend(3600);
+        backend.init().await.unwrap();
+        for name in ["a", "b"] {
+            backend
+                .put(&seal_pkg(name), "osv", &[sample_raw_vuln()], None)
+                .await
+                .unwrap();
+        }
+        let original =
+            raw_get(&backend, SealTable::Cache, "a::1::osv").unwrap();
+        let tampered = original.replace("CVE-2023-test", "CVE-2023-fake");
+        raw_insert(&backend, SealTable::Cache, "a::1::osv", &tampered);
+        let untouched =
+            raw_get(&backend, SealTable::Cache, "b::1::osv").unwrap();
+
+        let msg =
+            violation_message(backend.set_ttl(TtlSelector::All, 120).await);
+        assert!(msg.contains("1 mismatched"), "{msg}");
+        assert!(msg.contains("a::1::osv"), "{msg}");
+        assert_eq!(
+            raw_get(&backend, SealTable::Cache, "b::1::osv").unwrap(),
+            untouched,
+            "no entry is rewritten when any selected entry fails its seal"
+        );
+        let msg = violation_message(backend.verify_integrity().await);
+        assert!(msg.contains("1 mismatched"), "{msg}");
+    }
+
+    #[tokio::test]
+    async fn sealed_set_ttl_refuses_unsealed_entry() {
+        let backend = sealed_in_memory_backend(3600);
+        backend.init().await.unwrap();
+        backend
+            .put(&seal_pkg("a"), "osv", &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
+        raw_remove(&backend, SealTable::Seal, "a::1::osv");
+        let msg = violation_message(
+            backend
+                .set_ttl(TtlSelector::One("a::1::osv".into()), 120)
+                .await,
+        );
+        assert!(msg.contains("1 unsealed"), "{msg}");
+        assert!(msg.contains(MIGRATE_HINT), "{msg}");
+        assert!(raw_get(&backend, SealTable::Seal, "a::1::osv").is_none());
+    }
+
+    #[tokio::test]
+    async fn unsealed_set_ttl_still_updates_entries() {
+        let backend = in_memory_backend(3600);
+        backend.init().await.unwrap();
+        backend
+            .put(&seal_pkg("a"), "osv", &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
+        backend.set_ttl(TtlSelector::All, 120).await.unwrap();
+        let stored = raw_get(&backend, SealTable::Cache, "a::1::osv").unwrap();
+        assert!(stored.contains("\"ttl_secs\":120"), "{stored}");
+    }
+
+    #[tokio::test]
+    async fn unsealed_put_drops_stale_seal() {
+        let sealed = sealed_in_memory_backend(3600);
+        sealed.init().await.unwrap();
+        sealed
+            .put(&seal_pkg("a"), "osv", &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
+        let unsealed = RedbBackend {
+            inner: Arc::clone(&sealed.inner),
+            sealer: None,
+        };
+        unsealed
+            .put(&seal_pkg("a"), "osv", &[], None)
+            .await
+            .unwrap();
+        assert!(raw_get(&sealed, SealTable::Seal, "a::1::osv").is_none());
+        let msg = violation_message(sealed.verify_integrity().await);
+        assert!(msg.contains("1 unsealed"), "{msg}");
+        assert!(msg.contains("0 mismatched"), "{msg}");
+    }
+
+    #[tokio::test]
+    async fn sealed_verify_reports_other_algorithm_separately() {
+        let backend = sealed_in_memory_backend(3600);
+        backend.init().await.unwrap();
+        backend
+            .put(&seal_pkg("a"), "osv", &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
+        raw_insert(&backend, SealTable::Seal, "a::1::osv", "other:abc");
+        let msg = violation_message(backend.verify_integrity().await);
+        assert!(msg.contains("0 mismatched"), "{msg}");
+        assert!(msg.contains("1 sealed by another algorithm"), "{msg}");
+        assert!(msg.contains(OTHER_ALGORITHM_HINT), "{msg}");
+        assert_eq!(backend.backfill_seals().await.unwrap(), 0);
+        let msg = violation_message(backend.verify_integrity().await);
+        assert!(msg.contains("1 sealed by another algorithm"), "{msg}");
     }
 
     #[tokio::test]

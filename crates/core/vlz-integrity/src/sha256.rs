@@ -19,6 +19,10 @@ impl EntrySealer for Sha256Sealer {
         INTEGRITY_LABEL_SHA256
     }
 
+    fn seal_prefix(&self) -> &'static str {
+        SHA256_SEAL_PREFIX
+    }
+
     fn seal(&self, key: &str, value: &str) -> Result<String, DatabaseError> {
         Ok(format!(
             "{SHA256_SEAL_PREFIX}{}",
@@ -88,5 +92,11 @@ mod tests {
     #[test]
     fn label_is_sha256() {
         assert_eq!(Sha256Sealer.label(), crate::INTEGRITY_LABEL_SHA256);
+    }
+
+    #[test]
+    fn seal_starts_with_declared_prefix() {
+        let seal = Sha256Sealer.seal(KEY, VALUE).unwrap();
+        assert!(seal.starts_with(Sha256Sealer.seal_prefix()), "{seal}");
     }
 }

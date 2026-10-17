@@ -160,6 +160,10 @@ impl EntrySealer for MlDsa65Sealer {
         INTEGRITY_LABEL_FIPS204
     }
 
+    fn seal_prefix(&self) -> &'static str {
+        MLDSA65_SEAL_PREFIX
+    }
+
     fn seal(&self, key: &str, value: &str) -> Result<String, DatabaseError> {
         let signature = self.signing_key()?.sign(&seal_message(key, value));
         Ok(format!(
@@ -309,6 +313,7 @@ mod tests {
         let s = sealer(dir.path());
         let seal = s.seal(KEY, VALUE).unwrap();
         assert!(seal.starts_with(MLDSA65_SEAL_PREFIX), "{seal}");
+        assert_eq!(s.seal_prefix(), MLDSA65_SEAL_PREFIX);
         assert!(s.check(KEY, VALUE, &seal).unwrap());
     }
 
