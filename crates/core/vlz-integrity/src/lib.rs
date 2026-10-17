@@ -4,17 +4,64 @@
 
 #![deny(unsafe_code)]
 
+#[cfg(feature = "sha256")]
+mod sha256;
+
+#[cfg(feature = "sha256")]
+pub use sha256::{SHA256_SEAL_PREFIX, Sha256Sealer};
+
+use std::path::Path;
+use std::sync::Arc;
+
 use async_trait::async_trait;
-use vlz_db::DatabaseBackend;
+use vlz_db::{DatabaseBackend, DatabaseError, EntrySealer};
+
+/// Label reported by `vlz db verify` for SEC-004 seals.
+pub const INTEGRITY_LABEL_SHA256: &str = "SHA-256";
+/// Label reported by `vlz db verify` for SEC-005 seals.
+pub const INTEGRITY_LABEL_FIPS204: &str = "FIPS-204";
+
+/// Success line for `vlz db verify` (SEC-004, SEC-005).
+pub fn integrity_ok_message(label: &str) -> String {
+    format!("integrity OK ({label})")
+}
+
+/// Sealer for the cache DB at `cache_db_path`, chosen by Cargo feature.
+/// `fips204` wins over `sha256` because Cargo features cannot be
+/// mutually exclusive (SEC-004, SEC-005). `None` when neither is enabled.
+#[allow(unused_variables)]
+pub fn active_entry_sealer(
+    cache_db_path: &Path,
+) -> Option<Arc<dyn EntrySealer>> {
+    #[cfg(feature = "sha256")]
+    {
+        return Some(Arc::new(Sha256Sealer));
+    }
+    #[allow(unreachable_code)]
+    None
+}
 
 #[derive(thiserror::Error, Debug)]
 pub enum IntegrityError {
     /// Backend verify_integrity failed; source chain preserved for verbose mode (NFR-018).
     #[error("Database integrity check failed")]
-    Backend(#[from] vlz_db::DatabaseError),
+    Backend(#[source] DatabaseError),
+
+    /// Seals did not match the stored entries (FR-033: exit 1).
+    #[error("Database integrity check failed: {0}")]
+    Violation(String),
 
     #[error("{0}")]
     Other(String),
+}
+
+impl From<DatabaseError> for IntegrityError {
+    fn from(e: DatabaseError) -> Self {
+        match e {
+            DatabaseError::IntegrityViolation(msg) => Self::Violation(msg),
+            other => Self::Backend(other),
+        }
+    }
 }
 
 #[async_trait]
@@ -41,7 +88,7 @@ impl IntegrityChecker for BackendDelegatingChecker {
         &self,
         db: &dyn DatabaseBackend,
     ) -> Result<(), IntegrityError> {
-        db.verify_integrity().await.map_err(IntegrityError::Backend)
+        db.verify_integrity().await.map_err(IntegrityError::from)
     }
 }
 
@@ -114,6 +161,39 @@ mod tests {
         }
     }
 
+    const MOCK_VIOLATION: &str = "1 mismatched";
+
+    struct MockBackendViolation;
+
+    #[async_trait]
+    impl DatabaseBackend for MockBackendViolation {
+        async fn init(&self) -> Result<(), DatabaseError> {
+            Ok(())
+        }
+        async fn get(
+            &self,
+            _: &Package,
+            _: &str,
+        ) -> Result<Option<Vec<CveRecord>>, DatabaseError> {
+            Ok(None)
+        }
+        async fn put(
+            &self,
+            _: &Package,
+            _: &str,
+            _: &[serde_json::Value],
+            _: Option<u64>,
+        ) -> Result<(), DatabaseError> {
+            Ok(())
+        }
+        async fn stats(&self) -> Result<DatabaseStats, DatabaseError> {
+            Ok(DatabaseStats::default())
+        }
+        async fn verify_integrity(&self) -> Result<(), DatabaseError> {
+            Err(DatabaseError::IntegrityViolation(MOCK_VIOLATION.into()))
+        }
+    }
+
     #[tokio::test]
     async fn backend_delegating_checker_ok() {
         let checker = BackendDelegatingChecker::new();
@@ -135,6 +215,43 @@ mod tests {
                 .to_string()
                 .contains("mock integrity failure")
         );
+    }
+
+    #[tokio::test]
+    async fn backend_delegating_checker_shows_violation_detail() {
+        let err = BackendDelegatingChecker::new()
+            .verify(&MockBackendViolation)
+            .await
+            .unwrap_err();
+        assert!(matches!(err, IntegrityError::Violation(_)));
+        assert_eq!(
+            err.to_string(),
+            format!("Database integrity check failed: {MOCK_VIOLATION}")
+        );
+    }
+
+    #[test]
+    fn integrity_ok_message_names_algorithm() {
+        assert_eq!(
+            integrity_ok_message(INTEGRITY_LABEL_SHA256),
+            "integrity OK (SHA-256)"
+        );
+        assert_eq!(
+            integrity_ok_message(INTEGRITY_LABEL_FIPS204),
+            "integrity OK (FIPS-204)"
+        );
+    }
+
+    #[test]
+    fn active_entry_sealer_matches_enabled_feature() {
+        let dir = std::path::Path::new("unused-cache-dir");
+        let label =
+            active_entry_sealer(&dir.join("c.redb")).map(|s| s.label());
+        if cfg!(feature = "sha256") {
+            assert_eq!(label, Some(INTEGRITY_LABEL_SHA256));
+        } else {
+            assert_eq!(label, None);
+        }
     }
 
     #[tokio::test]
@@ -171,6 +288,16 @@ mod tests {
                 .to_string()
                 .contains("mock integrity failure")
         );
+    }
+
+    #[tokio::test]
+    async fn mock_backend_violation_all_methods() {
+        let db = MockBackendViolation;
+        let pkg = Package::default();
+        db.init().await.unwrap();
+        assert!(db.get(&pkg, "osv").await.unwrap().is_none());
+        db.put(&pkg, "osv", &[], None).await.unwrap();
+        let _ = db.stats().await.unwrap();
     }
 
     #[test]

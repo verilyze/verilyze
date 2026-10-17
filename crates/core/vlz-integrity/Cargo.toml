@@ -16,11 +16,15 @@ readme.workspace = true
 rust-version.workspace = true
 description = "Optional integrity-checking plugins for verilyze (SHA-256, FIPS-204)"
 
+[features]
+default = ["sha256"]
+# SEC-004: unkeyed SHA-256 seal per cache entry.
+sha256 = []
+
 [dependencies]
 async-trait.workspace = true
 thiserror.workspace = true
 vlz-db.workspace = true
-sha2.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

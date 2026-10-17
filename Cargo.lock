@@ -2877,7 +2877,6 @@ version = "0.14.1"
 dependencies = [
  "async-trait",
  "serde_json",
- "sha2",
  "thiserror",
  "tokio",
  "vlz-db",
