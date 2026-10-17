@@ -45,7 +45,7 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: check check-parallel check-fast check-fast-parallel check-pr check-slow check-dco check-signatures
 .PHONY: check-headers check-header-duplicates headers
 .PHONY: update-doc-diagrams check-doc-diagrams
-.PHONY: cargo-check cargo-check-locked cargo-test cargo-test-mem unit-tests test-scripts
+.PHONY: cargo-check cargo-check-locked cargo-test cargo-test-mem cargo-test-fips204 unit-tests test-scripts
 .PHONY: fmt fmt-check clippy
 .PHONY: lint-python lint-shell super-linter super-linter-full
 .PHONY: fuzz fuzz-changed fuzz-extended fuzz-then-coverage coverage coverage-quick
@@ -87,7 +87,7 @@ help:
 	@echo "    make cargo-check - Run cargo check"
 	@echo "    make cargo-check-locked - Run cargo check --locked (dependency manifest changes)"
 	@echo "    make debug       - Build debug binary (after check-headers)"
-	@echo "    make unit-tests  - Run cargo test + mem-feature tests + script tests"
+	@echo "    make unit-tests  - Run cargo test + mem and fips204 feature tests + script tests"
 	@echo ""
 	@echo "  Full CI check:"
 	@echo "    make check       - Headers, build, fmt, clippy, cargo-deny, fuzz-changed, coverage-quick, lint"
@@ -332,6 +332,13 @@ cargo-test-mem:
 	    --features "testing,mem,python" \
 	    --test mem_cache_ignore --test minimal_features'
 
+# SEC-005 cache seal matrix: ML-DSA-65 keys and real-binary verify/migrate.
+cargo-test-fips204:
+	@$(MAKE_RUN_LEAF) cargo-test-fips204 -- bash -c 'cd "$(MKFILE_DIR)" && \
+	  $(VLZ_QUIET_LOG_ENV) cargo test -p vlz-integrity --features fips204 --quiet && \
+	  $(VLZ_QUIET_LOG_ENV) cargo test -p vlz --features testing,integrity-fips204 \
+	    --test cache_integrity --quiet'
+
 # Bootstrap .venv-test with pytest and pytest-cov (NFR-021).
 # flock: parallel check leaves (venv-test-ready) must not rm -rf the venv
 # while another leaf is importing pytest (check-report-schema race).
@@ -359,7 +366,7 @@ venv-test-ready:
 test-scripts: venv-test-ready
 	@$(MAKE_RUN_LEAF) test-scripts -- bash -c 'cd "$(MKFILE_DIR)" && $(VENV_TEST)/bin/python -m pytest tests/scripts/'
 
-unit-tests: cargo-test cargo-test-mem test-scripts
+unit-tests: cargo-test cargo-test-mem cargo-test-fips204 test-scripts
 
 # CLI contract against an installed or built binary. Not part of make check:
 # PR/nightly GitHub jobs own the three-OS matrix (see cli-contract.yml).
