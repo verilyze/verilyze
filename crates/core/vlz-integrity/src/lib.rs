@@ -4,8 +4,16 @@
 
 #![deny(unsafe_code)]
 
+#[cfg(feature = "fips204")]
+mod fips204;
 #[cfg(feature = "sha256")]
 mod sha256;
+
+#[cfg(feature = "fips204")]
+pub use fips204::{
+    MLDSA65_SEAL_PREFIX, MlDsa65Sealer, SIGNING_KEY_FILE_NAME,
+    VERIFYING_KEY_FILE_NAME,
+};
 
 #[cfg(feature = "sha256")]
 pub use sha256::{SHA256_SEAL_PREFIX, Sha256Sealer};
@@ -34,15 +42,20 @@ pub fn seals_backfilled_message(sealed: usize) -> String {
 /// Sealer for the cache DB at `cache_db_path`, chosen by Cargo feature.
 /// `fips204` wins over `sha256` because Cargo features cannot be
 /// mutually exclusive (SEC-004, SEC-005). `None` when neither is enabled.
-#[allow(unused_variables)]
+#[cfg(feature = "fips204")]
 pub fn active_entry_sealer(
     cache_db_path: &Path,
 ) -> Option<Arc<dyn EntrySealer>> {
-    #[cfg(feature = "sha256")]
-    {
-        return Some(Arc::new(Sha256Sealer));
-    }
-    #[allow(unreachable_code)]
+    Some(Arc::new(MlDsa65Sealer::for_cache_db(cache_db_path)))
+}
+
+#[cfg(all(feature = "sha256", not(feature = "fips204")))]
+pub fn active_entry_sealer(_: &Path) -> Option<Arc<dyn EntrySealer>> {
+    Some(Arc::new(Sha256Sealer))
+}
+
+#[cfg(not(any(feature = "sha256", feature = "fips204")))]
+pub fn active_entry_sealer(_: &Path) -> Option<Arc<dyn EntrySealer>> {
     None
 }
 
@@ -260,7 +273,9 @@ mod tests {
         let dir = std::path::Path::new("unused-cache-dir");
         let label =
             active_entry_sealer(&dir.join("c.redb")).map(|s| s.label());
-        if cfg!(feature = "sha256") {
+        if cfg!(feature = "fips204") {
+            assert_eq!(label, Some(INTEGRITY_LABEL_FIPS204));
+        } else if cfg!(feature = "sha256") {
             assert_eq!(label, Some(INTEGRITY_LABEL_SHA256));
         } else {
             assert_eq!(label, None);

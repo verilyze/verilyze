@@ -102,6 +102,7 @@ vlz-cve-provider-sonatype = { path = "crates/providers/vlz-cve-provider-sonatype
 vlz-db-redb = { path = "crates/db-backends/vlz-db-redb", version = "0.14.1" }
 vlz-db-mem = { path = "crates/db-backends/vlz-db-mem", version = "0.14.1" }
 async-trait = "0.1"
+base64 = "0.23"
 clap = "4.6"
 clap_complete = "4.6"
 clap_mangen = "0.3"
@@ -118,4 +119,6 @@ thiserror = "2.0.18"
 tokio = "1.51"
 toml = "1.1"
 quick-xml = "0.42"
+# SEC-005: pre-1.0 and unaudited; pinned exactly so upgrades are reviewed.
+ml-dsa = { version = "=0.1.1", default-features = false, features = ["alloc", "getrandom", "zeroize"] }
 wiremock = "0.6"

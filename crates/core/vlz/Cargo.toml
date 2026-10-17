@@ -132,6 +132,8 @@ redb = ["dep:vlz-db-redb"]
 mem = ["dep:vlz-db-mem"]
 # SEC-004: SHA-256 seal per redb cache entry (default).
 integrity-sha256 = ["vlz-integrity/sha256"]
+# SEC-005: ML-DSA-65 signature per redb cache entry; wins over SHA-256.
+integrity-fips204 = ["vlz-integrity/fips204"]
 python = ["vlz-python"]
 python-tier-d = ["python", "vlz-python/tier-d"]
 rust = ["vlz-rust"]

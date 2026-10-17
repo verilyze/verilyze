@@ -5,7 +5,7 @@
 //! SEC-004 / SEC-005 / FR-033: `vlz db verify` and `vlz db migrate` against
 //! a real redb cache file, using whichever sealer this build enables.
 
-#![cfg(feature = "integrity-sha256")]
+#![cfg(any(feature = "integrity-sha256", feature = "integrity-fips204"))]
 
 #[allow(dead_code)] // only the subprocess env helper is used here
 mod support;
@@ -138,6 +138,46 @@ fn migrate_seals_legacy_cache_then_verify_passes() {
 
     let after = vlz_db(dir.path(), "verify");
     assert_eq!(after.status.code(), Some(0), "{}", stderr(&after));
+}
+
+#[cfg(feature = "integrity-fips204")]
+#[test]
+fn fips204_wins_and_keeps_keypair_beside_cache() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    assert_eq!(label(dir.path()), vlz_integrity::INTEGRITY_LABEL_FIPS204);
+    put_sealed(dir.path(), &["a"]);
+    for name in [
+        vlz_integrity::SIGNING_KEY_FILE_NAME,
+        vlz_integrity::VERIFYING_KEY_FILE_NAME,
+    ] {
+        assert!(dir.path().join(name).is_file(), "{name}");
+    }
+    let out = vlz_db(dir.path(), "verify");
+    assert_eq!(
+        stdout(&out),
+        format!(
+            "{}\n",
+            integrity_ok_message(vlz_integrity::INTEGRITY_LABEL_FIPS204)
+        )
+    );
+}
+
+#[cfg(feature = "integrity-fips204")]
+#[test]
+fn fips204_verify_without_public_key_exits_1() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    put_sealed(dir.path(), &["a"]);
+    std::fs::remove_file(
+        dir.path().join(vlz_integrity::VERIFYING_KEY_FILE_NAME),
+    )
+    .expect("remove public key");
+    let out = vlz_db(dir.path(), "verify");
+    let err = stderr(&out);
+    assert_eq!(out.status.code(), Some(1), "FR-033; stderr={err}");
+    assert!(
+        err.contains(vlz_integrity::VERIFYING_KEY_FILE_NAME),
+        "{err}"
+    );
 }
 
 #[test]
