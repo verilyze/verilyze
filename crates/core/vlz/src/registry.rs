@@ -90,7 +90,11 @@ pub fn register(plugin: Plugin) {
 pub fn ensure_default_db_backend() {
     let mut backends = db_backends().lock().unwrap();
     if backends.is_empty() {
-        backends.push(Box::new(vlz_db_redb::RedbBackend::default()));
+        let path = vlz_db_redb::RedbBackend::default_path();
+        backends.push(Box::new(with_active_sealer(
+            vlz_db_redb::RedbBackend::default(),
+            &path,
+        )));
     }
 }
 
@@ -102,10 +106,23 @@ pub fn ensure_default_db_backend_with_path(
 ) -> Result<(), vlz_db::DatabaseError> {
     let mut backends = db_backends().lock().unwrap();
     if backends.is_empty() {
-        let backend = vlz_db_redb::RedbBackend::with_path(path, ttl_secs)?;
-        backends.push(Box::new(backend));
+        let backend =
+            vlz_db_redb::RedbBackend::with_path(path.clone(), ttl_secs)?;
+        backends.push(Box::new(with_active_sealer(backend, &path)));
     }
     Ok(())
+}
+
+/// Attaches the build's cache seal (SEC-004 / SEC-005), if any.
+#[cfg(feature = "redb")]
+fn with_active_sealer(
+    backend: vlz_db_redb::RedbBackend,
+    path: &std::path::Path,
+) -> vlz_db_redb::RedbBackend {
+    match vlz_integrity::active_entry_sealer(path) {
+        Some(sealer) => backend.with_sealer(sealer),
+        None => backend,
+    }
 }
 
 /// Registers the in-memory CVE cache backend (ephemeral; Docker / mem builds).
@@ -927,9 +944,13 @@ mod tests {
             clear_db_backends();
             let dir = tempfile::tempdir().unwrap();
             let path = dir.path().join("ensure.redb");
-            ensure_default_db_backend_with_path(path, 3600)
+            ensure_default_db_backend_with_path(path.clone(), 3600)
                 .expect("ensure_default_db_backend_with_path");
-            assert!(!db_backends().lock().unwrap().is_empty());
+            let backends = db_backends().lock().unwrap();
+            let expected = vlz_integrity::active_entry_sealer(&path)
+                .map_or(vlz_db::INTEGRITY_LABEL_DISABLED, |s| s.label());
+            assert_eq!(backends[0].integrity_label(), expected);
+            assert_ne!(expected, vlz_db::INTEGRITY_LABEL_NOT_PERSISTED);
         }
 
         // 4) ensure_default_db_backend_with_path idempotent (redb)

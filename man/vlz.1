@@ -324,9 +324,20 @@ List supported CVE providers.
 .It Nm stats
 Cache statistics.
 .It Nm verify
-Verify database integrity (SHA-256).
+Check every cache entry against its seal: SHA-256 by default, or ML-DSA-65
+(FIPS 204) when built with the
+.Cm integrity-fips204
+feature. Prints
+.Dq integrity OK (SHA-256)
+or
+.Dq integrity OK (FIPS-204)
+and exits 0; reports mismatched, unsealed, other-algorithm, and orphan
+seals and exits 1 otherwise (FR-033, SEC-004, SEC-005).
+.Nm scan
+does not check seals when reading the cache.
 .It Nm migrate
-Run database migrations.
+Seal cache entries written before sealing was enabled and print the count.
+Never re-seals an entry whose seal does not match.
 .It Nm show
 .Op Fl f Ar fmt , Fl -format Ar fmt
 .Op Fl -full
@@ -355,7 +366,8 @@ fails.
 .Op Fl -all
 .Op Fl -pattern Ar pattern
 .Op Fl -entries Ar keys
-Update TTL for existing cache entries.
+Update TTL for existing cache entries. In sealed builds, checks the seal of
+every selected entry first and changes nothing if any of them fails.
 .El
 .It Nm fp
 False-positive markings.
@@ -465,6 +477,13 @@ CVE cache (non-privileged; or
 .Pa ~/.cache/verilyze/vlz-cache.redb ) .
 .It Pa /var/cache/verilyze/vlz-cache.redb
 CVE cache (privileged install).
+.It Pa cache-signing.mldsa65.key , Pa cache-signing.mldsa65.pub
+ML-DSA-65 cache signing seed (mode 0600) and public key, created beside the
+CVE cache on the first sealed write when built with
+.Cm integrity-fips204
+(SEC-005).
+.Nm db verify
+needs only the public key.
 .It Pa $XDG_DATA_HOME/verilyze/vlz-ignore.json
 False-positive database (non-privileged; or
 .Pa ~/.local/share/verilyze/vlz-ignore.json ) .

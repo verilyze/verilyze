@@ -32,8 +32,13 @@ Ensure `~/.cargo/bin` is on your `PATH`. Use `--features nvd` (and optional
 Minimal builds:
 
 ```bash
-cargo install vlz --locked --no-default-features --features runtime,completions,docs
+cargo install vlz --locked --no-default-features --features runtime,integrity-sha256,completions,docs
 ```
+
+Builds without `integrity-sha256` or `integrity-fips204` write no cache seals,
+so `vlz db verify` fails. For ML-DSA-65 (FIPS 204) cache signatures instead
+of SHA-256 seals (SEC-005), add `--features integrity-fips204`; it takes
+precedence over `integrity-sha256` when both are enabled.
 
 Requires a [Rust toolchain](https://rustup.rs/) at least as new as the
 workspace minimum supported Rust version (`rust-version` in the root

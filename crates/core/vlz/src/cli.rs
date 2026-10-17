@@ -816,8 +816,11 @@ pub enum FpCommands {
 
 #[derive(Subcommand, Debug)]
 pub enum DbCommands {
+    /// Cache statistics
     Stats,
+    /// Check every cache entry against its seal (exit 1 on mismatch)
     Verify,
+    /// Seal cache entries written before sealing was enabled
     Migrate,
     /// List supported CVE providers
     ListProviders,

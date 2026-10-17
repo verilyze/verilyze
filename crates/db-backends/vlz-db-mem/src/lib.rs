@@ -7,7 +7,6 @@
 //! In-memory CVE cache backend for ephemeral scans (process-local only).
 
 use async_trait::async_trait;
-use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock};
@@ -226,18 +225,14 @@ impl DatabaseBackend for MemBackend {
         Ok(())
     }
 
+    /// Entries live only in this process, so nothing outside it can alter
+    /// them; there are no seals to check.
     async fn verify_integrity(&self) -> Result<(), DatabaseError> {
-        let guard = self.read_entries()?;
-        let mut keys: Vec<_> = guard.keys().cloned().collect();
-        keys.sort();
-        let mut hasher = Sha256::new();
-        for key in keys {
-            let val = serde_json::to_string(guard.get(&key).unwrap())
-                .map_err(DatabaseError::Serde)?;
-            hasher.update(format!("{key}|{val}").as_bytes());
-        }
-        let _hash = hasher.finalize();
-        Ok(())
+        self.read_entries().map(|_| ())
+    }
+
+    fn integrity_label(&self) -> &'static str {
+        vlz_db::INTEGRITY_LABEL_NOT_PERSISTED
     }
 }
 
@@ -423,6 +418,10 @@ mod tests {
             .await
             .unwrap();
         backend.verify_integrity().await.unwrap();
+        assert_eq!(
+            backend.integrity_label(),
+            vlz_db::INTEGRITY_LABEL_NOT_PERSISTED
+        );
     }
 
     #[tokio::test]

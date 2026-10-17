@@ -426,9 +426,9 @@ _vlz__subcmd__config_commands() {
 (( $+functions[_vlz__subcmd__db_commands] )) ||
 _vlz__subcmd__db_commands() {
     local commands; commands=(
-'stats:' \
-'verify:' \
-'migrate:' \
+'stats:Cache statistics' \
+'verify:Check every cache entry against its seal (exit 1 on mismatch)' \
+'migrate:Seal cache entries written before sealing was enabled' \
 'list-providers:List supported CVE providers' \
 'show:Display cache entries with TTL and added timestamp' \
 'import:Import an airgap CVE corpus snapshot into the local cache (FR-021a)' \

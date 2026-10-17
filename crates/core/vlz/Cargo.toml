@@ -111,6 +111,10 @@ name = "minimal_features"
 required-features = ["testing"]
 
 [[test]]
+name = "cache_integrity"
+required-features = ["testing", "redb"]
+
+[[test]]
 name = "mem_cache_ignore"
 required-features = ["testing", "mem", "python"]
 
@@ -118,7 +122,7 @@ required-features = ["testing", "mem", "python"]
 [features]
 runtime = ["redb", "python", "rust", "go", "javascript", "java", "ruby", "php", "dotnet", "dart", "sbom"]
 runtime-mem = ["mem", "python", "rust", "go", "javascript", "java", "ruby", "php", "dotnet", "dart", "sbom"]
-default = ["runtime", "completions", "docs", "lsp", "python-tier-d", "go-tier-d", "javascript-tier-d", "java-tier-d", "ruby-tier-d", "php-tier-d", "dotnet-tier-d", "dart-tier-d"]
+default = ["runtime", "integrity-sha256", "completions", "docs", "lsp", "python-tier-d", "go-tier-d", "javascript-tier-d", "java-tier-d", "ruby-tier-d", "php-tier-d", "dotnet-tier-d", "dart-tier-d"]
 docs = []           # Man page via vlz help; omit for minimal binary
 lsp = ["dep:vlz-lsp"]
 manpage-gen = []    # Maintainer-only vlz-manpage-gen binary (not installed by default)
@@ -126,6 +130,10 @@ completions = ["dep:clap_complete"]
 docker = ["runtime-mem"]
 redb = ["dep:vlz-db-redb"]
 mem = ["dep:vlz-db-mem"]
+# SEC-004: SHA-256 seal per redb cache entry (default).
+integrity-sha256 = ["vlz-integrity/sha256"]
+# SEC-005: ML-DSA-65 signature per redb cache entry; wins over SHA-256.
+integrity-fips204 = ["vlz-integrity/fips204"]
 python = ["vlz-python"]
 python-tier-d = ["python", "vlz-python/tier-d"]
 rust = ["vlz-rust"]

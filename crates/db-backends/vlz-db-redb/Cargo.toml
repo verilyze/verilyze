@@ -21,7 +21,6 @@ async-trait.workspace = true
 redb = "4"
 vlz-cve-client.workspace = true
 vlz-db.workspace = true
-sha2.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 

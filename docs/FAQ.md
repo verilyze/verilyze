@@ -972,14 +972,63 @@ detail.
 
 ### Database integrity check failed
 
-**Message:** `vlz db verify` reports failure or "Database integrity check
-failed".
+**Message:** `vlz db verify` exits 1 with "Database integrity check failed:
+SHA-256 seals: N entries checked; X mismatched, Y unsealed, W sealed by
+another algorithm, Z orphan seals" (or "FIPS-204 seals" in
+`integrity-fips204` builds), followed by up to five affected cache keys.
+`vlz db set-ttl` fails with the same counts for the entries it selected and
+changes nothing.
 
-**Cause:** Cache or ignore DB was modified or corrupted (SEC-004).
+**Cause:** The CVE cache was modified outside vlz or corrupted (SEC-004,
+SEC-005). Each count means:
 
-**Remediation:** Remove the affected `.redb` file and re-run a scan to rebuild
-the cache. Back up important false-positive markings before removing the ignore
-DB.
+- **mismatched** -- a stored value no longer matches its seal.
+- **unsealed** -- an entry has no seal, usually because it was written by a
+  vlz version from before cache sealing.
+- **sealed by another algorithm** -- an entry was sealed by a vlz build with
+  the other integrity feature (SHA-256 versus FIPS-204).
+- **orphan seals** -- a seal has no matching cache entry.
+
+**Remediation:**
+
+- **Only unsealed entries:** if you trust them, run `vlz db migrate` to seal
+  them, then `vlz db verify` again. Migrate never re-seals a mismatched
+  entry, but it does trust every unsealed one.
+- **Sealed by another algorithm:** verify with the build that wrote the
+  cache, or remove the `.redb` file and re-run a scan to rebuild it.
+- **Mismatched entries or orphan seals:** treat the cache as untrusted.
+  Remove the `.redb` file and re-run a scan to rebuild it. In
+  `integrity-fips204` builds, also remove `cache-signing.mldsa65.key` and
+  `cache-signing.mldsa65.pub` beside it to start with a fresh keypair.
+
+False-positive markings live in a separate JSON file (`vlz-ignore.json`) and
+are not affected.
+
+### Cache signing key is missing or corrupt
+
+**Message:** "Cache signing key .../cache-signing.mldsa65.key: ..." or
+".../cache-signing.mldsa65.pub: ..." during a scan or `vlz db verify`
+(`integrity-fips204` builds only).
+
+**Cause:** The ML-DSA-65 key files beside the cache DB were removed, edited,
+or do not match each other. vlz fails closed and does not generate a new
+keypair while a public key exists, because doing so would silently
+invalidate every existing seal (SEC-005).
+
+**Remediation:** Restore the key files from backup. Otherwise remove the
+cache DB and both key files, then re-run a scan to rebuild them.
+
+### `vlz db verify` says sealing is not enabled
+
+**Message:** "Cache integrity sealing is not enabled in this build; rebuild
+vlz with the integrity-sha256 or integrity-fips204 feature".
+
+**Cause:** vlz was built with `--no-default-features` and without an
+integrity feature, so cache entries are not sealed.
+
+**Remediation:** Rebuild with `--features integrity-sha256` (included in the
+default features) or `--features integrity-fips204`, then run
+`vlz db migrate`.
 
 ---
 
