@@ -626,12 +626,12 @@ Two pins exist on purpose, and they have different jobs:
 | Pre-tag | `make release-preflight` (set `VLZ_DISTRO_RUST_LIVE=1` to probe OBS/containers); `release.yml` `preflight-release` fails before any build or OBS upload |
 | Post-tag | `wait-obs-builds` remains the backstop, not the first line of defense |
 
-**Required checks (branch ruleset):** add the `msrv` check context to the
-`default` ruleset on `main` (human admin action in GitHub settings). Keep
-`distro-build` / `build-*` advisory: that workflow has no `merge_group`
-trigger and uses a path filter, so requiring those contexts would pend on
-unrelated PRs. The offline `make check-distro-rust` gate already runs inside
-the required `check` job via `check-fast`.
+**Required checks (branch ruleset):** the `default` ruleset on `main`
+requires the `msrv` check context. Keep `distro-build` / `build-*`
+advisory: that workflow has no `merge_group` trigger and uses a path
+filter, so requiring those contexts would pend on unrelated PRs. The
+offline `make check-distro-rust` gate already runs inside the required
+`check` job via `check-fast`.
 
 **Adding or changing a distro target:** edit `packaging/obs/project/_meta`,
 add a matching `[targets.<repository>]` table in `distro-rust.toml` (image,
