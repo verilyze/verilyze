@@ -8,7 +8,8 @@
 # `make super-linter` / verilyze-ship-pr can run the slim super-linter
 # container. Also installs the pinned Rust toolchain so `.cursor/install.sh`
 # can `cargo build` after checkout (a custom Dockerfile replaces Cursor's
-# default base image).
+# default base image), and a pinned Flutter / Dart SDK so DartRemediator
+# (`pub add`) can be exercised against real binaries (HC-12).
 #
 # Build context is the repository root (`environment.json` build.context
 # `..`) so Rust is derived from `rust-toolchain.toml`. Do not COPY the rest
@@ -26,10 +27,18 @@ ARG RUSTUP_VERSION=1.29.1
 ARG RUSTUP_INIT_SHA256_AMD64=dda7234360b7f578ca8b0ddcb80145646fa61a67c1720a5abc7051b35c9fcb71
 ARG RUSTUP_INIT_SHA256_ARM64=15f6e4ce9f583b929c996c91562bad6d4454f3281de858b02cdfdef615fac433
 
+# Flutter Linux stable pin (amd64). Upstream publishes no Linux arm64 Flutter
+# archive; arm64 images install the matching Dart SDK instead (dart only).
+# Renovate bumps FLUTTER_VERSION and runs
+# scripts/renovate-post-upgrade-flutter-sdk.sh to refresh SHA / Dart pins.
+ARG FLUTTER_VERSION=3.47.7
+ARG FLUTTER_SHA256_AMD64=af7455f540df951184c7953fbe3cf884766e7541dacf8571f9f582db03dd6230
+ARG DART_SDK_VERSION=3.13.5
+ARG DART_SHA256_ARM64=19a731647c3ed55058ee46dde00330150e6a8729bb6121b4a31e86084c8a3e6d
+
 # ubuntu:26.04 (resolute) @ 2026-09 (re-pin periodically via docker buildx imagetools).
 # --- Stage: fetch and hash-pin rustup-init (do not execute here). ---
 FROM ubuntu:26.04@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a8198759f7 AS rustup-fetch
-
 # Pipefail for RUN lines that use | (Hadolint DL4006).
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -56,6 +65,52 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && echo "${rustup_sha}  /rustup-init" | sha256sum -c - \
     && chmod +x /rustup-init
 
+# --- Stage: fetch and hash-pin Flutter (amd64) or Dart SDK (arm64). ---
+# ubuntu:26.04 digest must match rustup-fetch FROM (Renovate dockerfile manager).
+FROM ubuntu:26.04@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a8198759f7 AS flutter-sdk-fetch
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+ARG FLUTTER_VERSION
+ARG FLUTTER_SHA256_AMD64
+ARG DART_SDK_VERSION
+ARG DART_SHA256_ARM64
+
+# hadolint ignore=DL3008
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    unzip \
+    xz-utils \
+    && rm -rf /var/lib/apt/lists/* \
+    && arch="$(dpkg --print-architecture)" \
+    && mkdir -p /sdk \
+    && case "${arch}" in \
+         amd64) \
+           archive="flutter_linux_${FLUTTER_VERSION}-stable.tar.xz"; \
+           url="https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/${archive}"; \
+           curl --proto '=https' --tlsv1.2 --retry 3 --retry-delay 5 -sSfL \
+             "${url}" -o "/tmp/${archive}"; \
+           echo "${FLUTTER_SHA256_AMD64}  /tmp/${archive}" | sha256sum -c -; \
+           tar -xJf "/tmp/${archive}" -C /sdk --strip-components=1; \
+           rm -f "/tmp/${archive}"; \
+           test -x /sdk/bin/flutter; \
+           test -x /sdk/bin/dart; \
+           ;; \
+         arm64) \
+           archive="dartsdk-linux-arm64-release.zip"; \
+           url="https://storage.googleapis.com/dart-archive/channels/stable/release/${DART_SDK_VERSION}/sdk/${archive}"; \
+           curl --proto '=https' --tlsv1.2 --retry 3 --retry-delay 5 -sSfL \
+             "${url}" -o "/tmp/${archive}"; \
+           echo "${DART_SHA256_ARM64}  /tmp/${archive}" | sha256sum -c -; \
+           unzip -q "/tmp/${archive}" -d /tmp/dart-extract; \
+           mv /tmp/dart-extract/dart-sdk/* /sdk/; \
+           rm -rf "/tmp/${archive}" /tmp/dart-extract; \
+           test -x /sdk/bin/dart; \
+           ;; \
+         *) echo "unsupported architecture: ${arch}" >&2; exit 1 ;; \
+       esac
+
 # --- Stage: Cloud Agent runtime image. ---
 # ubuntu:26.04 digest must match rustup-fetch FROM (Renovate dockerfile manager).
 FROM ubuntu:26.04@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a8198759f7
@@ -66,8 +121,8 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ENV DEBIAN_FRONTEND=noninteractive \
     RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
-    PATH=/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-
+    FLUTTER_HOME=/usr/local/flutter \
+    PATH=/usr/local/flutter/bin:/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # Base tools required by Cloud Agents and install.sh.
 # acl: setfacl for docker.sock without world-writable mode.
 # openssh-client: ssh-keygen for sign-setup.sh / make check-signatures.
@@ -163,6 +218,20 @@ RUN RUST_VERSION="$(sed -n 's/^channel = "\(.*\)"/\1/p' /tmp/rust-toolchain.toml
       'export PATH="${CARGO_HOME}/bin:${PATH}"' \
       > /etc/profile.d/rustup.sh \
     && chmod 0644 /etc/profile.d/rustup.sh
+
+# Hash-pinned Flutter SDK (amd64) or Dart SDK (arm64) from flutter-sdk-fetch.
+COPY --from=flutter-sdk-fetch /sdk /usr/local/flutter
+RUN chmod -R a+rwX /usr/local/flutter \
+    && ln -sf /usr/local/flutter/bin/dart /usr/local/bin/dart \
+    && if test -x /usr/local/flutter/bin/flutter; then \
+         ln -sf /usr/local/flutter/bin/flutter /usr/local/bin/flutter; \
+       fi \
+    && git config --system --add safe.directory /usr/local/flutter \
+    && printf '%s\n' \
+      'export FLUTTER_HOME="${FLUTTER_HOME:-/usr/local/flutter}"' \
+      'export PATH="${FLUTTER_HOME}/bin:${PATH}"' \
+      > /etc/profile.d/flutter.sh \
+    && chmod 0644 /etc/profile.d/flutter.sh
 
 # Boot-independent dockerd helper (warm-fork start runs before checkout).
 COPY .cursor/docker-start.sh /usr/local/lib/vlz/docker-start.sh
