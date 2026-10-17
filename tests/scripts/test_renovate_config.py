@@ -14,6 +14,7 @@ from tests.scripts.repo_root import repo_root
 _ROOT = repo_root()
 _UPLOAD_SARIF_POST_UPGRADE = "bash scripts/renovate-post-upgrade-upload-sarif.sh"
 _RUSTUP_INIT_POST_UPGRADE = "bash scripts/renovate-post-upgrade-rustup-init.sh"
+_FLUTTER_SDK_POST_UPGRADE = "bash scripts/renovate-post-upgrade-flutter-sdk.sh"
 
 
 def test_renovate_regex_managers_use_delimited_file_patterns() -> None:
@@ -450,6 +451,7 @@ def test_renovate_workflow_allows_post_upgrade_sbom_script() -> None:
     assert "renovate-post-upgrade-upload-sarif" in text
     assert "renovate-post-upgrade-deny-skips" in text
     assert "renovate-post-upgrade-rustup-init" in text
+    assert "renovate-post-upgrade-flutter-sdk" in text
 
 
 def test_renovate_rustup_init_post_upgrade_refreshes_sha256_args() -> None:
@@ -498,3 +500,51 @@ def test_renovate_custom_manager_tracks_rustup_version_arg() -> None:
         for p in match.get("managerFilePatterns", [])
     )
     assert any("RUSTUP_VERSION" in s for s in match.get("matchStrings", []))
+
+
+def test_renovate_flutter_sdk_post_upgrade_refreshes_pins() -> None:
+    """Version bumps must refresh Dockerfile Flutter / Dart pins in the same PR."""
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    rules = data.get("packageRules", [])
+    match = next(
+        (
+            r
+            for r in rules
+            if _FLUTTER_SDK_POST_UPGRADE
+            in r.get("postUpgradeTasks", {}).get("commands", [])
+        ),
+        None,
+    )
+    assert match is not None, (
+        "packageRules must run postUpgradeTasks for flutter/flutter so "
+        "FLUTTER_SHA256_AMD64 / DART_* ARGs stay aligned with FLUTTER_VERSION"
+    )
+    assert match.get("matchPackageNames") == ["flutter/flutter"]
+    assert match.get("matchFileNames") == [".cursor/Dockerfile"]
+    tasks = match["postUpgradeTasks"]
+    assert tasks["commands"] == [_FLUTTER_SDK_POST_UPGRADE]
+    assert tasks["fileFilters"] == [".cursor/Dockerfile"]
+    assert tasks["executionMode"] == "branch"
+    assert "python" in tasks.get("installTools", {}), (
+        "flutter-sdk postUpgradeTasks need python for flutter_sdk_pins.py"
+    )
+
+
+def test_renovate_custom_manager_tracks_flutter_version_arg() -> None:
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    managers = data.get("customManagers", [])
+    match = next(
+        (
+            m
+            for m in managers
+            if m.get("packageNameTemplate") == "flutter/flutter"
+        ),
+        None,
+    )
+    assert match is not None
+    assert match.get("datasourceTemplate") == "github-tags"
+    assert any(
+        "cursor" in p and "Dockerfile" in p
+        for p in match.get("managerFilePatterns", [])
+    )
+    assert any("FLUTTER_VERSION" in s for s in match.get("matchStrings", []))
