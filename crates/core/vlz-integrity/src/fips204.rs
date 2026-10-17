@@ -41,7 +41,7 @@ pub struct MlDsa65Sealer {
 
 impl MlDsa65Sealer {
     pub fn for_cache_db(cache_db_path: &Path) -> Self {
-        let dir = cache_db_path.parent().unwrap_or_else(|| Path::new(""));
+        let dir = cache_db_path.parent().unwrap_or(Path::new(""));
         Self {
             signing_key_path: dir.join(SIGNING_KEY_FILE_NAME),
             verifying_key_path: dir.join(VERIFYING_KEY_FILE_NAME),
@@ -85,7 +85,7 @@ impl MlDsa65Sealer {
                 }
                 self.create_signing_key()
             }
-            Err(e) => Err(key_error(&self.signing_key_path, &e.to_string())),
+            Err(e) => Err(io_key_error(&self.signing_key_path)(e)),
         }
     }
 
@@ -104,21 +104,19 @@ impl MlDsa65Sealer {
     ) -> Result<SigningKey<MlDsa65>, DatabaseError> {
         let path = &self.signing_key_path;
         if let Some(dir) = path.parent() {
-            fs::create_dir_all(dir)
-                .map_err(|e| key_error(path, &e.to_string()))?;
+            fs::create_dir_all(dir).map_err(io_key_error(path))?;
         }
-        let key = SigningKey::<MlDsa65>::try_generate().map_err(|e| {
-            key_error(path, &format!("random generation failed: {e}"))
-        })?;
+        let key = SigningKey::<MlDsa65>::try_generate()
+            .map_err(std::io::Error::other)
+            .map_err(io_key_error(path))?;
         match write_owner_only(path, key.to_seed().as_slice()) {
             Ok(()) => Ok(key),
             // Another process generated the keypair first; use theirs.
             Err(e) if e.kind() == ErrorKind::AlreadyExists => {
-                let bytes = fs::read(path)
-                    .map_err(|e| key_error(path, &e.to_string()))?;
+                let bytes = fs::read(path).map_err(io_key_error(path))?;
                 self.decode_signing_key(&bytes)
             }
-            Err(e) => Err(key_error(path, &e.to_string())),
+            Err(e) => Err(io_key_error(path)(e)),
         }
     }
 
@@ -136,9 +134,9 @@ impl MlDsa65Sealer {
             )),
             Err(e) if e.kind() == ErrorKind::NotFound => {
                 write_replace(path, encoded.as_slice())
-                    .map_err(|e| key_error(path, &e.to_string()))
+                    .map_err(io_key_error(path))
             }
-            Err(e) => Err(key_error(path, &e.to_string())),
+            Err(e) => Err(io_key_error(path)(e)),
         }
     }
 
@@ -147,8 +145,7 @@ impl MlDsa65Sealer {
             return Ok(key);
         }
         let path = &self.verifying_key_path;
-        let bytes =
-            fs::read(path).map_err(|e| key_error(path, &e.to_string()))?;
+        let bytes = fs::read(path).map_err(io_key_error(path))?;
         let encoded =
             EncodedVerifyingKey::<MlDsa65>::try_from(bytes.as_slice())
                 .map_err(|_| key_error(path, "not an ML-DSA-65 public key"))?;
@@ -201,6 +198,10 @@ fn key_error(path: &Path, reason: &str) -> DatabaseError {
     ))
 }
 
+fn io_key_error(path: &Path) -> impl Fn(std::io::Error) -> DatabaseError {
+    move |e| key_error(path, &e.to_string())
+}
+
 /// Create `path` with owner-only permissions; fails if it already exists.
 fn write_owner_only(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let mut options = fs::OpenOptions::new();
@@ -221,9 +222,11 @@ fn write_replace(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     tmp.push(format!(".tmp.{}", std::process::id()));
     let tmp = PathBuf::from(tmp);
     fs::write(&tmp, bytes)?;
-    fs::rename(&tmp, path).inspect_err(|_| {
+    let renamed = fs::rename(&tmp, path);
+    if renamed.is_err() {
         let _ = fs::remove_file(&tmp);
-    })
+    }
+    renamed
 }
 
 #[cfg(test)]
@@ -439,6 +442,31 @@ mod tests {
         std::fs::write(&file, b"").unwrap();
         let s = MlDsa65Sealer::for_cache_db(&file.join("vlz-cache.redb"));
         assert!(s.seal(KEY, VALUE).is_err());
+    }
+
+    #[test]
+    fn losing_keygen_race_adopts_existing_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let winner = sealer(dir.path());
+        let seal = winner.seal(KEY, VALUE).unwrap();
+        let loser = sealer(dir.path());
+        let adopted = loser.create_signing_key().unwrap();
+        assert_eq!(
+            adopted.to_seed().as_slice(),
+            std::fs::read(winner.signing_key_path()).unwrap()
+        );
+        assert!(loser.check(KEY, VALUE, &seal).unwrap());
+    }
+
+    #[test]
+    fn unreadable_public_key_fails_seal_closed() {
+        let dir = tempfile::tempdir().unwrap();
+        sealer(dir.path()).seal(KEY, VALUE).unwrap();
+        let public = dir.path().join(VERIFYING_KEY_FILE_NAME);
+        std::fs::remove_file(&public).unwrap();
+        std::fs::create_dir(&public).unwrap();
+        let msg = err_text(sealer(dir.path()).seal(KEY, VALUE));
+        assert!(msg.contains(VERIFYING_KEY_FILE_NAME), "{msg}");
     }
 
     #[test]
