@@ -12,10 +12,32 @@ Human-readable release notes for each version.
 
 ### Added
 
+- Optional FIPS-204 cache signatures (SEC-005, HC-7): the
+  `integrity-fips204` build feature signs every RedB cache entry with
+  ML-DSA-65 (RustCrypto `ml-dsa`, algorithm conformance only, not FIPS 140
+  validated). The keypair is created beside the cache DB on first write
+  (`cache-signing.mldsa65.key`, mode 0600, and `cache-signing.mldsa65.pub`);
+  verify needs only the public key and missing or corrupt keys fail closed.
+  It wins over SHA-256 when both features are enabled.
+- `vlz db migrate` seals cache entries written before sealing existed and
+  prints the count; it never re-seals a mismatched entry.
 - Cursor Cloud Agent image installs a pinned Flutter Linux SDK (amd64) or
   Dart SDK (arm64 fallback) so `DartRemediator` / `vlz fix` can be tested
   against real binaries; CONTRIBUTING lists Dart/Flutter as recommended
   remediator prerequisites (HC-12).
+
+### Changed
+
+- `vlz db verify` now detects tampering (SEC-004, FR-033). Previously the
+  SHA-256 pass discarded its digest and always succeeded. Each RedB cache
+  write stores a per-entry seal in a new `cve_cache_seal` table; verify
+  reports mismatched, unsealed, and orphan seals and exits 1. The success
+  line is now `integrity OK (SHA-256)` or `integrity OK (FIPS-204)`.
+- **Upgrade note:** caches written by earlier versions have no seals, so
+  `vlz db verify` exits 1 until you run `vlz db migrate` once.
+- New default build feature `integrity-sha256`. Builds with
+  `--no-default-features` need it (or `integrity-fips204`) for
+  `vlz db verify` to pass.
 
 ## [0.14.1] - 2026-10-11
 

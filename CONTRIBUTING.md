@@ -24,8 +24,11 @@ Crates are organized by plugin type under `crates/`:
     provider contract and decoder registry; includes default OSV.dev client.
   - **vlz-report** -- Trait `Reporter`; plain, JSON, HTML, SARIF, CycloneDX, SPDX
     reporters.
-  - **vlz-integrity** -- Trait `IntegrityChecker`; default delegates to backend
-    `verify_integrity`.
+  - **vlz-integrity** -- Trait `IntegrityChecker` (default delegates to backend
+    `verify_integrity`) and the cache `EntrySealer` implementations:
+    `Sha256Sealer` (feature `sha256`, SEC-004) and `MlDsa65Sealer` (feature
+    `fips204`, SEC-005). The `EntrySealer` trait lives in `vlz-db` so DB
+    backends never depend on `vlz-integrity`.
   - **vlz-plugin-macro** -- `vlz_register!` macro for registering default plugins
     in the binary.
   - **vlz-remediate** -- Upgrade-plan planner (FR-040) and Remediator trait /
@@ -984,6 +987,13 @@ The `vlz` binary supports optional capabilities via Cargo features:
   builds; if both are on (e.g. `cargo clippy --all-features`), RedB wins.
 - **mem** -- In-memory CVE cache (`vlz-db-mem`). Process-local only; `--cache-db`
   is rejected (exit 2). Use via `runtime-mem` / `docker`, not alongside `redb`.
+- **integrity-sha256** (default) -- SHA-256 seal per RedB cache entry
+  (SEC-004), checked by `vlz db verify`.
+- **integrity-fips204** -- ML-DSA-65 (FIPS 204) signature per RedB cache entry
+  (SEC-005) with a keypair beside the cache DB. Cargo features cannot be
+  exclusive, so this wins over `integrity-sha256` when both are on (including
+  `--all-features` and `make coverage`). `make cargo-test-fips204` runs its
+  tests. With neither feature, no seals are written and `vlz db verify` fails.
 - **python** -- Python language plugin (`vlz-python` crate).
 - **rust** -- Rust language plugin (`vlz-rust` crate).
 - **go** -- Go language plugin (`vlz-go` crate).

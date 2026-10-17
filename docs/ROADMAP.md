@@ -53,7 +53,7 @@ Status values: `done`, `in progress`, `planned`, `later`.
 | HC-4 | SQLite DB backend | later | |
 | HC-5 | Container image SLSA only (SEC-021); still no image CVE scan | done | |
 | HC-6 | Reproducible release binaries (NFR-006) | done | |
-| HC-7 | Optional FIPS-204 cache signatures (SEC-005) | in progress | |
+| HC-7 | Optional FIPS-204 cache signatures (SEC-005) | done | |
 | HC-8 | Marketplace editor clients (sibling repo) | later | |
 | HC-9 | More ecosystems only with lock-first + OSV coverage | done | Dart/Pub (`vlz-dart`) |
 | HC-10 | NuGet residual depth (orphan locks, restore edge cases); `Directory.Packages.props` version fill already ships | done | orphan packages.lock.json; ephemeral restore copies Directory.Packages.props |

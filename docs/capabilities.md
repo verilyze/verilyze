@@ -54,5 +54,9 @@ never suppresses findings by default.
   Inventory-only export (no CVE matching) uses `vlz export-sbom`. Import via
   `--from-sbom` or discovered allowlisted names. VEX consume uses `--from-vex`
   (see FAQ).
+- **Cache integrity:** The RedB CVE cache seals every entry (SHA-256 by
+  default, ML-DSA-65 / FIPS 204 with the `integrity-fips204` build feature).
+  `vlz db verify` exits 1 on tamper; `vlz db migrate` seals older caches. See
+  [SECURITY.md](../SECURITY.md#cache-integrity-sec-004-sec-005).
 - **Roadmap:** Matching transparency, suppression expiry, and remediator
   gaps are tracked in [ROADMAP.md](ROADMAP.md).

@@ -27,6 +27,7 @@ It is **not** a certification or audit attestation.
 | Secure communications | ISO 27001 A.13, CMMC SC | SEC-002, NFR-004, SEC-024 | [vlz-cve-client](crates/core/vlz-cve-client/) TLS 1.3 + cert validation; optional Linux CRL bundle |
 | Credential handling | SOC 2 CC6 | SEC-008, SEC-020 | Env-only provider tokens; no secrets in logs/errors |
 | Data protection (local cache) | SOC 2 CC6, CMMC MP | SEC-014, OP-003 | XDG cache paths, restrictive DB permissions, `vlz db verify` |
+| Cache integrity and non-repudiation | SOC 2 CC7, CMMC SI | SEC-004, SEC-005, FR-033 | Per-entry seals in the `cve_cache_seal` redb table; SHA-256 by default, ML-DSA-65 (FIPS 204 algorithm, not a FIPS 140 validated module) with `integrity-fips204`; `vlz db verify` exits 1 on tamper; [SECURITY.md](SECURITY.md) "Cache integrity" |
 | Auditability | SOC 2 CC7 | SEC-009, NFR-013, FR-010 | Deterministic exit codes; stderr diagnostics; verilyze scan JSON/SARIF artifacts |
 | Least privilege | CMMC AC, SEC-003 | OP-001 | No set-UID; runs as invoking user |
 | Release integrity | Supply chain best practice | SEC-021 | [release.yml](.github/workflows/release.yml) SLSA L3 binary + container provenance via `slsa-github-generator` v2.1.0; Cosign signing for all assets |

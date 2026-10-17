@@ -91,6 +91,36 @@ into the default binary, which supports static musl builds (FR-025).
   [docs/LICENSING.md](docs/LICENSING.md).
   **TLS crypto** for CVE providers is **rustls** with the ***ring* crypto provider** only.
 
+## Cache integrity (SEC-004, SEC-005)
+
+Every write to the RedB CVE cache also stores a per-entry seal over the cache
+key, a `0x00` byte, and the stored value, in the same transaction.
+`vlz db verify` recomputes every seal and exits 1 (FR-033) when a value was
+changed, an entry has no seal, or a seal has no entry.
+
+- **SHA-256 (default, `integrity-sha256`):** an unkeyed digest. It detects
+  accidental corruption and naive edits, but not an attacker who can also
+  rewrite the digest. Prints `integrity OK (SHA-256)`.
+- **ML-DSA-65 (`integrity-fips204`):** a FIPS 204 signature using RustCrypto
+  `ml-dsa` (pure Rust, pinned to an exact pre-1.0 version). This is
+  **algorithm conformance only, not a FIPS 140 validated module**. Prints
+  `integrity OK (FIPS-204)`. When both features are enabled, ML-DSA wins.
+- **Keys:** on the first sealed write, vlz creates
+  `cache-signing.mldsa65.key` (32-byte seed, mode 0600 on Unix; Windows
+  relies on the directory ACL) and `cache-signing.mldsa65.pub` beside the
+  cache DB. Verification needs only the public key. A missing, corrupt, or
+  mismatched key fails closed, and vlz never generates a new keypair while a
+  public key exists. Anyone who can write the cache directory can also
+  replace both keys; keep the public key elsewhere if you need to detect
+  that.
+- **Legacy caches:** entries written before sealing existed are reported as
+  unsealed. `vlz db migrate` seals them and never re-seals a mismatched
+  entry, so tampering is not laundered.
+- **Size:** an ML-DSA-65 seal is about 4.4 KB of base64 per cache entry
+  (a SHA-256 seal is 71 bytes).
+- The in-memory cache (`mem`, Docker image) has no files to tamper with;
+  `vlz db verify` reports success without seals.
+
 ## Optional provider credentials
 
 GitHub Advisory and Sonatype OSS Index CVE providers support optional or
@@ -228,6 +258,7 @@ for remediation when scans warn about partial (direct-only) resolution.
 - Release binaries are built with `SOURCE_DATE_EPOCH` and path remapping
   (NFR-006). CI validates two clean release digests via
   `make check-reproducible-build`.
-- Use `vlz db verify` to check integrity of cached data (SHA-256 by default).
+- Use `vlz db verify` to check integrity of cached data (SHA-256 by default,
+  ML-DSA-65 with `integrity-fips204`; see "Cache integrity").
 - Keep the tool and dependencies updated; run `vlz scan` on this repository
   (dogfooding, SEC-015) as part of your workflow.
