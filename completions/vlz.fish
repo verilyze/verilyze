@@ -139,9 +139,9 @@ complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcomma
 complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show import set-ttl" -s c -l config -d 'Override configuration file location' -r -F
 complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show import set-ttl" -s v -l verbose -d 'Increase verbosity (multiple times = more detail). After the scan report, also emit per-manifest direct-only warnings and manifest failure detail (FR-022a)'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show import set-ttl" -s h -l help -d 'Print help'
-complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show import set-ttl" -f -a "stats"
-complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show import set-ttl" -f -a "verify"
-complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show import set-ttl" -f -a "migrate"
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show import set-ttl" -f -a "stats" -d 'Cache statistics'
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show import set-ttl" -f -a "verify" -d 'Check every cache entry against its seal (exit 1 on mismatch)'
+complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show import set-ttl" -f -a "migrate" -d 'Seal cache entries written before sealing was enabled'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show import set-ttl" -f -a "list-providers" -d 'List supported CVE providers'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show import set-ttl" -f -a "show" -d 'Display cache entries with TTL and added timestamp'
 complete -c vlz -n "__fish_vlz_using_subcommand db; and not __fish_seen_subcommand_from stats verify migrate list-providers show import set-ttl" -f -a "import" -d 'Import an airgap CVE corpus snapshot into the local cache (FR-021a)'
