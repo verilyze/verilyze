@@ -230,6 +230,10 @@ impl DatabaseBackend for MemBackend {
     async fn verify_integrity(&self) -> Result<(), DatabaseError> {
         self.read_entries().map(|_| ())
     }
+
+    fn integrity_label(&self) -> &'static str {
+        vlz_db::INTEGRITY_LABEL_NOT_PERSISTED
+    }
 }
 
 #[cfg(test)]

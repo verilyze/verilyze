@@ -39,7 +39,8 @@ pub use purl::{
 };
 pub use seal::{
     EntrySealer, INTEGRITY_DISABLED_MESSAGE, INTEGRITY_LABEL_DISABLED,
-    INTEGRITY_LABEL_NOT_PERSISTED, SEAL_TABLE_NAME, seal_message,
+    INTEGRITY_LABEL_NOT_PERSISTED, INTEGRITY_LABEL_UNCHECKED, SEAL_TABLE_NAME,
+    seal_message,
 };
 
 use async_trait::async_trait;
@@ -796,7 +797,7 @@ pub trait DatabaseBackend: Send + Sync {
 
     /// Seal algorithm checked by `verify_integrity` (shown by `vlz db verify`).
     fn integrity_label(&self) -> &'static str {
-        INTEGRITY_LABEL_NOT_PERSISTED
+        INTEGRITY_LABEL_UNCHECKED
     }
 
     /// Seal entries that have no seal yet (`vlz db migrate`); returns how
@@ -1076,11 +1077,8 @@ mod tests {
     }
 
     #[test]
-    fn database_backend_default_integrity_label_is_not_persisted() {
-        assert_eq!(
-            MockBackend.integrity_label(),
-            INTEGRITY_LABEL_NOT_PERSISTED
-        );
+    fn database_backend_default_integrity_label_is_unchecked() {
+        assert_eq!(MockBackend.integrity_label(), INTEGRITY_LABEL_UNCHECKED);
     }
 
     #[tokio::test]
