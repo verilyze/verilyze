@@ -9,6 +9,7 @@ mod corpus_import;
 mod file_ignore;
 mod match_explain;
 mod purl;
+mod seal;
 
 pub use cache_entry::{
     PurgeEntry, StoredEntry, entry_is_expired, new_stored_entry,
@@ -35,6 +36,10 @@ pub use match_explain::{
 pub use purl::{
     ecosystem_for_purl_type, package_from_purl, purl_for_package,
     purl_type_for_ecosystem,
+};
+pub use seal::{
+    EntrySealer, INTEGRITY_DISABLED_MESSAGE, INTEGRITY_LABEL_DISABLED,
+    INTEGRITY_LABEL_NOT_PERSISTED, SEAL_TABLE_NAME, seal_message,
 };
 
 use async_trait::async_trait;
@@ -592,6 +597,10 @@ pub enum DatabaseError {
 
     #[error("{0}")]
     Other(String),
+
+    /// Cache content does not match its seals (SEC-004 / SEC-005).
+    #[error("{0}")]
+    IntegrityViolation(String),
 }
 
 impl DatabaseError {
@@ -783,6 +792,17 @@ pub trait DatabaseBackend: Send + Sync {
     /// back‑ends may override it (e.g. SHA‑256, FIPS‑204).
     async fn verify_integrity(&self) -> Result<(), DatabaseError> {
         Ok(())
+    }
+
+    /// Seal algorithm checked by `verify_integrity` (shown by `vlz db verify`).
+    fn integrity_label(&self) -> &'static str {
+        INTEGRITY_LABEL_NOT_PERSISTED
+    }
+
+    /// Seal entries that have no seal yet (`vlz db migrate`); returns how
+    /// many were sealed. Entries whose seal mismatches must not be re-sealed.
+    async fn backfill_seals(&self) -> Result<usize, DatabaseError> {
+        Ok(0)
     }
 }
 
@@ -1053,6 +1073,25 @@ mod tests {
     async fn database_backend_default_verify_integrity() {
         let backend = MockBackend;
         assert!(backend.verify_integrity().await.is_ok());
+    }
+
+    #[test]
+    fn database_backend_default_integrity_label_is_not_persisted() {
+        assert_eq!(
+            MockBackend.integrity_label(),
+            INTEGRITY_LABEL_NOT_PERSISTED
+        );
+    }
+
+    #[tokio::test]
+    async fn database_backend_default_backfill_seals_is_zero() {
+        assert_eq!(MockBackend.backfill_seals().await.unwrap(), 0);
+    }
+
+    #[test]
+    fn integrity_violation_displays_detail() {
+        let e = DatabaseError::IntegrityViolation("2 mismatched".into());
+        assert_eq!(e.to_string(), "2 mismatched");
     }
 
     #[tokio::test]

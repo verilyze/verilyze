@@ -6,8 +6,8 @@
 
 use async_trait::async_trait;
 use redb::{
-    Database, ReadableDatabase, ReadableTable, ReadableTableMetadata,
-    TableDefinition,
+    Database, ReadOnlyTable, ReadTransaction, ReadableDatabase, ReadableTable,
+    ReadableTableMetadata, Table, TableDefinition,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -17,14 +17,87 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use vlz_cve_client::{attach_affected_ranges, decode_raw_vulns};
 use vlz_db::{
     CacheEntryInfo, CveRecord, DatabaseBackend, DatabaseError, DatabaseStats,
-    FpMarkFields, FpMarkMeta, Package, PurgeEntry, StoredEntry, TtlSelector,
-    entry_is_expired, new_stored_entry, normalize_stored_entry, pkg_cache_key,
-    unix_now_secs,
+    EntrySealer, FpMarkFields, FpMarkMeta, INTEGRITY_DISABLED_MESSAGE,
+    INTEGRITY_LABEL_DISABLED, Package, PurgeEntry, SEAL_TABLE_NAME,
+    StoredEntry, TtlSelector, entry_is_expired, new_stored_entry,
+    normalize_stored_entry, pkg_cache_key, unix_now_secs,
 };
 
 /// RedB table: key = `"name::version::provider"`, value = JSON of `StoredEntry`.
 const CACHE_TABLE: TableDefinition<&str, &str> =
     TableDefinition::new("cve_cache");
+
+/// RedB table: key = cache key, value = seal of the `CACHE_TABLE` value.
+const SEAL_TABLE: TableDefinition<&str, &str> =
+    TableDefinition::new(SEAL_TABLE_NAME);
+
+/// Appended to a verify failure when entries predate sealing.
+pub const MIGRATE_HINT: &str = "Run `vlz db migrate` to seal entries \
+     written before integrity sealing was enabled.";
+
+/// Affected keys listed in a verify failure message.
+pub const MAX_REPORTED_KEYS: usize = 5;
+
+/// Keys that failed `verify_integrity`, by failure kind.
+#[derive(Debug, Default)]
+struct SealReport {
+    checked: usize,
+    mismatched: Vec<String>,
+    unsealed: Vec<String>,
+    orphans: Vec<String>,
+}
+
+impl SealReport {
+    fn is_clean(&self) -> bool {
+        self.mismatched.is_empty()
+            && self.unsealed.is_empty()
+            && self.orphans.is_empty()
+    }
+
+    fn summary(&self, label: &str) -> String {
+        let affected: Vec<&str> = self
+            .mismatched
+            .iter()
+            .chain(&self.unsealed)
+            .chain(&self.orphans)
+            .map(String::as_str)
+            .collect();
+        let mut keys = affected
+            .iter()
+            .take(MAX_REPORTED_KEYS)
+            .copied()
+            .collect::<Vec<_>>()
+            .join(", ");
+        if affected.len() > MAX_REPORTED_KEYS {
+            keys.push_str(", ...");
+        }
+        let mut msg = format!(
+            "Cache integrity check failed ({label}): {} entries checked; \
+             {} mismatched, {} unsealed, {} orphan seals. Affected keys: {keys}.",
+            self.checked,
+            self.mismatched.len(),
+            self.unsealed.len(),
+            self.orphans.len(),
+        );
+        if !self.unsealed.is_empty() {
+            msg.push(' ');
+            msg.push_str(MIGRATE_HINT);
+        }
+        msg
+    }
+}
+
+/// Open a table for reading; `None` when it was never created.
+fn open_read_table(
+    txn: &ReadTransaction,
+    def: TableDefinition<&'static str, &'static str>,
+) -> Result<Option<ReadOnlyTable<&'static str, &'static str>>, DatabaseError> {
+    match txn.open_table(def) {
+        Ok(t) => Ok(Some(t)),
+        Err(redb::TableError::TableDoesNotExist(_)) => Ok(None),
+        Err(e) => Err(DatabaseError::wrap(e)),
+    }
+}
 
 /// RedB table for persisted stats: keys "hits", "misses"; values decimal strings.
 const METADATA_TABLE: TableDefinition<&str, &str> =
@@ -113,13 +186,43 @@ impl Drop for RedbBackendInner {
     }
 }
 
-/// Real RedB backend: one file, cache table + metadata for stats.
+/// Real RedB backend: one file, cache table + metadata for stats, plus a
+/// seal table when built with a sealer (SEC-004 / SEC-005).
 #[derive(Clone)]
 pub struct RedbBackend {
     inner: Arc<RedbBackendInner>,
+    sealer: Option<Arc<dyn EntrySealer>>,
 }
 
 impl RedbBackend {
+    /// Seal every cache write with `sealer` and check seals on verify.
+    /// Without a sealer no seals are written and `verify_integrity` fails.
+    pub fn with_sealer(mut self, sealer: Arc<dyn EntrySealer>) -> Self {
+        self.sealer = Some(sealer);
+        self
+    }
+
+    /// Insert `value` under `key` and, when sealing, its seal (same txn).
+    fn write_entry(
+        &self,
+        cache: &mut Table<&str, &str>,
+        seals: &mut Table<&str, &str>,
+        key: &str,
+        value: &str,
+    ) -> Result<(), DatabaseError> {
+        let seal = match &self.sealer {
+            Some(sealer) => Some(sealer.seal(key, value)?),
+            None => None,
+        };
+        cache.insert(key, value).map_err(DatabaseError::wrap)?;
+        if let Some(seal) = seal {
+            seals
+                .insert(key, seal.as_str())
+                .map_err(DatabaseError::wrap)?;
+        }
+        Ok(())
+    }
+
     /// Create a new backend using a RedB file at `path`.
     ///
     /// * `path` – path to the `.redb` file (created if missing).
@@ -142,6 +245,7 @@ impl RedbBackend {
         };
         Ok(RedbBackend {
             inner: Arc::new(inner),
+            sealer: None,
         })
     }
 
@@ -169,7 +273,13 @@ impl RedbBackend {
         };
         Ok(RedbBackend {
             inner: Arc::new(inner),
+            sealer: None,
         })
+    }
+
+    /// Default on-disk cache path (`./vlz-cache.redb` from the current directory).
+    pub fn default_path() -> PathBuf {
+        default_cache_db_path(std::env::current_dir())
     }
 
     /// Create a new backend with the default file path
@@ -177,8 +287,7 @@ impl RedbBackend {
     ///
     /// * `ttl_secs` – time‑to‑live for cached CVE entries.
     pub fn new(ttl_secs: u64) -> Self {
-        let path = default_cache_db_path(std::env::current_dir());
-        Self::with_path(path, ttl_secs)
+        Self::with_path(Self::default_path(), ttl_secs)
             .expect("failed to open or create RedB database")
     }
 
@@ -192,6 +301,9 @@ impl RedbBackend {
             self.inner.db.begin_write().map_err(DatabaseError::wrap)?;
         let mut table = write_txn
             .open_table(CACHE_TABLE)
+            .map_err(DatabaseError::wrap)?;
+        let mut seals = write_txn
+            .open_table(SEAL_TABLE)
             .map_err(DatabaseError::wrap)?;
         let keys_to_remove: Vec<String> = table
             .iter()
@@ -210,8 +322,10 @@ impl RedbBackend {
             .collect();
         for k in keys_to_remove {
             let _ = table.remove(k.as_str());
+            let _ = seals.remove(k.as_str());
         }
         drop(table);
+        drop(seals);
         write_txn.commit().map_err(DatabaseError::wrap)?;
         Ok(())
     }
@@ -306,10 +420,12 @@ impl DatabaseBackend for RedbBackend {
         let mut table = write_txn
             .open_table(CACHE_TABLE)
             .map_err(DatabaseError::wrap)?;
-        table
-            .insert(key.as_str(), value.as_str())
+        let mut seals = write_txn
+            .open_table(SEAL_TABLE)
             .map_err(DatabaseError::wrap)?;
+        self.write_entry(&mut table, &mut seals, &key, &value)?;
         drop(table);
+        drop(seals);
         write_txn.commit().map_err(DatabaseError::wrap)?;
         Ok(())
     }
@@ -412,6 +528,9 @@ impl DatabaseBackend for RedbBackend {
         let mut table = write_txn
             .open_table(CACHE_TABLE)
             .map_err(DatabaseError::wrap)?;
+        let mut seals = write_txn
+            .open_table(SEAL_TABLE)
+            .map_err(DatabaseError::wrap)?;
         for key in keys {
             let val_str: String =
                 match table.get(key.as_str()).map_err(DatabaseError::wrap)? {
@@ -430,31 +549,106 @@ impl DatabaseBackend for RedbBackend {
             stored.ttl_secs = Some(new_ttl_secs);
             let new_val = serde_json::to_string(&stored)
                 .map_err(DatabaseError::Serde)?;
-            table
-                .insert(key.as_str(), new_val.as_str())
-                .map_err(DatabaseError::wrap)?;
+            self.write_entry(&mut table, &mut seals, &key, &new_val)?;
         }
         drop(table);
+        drop(seals);
         write_txn.commit().map_err(DatabaseError::wrap)?;
         Ok(())
     }
 
     async fn verify_integrity(&self) -> Result<(), DatabaseError> {
-        use sha2::{Digest, Sha256};
-
+        let Some(sealer) = &self.sealer else {
+            return Err(DatabaseError::IntegrityViolation(
+                INTEGRITY_DISABLED_MESSAGE.into(),
+            ));
+        };
         let read_txn =
             self.inner.db.begin_read().map_err(DatabaseError::wrap)?;
-        let table = read_txn
+        let cache = open_read_table(&read_txn, CACHE_TABLE)?;
+        let seals = open_read_table(&read_txn, SEAL_TABLE)?;
+        let mut report = SealReport::default();
+        if let Some(cache) = &cache {
+            for entry in cache.iter().map_err(DatabaseError::wrap)? {
+                let (k, v) = entry.map_err(DatabaseError::wrap)?;
+                report.checked += 1;
+                let seal = match &seals {
+                    Some(s) => {
+                        s.get(k.value()).map_err(DatabaseError::wrap)?
+                    }
+                    None => None,
+                };
+                match seal {
+                    None => report.unsealed.push(k.value().to_string()),
+                    Some(seal) => {
+                        if !sealer.check(k.value(), v.value(), seal.value())? {
+                            report.mismatched.push(k.value().to_string());
+                        }
+                    }
+                }
+            }
+        }
+        if let Some(seals) = &seals {
+            for entry in seals.iter().map_err(DatabaseError::wrap)? {
+                let (k, _) = entry.map_err(DatabaseError::wrap)?;
+                let present = match &cache {
+                    Some(c) => c
+                        .get(k.value())
+                        .map_err(DatabaseError::wrap)?
+                        .is_some(),
+                    None => false,
+                };
+                if !present {
+                    report.orphans.push(k.value().to_string());
+                }
+            }
+        }
+        if report.is_clean() {
+            Ok(())
+        } else {
+            Err(DatabaseError::IntegrityViolation(
+                report.summary(sealer.label()),
+            ))
+        }
+    }
+
+    fn integrity_label(&self) -> &'static str {
+        self.sealer
+            .as_ref()
+            .map_or(INTEGRITY_LABEL_DISABLED, |s| s.label())
+    }
+
+    async fn backfill_seals(&self) -> Result<usize, DatabaseError> {
+        let Some(sealer) = &self.sealer else {
+            return Err(DatabaseError::IntegrityViolation(
+                INTEGRITY_DISABLED_MESSAGE.into(),
+            ));
+        };
+        let write_txn =
+            self.inner.db.begin_write().map_err(DatabaseError::wrap)?;
+        let cache = write_txn
             .open_table(CACHE_TABLE)
             .map_err(DatabaseError::wrap)?;
-        let mut hasher = Sha256::new();
-        for entry in table.iter().map_err(DatabaseError::wrap)? {
+        let mut seals = write_txn
+            .open_table(SEAL_TABLE)
+            .map_err(DatabaseError::wrap)?;
+        let mut unsealed = Vec::new();
+        for entry in cache.iter().map_err(DatabaseError::wrap)? {
             let (k, v) = entry.map_err(DatabaseError::wrap)?;
-            let line = format!("{}|{}", k.value(), v.value());
-            hasher.update(line.as_bytes());
+            if seals.get(k.value()).map_err(DatabaseError::wrap)?.is_none() {
+                unsealed.push((k.value().to_string(), v.value().to_string()));
+            }
         }
-        let _hash = hasher.finalize();
-        Ok(())
+        for (key, value) in &unsealed {
+            let seal = sealer.seal(key, value)?;
+            seals
+                .insert(key.as_str(), seal.as_str())
+                .map_err(DatabaseError::wrap)?;
+        }
+        drop(cache);
+        drop(seals);
+        write_txn.commit().map_err(DatabaseError::wrap)?;
+        Ok(unsealed.len())
     }
 }
 
@@ -1240,7 +1434,9 @@ mod tests {
     #[tokio::test]
     async fn verify_integrity_succeeds() {
         let (_dir, path) = temp_cache_path("verify");
-        let backend = RedbBackend::with_path(path.clone(), 3600).unwrap();
+        let backend = RedbBackend::with_path(path.clone(), 3600)
+            .unwrap()
+            .with_sealer(Arc::new(TestSealer));
         backend.init().await.unwrap();
         backend
             .put(
@@ -1262,7 +1458,7 @@ mod tests {
     /// verify_integrity on empty db (iter yields nothing).
     #[tokio::test]
     async fn verify_integrity_empty_db_succeeds() {
-        let backend = in_memory_backend(3600);
+        let backend = sealed_in_memory_backend(3600);
         backend.init().await.unwrap();
         backend.verify_integrity().await.unwrap();
     }
@@ -2382,6 +2578,7 @@ mod tests {
             let Ok(b) = RedbBackend::with_database(db, 3600) else {
                 continue;
             };
+            let b = b.with_sealer(Arc::new(TestSealer));
             if b.init().await.is_err() {
                 continue;
             }
@@ -2514,5 +2711,373 @@ mod tests {
                 return;
             }
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Per-entry seals (SEC-004 / SEC-005): storage mechanism only. The seal
+    // algorithms themselves are tested in vlz-integrity.
+    // -----------------------------------------------------------------------
+
+    const TEST_SEAL_LABEL: &str = "test-seal";
+    const TEST_SEAL_PREFIX: &str = "test:";
+    const INJECTED_SEAL_FAILURE: &str = "injected seal failure";
+    const INJECTED_CHECK_FAILURE: &str = "injected check failure";
+
+    /// Seal that embeds the whole sealed message, so any edit is visible.
+    struct TestSealer;
+
+    impl EntrySealer for TestSealer {
+        fn label(&self) -> &'static str {
+            TEST_SEAL_LABEL
+        }
+        fn seal(
+            &self,
+            key: &str,
+            value: &str,
+        ) -> Result<String, DatabaseError> {
+            let msg = vlz_db::seal_message(key, value);
+            Ok(format!(
+                "{TEST_SEAL_PREFIX}{}",
+                String::from_utf8_lossy(&msg)
+            ))
+        }
+        fn check(
+            &self,
+            key: &str,
+            value: &str,
+            seal: &str,
+        ) -> Result<bool, DatabaseError> {
+            Ok(self.seal(key, value)? == seal)
+        }
+    }
+
+    struct FailingSealSealer;
+
+    impl EntrySealer for FailingSealSealer {
+        fn label(&self) -> &'static str {
+            TEST_SEAL_LABEL
+        }
+        fn seal(&self, _: &str, _: &str) -> Result<String, DatabaseError> {
+            Err(DatabaseError::Other(INJECTED_SEAL_FAILURE.into()))
+        }
+        fn check(
+            &self,
+            _: &str,
+            _: &str,
+            _: &str,
+        ) -> Result<bool, DatabaseError> {
+            Err(DatabaseError::Other(INJECTED_CHECK_FAILURE.into()))
+        }
+    }
+
+    fn sealed_in_memory_backend(ttl_secs: u64) -> RedbBackend {
+        in_memory_backend(ttl_secs).with_sealer(Arc::new(TestSealer))
+    }
+
+    fn seal_pkg(name: &str) -> Package {
+        Package {
+            name: name.to_string(),
+            version: "1".to_string(),
+            ..Default::default()
+        }
+    }
+
+    fn raw_insert(
+        backend: &RedbBackend,
+        table: SealTable,
+        key: &str,
+        value: &str,
+    ) {
+        let write_txn = backend.inner.db.begin_write().unwrap();
+        {
+            let mut t = match table {
+                SealTable::Cache => write_txn.open_table(CACHE_TABLE).unwrap(),
+                SealTable::Seal => write_txn.open_table(SEAL_TABLE).unwrap(),
+            };
+            t.insert(key, value).unwrap();
+        }
+        write_txn.commit().unwrap();
+    }
+
+    fn raw_remove(backend: &RedbBackend, table: SealTable, key: &str) {
+        let write_txn = backend.inner.db.begin_write().unwrap();
+        {
+            let mut t = match table {
+                SealTable::Cache => write_txn.open_table(CACHE_TABLE).unwrap(),
+                SealTable::Seal => write_txn.open_table(SEAL_TABLE).unwrap(),
+            };
+            t.remove(key).unwrap();
+        }
+        write_txn.commit().unwrap();
+    }
+
+    fn raw_get(
+        backend: &RedbBackend,
+        table: SealTable,
+        key: &str,
+    ) -> Option<String> {
+        let read_txn = backend.inner.db.begin_read().unwrap();
+        let t = match table {
+            SealTable::Cache => read_txn.open_table(CACHE_TABLE).unwrap(),
+            SealTable::Seal => read_txn.open_table(SEAL_TABLE).unwrap(),
+        };
+        t.get(key).unwrap().map(|g| g.value().to_string())
+    }
+
+    #[derive(Clone, Copy)]
+    enum SealTable {
+        Cache,
+        Seal,
+    }
+
+    fn violation_message(res: Result<(), DatabaseError>) -> String {
+        match res {
+            Err(DatabaseError::IntegrityViolation(msg)) => msg,
+            other => panic!("expected IntegrityViolation, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn sealed_verify_passes_on_fresh_entries() {
+        let backend = sealed_in_memory_backend(3600);
+        backend.init().await.unwrap();
+        for name in ["a", "b"] {
+            backend
+                .put(&seal_pkg(name), "osv", &[sample_raw_vuln()], None)
+                .await
+                .unwrap();
+        }
+        backend.verify_integrity().await.unwrap();
+        assert_eq!(backend.integrity_label(), TEST_SEAL_LABEL);
+        assert!(raw_get(&backend, SealTable::Seal, "a::1::osv").is_some());
+    }
+
+    #[tokio::test]
+    async fn sealed_verify_passes_on_empty_db_without_init() {
+        let backend = sealed_in_memory_backend(3600);
+        backend.verify_integrity().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn sealed_verify_detects_edited_value() {
+        let backend = sealed_in_memory_backend(3600);
+        backend.init().await.unwrap();
+        backend
+            .put(&seal_pkg("a"), "osv", &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
+        let original =
+            raw_get(&backend, SealTable::Cache, "a::1::osv").unwrap();
+        let tampered = original.replace("CVE-2023-test", "CVE-2023-fake");
+        raw_insert(&backend, SealTable::Cache, "a::1::osv", &tampered);
+        let msg = violation_message(backend.verify_integrity().await);
+        assert!(msg.contains("1 mismatched"), "{msg}");
+        assert!(msg.contains("a::1::osv"), "{msg}");
+        assert!(msg.contains(TEST_SEAL_LABEL), "{msg}");
+    }
+
+    #[tokio::test]
+    async fn sealed_verify_detects_removed_seal() {
+        let backend = sealed_in_memory_backend(3600);
+        backend.init().await.unwrap();
+        backend
+            .put(&seal_pkg("a"), "osv", &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
+        raw_remove(&backend, SealTable::Seal, "a::1::osv");
+        let msg = violation_message(backend.verify_integrity().await);
+        assert!(msg.contains("1 unsealed"), "{msg}");
+        assert!(msg.contains(MIGRATE_HINT), "{msg}");
+    }
+
+    #[tokio::test]
+    async fn sealed_verify_detects_orphan_seal() {
+        let backend = sealed_in_memory_backend(3600);
+        backend.init().await.unwrap();
+        backend
+            .put(&seal_pkg("a"), "osv", &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
+        raw_remove(&backend, SealTable::Cache, "a::1::osv");
+        let msg = violation_message(backend.verify_integrity().await);
+        assert!(msg.contains("1 orphan"), "{msg}");
+        assert!(!msg.contains(MIGRATE_HINT), "{msg}");
+    }
+
+    #[tokio::test]
+    async fn sealed_verify_lists_at_most_sample_keys() {
+        let backend = sealed_in_memory_backend(3600);
+        backend.init().await.unwrap();
+        let names: Vec<String> = (0..MAX_REPORTED_KEYS + 2)
+            .map(|i| format!("p{i}"))
+            .collect();
+        for name in &names {
+            backend
+                .put(&seal_pkg(name), "osv", &[sample_raw_vuln()], None)
+                .await
+                .unwrap();
+            raw_remove(&backend, SealTable::Seal, &format!("{name}::1::osv"));
+        }
+        let msg = violation_message(backend.verify_integrity().await);
+        let listed = names
+            .iter()
+            .filter(|n| msg.contains(&format!("{n}::1::osv")))
+            .count();
+        assert_eq!(listed, MAX_REPORTED_KEYS, "{msg}");
+    }
+
+    #[tokio::test]
+    async fn sealed_set_ttl_reseals_rewritten_value() {
+        let backend = sealed_in_memory_backend(3600);
+        backend.init().await.unwrap();
+        backend
+            .put(&seal_pkg("a"), "osv", &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
+        let before = raw_get(&backend, SealTable::Seal, "a::1::osv").unwrap();
+        backend.set_ttl(TtlSelector::All, 120).await.unwrap();
+        let after = raw_get(&backend, SealTable::Seal, "a::1::osv").unwrap();
+        assert_ne!(before, after);
+        backend.verify_integrity().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn sealed_purge_expired_removes_seal() {
+        let backend = sealed_in_memory_backend(3600);
+        backend.init().await.unwrap();
+        backend
+            .put(&seal_pkg("gone"), "osv", &[sample_raw_vuln()], Some(1))
+            .await
+            .unwrap();
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        backend.init().await.unwrap();
+        assert!(raw_get(&backend, SealTable::Seal, "gone::1::osv").is_none());
+        backend.verify_integrity().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn sealed_put_fails_closed_when_seal_fails() {
+        let backend =
+            in_memory_backend(3600).with_sealer(Arc::new(FailingSealSealer));
+        backend.init().await.unwrap();
+        let err = backend
+            .put(&seal_pkg("a"), "osv", &[sample_raw_vuln()], None)
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains(INJECTED_SEAL_FAILURE));
+        assert!(raw_get(&backend, SealTable::Cache, "a::1::osv").is_none());
+    }
+
+    #[tokio::test]
+    async fn sealed_verify_propagates_check_error() {
+        let backend = sealed_in_memory_backend(3600);
+        backend.init().await.unwrap();
+        backend
+            .put(&seal_pkg("a"), "osv", &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
+        let failing = RedbBackend {
+            inner: Arc::clone(&backend.inner),
+            sealer: Some(Arc::new(FailingSealSealer)),
+        };
+        let err = failing.verify_integrity().await.unwrap_err();
+        assert!(err.to_string().contains(INJECTED_CHECK_FAILURE));
+    }
+
+    #[tokio::test]
+    async fn unsealed_backend_verify_reports_disabled() {
+        let backend = in_memory_backend(3600);
+        backend.init().await.unwrap();
+        let msg = violation_message(backend.verify_integrity().await);
+        assert_eq!(msg, vlz_db::INTEGRITY_DISABLED_MESSAGE);
+        assert!(backend.backfill_seals().await.is_err());
+    }
+
+    #[tokio::test]
+    async fn unsealed_backend_put_writes_no_seal() {
+        let backend = in_memory_backend(3600);
+        backend.init().await.unwrap();
+        backend
+            .put(&seal_pkg("a"), "osv", &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
+        assert!(raw_get(&backend, SealTable::Seal, "a::1::osv").is_none());
+    }
+
+    #[tokio::test]
+    async fn backfill_seals_only_unsealed_entries() {
+        let unsealed = in_memory_backend(3600);
+        unsealed.init().await.unwrap();
+        for name in ["old1", "old2"] {
+            unsealed
+                .put(&seal_pkg(name), "osv", &[sample_raw_vuln()], None)
+                .await
+                .unwrap();
+        }
+        let backend = unsealed.with_sealer(Arc::new(TestSealer));
+        assert_eq!(backend.backfill_seals().await.unwrap(), 2);
+        backend.verify_integrity().await.unwrap();
+        assert_eq!(backend.backfill_seals().await.unwrap(), 0);
+    }
+
+    #[tokio::test]
+    async fn backfill_seals_never_reseals_mismatched_entry() {
+        let backend = sealed_in_memory_backend(3600);
+        backend.init().await.unwrap();
+        backend
+            .put(&seal_pkg("a"), "osv", &[sample_raw_vuln()], None)
+            .await
+            .unwrap();
+        let original =
+            raw_get(&backend, SealTable::Cache, "a::1::osv").unwrap();
+        raw_insert(
+            &backend,
+            SealTable::Cache,
+            "a::1::osv",
+            &original.replace("CVE-2023-test", "CVE-2023-fake"),
+        );
+        assert_eq!(backend.backfill_seals().await.unwrap(), 0);
+        let msg = violation_message(backend.verify_integrity().await);
+        assert!(msg.contains("1 mismatched"), "{msg}");
+    }
+
+    #[tokio::test]
+    async fn sealed_file_backend_detects_tamper_after_reopen() {
+        let (_dir, path) = temp_cache_path("seal_reopen");
+        {
+            let backend = RedbBackend::with_path(path.clone(), 3600)
+                .unwrap()
+                .with_sealer(Arc::new(TestSealer));
+            backend.init().await.unwrap();
+            backend
+                .put(&seal_pkg("a"), "osv", &[sample_raw_vuln()], None)
+                .await
+                .unwrap();
+        }
+        {
+            let db = redb::Database::create(&path).unwrap();
+            let write_txn = db.begin_write().unwrap();
+            {
+                let mut cache = write_txn.open_table(CACHE_TABLE).unwrap();
+                let original = cache
+                    .get("a::1::osv")
+                    .unwrap()
+                    .unwrap()
+                    .value()
+                    .to_string();
+                cache
+                    .insert(
+                        "a::1::osv",
+                        original.replace("Test vuln", "Edited").as_str(),
+                    )
+                    .unwrap();
+            }
+            write_txn.commit().unwrap();
+        }
+        let backend = RedbBackend::with_path(path, 3600)
+            .unwrap()
+            .with_sealer(Arc::new(TestSealer));
+        let msg = violation_message(backend.verify_integrity().await);
+        assert!(msg.contains("1 mismatched"), "{msg}");
     }
 }

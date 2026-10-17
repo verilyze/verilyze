@@ -20,7 +20,6 @@ description = "In-memory CVE cache backend for verilyze (Docker / mem builds)"
 async-trait.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
-sha2.workspace = true
 vlz-cve-client.workspace = true
 vlz-db.workspace = true
 
