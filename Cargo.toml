@@ -83,7 +83,7 @@ vlz-cve-client = { path = "crates/core/vlz-cve-client", version = "0.14.1" }
 vlz-report = { path = "crates/core/vlz-report", version = "0.14.1" }
 vlz-exploitability = { path = "crates/core/vlz-exploitability", version = "0.14.1" }
 vlz-remediate = { path = "crates/core/vlz-remediate", version = "0.14.1" }
-vlz-integrity = { path = "crates/core/vlz-integrity", version = "0.14.1" }
+vlz-integrity = { path = "crates/core/vlz-integrity", version = "0.14.1", default-features = false }
 vlz-plugin-macro = { path = "crates/core/vlz-plugin-macro", version = "0.14.1" }
 vlz-lsp = { path = "crates/core/vlz-lsp", version = "0.14.1" }
 vlz-python = { path = "crates/languages/vlz-python", version = "0.14.1" }

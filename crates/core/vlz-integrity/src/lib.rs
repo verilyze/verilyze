@@ -26,6 +26,11 @@ pub fn integrity_ok_message(label: &str) -> String {
     format!("integrity OK ({label})")
 }
 
+/// Success line for `vlz db migrate` after sealing `sealed` legacy entries.
+pub fn seals_backfilled_message(sealed: usize) -> String {
+    format!("Database migration completed: sealed {sealed} cache entries")
+}
+
 /// Sealer for the cache DB at `cache_db_path`, chosen by Cargo feature.
 /// `fips204` wins over `sha256` because Cargo features cannot be
 /// mutually exclusive (SEC-004, SEC-005). `None` when neither is enabled.
@@ -239,6 +244,14 @@ mod tests {
         assert_eq!(
             integrity_ok_message(INTEGRITY_LABEL_FIPS204),
             "integrity OK (FIPS-204)"
+        );
+    }
+
+    #[test]
+    fn seals_backfilled_message_reports_count() {
+        assert_eq!(
+            seals_backfilled_message(3),
+            "Database migration completed: sealed 3 cache entries"
         );
     }
 

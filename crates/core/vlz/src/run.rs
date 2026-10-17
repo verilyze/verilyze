@@ -1434,11 +1434,26 @@ pub async fn run(args: Cli) -> Result<i32> {
                     error!("{}", e);
                     return Ok(EXIT_INTERNAL_ERROR); // FR-033
                 }
-                write_stdout("Database integrity verified (SHA-256)\n"); // FR-033
+                write_stdout(&format!(
+                    "{}\n",
+                    vlz_integrity::integrity_ok_message(
+                        db_backend.integrity_label()
+                    )
+                )); // FR-033, SEC-004, SEC-005
                 Ok(0)
             }
             crate::cli::DbCommands::Migrate => {
-                write_stdout("Database migration completed (nothing to do)\n");
+                let sealed = match db_backend.backfill_seals().await {
+                    Ok(n) => n,
+                    Err(e) => {
+                        error!("{}", e);
+                        return Ok(EXIT_INTERNAL_ERROR);
+                    }
+                };
+                write_stdout(&format!(
+                    "{}\n",
+                    vlz_integrity::seals_backfilled_message(sealed)
+                ));
                 Ok(0)
             }
             crate::cli::DbCommands::Show { format, full } => {

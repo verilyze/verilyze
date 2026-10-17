@@ -72,7 +72,7 @@ impl SealReport {
             keys.push_str(", ...");
         }
         let mut msg = format!(
-            "Cache integrity check failed ({label}): {} entries checked; \
+            "{label} seals: {} entries checked; \
              {} mismatched, {} unsealed, {} orphan seals. Affected keys: {keys}.",
             self.checked,
             self.mismatched.len(),
