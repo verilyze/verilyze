@@ -96,7 +96,10 @@ into the default binary, which supports static musl builds (FR-025).
 Every write to the RedB CVE cache also stores a per-entry seal over the cache
 key, a `0x00` byte, and the stored value, in the same transaction.
 `vlz db verify` recomputes every seal and exits 1 (FR-033) when a value was
-changed, an entry has no seal, or a seal has no entry.
+changed, an entry has no seal, an entry is sealed by another algorithm, or a
+seal has no entry. Seals are checked only by `vlz db verify` and by
+`vlz db set-ttl`; `vlz scan` reads cached entries without checking their
+seals, so run `vlz db verify` before a scan when you need that guarantee.
 
 - **SHA-256 (default, `integrity-sha256`):** an unkeyed digest. It detects
   accidental corruption and naive edits, but not an attacker who can also
@@ -115,7 +118,14 @@ changed, an entry has no seal, or a seal has no entry.
   that.
 - **Legacy caches:** entries written before sealing existed are reported as
   unsealed. `vlz db migrate` seals them and never re-seals a mismatched
-  entry, so tampering is not laundered.
+  entry, so tampering is not laundered. `vlz db set-ttl` checks the seal of
+  every selected entry first and changes nothing when any of them fails.
+  Migrate trusts every unsealed entry, so run `vlz db verify` before it and
+  only migrate a cache whose unsealed entries you trust.
+- **Switching algorithms:** entries sealed by the other integrity feature
+  are reported separately as "sealed by another algorithm". They are never
+  re-sealed; verify them with the build that wrote them, or remove the
+  cache to rebuild it.
 - **Size:** an ML-DSA-65 seal is about 4.4 KB of base64 per cache entry
   (a SHA-256 seal is 71 bytes).
 - The in-memory cache (`mem`, Docker image) has no files to tamper with;

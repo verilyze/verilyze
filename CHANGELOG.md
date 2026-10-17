@@ -31,8 +31,12 @@ Human-readable release notes for each version.
 - `vlz db verify` now detects tampering (SEC-004, FR-033). Previously the
   SHA-256 pass discarded its digest and always succeeded. Each RedB cache
   write stores a per-entry seal in a new `cve_cache_seal` table; verify
-  reports mismatched, unsealed, and orphan seals and exits 1. The success
-  line is now `integrity OK (SHA-256)` or `integrity OK (FIPS-204)`.
+  reports mismatched, unsealed, other-algorithm, and orphan seals and
+  exits 1. The success line is now `integrity OK (SHA-256)` or
+  `integrity OK (FIPS-204)`. `vlz scan` does not check seals on read.
+- `vlz db set-ttl` checks the seal of every selected entry and changes
+  nothing when any of them is mismatched, unsealed, or sealed by another
+  algorithm, so a TTL change cannot re-seal a tampered entry.
 - **Upgrade note:** caches written by earlier versions have no seals, so
   `vlz db verify` exits 1 until you run `vlz db migrate` once.
 - New default build feature `integrity-sha256`. Builds with

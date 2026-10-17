@@ -331,8 +331,10 @@ feature. Prints
 .Dq integrity OK (SHA-256)
 or
 .Dq integrity OK (FIPS-204)
-and exits 0; reports mismatched, unsealed, and orphan seals and exits 1
-otherwise (FR-033, SEC-004, SEC-005).
+and exits 0; reports mismatched, unsealed, other-algorithm, and orphan
+seals and exits 1 otherwise (FR-033, SEC-004, SEC-005).
+.Nm scan
+does not check seals when reading the cache.
 .It Nm migrate
 Seal cache entries written before sealing was enabled and print the count.
 Never re-seals an entry whose seal does not match.
@@ -364,7 +366,8 @@ fails.
 .Op Fl -all
 .Op Fl -pattern Ar pattern
 .Op Fl -entries Ar keys
-Update TTL for existing cache entries.
+Update TTL for existing cache entries. In sealed builds, checks the seal of
+every selected entry first and changes nothing if any of them fails.
 .El
 .It Nm fp
 False-positive markings.
