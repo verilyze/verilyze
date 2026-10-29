@@ -7,7 +7,7 @@
 # Context must stay small: root `.dockerignore` excludes `target/` and `.git/`.
 
 # --- Stage 1: Build ---
-FROM rust:slim@sha256:4df2ae8cfdfebdfc13a65da7f253b73d68983dc0339f2719bc17a279c913b13d AS builder
+FROM rust:slim@sha256:b8e062b1c3a80183df83d9ba187cadd2b5ab84bc78d453dbfeb2fccd5f982247 AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     musl-tools=1.2.* \
