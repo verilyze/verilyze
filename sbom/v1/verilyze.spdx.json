@@ -631,9 +631,9 @@
     {
       "@type": "Package",
       "name": "ctutils",
-      "packageUrl": "pkg:cargo/ctutils@0.4.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ctutils-0-4-3",
-      "versionInfo": "0.4.3"
+      "packageUrl": "pkg:cargo/ctutils@0.4.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ctutils-0-4-8",
+      "versionInfo": "0.4.8"
     },
     {
       "@type": "Package",
@@ -1723,9 +1723,9 @@
     {
       "@type": "Package",
       "name": "rustls-webpki",
-      "packageUrl": "pkg:cargo/rustls-webpki@0.103.15",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-webpki-0-103-15",
-      "versionInfo": "0.103.15"
+      "packageUrl": "pkg:cargo/rustls-webpki@0.103.16",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-webpki-0-103-16",
+      "versionInfo": "0.103.16"
     },
     {
       "@type": "Package",
@@ -2514,9 +2514,9 @@
     {
       "@type": "Package",
       "name": "webpki-root-certs",
-      "packageUrl": "pkg:cargo/webpki-root-certs@1.0.9",
-      "spdxId": "urn:spdx.dev:pkg-cargo-webpki-root-certs-1-0-9",
-      "versionInfo": "1.0.9"
+      "packageUrl": "pkg:cargo/webpki-root-certs@1.0.11",
+      "spdxId": "urn:spdx.dev:pkg-cargo-webpki-root-certs-1-0-11",
+      "versionInfo": "1.0.11"
     },
     {
       "@type": "Package",
