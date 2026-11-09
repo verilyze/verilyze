@@ -15,6 +15,9 @@ _ROOT = repo_root()
 _UPLOAD_SARIF_POST_UPGRADE = "bash scripts/renovate-post-upgrade-upload-sarif.sh"
 _RUSTUP_INIT_POST_UPGRADE = "bash scripts/renovate-post-upgrade-rustup-init.sh"
 _FLUTTER_SDK_POST_UPGRADE = "bash scripts/renovate-post-upgrade-flutter-sdk.sh"
+_RUST_CONSTRAINT_POST_UPGRADE = (
+    "bash scripts/renovate-post-upgrade-rust-constraint.sh"
+)
 
 
 def test_renovate_regex_managers_use_delimited_file_patterns() -> None:
@@ -182,6 +185,10 @@ def test_renovate_cargo_lock_file_maintenance_enabled() -> None:
         "packageRules must configure Cargo lockFileMaintenance"
     )
     assert cargo_lock.get("automerge") is False
+    assert cargo_lock.get("prPriority") == 10, (
+        "Cargo lockFileMaintenance must outrank digest PRs under "
+        "prConcurrentLimit"
+    )
     non_cargo = next(
         (
             r
@@ -452,6 +459,69 @@ def test_renovate_workflow_allows_post_upgrade_sbom_script() -> None:
     assert "renovate-post-upgrade-deny-skips" in text
     assert "renovate-post-upgrade-rustup-init" in text
     assert "renovate-post-upgrade-flutter-sdk" in text
+    assert "renovate-post-upgrade-rust-constraint" in text
+
+
+def test_renovate_rust_toolchain_post_upgrade_syncs_constraints_rust() -> None:
+    """Channel bumps must keep renovate.json constraints.rust aligned."""
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    rules = data.get("packageRules", [])
+    match = next(
+        (
+            r
+            for r in rules
+            if _RUST_CONSTRAINT_POST_UPGRADE
+            in r.get("postUpgradeTasks", {}).get("commands", [])
+        ),
+        None,
+    )
+    assert match is not None, (
+        "packageRules must run postUpgradeTasks for rust-lang/rust so "
+        "constraints.rust stays aligned with rust-toolchain.toml"
+    )
+    assert match.get("matchPackageNames") == ["rust-lang/rust"]
+    assert match.get("matchFileNames") == ["rust-toolchain.toml"]
+    tasks = match["postUpgradeTasks"]
+    assert tasks["commands"] == [_RUST_CONSTRAINT_POST_UPGRADE]
+    assert tasks["fileFilters"] == ["renovate.json"]
+    assert tasks["executionMode"] == "branch"
+    assert "python" in tasks.get("installTools", {}), (
+        "rust-constraint postUpgradeTasks need python for "
+        "renovate_rust_constraint.py"
+    )
+
+
+def test_renovate_digest_updates_have_lower_pr_priority() -> None:
+    """Digest PRs must not starve lockFileMaintenance under concurrent limit."""
+    data = json.loads((_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    rules = data.get("packageRules", [])
+    dockerfile = next(
+        (
+            r
+            for r in rules
+            if r.get("matchManagers") == ["dockerfile"]
+            and r.get("matchUpdateTypes") == ["digest"]
+            and r.get("prPriority") == -5
+        ),
+        None,
+    )
+    regex_docker = next(
+        (
+            r
+            for r in rules
+            if r.get("matchManagers") == ["custom.regex"]
+            and r.get("matchDatasources") == ["docker"]
+            and r.get("matchUpdateTypes") == ["digest"]
+            and r.get("prPriority") == -5
+        ),
+        None,
+    )
+    assert dockerfile is not None, (
+        "packageRules must lower prPriority for dockerfile digests"
+    )
+    assert regex_docker is not None, (
+        "packageRules must lower prPriority for custom.regex docker digests"
+    )
 
 
 def test_renovate_rustup_init_post_upgrade_refreshes_sha256_args() -> None:

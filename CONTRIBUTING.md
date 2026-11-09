@@ -1592,6 +1592,12 @@ PR create, issue intake) use `GH_TOKEN` when set.
   **`postUpgradeTasks`** do not run.
   Keep **`constraints.rust`** in [`renovate.json`](renovate.json) aligned with
   the **`channel`** in [`rust-toolchain.toml`](rust-toolchain.toml).
+  **`make check-renovate-rust-constraint`** fails on drift; Renovate
+  rust-toolchain channel bumps run
+  **`scripts/renovate-post-upgrade-rust-constraint.sh`** so the pin updates in
+  the same PR. Cargo **`lockFileMaintenance`** uses a higher **`prPriority`**
+  than Docker digest updates so security lock refreshes are not starved under
+  **`prConcurrentLimit`**.
   If regeneration fails because a new license needs an allowlist change, edit
   **`deny.toml`**, run **`make generate-third-party-licenses`**, and push to the
   Renovate branch.

@@ -63,6 +63,7 @@ CARGO_FOR_CLEAN ?= cargo +stable
 .PHONY: check-third-party-licenses
 .PHONY: sync-upload-sarif-example check-upload-sarif-example
 .PHONY: check-github-action-pin-comments
+.PHONY: check-renovate-rust-constraint
 .PHONY: check-fuzz-target-parity
 .PHONY: cli-contract
 
@@ -134,6 +135,7 @@ help:
 	@echo "    make sync-upload-sarif-example - Sync example workflow upload-sarif pin"
 	@echo "    make check-upload-sarif-example - Verify example pin matches supply-chain"
 	@echo "    make check-github-action-pin-comments - Require # vX.Y.Z on action digest pins"
+	@echo "    make check-renovate-rust-constraint - Verify renovate.json rust pin matches toolchain"
 	@echo "    make check-fuzz-target-parity - AFL and cargo-fuzz target name parity"
 	@echo "    make generate-pylock-dev - Generate pylock.dev.toml (PEP 751, pip >= 25.1)"
 	@echo "    make check-pylock-dev  - Offline validate committed pylock.dev.toml"
@@ -552,6 +554,11 @@ sync-deny-skips:
 check-deny-skips:
 	@$(MAKE_RUN_LEAF) check-deny-skips -- bash -c 'cd "$(MKFILE_DIR)" && python3 "$(SCRIPTS_DIR)/sync_deny_skips.py" --check'
 
+# check-renovate-rust-constraint: Fail when constraints.rust drifts from
+# rust-toolchain.toml channel (Renovate Containerbase install pin).
+check-renovate-rust-constraint:
+	@$(MAKE_RUN_LEAF) check-renovate-rust-constraint -- bash -c 'cd "$(MKFILE_DIR)" && PYTHONPATH=. python3 "$(SCRIPTS_DIR)/renovate_rust_constraint.py" --check'
+
 # deny-check: dependency policy via deny.toml (NFR-009, SEC-012).
 deny-check:
 	@$(MAKE_RUN_LEAF) deny-check -- bash -c 'cd "$(MKFILE_DIR)" && $(CARGO_DENY) check'
@@ -704,6 +711,7 @@ check-fast-parallel: check-doc-diagrams \
             check-license-config \
             check-upload-sarif-example \
             check-github-action-pin-comments \
+            check-renovate-rust-constraint \
             check-fuzz-target-parity \
             deny-check \
             cargo-check fmt-check \
@@ -728,6 +736,7 @@ check-parallel: check-doc-diagrams \
        check-distro-rust \
        check-completions \
        check-license-config \
+       check-renovate-rust-constraint \
        check-fuzz-target-parity \
        deny-check \
        check-third-party-licenses \

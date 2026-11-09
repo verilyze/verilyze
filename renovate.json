@@ -14,7 +14,7 @@
     "schedule": ["before 6am on monday"]
   },
   "constraints": {
-    "rust": "1.94.1"
+    "rust": "1.99.0"
   },
   "enabledManagers": [
     "cargo",
@@ -177,7 +177,15 @@
       "matchPackageNames": ["rust-lang/rust"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "rust-toolchain-channel-minor-patch",
-      "addLabels": ["rust-toolchain"]
+      "addLabels": ["rust-toolchain"],
+      "postUpgradeTasks": {
+        "commands": ["bash scripts/renovate-post-upgrade-rust-constraint.sh"],
+        "executionMode": "branch",
+        "fileFilters": ["renovate.json"],
+        "installTools": {
+          "python": {}
+        }
+      }
     },
     {
       "description": "Cloud Agent rustup-init: minor/patch + refresh SHA-256 ARGs",
@@ -277,16 +285,30 @@
       "groupName": "rust-workspace-minor-patch"
     },
     {
-      "description": "Cargo.lock maintenance: transitive patches; no automerge",
+      "description": "Cargo.lock maintenance: transitive patches; no automerge; high priority so advisories are not starved by digests",
       "matchManagers": ["cargo"],
       "matchUpdateTypes": ["lockFileMaintenance"],
-      "automerge": false
+      "automerge": false,
+      "prPriority": 10
     },
     {
       "description": "Disable lockFileMaintenance outside Cargo",
       "matchUpdateTypes": ["lockFileMaintenance"],
       "matchManagers": ["pep621", "pip_requirements"],
       "enabled": false
+    },
+    {
+      "description": "Docker digests: lower priority so lock/security PRs keep concurrent slots",
+      "matchManagers": ["dockerfile"],
+      "matchUpdateTypes": ["digest"],
+      "prPriority": -5
+    },
+    {
+      "description": "Super-linter / regex docker digests: lower priority with dockerfile digests",
+      "matchManagers": ["custom.regex"],
+      "matchDatasources": ["docker"],
+      "matchUpdateTypes": ["digest"],
+      "prPriority": -5
     },
     {
       "description": "Enable GitHub platform auto-merge after CI for non-major updates",

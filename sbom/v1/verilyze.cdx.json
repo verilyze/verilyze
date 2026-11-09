@@ -618,11 +618,11 @@
       "version": "0.2.2"
     },
     {
-      "bom-ref": "pkg:cargo/ctutils@0.4.3",
+      "bom-ref": "pkg:cargo/ctutils@0.4.8",
       "name": "ctutils",
-      "purl": "pkg:cargo/ctutils@0.4.3",
+      "purl": "pkg:cargo/ctutils@0.4.8",
       "type": "library",
-      "version": "0.4.3"
+      "version": "0.4.8"
     },
     {
       "bom-ref": "pkg:cargo/cvssrust@1.1.0",
@@ -1710,11 +1710,11 @@
       "version": "0.2.0"
     },
     {
-      "bom-ref": "pkg:cargo/rustls-webpki@0.103.15",
+      "bom-ref": "pkg:cargo/rustls-webpki@0.103.16",
       "name": "rustls-webpki",
-      "purl": "pkg:cargo/rustls-webpki@0.103.15",
+      "purl": "pkg:cargo/rustls-webpki@0.103.16",
       "type": "library",
-      "version": "0.103.15"
+      "version": "0.103.16"
     },
     {
       "bom-ref": "pkg:cargo/rustversion@1.0.23",
@@ -2501,11 +2501,11 @@
       "version": "0.3.106"
     },
     {
-      "bom-ref": "pkg:cargo/webpki-root-certs@1.0.9",
+      "bom-ref": "pkg:cargo/webpki-root-certs@1.0.11",
       "name": "webpki-root-certs",
-      "purl": "pkg:cargo/webpki-root-certs@1.0.9",
+      "purl": "pkg:cargo/webpki-root-certs@1.0.11",
       "type": "library",
-      "version": "1.0.9"
+      "version": "1.0.11"
     },
     {
       "bom-ref": "pkg:cargo/winapi-util@0.1.11",
