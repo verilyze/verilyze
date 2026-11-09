@@ -457,11 +457,11 @@
       "version": "0.2.4"
     },
     {
-      "bom-ref": "pkg:cargo/cc@1.8.0",
+      "bom-ref": "pkg:cargo/cc@1.11.1",
       "name": "cc",
-      "purl": "pkg:cargo/cc@1.8.0",
+      "purl": "pkg:cargo/cc@1.11.1",
       "type": "library",
-      "version": "1.8.0"
+      "version": "1.11.1"
     },
     {
       "bom-ref": "pkg:cargo/cfg-if@1.0.5",
@@ -653,32 +653,11 @@
       "version": "0.1.4"
     },
     {
-      "bom-ref": "pkg:cargo/defmt@1.1.1",
-      "name": "defmt",
-      "purl": "pkg:cargo/defmt@1.1.1",
-      "type": "library",
-      "version": "1.1.1"
-    },
-    {
-      "bom-ref": "pkg:cargo/defmt-macros@1.1.1",
-      "name": "defmt-macros",
-      "purl": "pkg:cargo/defmt-macros@1.1.1",
-      "type": "library",
-      "version": "1.1.1"
-    },
-    {
-      "bom-ref": "pkg:cargo/defmt-parser@1.0.0",
-      "name": "defmt-parser",
-      "purl": "pkg:cargo/defmt-parser@1.0.0",
-      "type": "library",
-      "version": "1.0.0"
-    },
-    {
-      "bom-ref": "pkg:cargo/der@0.8.2",
+      "bom-ref": "pkg:cargo/der@0.8.3",
       "name": "der",
-      "purl": "pkg:cargo/der@0.8.2",
+      "purl": "pkg:cargo/der@0.8.3",
       "type": "library",
-      "version": "0.8.2"
+      "version": "0.8.3"
     },
     {
       "bom-ref": "pkg:cargo/der-parser@10.0.0",
@@ -723,11 +702,11 @@
       "version": "1.19.0"
     },
     {
-      "bom-ref": "pkg:cargo/encoding_rs@0.8.42",
+      "bom-ref": "pkg:cargo/encoding_rs@0.8.44",
       "name": "encoding_rs",
-      "purl": "pkg:cargo/encoding_rs@0.8.42",
+      "purl": "pkg:cargo/encoding_rs@0.8.44",
       "type": "library",
-      "version": "0.8.42"
+      "version": "0.8.44"
     },
     {
       "bom-ref": "pkg:cargo/env_filter@2.0.0",
@@ -765,11 +744,11 @@
       "version": "2.5.0"
     },
     {
-      "bom-ref": "pkg:cargo/find-msvc-tools@0.1.14",
+      "bom-ref": "pkg:cargo/find-msvc-tools@0.1.15",
       "name": "find-msvc-tools",
-      "purl": "pkg:cargo/find-msvc-tools@0.1.14",
+      "purl": "pkg:cargo/find-msvc-tools@0.1.15",
       "type": "library",
-      "version": "0.1.14"
+      "version": "0.1.15"
     },
     {
       "bom-ref": "pkg:cargo/fluent-uri@0.1.4",
@@ -982,53 +961,53 @@
       "version": "0.1.21"
     },
     {
-      "bom-ref": "pkg:cargo/icu_collections@2.3.0",
+      "bom-ref": "pkg:cargo/icu_collections@2.4.0",
       "name": "icu_collections",
-      "purl": "pkg:cargo/icu_collections@2.3.0",
+      "purl": "pkg:cargo/icu_collections@2.4.0",
       "type": "library",
-      "version": "2.3.0"
+      "version": "2.4.0"
     },
     {
-      "bom-ref": "pkg:cargo/icu_locale_core@2.3.0",
+      "bom-ref": "pkg:cargo/icu_locale_core@2.4.0",
       "name": "icu_locale_core",
-      "purl": "pkg:cargo/icu_locale_core@2.3.0",
+      "purl": "pkg:cargo/icu_locale_core@2.4.0",
       "type": "library",
-      "version": "2.3.0"
+      "version": "2.4.0"
     },
     {
-      "bom-ref": "pkg:cargo/icu_normalizer@2.3.0",
+      "bom-ref": "pkg:cargo/icu_normalizer@2.4.0",
       "name": "icu_normalizer",
-      "purl": "pkg:cargo/icu_normalizer@2.3.0",
+      "purl": "pkg:cargo/icu_normalizer@2.4.0",
       "type": "library",
-      "version": "2.3.0"
+      "version": "2.4.0"
     },
     {
-      "bom-ref": "pkg:cargo/icu_normalizer_data@2.3.0",
+      "bom-ref": "pkg:cargo/icu_normalizer_data@2.4.0",
       "name": "icu_normalizer_data",
-      "purl": "pkg:cargo/icu_normalizer_data@2.3.0",
+      "purl": "pkg:cargo/icu_normalizer_data@2.4.0",
       "type": "library",
-      "version": "2.3.0"
+      "version": "2.4.0"
     },
     {
-      "bom-ref": "pkg:cargo/icu_properties@2.3.0",
+      "bom-ref": "pkg:cargo/icu_properties@2.4.0",
       "name": "icu_properties",
-      "purl": "pkg:cargo/icu_properties@2.3.0",
+      "purl": "pkg:cargo/icu_properties@2.4.0",
       "type": "library",
-      "version": "2.3.0"
+      "version": "2.4.0"
     },
     {
-      "bom-ref": "pkg:cargo/icu_properties_data@2.3.0",
+      "bom-ref": "pkg:cargo/icu_properties_data@2.4.0",
       "name": "icu_properties_data",
-      "purl": "pkg:cargo/icu_properties_data@2.3.0",
+      "purl": "pkg:cargo/icu_properties_data@2.4.0",
       "type": "library",
-      "version": "2.3.0"
+      "version": "2.4.0"
     },
     {
-      "bom-ref": "pkg:cargo/icu_provider@2.3.1",
+      "bom-ref": "pkg:cargo/icu_provider@2.4.0",
       "name": "icu_provider",
-      "purl": "pkg:cargo/icu_provider@2.3.1",
+      "purl": "pkg:cargo/icu_provider@2.4.0",
       "type": "library",
-      "version": "2.3.1"
+      "version": "2.4.0"
     },
     {
       "bom-ref": "pkg:cargo/idna@1.1.0",
@@ -1094,25 +1073,25 @@
       "version": "1.0.18"
     },
     {
-      "bom-ref": "pkg:cargo/jiff@0.2.38",
+      "bom-ref": "pkg:cargo/jiff@0.2.41",
       "name": "jiff",
-      "purl": "pkg:cargo/jiff@0.2.38",
+      "purl": "pkg:cargo/jiff@0.2.41",
       "type": "library",
-      "version": "0.2.38"
+      "version": "0.2.41"
     },
     {
-      "bom-ref": "pkg:cargo/jiff-core@0.1.1",
+      "bom-ref": "pkg:cargo/jiff-core@0.1.4",
       "name": "jiff-core",
-      "purl": "pkg:cargo/jiff-core@0.1.1",
+      "purl": "pkg:cargo/jiff-core@0.1.4",
       "type": "library",
-      "version": "0.1.1"
+      "version": "0.1.4"
     },
     {
-      "bom-ref": "pkg:cargo/jiff-static@0.2.38",
+      "bom-ref": "pkg:cargo/jiff-static@0.2.41",
       "name": "jiff-static",
-      "purl": "pkg:cargo/jiff-static@0.2.38",
+      "purl": "pkg:cargo/jiff-static@0.2.41",
       "type": "library",
-      "version": "0.2.38"
+      "version": "0.2.41"
     },
     {
       "bom-ref": "pkg:cargo/jni@0.22.4",
@@ -1143,11 +1122,11 @@
       "version": "0.4.1"
     },
     {
-      "bom-ref": "pkg:cargo/js-sys@0.3.106",
+      "bom-ref": "pkg:cargo/js-sys@0.3.107",
       "name": "js-sys",
-      "purl": "pkg:cargo/js-sys@0.3.106",
+      "purl": "pkg:cargo/js-sys@0.3.107",
       "type": "library",
-      "version": "0.3.106"
+      "version": "0.3.107"
     },
     {
       "bom-ref": "pkg:cargo/keccak@0.2.2",
@@ -1164,11 +1143,11 @@
       "version": "1.5.1"
     },
     {
-      "bom-ref": "pkg:cargo/libc@0.2.190",
+      "bom-ref": "pkg:cargo/libc@0.2.191",
       "name": "libc",
-      "purl": "pkg:cargo/libc@0.2.190",
+      "purl": "pkg:cargo/libc@0.2.191",
       "type": "library",
-      "version": "0.2.190"
+      "version": "0.2.191"
     },
     {
       "bom-ref": "pkg:cargo/linux-raw-sys@0.12.1",
@@ -1192,11 +1171,11 @@
       "version": "0.4.14"
     },
     {
-      "bom-ref": "pkg:cargo/log@0.4.34",
+      "bom-ref": "pkg:cargo/log@0.4.35",
       "name": "log",
-      "purl": "pkg:cargo/log@0.4.34",
+      "purl": "pkg:cargo/log@0.4.35",
       "type": "library",
-      "version": "0.4.34"
+      "version": "0.4.35"
     },
     {
       "bom-ref": "pkg:cargo/lsp-server@0.10.0",
@@ -1255,11 +1234,11 @@
       "version": "0.1.1"
     },
     {
-      "bom-ref": "pkg:cargo/module-lattice@0.2.3",
+      "bom-ref": "pkg:cargo/module-lattice@0.2.4",
       "name": "module-lattice",
-      "purl": "pkg:cargo/module-lattice@0.2.3",
+      "purl": "pkg:cargo/module-lattice@0.2.4",
       "type": "library",
-      "version": "0.2.3"
+      "version": "0.2.4"
     },
     {
       "bom-ref": "pkg:cargo/multiversion_no_op@1.0.0",
@@ -1339,11 +1318,11 @@
       "version": "1.70.2"
     },
     {
-      "bom-ref": "pkg:cargo/openssl-probe@0.2.1",
+      "bom-ref": "pkg:cargo/openssl-probe@0.2.2",
       "name": "openssl-probe",
-      "purl": "pkg:cargo/openssl-probe@0.2.1",
+      "purl": "pkg:cargo/openssl-probe@0.2.2",
       "type": "library",
-      "version": "0.2.1"
+      "version": "0.2.2"
     },
     {
       "bom-ref": "pkg:cargo/ordermap@1.2.2",
@@ -1542,11 +1521,11 @@
       "version": "0.14.10"
     },
     {
-      "bom-ref": "pkg:cargo/redb@4.4.0",
+      "bom-ref": "pkg:cargo/redb@4.5.0",
       "name": "redb",
-      "purl": "pkg:cargo/redb@4.4.0",
+      "purl": "pkg:cargo/redb@4.5.0",
       "type": "library",
-      "version": "4.4.0"
+      "version": "4.5.0"
     },
     {
       "bom-ref": "pkg:cargo/redox_syscall@0.5.18",
@@ -1668,11 +1647,11 @@
       "version": "4.1.0"
     },
     {
-      "bom-ref": "pkg:cargo/rustix@1.1.5",
+      "bom-ref": "pkg:cargo/rustix@1.1.6",
       "name": "rustix",
-      "purl": "pkg:cargo/rustix@1.1.5",
+      "purl": "pkg:cargo/rustix@1.1.6",
       "type": "library",
-      "version": "1.1.5"
+      "version": "1.1.6"
     },
     {
       "bom-ref": "pkg:cargo/rustls@0.23.46",
@@ -1738,11 +1717,11 @@
       "version": "1.0.6"
     },
     {
-      "bom-ref": "pkg:cargo/schannel@0.1.29",
+      "bom-ref": "pkg:cargo/schannel@0.1.30",
       "name": "schannel",
-      "purl": "pkg:cargo/schannel@0.1.29",
+      "purl": "pkg:cargo/schannel@0.1.30",
       "type": "library",
-      "version": "0.1.29"
+      "version": "0.1.30"
     },
     {
       "bom-ref": "pkg:cargo/scopeguard@1.2.0",
@@ -1815,11 +1794,11 @@
       "version": "0.1.21"
     },
     {
-      "bom-ref": "pkg:cargo/serde_spanned@1.1.2",
+      "bom-ref": "pkg:cargo/serde_spanned@1.1.3",
       "name": "serde_spanned",
-      "purl": "pkg:cargo/serde_spanned@1.1.2",
+      "purl": "pkg:cargo/serde_spanned@1.1.3",
       "type": "library",
-      "version": "1.1.2"
+      "version": "1.1.3"
     },
     {
       "bom-ref": "pkg:cargo/serde_urlencoded@0.7.1",
@@ -1892,11 +1871,11 @@
       "version": "0.4.12"
     },
     {
-      "bom-ref": "pkg:cargo/smallvec@1.16.3",
+      "bom-ref": "pkg:cargo/smallvec@1.16.5",
       "name": "smallvec",
-      "purl": "pkg:cargo/smallvec@1.16.3",
+      "purl": "pkg:cargo/smallvec@1.16.5",
       "type": "library",
-      "version": "1.16.3"
+      "version": "1.16.5"
     },
     {
       "bom-ref": "pkg:cargo/socket2@0.6.5",
@@ -2060,11 +2039,11 @@
       "version": "0.2.32"
     },
     {
-      "bom-ref": "pkg:cargo/tinystr@0.8.4",
+      "bom-ref": "pkg:cargo/tinystr@0.8.5",
       "name": "tinystr",
-      "purl": "pkg:cargo/tinystr@0.8.4",
+      "purl": "pkg:cargo/tinystr@0.8.5",
       "type": "library",
-      "version": "0.8.4"
+      "version": "0.8.5"
     },
     {
       "bom-ref": "pkg:cargo/tinyvec@1.13.3",
@@ -2074,11 +2053,11 @@
       "version": "1.13.3"
     },
     {
-      "bom-ref": "pkg:cargo/tokio@1.53.3",
+      "bom-ref": "pkg:cargo/tokio@1.54.1",
       "name": "tokio",
-      "purl": "pkg:cargo/tokio@1.53.3",
+      "purl": "pkg:cargo/tokio@1.54.1",
       "type": "library",
-      "version": "1.53.3"
+      "version": "1.54.1"
     },
     {
       "bom-ref": "pkg:cargo/tokio-macros@2.7.2",
@@ -2102,18 +2081,18 @@
       "version": "0.7.20"
     },
     {
-      "bom-ref": "pkg:cargo/toml@1.1.8+spec-1.1.0",
+      "bom-ref": "pkg:cargo/toml@1.2.1+spec-1.1.0",
       "name": "toml",
-      "purl": "pkg:cargo/toml@1.1.8+spec-1.1.0",
+      "purl": "pkg:cargo/toml@1.2.1+spec-1.1.0",
       "type": "library",
-      "version": "1.1.8+spec-1.1.0"
+      "version": "1.2.1+spec-1.1.0"
     },
     {
-      "bom-ref": "pkg:cargo/toml_datetime@1.1.2+spec-1.1.0",
+      "bom-ref": "pkg:cargo/toml_datetime@1.1.3+spec-1.1.0",
       "name": "toml_datetime",
-      "purl": "pkg:cargo/toml_datetime@1.1.2+spec-1.1.0",
+      "purl": "pkg:cargo/toml_datetime@1.1.3+spec-1.1.0",
       "type": "library",
-      "version": "1.1.2+spec-1.1.0"
+      "version": "1.1.3+spec-1.1.0"
     },
     {
       "bom-ref": "pkg:cargo/toml_parser@1.1.5+spec-1.1.0",
@@ -2123,11 +2102,11 @@
       "version": "1.1.5+spec-1.1.0"
     },
     {
-      "bom-ref": "pkg:cargo/toml_writer@1.1.3+spec-1.1.0",
+      "bom-ref": "pkg:cargo/toml_writer@1.2.0+spec-1.1.0",
       "name": "toml_writer",
-      "purl": "pkg:cargo/toml_writer@1.1.3+spec-1.1.0",
+      "purl": "pkg:cargo/toml_writer@1.2.0+spec-1.1.0",
       "type": "library",
-      "version": "1.1.3+spec-1.1.0"
+      "version": "1.2.0+spec-1.1.0"
     },
     {
       "bom-ref": "pkg:cargo/tower@0.5.3",
@@ -2193,11 +2172,11 @@
       "version": "1.0.27"
     },
     {
-      "bom-ref": "pkg:cargo/unicode-normalization@0.1.25",
+      "bom-ref": "pkg:cargo/unicode-normalization@0.1.26",
       "name": "unicode-normalization",
-      "purl": "pkg:cargo/unicode-normalization@0.1.25",
+      "purl": "pkg:cargo/unicode-normalization@0.1.26",
       "type": "library",
-      "version": "0.1.25"
+      "version": "0.1.26"
     },
     {
       "bom-ref": "pkg:cargo/unsafe-libyaml-norway@0.2.15",
@@ -2221,11 +2200,11 @@
       "version": "2.5.8"
     },
     {
-      "bom-ref": "pkg:cargo/utf8_iter@1.0.4",
+      "bom-ref": "pkg:cargo/utf8_iter@1.1.0",
       "name": "utf8_iter",
-      "purl": "pkg:cargo/utf8_iter@1.0.4",
+      "purl": "pkg:cargo/utf8_iter@1.1.0",
       "type": "library",
-      "version": "1.0.4"
+      "version": "1.1.0"
     },
     {
       "bom-ref": "pkg:cargo/utf8parse@0.2.2",
@@ -2233,6 +2212,13 @@
       "purl": "pkg:cargo/utf8parse@0.2.2",
       "type": "library",
       "version": "0.2.2"
+    },
+    {
+      "bom-ref": "pkg:cargo/utf_types@1.0.0",
+      "name": "utf_types",
+      "purl": "pkg:cargo/utf_types@1.0.0",
+      "type": "library",
+      "version": "1.0.0"
     },
     {
       "bom-ref": "pkg:cargo/vlz@0.14.1",
@@ -2459,46 +2445,46 @@
       "version": "0.11.1+wasi-snapshot-preview1"
     },
     {
-      "bom-ref": "pkg:cargo/wasm-bindgen@0.2.129",
+      "bom-ref": "pkg:cargo/wasm-bindgen@0.2.130",
       "name": "wasm-bindgen",
-      "purl": "pkg:cargo/wasm-bindgen@0.2.129",
+      "purl": "pkg:cargo/wasm-bindgen@0.2.130",
       "type": "library",
-      "version": "0.2.129"
+      "version": "0.2.130"
     },
     {
-      "bom-ref": "pkg:cargo/wasm-bindgen-futures@0.4.79",
+      "bom-ref": "pkg:cargo/wasm-bindgen-futures@0.4.80",
       "name": "wasm-bindgen-futures",
-      "purl": "pkg:cargo/wasm-bindgen-futures@0.4.79",
+      "purl": "pkg:cargo/wasm-bindgen-futures@0.4.80",
       "type": "library",
-      "version": "0.4.79"
+      "version": "0.4.80"
     },
     {
-      "bom-ref": "pkg:cargo/wasm-bindgen-macro@0.2.129",
+      "bom-ref": "pkg:cargo/wasm-bindgen-macro@0.2.130",
       "name": "wasm-bindgen-macro",
-      "purl": "pkg:cargo/wasm-bindgen-macro@0.2.129",
+      "purl": "pkg:cargo/wasm-bindgen-macro@0.2.130",
       "type": "library",
-      "version": "0.2.129"
+      "version": "0.2.130"
     },
     {
-      "bom-ref": "pkg:cargo/wasm-bindgen-macro-support@0.2.129",
+      "bom-ref": "pkg:cargo/wasm-bindgen-macro-support@0.2.130",
       "name": "wasm-bindgen-macro-support",
-      "purl": "pkg:cargo/wasm-bindgen-macro-support@0.2.129",
+      "purl": "pkg:cargo/wasm-bindgen-macro-support@0.2.130",
       "type": "library",
-      "version": "0.2.129"
+      "version": "0.2.130"
     },
     {
-      "bom-ref": "pkg:cargo/wasm-bindgen-shared@0.2.129",
+      "bom-ref": "pkg:cargo/wasm-bindgen-shared@0.2.130",
       "name": "wasm-bindgen-shared",
-      "purl": "pkg:cargo/wasm-bindgen-shared@0.2.129",
+      "purl": "pkg:cargo/wasm-bindgen-shared@0.2.130",
       "type": "library",
-      "version": "0.2.129"
+      "version": "0.2.130"
     },
     {
-      "bom-ref": "pkg:cargo/web-sys@0.3.106",
+      "bom-ref": "pkg:cargo/web-sys@0.3.107",
       "name": "web-sys",
-      "purl": "pkg:cargo/web-sys@0.3.106",
+      "purl": "pkg:cargo/web-sys@0.3.107",
       "type": "library",
-      "version": "0.3.106"
+      "version": "0.3.107"
     },
     {
       "bom-ref": "pkg:cargo/webpki-root-certs@1.0.11",
@@ -2620,11 +2606,11 @@
       "version": "0.52.6"
     },
     {
-      "bom-ref": "pkg:cargo/winnow@1.0.4",
+      "bom-ref": "pkg:cargo/winnow@1.0.5",
       "name": "winnow",
-      "purl": "pkg:cargo/winnow@1.0.4",
+      "purl": "pkg:cargo/winnow@1.0.5",
       "type": "library",
-      "version": "1.0.4"
+      "version": "1.0.5"
     },
     {
       "bom-ref": "pkg:cargo/wiremock@0.6.5",
@@ -2662,11 +2648,11 @@
       "version": "0.6.0"
     },
     {
-      "bom-ref": "pkg:cargo/yoke@0.8.3",
+      "bom-ref": "pkg:cargo/yoke@0.8.4",
       "name": "yoke",
-      "purl": "pkg:cargo/yoke@0.8.3",
+      "purl": "pkg:cargo/yoke@0.8.4",
       "type": "library",
-      "version": "0.8.3"
+      "version": "0.8.4"
     },
     {
       "bom-ref": "pkg:cargo/yoke-derive@0.8.4",
@@ -2718,18 +2704,18 @@
       "version": "0.2.5"
     },
     {
-      "bom-ref": "pkg:cargo/zerovec@0.11.8",
+      "bom-ref": "pkg:cargo/zerovec@0.11.9",
       "name": "zerovec",
-      "purl": "pkg:cargo/zerovec@0.11.8",
+      "purl": "pkg:cargo/zerovec@0.11.9",
       "type": "library",
-      "version": "0.11.8"
+      "version": "0.11.9"
     },
     {
-      "bom-ref": "pkg:cargo/zerovec-derive@0.11.6",
+      "bom-ref": "pkg:cargo/zerovec-derive@0.11.7",
       "name": "zerovec-derive",
-      "purl": "pkg:cargo/zerovec-derive@0.11.6",
+      "purl": "pkg:cargo/zerovec-derive@0.11.7",
       "type": "library",
-      "version": "0.11.6"
+      "version": "0.11.7"
     },
     {
       "bom-ref": "pkg:cargo/zmij@1.0.23",
