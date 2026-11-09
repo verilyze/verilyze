@@ -66,25 +66,30 @@ class TestRenovateConstraintRoundTrip:
         with pytest.raises(SystemExit, match="constraints.rust"):
             read_renovate_rust_constraint(path)
 
-    def test_write_missing_constraints_object_raises(
+    def test_write_missing_constraints_pin_raises(
         self, tmp_path: Path
     ) -> None:
         path = tmp_path / "renovate.json"
         path.write_text("{}", encoding="utf-8")
-        with pytest.raises(SystemExit, match="constraints object"):
+        with pytest.raises(SystemExit, match="constraints.rust string pin"):
             write_renovate_rust_constraint(path, "1.99.0")
 
     def test_write_renovate_rust_constraint_updates_value(
         self, tmp_path: Path
     ) -> None:
         path = tmp_path / "renovate.json"
+        # Keep non-compact layout so surgical replace preserves format.
         path.write_text(
-            json.dumps(_RENOVATE_FIXTURE, indent=2), encoding="utf-8"
+            '{\n  "constraints": {\n    "rust": "1.94.1"\n  },\n'
+            '  "schedule": [\n    "before 6am on monday"\n  ]\n}\n',
+            encoding="utf-8",
         )
         changed = write_renovate_rust_constraint(path, "1.99.0")
         assert changed is True
-        data = json.loads(path.read_text(encoding="utf-8"))
-        assert data["constraints"]["rust"] == "1.99.0"
+        text = path.read_text(encoding="utf-8")
+        assert '"rust": "1.99.0"' in text
+        assert '"schedule": [\n    "before 6am on monday"\n  ]' in text
+        assert json.loads(text)["constraints"]["rust"] == "1.99.0"
 
     def test_write_noop_when_already_aligned(self, tmp_path: Path) -> None:
         path = tmp_path / "renovate.json"

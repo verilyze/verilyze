@@ -11,9 +11,7 @@
   "osvVulnerabilityAlerts": true,
   "lockFileMaintenance": {
     "enabled": true,
-    "schedule": [
-      "before 6am on monday"
-    ]
+    "schedule": ["before 6am on monday"]
   },
   "constraints": {
     "rust": "1.99.1"
@@ -30,12 +28,8 @@
     {
       "customType": "regex",
       "description": "Super-linter slim digest in scripts/super-linter.sh (track slim-latest digest)",
-      "managerFilePatterns": [
-        "/^scripts\\/super-linter\\.sh$/"
-      ],
-      "matchStrings": [
-        "SL_SHA=\"(?<currentDigest>sha256:[a-f0-9]+)\""
-      ],
+      "managerFilePatterns": ["/^scripts\\/super-linter\\.sh$/"],
+      "matchStrings": ["SL_SHA=\"(?<currentDigest>sha256:[a-f0-9]+)\""],
       "datasourceTemplate": "docker",
       "packageNameTemplate": "ghcr.io/super-linter/super-linter",
       "versioningTemplate": "docker",
@@ -48,9 +42,7 @@
         "/^\\.github\\/workflows\\/ci\\.yml$/",
         "/^\\.github\\/workflows\\/coverage-nightly\\.yml$/"
       ],
-      "matchStrings": [
-        "cargo-llvm-cov@(?<currentValue>[^,\\s]+)"
-      ],
+      "matchStrings": ["cargo-llvm-cov@(?<currentValue>[^,\\s]+)"],
       "datasourceTemplate": "crate",
       "depNameTemplate": "cargo-llvm-cov",
       "versioningTemplate": "cargo"
@@ -77,9 +69,7 @@
         "/^\\.github\\/workflows\\/ci\\.yml$/",
         "/^\\.github\\/workflows\\/coverage-nightly\\.yml$/"
       ],
-      "matchStrings": [
-        "cargo-afl@(?<currentValue>[^,\\s]+)"
-      ],
+      "matchStrings": ["cargo-afl@(?<currentValue>[^,\\s]+)"],
       "datasourceTemplate": "crate",
       "depNameTemplate": "cargo-afl",
       "versioningTemplate": "cargo"
@@ -91,9 +81,7 @@
         "/^\\.github\\/workflows\\/ci\\.yml$/",
         "/^\\.github\\/workflows\\/coverage-nightly\\.yml$/"
       ],
-      "matchStrings": [
-        "cargo-about@(?<currentValue>[^,\\s]+)"
-      ],
+      "matchStrings": ["cargo-about@(?<currentValue>[^,\\s]+)"],
       "datasourceTemplate": "crate",
       "depNameTemplate": "cargo-about",
       "versioningTemplate": "cargo"
@@ -101,9 +89,7 @@
     {
       "customType": "regex",
       "description": "rust-toolchain.toml stable channel (rust-lang/rust release tags)",
-      "managerFilePatterns": [
-        "/^rust-toolchain\\.toml$/"
-      ],
+      "managerFilePatterns": ["/^rust-toolchain\\.toml$/"],
       "matchStrings": [
         "channel\\s*=\\s*\"(?<currentValue>\\d+\\.\\d+\\.\\d+)\""
       ],
@@ -115,9 +101,7 @@
     {
       "customType": "regex",
       "description": "Cloud Agent Dockerfile: rustup-init archive version",
-      "managerFilePatterns": [
-        "/^\\.cursor\\/Dockerfile$/"
-      ],
+      "managerFilePatterns": ["/^\\.cursor\\/Dockerfile$/"],
       "matchStrings": [
         "ARG RUSTUP_VERSION=(?<currentValue>\\d+\\.\\d+\\.\\d+)"
       ],
@@ -129,9 +113,7 @@
     {
       "customType": "regex",
       "description": "Cloud Agent Dockerfile: Flutter Linux stable version",
-      "managerFilePatterns": [
-        "/^\\.cursor\\/Dockerfile$/"
-      ],
+      "managerFilePatterns": ["/^\\.cursor\\/Dockerfile$/"],
       "matchStrings": [
         "ARG FLUTTER_VERSION=(?<currentValue>\\d+\\.\\d+\\.\\d+)"
       ],
@@ -144,28 +126,17 @@
   "packageRules": [
     {
       "description": "GitHub Actions: one PR for all minor/patch updates",
-      "matchManagers": [
-        "github-actions"
-      ],
-      "matchUpdateTypes": [
-        "minor",
-        "patch"
-      ],
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch"],
       "groupName": "github-actions-minor-patch"
     },
     {
       "description": "upload-sarif: sync CI example after any GitHub Actions bump",
-      "matchManagers": [
-        "github-actions"
-      ],
+      "matchManagers": ["github-actions"],
       "postUpgradeTasks": {
-        "commands": [
-          "bash scripts/renovate-post-upgrade-upload-sarif.sh"
-        ],
+        "commands": ["bash scripts/renovate-post-upgrade-upload-sarif.sh"],
         "executionMode": "branch",
-        "fileFilters": [
-          "examples/github-action-vlz-scan.yml"
-        ],
+        "fileFilters": ["examples/github-action-vlz-scan.yml"],
         "installTools": {
           "python": {}
         }
@@ -173,87 +144,44 @@
     },
     {
       "description": "Super-linter image: digest-only grouped PRs",
-      "matchDatasources": [
-        "docker"
-      ],
-      "matchPackageNames": [
-        "ghcr.io/super-linter/super-linter"
-      ],
-      "matchUpdateTypes": [
-        "digest"
-      ],
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["ghcr.io/super-linter/super-linter"],
+      "matchUpdateTypes": ["digest"],
       "groupName": "super-linter-slim-digest"
     },
     {
       "description": "CI cargo tools (taiki-e/install-action): minor/patch in one PR",
-      "matchManagers": [
-        "custom.regex"
-      ],
-      "matchDatasources": [
-        "crate"
-      ],
+      "matchManagers": ["custom.regex"],
+      "matchDatasources": ["crate"],
       "matchFileNames": [
         ".github/workflows/ci.yml",
         ".github/workflows/coverage-nightly.yml"
       ],
-      "matchPackageNames": [
-        "cargo-llvm-cov",
-        "cargo-afl",
-        "cargo-about"
-      ],
-      "matchUpdateTypes": [
-        "minor",
-        "patch"
-      ],
+      "matchPackageNames": ["cargo-llvm-cov", "cargo-afl", "cargo-about"],
+      "matchUpdateTypes": ["minor", "patch"],
       "groupName": "ci-cargo-install-tools-minor-patch"
     },
     {
       "description": "cargo-deny: ci.yml CARGO_DENY_VERSION and coverage-nightly tool pin",
-      "matchManagers": [
-        "custom.regex"
-      ],
-      "matchDatasources": [
-        "crate"
-      ],
-      "matchPackageNames": [
-        "cargo-deny"
-      ],
-      "matchUpdateTypes": [
-        "minor",
-        "patch"
-      ],
+      "matchManagers": ["custom.regex"],
+      "matchDatasources": ["crate"],
+      "matchPackageNames": ["cargo-deny"],
+      "matchUpdateTypes": ["minor", "patch"],
       "groupName": "cargo-deny-workflow-pins"
     },
     {
       "description": "rust-toolchain.toml: dev/CI toolchain tracks latest stable (minor/patch in one PR); never edits rust-version (MSRV), which is gated by make check-distro-rust",
-      "matchManagers": [
-        "custom.regex"
-      ],
-      "matchDatasources": [
-        "github-tags"
-      ],
-      "matchFileNames": [
-        "rust-toolchain.toml"
-      ],
-      "matchPackageNames": [
-        "rust-lang/rust"
-      ],
-      "matchUpdateTypes": [
-        "minor",
-        "patch"
-      ],
+      "matchManagers": ["custom.regex"],
+      "matchDatasources": ["github-tags"],
+      "matchFileNames": ["rust-toolchain.toml"],
+      "matchPackageNames": ["rust-lang/rust"],
+      "matchUpdateTypes": ["minor", "patch"],
       "groupName": "rust-toolchain-channel-minor-patch",
-      "addLabels": [
-        "rust-toolchain"
-      ],
+      "addLabels": ["rust-toolchain"],
       "postUpgradeTasks": {
-        "commands": [
-          "bash scripts/renovate-post-upgrade-rust-constraint.sh"
-        ],
+        "commands": ["bash scripts/renovate-post-upgrade-rust-constraint.sh"],
         "executionMode": "branch",
-        "fileFilters": [
-          "renovate.json"
-        ],
+        "fileFilters": ["renovate.json"],
         "installTools": {
           "python": {}
         }
@@ -261,31 +189,16 @@
     },
     {
       "description": "Cloud Agent rustup-init: minor/patch + refresh SHA-256 ARGs",
-      "matchManagers": [
-        "custom.regex"
-      ],
-      "matchDatasources": [
-        "github-releases"
-      ],
-      "matchFileNames": [
-        ".cursor/Dockerfile"
-      ],
-      "matchPackageNames": [
-        "rust-lang/rustup"
-      ],
-      "matchUpdateTypes": [
-        "minor",
-        "patch"
-      ],
+      "matchManagers": ["custom.regex"],
+      "matchDatasources": ["github-releases"],
+      "matchFileNames": [".cursor/Dockerfile"],
+      "matchPackageNames": ["rust-lang/rustup"],
+      "matchUpdateTypes": ["minor", "patch"],
       "groupName": "cursor-dockerfile-rustup-init",
       "postUpgradeTasks": {
-        "commands": [
-          "bash scripts/renovate-post-upgrade-rustup-init.sh"
-        ],
+        "commands": ["bash scripts/renovate-post-upgrade-rustup-init.sh"],
         "executionMode": "branch",
-        "fileFilters": [
-          ".cursor/Dockerfile"
-        ],
+        "fileFilters": [".cursor/Dockerfile"],
         "installTools": {
           "python": {}
         }
@@ -293,31 +206,16 @@
     },
     {
       "description": "Cloud Agent Flutter SDK: minor/patch + refresh SHA / Dart pins",
-      "matchManagers": [
-        "custom.regex"
-      ],
-      "matchDatasources": [
-        "github-tags"
-      ],
-      "matchFileNames": [
-        ".cursor/Dockerfile"
-      ],
-      "matchPackageNames": [
-        "flutter/flutter"
-      ],
-      "matchUpdateTypes": [
-        "minor",
-        "patch"
-      ],
+      "matchManagers": ["custom.regex"],
+      "matchDatasources": ["github-tags"],
+      "matchFileNames": [".cursor/Dockerfile"],
+      "matchPackageNames": ["flutter/flutter"],
+      "matchUpdateTypes": ["minor", "patch"],
       "groupName": "cursor-dockerfile-flutter-sdk",
       "postUpgradeTasks": {
-        "commands": [
-          "bash scripts/renovate-post-upgrade-flutter-sdk.sh"
-        ],
+        "commands": ["bash scripts/renovate-post-upgrade-flutter-sdk.sh"],
         "executionMode": "branch",
-        "fileFilters": [
-          ".cursor/Dockerfile"
-        ],
+        "fileFilters": [".cursor/Dockerfile"],
         "installTools": {
           "python": {}
         }
@@ -325,71 +223,39 @@
     },
     {
       "description": "Packaging Docker: Rust builder base image",
-      "matchManagers": [
-        "dockerfile"
-      ],
-      "matchFileNames": [
-        "packaging/docker/Dockerfile"
-      ],
-      "matchPackageNames": [
-        "rust"
-      ],
+      "matchManagers": ["dockerfile"],
+      "matchFileNames": ["packaging/docker/Dockerfile"],
+      "matchPackageNames": ["rust"],
       "groupName": "packaging-docker-rust-slim"
     },
     {
       "description": "REUSE tooling: hash-pinned pip lockfile (ensure-reuse.sh)",
-      "matchManagers": [
-        "pip_requirements"
-      ],
-      "matchFileNames": [
-        "scripts/requirements-reuse.txt"
-      ],
+      "matchManagers": ["pip_requirements"],
+      "matchFileNames": ["scripts/requirements-reuse.txt"],
       "groupName": "reuse-tooling-pip"
     },
     {
       "description": "pyproject.toml PEP 621 optional-deps (dev): minor/patch in one PR",
-      "matchManagers": [
-        "pep621"
-      ],
-      "matchFileNames": [
-        "pyproject.toml"
-      ],
-      "matchUpdateTypes": [
-        "minor",
-        "patch"
-      ],
+      "matchManagers": ["pep621"],
+      "matchFileNames": ["pyproject.toml"],
+      "matchUpdateTypes": ["minor", "patch"],
       "groupName": "pyproject-dev-minor-patch"
     },
     {
       "description": "pyproject.toml dev deps: bump floors on new PyPI releases",
-      "matchManagers": [
-        "pep621"
-      ],
-      "matchDatasources": [
-        "pypi"
-      ],
-      "matchFileNames": [
-        "pyproject.toml"
-      ],
+      "matchManagers": ["pep621"],
+      "matchDatasources": ["pypi"],
+      "matchFileNames": ["pyproject.toml"],
       "rangeStrategy": "bump"
     },
     {
       "description": "pyproject.toml PEP 621: regenerate workspace SBOM after dev dep updates",
-      "matchManagers": [
-        "pep621"
-      ],
-      "matchFileNames": [
-        "pyproject.toml"
-      ],
+      "matchManagers": ["pep621"],
+      "matchFileNames": ["pyproject.toml"],
       "postUpgradeTasks": {
-        "commands": [
-          "bash scripts/renovate-post-upgrade-sbom.sh"
-        ],
+        "commands": ["bash scripts/renovate-post-upgrade-sbom.sh"],
         "executionMode": "branch",
-        "fileFilters": [
-          "pylock.dev.toml",
-          "sbom/**"
-        ],
+        "fileFilters": ["pylock.dev.toml", "sbom/**"],
         "installTools": {
           "rust": {},
           "python": {}
@@ -398,20 +264,14 @@
     },
     {
       "description": "Rust workspace: regenerate THIRD-PARTY-LICENSES after Cargo updates",
-      "matchManagers": [
-        "cargo"
-      ],
+      "matchManagers": ["cargo"],
       "postUpgradeTasks": {
         "commands": [
           "bash scripts/renovate-post-upgrade-licenses.sh",
           "bash scripts/renovate-post-upgrade-deny-skips.sh"
         ],
         "executionMode": "branch",
-        "fileFilters": [
-          "THIRD-PARTY-LICENSES",
-          "sbom/**",
-          "deny.toml"
-        ],
+        "fileFilters": ["THIRD-PARTY-LICENSES", "sbom/**", "deny.toml"],
         "installTools": {
           "rust": {},
           "python": {}
@@ -420,82 +280,49 @@
     },
     {
       "description": "Workspace Rust crates: minor/patch in one PR",
-      "matchManagers": [
-        "cargo"
-      ],
-      "matchUpdateTypes": [
-        "minor",
-        "patch"
-      ],
+      "matchManagers": ["cargo"],
+      "matchUpdateTypes": ["minor", "patch"],
       "groupName": "rust-workspace-minor-patch"
     },
     {
       "description": "Cargo.lock maintenance: transitive patches; no automerge; high priority so advisories are not starved by digests",
-      "matchManagers": [
-        "cargo"
-      ],
-      "matchUpdateTypes": [
-        "lockFileMaintenance"
-      ],
+      "matchManagers": ["cargo"],
+      "matchUpdateTypes": ["lockFileMaintenance"],
       "automerge": false,
       "prPriority": 10
     },
     {
       "description": "Disable lockFileMaintenance outside Cargo",
-      "matchUpdateTypes": [
-        "lockFileMaintenance"
-      ],
-      "matchManagers": [
-        "pep621",
-        "pip_requirements"
-      ],
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "matchManagers": ["pep621", "pip_requirements"],
       "enabled": false
     },
     {
       "description": "Docker digests: lower priority so lock/security PRs keep concurrent slots",
-      "matchManagers": [
-        "dockerfile"
-      ],
-      "matchUpdateTypes": [
-        "digest"
-      ],
+      "matchManagers": ["dockerfile"],
+      "matchUpdateTypes": ["digest"],
       "prPriority": -5
     },
     {
       "description": "Super-linter / regex docker digests: lower priority with dockerfile digests",
-      "matchManagers": [
-        "custom.regex"
-      ],
-      "matchDatasources": [
-        "docker"
-      ],
-      "matchUpdateTypes": [
-        "digest"
-      ],
+      "matchManagers": ["custom.regex"],
+      "matchDatasources": ["docker"],
+      "matchUpdateTypes": ["digest"],
       "prPriority": -5
     },
     {
       "description": "Enable GitHub platform auto-merge after CI for non-major updates",
-      "matchUpdateTypes": [
-        "minor",
-        "patch",
-        "digest",
-        "pin"
-      ],
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin"],
       "automerge": true
     },
     {
       "description": "Major updates require manual review and merge",
-      "matchUpdateTypes": [
-        "major"
-      ],
+      "matchUpdateTypes": ["major"],
       "automerge": false
     },
     {
       "description": "Rust workspace deps: no automerge until cargo rollout verified",
-      "matchManagers": [
-        "cargo"
-      ],
+      "matchManagers": ["cargo"],
       "automerge": false
     }
   ]
