@@ -17,7 +17,6 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Any
 
 RUST_TOOLCHAIN_REL = Path("rust-toolchain.toml")
 RENOVATE_JSON_REL = Path("renovate.json")
@@ -25,6 +24,10 @@ RENOVATE_JSON_REL = Path("renovate.json")
 _CHANNEL_RE = re.compile(
     r'^channel\s*=\s*"(?P<channel>\d+\.\d+\.\d+)"\s*$',
     re.MULTILINE,
+)
+# Surgical replace keeps Biome formatting; full json.dumps rewrites the file.
+_CONSTRAINTS_RUST_RE = re.compile(
+    r'("constraints"\s*:\s*\{\s*"rust"\s*:\s*")(?P<value>[^"]*)(")',
 )
 
 
@@ -58,16 +61,15 @@ def read_renovate_rust_constraint(path: Path) -> str:
 def write_renovate_rust_constraint(path: Path, channel: str) -> bool:
     """Set ``constraints.rust`` to ``channel``. Return True when rewritten."""
     text = path.read_text(encoding="utf-8")
-    data: dict[str, Any] = json.loads(text)
-    constraints = data.get("constraints")
-    if not isinstance(constraints, dict):
-        raise SystemExit(f"{RENOVATE_JSON_REL}: missing constraints object")
-    if constraints.get("rust") == channel:
+    match = _CONSTRAINTS_RUST_RE.search(text)
+    if match is None:
+        raise SystemExit(
+            f"{RENOVATE_JSON_REL}: missing constraints.rust string pin"
+        )
+    if match.group("value") == channel:
         return False
-    constraints["rust"] = channel
-    data["constraints"] = constraints
-    # Preserve a trailing newline; Renovate JSON in-repo uses 2-space indent.
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    updated = _CONSTRAINTS_RUST_RE.sub(rf"\g<1>{channel}\g<3>", text, count=1)
+    path.write_text(updated, encoding="utf-8")
     return True
 
 
