@@ -15,9 +15,9 @@
     {
       "@type": "Package",
       "name": "ast-serialize",
-      "packageUrl": "pkg:pypi/ast-serialize@0.12.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-ast-serialize-0-12-1",
-      "versionInfo": "0.12.1"
+      "packageUrl": "pkg:pypi/ast-serialize@0.13.1",
+      "spdxId": "urn:spdx.dev:pkg-pypi-ast-serialize-0-13-1",
+      "versionInfo": "0.13.1"
     },
     {
       "@type": "Package",
@@ -50,9 +50,9 @@
     {
       "@type": "Package",
       "name": "click",
-      "packageUrl": "pkg:pypi/click@8.5.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-click-8-5-0",
-      "versionInfo": "8.5.0"
+      "packageUrl": "pkg:pypi/click@8.5.1",
+      "spdxId": "urn:spdx.dev:pkg-pypi-click-8-5-1",
+      "versionInfo": "8.5.1"
     },
     {
       "@type": "Package",
@@ -64,9 +64,9 @@
     {
       "@type": "Package",
       "name": "coverage",
-      "packageUrl": "pkg:pypi/coverage@7.16.2",
-      "spdxId": "urn:spdx.dev:pkg-pypi-coverage-7-16-2",
-      "versionInfo": "7.16.2"
+      "packageUrl": "pkg:pypi/coverage@7.17.2",
+      "spdxId": "urn:spdx.dev:pkg-pypi-coverage-7-17-2",
+      "versionInfo": "7.17.2"
     },
     {
       "@type": "Package",
@@ -134,16 +134,16 @@
     {
       "@type": "Package",
       "name": "mypy",
-      "packageUrl": "pkg:pypi/mypy@2.4.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-mypy-2-4-0",
-      "versionInfo": "2.4.0"
+      "packageUrl": "pkg:pypi/mypy@2.4.1",
+      "spdxId": "urn:spdx.dev:pkg-pypi-mypy-2-4-1",
+      "versionInfo": "2.4.1"
     },
     {
       "@type": "Package",
       "name": "mypy-extensions",
-      "packageUrl": "pkg:pypi/mypy-extensions@1.1.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-mypy-extensions-1-1-0",
-      "versionInfo": "1.1.0"
+      "packageUrl": "pkg:pypi/mypy-extensions@1.2.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-mypy-extensions-1-2-0",
+      "versionInfo": "1.2.0"
     },
     {
       "@type": "Package",
@@ -162,16 +162,16 @@
     {
       "@type": "Package",
       "name": "platformdirs",
-      "packageUrl": "pkg:pypi/platformdirs@4.13.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-platformdirs-4-13-0",
-      "versionInfo": "4.13.0"
+      "packageUrl": "pkg:pypi/platformdirs@4.14.5",
+      "spdxId": "urn:spdx.dev:pkg-pypi-platformdirs-4-14-5",
+      "versionInfo": "4.14.5"
     },
     {
       "@type": "Package",
       "name": "pluggy",
-      "packageUrl": "pkg:pypi/pluggy@1.6.0",
-      "spdxId": "urn:spdx.dev:pkg-pypi-pluggy-1-6-0",
-      "versionInfo": "1.6.0"
+      "packageUrl": "pkg:pypi/pluggy@1.7.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-pluggy-1-7-0",
+      "versionInfo": "1.7.0"
     },
     {
       "@type": "Package",
@@ -190,9 +190,9 @@
     {
       "@type": "Package",
       "name": "pytest",
-      "packageUrl": "pkg:pypi/pytest@9.1.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-pytest-9-1-1",
-      "versionInfo": "9.1.1"
+      "packageUrl": "pkg:pypi/pytest@9.2.0",
+      "spdxId": "urn:spdx.dev:pkg-pypi-pytest-9-2-0",
+      "versionInfo": "9.2.0"
     },
     {
       "@type": "Package",
@@ -246,9 +246,9 @@
     {
       "@type": "Package",
       "name": "tomlkit",
-      "packageUrl": "pkg:pypi/tomlkit@0.15.1",
-      "spdxId": "urn:spdx.dev:pkg-pypi-tomlkit-0-15-1",
-      "versionInfo": "0.15.1"
+      "packageUrl": "pkg:pypi/tomlkit@0.15.2",
+      "spdxId": "urn:spdx.dev:pkg-pypi-tomlkit-0-15-2",
+      "versionInfo": "0.15.2"
     },
     {
       "@type": "Package",
