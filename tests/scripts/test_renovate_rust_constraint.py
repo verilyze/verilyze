@@ -25,10 +25,6 @@ from tests.scripts.repo_root import repo_root
 _ROOT = repo_root()
 
 _TOOLCHAIN_FIXTURE = """\
-# SPDX-FileCopyrightText: 2026 Travis Post <post.travis@gmail.com>
-#
-# SPDX-License-Identifier: GPL-3.0-or-later
-
 [toolchain]
 channel = "1.99.0"
 components = ["rustfmt", "clippy", "llvm-tools"]
