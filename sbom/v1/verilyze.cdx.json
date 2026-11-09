@@ -303,13 +303,6 @@
       "version": "1.0.104"
     },
     {
-      "bom-ref": "pkg:cargo/ar_archive_writer@0.5.3",
-      "name": "ar_archive_writer",
-      "purl": "pkg:cargo/ar_archive_writer@0.5.3",
-      "type": "library",
-      "version": "0.5.3"
-    },
-    {
       "bom-ref": "pkg:cargo/arrayvec@0.7.8",
       "name": "arrayvec",
       "purl": "pkg:cargo/arrayvec@0.7.8",
@@ -469,6 +462,13 @@
       "purl": "pkg:cargo/cfg-if@1.0.5",
       "type": "library",
       "version": "1.0.5"
+    },
+    {
+      "bom-ref": "pkg:cargo/chacha20@0.10.2",
+      "name": "chacha20",
+      "purl": "pkg:cargo/chacha20@0.10.2",
+      "type": "library",
+      "version": "0.10.2"
     },
     {
       "bom-ref": "pkg:cargo/char_str@0.0.4",
@@ -1227,11 +1227,11 @@
       "version": "1.2.4"
     },
     {
-      "bom-ref": "pkg:cargo/ml-dsa@0.1.1",
+      "bom-ref": "pkg:cargo/ml-dsa@0.1.2",
       "name": "ml-dsa",
-      "purl": "pkg:cargo/ml-dsa@0.1.1",
+      "purl": "pkg:cargo/ml-dsa@0.1.2",
       "type": "library",
-      "version": "0.1.1"
+      "version": "0.1.2"
     },
     {
       "bom-ref": "pkg:cargo/module-lattice@0.2.4",
@@ -1290,13 +1290,6 @@
       "version": "1.17.0"
     },
     {
-      "bom-ref": "pkg:cargo/object@0.39.1",
-      "name": "object",
-      "purl": "pkg:cargo/object@0.39.1",
-      "type": "library",
-      "version": "0.39.1"
-    },
-    {
       "bom-ref": "pkg:cargo/oid-registry@0.8.1",
       "name": "oid-registry",
       "purl": "pkg:cargo/oid-registry@0.8.1",
@@ -1353,32 +1346,32 @@
       "version": "2.3.2"
     },
     {
-      "bom-ref": "pkg:cargo/phf@0.11.3",
+      "bom-ref": "pkg:cargo/phf@0.14.0",
       "name": "phf",
-      "purl": "pkg:cargo/phf@0.11.3",
+      "purl": "pkg:cargo/phf@0.14.0",
       "type": "library",
-      "version": "0.11.3"
+      "version": "0.14.0"
     },
     {
-      "bom-ref": "pkg:cargo/phf_codegen@0.11.3",
+      "bom-ref": "pkg:cargo/phf_codegen@0.14.0",
       "name": "phf_codegen",
-      "purl": "pkg:cargo/phf_codegen@0.11.3",
+      "purl": "pkg:cargo/phf_codegen@0.14.0",
       "type": "library",
-      "version": "0.11.3"
+      "version": "0.14.0"
     },
     {
-      "bom-ref": "pkg:cargo/phf_generator@0.11.3",
+      "bom-ref": "pkg:cargo/phf_generator@0.14.0",
       "name": "phf_generator",
-      "purl": "pkg:cargo/phf_generator@0.11.3",
+      "purl": "pkg:cargo/phf_generator@0.14.0",
       "type": "library",
-      "version": "0.11.3"
+      "version": "0.14.0"
     },
     {
-      "bom-ref": "pkg:cargo/phf_shared@0.11.3",
+      "bom-ref": "pkg:cargo/phf_shared@0.14.0",
       "name": "phf_shared",
-      "purl": "pkg:cargo/phf_shared@0.11.3",
+      "purl": "pkg:cargo/phf_shared@0.14.0",
       "type": "library",
-      "version": "0.11.3"
+      "version": "0.14.0"
     },
     {
       "bom-ref": "pkg:cargo/pin-project-lite@0.2.17",
@@ -1423,13 +1416,6 @@
       "version": "0.2.1"
     },
     {
-      "bom-ref": "pkg:cargo/ppv-lite86@0.2.21",
-      "name": "ppv-lite86",
-      "purl": "pkg:cargo/ppv-lite86@0.2.21",
-      "type": "library",
-      "version": "0.2.21"
-    },
-    {
       "bom-ref": "pkg:cargo/proc-macro-utils@0.10.0",
       "name": "proc-macro-utils",
       "purl": "pkg:cargo/proc-macro-utils@0.10.0",
@@ -1442,13 +1428,6 @@
       "purl": "pkg:cargo/proc-macro2@1.0.107",
       "type": "library",
       "version": "1.0.107"
-    },
-    {
-      "bom-ref": "pkg:cargo/psm@0.1.32",
-      "name": "psm",
-      "purl": "pkg:cargo/psm@0.1.32",
-      "type": "library",
-      "version": "0.1.32"
     },
     {
       "bom-ref": "pkg:cargo/quick-xml@0.42.0",
@@ -1486,25 +1465,11 @@
       "version": "6.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/rand@0.8.8",
+      "bom-ref": "pkg:cargo/rand@0.10.3",
       "name": "rand",
-      "purl": "pkg:cargo/rand@0.8.8",
+      "purl": "pkg:cargo/rand@0.10.3",
       "type": "library",
-      "version": "0.8.8"
-    },
-    {
-      "bom-ref": "pkg:cargo/rand_chacha@0.3.1",
-      "name": "rand_chacha",
-      "purl": "pkg:cargo/rand_chacha@0.3.1",
-      "type": "library",
-      "version": "0.3.1"
-    },
-    {
-      "bom-ref": "pkg:cargo/rand_core@0.6.4",
-      "name": "rand_core",
-      "purl": "pkg:cargo/rand_core@0.6.4",
-      "type": "library",
-      "version": "0.6.4"
+      "version": "0.10.3"
     },
     {
       "bom-ref": "pkg:cargo/rand_core@0.10.1",
@@ -1577,53 +1542,53 @@
       "version": "1.1.1"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_python_ast@0.0.17",
+      "bom-ref": "pkg:cargo/ruff_python_ast@0.0.21",
       "name": "ruff_python_ast",
-      "purl": "pkg:cargo/ruff_python_ast@0.0.17",
+      "purl": "pkg:cargo/ruff_python_ast@0.0.21",
       "type": "library",
-      "version": "0.0.17"
+      "version": "0.0.21"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_python_parser@0.0.17",
+      "bom-ref": "pkg:cargo/ruff_python_parser@0.0.21",
       "name": "ruff_python_parser",
-      "purl": "pkg:cargo/ruff_python_parser@0.0.17",
+      "purl": "pkg:cargo/ruff_python_parser@0.0.21",
       "type": "library",
-      "version": "0.0.17"
+      "version": "0.0.21"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_python_trivia@0.0.17",
+      "bom-ref": "pkg:cargo/ruff_python_trivia@0.0.21",
       "name": "ruff_python_trivia",
-      "purl": "pkg:cargo/ruff_python_trivia@0.0.17",
+      "purl": "pkg:cargo/ruff_python_trivia@0.0.21",
       "type": "library",
-      "version": "0.0.17"
+      "version": "0.0.21"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_source_file@0.0.17",
+      "bom-ref": "pkg:cargo/ruff_source_file@0.0.21",
       "name": "ruff_source_file",
-      "purl": "pkg:cargo/ruff_source_file@0.0.17",
+      "purl": "pkg:cargo/ruff_source_file@0.0.21",
       "type": "library",
-      "version": "0.0.17"
+      "version": "0.0.21"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_text_size@0.0.17",
+      "bom-ref": "pkg:cargo/ruff_text_size@0.0.21",
       "name": "ruff_text_size",
-      "purl": "pkg:cargo/ruff_text_size@0.0.17",
+      "purl": "pkg:cargo/ruff_text_size@0.0.21",
       "type": "library",
-      "version": "0.0.17"
+      "version": "0.0.21"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_unicode_names2@0.0.17",
+      "bom-ref": "pkg:cargo/ruff_unicode_names2@0.0.21",
       "name": "ruff_unicode_names2",
-      "purl": "pkg:cargo/ruff_unicode_names2@0.0.17",
+      "purl": "pkg:cargo/ruff_unicode_names2@0.0.21",
       "type": "library",
-      "version": "0.0.17"
+      "version": "0.0.21"
     },
     {
-      "bom-ref": "pkg:cargo/ruff_unicode_names2_generator@0.0.17",
+      "bom-ref": "pkg:cargo/ruff_unicode_names2_generator@0.0.21",
       "name": "ruff_unicode_names2_generator",
-      "purl": "pkg:cargo/ruff_unicode_names2_generator@0.0.17",
+      "purl": "pkg:cargo/ruff_unicode_names2_generator@0.0.21",
       "type": "library",
-      "version": "0.0.17"
+      "version": "0.0.21"
     },
     {
       "bom-ref": "pkg:cargo/rustc-hash@2.1.3",
@@ -1904,13 +1869,6 @@
       "purl": "pkg:cargo/stable_deref_trait@1.2.1",
       "type": "library",
       "version": "1.2.1"
-    },
-    {
-      "bom-ref": "pkg:cargo/stacker@0.1.25",
-      "name": "stacker",
-      "purl": "pkg:cargo/stacker@0.1.25",
-      "type": "library",
-      "version": "0.1.25"
     },
     {
       "bom-ref": "pkg:cargo/static_assertions@1.1.0",
@@ -2660,20 +2618,6 @@
       "purl": "pkg:cargo/yoke-derive@0.8.4",
       "type": "library",
       "version": "0.8.4"
-    },
-    {
-      "bom-ref": "pkg:cargo/zerocopy@0.8.63",
-      "name": "zerocopy",
-      "purl": "pkg:cargo/zerocopy@0.8.63",
-      "type": "library",
-      "version": "0.8.63"
-    },
-    {
-      "bom-ref": "pkg:cargo/zerocopy-derive@0.8.63",
-      "name": "zerocopy-derive",
-      "purl": "pkg:cargo/zerocopy-derive@0.8.63",
-      "type": "library",
-      "version": "0.8.63"
     },
     {
       "bom-ref": "pkg:cargo/zerofrom@0.1.8",

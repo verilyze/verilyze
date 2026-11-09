@@ -120,5 +120,5 @@ tokio = "1.51"
 toml = "1.1"
 quick-xml = "0.42"
 # SEC-005: pre-1.0 and unaudited; pinned exactly so upgrades are reviewed.
-ml-dsa = { version = "=0.1.1", default-features = false, features = ["alloc", "getrandom", "zeroize"] }
+ml-dsa = { version = "=0.1.2", default-features = false, features = ["alloc", "getrandom", "zeroize"] }
 wiremock = "0.6"

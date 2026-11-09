@@ -315,13 +315,6 @@
     },
     {
       "@type": "Package",
-      "name": "ar_archive_writer",
-      "packageUrl": "pkg:cargo/ar_archive_writer@0.5.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ar-archive-writer-0-5-3",
-      "versionInfo": "0.5.3"
-    },
-    {
-      "@type": "Package",
       "name": "arrayvec",
       "packageUrl": "pkg:cargo/arrayvec@0.7.8",
       "spdxId": "urn:spdx.dev:pkg-cargo-arrayvec-0-7-8",
@@ -480,6 +473,13 @@
       "packageUrl": "pkg:cargo/cfg-if@1.0.5",
       "spdxId": "urn:spdx.dev:pkg-cargo-cfg-if-1-0-5",
       "versionInfo": "1.0.5"
+    },
+    {
+      "@type": "Package",
+      "name": "chacha20",
+      "packageUrl": "pkg:cargo/chacha20@0.10.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-chacha20-0-10-2",
+      "versionInfo": "0.10.2"
     },
     {
       "@type": "Package",
@@ -1240,9 +1240,9 @@
     {
       "@type": "Package",
       "name": "ml-dsa",
-      "packageUrl": "pkg:cargo/ml-dsa@0.1.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ml-dsa-0-1-1",
-      "versionInfo": "0.1.1"
+      "packageUrl": "pkg:cargo/ml-dsa@0.1.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ml-dsa-0-1-2",
+      "versionInfo": "0.1.2"
     },
     {
       "@type": "Package",
@@ -1299,13 +1299,6 @@
       "packageUrl": "pkg:cargo/num_cpus@1.17.0",
       "spdxId": "urn:spdx.dev:pkg-cargo-num-cpus-1-17-0",
       "versionInfo": "1.17.0"
-    },
-    {
-      "@type": "Package",
-      "name": "object",
-      "packageUrl": "pkg:cargo/object@0.39.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-object-0-39-1",
-      "versionInfo": "0.39.1"
     },
     {
       "@type": "Package",
@@ -1366,30 +1359,30 @@
     {
       "@type": "Package",
       "name": "phf",
-      "packageUrl": "pkg:cargo/phf@0.11.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-phf-0-11-3",
-      "versionInfo": "0.11.3"
+      "packageUrl": "pkg:cargo/phf@0.14.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-phf-0-14-0",
+      "versionInfo": "0.14.0"
     },
     {
       "@type": "Package",
       "name": "phf_codegen",
-      "packageUrl": "pkg:cargo/phf_codegen@0.11.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-phf-codegen-0-11-3",
-      "versionInfo": "0.11.3"
+      "packageUrl": "pkg:cargo/phf_codegen@0.14.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-phf-codegen-0-14-0",
+      "versionInfo": "0.14.0"
     },
     {
       "@type": "Package",
       "name": "phf_generator",
-      "packageUrl": "pkg:cargo/phf_generator@0.11.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-phf-generator-0-11-3",
-      "versionInfo": "0.11.3"
+      "packageUrl": "pkg:cargo/phf_generator@0.14.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-phf-generator-0-14-0",
+      "versionInfo": "0.14.0"
     },
     {
       "@type": "Package",
       "name": "phf_shared",
-      "packageUrl": "pkg:cargo/phf_shared@0.11.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-phf-shared-0-11-3",
-      "versionInfo": "0.11.3"
+      "packageUrl": "pkg:cargo/phf_shared@0.14.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-phf-shared-0-14-0",
+      "versionInfo": "0.14.0"
     },
     {
       "@type": "Package",
@@ -1435,13 +1428,6 @@
     },
     {
       "@type": "Package",
-      "name": "ppv-lite86",
-      "packageUrl": "pkg:cargo/ppv-lite86@0.2.21",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ppv-lite86-0-2-21",
-      "versionInfo": "0.2.21"
-    },
-    {
-      "@type": "Package",
       "name": "proc-macro-utils",
       "packageUrl": "pkg:cargo/proc-macro-utils@0.10.0",
       "spdxId": "urn:spdx.dev:pkg-cargo-proc-macro-utils-0-10-0",
@@ -1453,13 +1439,6 @@
       "packageUrl": "pkg:cargo/proc-macro2@1.0.107",
       "spdxId": "urn:spdx.dev:pkg-cargo-proc-macro2-1-0-107",
       "versionInfo": "1.0.107"
-    },
-    {
-      "@type": "Package",
-      "name": "psm",
-      "packageUrl": "pkg:cargo/psm@0.1.32",
-      "spdxId": "urn:spdx.dev:pkg-cargo-psm-0-1-32",
-      "versionInfo": "0.1.32"
     },
     {
       "@type": "Package",
@@ -1499,23 +1478,9 @@
     {
       "@type": "Package",
       "name": "rand",
-      "packageUrl": "pkg:cargo/rand@0.8.8",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rand-0-8-8",
-      "versionInfo": "0.8.8"
-    },
-    {
-      "@type": "Package",
-      "name": "rand_chacha",
-      "packageUrl": "pkg:cargo/rand_chacha@0.3.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rand-chacha-0-3-1",
-      "versionInfo": "0.3.1"
-    },
-    {
-      "@type": "Package",
-      "name": "rand_core",
-      "packageUrl": "pkg:cargo/rand_core@0.6.4",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rand-core-0-6-4",
-      "versionInfo": "0.6.4"
+      "packageUrl": "pkg:cargo/rand@0.10.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rand-0-10-3",
+      "versionInfo": "0.10.3"
     },
     {
       "@type": "Package",
@@ -1590,51 +1555,51 @@
     {
       "@type": "Package",
       "name": "ruff_python_ast",
-      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.17",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-17",
-      "versionInfo": "0.0.17"
+      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.21",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-21",
+      "versionInfo": "0.0.21"
     },
     {
       "@type": "Package",
       "name": "ruff_python_parser",
-      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.17",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-17",
-      "versionInfo": "0.0.17"
+      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.21",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-21",
+      "versionInfo": "0.0.21"
     },
     {
       "@type": "Package",
       "name": "ruff_python_trivia",
-      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.17",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-17",
-      "versionInfo": "0.0.17"
+      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.21",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-21",
+      "versionInfo": "0.0.21"
     },
     {
       "@type": "Package",
       "name": "ruff_source_file",
-      "packageUrl": "pkg:cargo/ruff_source_file@0.0.17",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-17",
-      "versionInfo": "0.0.17"
+      "packageUrl": "pkg:cargo/ruff_source_file@0.0.21",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-21",
+      "versionInfo": "0.0.21"
     },
     {
       "@type": "Package",
       "name": "ruff_text_size",
-      "packageUrl": "pkg:cargo/ruff_text_size@0.0.17",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-17",
-      "versionInfo": "0.0.17"
+      "packageUrl": "pkg:cargo/ruff_text_size@0.0.21",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-21",
+      "versionInfo": "0.0.21"
     },
     {
       "@type": "Package",
       "name": "ruff_unicode_names2",
-      "packageUrl": "pkg:cargo/ruff_unicode_names2@0.0.17",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-unicode-names2-0-0-17",
-      "versionInfo": "0.0.17"
+      "packageUrl": "pkg:cargo/ruff_unicode_names2@0.0.21",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-unicode-names2-0-0-21",
+      "versionInfo": "0.0.21"
     },
     {
       "@type": "Package",
       "name": "ruff_unicode_names2_generator",
-      "packageUrl": "pkg:cargo/ruff_unicode_names2_generator@0.0.17",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-unicode-names2-generator-0-0-17",
-      "versionInfo": "0.0.17"
+      "packageUrl": "pkg:cargo/ruff_unicode_names2_generator@0.0.21",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-unicode-names2-generator-0-0-21",
+      "versionInfo": "0.0.21"
     },
     {
       "@type": "Package",
@@ -1915,13 +1880,6 @@
       "packageUrl": "pkg:cargo/stable_deref_trait@1.2.1",
       "spdxId": "urn:spdx.dev:pkg-cargo-stable-deref-trait-1-2-1",
       "versionInfo": "1.2.1"
-    },
-    {
-      "@type": "Package",
-      "name": "stacker",
-      "packageUrl": "pkg:cargo/stacker@0.1.25",
-      "spdxId": "urn:spdx.dev:pkg-cargo-stacker-0-1-25",
-      "versionInfo": "0.1.25"
     },
     {
       "@type": "Package",
@@ -2671,20 +2629,6 @@
       "packageUrl": "pkg:cargo/yoke-derive@0.8.4",
       "spdxId": "urn:spdx.dev:pkg-cargo-yoke-derive-0-8-4",
       "versionInfo": "0.8.4"
-    },
-    {
-      "@type": "Package",
-      "name": "zerocopy",
-      "packageUrl": "pkg:cargo/zerocopy@0.8.63",
-      "spdxId": "urn:spdx.dev:pkg-cargo-zerocopy-0-8-63",
-      "versionInfo": "0.8.63"
-    },
-    {
-      "@type": "Package",
-      "name": "zerocopy-derive",
-      "packageUrl": "pkg:cargo/zerocopy-derive@0.8.63",
-      "spdxId": "urn:spdx.dev:pkg-cargo-zerocopy-derive-0-8-63",
-      "versionInfo": "0.8.63"
     },
     {
       "@type": "Package",
