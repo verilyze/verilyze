@@ -1899,11 +1899,11 @@
       "version": "2.0.119"
     },
     {
-      "bom-ref": "pkg:cargo/syn@3.0.9",
+      "bom-ref": "pkg:cargo/syn@3.0.10",
       "name": "syn",
-      "purl": "pkg:cargo/syn@3.0.9",
+      "purl": "pkg:cargo/syn@3.0.10",
       "type": "library",
-      "version": "3.0.9"
+      "version": "3.0.10"
     },
     {
       "bom-ref": "pkg:cargo/sync_wrapper@1.0.2",
