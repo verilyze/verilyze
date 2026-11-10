@@ -1079,9 +1079,9 @@
     {
       "@type": "Package",
       "name": "itoa",
-      "packageUrl": "pkg:cargo/itoa@1.0.18",
-      "spdxId": "urn:spdx.dev:pkg-cargo-itoa-1-0-18",
-      "versionInfo": "1.0.18"
+      "packageUrl": "pkg:cargo/itoa@1.0.19",
+      "spdxId": "urn:spdx.dev:pkg-cargo-itoa-1-0-19",
+      "versionInfo": "1.0.19"
     },
     {
       "@type": "Package",

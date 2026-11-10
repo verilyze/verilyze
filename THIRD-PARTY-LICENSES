@@ -154,7 +154,7 @@ COMPONENTS
 - async-trait v0.1.92 (MIT OR Apache-2.0)
 - get-size-derive2 v0.11.1 (MIT OR Apache-2.0)
 - get-size2 v0.11.1 (MIT OR Apache-2.0)
-- itoa v1.0.18 (MIT OR Apache-2.0)
+- itoa v1.0.19 (MIT OR Apache-2.0)
 - jni-macros v0.22.4 (MIT OR Apache-2.0)
 - jni-sys-macros v0.4.1 (MIT OR Apache-2.0)
 - jni v0.22.4 (MIT OR Apache-2.0)

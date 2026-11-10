@@ -1066,11 +1066,11 @@
       "version": "0.15.0"
     },
     {
-      "bom-ref": "pkg:cargo/itoa@1.0.18",
+      "bom-ref": "pkg:cargo/itoa@1.0.19",
       "name": "itoa",
-      "purl": "pkg:cargo/itoa@1.0.18",
+      "purl": "pkg:cargo/itoa@1.0.19",
       "type": "library",
-      "version": "1.0.18"
+      "version": "1.0.19"
     },
     {
       "bom-ref": "pkg:cargo/jiff@0.2.41",
