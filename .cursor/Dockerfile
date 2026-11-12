@@ -32,11 +32,11 @@ ARG RUSTUP_INIT_SHA256_ARM64=15f6e4ce9f583b929c996c91562bad6d4454f3281de858b02cd
 # Renovate bumps FLUTTER_VERSION and runs
 # scripts/renovate-post-upgrade-flutter-sdk.sh to refresh archive path / SHA /
 # Dart pins from releases_linux.json (FLUTTER_ARCHIVE_PATH is the URL suffix).
-ARG FLUTTER_VERSION=3.47.9
-ARG FLUTTER_ARCHIVE_PATH=stable/linux/flutter_linux_3.47.9-stable.tar.xz
-ARG FLUTTER_SHA256_AMD64=25ed8c3c29d51a7353f2a944310b478af8214920639524b19c50a19e6c044c5a
-ARG DART_SDK_VERSION=3.13.7
-ARG DART_SHA256_ARM64=887cbb763bc4a1d6f3d7c34a6ea08f0f05211807abf98c06d6e4263907ccac1a
+ARG FLUTTER_VERSION=3.50.0
+ARG FLUTTER_ARCHIVE_PATH=stable/linux/flutter_linux_3.50.0-stable.tar.xz
+ARG FLUTTER_SHA256_AMD64=6ea2d806fd57269ae783e6788e2a81fc26eaad782f1e0d0ff38623bb765ff9f5
+ARG DART_SDK_VERSION=3.14.0
+ARG DART_SHA256_ARM64=2bb9a19418ced8d9f5cc9e7faa2dcbbc7dc93882b287b8cd8db859efa191c888
 
 # ubuntu:26.04 (resolute) @ 2026-09 (re-pin periodically via docker buildx imagetools).
 # --- Stage: fetch and hash-pin rustup-init (do not execute here). ---
