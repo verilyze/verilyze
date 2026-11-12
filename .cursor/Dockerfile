@@ -40,7 +40,7 @@ ARG DART_SHA256_ARM64=887cbb763bc4a1d6f3d7c34a6ea08f0f05211807abf98c06d6e4263907
 
 # ubuntu:26.04 (resolute) @ 2026-09 (re-pin periodically via docker buildx imagetools).
 # --- Stage: fetch and hash-pin rustup-init (do not execute here). ---
-FROM ubuntu:26.04@sha256:6a06111c3b0a8600feadb270aec771dc239bf407b25625f93f44ab00e11f4d3c AS rustup-fetch
+FROM ubuntu:26.04@sha256:065aa8626841f16057b78b027b464cd59c4fac36c204c72dcbf48d66f5fa8a96 AS rustup-fetch
 # Pipefail for RUN lines that use | (Hadolint DL4006).
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -69,7 +69,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # --- Stage: fetch and hash-pin Flutter (amd64) or Dart SDK (arm64). ---
 # ubuntu:26.04 digest must match rustup-fetch FROM (Renovate dockerfile manager).
-FROM ubuntu:26.04@sha256:6a06111c3b0a8600feadb270aec771dc239bf407b25625f93f44ab00e11f4d3c AS flutter-sdk-fetch
+FROM ubuntu:26.04@sha256:065aa8626841f16057b78b027b464cd59c4fac36c204c72dcbf48d66f5fa8a96 AS flutter-sdk-fetch
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -117,7 +117,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # --- Stage: Cloud Agent runtime image. ---
 # ubuntu:26.04 digest must match rustup-fetch FROM (Renovate dockerfile manager).
-FROM ubuntu:26.04@sha256:6a06111c3b0a8600feadb270aec771dc239bf407b25625f93f44ab00e11f4d3c
+FROM ubuntu:26.04@sha256:065aa8626841f16057b78b027b464cd59c4fac36c204c72dcbf48d66f5fa8a96
 
 # Pipefail for RUN lines that use | (Hadolint DL4006).
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
