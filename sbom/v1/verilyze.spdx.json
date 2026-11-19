@@ -491,9 +491,9 @@
     {
       "@type": "Package",
       "name": "clap",
-      "packageUrl": "pkg:cargo/clap@4.6.7",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-4-6-7",
-      "versionInfo": "4.6.7"
+      "packageUrl": "pkg:cargo/clap@4.6.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-4-6-8",
+      "versionInfo": "4.6.8"
     },
     {
       "@type": "Package",
@@ -505,16 +505,16 @@
     {
       "@type": "Package",
       "name": "clap_complete",
-      "packageUrl": "pkg:cargo/clap_complete@4.6.11",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-complete-4-6-11",
-      "versionInfo": "4.6.11"
+      "packageUrl": "pkg:cargo/clap_complete@4.6.12",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-complete-4-6-12",
+      "versionInfo": "4.6.12"
     },
     {
       "@type": "Package",
       "name": "clap_derive",
-      "packageUrl": "pkg:cargo/clap_derive@4.6.7",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-derive-4-6-7",
-      "versionInfo": "4.6.7"
+      "packageUrl": "pkg:cargo/clap_derive@4.6.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-derive-4-6-8",
+      "versionInfo": "4.6.8"
     },
     {
       "@type": "Package",
@@ -526,9 +526,9 @@
     {
       "@type": "Package",
       "name": "clap_mangen",
-      "packageUrl": "pkg:cargo/clap_mangen@0.3.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-mangen-0-3-3",
-      "versionInfo": "0.3.3"
+      "packageUrl": "pkg:cargo/clap_mangen@0.3.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-mangen-0-3-4",
+      "versionInfo": "0.3.4"
     },
     {
       "@type": "Package",
@@ -1499,9 +1499,9 @@
     {
       "@type": "Package",
       "name": "redb",
-      "packageUrl": "pkg:cargo/redb@4.5.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-redb-4-5-0",
-      "versionInfo": "4.5.0"
+      "packageUrl": "pkg:cargo/redb@4.6.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-redb-4-6-0",
+      "versionInfo": "4.6.0"
     },
     {
       "@type": "Package",
@@ -1513,23 +1513,23 @@
     {
       "@type": "Package",
       "name": "regex",
-      "packageUrl": "pkg:cargo/regex@1.13.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-regex-1-13-1",
-      "versionInfo": "1.13.1"
+      "packageUrl": "pkg:cargo/regex@1.13.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-regex-1-13-2",
+      "versionInfo": "1.13.2"
     },
     {
       "@type": "Package",
       "name": "regex-automata",
-      "packageUrl": "pkg:cargo/regex-automata@0.4.18",
-      "spdxId": "urn:spdx.dev:pkg-cargo-regex-automata-0-4-18",
-      "versionInfo": "0.4.18"
+      "packageUrl": "pkg:cargo/regex-automata@0.4.19",
+      "spdxId": "urn:spdx.dev:pkg-cargo-regex-automata-0-4-19",
+      "versionInfo": "0.4.19"
     },
     {
       "@type": "Package",
       "name": "regex-syntax",
-      "packageUrl": "pkg:cargo/regex-syntax@0.8.11",
-      "spdxId": "urn:spdx.dev:pkg-cargo-regex-syntax-0-8-11",
-      "versionInfo": "0.8.11"
+      "packageUrl": "pkg:cargo/regex-syntax@0.8.12",
+      "spdxId": "urn:spdx.dev:pkg-cargo-regex-syntax-0-8-12",
+      "versionInfo": "0.8.12"
     },
     {
       "@type": "Package",
@@ -1555,51 +1555,51 @@
     {
       "@type": "Package",
       "name": "ruff_python_ast",
-      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.21",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-21",
-      "versionInfo": "0.0.21"
+      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.22",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-22",
+      "versionInfo": "0.0.22"
     },
     {
       "@type": "Package",
       "name": "ruff_python_parser",
-      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.21",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-21",
-      "versionInfo": "0.0.21"
+      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.22",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-22",
+      "versionInfo": "0.0.22"
     },
     {
       "@type": "Package",
       "name": "ruff_python_trivia",
-      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.21",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-21",
-      "versionInfo": "0.0.21"
+      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.22",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-22",
+      "versionInfo": "0.0.22"
     },
     {
       "@type": "Package",
       "name": "ruff_source_file",
-      "packageUrl": "pkg:cargo/ruff_source_file@0.0.21",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-21",
-      "versionInfo": "0.0.21"
+      "packageUrl": "pkg:cargo/ruff_source_file@0.0.22",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-22",
+      "versionInfo": "0.0.22"
     },
     {
       "@type": "Package",
       "name": "ruff_text_size",
-      "packageUrl": "pkg:cargo/ruff_text_size@0.0.21",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-21",
-      "versionInfo": "0.0.21"
+      "packageUrl": "pkg:cargo/ruff_text_size@0.0.22",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-22",
+      "versionInfo": "0.0.22"
     },
     {
       "@type": "Package",
       "name": "ruff_unicode_names2",
-      "packageUrl": "pkg:cargo/ruff_unicode_names2@0.0.21",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-unicode-names2-0-0-21",
-      "versionInfo": "0.0.21"
+      "packageUrl": "pkg:cargo/ruff_unicode_names2@0.0.22",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-unicode-names2-0-0-22",
+      "versionInfo": "0.0.22"
     },
     {
       "@type": "Package",
       "name": "ruff_unicode_names2_generator",
-      "packageUrl": "pkg:cargo/ruff_unicode_names2_generator@0.0.21",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-unicode-names2-generator-0-0-21",
-      "versionInfo": "0.0.21"
+      "packageUrl": "pkg:cargo/ruff_unicode_names2_generator@0.0.22",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-unicode-names2-generator-0-0-22",
+      "versionInfo": "0.0.22"
     },
     {
       "@type": "Package",
