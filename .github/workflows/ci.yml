@@ -186,7 +186,7 @@ jobs:
     env:
       CC: gcc
       RUSTFLAGS: -Clink-arg=-fuse-ld=bfd
-      CARGO_DENY_VERSION: "0.20.2"
+      CARGO_DENY_VERSION: "0.21.0"
     # actions: write -- saving Actions cache entries (actions/cache, rust-cache)
     # requires the Actions cache API; see GitHub token permissions for workflows.
     permissions:
