@@ -435,23 +435,23 @@
     {
       "@type": "Package",
       "name": "bstr",
-      "packageUrl": "pkg:cargo/bstr@1.13.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-bstr-1-13-1",
-      "versionInfo": "1.13.1"
+      "packageUrl": "pkg:cargo/bstr@1.14.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-bstr-1-14-0",
+      "versionInfo": "1.14.0"
     },
     {
       "@type": "Package",
       "name": "bumpalo",
-      "packageUrl": "pkg:cargo/bumpalo@3.20.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-bumpalo-3-20-3",
-      "versionInfo": "3.20.3"
+      "packageUrl": "pkg:cargo/bumpalo@3.20.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-bumpalo-3-20-4",
+      "versionInfo": "3.20.4"
     },
     {
       "@type": "Package",
       "name": "bytes",
-      "packageUrl": "pkg:cargo/bytes@1.12.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-bytes-1-12-1",
-      "versionInfo": "1.12.1"
+      "packageUrl": "pkg:cargo/bytes@1.12.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-bytes-1-12-2",
+      "versionInfo": "1.12.2"
     },
     {
       "@type": "Package",
@@ -463,9 +463,9 @@
     {
       "@type": "Package",
       "name": "cc",
-      "packageUrl": "pkg:cargo/cc@1.11.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-cc-1-11-1",
-      "versionInfo": "1.11.1"
+      "packageUrl": "pkg:cargo/cc@1.11.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-cc-1-11-2",
+      "versionInfo": "1.11.2"
     },
     {
       "@type": "Package",
@@ -491,9 +491,9 @@
     {
       "@type": "Package",
       "name": "clap",
-      "packageUrl": "pkg:cargo/clap@4.6.7",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-4-6-7",
-      "versionInfo": "4.6.7"
+      "packageUrl": "pkg:cargo/clap@4.6.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-4-6-8",
+      "versionInfo": "4.6.8"
     },
     {
       "@type": "Package",
@@ -505,30 +505,30 @@
     {
       "@type": "Package",
       "name": "clap_complete",
-      "packageUrl": "pkg:cargo/clap_complete@4.6.11",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-complete-4-6-11",
-      "versionInfo": "4.6.11"
+      "packageUrl": "pkg:cargo/clap_complete@4.6.12",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-complete-4-6-12",
+      "versionInfo": "4.6.12"
     },
     {
       "@type": "Package",
       "name": "clap_derive",
-      "packageUrl": "pkg:cargo/clap_derive@4.6.7",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-derive-4-6-7",
-      "versionInfo": "4.6.7"
+      "packageUrl": "pkg:cargo/clap_derive@4.6.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-derive-4-6-8",
+      "versionInfo": "4.6.8"
     },
     {
       "@type": "Package",
       "name": "clap_lex",
-      "packageUrl": "pkg:cargo/clap_lex@1.1.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-lex-1-1-1",
-      "versionInfo": "1.1.1"
+      "packageUrl": "pkg:cargo/clap_lex@1.1.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-lex-1-1-2",
+      "versionInfo": "1.1.2"
     },
     {
       "@type": "Package",
       "name": "clap_mangen",
-      "packageUrl": "pkg:cargo/clap_mangen@0.3.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-mangen-0-3-3",
-      "versionInfo": "0.3.3"
+      "packageUrl": "pkg:cargo/clap_mangen@0.3.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-mangen-0-3-4",
+      "versionInfo": "0.3.4"
     },
     {
       "@type": "Package",
@@ -568,9 +568,9 @@
     {
       "@type": "Package",
       "name": "const-oid",
-      "packageUrl": "pkg:cargo/const-oid@0.10.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-const-oid-0-10-2",
-      "versionInfo": "0.10.2"
+      "packageUrl": "pkg:cargo/const-oid@0.10.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-const-oid-0-10-3",
+      "versionInfo": "0.10.3"
     },
     {
       "@type": "Package",
@@ -743,9 +743,9 @@
     {
       "@type": "Package",
       "name": "errno",
-      "packageUrl": "pkg:cargo/errno@0.3.14",
-      "spdxId": "urn:spdx.dev:pkg-cargo-errno-0-3-14",
-      "versionInfo": "0.3.14"
+      "packageUrl": "pkg:cargo/errno@0.3.15",
+      "spdxId": "urn:spdx.dev:pkg-cargo-errno-0-3-15",
+      "versionInfo": "0.3.15"
     },
     {
       "@type": "Package",
@@ -1079,30 +1079,30 @@
     {
       "@type": "Package",
       "name": "itoa",
-      "packageUrl": "pkg:cargo/itoa@1.0.18",
-      "spdxId": "urn:spdx.dev:pkg-cargo-itoa-1-0-18",
-      "versionInfo": "1.0.18"
+      "packageUrl": "pkg:cargo/itoa@1.0.19",
+      "spdxId": "urn:spdx.dev:pkg-cargo-itoa-1-0-19",
+      "versionInfo": "1.0.19"
     },
     {
       "@type": "Package",
       "name": "jiff",
-      "packageUrl": "pkg:cargo/jiff@0.2.41",
-      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-0-2-41",
-      "versionInfo": "0.2.41"
+      "packageUrl": "pkg:cargo/jiff@0.2.46",
+      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-0-2-46",
+      "versionInfo": "0.2.46"
     },
     {
       "@type": "Package",
       "name": "jiff-core",
-      "packageUrl": "pkg:cargo/jiff-core@0.1.4",
-      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-core-0-1-4",
-      "versionInfo": "0.1.4"
+      "packageUrl": "pkg:cargo/jiff-core@0.1.8",
+      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-core-0-1-8",
+      "versionInfo": "0.1.8"
     },
     {
       "@type": "Package",
       "name": "jiff-static",
-      "packageUrl": "pkg:cargo/jiff-static@0.2.41",
-      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-static-0-2-41",
-      "versionInfo": "0.2.41"
+      "packageUrl": "pkg:cargo/jiff-static@0.2.46",
+      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-static-0-2-46",
+      "versionInfo": "0.2.46"
     },
     {
       "@type": "Package",
@@ -1233,9 +1233,9 @@
     {
       "@type": "Package",
       "name": "mio",
-      "packageUrl": "pkg:cargo/mio@1.2.4",
-      "spdxId": "urn:spdx.dev:pkg-cargo-mio-1-2-4",
-      "versionInfo": "1.2.4"
+      "packageUrl": "pkg:cargo/mio@1.2.5",
+      "spdxId": "urn:spdx.dev:pkg-cargo-mio-1-2-5",
+      "versionInfo": "1.2.5"
     },
     {
       "@type": "Package",
@@ -1478,9 +1478,9 @@
     {
       "@type": "Package",
       "name": "rand",
-      "packageUrl": "pkg:cargo/rand@0.10.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rand-0-10-3",
-      "versionInfo": "0.10.3"
+      "packageUrl": "pkg:cargo/rand@0.10.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rand-0-10-4",
+      "versionInfo": "0.10.4"
     },
     {
       "@type": "Package",
@@ -1499,9 +1499,9 @@
     {
       "@type": "Package",
       "name": "redb",
-      "packageUrl": "pkg:cargo/redb@4.5.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-redb-4-5-0",
-      "versionInfo": "4.5.0"
+      "packageUrl": "pkg:cargo/redb@4.6.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-redb-4-6-0",
+      "versionInfo": "4.6.0"
     },
     {
       "@type": "Package",
@@ -1513,23 +1513,23 @@
     {
       "@type": "Package",
       "name": "regex",
-      "packageUrl": "pkg:cargo/regex@1.13.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-regex-1-13-1",
-      "versionInfo": "1.13.1"
+      "packageUrl": "pkg:cargo/regex@1.13.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-regex-1-13-2",
+      "versionInfo": "1.13.2"
     },
     {
       "@type": "Package",
       "name": "regex-automata",
-      "packageUrl": "pkg:cargo/regex-automata@0.4.18",
-      "spdxId": "urn:spdx.dev:pkg-cargo-regex-automata-0-4-18",
-      "versionInfo": "0.4.18"
+      "packageUrl": "pkg:cargo/regex-automata@0.4.19",
+      "spdxId": "urn:spdx.dev:pkg-cargo-regex-automata-0-4-19",
+      "versionInfo": "0.4.19"
     },
     {
       "@type": "Package",
       "name": "regex-syntax",
-      "packageUrl": "pkg:cargo/regex-syntax@0.8.11",
-      "spdxId": "urn:spdx.dev:pkg-cargo-regex-syntax-0-8-11",
-      "versionInfo": "0.8.11"
+      "packageUrl": "pkg:cargo/regex-syntax@0.8.12",
+      "spdxId": "urn:spdx.dev:pkg-cargo-regex-syntax-0-8-12",
+      "versionInfo": "0.8.12"
     },
     {
       "@type": "Package",
@@ -1646,9 +1646,9 @@
     {
       "@type": "Package",
       "name": "rustls-pki-types",
-      "packageUrl": "pkg:cargo/rustls-pki-types@1.15.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-pki-types-1-15-1",
-      "versionInfo": "1.15.1"
+      "packageUrl": "pkg:cargo/rustls-pki-types@1.16.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-pki-types-1-16-0",
+      "versionInfo": "1.16.0"
     },
     {
       "@type": "Package",
@@ -1667,9 +1667,9 @@
     {
       "@type": "Package",
       "name": "rustls-webpki",
-      "packageUrl": "pkg:cargo/rustls-webpki@0.103.16",
-      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-webpki-0-103-16",
-      "versionInfo": "0.103.16"
+      "packageUrl": "pkg:cargo/rustls-webpki@0.103.17",
+      "spdxId": "urn:spdx.dev:pkg-cargo-rustls-webpki-0-103-17",
+      "versionInfo": "0.103.17"
     },
     {
       "@type": "Package",
@@ -1849,9 +1849,9 @@
     {
       "@type": "Package",
       "name": "smallvec",
-      "packageUrl": "pkg:cargo/smallvec@1.16.5",
-      "spdxId": "urn:spdx.dev:pkg-cargo-smallvec-1-16-5",
-      "versionInfo": "1.16.5"
+      "packageUrl": "pkg:cargo/smallvec@1.16.6",
+      "spdxId": "urn:spdx.dev:pkg-cargo-smallvec-1-16-6",
+      "versionInfo": "1.16.6"
     },
     {
       "@type": "Package",
@@ -2458,9 +2458,9 @@
     {
       "@type": "Package",
       "name": "webpki-root-certs",
-      "packageUrl": "pkg:cargo/webpki-root-certs@1.0.11",
-      "spdxId": "urn:spdx.dev:pkg-cargo-webpki-root-certs-1-0-11",
-      "versionInfo": "1.0.11"
+      "packageUrl": "pkg:cargo/webpki-root-certs@1.0.12",
+      "spdxId": "urn:spdx.dev:pkg-cargo-webpki-root-certs-1-0-12",
+      "versionInfo": "1.0.12"
     },
     {
       "@type": "Package",
@@ -2647,9 +2647,9 @@
     {
       "@type": "Package",
       "name": "zeroize",
-      "packageUrl": "pkg:cargo/zeroize@1.9.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-zeroize-1-9-1",
-      "versionInfo": "1.9.1"
+      "packageUrl": "pkg:cargo/zeroize@1.9.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-zeroize-1-9-2",
+      "versionInfo": "1.9.2"
     },
     {
       "@type": "Package",
