@@ -778,9 +778,9 @@
     {
       "@type": "Package",
       "name": "form_urlencoded",
-      "packageUrl": "pkg:cargo/form_urlencoded@1.2.2",
-      "spdxId": "urn:spdx.dev:pkg-cargo-form-urlencoded-1-2-2",
-      "versionInfo": "1.2.2"
+      "packageUrl": "pkg:cargo/form_urlencoded@1.2.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-form-urlencoded-1-2-3",
+      "versionInfo": "1.2.3"
     },
     {
       "@type": "Package",
@@ -2164,9 +2164,9 @@
     {
       "@type": "Package",
       "name": "url",
-      "packageUrl": "pkg:cargo/url@2.5.8",
-      "spdxId": "urn:spdx.dev:pkg-cargo-url-2-5-8",
-      "versionInfo": "2.5.8"
+      "packageUrl": "pkg:cargo/url@2.5.9",
+      "spdxId": "urn:spdx.dev:pkg-cargo-url-2-5-9",
+      "versionInfo": "2.5.9"
     },
     {
       "@type": "Package",
