@@ -309,9 +309,9 @@
     {
       "@type": "Package",
       "name": "anyhow",
-      "packageUrl": "pkg:cargo/anyhow@1.0.104",
-      "spdxId": "urn:spdx.dev:pkg-cargo-anyhow-1-0-104",
-      "versionInfo": "1.0.104"
+      "packageUrl": "pkg:cargo/anyhow@1.0.105",
+      "spdxId": "urn:spdx.dev:pkg-cargo-anyhow-1-0-105",
+      "versionInfo": "1.0.105"
     },
     {
       "@type": "Package",
@@ -491,30 +491,30 @@
     {
       "@type": "Package",
       "name": "clap",
-      "packageUrl": "pkg:cargo/clap@4.6.7",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-4-6-7",
-      "versionInfo": "4.6.7"
+      "packageUrl": "pkg:cargo/clap@4.6.10",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-4-6-10",
+      "versionInfo": "4.6.10"
     },
     {
       "@type": "Package",
       "name": "clap_builder",
-      "packageUrl": "pkg:cargo/clap_builder@4.6.7",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-builder-4-6-7",
-      "versionInfo": "4.6.7"
+      "packageUrl": "pkg:cargo/clap_builder@4.6.10",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-builder-4-6-10",
+      "versionInfo": "4.6.10"
     },
     {
       "@type": "Package",
       "name": "clap_complete",
-      "packageUrl": "pkg:cargo/clap_complete@4.6.11",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-complete-4-6-11",
-      "versionInfo": "4.6.11"
+      "packageUrl": "pkg:cargo/clap_complete@4.6.12",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-complete-4-6-12",
+      "versionInfo": "4.6.12"
     },
     {
       "@type": "Package",
       "name": "clap_derive",
-      "packageUrl": "pkg:cargo/clap_derive@4.6.7",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-derive-4-6-7",
-      "versionInfo": "4.6.7"
+      "packageUrl": "pkg:cargo/clap_derive@4.6.9",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-derive-4-6-9",
+      "versionInfo": "4.6.9"
     },
     {
       "@type": "Package",
@@ -526,9 +526,9 @@
     {
       "@type": "Package",
       "name": "clap_mangen",
-      "packageUrl": "pkg:cargo/clap_mangen@0.3.3",
-      "spdxId": "urn:spdx.dev:pkg-cargo-clap-mangen-0-3-3",
-      "versionInfo": "0.3.3"
+      "packageUrl": "pkg:cargo/clap_mangen@0.3.4",
+      "spdxId": "urn:spdx.dev:pkg-cargo-clap-mangen-0-3-4",
+      "versionInfo": "0.3.4"
     },
     {
       "@type": "Package",
@@ -729,9 +729,9 @@
     {
       "@type": "Package",
       "name": "env_logger",
-      "packageUrl": "pkg:cargo/env_logger@0.11.11",
-      "spdxId": "urn:spdx.dev:pkg-cargo-env-logger-0-11-11",
-      "versionInfo": "0.11.11"
+      "packageUrl": "pkg:cargo/env_logger@0.11.12",
+      "spdxId": "urn:spdx.dev:pkg-cargo-env-logger-0-11-12",
+      "versionInfo": "0.11.12"
     },
     {
       "@type": "Package",
@@ -1086,23 +1086,23 @@
     {
       "@type": "Package",
       "name": "jiff",
-      "packageUrl": "pkg:cargo/jiff@0.2.41",
-      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-0-2-41",
-      "versionInfo": "0.2.41"
+      "packageUrl": "pkg:cargo/jiff@1.0.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-1-0-3",
+      "versionInfo": "1.0.3"
     },
     {
       "@type": "Package",
       "name": "jiff-core",
-      "packageUrl": "pkg:cargo/jiff-core@0.1.4",
-      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-core-0-1-4",
-      "versionInfo": "0.1.4"
+      "packageUrl": "pkg:cargo/jiff-core@1.0.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-core-1-0-2",
+      "versionInfo": "1.0.2"
     },
     {
       "@type": "Package",
       "name": "jiff-static",
-      "packageUrl": "pkg:cargo/jiff-static@0.2.41",
-      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-static-0-2-41",
-      "versionInfo": "0.2.41"
+      "packageUrl": "pkg:cargo/jiff-static@1.0.3",
+      "spdxId": "urn:spdx.dev:pkg-cargo-jiff-static-1-0-3",
+      "versionInfo": "1.0.3"
     },
     {
       "@type": "Package",
@@ -1499,9 +1499,9 @@
     {
       "@type": "Package",
       "name": "redb",
-      "packageUrl": "pkg:cargo/redb@4.5.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-redb-4-5-0",
-      "versionInfo": "4.5.0"
+      "packageUrl": "pkg:cargo/redb@4.6.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-redb-4-6-0",
+      "versionInfo": "4.6.0"
     },
     {
       "@type": "Package",
@@ -1513,23 +1513,23 @@
     {
       "@type": "Package",
       "name": "regex",
-      "packageUrl": "pkg:cargo/regex@1.13.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-regex-1-13-1",
-      "versionInfo": "1.13.1"
+      "packageUrl": "pkg:cargo/regex@1.13.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-regex-1-13-2",
+      "versionInfo": "1.13.2"
     },
     {
       "@type": "Package",
       "name": "regex-automata",
-      "packageUrl": "pkg:cargo/regex-automata@0.4.18",
-      "spdxId": "urn:spdx.dev:pkg-cargo-regex-automata-0-4-18",
-      "versionInfo": "0.4.18"
+      "packageUrl": "pkg:cargo/regex-automata@0.4.19",
+      "spdxId": "urn:spdx.dev:pkg-cargo-regex-automata-0-4-19",
+      "versionInfo": "0.4.19"
     },
     {
       "@type": "Package",
       "name": "regex-syntax",
-      "packageUrl": "pkg:cargo/regex-syntax@0.8.11",
-      "spdxId": "urn:spdx.dev:pkg-cargo-regex-syntax-0-8-11",
-      "versionInfo": "0.8.11"
+      "packageUrl": "pkg:cargo/regex-syntax@0.8.12",
+      "spdxId": "urn:spdx.dev:pkg-cargo-regex-syntax-0-8-12",
+      "versionInfo": "0.8.12"
     },
     {
       "@type": "Package",
@@ -1555,51 +1555,51 @@
     {
       "@type": "Package",
       "name": "ruff_python_ast",
-      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.21",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-21",
-      "versionInfo": "0.0.21"
+      "packageUrl": "pkg:cargo/ruff_python_ast@0.0.23",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-ast-0-0-23",
+      "versionInfo": "0.0.23"
     },
     {
       "@type": "Package",
       "name": "ruff_python_parser",
-      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.21",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-21",
-      "versionInfo": "0.0.21"
+      "packageUrl": "pkg:cargo/ruff_python_parser@0.0.23",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-parser-0-0-23",
+      "versionInfo": "0.0.23"
     },
     {
       "@type": "Package",
       "name": "ruff_python_trivia",
-      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.21",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-21",
-      "versionInfo": "0.0.21"
+      "packageUrl": "pkg:cargo/ruff_python_trivia@0.0.23",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-python-trivia-0-0-23",
+      "versionInfo": "0.0.23"
     },
     {
       "@type": "Package",
       "name": "ruff_source_file",
-      "packageUrl": "pkg:cargo/ruff_source_file@0.0.21",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-21",
-      "versionInfo": "0.0.21"
+      "packageUrl": "pkg:cargo/ruff_source_file@0.0.23",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-source-file-0-0-23",
+      "versionInfo": "0.0.23"
     },
     {
       "@type": "Package",
       "name": "ruff_text_size",
-      "packageUrl": "pkg:cargo/ruff_text_size@0.0.21",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-21",
-      "versionInfo": "0.0.21"
+      "packageUrl": "pkg:cargo/ruff_text_size@0.0.23",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-text-size-0-0-23",
+      "versionInfo": "0.0.23"
     },
     {
       "@type": "Package",
       "name": "ruff_unicode_names2",
-      "packageUrl": "pkg:cargo/ruff_unicode_names2@0.0.21",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-unicode-names2-0-0-21",
-      "versionInfo": "0.0.21"
+      "packageUrl": "pkg:cargo/ruff_unicode_names2@0.0.23",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-unicode-names2-0-0-23",
+      "versionInfo": "0.0.23"
     },
     {
       "@type": "Package",
       "name": "ruff_unicode_names2_generator",
-      "packageUrl": "pkg:cargo/ruff_unicode_names2_generator@0.0.21",
-      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-unicode-names2-generator-0-0-21",
-      "versionInfo": "0.0.21"
+      "packageUrl": "pkg:cargo/ruff_unicode_names2_generator@0.0.23",
+      "spdxId": "urn:spdx.dev:pkg-cargo-ruff-unicode-names2-generator-0-0-23",
+      "versionInfo": "0.0.23"
     },
     {
       "@type": "Package",
@@ -1786,9 +1786,9 @@
     {
       "@type": "Package",
       "name": "sha2",
-      "packageUrl": "pkg:cargo/sha2@0.11.1",
-      "spdxId": "urn:spdx.dev:pkg-cargo-sha2-0-11-1",
-      "versionInfo": "0.11.1"
+      "packageUrl": "pkg:cargo/sha2@0.11.2",
+      "spdxId": "urn:spdx.dev:pkg-cargo-sha2-0-11-2",
+      "versionInfo": "0.11.2"
     },
     {
       "@type": "Package",
@@ -2052,9 +2052,9 @@
     {
       "@type": "Package",
       "name": "toml",
-      "packageUrl": "pkg:cargo/toml@1.2.1+spec-1.1.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-toml-1-2-1+spec-1-1-0",
-      "versionInfo": "1.2.1+spec-1.1.0"
+      "packageUrl": "pkg:cargo/toml@1.2.3+spec-1.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-toml-1-2-3+spec-1-1-0",
+      "versionInfo": "1.2.3+spec-1.1.0"
     },
     {
       "@type": "Package",
@@ -2066,9 +2066,9 @@
     {
       "@type": "Package",
       "name": "toml_parser",
-      "packageUrl": "pkg:cargo/toml_parser@1.1.5+spec-1.1.0",
-      "spdxId": "urn:spdx.dev:pkg-cargo-toml-parser-1-1-5+spec-1-1-0",
-      "versionInfo": "1.1.5+spec-1.1.0"
+      "packageUrl": "pkg:cargo/toml_parser@1.1.7+spec-1.1.0",
+      "spdxId": "urn:spdx.dev:pkg-cargo-toml-parser-1-1-7+spec-1-1-0",
+      "versionInfo": "1.1.7+spec-1.1.0"
     },
     {
       "@type": "Package",
